@@ -143,10 +143,10 @@ export default function PromotionPage() {
   const selectedStudents = filtered.filter((s) => selectedIds.has(s.id));
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
       <div>
-        <h1 className="text-xl font-bold">Promotion & Transfer</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h1 className="text-lg sm:text-xl font-bold">Promotion & Transfer</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
           Promote or detain students in bulk.
         </p>
       </div>

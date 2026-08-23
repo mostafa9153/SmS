@@ -75,17 +75,17 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
   const sortedClasses = sortClasses(classes);
 
   return (
-    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-6 py-3 shadow-xs">
+    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-3 sm:px-6 py-2.5 sm:py-3 shadow-xs">
       <div className="flex flex-wrap gap-2 items-center">
         {/* Smart search */}
-        <div className="relative min-w-[200px] flex-1 max-w-xs">
+        <div className="relative min-w-[170px] flex-1 max-w-xs">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
             type="text"
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             placeholder="Search name, ID, PEN, Aadhaar…"
-            className="w-full rounded-md border bg-background pl-8 pr-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring transition-colors"
+            className="w-full rounded-md border bg-background pl-8 pr-3 py-1.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-ring transition-colors"
           />
         </div>
 
@@ -218,7 +218,7 @@ function FilterSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "appearance-none rounded-md border bg-background pl-3 pr-7 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer",
+          "appearance-none rounded-md border bg-background pl-2.5 sm:pl-3 pr-6 sm:pr-7 py-1.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer",
           value ? "text-foreground font-medium border-primary/50 bg-primary/5" : "text-muted-foreground"
         )}
       >

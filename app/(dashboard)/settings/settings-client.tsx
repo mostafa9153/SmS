@@ -264,27 +264,27 @@ export function SettingsClient() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold tracking-tight">System Settings</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight">System Settings</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
           Manage system users, view security audit logs, and configure school metadata.
         </p>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="bg-muted p-1 rounded-lg">
-          <TabsTrigger value="users" className="flex items-center gap-1.5">
-            <UserPlus className="h-4 w-4" />
+      <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
+        <TabsList className="bg-muted p-1 rounded-xl flex-wrap h-auto gap-1">
+          <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
+            <UserPlus className="h-3.5 w-3.5" />
             User Management
           </TabsTrigger>
-          <TabsTrigger value="audit" className="flex items-center gap-1.5">
-            <Activity className="h-4 w-4" />
+          <TabsTrigger value="audit" className="flex items-center gap-1.5 text-xs">
+            <Activity className="h-3.5 w-3.5" />
             Audit Logs
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex items-center gap-1.5">
-            <Sliders className="h-4 w-4" />
+          <TabsTrigger value="config" className="flex items-center gap-1.5 text-xs">
+            <Sliders className="h-3.5 w-3.5" />
             School Config
           </TabsTrigger>
         </TabsList>
@@ -292,9 +292,9 @@ export function SettingsClient() {
         {/* Tab 1: User Management */}
         <TabsContent value="users" className="space-y-4 outline-none">
           <Card className="border-muted bg-card">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0 pb-4">
               <div>
-                <CardTitle className="text-base font-semibold">Authorized System Users</CardTitle>
+                <CardTitle className="text-sm sm:text-base font-semibold">Authorized System Users</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
                   Administrators and staff members who can access the Student Management System.
                 </CardDescription>
@@ -302,7 +302,7 @@ export function SettingsClient() {
 
               {/* Add User Dialog Trigger */}
               <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-                <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95" />}>
+                <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl active:scale-95 shadow-2xs" />}>
                   <UserPlus className="h-4 w-4" />
                   Add New User
                 </DialogTrigger>

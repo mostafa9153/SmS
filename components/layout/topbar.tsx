@@ -22,6 +22,7 @@ export function Topbar() {
   const supabase = createClient();
   const { isOpen, toggleSidebar } = useSidebar();
   
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [fullName, setFullName] = useState("Guest");
   const [role, setRole] = useState("");
@@ -63,14 +64,14 @@ export function Topbar() {
   }
 
   return (
-    <header className="flex h-16 items-center gap-3 border-b border-border/60 bg-background/80 backdrop-blur-md px-4 sm:px-6 sticky top-0 z-30 transition-all">
+    <header className="flex h-16 items-center gap-2 sm:gap-3 border-b border-border/60 bg-background/80 backdrop-blur-md px-3 sm:px-6 sticky top-0 z-30 transition-all">
       {/* Mobile menu trigger */}
-      <Sheet>
-        <SheetTrigger render={<button className="rounded-xl p-2 hover:bg-accent/80 md:hidden transition-colors text-muted-foreground" />}>
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetTrigger render={<button aria-label="Open mobile menu" className="rounded-xl p-2 hover:bg-accent/80 md:hidden transition-colors text-muted-foreground hover:text-foreground shrink-0" />}>
           <Menu className="h-5 w-5" />
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-72 border-r border-sidebar-border">
-          <Sidebar mobile />
+        <SheetContent side="left" className="p-0 w-72 border-r border-sidebar-border" showCloseButton={false}>
+          <Sidebar mobile onClose={() => setMobileMenuOpen(false)} />
         </SheetContent>
       </Sheet>
 
@@ -78,7 +79,7 @@ export function Topbar() {
       <button
         onClick={toggleSidebar}
         title={isOpen ? "Collapse Sidebar (মেনু বন্ধ করুন)" : "Expand Sidebar (মেনু খুলুন)"}
-        className="hidden md:flex items-center justify-center rounded-xl p-2 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95"
+        className="hidden md:flex items-center justify-center rounded-xl p-2 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shrink-0"
       >
         {isOpen ? (
           <PanelLeftClose className="h-5 w-5" />
@@ -88,15 +89,15 @@ export function Topbar() {
       </button>
 
       {/* Global search with Shortcut Tag */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-md">
+      <form onSubmit={handleSearch} className="flex-1 max-w-xs sm:max-w-md min-w-0">
         <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search students by name, ID, PEN, or phone…"
-            className="w-full rounded-xl border border-border/60 bg-muted/40 pl-9 pr-10 py-1.5 text-xs font-medium outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all shadow-2xs"
+            placeholder="Search students, ID, PEN…"
+            className="w-full rounded-xl border border-border/60 bg-muted/40 pl-8 sm:pl-9 pr-3 sm:pr-10 py-1.5 text-xs font-medium outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
           />
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center">
             <kbd className="rounded border bg-background/80 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shadow-2xs">

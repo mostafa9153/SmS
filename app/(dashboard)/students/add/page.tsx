@@ -218,18 +218,18 @@ export default function AddStudentPage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back
       </button>
 
       <div>
-        <h1 className="text-xl font-bold">Add Student</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
+        <h1 className="text-lg sm:text-xl font-bold">Add Student</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
           Fill in the comprehensive student details below.
         </p>
       </div>

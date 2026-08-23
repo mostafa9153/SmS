@@ -117,18 +117,18 @@ export default function StudentProfilePage() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
       {/* Back */}
       <button
         onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to Students
       </button>
 
       {/* Header Card */}
-      <div className="rounded-xl border bg-card shadow-sm p-5">
+      <div className="rounded-2xl border bg-card shadow-xs p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">{student.name}</h1>

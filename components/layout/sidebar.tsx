@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -17,7 +17,9 @@ import {
   CalendarClock,
   PanelLeftClose,
   Sparkles,
+  LogOut,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-context";
 
@@ -177,7 +179,42 @@ export function Sidebar({
   mobile?: boolean;
   onClose?: () => void;
 }) {
+  const router = useRouter();
+  const supabase = createClient();
   const { toggleSidebar } = useSidebar();
+
+  const [fullName, setFullName] = useState("Administrator");
+  const [role, setRole] = useState("Admin");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  useEffect(() => {
+    async function loadUserProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("user_roles")
+          .select("full_name, role")
+          .eq("user_id", user.id)
+          .single();
+        
+        if (profile) {
+          setFullName(profile.full_name || "User");
+          setRole(profile.role || "Staff");
+        } else {
+          setFullName(user.email?.split("@")[0] || "User");
+        }
+      }
+    }
+    loadUserProfile();
+  }, [supabase]);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    if (onClose) onClose();
+    await supabase.auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
 
   return (
     <aside
@@ -235,25 +272,38 @@ export function Sidebar({
         ))}
       </nav>
 
-      {/* Footer Profile & Version */}
-      <div className="border-t border-sidebar-border/60 p-3 space-y-2">
+      {/* Footer Profile & Logout */}
+      <div className="border-t border-sidebar-border/60 p-3 space-y-2.5">
+        {/* User Card */}
         <div className="rounded-xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent border border-primary/10 p-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold shadow-xs">
-                A
+                {fullName.charAt(0).toUpperCase()}
               </div>
               <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
             </div>
             <div className="leading-tight">
-              <p className="text-xs font-bold text-foreground truncate max-w-[110px]">
-                Administrator
+              <p className="text-xs font-bold text-foreground truncate max-w-[120px]">
+                {fullName}
               </p>
-              <p className="text-[10px] text-muted-foreground">Session 2026</p>
+              <p className="text-[10px] text-muted-foreground">
+                {role} · Session 2026
+              </p>
             </div>
           </div>
           <Sparkles className="h-4 w-4 text-amber-500 animate-pulse" />
         </div>
+
+        {/* Prominent Log Out Button */}
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold py-2 px-3 transition-all duration-150 active:scale-[0.98] border border-destructive/20 hover:border-destructive/40 shadow-2xs"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          <span>{isLoggingOut ? "Signing out..." : "Sign Out / Log Out"}</span>
+        </button>
       </div>
     </aside>
   );

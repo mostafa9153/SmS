@@ -410,18 +410,18 @@ export default function BulkUploadPage() {
   const errorIssues = validationIssues.filter((i) => i.severity === "error");
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Bulk Upload Management</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Bulk Upload Management</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Import, evaluate, and manage student enrollments, historical archives, and examination marks in bulk.
           </p>
         </div>
         <button
           onClick={() => setShowHistoryModal(true)}
-          className="flex items-center gap-1.5 self-start sm:self-auto rounded-md border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors shadow-sm"
+          className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
         >
           <History className="h-4 w-4 text-primary" />
           Batch History & Delete/Rollback

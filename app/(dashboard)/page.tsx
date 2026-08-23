@@ -8,9 +8,9 @@ export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Hero Welcome Header */}
-      <div className="rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-primary/15 p-6 shadow-xs relative overflow-hidden">
+      <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-primary/15 p-4 sm:p-6 shadow-xs relative overflow-hidden">
         <div className="absolute right-0 top-0 -mt-8 -mr-8 h-48 w-48 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-2xl pointer-events-none" />
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
@@ -23,7 +23,7 @@ export default function DashboardPage() {
                 West Bengal Higher Secondary Education
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
               MHS School Dashboard
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -31,17 +31,17 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
             <Link
               href="/students/bulk-upload"
-              className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-all duration-150 hover:scale-105 shadow-2xs"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border border-primary/20 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-all duration-150 active:scale-95 shadow-2xs"
             >
               <Upload className="h-4 w-4 text-primary" />
               Bulk Upload
             </Link>
             <Link
               href="/students/add"
-              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-150 hover:scale-105 shadow-xs"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-150 active:scale-95 shadow-xs"
             >
               <UserPlus className="h-4 w-4" />
               Add Student

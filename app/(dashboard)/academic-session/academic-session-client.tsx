@@ -60,15 +60,15 @@ export default function AcademicSessionClient() {
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <CalendarClock className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold tracking-tight">Academic Session Transition</h1>
+            <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">Academic Session Transition</h1>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Automated school-wide session advancement, batch student promotions, academic history archiving, and roll re-indexing.
           </p>
         </div>

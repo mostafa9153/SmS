@@ -268,15 +268,15 @@ export function StudentTable({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-1">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-1 py-1">
           <p className="text-xs text-muted-foreground">
             Page {page} of {totalPages}
           </p>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1 flex-wrap justify-center">
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page <= 1}
-              className="rounded-md p-1.5 hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground transition-colors"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -293,7 +293,7 @@ export function StudentTable({
               }, [])
               .map((p, idx) =>
                 p === "…" ? (
-                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-muted-foreground">
+                  <span key={`ellipsis-${idx}`} className="px-1.5 py-1 text-xs text-muted-foreground">
                     …
                   </span>
                 ) : (
@@ -301,10 +301,10 @@ export function StudentTable({
                     key={p}
                     onClick={() => onPageChange(p as number)}
                     className={cn(
-                      "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all active:scale-95",
                       p === page
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-accent"
+                        ? "bg-primary text-primary-foreground shadow-2xs"
+                        : "hover:bg-accent text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {p}
@@ -314,7 +314,7 @@ export function StudentTable({
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages}
-              className="rounded-md p-1.5 hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed"
+              className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground transition-colors"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
