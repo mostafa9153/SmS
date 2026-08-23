@@ -1,35 +1,52 @@
 import Link from "next/link";
-import { UserPlus, Upload, Search, ShieldCheck } from "lucide-react";
+import { UserPlus, Upload, Search, ShieldCheck, Award, CalendarClock, ArrowRight, Sparkles } from "lucide-react";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { StatusChart } from "@/components/dashboard/status-chart";
 import { ClassStrengthChart } from "@/components/dashboard/class-strength-chart";
 
 export default function DashboardPage() {
+  const currentYear = new Date().getFullYear();
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Overview of student data for MHS School
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link
-            href="/settings"
-            className="flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors"
-          >
-            <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-            Add Admin / Staff
-          </Link>
-          <Link
-            href="/students/add"
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            Add Student
-          </Link>
+      {/* Hero Welcome Header */}
+      <div className="rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-primary/15 p-6 shadow-xs relative overflow-hidden">
+        <div className="absolute right-0 top-0 -mt-8 -mr-8 h-48 w-48 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-2xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold text-primary ring-1 ring-primary/30">
+                <Sparkles className="h-3.5 w-3.5" /> Session {currentYear} Active
+              </span>
+              <span className="text-xs text-muted-foreground font-medium">
+                West Bengal Higher Secondary Education
+              </span>
+            </div>
+            <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+              MHS School Dashboard
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Centralized student demographics, examination marksheets, and batch analytics.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <Link
+              href="/students/bulk-upload"
+              className="flex items-center gap-1.5 rounded-xl border border-primary/20 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-all duration-150 hover:scale-105 shadow-2xs"
+            >
+              <Upload className="h-4 w-4 text-primary" />
+              Bulk Upload
+            </Link>
+            <Link
+              href="/students/add"
+              className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-150 hover:scale-105 shadow-xs"
+            >
+              <UserPlus className="h-4 w-4" />
+              Add Student
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -37,71 +54,85 @@ export default function DashboardPage() {
       <StatCards />
 
       {/* Charts */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <StatusChart />
         <ClassStrengthChart />
       </div>
 
-      {/* Quick Actions */}
-      <div>
-        <p className="text-sm font-semibold mb-3">Quick Actions</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Quick Action Hub */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold tracking-tight text-foreground">
+            Quick Action Modules
+          </p>
+          <span className="text-xs text-muted-foreground">Frequently used shortcuts</span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
           <Link
             href="/students/add"
-            className="flex items-center gap-3 rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors group"
+            className="group flex items-center gap-3.5 rounded-2xl border bg-card/90 p-4 hover:border-emerald-500/40 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
           >
-            <div className="rounded-md bg-primary/10 p-2 group-hover:bg-primary/20 transition-colors">
-              <UserPlus className="h-5 w-5 text-primary" />
+            <div className="rounded-xl bg-emerald-500/10 p-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-emerald-500/20">
+              <UserPlus className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium">Add Student</p>
-              <p className="text-xs text-muted-foreground">
-                Register a new student
+              <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 transition-colors">
+                Add New Student
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Register single enrolment
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/results"
+            className="group flex items-center gap-3.5 rounded-2xl border bg-card/90 p-4 hover:border-amber-500/40 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
+          >
+            <div className="rounded-xl bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-amber-500/20">
+              <Award className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-foreground group-hover:text-amber-600 transition-colors">
+                Results & Marksheets
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Calculate ranks & entry
               </p>
             </div>
           </Link>
 
           <Link
             href="/students/bulk-upload"
-            className="flex items-center gap-3 rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors group"
+            className="group flex items-center gap-3.5 rounded-2xl border bg-card/90 p-4 hover:border-blue-500/40 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
           >
-            <div className="rounded-md bg-amber-50 p-2 group-hover:bg-amber-100 transition-colors">
-              <Upload className="h-5 w-5 text-amber-600" />
+            <div className="rounded-xl bg-blue-500/10 p-2.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-blue-500/20">
+              <Upload className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium">Bulk Upload</p>
-              <p className="text-xs text-muted-foreground">
-                Import from Excel / CSV
+              <p className="text-xs font-bold text-foreground group-hover:text-blue-600 transition-colors">
+                Bulk Upload Center
               </p>
-            </div>
-          </Link>
-
-          <Link
-            href="/students"
-            className="flex items-center gap-3 rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors group"
-          >
-            <div className="rounded-md bg-sky-50 p-2 group-hover:bg-sky-100 transition-colors">
-              <Search className="h-5 w-5 text-sky-600" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">Search Students</p>
-              <p className="text-xs text-muted-foreground">
-                Find and view student records
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Excel / CSV multi-mode
               </p>
             </div>
           </Link>
 
           <Link
             href="/settings"
-            className="flex items-center gap-3 rounded-lg border bg-card p-4 hover:bg-muted/50 transition-colors group"
+            className="group flex items-center gap-3.5 rounded-2xl border bg-card/90 p-4 hover:border-rose-500/40 hover:bg-rose-50/20 dark:hover:bg-rose-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
           >
-            <div className="rounded-md bg-purple-50 p-2 group-hover:bg-purple-100 transition-colors">
-              <ShieldCheck className="h-5 w-5 text-purple-600" />
+            <div className="rounded-xl bg-rose-500/10 p-2.5 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-rose-500/20">
+              <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm font-medium">Add Admin & Staff</p>
-              <p className="text-xs text-muted-foreground">
-                Manage user access & roles
+              <p className="text-xs font-bold text-foreground group-hover:text-rose-600 transition-colors">
+                Admin & Access Roles
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Staff & security control
               </p>
             </div>
           </Link>

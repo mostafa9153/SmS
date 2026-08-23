@@ -210,23 +210,22 @@ export function StudentTable({
         Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}{" "}
         of {total} students
       </p>
-
-      <div className="rounded-lg border overflow-x-auto">
+      <div className="rounded-2xl border border-border/80 bg-card/90 overflow-x-auto shadow-xs">
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} className="border-b bg-muted/50">
+              <tr key={hg.id} className="border-b bg-muted/60">
                 {hg.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground tracking-wide whitespace-nowrap"
+                    className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground tracking-wider whitespace-nowrap uppercase"
                   >
                     {header.isPlaceholder ? null : (
                       <button
                         className={cn(
-                          "flex items-center gap-1",
+                          "flex items-center gap-1.5",
                           header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-foreground"
+                            "cursor-pointer select-none hover:text-foreground transition-colors"
                         )}
                         onClick={header.column.getToggleSortingHandler()}
                       >
@@ -237,12 +236,10 @@ export function StudentTable({
                         {header.column.getCanSort() && (
                           <span className="text-muted-foreground/50">
                             {header.column.getIsSorted() === "asc" ? (
-                              <ChevronUp className="h-3 w-3" />
+                              <ChevronUp className="h-3.5 w-3.5 text-primary" />
                             ) : header.column.getIsSorted() === "desc" ? (
-                              <ChevronDown className="h-3 w-3" />
-                            ) : (
-                              <ChevronsUpDown className="h-3 w-3" />
-                            )}
+                              <ChevronDown className="h-3.5 w-3.5 text-primary" />
+                            ) : null}
                           </span>
                         )}
                       </button>
@@ -252,12 +249,12 @@ export function StudentTable({
               </tr>
             ))}
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border/50">
             {table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
                 onClick={() => router.push(`/students/${row.original.id}`)}
-                className="border-b last:border-0 hover:bg-muted/40 cursor-pointer transition-colors"
+                className="hover:bg-primary/[0.04] cursor-pointer transition-all duration-150 group"
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className="px-4 py-3 align-middle">

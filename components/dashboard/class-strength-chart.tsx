@@ -24,9 +24,9 @@ export function ClassStrengthChart() {
 
   if (isLoading || !stats) {
     return (
-      <Card className="p-5 flex flex-col gap-3">
+      <Card className="p-5 flex flex-col gap-3 rounded-2xl border bg-card/90 shadow-xs">
         <Skeleton className="h-4 w-36" />
-        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-xl" />
       </Card>
     );
   }
@@ -38,8 +38,13 @@ export function ClassStrengthChart() {
   }));
 
   return (
-    <Card className="p-5">
-      <p className="text-sm font-semibold mb-4">Class-wise Strength</p>
+    <Card className="p-5 rounded-2xl border bg-card/90 shadow-xs">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-sm font-bold text-foreground">Class-wise Student Distribution</p>
+          <p className="text-[11px] text-muted-foreground">Enrolment count per class (V to XII)</p>
+        </div>
+      </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart
           data={chartData}

@@ -262,31 +262,35 @@ export default function ResultsClient() {
     );
   });
 
-  // Medal helper for Top 3
+  // Medal helper for Top 3 with Metallic Gradients
   const renderRankBadge = (rank?: number) => {
     if (!rank) return <span className="text-muted-foreground/40 font-mono text-xs">—</span>;
     if (rank === 1) {
       return (
-        <span className="inline-flex items-center gap-1 font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-xs">
-          🥇 1st
+        <span className="inline-flex items-center gap-1 font-extrabold text-amber-900 dark:text-amber-200 bg-gradient-to-r from-amber-200 via-amber-300 to-yellow-400 border border-amber-400/80 px-2.5 py-0.5 rounded-full text-xs shadow-xs animate-pulse">
+          🥇 1st Rank
         </span>
       );
     }
     if (rank === 2) {
       return (
-        <span className="inline-flex items-center gap-1 font-bold text-slate-600 bg-slate-100 border border-slate-300 px-2 py-0.5 rounded text-xs">
-          🥈 2nd
+        <span className="inline-flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200 bg-gradient-to-r from-slate-200 via-slate-300 to-gray-300 border border-slate-400/80 px-2.5 py-0.5 rounded-full text-xs shadow-xs">
+          🥈 2nd Rank
         </span>
       );
     }
     if (rank === 3) {
       return (
-        <span className="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100/60 border border-amber-300 px-2 py-0.5 rounded text-xs">
-          🥉 3rd
+        <span className="inline-flex items-center gap-1 font-bold text-amber-900 dark:text-amber-200 bg-gradient-to-r from-amber-300 via-orange-300 to-amber-400 border border-amber-500/80 px-2.5 py-0.5 rounded-full text-xs shadow-xs">
+          🥉 3rd Rank
         </span>
       );
     }
-    return <span className="font-mono text-xs font-semibold text-foreground">{rank}th</span>;
+    return (
+      <span className="inline-flex items-center justify-center font-mono text-xs font-bold text-foreground bg-muted px-2 py-0.5 rounded-md">
+        #{rank}
+      </span>
+    );
   };
 
   return (
