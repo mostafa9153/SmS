@@ -593,10 +593,25 @@ export function normalizeClass(val: any): string {
  */
 export function applyMapping(
   rawRows: Record<string, any>[],
-  mapping: ColumnMapping
+  mapping: ColumnMapping,
+  defaultSessionYear?: number,
+  defaultClass?: string,
+  defaultSection?: string
 ): Array<Partial<Student>> {
+  const currentYear = new Date().getFullYear();
+
   return rawRows.map((row) => {
-    const student: Partial<Student> = {};
+    const student: Partial<Student> = {
+      admissionYear: defaultSessionYear || currentYear,
+    };
+
+    if (defaultClass && defaultClass !== "AUTO") {
+      student.presentClass = normalizeClass(defaultClass);
+    }
+
+    if (defaultSection && defaultSection !== "AUTO") {
+      student.presentSection = defaultSection.toUpperCase().trim();
+    }
 
     for (const [header, fieldKey] of Object.entries(mapping)) {
       if (fieldKey === "ignore") continue;

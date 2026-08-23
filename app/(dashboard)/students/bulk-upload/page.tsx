@@ -21,6 +21,8 @@ import {
   Award,
   Archive,
   Trash2,
+  Calendar,
+  Layers,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -69,6 +71,9 @@ const STEPS = [
   { id: 4, label: "Import & Summary" },
 ];
 
+const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
+
 export default function BulkUploadPage() {
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
@@ -81,6 +86,11 @@ export default function BulkUploadPage() {
   const [isParsing, setIsParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("auto");
+
+  // Student specific target settings (Year, Class, Section)
+  const [targetSessionYear, setTargetSessionYear] = useState<number>(currentYear);
+  const [targetClass, setTargetClass] = useState<string>("AUTO");
+  const [targetSection, setTargetSection] = useState<string>("AUTO");
 
   // Result specific settings
   const [resultYear, setResultYear] = useState<number>(currentYear);
@@ -163,6 +173,12 @@ export default function BulkUploadPage() {
   const handleModeChange = (mode: BulkUploadType) => {
     setUploadType(mode);
     setSelectedTemplate("auto");
+    if (mode === "old_students") {
+      setTargetSessionYear(2025);
+    } else if (mode === "current_students") {
+      setTargetSessionYear(currentYear);
+    }
+
     if (parsedData) {
       if (mode === "exam_results") {
         setColumnMapping(autoSuggestResultMapping(parsedData.headers));
@@ -183,7 +199,13 @@ export default function BulkUploadPage() {
       setValidationIssues(issues);
       setResultPreviewRows(pRows);
     } else {
-      const transformed = applyMapping(parsedData.rawRows, columnMapping as any);
+      const transformed = applyMapping(
+        parsedData.rawRows,
+        columnMapping as any,
+        targetSessionYear,
+        targetClass,
+        targetSection
+      );
       setMappedRows(transformed);
       const { issues, previewRows: pRows } = validateMappedRows(transformed);
       setValidationIssues(issues);
@@ -244,6 +266,9 @@ export default function BulkUploadPage() {
     let wsData: any[] = [];
     let filename = "Template.xlsx";
 
+    const classForTemplate = targetClass !== "AUTO" ? targetClass : "V";
+    const secForTemplate = targetSection !== "AUTO" ? targetSection : "A";
+
     if (type === "exam_results") {
       filename = `Results_Marksheet_${resultYear}_Template.xlsx`;
       wsData = [
@@ -268,8 +293,8 @@ export default function BulkUploadPage() {
         [
           "BSP-2025-001",
           "Abir Das",
-          "IX",
-          "A",
+          classForTemplate,
+          secForTemplate,
           1,
           resultYear,
           resultExam,
@@ -286,8 +311,8 @@ export default function BulkUploadPage() {
         [
           "BSP-2025-002",
           "Tanmoy Roy",
-          "IX",
-          "A",
+          classForTemplate,
+          secForTemplate,
           2,
           resultYear,
           resultExam,
@@ -303,21 +328,21 @@ export default function BulkUploadPage() {
         ],
       ];
     } else if (type === "old_students") {
-      filename = "Old_Students_Archive_Template.xlsx";
+      filename = `Old_Students_Archive_${targetSessionYear}_Template.xlsx`;
       wsData = [
         [
           "Student Code",
           "Student Name",
           "Gender",
           "Date of Birth",
-          "Admission Year",
+          "Academic Year",
           "Class",
           "Section",
           "Roll No",
           "Status",
           "Father Name",
           "Mother Name",
-          "Guardian Contact No",
+          "Guardian Contact Number",
           "Aadhaar Y/N",
         ],
         [
@@ -325,9 +350,9 @@ export default function BulkUploadPage() {
           "Rahul Sen",
           "Male",
           "2008-04-12",
-          2020,
-          "X",
-          "A",
+          targetSessionYear,
+          classForTemplate,
+          secForTemplate,
           15,
           "Alumni",
           "Sunil Sen",
@@ -337,7 +362,7 @@ export default function BulkUploadPage() {
         ],
       ];
     } else {
-      filename = "Current_Students_Enrollment_Template.xlsx";
+      filename = `Current_Students_${targetSessionYear}_Template.xlsx`;
       wsData = [
         [
           "Student Code",
@@ -345,6 +370,8 @@ export default function BulkUploadPage() {
           "Student Name",
           "Student DOB",
           "Academic Year",
+          "Class",
+          "Section",
           "Father Name",
           "Mother Name",
           "Guardian Contact Number",
@@ -358,7 +385,9 @@ export default function BulkUploadPage() {
           1,
           "Rohit Sharma",
           "2012-05-15",
-          currentYear,
+          targetSessionYear,
+          classForTemplate,
+          secForTemplate,
           "Gopal Sharma",
           "Sita Sharma",
           "9830012345",
@@ -455,7 +484,7 @@ export default function BulkUploadPage() {
           {/* Mode Selection Cards */}
           <div className="space-y-2">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Select Bulk Upload Mode
+              1. Select Bulk Upload Mode
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Card 1: Current Students */}
@@ -475,7 +504,7 @@ export default function BulkUploadPage() {
                   <div>
                     <h3 className="font-semibold text-sm">Current Active Students</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Enrolment records for the live {currentYear} academic session.
+                      Enrolment records for active {currentYear} or previous session cohorts.
                     </p>
                   </div>
                 </div>
@@ -501,7 +530,7 @@ export default function BulkUploadPage() {
                   <div>
                     <h3 className="font-semibold text-sm">Old / Archived Students</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Alumni, passed-out cohorts & transferred student archives.
+                      Past batches, alumni & transferred student archives.
                     </p>
                   </div>
                 </div>
@@ -540,8 +569,66 @@ export default function BulkUploadPage() {
 
           {/* Configuration Card */}
           <div className="rounded-xl border bg-card p-6 space-y-5 shadow-xs">
-            {/* Result Specific Configuration */}
-            {isResultsMode && (
+            {/* Student Upload Target Session & Class Config */}
+            {!isResultsMode ? (
+              <div className="rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-blue-900 dark:text-blue-300 font-semibold text-xs">
+                  <Calendar className="h-4 w-4 text-blue-600" />
+                  <span>
+                    Target Session Year & Class Assignment (Applies to all uploaded rows if unspecified in Excel)
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Academic Session / Admission Year *
+                    </label>
+                    <select
+                      value={targetSessionYear}
+                      onChange={(e) => setTargetSessionYear(Number(e.target.value))}
+                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
+                    >
+                      {YEAR_OPTIONS.map((yr) => (
+                        <option key={yr} value={yr}>
+                          Session {yr} {yr === currentYear ? "(Current Active)" : "(Historical Session)"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Target Class
+                    </label>
+                    <select
+                      value={targetClass}
+                      onChange={(e) => setTargetClass(e.target.value)}
+                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
+                    >
+                      <option value="AUTO">Auto-Detect from Excel / Multi-Class</option>
+                      {CLASSES.map((c) => (
+                        <option key={c} value={c}>Class {c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Target Section
+                    </label>
+                    <select
+                      value={targetSection}
+                      onChange={(e) => setTargetSection(e.target.value)}
+                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
+                    >
+                      <option value="AUTO">Auto-Detect from Excel / Any Section</option>
+                      <option value="A">Section A</option>
+                      <option value="B">Section B</option>
+                      <option value="C">Section C</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Result Specific Configuration */
               <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 space-y-3">
                 <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-semibold text-xs">
                   <Award className="h-4 w-4 text-emerald-600" />
@@ -550,14 +637,14 @@ export default function BulkUploadPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                      Academic Session (Year)
+                      Academic Session (Year) *
                     </label>
                     <select
                       value={resultYear}
                       onChange={(e) => setResultYear(Number(e.target.value))}
                       className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
                     >
-                      {[2026, 2025, 2024, 2023, 2022, 2021, 2020].map((yr) => (
+                      {YEAR_OPTIONS.map((yr) => (
                         <option key={yr} value={yr}>
                           Session {yr} {yr === currentYear ? "(Current)" : "(Historical Archive)"}
                         </option>
@@ -566,7 +653,7 @@ export default function BulkUploadPage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                      Default Evaluation / Exam
+                      Default Evaluation / Exam *
                     </label>
                     <select
                       value={resultExam}
@@ -587,7 +674,7 @@ export default function BulkUploadPage() {
             {/* Template Downloader Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
               <div>
-                <p className="text-sm font-semibold">Spreadsheet File Upload</p>
+                <p className="text-sm font-semibold">2. Spreadsheet File Upload</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Upload .xlsx, .xls, or .csv containing{" "}
                   {isResultsMode ? "student examination marks" : "student records"}.
@@ -907,7 +994,7 @@ export default function BulkUploadPage() {
                             <td className="px-3 py-2 text-xs font-bold text-primary">{row.marksObtained} {row.fullMarks ? `/ ${row.fullMarks}` : ""}</td>
                             <td className="px-3 py-2 text-xs">{row.percentage !== undefined ? `${row.percentage}%` : "—"}</td>
                             <td className="px-3 py-2">
-                              {row.errors.length > 0 ? (
+                              {row.errors && row.errors.length > 0 ? (
                                 <Badge variant="destructive" className="text-[10px]">Error</Badge>
                               ) : (
                                 <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">Ready</Badge>
@@ -1158,11 +1245,11 @@ export default function BulkUploadPage() {
                           </Badge>
                         ) : isOldStudentsBatch ? (
                           <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px]">
-                            🏛️ Old Students Archive
+                            🏛️ Old Students Archive {batch.targetYear ? `(${batch.targetYear})` : ""}
                           </Badge>
                         ) : (
                           <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[10px]">
-                            🎓 Active Students
+                            🎓 Active Students {batch.targetYear ? `(${batch.targetYear})` : ""}
                           </Badge>
                         )}
 
