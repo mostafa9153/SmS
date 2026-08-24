@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBatchSchoolIds } from "./school-id-generator";
 import type { Student, ImportBatchSummary, ImportBatchRecord, StudentStatus, Gender, BulkResultRow, BulkUploadType } from "@/lib/types";
 import { mapDBStudentToStudent, type DBStudent } from "./db-students";
@@ -23,7 +24,7 @@ export async function dbProcessBulkUpload(
   userId: string,
   uploadType: "current_students" | "old_students" = "current_students"
 ): Promise<ProcessResult> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   const currentYear = new Date().getFullYear();
 
   // 1. Gather all potential lookup identifiers
@@ -257,7 +258,7 @@ export async function dbProcessBulkUpload(
       present_class: inc.presentClass?.trim() || "V",
       present_section: inc.presentSection?.trim() || "A",
       present_roll: inc.presentRoll != null ? Number(inc.presentRoll) : 1,
-      current_status: (inc.currentStatus || "Continuing") as StudentStatus,
+      current_status: (inc.currentStatus || (uploadType === "old_students" ? "Passed Out" : "Continuing")) as StudentStatus,
       admission_year: inc.admissionYear != null ? Number(inc.admissionYear) : currentYear,
       pen: inc.pen?.trim() || null,
       aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
@@ -319,6 +320,23 @@ export async function dbProcessBulkUpload(
     });
   }
 
+  // Insert master batch entry in audit log to ensure the batch is permanently tracked in history
+  await supabase.from("audit_log").insert({
+    performed_by: userId,
+    action: "BATCH_UPLOAD",
+    table_name: "students",
+    metadata: {
+      batch_id: batchId,
+      upload_type: uploadType,
+      source: "BULK_UPLOAD",
+      total_rows: rows.length,
+      created_count: createdList.length,
+      updated_count: updatedList.length,
+      skipped_count: skippedCount,
+      error_count: errorCount,
+    },
+  });
+
   const summary: ImportBatchSummary = {
     batchId,
     totalRows: rows.length,
@@ -362,7 +380,7 @@ export async function dbProcessResultsBulkUpload(
   targetSessionYear?: number,
   targetExamName?: string
 ): Promise<ProcessResultsResult> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   const currentYear = new Date().getFullYear();
 
   // 1. Fetch candidate students by identifiers
@@ -543,6 +561,25 @@ export async function dbProcessResultsBulkUpload(
     }
   }
 
+  // Insert master batch entry in audit log to ensure results batch is permanently tracked in history
+  await supabase.from("audit_log").insert({
+    performed_by: userId,
+    action: "BATCH_UPLOAD",
+    table_name: "student_results",
+    metadata: {
+      batch_id: batchId,
+      upload_type: "EXAM_RESULTS",
+      source: "RESULTS_BULK_UPLOAD",
+      academic_year: targetSessionYear || currentYear,
+      exam_name: targetExamName,
+      total_rows: rows.length,
+      created_count: createdList.length,
+      updated_count: updatedList.length,
+      skipped_count: skippedCount,
+      error_count: errorCount,
+    },
+  });
+
   const summary: ImportBatchSummary = {
     batchId,
     totalRows: rows.length,
@@ -560,10 +597,23 @@ export async function dbProcessResultsBulkUpload(
     details: {
       created: createdList,
       updated: updatedList,
-      skipped: skippedList,
+      skipped: skippedList || [],
       errors: errorsList,
     },
   };
+}
+
+function safeParseMetadata(metadata: any): Record<string, any> | null {
+  if (!metadata) return null;
+  if (typeof metadata === "object") return metadata;
+  if (typeof metadata === "string") {
+    try {
+      return JSON.parse(metadata);
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 /**
@@ -573,23 +623,32 @@ export async function dbRollbackBatch(
   batchId: string,
   userId: string
 ): Promise<{ success: boolean; revertedCount: number; deletedCount: number }> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
-  // Find all audit log entries for this batch
+  // Find all audit log entries
   const { data: logs, error } = await supabase
     .from("audit_log")
     .select("*")
-    .contains("metadata", { batch_id: batchId })
     .order("created_at", { ascending: false });
 
-  if (error || !logs || logs.length === 0) {
-    throw new Error("No audit logs found for the specified batch ID to delete/rollback.");
+  if (error || !logs) {
+    throw new Error("Failed to query audit logs for batch rollback.");
+  }
+
+  // Filter logs for this specific batch_id (excluding prior rollback logs)
+  const batchLogs = logs.filter((entry) => {
+    const meta = safeParseMetadata(entry.metadata);
+    return meta?.batch_id === batchId && entry.action !== "ROLLBACK";
+  });
+
+  if (batchLogs.length === 0) {
+    throw new Error(`No active records found for batch ID [${batchId}] to delete/rollback.`);
   }
 
   let deletedCount = 0;
   let revertedCount = 0;
 
-  for (const entry of logs) {
+  for (const entry of batchLogs) {
     const tableName = entry.table_name || "students";
 
     if (entry.action === "CREATE" && entry.record_id) {
@@ -612,7 +671,7 @@ export async function dbRollbackBatch(
   await supabase.from("audit_log").insert({
     performed_by: userId,
     action: "ROLLBACK",
-    table_name: logs[0]?.table_name || "batch_rollback",
+    table_name: batchLogs[0]?.table_name || "batch_rollback",
     metadata: {
       batch_id: batchId,
       rolled_back_batch_id: batchId,
@@ -632,16 +691,18 @@ export async function dbRollbackBatch(
  * Fetch past import batches list with rich metadata for audit & rollback.
  */
 export async function dbGetImportBatches(): Promise<ImportBatchRecord[]> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
 
   const { data: logs, error } = await supabase
     .from("audit_log")
     .select("metadata, created_at, action, table_name, performed_by")
-    .not("metadata->batch_id", "is", null)
     .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(2000);
 
-  if (error || !logs) return [];
+  if (error || !logs) {
+    console.error("Error fetching audit logs for import batches:", error);
+    return [];
+  }
 
   // Group by batch_id
   const batchMap = new Map<
@@ -660,27 +721,28 @@ export async function dbGetImportBatches(): Promise<ImportBatchRecord[]> {
   >();
 
   for (const log of logs) {
-    const bId = log.metadata?.batch_id;
+    const meta = safeParseMetadata(log.metadata);
+    const bId = meta?.batch_id;
     if (!bId) continue;
 
     const isRollback = log.action === "ROLLBACK";
 
     if (!batchMap.has(bId)) {
       let uploadType: BulkUploadType = "current_students";
-      if (log.metadata?.upload_type === "EXAM_RESULTS" || log.table_name === "student_results") {
+      if (meta?.upload_type === "EXAM_RESULTS" || log.table_name === "student_results") {
         uploadType = "exam_results";
-      } else if (log.metadata?.upload_type === "old_students") {
+      } else if (meta?.upload_type === "old_students") {
         uploadType = "old_students";
       }
 
       batchMap.set(bId, {
-        totalAffected: 0,
-        createdCount: 0,
-        updatedCount: 0,
+        totalAffected: meta?.total_rows || 0,
+        createdCount: meta?.created_count || 0,
+        updatedCount: meta?.updated_count || 0,
         createdAt: log.created_at,
         action: uploadType === "exam_results" ? "RESULTS_BULK_UPLOAD" : "STUDENTS_BULK_UPLOAD",
         uploadType,
-        targetYear: log.metadata?.academic_year || log.metadata?.session_year,
+        targetYear: meta?.academic_year || meta?.session_year,
         performedBy: log.performed_by,
         status: isRollback ? "Rolled_Back" : "Active",
       });
@@ -690,9 +752,22 @@ export async function dbGetImportBatches(): Promise<ImportBatchRecord[]> {
     if (isRollback) {
       b.status = "Rolled_Back";
     } else {
-      b.totalAffected += 1;
-      if (log.action === "CREATE") b.createdCount += 1;
-      if (log.action === "UPDATE") b.updatedCount += 1;
+      if (meta?.total_rows && b.totalAffected === 0) {
+        b.totalAffected = meta.total_rows;
+      }
+      if (meta?.created_count && b.createdCount === 0) {
+        b.createdCount = meta.created_count;
+      }
+      if (meta?.updated_count && b.updatedCount === 0) {
+        b.updatedCount = meta.updated_count;
+      }
+      if (log.action === "CREATE") {
+        if (!meta?.total_rows) b.totalAffected += 1;
+        if (!meta?.created_count) b.createdCount += 1;
+      } else if (log.action === "UPDATE") {
+        if (!meta?.total_rows) b.totalAffected += 1;
+        if (!meta?.updated_count) b.updatedCount += 1;
+      }
     }
   }
 
@@ -701,11 +776,48 @@ export async function dbGetImportBatches(): Promise<ImportBatchRecord[]> {
     action: info.action,
     uploadType: info.uploadType,
     targetYear: info.targetYear,
-    totalAffected: info.totalAffected,
+    totalAffected: info.totalAffected || (info.createdCount + info.updatedCount),
     createdCount: info.createdCount,
     updatedCount: info.updatedCount,
     createdAt: info.createdAt,
     performedBy: info.performedBy,
     status: info.status,
   }));
+}
+
+/**
+ * Helper to generate a sequential batch ID containing date, time and next sequence number:
+ * Format: BATCH-YYYYMMDD-HHMMSS-SEQ
+ */
+export async function dbGenerateBatchId(): Promise<string> {
+  const supabase = createAdminClient();
+  const { data: logs } = await supabase
+    .from("audit_log")
+    .select("metadata")
+    .order("created_at", { ascending: false })
+    .limit(2000);
+
+  const uniqueBatches = new Set(
+    (logs || [])
+      .map((log) => {
+        const meta = safeParseMetadata(log.metadata);
+        return meta?.batch_id;
+      })
+      .filter(Boolean)
+  );
+
+  const nextSeq = uniqueBatches.size + 1;
+  const seqString = String(nextSeq).padStart(4, "0");
+
+  const now = new Date();
+  
+  // Format YYYYMMDD and HHMMSS manually
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const seconds = String(now.getSeconds()).padStart(2, "0");
+
+  return `BATCH-${year}${month}${day}-${hours}${minutes}${seconds}-${seqString}`;
 }

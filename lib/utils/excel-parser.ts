@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import type { Student, ColumnMapping, ValidationIssue, BulkPreviewRow, BulkResultRow } from "@/lib/types";
+import type { Student, StudentStatus, ColumnMapping, ValidationIssue, BulkPreviewRow, BulkResultRow } from "@/lib/types";
 
 export interface ParsedExcelResult {
   sheetNames: string[];
@@ -589,6 +589,30 @@ export function normalizeClass(val: any): string {
 }
 
 /**
+ * Normalizes Student Status string to valid StudentStatus enum.
+ */
+export function normalizeStatus(val: any, defaultStatus: StudentStatus = "Continuing"): StudentStatus {
+  if (!val) return defaultStatus;
+  const str = String(val).trim().toLowerCase();
+  if (str.includes("pass") || str.includes("alumni") || str.includes("graduat") || str.includes("completed") || str.includes("archive")) {
+    return "Passed Out";
+  }
+  if (str.includes("drop") || str.includes("left") || str.includes("discontinue")) {
+    return "Drop Out";
+  }
+  if (str.includes("sent up") || str.includes("mp") || str.includes("m.p.")) {
+    return "Sent Up M.P.";
+  }
+  if (str.includes("cchs") || str.includes("c.c.h.s.")) {
+    return "C.C.H.S.";
+  }
+  if (str.includes("continu") || str.includes("active") || str.includes("present") || str.includes("enrolled")) {
+    return "Continuing";
+  }
+  return defaultStatus;
+}
+
+/**
  * Transforms raw excel rows into structured student payloads based on mapping.
  */
 export function applyMapping(
@@ -596,13 +620,15 @@ export function applyMapping(
   mapping: ColumnMapping,
   defaultSessionYear?: number,
   defaultClass?: string,
-  defaultSection?: string
+  defaultSection?: string,
+  defaultStatus?: StudentStatus
 ): Array<Partial<Student>> {
   const currentYear = new Date().getFullYear();
 
   return rawRows.map((row) => {
     const student: Partial<Student> = {
       admissionYear: defaultSessionYear || currentYear,
+      currentStatus: defaultStatus || "Continuing",
     };
 
     if (defaultClass && defaultClass !== "AUTO") {
@@ -624,6 +650,8 @@ export function applyMapping(
         student.gender = normalizeGender(rawVal);
       } else if (fieldKey === "presentClass") {
         student.presentClass = normalizeClass(rawVal);
+      } else if (fieldKey === "currentStatus") {
+        student.currentStatus = normalizeStatus(rawVal, defaultStatus || "Continuing");
       } else if (fieldKey === "presentRoll") {
         const rollNum = parseInt(String(rawVal).replace(/\D/g, ""), 10);
         student.presentRoll = isNaN(rollNum) ? 1 : rollNum;

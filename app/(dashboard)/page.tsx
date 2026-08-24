@@ -19,16 +19,10 @@ export default function DashboardPage() {
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold text-primary ring-1 ring-primary/30">
                 <Sparkles className="h-3.5 w-3.5" /> Session {currentYear} Active
               </span>
-              <span className="text-xs text-muted-foreground font-medium">
-                West Bengal Higher Secondary Education
-              </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
               MHS School Dashboard
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Centralized student demographics, examination marksheets, and batch analytics.
-            </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
@@ -65,7 +59,6 @@ export default function DashboardPage() {
           <p className="text-sm font-bold tracking-tight text-foreground">
             Quick Action Modules
           </p>
-          <span className="text-xs text-muted-foreground">Frequently used shortcuts</span>
         </div>
 
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
@@ -79,9 +72,6 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 transition-colors">
                 Add New Student
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Register single enrolment
               </p>
             </div>
           </Link>
@@ -97,9 +87,6 @@ export default function DashboardPage() {
               <p className="text-xs font-bold text-foreground group-hover:text-amber-600 transition-colors">
                 Results & Marksheets
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Calculate ranks & entry
-              </p>
             </div>
           </Link>
 
@@ -114,9 +101,6 @@ export default function DashboardPage() {
               <p className="text-xs font-bold text-foreground group-hover:text-blue-600 transition-colors">
                 Bulk Upload Center
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Excel / CSV multi-mode
-              </p>
             </div>
           </Link>
 
@@ -130,9 +114,6 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-rose-600 transition-colors">
                 Admin & Access Roles
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Staff & security control
               </p>
             </div>
           </Link>

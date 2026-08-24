@@ -57,6 +57,7 @@ import {
 } from "@/lib/utils/excel-parser";
 import type {
   Student,
+  StudentStatus,
   ColumnMapping,
   ValidationIssue,
   BulkPreviewRow,
@@ -87,10 +88,11 @@ export default function BulkUploadPage() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("auto");
 
-  // Student specific target settings (Year, Class, Section)
+  // Student specific target settings (Year, Class, Section, Status)
   const [targetSessionYear, setTargetSessionYear] = useState<number>(currentYear);
   const [targetClass, setTargetClass] = useState<string>("AUTO");
   const [targetSection, setTargetSection] = useState<string>("AUTO");
+  const [targetStatus, setTargetStatus] = useState<StudentStatus>("Continuing");
 
   // Result specific settings
   const [resultYear, setResultYear] = useState<number>(currentYear);
@@ -116,10 +118,14 @@ export default function BulkUploadPage() {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Query past batches
-  const { data: pastBatches = [], refetch: refetchBatches } = useQuery({
+  const {
+    data: pastBatches = [],
+    isLoading: isLoadingBatches,
+    isFetching: isFetchingBatches,
+    refetch: refetchBatches,
+  } = useQuery({
     queryKey: ["import-batches"],
     queryFn: getImportBatches,
-    enabled: showHistoryModal,
   });
 
   // Handle file drop/upload
@@ -175,8 +181,10 @@ export default function BulkUploadPage() {
     setSelectedTemplate("auto");
     if (mode === "old_students") {
       setTargetSessionYear(2025);
+      setTargetStatus("Passed Out");
     } else if (mode === "current_students") {
       setTargetSessionYear(currentYear);
+      setTargetStatus("Continuing");
     }
 
     if (parsedData) {
@@ -204,7 +212,8 @@ export default function BulkUploadPage() {
         columnMapping as any,
         targetSessionYear,
         targetClass,
-        targetSection
+        targetSection,
+        targetStatus
       );
       setMappedRows(transformed);
       const { issues, previewRows: pRows } = validateMappedRows(transformed);
@@ -420,7 +429,10 @@ export default function BulkUploadPage() {
           </p>
         </div>
         <button
-          onClick={() => setShowHistoryModal(true)}
+          onClick={() => {
+            setShowHistoryModal(true);
+            refetchBatches();
+          }}
           className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
         >
           <History className="h-4 w-4 text-primary" />
@@ -578,7 +590,7 @@ export default function BulkUploadPage() {
                     Target Session Year & Class Assignment (Applies to all uploaded rows if unspecified in Excel)
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground mb-1 block">
                       Academic Session / Admission Year *
@@ -623,6 +635,22 @@ export default function BulkUploadPage() {
                       <option value="A">Section A</option>
                       <option value="B">Section B</option>
                       <option value="C">Section C</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Default Status *
+                    </label>
+                    <select
+                      value={targetStatus}
+                      onChange={(e) => setTargetStatus(e.target.value as StudentStatus)}
+                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
+                    >
+                      <option value="Passed Out">Passed Out (Old / Alumni)</option>
+                      <option value="Drop Out">Drop Out</option>
+                      <option value="Continuing">Continuing (Active)</option>
+                      <option value="Sent Up M.P.">Sent Up M.P.</option>
+                      <option value="C.C.H.S.">C.C.H.S.</option>
                     </select>
                   </div>
                 </div>
@@ -799,7 +827,9 @@ export default function BulkUploadPage() {
                   <tr>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Excel Column</th>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Sample Value (Row 1)</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Maps to Field</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">
+                      Target {isResultsMode ? "Marks" : "Student"} Field
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -1200,7 +1230,18 @@ export default function BulkUploadPage() {
       <Dialog open={showHistoryModal} onOpenChange={setShowHistoryModal}>
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Import Batches & Batch Deletion History</DialogTitle>
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle>Import Batches & Batch Deletion History</DialogTitle>
+              <button
+                onClick={() => refetchBatches()}
+                disabled={isFetchingBatches}
+                className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground border rounded px-2.5 py-1 transition-colors hover:bg-muted"
+                title="Refresh batch list"
+              >
+                <RotateCcw className={cn("h-3 w-3", isFetchingBatches && "animate-spin text-primary")} />
+                Refresh
+              </button>
+            </div>
             <DialogDescription>
               Audit all past bulk uploads (Students & Examination Results) and delete/rollback any batch.
             </DialogDescription>
@@ -1214,9 +1255,15 @@ export default function BulkUploadPage() {
           )}
 
           <div className="max-h-[380px] overflow-y-auto rounded-lg border divide-y">
-            {pastBatches.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No past bulk import batches found in audit logs.
+            {isLoadingBatches || isFetchingBatches ? (
+              <div className="py-12 flex flex-col items-center justify-center gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <p className="text-xs text-muted-foreground font-medium">Fetching batch history from audit logs…</p>
+              </div>
+            ) : pastBatches.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
+                <p className="font-semibold text-foreground">No past bulk import batches found.</p>
+                <p>New spreadsheet bulk imports will automatically appear here with their timestamp & batch ID.</p>
               </div>
             ) : (
               pastBatches.map((batch: any) => {
@@ -1235,8 +1282,8 @@ export default function BulkUploadPage() {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <code className="text-xs font-mono font-semibold bg-muted px-1.5 py-0.5 rounded">
-                          {batch.batchId.slice(0, 14)}…
+                        <code className="text-xs font-mono font-semibold bg-muted px-2 py-0.5 rounded border border-border/60">
+                          {batch.batchId}
                         </code>
 
                         {isResultBatch ? (
@@ -1297,8 +1344,8 @@ export default function BulkUploadPage() {
             </DialogTitle>
             <DialogDescription>
               Are you sure you want to permanently delete / rollback batch{" "}
-              <code className="font-mono text-xs bg-muted px-1 rounded">
-                {rollbackConfirmBatchId?.slice(0, 14)}…
+              <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded border">
+                {rollbackConfirmBatchId}
               </code>
               ?
             </DialogDescription>

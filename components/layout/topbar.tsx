@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -64,11 +64,11 @@ export function Topbar() {
   }
 
   return (
-    <header className="flex h-16 items-center gap-2 sm:gap-3 border-b border-border/60 bg-background/80 backdrop-blur-md px-3 sm:px-6 sticky top-0 z-30 transition-all">
+    <header className="flex h-12 items-center gap-2 sm:gap-3 border-b border-border/60 bg-background/80 backdrop-blur-md px-3 sm:px-4 sticky top-0 z-30 transition-all">
       {/* Mobile menu trigger */}
       <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-        <SheetTrigger render={<button aria-label="Open mobile menu" className="rounded-xl p-2 hover:bg-accent/80 md:hidden transition-colors text-muted-foreground hover:text-foreground shrink-0" />}>
-          <Menu className="h-5 w-5" />
+        <SheetTrigger render={<button aria-label="Open mobile menu" className="rounded-lg p-1.5 hover:bg-accent/80 md:hidden transition-colors text-muted-foreground hover:text-foreground shrink-0" />}>
+          <Menu className="h-4.5 w-4.5" />
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-72 border-r border-sidebar-border" showCloseButton={false}>
           <Sidebar mobile onClose={() => setMobileMenuOpen(false)} />
@@ -79,28 +79,28 @@ export function Topbar() {
       <button
         onClick={toggleSidebar}
         title={isOpen ? "Collapse Sidebar (মেনু বন্ধ করুন)" : "Expand Sidebar (মেনু খুলুন)"}
-        className="hidden md:flex items-center justify-center rounded-xl p-2 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shrink-0"
+        className="hidden md:flex items-center justify-center rounded-lg p-1.5 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shrink-0"
       >
         {isOpen ? (
-          <PanelLeftClose className="h-5 w-5" />
+          <PanelLeftClose className="h-4.5 w-4.5" />
         ) : (
-          <PanelLeftOpen className="h-5 w-5 text-primary" />
+          <PanelLeftOpen className="h-4.5 w-4.5 text-primary" />
         )}
       </button>
 
       {/* Global search with Shortcut Tag */}
       <form onSubmit={handleSearch} className="flex-1 max-w-xs sm:max-w-md min-w-0">
         <div className="relative group">
-          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-primary group-focus-within:scale-110 transition-transform" />
           <input
             type="text"
             value={searchValue}
             onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="Search students, ID, PEN…"
-            className="w-full rounded-xl border border-border/60 bg-muted/40 pl-8 sm:pl-9 pr-3 sm:pr-10 py-1.5 text-xs font-medium outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
+            placeholder="Search name, student ID, PEN, Aadhaar..."
+            className="w-full rounded-lg border border-primary/25 bg-primary/5 hover:bg-primary/8 pl-8 pr-3 sm:pr-9 py-1.5 text-xs font-semibold text-foreground outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 focus:bg-background transition-all shadow-xs placeholder:text-muted-foreground/75"
           />
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:flex items-center">
-            <kbd className="rounded border bg-background/80 px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shadow-2xs">
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 hidden sm:flex items-center">
+            <kbd className="rounded border border-primary/20 bg-background/80 px-1 py-0.2 text-[9px] font-mono text-muted-foreground shadow-2xs">
               /
             </kbd>
           </div>
@@ -108,34 +108,29 @@ export function Topbar() {
       </form>
 
       {/* Right controls */}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         {/* Notification Bell */}
         <button
           title="System notifications"
-          className="relative rounded-xl p-2 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-150 hover:scale-105"
+          className="relative rounded-lg p-1.5 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-150 hover:scale-105"
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-background" />
         </button>
 
-        <div className="h-4 w-px bg-border/60 mx-1 hidden sm:block" />
+        <div className="h-3.5 w-px bg-border/60 mx-0.5 hidden sm:block" />
 
-        {/* User profile dropdown */}
+        {/* User profile dropdown - ONLY round avatar */}
         <DropdownMenu>
           <DropdownMenuTrigger render={
-            <button className="flex items-center gap-2.5 rounded-xl px-2.5 py-1.5 hover:bg-accent/80 outline-none text-left transition-all duration-150 border border-transparent hover:border-border/60" />
+            <button
+              title={`${fullName} (${role || "User"})`}
+              className="flex items-center justify-center rounded-full p-0.5 hover:ring-2 hover:ring-primary/30 outline-none transition-all duration-150 active:scale-95"
+            />
           }>
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white shadow-xs font-bold text-xs ring-2 ring-primary/20">
+            <div className="relative flex h-7.5 w-7.5 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white shadow-xs font-bold text-xs ring-1.5 ring-primary/25">
               {fullName.charAt(0).toUpperCase()}
-              <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
-            </div>
-            <div className="hidden sm:block leading-tight">
-              <p className="text-xs font-bold tracking-tight text-foreground">{fullName}</p>
-              {role && (
-                <span className="inline-block text-[10px] font-semibold text-primary/80">
-                  {role}
-                </span>
-              )}
+              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52 bg-popover/95 backdrop-blur-md text-popover-foreground rounded-xl shadow-lg border border-border/80 p-1.5">
@@ -150,7 +145,7 @@ export function Topbar() {
             {role === "Admin" && (
               <DropdownMenuItem onClick={() => router.push("/settings")} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer hover:bg-accent transition-colors">
                 <Settings className="h-3.5 w-3.5 text-rose-500" />
-                <span>System Administration</span>
+                <span>Settings & Access</span>
               </DropdownMenuItem>
             )}
 

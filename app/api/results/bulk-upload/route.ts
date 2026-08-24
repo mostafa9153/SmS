@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { dbProcessResultsBulkUpload } from "@/lib/supabase/db-bulk-upload";
+import { dbProcessResultsBulkUpload, dbGenerateBatchId } from "@/lib/supabase/db-bulk-upload";
 import { createAdminClient } from "@/lib/supabase/admin";
 import crypto from "crypto";
 
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No result rows provided for import" }, { status: 400 });
     }
 
-    const batchId = crypto.randomUUID();
+    const batchId = await dbGenerateBatchId();
     const result = await dbProcessResultsBulkUpload(rows, batchId, user.id, targetSessionYear, targetExamName);
 
     return NextResponse.json({

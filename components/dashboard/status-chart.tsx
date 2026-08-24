@@ -15,6 +15,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { STATUS_STYLES } from "@/lib/utils";
 import type { StudentStatus } from "@/lib/types";
 
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-xl border border-border/80 bg-background/95 backdrop-blur-md p-3 shadow-md text-xs">
+        <p className="font-bold text-foreground">{payload[0].name}</p>
+        <p className="text-muted-foreground mt-0.5">
+          Students: <span className="font-bold text-primary">{payload[0].value}</span>
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export function StatusChart() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
@@ -42,11 +56,8 @@ export function StatusChart() {
 
   return (
     <Card className="p-5 rounded-2xl border bg-card/90 shadow-xs">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-sm font-bold text-foreground">Enrolment Status Breakdown</p>
-          <p className="text-[11px] text-muted-foreground">Active, Dropout, and Transferred metrics</p>
-        </div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold text-foreground">Enrolment Status Breakdown</p>
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
@@ -63,14 +74,7 @@ export function StatusChart() {
               <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip
-            formatter={(value, name) => [value, name]}
-            contentStyle={{
-              borderRadius: "8px",
-              fontSize: "12px",
-              border: "1px solid hsl(var(--border))",
-            }}
-          />
+          <Tooltip content={<CustomTooltip />} />
           <Legend
             iconType="circle"
             iconSize={8}

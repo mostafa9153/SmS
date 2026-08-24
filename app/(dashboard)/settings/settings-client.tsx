@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   UserPlus, 
@@ -18,7 +19,9 @@ import {
   Save,
   Award,
   Sparkles,
+  CalendarClock,
 } from "lucide-react";
+import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +62,17 @@ interface AuditLogEntry {
 export function SettingsClient() {
   const queryClient = useQueryClient();
   const supabase = createClient();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState(tabParam || "users");
+
+  useEffect(() => {
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
   
   // Current user state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -90,6 +104,13 @@ export function SettingsClient() {
   const [marksClass9_10, setMarksClass9_10] = useState("700");
   const [marksClass11_12, setMarksClass11_12] = useState("500");
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+  // Danger Zone / Data Wipeout state
+  const [isWipeoutModalOpen, setIsWipeoutModalOpen] = useState(false);
+  const [wipeoutScope, setWipeoutScope] = useState<"ALL_DATA" | "CURRENT_STUDENTS_ONLY" | "OLD_STUDENTS_ONLY" | "EXAM_RESULTS_ONLY">("ALL_DATA");
+  const [adminPasswordInput, setAdminPasswordInput] = useState("");
+  const [confirmationPhraseInput, setConfirmationPhraseInput] = useState("");
+  const [wipeoutError, setWipeoutError] = useState("");
 
   // 1. Authenticate user & check role
   useEffect(() => {
@@ -211,6 +232,54 @@ export function SettingsClient() {
     },
   });
 
+  // 6. Data Wipeout Mutation
+  const wipeoutMutation = useMutation({
+    mutationFn: async (payload: {
+      adminPassword: string;
+      confirmationPhrase: string;
+      wipeoutScope: string;
+    }) => {
+      const res = await fetch("/api/admin/data-wipeout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Data wipeout operation failed");
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["students-all"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["student-results"] });
+      queryClient.invalidateQueries({ queryKey: ["class-results"] });
+      queryClient.invalidateQueries({ queryKey: ["import-batches"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "audit-logs"] });
+
+      showToast({
+        type: "success",
+        title: "Data Wipeout Completed",
+        description: `Wiped out ${data.summary?.deletedStudentsCount || 0} students and ${data.summary?.deletedResultsCount || 0} results.`,
+      });
+
+      setIsWipeoutModalOpen(false);
+      setAdminPasswordInput("");
+      setConfirmationPhraseInput("");
+      setWipeoutError("");
+    },
+    onError: (err: any) => {
+      setWipeoutError(err.message || "Failed to execute wipeout");
+      showToast({
+        type: "error",
+        title: "Wipeout Authorization Failed",
+        description: err.message || "Operation could not be completed.",
+      });
+    },
+  });
+
   const handleAddUserSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFullName.trim() || !newEmail.trim() || !newPassword.trim()) {
@@ -273,11 +342,15 @@ export function SettingsClient() {
         </p>
       </div>
 
-      <Tabs defaultValue="users" className="space-y-4 sm:space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
         <TabsList className="bg-muted p-1 rounded-xl flex-wrap h-auto gap-1">
           <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
             <UserPlus className="h-3.5 w-3.5" />
             User Management
+          </TabsTrigger>
+          <TabsTrigger value="session" className="flex items-center gap-1.5 text-xs">
+            <CalendarClock className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+            Academic Session
           </TabsTrigger>
           <TabsTrigger value="audit" className="flex items-center gap-1.5 text-xs">
             <Activity className="h-3.5 w-3.5" />
@@ -286,6 +359,10 @@ export function SettingsClient() {
           <TabsTrigger value="config" className="flex items-center gap-1.5 text-xs">
             <Sliders className="h-3.5 w-3.5" />
             School Config
+          </TabsTrigger>
+          <TabsTrigger value="danger" className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-700 dark:data-[state=active]:text-rose-300">
+            <ShieldAlert className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+            Danger Zone
           </TabsTrigger>
         </TabsList>
 
@@ -804,6 +881,259 @@ export function SettingsClient() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Tab 4: Academic Session */}
+        <TabsContent value="session" className="space-y-4 outline-none">
+          <AcademicSessionClient />
+        </TabsContent>
+
+        {/* Tab 5: Danger Zone */}
+        <TabsContent value="danger" className="space-y-4 outline-none">
+          <Card className="border-rose-200 dark:border-rose-900/50 bg-card shadow-xs">
+            <CardHeader className="border-b border-rose-100 dark:border-rose-950/50 bg-rose-50/50 dark:bg-rose-950/20 pb-4">
+              <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
+                <ShieldAlert className="h-5 w-5 flex-shrink-0" />
+                <CardTitle className="text-base font-semibold">Danger Zone & Irreversible System Actions</CardTitle>
+              </div>
+              <CardDescription className="text-xs text-rose-600/90 dark:text-rose-400/80">
+                These operations permanently purge data from the system. Once wiped, records cannot be retrieved unless restored from offline backups.
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="divide-y divide-border/60 p-0">
+              {/* Option 1: Complete Student Database Wipeout */}
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <h3 className="text-sm font-semibold text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                    <Trash2 className="h-4 w-4" />
+                    Wipe Out All Student Records (Master Reset)
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Permanently deletes all student demographic profiles, academic enrollment histories, and all examination marks & rankings. Ideal when clearing dummy or test batches to start fresh.
+                  </p>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs whitespace-nowrap self-start sm:self-auto"
+                  onClick={() => {
+                    setWipeoutScope("ALL_DATA");
+                    setAdminPasswordInput("");
+                    setConfirmationPhraseInput("");
+                    setWipeoutError("");
+                    setIsWipeoutModalOpen(true);
+                  }}
+                >
+                  Wipe All Students
+                </Button>
+              </div>
+
+              {/* Option 2: Purge Current / Active Students Only */}
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 text-emerald-500" />
+                    Purge Current / Active Continuing Students Only
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Removes all currently active enrolled students (status &apos;Continuing&apos;) and their marks, leaving historical alumni and archived students intact.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold whitespace-nowrap self-start sm:self-auto"
+                  onClick={() => {
+                    setWipeoutScope("CURRENT_STUDENTS_ONLY");
+                    setAdminPasswordInput("");
+                    setConfirmationPhraseInput("");
+                    setWipeoutError("");
+                    setIsWipeoutModalOpen(true);
+                  }}
+                >
+                  Purge Current Students
+                </Button>
+              </div>
+
+              {/* Option 3: Purge Old / Archived Students */}
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Building className="h-4 w-4 text-sky-500" />
+                    Purge Old / Alumni & Archived Students Only
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Removes all historical students with status &apos;Passed Out&apos;, &apos;Drop Out&apos;, &apos;Sent Up M.P.&apos;, or archived alumni, leaving only current active continuing students.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold whitespace-nowrap self-start sm:self-auto"
+                  onClick={() => {
+                    setWipeoutScope("OLD_STUDENTS_ONLY");
+                    setAdminPasswordInput("");
+                    setConfirmationPhraseInput("");
+                    setWipeoutError("");
+                    setIsWipeoutModalOpen(true);
+                  }}
+                >
+                  Purge Old Students
+                </Button>
+              </div>
+
+              {/* Option 4: Purge Marks Only */}
+              <div className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1 max-w-xl">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Award className="h-4 w-4 text-amber-500" />
+                    Purge Examination Results Only
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    Keeps all student admission profiles and demographics intact, but removes all examination marks, evaluation scorecards, and class rank entries.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-rose-300 text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950 text-xs font-semibold whitespace-nowrap self-start sm:self-auto"
+                  onClick={() => {
+                    setWipeoutScope("EXAM_RESULTS_ONLY");
+                    setAdminPasswordInput("");
+                    setConfirmationPhraseInput("");
+                    setWipeoutError("");
+                    setIsWipeoutModalOpen(true);
+                  }}
+                >
+                  Purge Results
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Secure Confirmation Dialog */}
+          <Dialog open={isWipeoutModalOpen} onOpenChange={setIsWipeoutModalOpen}>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <div className="flex items-center gap-2 text-rose-600">
+                  <ShieldAlert className="h-5 w-5" />
+                  <DialogTitle className="text-rose-700 dark:text-rose-400">
+                    {wipeoutScope === "ALL_DATA"
+                      ? "Confirm Full Data Wipeout"
+                      : wipeoutScope === "CURRENT_STUDENTS_ONLY"
+                      ? "Confirm Current Students Purge"
+                      : wipeoutScope === "OLD_STUDENTS_ONLY"
+                      ? "Confirm Old Students Purge"
+                      : "Confirm Results Purge"}
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  This action cannot be undone. To prevent accidental data loss, administrator authentication and confirmation phrase verification are strictly required.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-3 text-xs">
+                {wipeoutError && (
+                  <div className="flex items-center gap-2 rounded-md bg-rose-50 border border-rose-200 p-3 text-xs text-rose-700 font-medium">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <p>{wipeoutError}</p>
+                  </div>
+                )}
+
+                <div className="rounded-lg bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 p-3 space-y-1.5 text-rose-900 dark:text-rose-200">
+                  <p className="font-semibold">⚠️ Irreversible Operation Warning:</p>
+                  <p className="text-[11px] text-rose-800/90 dark:text-rose-300">
+                    {wipeoutScope === "ALL_DATA"
+                      ? "All registered students, academic years, enrollments, and examination scorecards will be permanently wiped."
+                      : wipeoutScope === "CURRENT_STUDENTS_ONLY"
+                      ? "All currently enrolled active students (Continuing status) and their marks will be removed."
+                      : wipeoutScope === "OLD_STUDENTS_ONLY"
+                      ? "All alumni, passed out, and archived student records will be removed."
+                      : "All evaluation results across all academic years will be deleted."}
+                  </p>
+                </div>
+
+                {/* Step 1: Admin Password */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="adminPassword" className="text-xs font-semibold flex items-center gap-1.5">
+                    <Lock className="h-3.5 w-3.5 text-primary" />
+                    Enter Your Admin Login Password *
+                  </Label>
+                  <Input
+                    id="adminPassword"
+                    type="password"
+                    value={adminPasswordInput}
+                    onChange={(e) => setAdminPasswordInput(e.target.value)}
+                    placeholder="Enter your current password"
+                    className="text-xs"
+                    disabled={wipeoutMutation.isPending}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Verifies your identity as an authorized Administrator.
+                  </p>
+                </div>
+
+                {/* Step 2: Confirmation Phrase */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="confirmationPhrase" className="text-xs font-semibold">
+                    Type <code className="bg-muted px-1.5 py-0.5 rounded text-rose-700 font-mono">WIPE ALL STUDENT DATA</code> to confirm *
+                  </Label>
+                  <Input
+                    id="confirmationPhrase"
+                    value={confirmationPhraseInput}
+                    onChange={(e) => setConfirmationPhraseInput(e.target.value)}
+                    placeholder="Type WIPE ALL STUDENT DATA"
+                    className="text-xs font-mono"
+                    disabled={wipeoutMutation.isPending}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsWipeoutModalOpen(false)}
+                  disabled={wipeoutMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  disabled={
+                    wipeoutMutation.isPending ||
+                    !adminPasswordInput.trim() ||
+                    confirmationPhraseInput.trim() !== "WIPE ALL STUDENT DATA"
+                  }
+                  onClick={() => {
+                    setWipeoutError("");
+                    wipeoutMutation.mutate({
+                      adminPassword: adminPasswordInput,
+                      confirmationPhrase: confirmationPhraseInput.trim(),
+                      wipeoutScope,
+                    });
+                  }}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center gap-1.5"
+                >
+                  {wipeoutMutation.isPending ? (
+                    <>
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      Wiping Data...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Authorize & Wipeout
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { searchStudents } from "@/lib/data/students";
@@ -22,6 +22,16 @@ export default function StudentsClient() {
   });
   const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Sync URL search parameter changes
+  const queryParam = searchParams.get("q") || "";
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      query: queryParam || undefined,
+    }));
+    setPage(1);
+  }, [queryParam]);
 
   function handleFilterChange(newFilters: StudentFilters) {
     setFilters(newFilters);

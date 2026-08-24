@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, ChevronDown } from "lucide-react";
+import { Search, X, ChevronDown, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   getDistinctClasses,
@@ -27,6 +27,11 @@ interface StudentFiltersBarProps {
 export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps) {
   const [localQuery, setLocalQuery] = useState(filters.query ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync external query changes
+  useEffect(() => {
+    setLocalQuery(filters.query ?? "");
+  }, [filters.query]);
 
   const { data: classes = [] } = useQuery({
     queryKey: ["distinct-classes"],
@@ -75,17 +80,17 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
   const sortedClasses = sortClasses(classes);
 
   return (
-    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b px-3 sm:px-6 py-2.5 sm:py-3 shadow-xs">
+    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2.5 sm:py-3 shadow-2xs">
       <div className="flex flex-wrap gap-2 items-center">
         {/* Smart search */}
-        <div className="relative min-w-[170px] flex-1 max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <div className="relative min-w-[170px] flex-1 max-w-xs group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors" />
           <input
             type="text"
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             placeholder="Search name, ID, PEN, Aadhaar…"
-            className="w-full rounded-md border bg-background pl-8 pr-3 py-1.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-ring transition-colors"
+            className="w-full rounded-xl border border-border/90 hover:border-primary/40 bg-card hover:bg-background pl-9 pr-3 py-1.5 text-xs sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
           />
         </div>
 
@@ -190,9 +195,9 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
         {hasFilters && (
           <button
             onClick={clearAll}
-            className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs text-muted-foreground border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
           >
-            <X className="h-3 w-3" />
+            <X className="h-3.5 w-3.5" />
             Clear filters
           </button>
         )}
@@ -212,24 +217,115 @@ function FilterSelect({
   placeholder: string;
   options: { label: string; value: string }[];
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find((o) => o.value === value);
+
+  // Close on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+    <div className="relative" ref={dropdownRef}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "appearance-none rounded-md border bg-background pl-2.5 sm:pl-3 pr-6 sm:pr-7 py-1.5 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer",
-          value ? "text-foreground font-medium border-primary/50 bg-primary/5" : "text-muted-foreground"
+          "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 outline-none select-none cursor-pointer shadow-2xs",
+          value
+            ? "border-primary/60 bg-primary/10 text-primary font-semibold ring-1 ring-primary/30 shadow-xs"
+            : "border-border/90 bg-card hover:bg-background text-foreground/80 hover:text-foreground hover:border-primary/40 hover:shadow-xs",
+          isOpen && "ring-2 ring-primary/25 border-primary shadow-xs"
         )}
       >
-        <option value="">{placeholder}</option>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <span className="truncate max-w-[130px]">
+          {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 transition-transform duration-200 shrink-0",
+            isOpen ? "rotate-180 text-primary" : value ? "text-primary" : "text-muted-foreground/80"
+          )}
+        />
+      </button>
+
+      {/* Floating Animated Menu */}
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 min-w-[170px] max-w-[240px] max-h-[280px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl p-1.5 shadow-xl shadow-black/10 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="px-2 py-1 mb-1 border-b border-border/50 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span>{placeholder}</span>
+            {value && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChange("");
+                  setIsOpen(false);
+                }}
+                className="text-rose-500 hover:underline capitalize"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-0.5">
+            {/* All / Default option */}
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                setIsOpen(false);
+              }}
+              className={cn(
+                "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
+                !value
+                  ? "bg-primary/15 text-primary font-bold"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>All {placeholder}s</span>
+              {!value && <Check className="h-3.5 w-3.5 text-primary" />}
+            </button>
+
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
+                    isSelected
+                      ? "bg-primary/15 text-primary font-bold shadow-2xs"
+                      : "text-foreground hover:bg-primary/10 hover:text-primary"
+                  )}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
