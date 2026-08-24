@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn, sortClasses } from "@/lib/utils";
 import { ArrowRight, ChevronDown } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const CLASS_NEXT: Record<string, string> = {
@@ -27,7 +28,7 @@ export default function PromotionPage() {
   const [selectedSection, setSelectedSection] = useState("");
   const [mode, setMode] = useState<"result" | "manual">("result");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [action, setAction] = useState<"promote" | "detain" | null>(null);
+  const [action, setAction] = useState<"promote" | "detain" | "transfer" | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data: allStudents = [], isLoading } = useQuery({
@@ -45,8 +46,10 @@ export default function PromotionPage() {
     staleTime: Infinity,
   });
 
+  // Only show active Continuing students for Promotion/Transfer
   const filtered = allStudents.filter(
     (s) =>
+      s.currentStatus === "Continuing" &&
       (!selectedClass || s.presentClass === selectedClass) &&
       (!selectedSection || s.presentSection === selectedSection)
   );
@@ -118,9 +121,9 @@ export default function PromotionPage() {
               academicHistory: [...(s.academicHistory || []), completedClassHistory, newPromotedHistory],
             },
           };
-        } else {
-          // Detain / Drop out
-          const dropoutHistory = {
+        } else if (action === "transfer") {
+          // Transfer Out (TC Issued)
+          const transferHistory = {
             year: currentYear,
             class: s.presentClass,
             section: s.presentSection,
@@ -132,7 +135,24 @@ export default function PromotionPage() {
             id: s.id,
             changes: {
               currentStatus: "Drop Out" as StudentStatus,
-              academicHistory: [...(s.academicHistory || []), dropoutHistory],
+              academicHistory: [...(s.academicHistory || []), transferHistory],
+            },
+          };
+        } else {
+          // Detain (Repeat in same class)
+          const detainHistory = {
+            year: currentYear,
+            class: s.presentClass,
+            section: s.presentSection,
+            roll: s.presentRoll,
+            status: "Continuing" as StudentStatus,
+          };
+
+          return {
+            id: s.id,
+            changes: {
+              currentStatus: "Continuing" as StudentStatus,
+              academicHistory: [...(s.academicHistory || []), detainHistory],
             },
           };
         }
@@ -146,41 +166,40 @@ export default function PromotionPage() {
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
       <div>
         <h1 className="text-lg sm:text-xl font-bold">Promotion & Transfer</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          Promote or detain students in bulk.
-        </p>
       </div>
 
       {/* Controls */}
       <div className="rounded-xl border bg-card p-4 flex flex-wrap gap-4 items-center">
         {/* Class */}
-        <div className="relative">
-          <select
+        <div className="min-w-[150px]">
+          <CustomSelect
             value={selectedClass}
-            onChange={(e) => { setSelectedClass(e.target.value); setSelectedIds(new Set()); }}
-            className="appearance-none rounded-md border bg-background pl-3 pr-8 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All Classes</option>
-            {sortClasses(classes).map((c) => (
-              <option key={c} value={c}>Class {c}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            onChange={(val) => {
+              setSelectedClass(val);
+              setSelectedIds(new Set());
+            }}
+            placeholder="All Classes"
+            options={[
+              { label: "All Classes", value: "" },
+              ...sortClasses(classes).map((c) => ({ label: `Class ${c}`, value: c })),
+            ]}
+          />
         </div>
 
         {/* Section */}
-        <div className="relative">
-          <select
+        <div className="min-w-[150px]">
+          <CustomSelect
             value={selectedSection}
-            onChange={(e) => { setSelectedSection(e.target.value); setSelectedIds(new Set()); }}
-            className="appearance-none rounded-md border bg-background pl-3 pr-8 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All Sections</option>
-            {sections.map((s) => (
-              <option key={s} value={s}>Section {s}</option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            onChange={(val) => {
+              setSelectedSection(val);
+              setSelectedIds(new Set());
+            }}
+            placeholder="All Sections"
+            options={[
+              { label: "All Sections", value: "" },
+              ...sections.map((s) => ({ label: `Section ${s}`, value: s })),
+            ]}
+          />
         </div>
 
         {/* Mode toggle */}
@@ -208,22 +227,28 @@ export default function PromotionPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="rounded-lg bg-primary/5 border border-primary/20 px-4 py-2.5 flex items-center justify-between">
-          <p className="text-sm font-medium text-primary">
+        <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+          <p className="text-sm font-semibold text-primary">
             {selectedIds.size} student{selectedIds.size > 1 ? "s" : ""} selected
           </p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => { setAction("promote"); setConfirmOpen(true); }}
-              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+              className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs active:scale-95"
             >
               Promote Selected
             </button>
             <button
               onClick={() => { setAction("detain"); setConfirmOpen(true); }}
-              className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700"
+              className="rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs active:scale-95"
             >
               Detain Selected
+            </button>
+            <button
+              onClick={() => { setAction("transfer"); setConfirmOpen(true); }}
+              className="rounded-xl bg-slate-700 dark:bg-slate-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors shadow-2xs active:scale-95"
+            >
+              Transfer Out (TC)
             </button>
           </div>
         </div>
@@ -252,14 +277,14 @@ export default function PromotionPage() {
                 <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">Name</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">Class / Sec / Roll</th>
                 <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">Status</th>
-                <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">→ After Promote</th>
+                <th className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground">→ After Action</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    No students match the selected filters.
+                    No active continuing students match the selected filters.
                   </td>
                 </tr>
               ) : (
@@ -290,8 +315,8 @@ export default function PromotionPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="text-muted-foreground/60">{s.presentClass}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span className="font-medium text-emerald-700">
-                          {CLASS_NEXT[s.presentClass] ?? s.presentClass}
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                          Class {CLASS_NEXT[s.presentClass] ?? s.presentClass}
                         </span>
                       </div>
                     </td>
@@ -305,32 +330,47 @@ export default function PromotionPage() {
 
       {/* Confirmation Modal */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Confirm {action === "promote" ? "Promotion" : "Detention"}
+              {action === "promote"
+                ? "Confirm Promotion"
+                : action === "transfer"
+                ? "Confirm Transfer (TC Out)"
+                : "Confirm Class Detention"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               The following {selectedStudents.length} student(s) will be{" "}
-              <strong>{action === "promote" ? "promoted" : "marked as Drop Out"}</strong>:
+              <strong>
+                {action === "promote"
+                  ? "promoted to the next academic grade"
+                  : action === "transfer"
+                  ? "transferred out (TC issued)"
+                  : "detained to repeat the same grade"}
+              </strong>:
             </p>
-            <div className="max-h-40 overflow-y-auto rounded-lg border divide-y">
+            <div className="max-h-48 overflow-y-auto rounded-xl border divide-y text-xs">
               {selectedStudents.map((s) => (
                 <div key={s.id} className="flex items-center justify-between px-3 py-2">
-                  <p className="text-sm font-medium">{s.name}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div>
+                    <p className="font-semibold text-foreground">{s.name}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Class {s.presentClass} ({s.presentSection}) — Roll: {s.presentRoll}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
                     {action === "promote" ? (
-                      <>
+                      <div className="flex items-center gap-1 font-semibold text-emerald-600">
                         <span>{s.presentClass}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span className="text-emerald-700 font-medium">
-                          {CLASS_NEXT[s.presentClass] ?? s.presentClass}
-                        </span>
-                      </>
-                    ) : (
+                        <span>{CLASS_NEXT[s.presentClass] ?? s.presentClass}</span>
+                      </div>
+                    ) : action === "transfer" ? (
                       <StatusBadge status="Drop Out" size="sm" />
+                    ) : (
+                      <span className="font-semibold text-amber-600">Repeat Class {s.presentClass}</span>
                     )}
                   </div>
                 </div>
@@ -339,7 +379,7 @@ export default function PromotionPage() {
             <div className="flex justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
+                className="rounded-xl border px-4 py-2 text-xs font-semibold hover:bg-muted"
               >
                 Cancel
               </button>
@@ -347,10 +387,12 @@ export default function PromotionPage() {
                 onClick={handleConfirm}
                 disabled={mutation.isPending}
                 className={cn(
-                  "rounded-md px-4 py-2 text-sm font-medium text-white transition-colors",
+                  "rounded-xl px-4 py-2 text-xs font-semibold text-white transition-colors shadow-xs active:scale-95",
                   action === "promote"
                     ? "bg-emerald-600 hover:bg-emerald-700"
-                    : "bg-rose-600 hover:bg-rose-700"
+                    : action === "transfer"
+                    ? "bg-slate-800 hover:bg-slate-900"
+                    : "bg-amber-600 hover:bg-amber-700"
                 )}
               >
                 {mutation.isPending ? "Processing…" : "Confirm"}

@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { CustomSelect } from "@/components/ui/custom-select";
 import {
   executeBulkUpload,
   executeResultsBulkUpload,
@@ -113,9 +114,41 @@ export default function BulkUploadPage() {
 
   // Execution & Result state
   const [importResult, setImportResult] = useState<any | null>(null);
+  const [issueFilter, setIssueFilter] = useState<"all" | "skipped" | "errors">("all");
   const [rollbackSuccessMsg, setRollbackSuccessMsg] = useState<string | null>(null);
   const [rollbackConfirmBatchId, setRollbackConfirmBatchId] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+
+  const exportSkippedAndErrorsExcel = () => {
+    if (!importResult?.details) return;
+    const skipped = importResult.details.skipped || [];
+    const errors = importResult.details.errors || [];
+
+    const rows: any[] = [];
+    errors.forEach((err: any) => {
+      rows.push({
+        "Status": "FAILED / ERROR",
+        "Excel Row": err.rowNumber || "—",
+        "Student Name": err.name || "—",
+        "School ID / PEN": err.schoolId || "—",
+        "Reason / Issue": err.message || "Import failed",
+      });
+    });
+    skipped.forEach((sk: any) => {
+      rows.push({
+        "Status": "SKIPPED",
+        "Excel Row": sk.rowNumber || "—",
+        "Student Name": sk.name || "—",
+        "School ID / PEN": sk.schoolId || "—",
+        "Reason / Issue": sk.reason || "Duplicate / Identical data",
+      });
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Issues_Log");
+    XLSX.writeFile(wb, `Import_Issues_${importResult.batchId || "batch"}.xlsx`);
+  };
 
   // Query past batches
   const {
@@ -424,9 +457,6 @@ export default function BulkUploadPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight">Bulk Upload Management</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Import, evaluate, and manage student enrollments, historical archives, and examination marks in bulk.
-          </p>
         </div>
         <button
           onClick={() => {
@@ -494,7 +524,7 @@ export default function BulkUploadPage() {
       {step === 1 && (
         <div className="space-y-5">
           {/* Mode Selection Cards */}
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               1. Select Bulk Upload Mode
             </p>
@@ -503,197 +533,191 @@ export default function BulkUploadPage() {
               <div
                 onClick={() => handleModeChange("current_students")}
                 className={cn(
-                  "rounded-xl border p-4 cursor-pointer transition-all flex flex-col justify-between gap-3",
+                  "relative rounded-xl border p-4 cursor-pointer transition-all flex items-center justify-between gap-3",
                   uploadType === "current_students"
                     ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-xs"
-                    : "border-border bg-card hover:border-primary/40 hover:bg-muted/30"
+                    : "border-border bg-card hover:border-primary/40 hover:bg-muted/20"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-blue-100 dark:bg-blue-900/40 p-2.5 text-blue-700 dark:text-blue-400">
                     <GraduationCap className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">Current Active Students</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Enrolment records for active {currentYear} or previous session cohorts.
-                    </p>
-                  </div>
+                  <h3 className="font-semibold text-sm">Current Active Students</h3>
                 </div>
-                <Badge variant={uploadType === "current_students" ? "default" : "outline"} className="w-fit text-[10px]">
-                  {uploadType === "current_students" ? "Selected Mode" : "Select"}
-                </Badge>
+                <div
+                  className={cn(
+                    "h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center",
+                    uploadType === "current_students"
+                      ? "border-primary bg-primary"
+                      : "border-muted-foreground/30 bg-transparent"
+                  )}
+                >
+                  {uploadType === "current_students" && (
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                  )}
+                </div>
               </div>
 
               {/* Card 2: Old Students */}
               <div
                 onClick={() => handleModeChange("old_students")}
                 className={cn(
-                  "rounded-xl border p-4 cursor-pointer transition-all flex flex-col justify-between gap-3",
+                  "relative rounded-xl border p-4 cursor-pointer transition-all flex items-center justify-between gap-3",
                   uploadType === "old_students"
                     ? "border-amber-600 bg-amber-50/40 dark:bg-amber-950/20 ring-2 ring-amber-500/20 shadow-xs"
-                    : "border-border bg-card hover:border-amber-500/40 hover:bg-muted/30"
+                    : "border-border bg-card hover:border-amber-500/40 hover:bg-muted/20"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-amber-100 dark:bg-amber-900/40 p-2.5 text-amber-700 dark:text-amber-400">
                     <Archive className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">Old / Archived Students</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Past batches, alumni & transferred student archives.
-                    </p>
-                  </div>
+                  <h3 className="font-semibold text-sm">Old / Archived Students</h3>
                 </div>
-                <Badge variant={uploadType === "old_students" ? "default" : "outline"} className="w-fit text-[10px]">
-                  {uploadType === "old_students" ? "Selected Mode" : "Select"}
-                </Badge>
+                <div
+                  className={cn(
+                    "h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center",
+                    uploadType === "old_students"
+                      ? "border-amber-600 bg-amber-600"
+                      : "border-muted-foreground/30 bg-transparent"
+                  )}
+                >
+                  {uploadType === "old_students" && (
+                    <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                  )}
+                </div>
               </div>
 
               {/* Card 3: Results Bulk Upload */}
               <div
                 onClick={() => handleModeChange("exam_results")}
                 className={cn(
-                  "rounded-xl border p-4 cursor-pointer transition-all flex flex-col justify-between gap-3",
+                  "relative rounded-xl border p-4 cursor-pointer transition-all flex items-center justify-between gap-3",
                   uploadType === "exam_results"
                     ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/20 ring-2 ring-emerald-500/20 shadow-xs"
-                    : "border-border bg-card hover:border-emerald-500/40 hover:bg-muted/30"
+                    : "border-border bg-card hover:border-emerald-500/40 hover:bg-muted/20"
                 )}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-emerald-100 dark:bg-emerald-900/40 p-2.5 text-emerald-700 dark:text-emerald-400">
                     <Award className="h-5 w-5" />
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-sm">Examination Results</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Marksheet archives for both Old and Current sessions.
-                    </p>
-                  </div>
+                  <h3 className="font-semibold text-sm">Examination Results</h3>
                 </div>
-                <Badge variant={uploadType === "exam_results" ? "default" : "outline"} className="w-fit text-[10px]">
-                  {uploadType === "exam_results" ? "Selected Mode" : "Select"}
-                </Badge>
+                <div
+                  className={cn(
+                    "h-3.5 w-3.5 rounded-full border-2 transition-all flex items-center justify-center",
+                    uploadType === "exam_results"
+                      ? "border-emerald-600 bg-emerald-600"
+                      : "border-muted-foreground/30 bg-transparent"
+                  )}
+                >
+                  {uploadType === "exam_results" && (
+                    <div className="h-1.5 w-1.5 rounded-full bg-white" />
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Configuration Card */}
-          <div className="rounded-xl border bg-card p-6 space-y-5 shadow-xs">
+          <div className="rounded-xl border bg-card p-5 sm:p-6 space-y-6 shadow-xs">
             {/* Student Upload Target Session & Class Config */}
             {!isResultsMode ? (
-              <div className="rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-blue-900 dark:text-blue-300 font-semibold text-xs">
-                  <Calendar className="h-4 w-4 text-blue-600" />
-                  <span>
-                    Target Session Year & Class Assignment (Applies to all uploaded rows if unspecified in Excel)
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-muted/30 border p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                      Academic Session / Admission Year *
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                      Academic Session *
                     </label>
-                    <select
+                    <CustomSelect
                       value={targetSessionYear}
-                      onChange={(e) => setTargetSessionYear(Number(e.target.value))}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      {YEAR_OPTIONS.map((yr) => (
-                        <option key={yr} value={yr}>
-                          Session {yr} {yr === currentYear ? "(Current Active)" : "(Historical Session)"}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setTargetSessionYear(Number(val))}
+                      options={YEAR_OPTIONS.map((yr) => ({
+                        label: `Session ${yr} ${yr === currentYear ? "(Current Active)" : "(Historical Session)"}`,
+                        value: yr,
+                      }))}
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                       Target Class
                     </label>
-                    <select
+                    <CustomSelect
                       value={targetClass}
-                      onChange={(e) => setTargetClass(e.target.value)}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      <option value="AUTO">Auto-Detect from Excel / Multi-Class</option>
-                      {CLASSES.map((c) => (
-                        <option key={c} value={c}>Class {c}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setTargetClass(String(val))}
+                      options={[
+                        { label: "Auto-Detect from Excel / Multi-Class", value: "AUTO" },
+                        ...CLASSES.map((c) => ({ label: `Class ${c}`, value: c })),
+                      ]}
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                       Target Section
                     </label>
-                    <select
+                    <CustomSelect
                       value={targetSection}
-                      onChange={(e) => setTargetSection(e.target.value)}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      <option value="AUTO">Auto-Detect from Excel / Any Section</option>
-                      <option value="A">Section A</option>
-                      <option value="B">Section B</option>
-                      <option value="C">Section C</option>
-                    </select>
+                      onChange={(val) => setTargetSection(String(val))}
+                      options={[
+                        { label: "Auto-Detect from Excel / Any Section", value: "AUTO" },
+                        { label: "Section A", value: "A" },
+                        { label: "Section B", value: "B" },
+                        { label: "Section C", value: "C" },
+                      ]}
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                       Default Status *
                     </label>
-                    <select
+                    <CustomSelect
                       value={targetStatus}
-                      onChange={(e) => setTargetStatus(e.target.value as StudentStatus)}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      <option value="Passed Out">Passed Out (Old / Alumni)</option>
-                      <option value="Drop Out">Drop Out</option>
-                      <option value="Continuing">Continuing (Active)</option>
-                      <option value="Sent Up M.P.">Sent Up M.P.</option>
-                      <option value="C.C.H.S.">C.C.H.S.</option>
-                    </select>
+                      onChange={(val) => setTargetStatus(val as StudentStatus)}
+                      options={[
+                        { label: "Passed Out (Old / Alumni)", value: "Passed Out" },
+                        { label: "Drop Out", value: "Drop Out" },
+                        { label: "Continuing (Active)", value: "Continuing" },
+                        { label: "Sent Up M.P.", value: "Sent Up M.P." },
+                        { label: "C.C.H.S.", value: "C.C.H.S." },
+                      ]}
+                    />
                   </div>
                 </div>
               </div>
             ) : (
               /* Result Specific Configuration */
-              <div className="rounded-lg bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 p-4 space-y-3">
-                <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-300 font-semibold text-xs">
-                  <Award className="h-4 w-4 text-emerald-600" />
-                  <span>Target Evaluation & Academic Session</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-xl bg-muted/30 border p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                      Academic Session (Year) *
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                      Academic Session *
                     </label>
-                    <select
+                    <CustomSelect
                       value={resultYear}
-                      onChange={(e) => setResultYear(Number(e.target.value))}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      {YEAR_OPTIONS.map((yr) => (
-                        <option key={yr} value={yr}>
-                          Session {yr} {yr === currentYear ? "(Current)" : "(Historical Archive)"}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => setResultYear(Number(val))}
+                      options={YEAR_OPTIONS.map((yr) => ({
+                        label: `Session ${yr} ${yr === currentYear ? "(Current)" : "(Historical Archive)"}`,
+                        value: yr,
+                      }))}
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                       Default Evaluation / Exam *
                     </label>
-                    <select
+                    <CustomSelect
                       value={resultExam}
-                      onChange={(e) => setResultExam(e.target.value)}
-                      className="w-full rounded-md border bg-background px-3 py-2 text-xs font-semibold"
-                    >
-                      <option value="1st Summative Evaluation">1st Summative Evaluation</option>
-                      <option value="2nd Summative Evaluation">2nd Summative Evaluation</option>
-                      <option value="3rd Summative Evaluation">3rd Summative Evaluation / Annual</option>
-                      <option value="Selection Test">Selection Test (Pre-Board)</option>
-                      <option value="Unit Test">Unit Test</option>
-                    </select>
+                      onChange={(val) => setResultExam(String(val))}
+                      options={[
+                        { label: "1st Summative Evaluation", value: "1st Summative Evaluation" },
+                        { label: "2nd Summative Evaluation", value: "2nd Summative Evaluation" },
+                        { label: "3rd Summative Evaluation / Annual", value: "3rd Summative Evaluation" },
+                        { label: "Selection Test (Pre-Board)", value: "Selection Test" },
+                        { label: "Unit Test", value: "Unit Test" },
+                      ]}
+                    />
                   </div>
                 </div>
               </div>
@@ -701,17 +725,11 @@ export default function BulkUploadPage() {
 
             {/* Template Downloader Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
-              <div>
-                <p className="text-sm font-semibold">2. Spreadsheet File Upload</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Upload .xlsx, .xls, or .csv containing{" "}
-                  {isResultsMode ? "student examination marks" : "student records"}.
-                </p>
-              </div>
+              <p className="text-sm font-semibold">2. Spreadsheet File Upload</p>
               <button
                 type="button"
                 onClick={() => downloadSampleTemplate(uploadType)}
-                className="flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/30 hover:bg-primary/5 px-3 py-1.5 rounded-md transition-colors"
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary border border-primary/30 hover:bg-primary/5 px-3 py-1.5 rounded-lg transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
                 Download Sample {isResultsMode ? "Marks" : "Student"} Template
@@ -847,95 +865,28 @@ export default function BulkUploadPage() {
                             ? String(sampleVal)
                             : "—"}
                         </td>
-                        <td className="px-4 py-2.5">
-                          <select
+                        <td className="px-4 py-2.5 min-w-[280px]">
+                          <CustomSelect
                             value={currentMapping}
-                            onChange={(e) =>
+                            onChange={(val) =>
                               setColumnMapping((prev) => ({
                                 ...prev,
-                                [header]: e.target.value as any,
+                                [header]: val as any,
                               }))
                             }
-                            className={cn(
-                              "rounded-md border px-2.5 py-1 text-xs font-medium outline-none focus:ring-2 focus:ring-primary w-full max-w-xs",
-                              currentMapping === "ignore"
-                                ? "bg-muted/40 text-muted-foreground"
-                                : "bg-background font-semibold text-foreground border-primary/40"
-                            )}
-                          >
-                            <option value="ignore">— Ignore this column —</option>
-
-                            {isResultsMode ? (
-                              <>
-                                <optgroup label="Student Identifiers">
-                                  {RESULT_TARGET_FIELDS.filter((f) => f.category === "Identifier").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label} {f.required ? "*" : ""}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Enrolment Specifics">
-                                  {RESULT_TARGET_FIELDS.filter((f) => f.category === "Enrolment").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Exam & Marks">
-                                  {RESULT_TARGET_FIELDS.filter((f) => ["Exam", "Marks"].includes(f.category)).map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label} {f.required ? "*" : ""}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Individual Subjects">
-                                  {RESULT_TARGET_FIELDS.filter((f) => f.category === "Subjects").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              </>
-                            ) : (
-                              <>
-                                <optgroup label="Core & Identifiers">
-                                  {TARGET_FIELDS.filter((f) => ["Core", "Identifiers"].includes(f.category)).map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label} {f.required ? "*" : ""}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Enrolment Details">
-                                  {TARGET_FIELDS.filter((f) => f.category === "Enrolment").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label} {f.required ? "*" : ""}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Demographics">
-                                  {TARGET_FIELDS.filter((f) => f.category === "Demographics").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label} {f.required ? "*" : ""}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Family & Contact">
-                                  {TARGET_FIELDS.filter((f) => ["Family", "Contact"].includes(f.category)).map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                                <optgroup label="Bank Details">
-                                  {TARGET_FIELDS.filter((f) => f.category === "Bank").map((f) => (
-                                    <option key={f.key} value={f.key}>
-                                      {f.label}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              </>
-                            )}
-                          </select>
+                            options={[
+                              { label: "— Ignore this column —", value: "ignore" },
+                              ...(isResultsMode
+                                ? RESULT_TARGET_FIELDS.map((f) => ({
+                                    label: `[${f.category}] ${f.label}${f.required ? " *" : ""}`,
+                                    value: f.key,
+                                  }))
+                                : TARGET_FIELDS.map((f) => ({
+                                    label: `[${f.category}] ${f.label}${f.required ? " *" : ""}`,
+                                    value: f.key,
+                                  }))),
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -1189,6 +1140,117 @@ export default function BulkUploadPage() {
               <p className="text-2xl font-bold text-rose-700 mt-1">{importResult.summary.errorCount}</p>
             </div>
           </div>
+
+          {/* Detailed Skipped / Failed Table if any */}
+          {((importResult.details?.skipped?.length || 0) > 0 || (importResult.details?.errors?.length || 0) > 0) && (
+            <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <h3 className="text-sm font-bold text-foreground">
+                    Skipped & Unprocessed Rows ({(importResult.details?.skipped?.length || 0) + (importResult.details?.errors?.length || 0)})
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-lg border overflow-hidden p-0.5 bg-background text-xs">
+                    <button
+                      onClick={() => setIssueFilter("all")}
+                      className={cn(
+                        "px-2.5 py-1 rounded-md font-medium transition-all",
+                        issueFilter === "all" ? "bg-primary text-primary-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      All ({(importResult.details?.skipped?.length || 0) + (importResult.details?.errors?.length || 0)})
+                    </button>
+                    {(importResult.details?.skipped?.length || 0) > 0 && (
+                      <button
+                        onClick={() => setIssueFilter("skipped")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-md font-medium transition-all",
+                          issueFilter === "skipped" ? "bg-primary text-primary-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Skipped ({importResult.details?.skipped?.length || 0})
+                      </button>
+                    )}
+                    {(importResult.details?.errors?.length || 0) > 0 && (
+                      <button
+                        onClick={() => setIssueFilter("errors")}
+                        className={cn(
+                          "px-2.5 py-1 rounded-md font-medium transition-all",
+                          issueFilter === "errors" ? "bg-primary text-primary-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Errors ({importResult.details?.errors?.length || 0})
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={exportSkippedAndErrorsExcel}
+                    className="flex items-center gap-1.5 rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
+                  >
+                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                    Download Issues (.xlsx)
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-card overflow-hidden max-h-[280px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/60 border-b sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-16">Row</th>
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground w-24">Type</th>
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Student Name</th>
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Identifier</th>
+                      <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Reason / Issue Detail</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {(() => {
+                      const skipped = (importResult.details?.skipped || []).map((s: any) => ({
+                        type: "skipped" as const,
+                        rowNumber: s.rowNumber || "—",
+                        name: s.name || "Unnamed",
+                        schoolId: s.schoolId || "—",
+                        message: s.reason || "Duplicate / No changes detected",
+                      }));
+                      const errors = (importResult.details?.errors || []).map((e: any) => ({
+                        type: "error" as const,
+                        rowNumber: e.rowNumber || "—",
+                        name: e.name || "—",
+                        schoolId: e.schoolId || "—",
+                        message: e.message || "Import failed",
+                      }));
+                      const items = issueFilter === "all" ? [...errors, ...skipped] : issueFilter === "skipped" ? skipped : errors;
+
+                      return items.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="px-3 py-2 font-mono text-muted-foreground">{item.rowNumber}</td>
+                          <td className="px-3 py-2">
+                            {item.type === "error" ? (
+                              <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                                Failed
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 text-[10px] px-1.5 py-0">
+                                Skipped
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 font-semibold text-foreground">{item.name}</td>
+                          <td className="px-3 py-2 font-mono text-muted-foreground">{item.schoolId}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{item.message}</td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t">

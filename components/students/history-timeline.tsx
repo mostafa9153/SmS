@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface HistoryTimelineProps {
   history: AcademicHistoryEntry[];
@@ -203,16 +203,13 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1">
                   <Label htmlFor="class" className="text-xs">Class</Label>
-                  <Select value={editClass} onValueChange={(val) => setEditClass(val || "")} disabled={mutation.isPending}>
-                    <SelectTrigger id="class">
-                      <SelectValue placeholder="Select Class" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CLASSES.map((c) => (
-                        <SelectItem key={c} value={c}>Class {c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CustomSelect
+                    value={editClass}
+                    onChange={(val) => setEditClass(String(val))}
+                    placeholder="Select Class"
+                    options={CLASSES.map((c) => ({ label: `Class ${c}`, value: c }))}
+                    disabled={mutation.isPending}
+                  />
                 </div>
 
                 <div className="grid gap-1">
@@ -243,16 +240,13 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
 
                 <div className="grid gap-1">
                   <Label htmlFor="status" className="text-xs">Year-End Status</Label>
-                  <Select value={editStatus} onValueChange={(val) => setEditStatus((val as StudentStatus) || "Continuing")} disabled={mutation.isPending}>
-                    <SelectTrigger id="status">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUSES.map((s) => (
-                        <SelectItem key={s} value={s}>{s}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CustomSelect
+                    value={editStatus}
+                    onChange={(val) => setEditStatus((val as StudentStatus) || "Continuing")}
+                    placeholder="Select Status"
+                    options={STATUSES.map((s) => ({ label: s, value: s }))}
+                    disabled={mutation.isPending}
+                  />
                 </div>
               </div>
             </div>

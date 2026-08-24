@@ -13,6 +13,7 @@ import {
   AlertCircle, 
   Check, 
   Lock,
+  KeyRound,
   UserCheck,
   Activity,
   Building,
@@ -34,6 +35,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showToast } from "@/components/ui/toast-banner";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface UserProfile {
   id: string;
@@ -86,6 +88,13 @@ export function SettingsClient() {
   const [newPassword, setNewPassword] = useState("");
   const [newRole, setNewRole] = useState<"Admin" | "Staff">("Staff");
   const [formError, setFormError] = useState("");
+
+  // Edit / Reset Password State
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editFullName, setEditFullName] = useState("");
+  const [editRole, setEditRole] = useState<"Admin" | "Staff">("Staff");
+  const [editPassword, setEditPassword] = useState("");
+  const [editError, setEditError] = useState("");
 
   // Audit log detail modal state
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
@@ -232,6 +241,46 @@ export function SettingsClient() {
     },
   });
 
+  // 5.5. Update User / Reset Password Mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (payload: {
+      userId: string;
+      newPassword?: string;
+      newRole?: "Admin" | "Staff";
+      newFullName?: string;
+    }) => {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Failed to update user");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      showToast({
+        type: "success",
+        title: "User Updated",
+        description: "User details and password updated successfully.",
+      });
+      setEditingUser(null);
+      setEditPassword("");
+      setEditError("");
+    },
+    onError: (err: any) => {
+      setEditError(err.message || "Failed to update user");
+      showToast({
+        type: "error",
+        title: "Update Failed",
+        description: err.message || "Could not update user.",
+      });
+    },
+  });
+
   // 6. Data Wipeout Mutation
   const wipeoutMutation = useMutation({
     mutationFn: async (payload: {
@@ -337,30 +386,42 @@ export function SettingsClient() {
       {/* Header */}
       <div>
         <h1 className="text-lg sm:text-xl font-bold tracking-tight">System Settings</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          Manage system users, view security audit logs, and configure school metadata.
-        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-        <TabsList className="bg-muted p-1 rounded-xl flex-wrap h-auto gap-1">
-          <TabsTrigger value="users" className="flex items-center gap-1.5 text-xs">
-            <UserPlus className="h-3.5 w-3.5" />
+        <TabsList className="bg-muted/60 border backdrop-blur-md p-1 rounded-2xl flex-wrap h-auto gap-1 shadow-2xs">
+          <TabsTrigger
+            value="users"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
+          >
+            <UserPlus className="h-3.5 w-3.5 text-primary" />
             User Management
           </TabsTrigger>
-          <TabsTrigger value="session" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger
+            value="session"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
+          >
             <CalendarClock className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
             Academic Session
           </TabsTrigger>
-          <TabsTrigger value="audit" className="flex items-center gap-1.5 text-xs">
-            <Activity className="h-3.5 w-3.5" />
+          <TabsTrigger
+            value="audit"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
+          >
+            <Activity className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
             Audit Logs
           </TabsTrigger>
-          <TabsTrigger value="config" className="flex items-center gap-1.5 text-xs">
-            <Sliders className="h-3.5 w-3.5" />
+          <TabsTrigger
+            value="config"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
+          >
+            <Sliders className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
             School Config
           </TabsTrigger>
-          <TabsTrigger value="danger" className="flex items-center gap-1.5 text-xs text-rose-600 dark:text-rose-400 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-700 dark:data-[state=active]:text-rose-300">
+          <TabsTrigger
+            value="danger"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all text-rose-600 dark:text-rose-400 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-700 dark:data-[state=active]:text-rose-300 data-[state=active]:shadow-2xs"
+          >
             <ShieldAlert className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
             Danger Zone
           </TabsTrigger>
@@ -368,18 +429,18 @@ export function SettingsClient() {
 
         {/* Tab 1: User Management */}
         <TabsContent value="users" className="space-y-4 outline-none">
-          <Card className="border-muted bg-card">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 space-y-0 pb-4">
-              <div>
-                <CardTitle className="text-sm sm:text-base font-semibold">Authorized System Users</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Administrators and staff members who can access the Student Management System.
-                </CardDescription>
+          <div className="rounded-2xl border bg-card/90 backdrop-blur shadow-sm overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-base font-bold text-foreground">Authorized System Users</h2>
+                <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                  {usersData?.users.length || 0} Registered
+                </Badge>
               </div>
 
               {/* Add User Dialog Trigger */}
               <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-                <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl active:scale-95 shadow-2xs" />}>
+                <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl active:scale-95 shadow-xs font-semibold text-xs px-3.5 py-2" />}>
                   <UserPlus className="h-4 w-4" />
                   Add New User
                 </DialogTrigger>
@@ -437,19 +498,15 @@ export function SettingsClient() {
 
                       <div className="grid gap-1">
                         <Label htmlFor="role" className="text-xs">Access Role</Label>
-                        <Select
+                        <CustomSelect
                           value={newRole}
-                          onValueChange={(val: any) => setNewRole(val)}
+                          onChange={(val) => setNewRole(val as any)}
+                          options={[
+                            { label: "Staff (Data Entry & View)", value: "Staff" },
+                            { label: "Admin (Full Control)", value: "Admin" },
+                          ]}
                           disabled={createUserMutation.isPending}
-                        >
-                          <SelectTrigger id="role" className="w-full">
-                            <SelectValue placeholder="Select access role" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Staff">Staff (Data Entry & View)</SelectItem>
-                            <SelectItem value="Admin">Admin (Full Control)</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        />
                       </div>
                     </div>
 
@@ -476,11 +533,11 @@ export function SettingsClient() {
                   </form>
                 </DialogContent>
               </Dialog>
-            </CardHeader>
+            </div>
 
-            <CardContent className="p-0">
+            <div>
               {isLoadingUsers ? (
-                <div className="p-8 text-center text-sm text-muted-foreground flex justify-center items-center gap-2">
+                <div className="p-10 text-center text-sm text-muted-foreground flex justify-center items-center gap-2">
                   <RefreshCw className="h-4 w-4 animate-spin text-primary" />
                   Loading user list...
                 </div>
@@ -490,76 +547,199 @@ export function SettingsClient() {
                   <p>Failed to load users: {usersError.message}</p>
                 </div>
               ) : (
-                <div className="border-t">
-                  <Table>
-                    <TableHeader className="bg-muted/30">
-                      <TableRow>
-                        <TableHead>Full Name</TableHead>
-                        <TableHead>Email Address</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Created At</TableHead>
-                        <TableHead className="w-[80px] text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {usersData?.users.map((u) => {
-                        const isSelf = u.id === currentUser?.id;
-                        return (
-                          <TableRow key={u.id} className="hover:bg-muted/10">
-                            <TableCell className="font-medium flex items-center gap-2 py-3.5">
-                              {u.fullName}
+                <Table>
+                  <TableHeader className="bg-muted/40">
+                    <TableRow>
+                      <TableHead className="font-semibold text-xs text-muted-foreground">Full Name</TableHead>
+                      <TableHead className="font-semibold text-xs text-muted-foreground">Email Address</TableHead>
+                      <TableHead className="font-semibold text-xs text-muted-foreground">Role</TableHead>
+                      <TableHead className="font-semibold text-xs text-muted-foreground">Created At</TableHead>
+                      <TableHead className="w-[80px] text-right font-semibold text-xs text-muted-foreground">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {usersData?.users.map((u) => {
+                      const isSelf = u.id === currentUser?.id;
+                      const initials = u.fullName
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")
+                        .toUpperCase() || "U";
+
+                      return (
+                        <TableRow key={u.id} className="hover:bg-muted/20 transition-colors">
+                          <TableCell className="font-semibold text-xs text-foreground py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-7 w-7 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-[10px]">
+                                {initials}
+                              </div>
+                              <span>{u.fullName}</span>
                               {isSelf && (
-                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-sky-50 text-sky-700 border-sky-200">
+                                <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200">
                                   You
                                 </Badge>
                               )}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                            <TableCell>
-                              <Badge 
-                                className={
-                                  u.role === "Admin" 
-                                    ? "bg-amber-100 hover:bg-amber-100 text-amber-800 border-amber-200 font-medium" 
-                                    : "bg-emerald-100 hover:bg-emerald-100 text-emerald-800 border-emerald-200 font-medium"
-                                }
-                              >
-                                {u.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {new Date(u.createdAt).toLocaleDateString(undefined, {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              })}
-                            </TableCell>
-                            <TableCell className="text-right py-2">
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono">{u.email}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              className={
+                                u.role === "Admin" 
+                                  ? "bg-amber-100 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 font-semibold text-[11px] px-2 py-0.5 rounded-md" 
+                                  : "bg-emerald-100 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 font-semibold text-[11px] px-2 py-0.5 rounded-md"
+                              }
+                            >
+                              {u.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(u.createdAt).toLocaleDateString(undefined, {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </TableCell>
+                          <TableCell className="text-right py-2">
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                                onClick={() => {
+                                  setEditingUser(u);
+                                  setEditFullName(u.fullName);
+                                  setEditRole(u.role);
+                                  setEditPassword("");
+                                  setEditError("");
+                                }}
+                                title="Reset password or change role"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
                                 disabled={isSelf || deleteUserMutation.isPending}
                                 onClick={() => handleDeleteUser(u.id, u.email)}
+                                title={isSelf ? "Cannot delete own account" : "Delete user account"}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                      {usersData?.users.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                            No other system users found.
+                            </div>
                           </TableCell>
                         </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                      );
+                    })}
+                    {usersData?.users.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
+                          No other system users found.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               )}
-            </CardContent>
-          </Card>
+            </div>
+
+            {/* Edit User / Reset Password Dialog */}
+            <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+              <DialogContent className="sm:max-w-[425px]">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!editingUser) return;
+                    updateUserMutation.mutate({
+                      userId: editingUser.id,
+                      newFullName: editFullName,
+                      newRole: editRole,
+                      newPassword: editPassword.trim() ? editPassword.trim() : undefined,
+                    });
+                  }}
+                >
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <KeyRound className="h-5 w-5 text-primary" />
+                      Edit User & Reset Password
+                    </DialogTitle>
+                    <DialogDescription>
+                      Update profile name, role, or assign a new password for <span className="font-semibold text-foreground">{editingUser?.email}</span>.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="grid gap-4 py-4">
+                    {editError && (
+                      <div className="flex items-center gap-2 rounded-md bg-destructive/10 p-3 text-xs text-destructive">
+                        <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                        <p>{editError}</p>
+                      </div>
+                    )}
+
+                    <div className="grid gap-1">
+                      <Label htmlFor="editFullName" className="text-xs">Full Name</Label>
+                      <Input
+                        id="editFullName"
+                        value={editFullName}
+                        onChange={(e) => setEditFullName(e.target.value)}
+                        disabled={updateUserMutation.isPending}
+                      />
+                    </div>
+
+                    <div className="grid gap-1">
+                      <Label htmlFor="editRole" className="text-xs">Access Role</Label>
+                      <CustomSelect
+                        value={editRole}
+                        onChange={(val) => setEditRole(val as any)}
+                        options={[
+                          { label: "Staff (Data Entry & View)", value: "Staff" },
+                          { label: "Admin (Full Control)", value: "Admin" },
+                        ]}
+                        disabled={updateUserMutation.isPending}
+                      />
+                    </div>
+
+                    <div className="grid gap-1">
+                      <Label htmlFor="editPassword" className="text-xs">
+                        New Password <span className="text-muted-foreground font-normal">(Leave blank to keep unchanged)</span>
+                      </Label>
+                      <Input
+                        id="editPassword"
+                        type="password"
+                        value={editPassword}
+                        onChange={(e) => setEditPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        disabled={updateUserMutation.isPending}
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditingUser(null)}
+                      disabled={updateUserMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={updateUserMutation.isPending}>
+                      {updateUserMutation.isPending ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </TabsContent>
 
         {/* Tab 2: Audit Logs */}
@@ -596,8 +776,8 @@ export function SettingsClient() {
                             {new Date(log.createdAt).toLocaleString()}
                           </TableCell>
                           <TableCell className="font-medium">
-                            <div>{log.performedBy.fullName}</div>
-                            <div className="text-[10px] text-muted-foreground">{log.performedBy.role}</div>
+                            <div>{log.performedBy?.fullName || "System Admin"}</div>
+                            <div className="text-[10px] text-muted-foreground">{log.performedBy?.role || "Admin"}</div>
                           </TableCell>
                           <TableCell>
                             <Badge 
@@ -663,7 +843,7 @@ export function SettingsClient() {
                   </div>
                   <div>
                     <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Performer</span>
-                    <span>{selectedLog?.performedBy.fullName} ({selectedLog?.performedBy.role})</span>
+                    <span>{selectedLog?.performedBy?.fullName || "System Admin"} ({selectedLog?.performedBy?.role || "Admin"})</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider">Action</span>

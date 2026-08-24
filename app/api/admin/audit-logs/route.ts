@@ -49,11 +49,28 @@ export async function GET() {
       if (simpleError) {
         return NextResponse.json({ error: simpleError.message }, { status: 500 });
       }
-      return NextResponse.json({ logs: simpleLogs });
+
+      // Format fallback logs
+      const formattedSimpleLogs = (simpleLogs || []).map((log: any) => ({
+        id: log.id,
+        action: log.action,
+        tableName: log.table_name,
+        recordId: log.record_id,
+        oldValues: log.old_values,
+        newValues: log.new_values,
+        metadata: log.metadata,
+        createdAt: log.created_at,
+        performedBy: {
+          id: log.performed_by || "system",
+          fullName: "System Admin",
+          role: "Admin",
+        },
+      }));
+      return NextResponse.json({ logs: formattedSimpleLogs });
     }
 
     // Format logs to include performer name
-    const formattedLogs = logs.map((log: any) => ({
+    const formattedLogs = (logs || []).map((log: any) => ({
       id: log.id,
       action: log.action,
       tableName: log.table_name,
@@ -63,9 +80,9 @@ export async function GET() {
       metadata: log.metadata,
       createdAt: log.created_at,
       performedBy: {
-        id: log.performed_by,
-        fullName: log.user_roles?.full_name || "Unknown",
-        role: log.user_roles?.role || "Staff",
+        id: log.performed_by || "system",
+        fullName: log.user_roles?.full_name || "System Admin",
+        role: log.user_roles?.role || "Admin",
       },
     }));
 

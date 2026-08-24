@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { CustomSelect } from "@/components/ui/custom-select";
 import * as XLSX from "xlsx";
 
 const CLASS_OPTIONS = [
@@ -298,185 +299,102 @@ export default function ResultsClient() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">Results & Marks Management</h1>
-            <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-              Exam Module
-            </Badge>
-          </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            Enter marks, view percentage breakdowns, and evaluate dual ranks (Section Rank & Class Rank).
-          </p>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Results & Marks Management</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {isBatchMode ? (
-            <button
-              onClick={handleSaveBatchMarks}
-              disabled={isSavingBatch}
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs animate-pulse active:scale-95"
-            >
-              <Check className="h-3.5 w-3.5" />
-              {isSavingBatch ? "Saving All…" : "Save All Entered Marks"}
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                // Pre-populate batchMarks with existing marks
-                const initial: Record<string, string> = {};
-                (summary?.results || []).forEach((r) => {
-                  if (r.marksObtained > 0) initial[r.studentId] = String(r.marksObtained);
-                });
-                setBatchMarks(initial);
-                setIsBatchMode(true);
-              }}
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs active:scale-95"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              ⚡ Batch Marks Entry
-            </button>
-          )}
-
-          {isBatchMode && (
-            <button
-              onClick={() => setIsBatchMode(false)}
-              className="rounded-xl border bg-background px-3 py-2 text-xs font-medium hover:bg-muted active:scale-95"
-            >
-              Cancel
-            </button>
-          )}
-
           <button
             onClick={() => rankMutation.mutate()}
             disabled={rankMutation.isPending || isFetching}
-            className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3 py-2 text-xs font-medium hover:bg-muted transition-colors shadow-2xs active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95 disabled:opacity-50"
           >
             <RotateCw className={cn("h-3.5 w-3.5 text-muted-foreground", rankMutation.isPending && "animate-spin")} />
             Recalculate Ranks
           </button>
           <a
             href="/students/bulk-upload"
-            className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10 transition-colors shadow-2xs active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
           >
-            <Upload className="h-3.5 w-3.5" />
+            <Upload className="h-3.5 w-3.5 text-muted-foreground" />
             Bulk Upload Marks
           </a>
           <button
             onClick={handleExportExcel}
             disabled={!summary || summary.results.length === 0}
-            className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs disabled:opacity-50 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs disabled:opacity-50 active:scale-95"
           >
-            <Download className="h-3.5 w-3.5" />
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
             Export Excel
           </button>
         </div>
       </div>
 
       {/* Filter Controls Bar */}
-      <div className="rounded-xl border bg-card/90 backdrop-blur p-4 shadow-sm space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-end">
-          {/* Academic Year */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Academic Year
-            </label>
-            <div className="relative">
-              <select
-                value={academicYear}
-                onChange={(e) => setAcademicYear(Number(e.target.value))}
-                className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-xs font-semibold text-foreground shadow-xs outline-none transition-all hover:bg-muted/40 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                {[currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3].map((yr) => (
-                  <option key={yr} value={yr} className="bg-popover text-popover-foreground py-1">
-                    {yr} — Academic Session
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            </div>
+      <div className="rounded-xl border bg-card/90 backdrop-blur p-3 sm:p-3.5 shadow-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 items-center">
+          {/* Academic Session */}
+          <div>
+            <CustomSelect
+              value={academicYear}
+              onChange={(val) => setAcademicYear(Number(val))}
+              options={[currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3].map((yr) => ({
+                label: `${yr} — Academic Session`,
+                value: yr,
+              }))}
+            />
           </div>
 
-          {/* Mandatory Class Selector */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-primary">
-                Class Standard <span className="text-rose-500">*</span>
-              </label>
-              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
-                {currentFullMarks} Marks
-              </span>
-            </div>
-            <div className="relative">
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full appearance-none rounded-lg border-2 border-primary/40 bg-primary/5 pl-3 pr-8 py-2 text-xs font-bold text-primary shadow-xs outline-none transition-all hover:border-primary hover:bg-primary/10 focus:border-primary focus:ring-2 focus:ring-primary/30 cursor-pointer"
-              >
-                {CLASS_OPTIONS.map((c) => (
-                  <option key={c.value} value={c.value} className="bg-popover text-popover-foreground py-1 font-semibold">
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary" />
-            </div>
+          {/* Mandatory Class Selector with star on top-right */}
+          <div className="relative">
+            <CustomSelect
+              value={selectedClass}
+              onChange={(val) => setSelectedClass(val)}
+              options={CLASS_OPTIONS.map((c) => ({
+                label: c.label,
+                value: c.value,
+              }))}
+              triggerClassName="border-primary/40 bg-primary/5 text-primary font-bold hover:border-primary hover:bg-primary/10 pr-6"
+            />
+            <span className="absolute top-2 right-6 text-rose-500 font-bold text-xs pointer-events-none" title="Required Field">
+              *
+            </span>
           </div>
 
           {/* Section Selector */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Section
-            </label>
-            <div className="relative">
-              <select
-                value={selectedSection}
-                onChange={(e) => setSelectedSection(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-xs font-medium text-foreground shadow-xs outline-none transition-all hover:bg-muted/40 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                <option value="ALL" className="bg-popover text-popover-foreground">All Sections (A, B)</option>
-                <option value="A" className="bg-popover text-popover-foreground">Section A</option>
-                <option value="B" className="bg-popover text-popover-foreground">Section B</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            </div>
+          <div>
+            <CustomSelect
+              value={selectedSection}
+              onChange={(val) => setSelectedSection(val)}
+              options={[
+                { label: "All Sections (A, B)", value: "ALL" },
+                { label: "Section A", value: "A" },
+                { label: "Section B", value: "B" },
+              ]}
+            />
           </div>
 
           {/* Exam Name Selector */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Evaluation Exam
-            </label>
-            <div className="relative">
-              <select
-                value={selectedExam}
-                onChange={(e) => setSelectedExam(e.target.value)}
-                className="w-full appearance-none rounded-lg border border-input bg-background pl-3 pr-8 py-2 text-xs font-semibold text-foreground shadow-xs outline-none transition-all hover:bg-muted/40 focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer"
-              >
-                {EXAMS.map((ex) => (
-                  <option key={ex} value={ex} className="bg-popover text-popover-foreground py-1">
-                    {ex}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            </div>
+          <div>
+            <CustomSelect
+              value={selectedExam}
+              onChange={(val) => setSelectedExam(val)}
+              options={EXAMS.map((ex) => ({
+                label: ex,
+                value: ex,
+              }))}
+            />
           </div>
 
           {/* Search in List */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Search Student
-            </label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Name, Roll, ID…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background pl-8 pr-3 py-2 text-xs text-foreground shadow-xs outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search student, roll, ID…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-xl border border-input bg-background pl-8 pr-3 py-2 text-xs text-foreground shadow-2xs outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 h-[38px]"
+            />
           </div>
         </div>
       </div>
@@ -537,7 +455,7 @@ export default function ResultsClient() {
       {/* Main Results Table Card */}
       <div className="rounded-xl border bg-card shadow-sm space-y-4 p-5">
         {/* Table View Mode Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3.5">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold text-foreground">
               Class {selectedClass} {selectedSection !== "ALL" ? `Section ${selectedSection}` : ""} — {selectedExam}
@@ -545,38 +463,72 @@ export default function ResultsClient() {
             <span className="text-xs text-muted-foreground">({filteredResults.length} students)</span>
           </div>
 
+          {/* Center: Batch Marks Entry Button */}
+          <div className="flex items-center justify-center gap-2">
+            {isBatchMode ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSaveBatchMarks}
+                  disabled={isSavingBatch}
+                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs active:scale-95 animate-pulse"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {isSavingBatch ? "Saving All…" : "Save All Entered Marks"}
+                </button>
+                <button
+                  onClick={() => setIsBatchMode(false)}
+                  className="rounded-xl border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  const initial: Record<string, string> = {};
+                  (summary?.results || []).forEach((r) => {
+                    if (r.marksObtained > 0) initial[r.studentId] = String(r.marksObtained);
+                  });
+                  setBatchMarks(initial);
+                  setIsBatchMode(true);
+                }}
+                className="flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary px-4 py-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all shadow-2xs active:scale-95"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Batch Marks Entry
+              </button>
+            )}
+          </div>
+
           {/* Rank View Mode Selector */}
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="text-muted-foreground font-medium">Rank View:</span>
-            <div className="flex rounded-md border overflow-hidden">
-              <button
-                onClick={() => setRankViewMode("both")}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium transition-colors",
-                  rankViewMode === "both" ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted"
-                )}
-              >
-                Both Ranks
-              </button>
-              <button
-                onClick={() => setRankViewMode("section")}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium transition-colors border-l",
-                  rankViewMode === "section" ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted"
-                )}
-              >
-                Section Rank
-              </button>
-              <button
-                onClick={() => setRankViewMode("class")}
-                className={cn(
-                  "px-2.5 py-1 text-xs font-medium transition-colors border-l",
-                  rankViewMode === "class" ? "bg-primary text-primary-foreground font-semibold" : "hover:bg-muted"
-                )}
-              >
-                Class Rank
-              </button>
-            </div>
+          <div className="flex rounded-lg border overflow-hidden p-0.5 bg-muted/40 text-xs">
+            <button
+              onClick={() => setRankViewMode("both")}
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-md transition-all",
+                rankViewMode === "both" ? "bg-background text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Both Ranks
+            </button>
+            <button
+              onClick={() => setRankViewMode("section")}
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-md transition-all border-l",
+                rankViewMode === "section" ? "bg-background text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Section Rank
+            </button>
+            <button
+              onClick={() => setRankViewMode("class")}
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded-md transition-all border-l",
+                rankViewMode === "class" ? "bg-background text-foreground font-bold shadow-2xs" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Class Rank
+            </button>
           </div>
         </div>
 

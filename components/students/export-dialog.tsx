@@ -15,6 +15,7 @@ import { getStudents } from "@/lib/data/students";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
+import { exportClassicStrengthExcel } from "@/lib/reports/classic-strength-report";
 
 interface ExportColumn {
   id: string;
@@ -187,6 +188,37 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
     }
   };
 
+  const handleDownloadClassicReport = async () => {
+    setIsExporting(true);
+    try {
+      const allStudents = await getStudents();
+      const filtered = allStudents.filter((s) => {
+        if (activeFilters.class && s.presentClass !== activeFilters.class) return false;
+        if (activeFilters.section && s.presentSection !== activeFilters.section) return false;
+        if (activeFilters.status && s.currentStatus !== activeFilters.status) return false;
+        if (activeFilters.admissionYear && s.admissionYear !== activeFilters.admissionYear) return false;
+        if (activeFilters.query) {
+          const q = activeFilters.query.toLowerCase();
+          return (
+            s.name.toLowerCase().includes(q) ||
+            s.schoolId.toLowerCase().includes(q) ||
+            (s.pen && s.pen.toLowerCase().includes(q)) ||
+            (s.aadhaar && s.aadhaar.includes(q))
+          );
+        }
+        return true;
+      });
+
+      const listToExport = filtered.length > 0 ? filtered : allStudents;
+      exportClassicStrengthExcel(listToExport, "MARIGACHI HIGH SCHOOL (H. S.)");
+      onOpenChange(false);
+    } catch (err: any) {
+      alert(`Classic Report export failed: ${err.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const categories = ["Basic", "Identifiers", "Enrolment", "Family", "Contact", "Bank", "Welfare"] as const;
 
   return (
@@ -222,7 +254,24 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
               <Sparkles className="h-4 w-4 text-amber-500" />
               <span>Quick Presets:</span>
             </div>
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Highlighted Classic Report Button */}
+              <button
+                type="button"
+                onClick={handleDownloadClassicReport}
+                disabled={isExporting}
+                title="Download complete Class & Section Matrix Report (West Bengal High School Standard)"
+                className="group relative inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:shadow-md hover:brightness-110 active:scale-95 transition-all ring-2 ring-amber-400/50"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-100 animate-pulse" />
+                <span>Classic Report</span>
+                <span className="rounded bg-black/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100">
+                  .xlsx
+                </span>
+              </button>
+
+              <div className="h-4 w-px bg-border mx-0.5" />
+
               {Object.entries(PRESETS).map(([key, p]) => (
                 <button
                   key={key}
@@ -232,7 +281,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                   {p.name}
                 </button>
               ))}
-              <div className="h-4 w-px bg-border mx-1" />
+              <div className="h-4 w-px bg-border mx-0.5" />
               <button
                 onClick={selectAll}
                 className="rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"

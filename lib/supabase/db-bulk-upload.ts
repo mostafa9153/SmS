@@ -10,7 +10,7 @@ interface ProcessResult {
   details: {
     created: Array<{ name: string; schoolId: string }>;
     updated: Array<{ name: string; schoolId: string; changedFields: string[] }>;
-    skipped: Array<{ name: string; reason: string }>;
+    skipped: Array<{ rowNumber?: number; name?: string; schoolId?: string; reason: string }>;
     errors: Array<{ rowNumber: number; name?: string; message: string }>;
   };
 }
@@ -84,7 +84,7 @@ export async function dbProcessBulkUpload(
   let skippedCount = 0;
   let errorCount = 0;
   let warningCount = 0;
-  const skippedList: Array<{ name: string; reason: string }> = [];
+  const skippedList: Array<{ rowNumber?: number; name?: string; schoolId?: string; reason: string }> = [];
   const errorsList: Array<{ rowNumber: number; name?: string; message: string }> = [];
   const createdList: Array<{ name: string; schoolId: string }> = [];
   const updatedList: Array<{ name: string; schoolId: string; changedFields: string[] }> = [];
@@ -190,7 +190,12 @@ export async function dbProcessBulkUpload(
 
     if (Object.keys(dbPatch).length === 0) {
       skippedCount++;
-      skippedList.push({ name: existing.name, reason: "No new or modified values" });
+      skippedList.push({
+        rowNumber: item.rowNumber,
+        name: existing.name,
+        schoolId: existing.school_id || existing.pen || undefined,
+        reason: "Duplicate / Identical record (No changes detected)",
+      });
       continue;
     }
 

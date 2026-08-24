@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { formatDate, cn } from "@/lib/utils";
+import { CustomSelect } from "@/components/ui/custom-select";
 import {
   ArrowLeft,
   Pencil,
@@ -803,30 +804,27 @@ export default function StudentProfilePage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">Academic Year</label>
-                <select
+                <CustomSelect
                   value={resYear}
-                  onChange={(e) => setResYear(Number(e.target.value))}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-xs font-semibold"
-                >
-                  {[currentYear + 1, currentYear, currentYear - 1, currentYear - 2].map((yr) => (
-                    <option key={yr} value={yr}>
-                      {yr}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setResYear(Number(val))}
+                  options={[currentYear + 1, currentYear, currentYear - 1, currentYear - 2].map((yr) => ({
+                    label: String(yr),
+                    value: yr,
+                  }))}
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">Evaluation Exam</label>
-                <select
+                <CustomSelect
                   value={resExam}
-                  onChange={(e) => setResExam(e.target.value)}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-xs font-semibold"
-                >
-                  <option value="1st Summative Evaluation">1st Summative Evaluation</option>
-                  <option value="2nd Summative Evaluation">2nd Summative Evaluation</option>
-                  <option value="Annual Examination">Annual Examination</option>
-                </select>
+                  onChange={(val) => setResExam(String(val))}
+                  options={[
+                    { label: "1st Summative Evaluation", value: "1st Summative Evaluation" },
+                    { label: "2nd Summative Evaluation", value: "2nd Summative Evaluation" },
+                    { label: "Annual Examination", value: "Annual Examination" },
+                  ]}
+                />
               </div>
             </div>
 

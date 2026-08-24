@@ -102,10 +102,17 @@ export async function POST(req: Request) {
     }
 
     // 1. Create the user in Supabase Auth
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = fullName.trim();
+
     const { data: newAuthUser, error: createError } = await adminClient.auth.admin.createUser({
-      email,
+      email: cleanEmail,
       password,
       email_confirm: true, // auto-confirm the email
+      user_metadata: {
+        full_name: cleanName,
+        role,
+      },
     });
 
     if (createError || !newAuthUser.user) {
@@ -118,7 +125,7 @@ export async function POST(req: Request) {
       .insert({
         user_id: newAuthUser.user.id,
         role,
-        full_name: fullName,
+        full_name: cleanName,
       });
 
     if (insertRoleError) {
@@ -127,9 +134,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertRoleError.message || "Failed to assign role" }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, user: { id: newAuthUser.user.id, email, fullName, role } });
+    return NextResponse.json({ success: true, user: { id: newAuthUser.user.id, email: cleanEmail, fullName: cleanName, role } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+  }
+}
+
+// PATCH /api/admin/users - Update user password, name, or role
+export async function PATCH(req: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authUserError } = await supabase.auth.getUser();
+    if (authUserError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminClient = createAdminClient();
+    const { data: roleData } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (roleData?.role !== "Admin") {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { userId, newPassword, newRole, newFullName } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
+    }
+
+    // 1. Update password in Supabase Auth if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+      }
+      const { error: pwdError } = await adminClient.auth.admin.updateUserById(userId, {
+        password: newPassword,
+      });
+      if (pwdError) {
+        return NextResponse.json({ error: pwdError.message }, { status: 400 });
+      }
+    }
+
+    // 2. Update user_roles if role or name changed
+    const rolePatch: Record<string, any> = { updated_at: new Date().toISOString() };
+    if (newRole && (newRole === "Admin" || newRole === "Staff")) {
+      rolePatch.role = newRole;
+    }
+    if (newFullName && newFullName.trim()) {
+      rolePatch.full_name = newFullName.trim();
+    }
+
+    if (Object.keys(rolePatch).length > 1) {
+      const { error: roleErr } = await adminClient
+        .from("user_roles")
+        .update(rolePatch)
+        .eq("user_id", userId);
+
+      if (roleErr) {
+        return NextResponse.json({ error: roleErr.message }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({ success: true, message: "User updated successfully" });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Failed to update user" }, { status: 500 });
   }
 }
 
@@ -178,7 +251,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: deleteError.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "User account deleted permanently" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

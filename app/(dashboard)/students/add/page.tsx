@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createStudent } from "@/lib/data/students";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Student } from "@/lib/types";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 const studentSchema = z.object({
   // Identity
@@ -99,21 +100,29 @@ const studentSchema = z.object({
   rteSection12C: z.coerce.boolean().optional(),
   rteAmountClaimed: z.coerce.number().optional(),
 
-  // Facilities & Co-curricular
+  // Facilities Profile
   facilitiesProvidedInput: z.string().optional(),
   cwsnFacilitiesInput: z.string().optional(),
-  competitionsOlympiadsInput: z.string().optional(),
+  freeUniforms: z.coerce.boolean().optional(),
+  freeTransport: z.coerce.boolean().optional(),
+  freeBicycle: z.coerce.boolean().optional(),
+  freeHostel: z.coerce.boolean().optional(),
+  freeShoes: z.coerce.boolean().optional(),
+  hasComputerAccess: z.coerce.boolean().optional(),
+
+  // Extra Profile Fields
   ncc: z.coerce.boolean().optional(),
   nss: z.coerce.boolean().optional(),
   scoutsGuides: z.coerce.boolean().optional(),
   distanceToSchool: z.coerce.number().optional(),
   highestEducationParents: z.string().optional(),
+  competitionsOlympiadsInput: z.string().optional(),
 
   // Bank
   bankIfsc: z.string().optional(),
   bankAccountNo: z.string().optional(),
 
-  // Identifiers
+  // Govt IDs
   pen: z.string().optional(),
   diseCode: z.string().optional(),
   healthId: z.string().optional(),
@@ -135,6 +144,7 @@ export default function AddStudentPage() {
     handleSubmit,
     setValue,
     watch,
+    control,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(studentSchema),
@@ -249,11 +259,21 @@ export default function AddStudentPage() {
               <input {...register("dob")} type="date" />
             </FormField>
             <FormField label="Gender *" error={errors.gender?.message}>
-              <select {...register("gender")}>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
+              <Controller
+                control={control}
+                name="gender"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={[
+                      { label: "Male", value: "Male" },
+                      { label: "Female", value: "Female" },
+                      { label: "Other", value: "Other" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Mother Tongue" error={errors.motherTongue?.message}>
               <input {...register("motherTongue")} placeholder="e.g. Bengali" />
@@ -262,18 +282,37 @@ export default function AddStudentPage() {
               <input {...register("religion")} placeholder="e.g. Hinduism" />
             </FormField>
             <FormField label="Indian Nationality?" error={errors.indianNationality?.message}>
-              <select {...register("indianNationality")}>
-                <option value="true">Yes</option>
-                <option value="false">No</option>
-              </select>
+              <Controller
+                control={control}
+                name="indianNationality"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? true)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "Yes", value: "true" },
+                      { label: "No", value: "false" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Blood Group" error={errors.bloodGroup?.message}>
-              <select {...register("bloodGroup")}>
-                <option value="">Select...</option>
-                {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
-                  <option key={bg} value={bg}>{bg}</option>
-                ))}
-              </select>
+              <Controller
+                control={control}
+                name="bloodGroup"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select blood group..."
+                    options={["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => ({
+                      label: bg,
+                      value: bg,
+                    }))}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Height (in CMs)" error={errors.heightCm?.message}>
               <input {...register("heightCm")} type="number" placeholder="e.g. 142" />
@@ -294,40 +333,90 @@ export default function AddStudentPage() {
         <FormSection title="B. Social & Eligibility Categories">
           <FormGrid>
             <FormField label="Social Category" error={errors.socialCategory?.message}>
-              <select {...register("socialCategory")}>
-                <option value="">Select...</option>
-                <option value="General">General</option>
-                <option value="OBC">OBC</option>
-                <option value="SC">SC</option>
-                <option value="ST">ST</option>
-              </select>
+              <Controller
+                control={control}
+                name="socialCategory"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select category..."
+                    options={[
+                      { label: "General", value: "General" },
+                      { label: "OBC", value: "OBC" },
+                      { label: "SC", value: "SC" },
+                      { label: "ST", value: "ST" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Minority Group" error={errors.minorityGroup?.message}>
               <input {...register("minorityGroup")} placeholder="e.g. Muslim, Christian, None" />
             </FormField>
             <FormField label="BPL Beneficiary?" error={errors.isBpl?.message}>
-              <select {...register("isBpl")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="isBpl"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="AAY (Antyodaya Anna Yojana)?" error={errors.isAay?.message}>
-              <select {...register("isAay")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="isAay"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="EWS / Disadvantaged Group?" error={errors.isEws?.message}>
-              <select {...register("isEws")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="isEws"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Out-of-School Child?" error={errors.isOutOfSchool?.message}>
-              <select {...register("isOutOfSchool")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="isOutOfSchool"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             {isOutOfSchoolChecked && (
               <FormField label="When Mainstreamed" error={errors.mainstreamedDate?.message}>
@@ -341,10 +430,20 @@ export default function AddStudentPage() {
         <FormSection title="C. CWSN Profile">
           <FormGrid>
             <FormField label="CWSN Status?" error={errors.isCwsn?.message}>
-              <select {...register("isCwsn")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="isCwsn"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             {isCwsnChecked && (
               <>
@@ -352,10 +451,20 @@ export default function AddStudentPage() {
                   <input {...register("impairmentType")} placeholder="e.g. Blindness, Hearing impairment" />
                 </FormField>
                 <FormField label="Disability Certificate?" error={errors.hasDisabilityCertificate?.message}>
-                  <select {...register("hasDisabilityCertificate")}>
-                    <option value="false">No</option>
-                    <option value="true">Yes</option>
-                  </select>
+                  <Controller
+                    control={control}
+                    name="hasDisabilityCertificate"
+                    render={({ field }) => (
+                      <CustomSelect
+                        value={String(field.value ?? false)}
+                        onChange={(val) => field.onChange(val === "true" || val === true)}
+                        options={[
+                          { label: "No", value: "false" },
+                          { label: "Yes", value: "true" },
+                        ]}
+                      />
+                    )}
+                  />
                 </FormField>
                 {hasDisabilityCertChecked && (
                   <FormField label="Disability Percentage (%)" error={errors.disabilityPercentage?.message}>
@@ -413,20 +522,32 @@ export default function AddStudentPage() {
         <FormSection title="E. Enrolment & Academic Details">
           <FormGrid>
             <FormField label="Present Class *" error={errors.presentClass?.message}>
-              <select {...register("presentClass")}>
-                <option value="">Select class...</option>
-                {CLASSES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <Controller
+                control={control}
+                name="presentClass"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select class..."
+                    options={CLASSES.map((c) => ({ label: `Class ${c}`, value: c }))}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Present Section *" error={errors.presentSection?.message}>
-              <select {...register("presentSection")}>
-                <option value="">Select...</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-              </select>
+              <Controller
+                control={control}
+                name="presentSection"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select section..."
+                    options={["A", "B", "C"].map((s) => ({ label: `Section ${s}`, value: s }))}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Present Roll Number *" error={errors.presentRoll?.message}>
               <input {...register("presentRoll")} type="number" placeholder="e.g. 1" />
@@ -493,10 +614,20 @@ export default function AddStudentPage() {
               <input {...register("previousStream")} placeholder="e.g. General" />
             </FormField>
             <FormField label="Appeared for Exams?" error={errors.previousAppearedForExams?.message}>
-              <select {...register("previousAppearedForExams")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="previousAppearedForExams"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Exam Result" error={errors.previousResult?.message}>
               <input {...register("previousResult")} placeholder="e.g. Passed" />
@@ -508,10 +639,20 @@ export default function AddStudentPage() {
               <input {...register("previousDaysAttended")} type="number" placeholder="e.g. 185" />
             </FormField>
             <FormField label="Admitted under RTE Sec 12C?" error={errors.rteSection12C?.message}>
-              <select {...register("rteSection12C")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="rteSection12C"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             {rteSection12CChecked && (
               <FormField label="Amount Claimed from Govt" error={errors.rteAmountClaimed?.message}>
@@ -531,22 +672,52 @@ export default function AddStudentPage() {
               <input {...register("cwsnFacilitiesInput")} placeholder="e.g. Braille Book, Wheelchair" />
             </FormField>
             <FormField label="NCC Member?" error={errors.ncc?.message}>
-              <select {...register("ncc")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="ncc"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="NSS Member?" error={errors.nss?.message}>
-              <select {...register("nss")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="nss"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Scouts and Guides?" error={errors.scoutsGuides?.message}>
-              <select {...register("scoutsGuides")}>
-                <option value="false">No</option>
-                <option value="true">Yes</option>
-              </select>
+              <Controller
+                control={control}
+                name="scoutsGuides"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={String(field.value ?? false)}
+                    onChange={(val) => field.onChange(val === "true" || val === true)}
+                    options={[
+                      { label: "No", value: "false" },
+                      { label: "Yes", value: "true" },
+                    ]}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Distance to School (KM)" error={errors.distanceToSchool?.message}>
               <input {...register("distanceToSchool")} type="number" step="0.1" placeholder="e.g. 1.2" />
@@ -588,20 +759,20 @@ export default function AddStudentPage() {
               <input {...register("studentUniqueCode")} placeholder="Unique identifier code" />
             </FormField>
             <FormField label="Aadhaar Available? (Yes/No)">
-              <select
+              <CustomSelect
                 value={hasAadhaarVal}
-                onChange={(e) => {
-                  const val = e.target.value;
+                onChange={(val) => {
                   setHasAadhaarVal(val);
                   if (val === "No") {
                     setValue("aadhaar", "");
                     setValue("nameAsPerAadhaar", "");
                   }
                 }}
-              >
-                <option value="Yes">Yes (Aadhaar Available)</option>
-                <option value="No">No (Aadhaar Not Available)</option>
-              </select>
+                options={[
+                  { label: "Yes (Aadhaar Available)", value: "Yes" },
+                  { label: "No (Aadhaar Not Available)", value: "No" },
+                ]}
+              />
             </FormField>
             <FormField label="Aadhaar Number (12 digits)" error={errors.aadhaar?.message}>
               <input
