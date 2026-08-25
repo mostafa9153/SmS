@@ -23,6 +23,7 @@ import {
   Trash2,
   Calendar,
   Layers,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,6 +45,7 @@ import {
 } from "@/lib/data/students";
 import {
   parseExcelFile,
+  reparseWithHeaderRow,
   autoSuggestMapping,
   applyMapping,
   validateMappedRows,
@@ -172,6 +174,24 @@ export default function BulkUploadPage() {
         const parsed = await parseExcelFile(selectedFile);
         setParsedData(parsed);
 
+        // Auto-assign metadata from BSP / header banner if found
+        if (parsed.detectedMetadata) {
+          if (parsed.detectedMetadata.detectedClass) {
+            setTargetClass(parsed.detectedMetadata.detectedClass);
+          }
+          if (parsed.detectedMetadata.detectedSection) {
+            setTargetSection(parsed.detectedMetadata.detectedSection);
+          }
+          if (parsed.detectedMetadata.detectedAcademicYear) {
+            const yrMatch = parsed.detectedMetadata.detectedAcademicYear.match(/\b(20\d{2})\b/);
+            if (yrMatch) {
+              const yr = parseInt(yrMatch[1], 10);
+              setTargetSessionYear(yr);
+              setResultYear(yr);
+            }
+          }
+        }
+
         // Auto-suggest mapping based on upload mode
         if (uploadType === "exam_results") {
           let initialMapping = autoSuggestResultMapping(parsed.headers);
@@ -198,6 +218,30 @@ export default function BulkUploadPage() {
     [uploadType, selectedTemplate]
   );
 
+  // Instant Header Row switch without re-reading file buffer
+  const handleHeaderRowChange = useCallback(
+    (newRowIndex: number) => {
+      if (!parsedData) return;
+      const reloaded = reparseWithHeaderRow(parsedData, newRowIndex);
+      setParsedData(reloaded);
+
+      if (uploadType === "exam_results") {
+        let initialMapping = autoSuggestResultMapping(reloaded.headers);
+        if (selectedTemplate !== "auto" && RESULT_TEMPLATE_PRESETS[selectedTemplate]) {
+          initialMapping = { ...initialMapping, ...RESULT_TEMPLATE_PRESETS[selectedTemplate].mapping };
+        }
+        setColumnMapping(initialMapping);
+      } else {
+        let initialMapping = autoSuggestMapping(reloaded.headers);
+        if (selectedTemplate !== "auto" && TEMPLATE_PRESETS[selectedTemplate]) {
+          initialMapping = { ...initialMapping, ...TEMPLATE_PRESETS[selectedTemplate].mapping };
+        }
+        setColumnMapping(initialMapping);
+      }
+    },
+    [parsedData, uploadType, selectedTemplate]
+  );
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -207,6 +251,22 @@ export default function BulkUploadPage() {
     },
     [handleFileSelect]
   );
+
+  // Remove / Deselect selected file
+  const handleRemoveFile = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFile(null);
+    setParsedData(null);
+    setColumnMapping({});
+    setMappedRows([]);
+    setMappedResultRows([]);
+    setValidationIssues([]);
+    setPreviewRows([]);
+    setResultPreviewRows([]);
+    setParseError(null);
+    const input = document.getElementById("file-input") as HTMLInputElement | null;
+    if (input) input.value = "";
+  }, []);
 
   // Mode change handler
   const handleModeChange = (mode: BulkUploadType) => {
@@ -765,20 +825,70 @@ export default function BulkUploadPage() {
                   <p className="text-sm font-medium">Reading spreadsheet…</p>
                 </div>
               ) : file && parsedData ? (
-                <div className="py-2 space-y-2">
+                <div className="py-2 space-y-3">
                   <div className="flex items-center justify-center gap-2 text-sm font-semibold text-foreground">
                     <FileSpreadsheet className="h-6 w-6 text-emerald-600" />
-                    {file.name}
+                    <span className="font-mono text-sm">{file.name}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {(file.size / 1024).toFixed(1)} KB ·{" "}
-                    <strong>{parsedData.rawRows.length} rows detected</strong> ·{" "}
+                    <strong>{parsedData.rawRows.length} data rows detected</strong> ·{" "}
                     {parsedData.headers.length} columns found
                   </p>
-                  <div className="flex justify-center gap-2 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
                     <Badge variant="outline" className="text-xs font-normal">
                       Sheet: {parsedData.selectedSheet}
                     </Badge>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-xs font-medium",
+                        parsedData.headerRowIndex > 0
+                          ? "bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300"
+                          : "bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-200"
+                      )}
+                    >
+                      Headers: Row {parsedData.headerRowIndex + 1}
+                      {parsedData.headerRowIndex === 1 && " (BSP Auto-Detected)"}
+                    </Badge>
+                    {parsedData.detectedMetadata?.detectedClass && (
+                      <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200">
+                        Class: {parsedData.detectedMetadata.detectedClass}
+                      </Badge>
+                    )}
+                    {parsedData.detectedMetadata?.detectedSection && (
+                      <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200">
+                        Sec: {parsedData.detectedMetadata.detectedSection}
+                      </Badge>
+                    )}
+                    {parsedData.detectedMetadata?.schoolName && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground truncate max-w-[280px]">
+                        🏫 {parsedData.detectedMetadata.schoolName}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Action buttons: Change File and Remove/Deselect File */}
+                  <div className="flex items-center justify-center gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        document.getElementById("file-input")?.click();
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground bg-muted hover:bg-muted/80 transition-colors border shadow-2xs cursor-pointer"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 text-primary" />
+                      Change File
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors border border-rose-200 dark:border-rose-800 shadow-2xs cursor-pointer"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove / Deselect File
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -835,6 +945,40 @@ export default function BulkUploadPage() {
               <Sparkles className="h-3 w-3 text-amber-500" />
               Auto-Suggest All
             </button>
+          </div>
+
+          {/* Header Row Selector & Metadata Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/40 p-3.5 rounded-lg border text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="font-semibold text-foreground">Header Row:</span>
+              <div className="w-[270px]">
+                <CustomSelect
+                  value={parsedData.headerRowIndex}
+                  onChange={(val) => handleHeaderRowChange(Number(val))}
+                  options={[
+                    { label: "Row 1 (Top Row)", value: 0 },
+                    {
+                      label: `Row 2 (Banglar Shiksha / 2nd Row)${parsedData.headerRowIndex === 1 ? " ✨ Auto" : ""}`,
+                      value: 1,
+                    },
+                    { label: "Row 3 (3rd Row)", value: 2 },
+                    { label: "Row 4 (4th Row)", value: 3 },
+                  ]}
+                />
+              </div>
+              <span className="text-muted-foreground hidden sm:inline">
+                ({parsedData.rawRows.length} data rows start from Row {parsedData.headerRowIndex + 2})
+              </span>
+            </div>
+
+            {parsedData.detectedMetadata?.schoolName && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <span className="font-medium text-foreground">🏫 {parsedData.detectedMetadata.schoolName}</span>
+                {parsedData.detectedMetadata.diseCode && (
+                  <span className="opacity-75 font-mono">({parsedData.detectedMetadata.diseCode})</span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mapping Table */}

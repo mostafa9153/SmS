@@ -1,11 +1,24 @@
 import * as XLSX from "xlsx";
 import type { Student, StudentStatus, ColumnMapping, ValidationIssue, BulkPreviewRow, BulkResultRow } from "@/lib/types";
 
+export interface DetectedFileMetadata {
+  schoolName?: string;
+  diseCode?: string;
+  detectedClass?: string;
+  detectedSection?: string;
+  detectedAcademicYear?: string;
+  rawBannerText?: string;
+}
+
 export interface ParsedExcelResult {
   sheetNames: string[];
   selectedSheet: string;
   headers: string[];
   rawRows: Record<string, any>[];
+  headerRowIndex: number; // 0-based index: 0 = Row 1 in Excel, 1 = Row 2 in Excel
+  totalRows: number;
+  allRows2D: any[][];
+  detectedMetadata?: DetectedFileMetadata;
 }
 
 export interface FieldDefinition {
@@ -60,6 +73,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "banglar shiksha code",
       "unique code",
       "student_code",
+      "studentcode",
     ],
   },
   {
@@ -83,6 +97,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "aadhar y n",
       "aadhaar y/n",
       "aadhar y/n",
+      "aadhaar (y/n)",
+      "aadhar (y/n)",
       "aadhaar yn",
       "aadhar yn",
       "aadhaar yes no",
@@ -116,6 +132,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "aadhar",
       "uid",
       "uidai",
+      "aadhaar no.",
     ],
   },
   {
@@ -129,7 +146,9 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "birth date",
       "dob",
       "d.o.b",
+      "d.o.b.",
       "birth_date",
+      "student_dob",
     ],
     required: true,
   },
@@ -166,11 +185,13 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Enrolment",
     aliases: [
       "roll no",
+      "roll no.",
       "roll number",
       "roll",
       "present roll",
       "roll_no",
       "student roll",
+      "class roll",
     ],
   },
   {
@@ -183,6 +204,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "academic session",
       "current academic year",
       "acad year",
+      "academic_year",
+      "session year",
     ],
   },
   {
@@ -208,6 +231,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "father_name",
       "father full name",
       "fathers name",
+      "father / guardian name",
     ],
   },
   {
@@ -233,6 +257,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "guardian fullname",
       "guardians name",
       "name of guardian",
+      "guardian",
+      "guardian number",
     ],
   },
   {
@@ -242,6 +268,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     aliases: [
       "student contact number",
       "student contact no",
+      "student contact no.",
       "student contact",
       "student mobile",
       "student phone",
@@ -253,6 +280,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "contact",
       "mobile",
       "phone",
+      "student mobile no",
     ],
   },
   {
@@ -262,14 +290,16 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     aliases: [
       "guardian contact number",
       "guardian contact no",
-      "guardian number",
-      "guardian contact",
+      "guardian contact no.",
       "guardian mobile",
+      "guardian contact",
       "guardian phone",
       "alternate contact number",
       "alternate mobile",
       "alt mobile",
       "alt_mobile",
+      "emergency contact",
+      "guardian phone no",
     ],
   },
   {
@@ -320,6 +350,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "ifsc code",
       "ifs",
       "ifsc",
+      "branch ifsc",
+      "ifsc_code",
     ],
   },
   {
@@ -327,10 +359,12 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     label: "Bank Account Number",
     category: "Bank",
     aliases: [
-      "bank a c number",
       "bank a/c number",
-      "bank a c no",
+      "bank a c number",
       "bank a/c no",
+      "bank a c no",
+      "bank ac number",
+      "bank ac no",
       "bank account number",
       "bank account no",
       "bank account",
@@ -342,6 +376,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "a c no",
       "acc no",
       "bank acc",
+      "account_no",
     ],
   },
 ];
@@ -350,16 +385,25 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
   banglarShiksha: {
     name: "Banglar Shiksha (BSP) Export",
     mapping: {
+      "Student Code": "studentUniqueCode",
       "Student Unique Code": "studentUniqueCode",
+      "Roll No": "presentRoll",
       "Student Name": "name",
-      "Gender": "gender",
+      "Student DOB": "dob",
       "Date of Birth": "dob",
+      "Academic Year": "academicYear",
       "Father Name": "fatherName",
       "Mother Name": "motherName",
       "Guardian Name": "guardianName",
+      "Guardian Number": "guardianName",
+      "Student Contact Number": "studentContact",
+      "Guardian Contact Number": "altMobile",
+      "Bank IFS Code": "bankIfsc",
+      "Bank A/C number": "bankAccountNo",
+      "Aadhaar Y/N": "hasAadhaar",
+      "Gender": "gender",
       "Class": "presentClass",
       "Section": "presentSection",
-      "Roll No": "presentRoll",
       "Mobile No": "studentContact",
       "Aadhaar No": "aadhaar",
       "PEN": "pen",
@@ -389,41 +433,361 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
 };
 
 /**
- * Parses an Excel or CSV file in the browser using XLSX.
+ * Extracts school and student batch metadata from banner rows (e.g. Banglar Shiksha headers).
  */
-export async function parseExcelFile(file: File): Promise<ParsedExcelResult> {
+export function extractBannerMetadata(rawText: string): DetectedFileMetadata {
+  const metadata: DetectedFileMetadata = {
+    rawBannerText: rawText.trim(),
+  };
+
+  // School Name
+  const schoolMatch = rawText.match(
+    /School\s*Name\s*[:-]\s*([^\r\n,]+?)(?=\s+UP\s+School|\s+School\s+Dise|\s+Dise\s+Code|\s+Enrolment|\s+Details|$)/i
+  );
+  if (schoolMatch) {
+    metadata.schoolName = schoolMatch[1].replace(/[-_:]/g, " ").trim();
+  }
+
+  // DISE / UDISE Code
+  const diseMatch = rawText.match(/(?:Dise|UDISE)\s*Code\s*[:-]\s*(\d+)/i);
+  if (diseMatch) {
+    metadata.diseCode = diseMatch[1].trim();
+  }
+
+  // Class (e.g. CLASS VIII, Class 8)
+  const classMatch = rawText.match(/\bCLASS\s*[-:]?\s*([IVXLCDM]+|\d+)\b/i);
+  if (classMatch) {
+    metadata.detectedClass = normalizeClass(classMatch[1]);
+  }
+
+  // Section (e.g. Section-B, Section B)
+  const secMatch = rawText.match(/\bSection\s*[-:]?\s*([A-Z])\b/i);
+  if (secMatch) {
+    metadata.detectedSection = secMatch[1].toUpperCase().trim();
+  }
+
+  // Academic Year / Session (e.g. 2026-27 or Date 25-08-26)
+  const sessionMatch = rawText.match(/\b(20\d{2}\s*[-/]\s*\d{2,4})\b/i);
+  if (sessionMatch) {
+    metadata.detectedAcademicYear = sessionMatch[1].replace(/\s+/g, "");
+  } else {
+    const yrMatch = rawText.match(/\b(20\d{2})\b/);
+    if (yrMatch) {
+      metadata.detectedAcademicYear = yrMatch[1];
+    }
+  }
+
+  return metadata;
+}
+
+/**
+ * Evaluates candidate rows (0 to 10) to automatically identify the real column headers.
+ */
+export function detectBestHeaderRow(sheet2D: any[][]): {
+  headerRowIndex: number;
+  metadata: DetectedFileMetadata;
+} {
+  const maxCandidates = Math.min(sheet2D.length, 10);
+  let bestRowIndex = 0;
+  let bestScore = -999;
+  let aggregatedMetadata: DetectedFileMetadata = {};
+
+  const clean = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  // Known header keywords for student and exam sheets
+  const HEADER_KEYWORDS = new Set([
+    "student",
+    "student code",
+    "unique code",
+    "bsp code",
+    "bsp id",
+    "roll",
+    "roll no",
+    "name",
+    "student name",
+    "dob",
+    "date of birth",
+    "birth",
+    "father",
+    "mother",
+    "guardian",
+    "contact",
+    "mobile",
+    "phone",
+    "academic",
+    "academic year",
+    "session",
+    "class",
+    "section",
+    "sec",
+    "bank",
+    "ifs",
+    "ifsc",
+    "account",
+    "a/c",
+    "aadhaar",
+    "aadhar",
+    "pen",
+    "gender",
+    "sex",
+    "caste",
+    "category",
+    "religion",
+    "marks",
+    "score",
+    "total",
+    "bengali",
+    "english",
+    "mathematics",
+    "math",
+    "science",
+    "history",
+    "geography",
+    "grade",
+    "full marks",
+    "percentage",
+  ]);
+
+  for (let r = 0; r < maxCandidates; r++) {
+    const row = sheet2D[r] || [];
+    const nonBlankCells = row
+      .map((c) => String(c ?? "").trim())
+      .filter((c) => c.length > 0);
+
+    // Aggregate banner metadata from text rows
+    if (nonBlankCells.length > 0) {
+      const fullRowText = nonBlankCells.join(" ");
+      const rowMeta = extractBannerMetadata(fullRowText);
+      aggregatedMetadata = { ...aggregatedMetadata, ...rowMeta };
+    }
+
+    if (nonBlankCells.length === 0) {
+      continue;
+    }
+
+    let rowScore = 0;
+
+    // A single cell banner with "School Name" or "Enrolment Details" is a banner, not headers
+    const firstCellText = clean(nonBlankCells[0]);
+    if (
+      nonBlankCells.length <= 2 &&
+      (firstCellText.includes("school") ||
+        firstCellText.includes("enrolment") ||
+        firstCellText.includes("dise") ||
+        firstCellText.includes("report") ||
+        firstCellText.includes("portal"))
+    ) {
+      rowScore -= 50;
+    }
+
+    for (const cell of nonBlankCells) {
+      const cleanCell = clean(cell);
+      if (cleanCell.length === 0) continue;
+
+      // Positive match against known header keywords
+      let matchedKeyword = false;
+      for (const kw of HEADER_KEYWORDS) {
+        if (cleanCell === kw || cleanCell.startsWith(kw + " ") || cleanCell.endsWith(" " + kw)) {
+          rowScore += 12;
+          matchedKeyword = true;
+          break;
+        }
+      }
+
+      if (!matchedKeyword) {
+        for (const kw of HEADER_KEYWORDS) {
+          if (cleanCell.includes(kw)) {
+            rowScore += 6;
+            break;
+          }
+        }
+      }
+
+      // Negative penalty if cell contains explicit data patterns (phone, date, long numeric IDs)
+      if (/^\d{10}$/.test(cell)) rowScore -= 10; // Mobile
+      if (/^\d{12}$/.test(cell)) rowScore -= 10; // Aadhaar
+      if (/^\d{14,}$/.test(cell)) rowScore -= 10; // Student code / Account number
+      if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(cell)) rowScore -= 10; // Date of birth
+      if (/^[A-Z]{4}0[A-Z0-9]{6}$/.test(cell)) rowScore -= 10; // IFSC code
+      if (/^\d+$/.test(cell) && cell.length <= 4) rowScore -= 2; // Numeric roll/year
+    }
+
+    // Award bonus if row has multiple distinct column-like headers
+    if (nonBlankCells.length >= 4) {
+      rowScore += nonBlankCells.length * 2;
+    }
+
+    if (rowScore > bestScore) {
+      bestScore = rowScore;
+      bestRowIndex = r;
+    }
+  }
+
+  // Fallback: If best score is weak, find the first row with >= 3 non-blank cells
+  if (bestScore < 10) {
+    for (let r = 0; r < maxCandidates; r++) {
+      const row = sheet2D[r] || [];
+      const nonBlank = row.filter((c) => String(c ?? "").trim().length > 0);
+      if (nonBlank.length >= 3) {
+        bestRowIndex = r;
+        break;
+      }
+    }
+  }
+
+  return {
+    headerRowIndex: bestRowIndex,
+    metadata: aggregatedMetadata,
+  };
+}
+
+/**
+ * Builds clean headers and row records given a 2D sheet array and a 0-based header row index.
+ */
+export function buildRowsFromHeader(
+  sheet2D: any[][],
+  headerRowIndex: number
+): { headers: string[]; rawRows: Record<string, any>[] } {
+  const rawHeaderRow = sheet2D[headerRowIndex] || [];
+
+  // Find last non-empty column index
+  let lastColIndex = -1;
+  for (let c = rawHeaderRow.length - 1; c >= 0; c--) {
+    if (String(rawHeaderRow[c] ?? "").trim().length > 0) {
+      lastColIndex = c;
+      break;
+    }
+  }
+
+  // Check data rows as well to ensure no columns are truncated
+  const maxScanRows = Math.min(sheet2D.length, headerRowIndex + 50);
+  for (let r = headerRowIndex + 1; r < maxScanRows; r++) {
+    const row = sheet2D[r] || [];
+    for (let c = row.length - 1; c > lastColIndex; c--) {
+      if (String(row[c] ?? "").trim().length > 0) {
+        lastColIndex = c;
+      }
+    }
+  }
+
+  if (lastColIndex === -1) {
+    lastColIndex = Math.max(0, rawHeaderRow.length - 1);
+  }
+
+  // Build unique header names
+  const headers: string[] = [];
+  const headerCountMap = new Map<string, number>();
+
+  for (let c = 0; c <= lastColIndex; c++) {
+    let headerName = String(rawHeaderRow[c] ?? "").trim();
+    if (!headerName) {
+      headerName = `Column_${c + 1}`;
+    }
+
+    const count = headerCountMap.get(headerName) || 0;
+    headerCountMap.set(headerName, count + 1);
+
+    if (count > 0) {
+      headers.push(`${headerName}_${count + 1}`);
+    } else {
+      headers.push(headerName);
+    }
+  }
+
+  // Build data rows starting after headerRowIndex
+  const rawRows: Record<string, any>[] = [];
+  for (let r = headerRowIndex + 1; r < sheet2D.length; r++) {
+    const row = sheet2D[r] || [];
+    const rowObj: Record<string, any> = {};
+    let hasData = false;
+
+    for (let c = 0; c < headers.length; c++) {
+      const val = row[c] !== undefined && row[c] !== null ? String(row[c]).trim() : "";
+      rowObj[headers[c]] = val;
+      if (val !== "") {
+        hasData = true;
+      }
+    }
+
+    if (hasData) {
+      rawRows.push(rowObj);
+    }
+  }
+
+  return { headers, rawRows };
+}
+
+/**
+ * Parses an Excel or CSV file in the browser using XLSX with smart header & metadata auto-detection.
+ */
+export async function parseExcelFile(
+  file: File,
+  options?: { forcedHeaderRow?: number; sheetIndex?: number }
+): Promise<ParsedExcelResult> {
   const data = await file.arrayBuffer();
   const workbook = XLSX.read(data, { type: "array", cellDates: true });
 
   const sheetNames = workbook.SheetNames;
-  const selectedSheet = sheetNames[0] || "Sheet1";
+  const selectedSheet = sheetNames[options?.sheetIndex ?? 0] || "Sheet1";
   const worksheet = workbook.Sheets[selectedSheet];
 
-  // Convert to JSON with headers
-  const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, {
+  // Convert worksheet to 2D array (all rows and columns preserved)
+  const allRows2D: any[][] = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
     defval: "",
     raw: false,
     dateNF: "yyyy-mm-dd",
   });
 
-  // Extract column headers from sheet range
-  let headers: string[] = [];
-  if (rawRows.length > 0) {
-    headers = Object.keys(rawRows[0]);
-  } else if (worksheet["!ref"]) {
-    const range = XLSX.utils.decode_range(worksheet["!ref"]);
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: range.s.r, c: col });
-      const cell = worksheet[cellAddress];
-      headers.push(cell ? String(cell.v).trim() : `Column ${col + 1}`);
-    }
+  // Auto-detect header row index unless forced
+  let headerRowIndex = 0;
+  let detectedMetadata: DetectedFileMetadata | undefined;
+
+  if (options?.forcedHeaderRow !== undefined) {
+    headerRowIndex = Math.max(0, Math.min(options.forcedHeaderRow, allRows2D.length - 1));
+    const bannerScan = detectBestHeaderRow(allRows2D);
+    detectedMetadata = bannerScan.metadata;
+  } else {
+    const detection = detectBestHeaderRow(allRows2D);
+    headerRowIndex = detection.headerRowIndex;
+    detectedMetadata = detection.metadata;
   }
+
+  const { headers, rawRows } = buildRowsFromHeader(allRows2D, headerRowIndex);
 
   return {
     sheetNames,
     selectedSheet,
     headers,
     rawRows,
+    headerRowIndex,
+    totalRows: rawRows.length,
+    allRows2D,
+    detectedMetadata,
+  };
+}
+
+/**
+ * Instantly re-parses cached 2D sheet data with a new header row in 0ms without re-reading the file.
+ */
+export function reparseWithHeaderRow(
+  parsed: ParsedExcelResult,
+  newHeaderRowIndex: number
+): ParsedExcelResult {
+  const safeIndex = Math.max(0, Math.min(newHeaderRowIndex, parsed.allRows2D.length - 1));
+  const { headers, rawRows } = buildRowsFromHeader(parsed.allRows2D, safeIndex);
+
+  return {
+    ...parsed,
+    headerRowIndex: safeIndex,
+    headers,
+    rawRows,
+    totalRows: rawRows.length,
   };
 }
 
@@ -692,7 +1056,14 @@ export function applyMapping(
           student.aadhaar = digitsOnly || rawStr;
         }
       } else if (fieldKey === "studentContact" || fieldKey === "altMobile") {
-        student[fieldKey] = String(rawVal).replace(/\D/g, "");
+        const str = String(rawVal).trim();
+        const digits = str.replace(/\D/g, "");
+        if (digits.length >= 7) {
+          student[fieldKey] = digits;
+        } else if (/[a-zA-Z]/.test(str) && !student.guardianName) {
+          // Handle BSP files where column labeled "Guardian Number" contains Guardian Name (e.g. REJAUL LASKAR)
+          student.guardianName = str;
+        }
       } else {
         (student as any)[fieldKey] = String(rawVal).trim();
       }
