@@ -226,12 +226,17 @@ export function Sidebar({
       {/* Brand Logo Header */}
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-500/25 ring-2 ring-indigo-500/20 transition-transform duration-300 hover:scale-105">
-            <School className="h-5 w-5" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-sm border border-amber-500/30 bg-black transition-transform duration-300 hover:scale-105">
+            <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
           </div>
-          <p className="text-base font-bold tracking-tight text-foreground">
-            MHS School
-          </p>
+          <div>
+            <p className="text-sm font-bold tracking-tight text-foreground leading-tight">
+              MHS School
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium">
+              Student Management
+            </p>
+          </div>
         </div>
 
         {mobile ? (

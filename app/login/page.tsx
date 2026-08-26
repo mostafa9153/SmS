@@ -99,8 +99,8 @@ export default function LoginPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-indigo-500 text-white shadow-lg shadow-primary/20">
-                <School className="h-6 w-6" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black overflow-hidden border border-amber-500/30 shadow-lg shadow-amber-500/10">
+                <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-white leading-tight">Marigachi High School</h1>
@@ -132,10 +132,9 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Footer inside Left Panel */}
-          <div className="text-[11px] text-slate-500 relative z-10 flex items-center justify-between border-t border-slate-800/80 pt-4">
-            <span>© {new Date().getFullYear()} MHS Admin</span>
-            <span>v2.1.0</span>
+          {/* Bottom attribution */}
+          <div className="relative z-10 text-[11px] text-slate-500">
+            © {new Date().getFullYear()} Marigachi High School (H.S.). All rights reserved.
           </div>
         </div>
 
@@ -143,8 +142,8 @@ export default function LoginPage() {
         <div className="p-8 sm:p-12 flex flex-col justify-center bg-slate-900/20">
           {/* Logo only for Mobile */}
           <div className="flex md:hidden flex-col items-center mb-8 text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-indigo-500 text-white mb-3 shadow-lg shadow-primary/20">
-              <School className="h-6 w-6" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black overflow-hidden border border-amber-500/30 mb-3 shadow-lg shadow-amber-500/10">
+              <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
             </div>
             <h1 className="text-lg font-bold text-white">Marigachi High School</h1>
             <p className="text-xs text-slate-400">Student Management System</p>
