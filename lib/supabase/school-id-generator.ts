@@ -32,21 +32,31 @@ export async function generateSchoolId(
     console.error("Error querying school_id for sequence:", error);
   }
 
+  const existingSerials = new Set<number>();
   let maxSerial = 0;
+
   if (data && data.length > 0) {
     for (const row of data) {
-      const parts = row.school_id?.split("/") || [];
+      if (!row.school_id) continue;
+      const parts = row.school_id.split("/");
       const serialPart = parts[parts.length - 1];
       const parsedSerial = parseInt(serialPart, 10);
-      if (!isNaN(parsedSerial) && parsedSerial > maxSerial) {
-        maxSerial = parsedSerial;
+      if (!isNaN(parsedSerial)) {
+        existingSerials.add(parsedSerial);
+        if (parsedSerial > maxSerial) {
+          maxSerial = parsedSerial;
+        }
       }
     }
   }
 
-  const nextSerial = maxSerial + 1;
-  const formattedSerial = String(nextSerial).padStart(3, "0");
+  // Find the next available unallocated serial number
+  let nextSerial = maxSerial + 1;
+  while (existingSerials.has(nextSerial)) {
+    nextSerial++;
+  }
 
+  const formattedSerial = String(nextSerial).padStart(3, "0");
   return `${prefix}${formattedSerial}`;
 }
 
@@ -61,6 +71,7 @@ export async function generateBatchSchoolIds(
 
   // Group by (year, class, section) to calculate starting counters
   const groupCounters: Record<string, number> = {};
+  const groupExisting: Record<string, Set<number>> = {};
 
   for (const alloc of allocations) {
     const yearStr = String(alloc.admissionYear || new Date().getFullYear());
@@ -75,21 +86,36 @@ export async function generateBatchSchoolIds(
         .ilike("school_id", `${key}%`);
 
       let maxSerial = 0;
+      const existing = new Set<number>();
+
       if (data && data.length > 0) {
         for (const row of data) {
-          const parts = row.school_id?.split("/") || [];
+          if (!row.school_id) continue;
+          const parts = row.school_id.split("/");
           const serialPart = parts[parts.length - 1];
           const parsedSerial = parseInt(serialPart, 10);
-          if (!isNaN(parsedSerial) && parsedSerial > maxSerial) {
-            maxSerial = parsedSerial;
+          if (!isNaN(parsedSerial)) {
+            existing.add(parsedSerial);
+            if (parsedSerial > maxSerial) {
+              maxSerial = parsedSerial;
+            }
           }
         }
       }
+
       groupCounters[key] = maxSerial;
+      groupExisting[key] = existing;
     }
 
-    groupCounters[key] += 1;
-    const serialStr = String(groupCounters[key]).padStart(3, "0");
+    let nextSerial = groupCounters[key] + 1;
+    while (groupExisting[key].has(nextSerial)) {
+      nextSerial++;
+    }
+
+    groupCounters[key] = nextSerial;
+    groupExisting[key].add(nextSerial);
+
+    const serialStr = String(nextSerial).padStart(3, "0");
     generatedIds.push(`${key}${serialStr}`);
   }
 

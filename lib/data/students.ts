@@ -138,24 +138,36 @@ export async function bulkUpdateStudents(
 
 // ── Utility / derived data helpers ──────────────────────────
 
+/** Fetch lightweight filter metadata (classes, sections, admission years) */
+export async function getStudentFilterMetadata(): Promise<{
+  classes: string[];
+  sections: string[];
+  admissionYears: number[];
+}> {
+  const res = await fetch("/api/students/metadata");
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to fetch filter metadata");
+  }
+  return res.json();
+}
+
 /** Returns unique sorted list of classes present in the database */
 export async function getDistinctClasses(): Promise<string[]> {
-  const students = await getStudents();
-  return sortClasses([...new Set(students.map((s) => s.presentClass))]);
+  const meta = await getStudentFilterMetadata();
+  return meta.classes || [];
 }
 
 /** Returns unique sorted list of sections present in the database */
 export async function getDistinctSections(): Promise<string[]> {
-  const students = await getStudents();
-  return [...new Set(students.map((s) => s.presentSection))].sort();
+  const meta = await getStudentFilterMetadata();
+  return meta.sections || [];
 }
 
 /** Returns unique sorted admission years */
 export async function getDistinctAdmissionYears(): Promise<number[]> {
-  const students = await getStudents();
-  return [...new Set(students.map((s) => s.admissionYear))].sort(
-    (a, b) => b - a
-  );
+  const meta = await getStudentFilterMetadata();
+  return meta.admissionYears || [];
 }
 
 /** Returns aggregate dashboard stats derived from the full dataset */
@@ -370,6 +382,21 @@ export async function executeSessionTransition(params: {
     throw new Error(err.error || "Session transition execution failed");
   }
 
+  return res.json();
+}
+
+/**
+ * Fetch current authenticated user's profile and role.
+ */
+export async function getCurrentUserRole(): Promise<{
+  role: "Admin" | "Staff" | "Guest";
+  fullName?: string;
+  userId: string | null;
+}> {
+  const res = await fetch("/api/auth/role");
+  if (!res.ok) {
+    return { role: "Guest", userId: null };
+  }
   return res.json();
 }
 

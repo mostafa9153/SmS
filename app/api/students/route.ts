@@ -81,6 +81,8 @@ export async function GET(req: Request) {
   }
 }
 
+import { studentCreateSchema } from "@/lib/validations/student-schema";
+
 // POST /api/students - Create a student
 export async function POST(req: Request) {
   try {
@@ -91,7 +93,16 @@ export async function POST(req: Request) {
 
     // Staff and Admin are both authorized to register students
     const body = await req.json();
-    const student = await dbCreateStudent(body);
+    const parseResult = studentCreateSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || "Invalid student data";
+      return NextResponse.json(
+        { error: `Validation failed: ${firstError}`, details: parseResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const student = await dbCreateStudent(parseResult.data as any);
 
     // Create audit log for student creation
     const supabase = await createClient();

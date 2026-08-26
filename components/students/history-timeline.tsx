@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, RefreshCw, AlertCircle } from "lucide-react";
 import { cn, STATUS_STYLES } from "@/lib/utils";
 import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
-import { createClient } from "@/lib/supabase/client";
+import { getCurrentUserRole } from "@/lib/data/students";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,14 @@ const STATUSES: StudentStatus[] = ["Continuing", "Drop Out", "Passed Out", "Sent
 
 export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
   const queryClient = useQueryClient();
-  const supabase = createClient();
   
-  // Auth state
-  const [isAdmin, setIsAdmin] = useState(false);
+  // Auth state via central API abstraction
+  const { data: userAuth } = useQuery({
+    queryKey: ["current-user-role"],
+    queryFn: getCurrentUserRole,
+    staleTime: 60000,
+  });
+  const isAdmin = userAuth?.role === "Admin";
   
   // Edit Dialog state
   const [editingEntry, setEditingEntry] = useState<AcademicHistoryEntry | null>(null);
@@ -35,22 +39,6 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
   const [editRoll, setEditRoll] = useState(1);
   const [editStatus, setEditStatus] = useState<StudentStatus>("Continuing");
   const [errorMsg, setErrorMsg] = useState("");
-
-  // Check role
-  useEffect(() => {
-    async function checkRole() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: roleData } = await supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .single();
-        setIsAdmin(roleData?.role === "Admin");
-      }
-    }
-    checkRole();
-  }, [supabase]);
 
   // Mutation to save history correction
   const mutation = useMutation({

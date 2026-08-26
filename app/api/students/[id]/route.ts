@@ -69,6 +69,8 @@ export async function GET(
   }
 }
 
+import { studentUpdateSchema } from "@/lib/validations/student-schema";
+
 // PATCH /api/students/[id] - Update student
 export async function PATCH(
   req: Request,
@@ -87,8 +89,18 @@ export async function PATCH(
 
     const body = await req.json();
 
+    // Validate payload against update schema
+    const parseResult = studentUpdateSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || "Invalid update data";
+      return NextResponse.json(
+        { error: `Validation failed: ${firstError}`, details: parseResult.error.flatten() },
+        { status: 400 }
+      );
+    }
+
     // Staff cannot update Aadhaar (only Admin can update Aadhaar)
-    if (role !== "Admin" && body.aadhaar !== undefined) {
+    if (role !== "Admin" && parseResult.data.aadhaar !== undefined) {
       return NextResponse.json({ error: "Forbidden: Only Administrators can update Aadhaar numbers" }, { status: 403 });
     }
 
@@ -98,7 +110,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
-    const updatedStudent = await dbUpdateStudent(id, body);
+    const updatedStudent = await dbUpdateStudent(id, parseResult.data as any);
 
     // Create audit log entry for update
     await supabase.from("audit_log").insert({

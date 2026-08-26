@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { searchStudents, getStudents } from "@/lib/data/students";
+import { searchStudents } from "@/lib/data/students";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";

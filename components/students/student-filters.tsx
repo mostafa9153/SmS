@@ -3,11 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Search, X, ChevronDown, Check } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  getDistinctClasses,
-  getDistinctSections,
-  getDistinctAdmissionYears,
-} from "@/lib/data/students";
+import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
 import { cn, sortClasses } from "@/lib/utils";
 
@@ -33,21 +29,15 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
     setLocalQuery(filters.query ?? "");
   }, [filters.query]);
 
-  const { data: classes = [] } = useQuery({
-    queryKey: ["distinct-classes"],
-    queryFn: getDistinctClasses,
-    staleTime: Infinity,
+  const { data: metadata } = useQuery({
+    queryKey: ["student-filter-metadata"],
+    queryFn: getStudentFilterMetadata,
+    staleTime: 60000,
   });
-  const { data: sections = [] } = useQuery({
-    queryKey: ["distinct-sections"],
-    queryFn: getDistinctSections,
-    staleTime: Infinity,
-  });
-  const { data: years = [] } = useQuery({
-    queryKey: ["distinct-years"],
-    queryFn: getDistinctAdmissionYears,
-    staleTime: Infinity,
-  });
+
+  const classes = metadata?.classes || [];
+  const sections = metadata?.sections || [];
+  const years = metadata?.admissionYears || [];
 
   // Debounce free-text query
   useEffect(() => {

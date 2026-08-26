@@ -85,8 +85,11 @@ export async function PATCH(
 
     if (auditError) {
       console.error("Audit log failed for history correction", auditError);
-      // We don't rollback the update itself since the core action succeeded,
-      // but we report it in console.
+      return NextResponse.json({
+        success: true,
+        record: updatedRecord,
+        warning: `History updated, but audit log creation failed: ${auditError.message}`,
+      });
     }
 
     return NextResponse.json({ success: true, record: updatedRecord });

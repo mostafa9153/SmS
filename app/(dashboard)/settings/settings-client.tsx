@@ -23,7 +23,6 @@ import {
   CalendarClock,
 } from "lucide-react";
 import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -61,9 +60,10 @@ interface AuditLogEntry {
   };
 }
 
+import { getCurrentUserRole } from "@/lib/data/students";
+
 export function SettingsClient() {
   const queryClient = useQueryClient();
-  const supabase = createClient();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   
@@ -121,21 +121,14 @@ export function SettingsClient() {
   const [confirmationPhraseInput, setConfirmationPhraseInput] = useState("");
   const [wipeoutError, setWipeoutError] = useState("");
 
-  // 1. Authenticate user & check role
+  // 1. Authenticate user & check role via central API
   useEffect(() => {
     async function checkAuth() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setCurrentUser(user);
-          // Query user_roles directly using user RLS policies
-          const { data: roleData } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", user.id)
-            .single();
-          
-          setUserRole(roleData?.role || null);
+        const authData = await getCurrentUserRole();
+        if (authData.role !== "Guest") {
+          setCurrentUser({ id: authData.userId, fullName: authData.fullName });
+          setUserRole(authData.role);
         }
       } catch (err) {
         console.error("Auth check failed", err);

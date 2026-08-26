@@ -350,7 +350,7 @@ export async function dbSearchStudents(
   pageSize = 20
 ): Promise<PaginatedStudents> {
   const supabase = await createServerClient();
-  let query = supabase.from("students").select("*, academic_history(*)");
+  let query = supabase.from("students").select("*, academic_history(*)", { count: "exact" });
 
   // 1. Text Search
   if (filters.query && filters.query.trim() !== "") {
@@ -407,19 +407,27 @@ export async function dbSearchStudents(
     }
   }
 
-  const { data, error } = await query;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  // Apply SQL ordering and range pagination directly on Postgres
+  query = query
+    .order("present_class", { ascending: true })
+    .order("present_section", { ascending: true })
+    .order("present_roll", { ascending: true, nullsFirst: false })
+    .range(from, to);
+
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
 
-  const students = (data as DBStudent[]).map(mapDBStudentToStudent);
+  const students = ((data as DBStudent[]) || []).map(mapDBStudentToStudent);
   students.sort(compareStudentsByClassAndRoll);
 
-  const total = students.length;
+  const total = count ?? students.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const start = (page - 1) * pageSize;
-  const paginatedData = students.slice(start, start + pageSize);
 
   return {
-    data: paginatedData,
+    data: students,
     meta: {
       total,
       page,
@@ -429,19 +437,49 @@ export async function dbSearchStudents(
   };
 }
 
+import { generateSchoolId } from "@/lib/supabase/school-id-generator";
+
 // CREATE student
 export async function dbCreateStudent(input: Omit<Student, "id" | "academicHistory">): Promise<Student> {
   const supabase = await createServerClient();
   const dbInput = mapStudentToDBInput(input);
-  
-  const { data, error } = await supabase
-    .from("students")
-    .insert(dbInput)
-    .select()
-    .single();
 
-  if (error) throw new Error(error.message);
-  return mapDBStudentToStudent(data as DBStudent);
+  // If school_id is missing, generate it
+  if (!dbInput.school_id || dbInput.school_id.trim() === "") {
+    dbInput.school_id = await generateSchoolId(
+      input.admissionYear || new Date().getFullYear(),
+      input.presentClass || "V",
+      input.presentSection || "A"
+    );
+  }
+
+  // Attempt insert with auto-retry up to 3 times on concurrent conflict
+  let lastError: any = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase
+      .from("students")
+      .insert(dbInput)
+      .select()
+      .single();
+
+    if (!error && data) {
+      return mapDBStudentToStudent(data as DBStudent);
+    }
+
+    lastError = error;
+    // If unique constraint violation on school_id (code 23505), regenerate and retry
+    if (error && (error.code === "23505" || error.message.includes("school_id"))) {
+      dbInput.school_id = await generateSchoolId(
+        input.admissionYear || new Date().getFullYear(),
+        input.presentClass || "V",
+        input.presentSection || "A"
+      );
+      continue;
+    }
+    break;
+  }
+
+  throw new Error(lastError?.message || "Failed to create student");
 }
 
 // UPDATE student

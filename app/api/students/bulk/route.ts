@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbUpdateStudent } from "@/lib/supabase/db-students";
 
+import { studentBulkUpdateSchema } from "@/lib/validations/student-schema";
+
 // POST /api/students/bulk - Bulk update students (e.g. for promotions, roll changes)
 export async function POST(req: Request) {
   try {
@@ -24,15 +26,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
     }
 
-    const { updates } = await req.json();
-
-    if (!updates || !Array.isArray(updates)) {
-      return NextResponse.json({ error: "Invalid updates format" }, { status: 400 });
+    const body = await req.json();
+    const parseResult = studentBulkUpdateSchema.safeParse(body);
+    if (!parseResult.success) {
+      const firstError = parseResult.error.errors[0]?.message || "Invalid bulk updates format";
+      return NextResponse.json(
+        { error: `Validation failed: ${firstError}`, details: parseResult.error.flatten() },
+        { status: 400 }
+      );
     }
+
+    const { updates } = parseResult.data;
 
     // Inspect if updates contain Aadhaar edits and deny if not Admin
     const hasAadhaarEdit = updates.some(
-      (u: any) => u.changes && u.changes.aadhaar !== undefined
+      (u) => u.changes && u.changes.aadhaar !== undefined
     );
     if (hasAadhaarEdit && roleData.role !== "Admin") {
       return NextResponse.json({ error: "Forbidden: Only Administrators can edit Aadhaar numbers in bulk" }, { status: 403 });
@@ -40,7 +48,7 @@ export async function POST(req: Request) {
 
     // Process updates in parallel
     const updatePromises = updates.map(async ({ id, changes }) => {
-      return await dbUpdateStudent(id, changes);
+      return await dbUpdateStudent(id, changes as any);
     });
 
     const updatedStudents = await Promise.all(updatePromises);
