@@ -3,6 +3,8 @@ import { UserPlus, Upload, Search, ShieldCheck, Award, CalendarClock, ArrowRight
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { StatusChart } from "@/components/dashboard/status-chart";
 import { ClassStrengthChart } from "@/components/dashboard/class-strength-chart";
+import { CategoryDistributionChart } from "@/components/dashboard/category-distribution-chart";
+import { WelfareSchemesVisual } from "@/components/dashboard/welfare-schemes-visual";
 
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
@@ -44,13 +46,19 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stat Cards */}
+      {/* 1. Stat Cards */}
       <StatCards />
 
-      {/* Charts */}
+      {/* 2. Category & Welfare Visual Analytics */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <StatusChart />
+        <CategoryDistributionChart />
+        <WelfareSchemesVisual />
+      </div>
+
+      {/* 3. Class Strength & Enrolment Status Breakdown */}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ClassStrengthChart />
+        <StatusChart />
       </div>
 
       {/* Quick Action Hub */}

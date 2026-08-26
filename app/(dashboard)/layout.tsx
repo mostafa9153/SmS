@@ -25,7 +25,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       {/* Main area */}
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <Topbar />
-        <main className="flex-1 overflow-y-auto min-w-0">
+        <main className="flex-1 overflow-y-auto min-w-0 custom-scrollbar animate-fade-in-up">
           {children}
         </main>
       </div>
