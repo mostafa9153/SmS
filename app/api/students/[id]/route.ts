@@ -7,23 +7,12 @@ import {
   maskAadhaar 
 } from "@/lib/supabase/db-students";
 
-// Helper to determine if user is admin
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+
+// Helper to determine user role
 async function getUserRole(): Promise<string> {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return "Guest";
-
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    return roleData?.role || "Staff";
-  } catch {
-    return "Guest";
-  }
+  const auth = await getAuthenticatedUserRole();
+  return auth.role;
 }
 
 // GET /api/students/[id] - Fetch single student details

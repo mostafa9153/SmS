@@ -49,11 +49,10 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setErrorMsg(error.message || "Invalid credentials.");
+        setErrorMsg(error.message || "Invalid email or password.");
       } else if (data.session) {
-        // Successful login, redirect to dashboard
-        router.replace("/");
-        router.refresh();
+        // Successful login, full navigation to establish cookies with middleware
+        window.location.href = "/";
       }
     } catch (err: any) {
       setErrorMsg("An unexpected error occurred. Please try again.");
