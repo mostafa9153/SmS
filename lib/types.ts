@@ -125,7 +125,7 @@ export interface StudentFilters {
   status?: StudentStatus;
   admissionYear?: number;
   gender?: "Male" | "Female" | "Other";
-  socialCategory?: "General" | "SC" | "ST" | "OBC-A" | "OBC-B";
+  socialCategory?: "General" | "SC" | "ST" | "OBC" | string;
   scheme?: "kanyashree" | "kanyashree_k1" | "kanyashree_k2" | "aikyashree" | "shikshashree" | "cwsn" | "bpl";
   hasAadhaar?: "yes" | "no";
 }

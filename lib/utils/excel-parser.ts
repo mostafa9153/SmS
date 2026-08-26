@@ -25,15 +25,18 @@ export interface FieldDefinition {
   key: keyof Student;
   label: string;
   category: string;
+  icon?: string;
   aliases: string[];
   required?: boolean;
 }
 
 export const TARGET_FIELDS: FieldDefinition[] = [
+  // 1. Core & Enrolment
   {
     key: "name",
     label: "Student Name",
     category: "Core",
+    icon: "👤",
     aliases: [
       "student name",
       "student's name",
@@ -47,23 +50,161 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     required: true,
   },
   {
-    key: "schoolId",
-    label: "School ID",
-    category: "Identifiers",
+    key: "dob",
+    label: "Date of Birth",
+    category: "Core",
+    icon: "📅",
     aliases: [
-      "school id",
-      "school_id",
-      "student id",
-      "studentid",
-      "admission no",
-      "admission number",
-      "id",
+      "student dob",
+      "student date of birth",
+      "date of birth",
+      "birth date",
+      "dob",
+      "d.o.b",
+      "d.o.b.",
+      "birth_date",
+      "student_dob",
+    ],
+    required: true,
+  },
+  {
+    key: "gender",
+    label: "Gender",
+    category: "Core",
+    icon: "⚧",
+    aliases: ["gender", "sex", "male/female", "boy/girl"],
+    required: true,
+  },
+  {
+    key: "presentClass",
+    label: "Class",
+    category: "Enrolment",
+    icon: "🏫",
+    aliases: [
+      "class",
+      "present class",
+      "current class",
+      "standard",
+      "grade",
+      "enrolled class",
+    ],
+    required: true,
+  },
+  {
+    key: "presentSection",
+    label: "Section",
+    category: "Enrolment",
+    icon: "🔤",
+    aliases: ["section", "sec", "present section", "division", "sec."],
+  },
+  {
+    key: "presentRoll",
+    label: "Roll No",
+    category: "Enrolment",
+    icon: "🎯",
+    aliases: [
+      "roll no",
+      "roll no.",
+      "roll number",
+      "roll",
+      "present roll",
+      "roll_no",
+      "student roll",
+      "class roll",
     ],
   },
+  {
+    key: "admissionNo",
+    label: "Admission Number",
+    category: "Enrolment",
+    icon: "📖",
+    aliases: [
+      "admission no",
+      "admission number",
+      "admission_no",
+      "admission no.",
+      "adm no",
+      "adm_no",
+      "adm number",
+      "admission#",
+      "admission id",
+    ],
+  },
+  {
+    key: "admissionDate",
+    label: "Admission Date",
+    category: "Enrolment",
+    icon: "📅",
+    aliases: [
+      "admission date",
+      "date of admission",
+      "admission_date",
+      "doa",
+      "adm date",
+      "enrolment date",
+    ],
+  },
+  {
+    key: "academicYear",
+    label: "Academic Year",
+    category: "Enrolment",
+    icon: "🗓️",
+    aliases: [
+      "academic year",
+      "session",
+      "academic session",
+      "current academic year",
+      "acad year",
+      "academic_year",
+      "session year",
+    ],
+  },
+  {
+    key: "admissionYear",
+    label: "Admission Year",
+    category: "Enrolment",
+    icon: "🗓️",
+    aliases: ["admission year", "adm year", "admission_year", "year of admission"],
+  },
+  {
+    key: "currentStatus",
+    label: "Student Status",
+    category: "Enrolment",
+    icon: "📌",
+    aliases: ["status", "current status", "student status", "enrolment status"],
+  },
+  {
+    key: "academicStream",
+    label: "Academic Stream",
+    category: "Enrolment",
+    icon: "🎨",
+    aliases: [
+      "academic stream",
+      "stream",
+      "stream name",
+      "discipline",
+      "arts/science/commerce",
+    ],
+  },
+  {
+    key: "mediumOfInstruction",
+    label: "Medium of Instruction",
+    category: "Enrolment",
+    icon: "🌐",
+    aliases: [
+      "medium of instruction",
+      "medium",
+      "instruction medium",
+      "language of instruction",
+    ],
+  },
+
+  // 2. Government & School Identifiers
   {
     key: "studentUniqueCode",
     label: "Student Code (BSP)",
     category: "Identifiers",
+    icon: "🆔",
     aliases: [
       "student code",
       "student unique code",
@@ -74,24 +215,42 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "unique code",
       "student_code",
       "studentcode",
+      "bsp",
+    ],
+  },
+  {
+    key: "schoolId",
+    label: "School ID",
+    category: "Identifiers",
+    icon: "🔢",
+    aliases: [
+      "school id",
+      "school_id",
+      "student id",
+      "studentid",
+      "id",
+      "school_student_id",
     ],
   },
   {
     key: "pen",
     label: "PEN Number",
     category: "Identifiers",
+    icon: "📝",
     aliases: [
       "pen",
       "pen no",
       "pen number",
       "permanent education number",
       "pen_no",
+      "pen no.",
     ],
   },
   {
     key: "hasAadhaar",
     label: "Aadhaar Available (Yes/No)",
     category: "Identifiers",
+    icon: "🛡️",
     aliases: [
       "aadhaar y n",
       "aadhar y n",
@@ -119,6 +278,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     key: "aadhaar",
     label: "Aadhaar Number (12 digits)",
     category: "Identifiers",
+    icon: "💳",
     aliases: [
       "aadhaar number",
       "aadhar number",
@@ -136,94 +296,65 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     ],
   },
   {
-    key: "dob",
-    label: "Date of Birth",
-    category: "Demographics",
+    key: "diseCode",
+    label: "DISE Code",
+    category: "Identifiers",
+    icon: "🏫",
     aliases: [
-      "student dob",
-      "student date of birth",
-      "date of birth",
-      "birth date",
-      "dob",
-      "d.o.b",
-      "d.o.b.",
-      "birth_date",
-      "student_dob",
-    ],
-    required: true,
-  },
-  {
-    key: "gender",
-    label: "Gender",
-    category: "Demographics",
-    aliases: ["gender", "sex"],
-    required: true,
-  },
-  {
-    key: "presentClass",
-    label: "Class",
-    category: "Enrolment",
-    aliases: [
-      "class",
-      "present class",
-      "current class",
-      "standard",
-      "grade",
-      "enrolled class",
-    ],
-    required: true,
-  },
-  {
-    key: "presentSection",
-    label: "Section",
-    category: "Enrolment",
-    aliases: ["section", "sec", "present section", "division"],
-  },
-  {
-    key: "presentRoll",
-    label: "Roll No",
-    category: "Enrolment",
-    aliases: [
-      "roll no",
-      "roll no.",
-      "roll number",
-      "roll",
-      "present roll",
-      "roll_no",
-      "student roll",
-      "class roll",
+      "dise code",
+      "udise code",
+      "udise+",
+      "dise_code",
+      "udise_code",
+      "school dise code",
     ],
   },
   {
-    key: "academicYear",
-    label: "Academic Year",
-    category: "Enrolment",
+    key: "healthId",
+    label: "Health ID / ABHA",
+    category: "Identifiers",
+    icon: "🏥",
     aliases: [
-      "academic year",
-      "session",
-      "academic session",
-      "current academic year",
-      "acad year",
-      "academic_year",
-      "session year",
+      "health id",
+      "health_id",
+      "abha id",
+      "abham id",
+      "national health id",
     ],
   },
   {
-    key: "admissionYear",
-    label: "Admission Year",
-    category: "Enrolment",
-    aliases: ["admission year", "adm year", "admission_year"],
+    key: "birthRegistrationNo",
+    label: "Birth Registration No",
+    category: "Identifiers",
+    icon: "📄",
+    aliases: [
+      "birth registration no",
+      "birth reg no",
+      "birth certificate no",
+      "birth_registration_no",
+      "birth cert no",
+    ],
   },
   {
-    key: "currentStatus",
-    label: "Status",
-    category: "Enrolment",
-    aliases: ["status", "current status", "student status"],
+    key: "identificationMark",
+    label: "Identification Mark",
+    category: "Identifiers",
+    icon: "🔍",
+    aliases: [
+      "identification mark",
+      "id mark",
+      "body mark",
+      "visible mark",
+      "identification_mark",
+    ],
   },
+
+  // 3. Family & Contact
   {
     key: "fatherName",
     label: "Father Name",
     category: "Family",
+    icon: "👨",
     aliases: [
       "father name",
       "father's name",
@@ -238,6 +369,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     key: "motherName",
     label: "Mother Name",
     category: "Family",
+    icon: "👩",
     aliases: [
       "mother name",
       "mother's name",
@@ -251,6 +383,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     key: "guardianName",
     label: "Guardian Name",
     category: "Family",
+    icon: "👥",
     aliases: [
       "guardian name",
       "guardian's name",
@@ -262,9 +395,35 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     ],
   },
   {
+    key: "relationshipWithGuardian",
+    label: "Relationship with Guardian",
+    category: "Family",
+    icon: "🤝",
+    aliases: [
+      "relationship with guardian",
+      "guardian relation",
+      "relation with guardian",
+      "relation",
+      "relationship",
+    ],
+  },
+  {
+    key: "guardianQualification",
+    label: "Guardian Qualification",
+    category: "Family",
+    icon: "🎓",
+    aliases: [
+      "guardian qualification",
+      "qualification of guardian",
+      "parent qualification",
+      "highest education parents",
+    ],
+  },
+  {
     key: "studentContact",
     label: "Student Contact Number",
     category: "Contact",
+    icon: "📞",
     aliases: [
       "student contact number",
       "student contact no",
@@ -287,6 +446,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     key: "altMobile",
     label: "Guardian Contact Number",
     category: "Contact",
+    icon: "📱",
     aliases: [
       "guardian contact number",
       "guardian contact no",
@@ -306,58 +466,185 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     key: "email",
     label: "Email ID",
     category: "Contact",
-    aliases: ["email", "email id", "contact email", "e-mail"],
+    icon: "📧",
+    aliases: ["email", "email id", "contact email", "e-mail", "student email"],
   },
   {
     key: "address",
-    label: "Address",
+    label: "Residential Address",
     category: "Contact",
+    icon: "🏠",
     aliases: [
       "address",
       "permanent address",
       "residential address",
       "village",
+      "vill",
+      "student address",
     ],
   },
   {
     key: "pincode",
     label: "Pincode",
     category: "Contact",
-    aliases: ["pincode", "pin code", "pin", "postal code"],
+    icon: "📮",
+    aliases: ["pincode", "pin code", "pin", "postal code", "post code"],
   },
+
+  // 4. Demographics & Personal Info
   {
     key: "socialCategory",
-    label: "Social Category",
+    label: "Social Category (Gen/OBC/SC/ST)",
     category: "Demographics",
-    aliases: ["social category", "category", "caste", "caste category"],
+    icon: "🏷️",
+    aliases: [
+      "social category",
+      "category",
+      "caste",
+      "caste category",
+      "social_category",
+    ],
   },
   {
     key: "religion",
     label: "Religion",
     category: "Demographics",
-    aliases: ["religion", "faith"],
+    icon: "🕌",
+    aliases: ["religion", "faith", "community"],
   },
   {
-    key: "bankIfsc",
-    label: "Bank IFSC Code",
-    category: "Bank",
+    key: "motherTongue",
+    label: "Mother Tongue",
+    category: "Demographics",
+    icon: "🗣️",
     aliases: [
-      "bank ifs code",
-      "bank ifsc code",
-      "bank ifs",
-      "bank ifsc",
-      "ifs code",
-      "ifsc code",
-      "ifs",
-      "ifsc",
-      "branch ifsc",
-      "ifsc_code",
+      "mother tongue",
+      "mother_tongue",
+      "first language",
+      "native language",
+      "mother language",
     ],
   },
+  {
+    key: "minorityGroup",
+    label: "Minority Group",
+    category: "Demographics",
+    icon: "🤝",
+    aliases: [
+      "minority group",
+      "minority",
+      "minority_group",
+      "minority community",
+      "minority status",
+    ],
+  },
+  {
+    key: "bloodGroup",
+    label: "Blood Group",
+    category: "Personal",
+    icon: "🩸",
+    aliases: [
+      "blood group",
+      "blood_group",
+      "blood",
+      "bg",
+      "blood group name",
+    ],
+  },
+  {
+    key: "heightCm",
+    label: "Height (cm)",
+    category: "Personal",
+    icon: "📏",
+    aliases: [
+      "height",
+      "height cm",
+      "height in cm",
+      "height_cm",
+      "student height",
+    ],
+  },
+  {
+    key: "weightKg",
+    label: "Weight (kg)",
+    category: "Personal",
+    icon: "⚖️",
+    aliases: [
+      "weight",
+      "weight kg",
+      "weight in kg",
+      "weight_kg",
+      "student weight",
+    ],
+  },
+
+  // 5. Special Categories & Welfare
+  {
+    key: "isBpl",
+    label: "BPL Beneficiary (Yes/No)",
+    category: "Welfare",
+    icon: "🎫",
+    aliases: [
+      "bpl",
+      "is bpl",
+      "bpl status",
+      "bpl y/n",
+      "bpl y n",
+      "bpl beneficiary",
+      "bpl card holder",
+    ],
+  },
+  {
+    key: "isCwsn",
+    label: "CWSN / Disability (Yes/No)",
+    category: "Welfare",
+    icon: "♿",
+    aliases: [
+      "cwsn",
+      "is cwsn",
+      "cwsn y/n",
+      "cwsn status",
+      "cwsn student",
+      "disabled",
+      "disability",
+      "cwsn y n",
+      "special needs",
+    ],
+  },
+  {
+    key: "impairmentType",
+    label: "Disability / Impairment Type",
+    category: "Welfare",
+    icon: "📜",
+    aliases: [
+      "impairment type",
+      "disability type",
+      "type of disability",
+      "impairment",
+      "nature of disability",
+    ],
+  },
+  {
+    key: "annualFamilyIncome",
+    label: "Annual Family Income (₹)",
+    category: "Welfare",
+    icon: "💰",
+    aliases: [
+      "annual income",
+      "annual family income",
+      "family income",
+      "income",
+      "annual_income",
+      "family annual income",
+    ],
+  },
+
+  // 6. Bank Details
   {
     key: "bankAccountNo",
     label: "Bank Account Number",
     category: "Bank",
+    icon: "🏦",
     aliases: [
       "bank a/c number",
       "bank a c number",
@@ -377,6 +664,79 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "acc no",
       "bank acc",
       "account_no",
+    ],
+  },
+  {
+    key: "bankIfsc",
+    label: "Bank IFSC Code",
+    category: "Bank",
+    icon: "🏛️",
+    aliases: [
+      "bank ifs code",
+      "bank ifsc code",
+      "bank ifs",
+      "bank ifsc",
+      "ifs code",
+      "ifsc code",
+      "ifs",
+      "ifsc",
+      "branch ifsc",
+      "ifsc_code",
+    ],
+  },
+
+  // 7. Previous Schooling
+  {
+    key: "previousSchool",
+    label: "Previous School Name",
+    category: "Previous",
+    icon: "🏫",
+    aliases: [
+      "previous school",
+      "previous school name",
+      "last attended school",
+      "previous_school",
+      "last school",
+    ],
+  },
+  {
+    key: "previousClass",
+    label: "Previous Class",
+    category: "Previous",
+    icon: "📖",
+    aliases: [
+      "previous class",
+      "last class attended",
+      "prev class",
+      "previous_class",
+    ],
+  },
+  {
+    key: "previousRollNo",
+    label: "Previous Roll No",
+    category: "Previous",
+    icon: "🎯",
+    aliases: [
+      "previous roll",
+      "prev roll",
+      "last roll no",
+      "previous roll no",
+      "previous_roll_no",
+    ],
+  },
+  {
+    key: "previousMarksPercent",
+    label: "Previous Marks (%)",
+    category: "Previous",
+    icon: "📊",
+    aliases: [
+      "previous marks",
+      "previous marks percent",
+      "prev marks",
+      "last exam percentage",
+      "previous %",
+      "previous marks %",
+      "previous_marks_percent",
     ],
   },
 ];
@@ -931,12 +1291,102 @@ export function normalizeDate(value: any): string {
 
 /**
  * Normalizes Gender to "Male" | "Female" | "Other".
+ * Handles all variations: boy, boys, b, girl, girls, g, male, female, 1, 2, regional terms, etc.
  */
 export function normalizeGender(val: any): "Male" | "Female" | "Other" {
-  const str = String(val || "").toLowerCase().trim();
-  if (str.startsWith("m") || str === "1" || str === "boy") return "Male";
-  if (str.startsWith("f") || str === "2" || str === "girl") return "Female";
+  if (val === undefined || val === null) return "Other";
+  const str = String(val).trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!str) return "Other";
+
+  // 1. Female variations (check first to catch words starting with 'fem' or 'gir')
+  if (
+    str === "f" ||
+    str === "female" ||
+    str === "females" ||
+    str === "girl" ||
+    str === "girls" ||
+    str === "g" ||
+    str === "woman" ||
+    str === "women" ||
+    str === "mahila" ||
+    str === "mohila" ||
+    str === "meye" ||
+    str === "meyera" ||
+    str === "nari" ||
+    str === "daughter" ||
+    str === "kumari" ||
+    str === "2" ||
+    str === "02" ||
+    str.startsWith("fem") ||
+    str.startsWith("gir")
+  ) {
+    return "Female";
+  }
+
+  // 2. Male variations
+  if (
+    str === "m" ||
+    str === "male" ||
+    str === "males" ||
+    str === "boy" ||
+    str === "boys" ||
+    str === "b" ||
+    str === "man" ||
+    str === "men" ||
+    str === "purush" ||
+    str === "puroosh" ||
+    str === "chele" ||
+    str === "chhele" ||
+    str === "son" ||
+    str === "kumar" ||
+    str === "1" ||
+    str === "01" ||
+    str.startsWith("mal") ||
+    str.startsWith("boy")
+  ) {
+    return "Male";
+  }
+
+  // 3. Transgender / Other
+  if (
+    str === "t" ||
+    str === "trans" ||
+    str === "transgender" ||
+    str === "tg" ||
+    str === "other" ||
+    str === "others" ||
+    str === "o" ||
+    str === "3" ||
+    str === "03"
+  ) {
+    return "Other";
+  }
+
   return "Other";
+}
+
+/**
+ * Normalizes Social Category (combines OBC-A, OBC-B, OBC A, OBC B into single "OBC" category).
+ */
+export function normalizeSocialCategory(val: any): string {
+  if (val === undefined || val === null) return "";
+  const str = String(val).trim();
+  if (!str) return "";
+
+  const upper = str.toUpperCase().replace(/[\s\-_]/g, "");
+  if (upper.startsWith("OBC") || upper.includes("OBC")) {
+    return "OBC";
+  }
+  if (upper === "SC" || upper.startsWith("SCHEDULEDCASTE") || upper.startsWith("SCHEDULCASTE")) {
+    return "SC";
+  }
+  if (upper === "ST" || upper.startsWith("SCHEDULEDTRIBE") || upper.startsWith("SCHEDULTRIBE")) {
+    return "ST";
+  }
+  if (upper === "GEN" || upper.startsWith("GENERAL") || upper === "UNRESERVED" || upper === "UR") {
+    return "General";
+  }
+  return str;
 }
 
 /**
@@ -1055,6 +1505,8 @@ export function applyMapping(
         } else {
           student.aadhaar = digitsOnly || rawStr;
         }
+      } else if (fieldKey === "socialCategory") {
+        student.socialCategory = normalizeSocialCategory(rawVal);
       } else if (fieldKey === "studentContact" || fieldKey === "altMobile") {
         const str = String(rawVal).trim();
         const digits = str.replace(/\D/g, "");
@@ -1064,6 +1516,32 @@ export function applyMapping(
           // Handle BSP files where column labeled "Guardian Number" contains Guardian Name (e.g. REJAUL LASKAR)
           student.guardianName = str;
         }
+      } else if (
+        fieldKey === "isBpl" ||
+        fieldKey === "isCwsn" ||
+        fieldKey === "isAay" ||
+        fieldKey === "isEws" ||
+        fieldKey === "indianNationality" ||
+        fieldKey === "hasDisabilityCertificate" ||
+        fieldKey === "isOutOfSchool"
+      ) {
+        const s = String(rawVal).trim().toLowerCase();
+        (student as any)[fieldKey] = ["yes", "y", "true", "1", "t"].includes(s);
+      } else if (
+        fieldKey === "heightCm" ||
+        fieldKey === "weightKg" ||
+        fieldKey === "annualFamilyIncome" ||
+        fieldKey === "previousRollNo" ||
+        fieldKey === "previousMarksPercent"
+      ) {
+        const num = parseFloat(String(rawVal).replace(/[^\d.]/g, ""));
+        (student as any)[fieldKey] = isNaN(num) ? undefined : num;
+      } else if (
+        fieldKey === "admissionDate" ||
+        fieldKey === "presentClassAdmissionDate" ||
+        fieldKey === "mainstreamedDate"
+      ) {
+        (student as any)[fieldKey] = normalizeDate(rawVal);
       } else {
         (student as any)[fieldKey] = String(rawVal).trim();
       }
@@ -1151,61 +1629,54 @@ export function validateMappedRows(rows: Array<Partial<Student>>): {
         issues.push({
           row: rowNum,
           field: "pen",
-          issue: `Duplicate PEN '${cleanPen}' in this file (also in Row ${seenPens.get(cleanPen)})`,
-          severity: "warning",
+          issue: `Duplicate PEN "${cleanPen}" (also on row ${seenPens.get(cleanPen)})`,
+          severity: "error",
           studentName: r.name,
         });
-        rowWarnings.push("Duplicate PEN in file");
+        rowErrors.push("Duplicate PEN");
       } else {
         seenPens.set(cleanPen, rowNum);
       }
     }
 
-    if (r.aadhaar && r.aadhaar !== "PENDING_RECORD") {
-      const cleanAadhaar = r.aadhaar.trim().replace(/\D/g, "");
-      if (cleanAadhaar.length > 0 && cleanAadhaar.length !== 12) {
+    if (r.aadhaar && r.aadhaar.length === 12) {
+      if (seenAadhaars.has(r.aadhaar)) {
         issues.push({
           row: rowNum,
           field: "aadhaar",
-          issue: `Aadhaar must be 12 digits (got ${cleanAadhaar.length} digits)`,
+          issue: `Duplicate Aadhaar "${r.aadhaar}" (also on row ${seenAadhaars.get(r.aadhaar)})`,
           severity: "warning",
           studentName: r.name,
         });
-        rowWarnings.push("Invalid Aadhaar length");
-      } else if (cleanAadhaar.length === 12 && seenAadhaars.has(cleanAadhaar)) {
-        issues.push({
-          row: rowNum,
-          field: "aadhaar",
-          issue: `Duplicate Aadhaar in this file (also in Row ${seenAadhaars.get(cleanAadhaar)})`,
-          severity: "warning",
-          studentName: r.name,
-        });
-        rowWarnings.push("Duplicate Aadhaar in file");
-      } else if (cleanAadhaar.length === 12) {
-        seenAadhaars.set(cleanAadhaar, rowNum);
+        rowWarnings.push("Duplicate Aadhaar");
+      } else {
+        seenAadhaars.set(r.aadhaar, rowNum);
       }
     }
 
     if (r.schoolId) {
-      const cleanId = r.schoolId.toUpperCase().trim();
-      if (seenSchoolIds.has(cleanId)) {
+      const cleanSid = r.schoolId.toUpperCase().trim();
+      if (seenSchoolIds.has(cleanSid)) {
         issues.push({
           row: rowNum,
           field: "schoolId",
-          issue: `Duplicate School ID '${cleanId}' in this file`,
+          issue: `Duplicate School ID "${cleanSid}" in file (row ${seenSchoolIds.get(cleanSid)})`,
           severity: "warning",
           studentName: r.name,
         });
         rowWarnings.push("Duplicate School ID");
       } else {
-        seenSchoolIds.set(cleanId, rowNum);
+        seenSchoolIds.set(cleanSid, rowNum);
       }
     }
 
     // Build preview row
     previewRows.push({
       rowNumber: rowNum,
-      action: r.schoolId || r.pen || (r.aadhaar && r.aadhaar !== "PENDING_RECORD") || r.studentUniqueCode ? "update" : "create",
+      action:
+        r.schoolId || r.pen || (r.aadhaar && r.aadhaar !== "PENDING_RECORD") || r.studentUniqueCode
+          ? "update"
+          : "create",
       name: r.name || "Unknown",
       schoolId: r.schoolId,
       pen: r.pen,
@@ -1230,36 +1701,37 @@ export interface ResultFieldDefinition {
   key: string;
   label: string;
   category: string;
+  icon?: string;
   aliases: string[];
   required?: boolean;
 }
 
 export const RESULT_TARGET_FIELDS: ResultFieldDefinition[] = [
   // Student identification
-  { key: "schoolId", label: "School ID", category: "Identifier", aliases: ["school id", "student id", "school_id", "admission no", "id"] },
-  { key: "studentUniqueCode", label: "Student Code (BSP)", category: "Identifier", aliases: ["student code", "bsp id", "bsp code", "student unique code", "student_code"] },
-  { key: "name", label: "Student Name", category: "Identifier", aliases: ["student name", "name", "student's name"] },
-  { key: "presentClass", label: "Class", category: "Enrolment", aliases: ["class", "standard", "grade", "present class"] },
-  { key: "presentSection", label: "Section", category: "Enrolment", aliases: ["section", "sec", "present section"] },
-  { key: "presentRoll", label: "Roll No", category: "Enrolment", aliases: ["roll", "roll no", "roll number", "present roll"] },
+  { key: "schoolId", label: "School ID", category: "Identifier", icon: "🔢", aliases: ["school id", "student id", "school_id", "admission no", "id"] },
+  { key: "studentUniqueCode", label: "Student Code (BSP)", category: "Identifier", icon: "🆔", aliases: ["student code", "bsp id", "bsp code", "student unique code", "student_code"] },
+  { key: "name", label: "Student Name", category: "Identifier", icon: "👤", aliases: ["student name", "name", "student's name"] },
+  { key: "presentClass", label: "Class", category: "Enrolment", icon: "🏫", aliases: ["class", "standard", "grade", "present class"] },
+  { key: "presentSection", label: "Section", category: "Enrolment", icon: "🔤", aliases: ["section", "sec", "present section"] },
+  { key: "presentRoll", label: "Roll No", category: "Enrolment", icon: "🎯", aliases: ["roll", "roll no", "roll number", "present roll"] },
   
   // Evaluation specifics
-  { key: "academicYear", label: "Academic Session / Year", category: "Exam", aliases: ["academic year", "session", "year", "session year", "exam year"], required: true },
-  { key: "examName", label: "Evaluation / Exam Name", category: "Exam", aliases: ["exam name", "evaluation name", "exam", "evaluation", "term", "summative"], required: true },
-  { key: "fullMarks", label: "Full Marks", category: "Marks", aliases: ["full marks", "maximum marks", "max marks", "fm", "total full marks"] },
-  { key: "marksObtained", label: "Total Marks Obtained", category: "Marks", aliases: ["total marks", "marks obtained", "total obtained", "obtained marks", "grand total", "total", "marks"], required: true },
-  { key: "percentage", label: "Percentage (%)", category: "Marks", aliases: ["percentage", "percent", "%", "marks percent"] },
-  { key: "grade", label: "Grade", category: "Marks", aliases: ["grade", "division", "rank grade"] },
-  { key: "remarks", label: "Remarks / Result Status", category: "Marks", aliases: ["remarks", "remark", "result", "status", "comment"] },
+  { key: "academicYear", label: "Academic Session / Year", category: "Exam", icon: "🗓️", aliases: ["academic year", "session", "year", "session year", "exam year"], required: true },
+  { key: "examName", label: "Evaluation / Exam Name", category: "Exam", icon: "📝", aliases: ["exam name", "evaluation name", "exam", "evaluation", "term", "summative"], required: true },
+  { key: "fullMarks", label: "Full Marks", category: "Marks", icon: "💯", aliases: ["full marks", "maximum marks", "max marks", "fm", "total full marks"] },
+  { key: "marksObtained", label: "Total Marks Obtained", category: "Marks", icon: "📊", aliases: ["total marks", "marks obtained", "total obtained", "obtained marks", "grand total", "total", "marks"], required: true },
+  { key: "percentage", label: "Percentage (%)", category: "Marks", icon: "📈", aliases: ["percentage", "percent", "%", "marks percent"] },
+  { key: "grade", label: "Grade", category: "Marks", icon: "🏆", aliases: ["grade", "division", "rank grade"] },
+  { key: "remarks", label: "Remarks / Result Status", category: "Marks", icon: "💬", aliases: ["remarks", "remark", "result", "status", "comment"] },
 
   // Subjects (West Bengal Secondary Board subjects)
-  { key: "bengali", label: "Bengali (First Language)", category: "Subjects", aliases: ["bengali", "first language", "1st language", "ben", "fl"] },
-  { key: "english", label: "English (Second Language)", category: "Subjects", aliases: ["english", "second language", "2nd language", "eng", "sl"] },
-  { key: "mathematics", label: "Mathematics", category: "Subjects", aliases: ["mathematics", "math", "maths", "mat"] },
-  { key: "physicalScience", label: "Physical Science", category: "Subjects", aliases: ["physical science", "physical sc", "psc", "physics", "phy sc"] },
-  { key: "lifeScience", label: "Life Science", category: "Subjects", aliases: ["life science", "life sc", "lsc", "biology", "bio sc"] },
-  { key: "history", label: "History", category: "Subjects", aliases: ["history", "hist", "his"] },
-  { key: "geography", label: "Geography", category: "Subjects", aliases: ["geography", "geog", "geo"] },
+  { key: "bengali", label: "Bengali (First Language)", category: "Subjects", icon: "📚", aliases: ["bengali", "first language", "1st language", "ben", "fl"] },
+  { key: "english", label: "English (Second Language)", category: "Subjects", icon: "📚", aliases: ["english", "second language", "2nd language", "eng", "sl"] },
+  { key: "mathematics", label: "Mathematics", category: "Subjects", icon: "📐", aliases: ["mathematics", "math", "maths", "mat"] },
+  { key: "physicalScience", label: "Physical Science", category: "Subjects", icon: "🔬", aliases: ["physical science", "physical sc", "psc", "physics", "phy sc"] },
+  { key: "lifeScience", label: "Life Science", category: "Subjects", icon: "🧬", aliases: ["life science", "life sc", "lsc", "biology", "bio sc"] },
+  { key: "history", label: "History", category: "Subjects", icon: "📜", aliases: ["history", "hist", "his"] },
+  { key: "geography", label: "Geography", category: "Subjects", icon: "🗺️", aliases: ["geography", "geog", "geo"] },
 ];
 
 export type ResultColumnMapping = Record<string, string>;

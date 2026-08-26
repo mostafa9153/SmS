@@ -242,6 +242,46 @@ export default function BulkUploadPage() {
     [parsedData, uploadType, selectedTemplate]
   );
 
+  // Handle switching active sheet in multi-sheet Excel file
+  const handleSheetChange = useCallback(
+    async (sheetIndex: number) => {
+      if (!file) return;
+      setIsParsing(true);
+      try {
+        const parsed = await parseExcelFile(file, { sheetIndex });
+        setParsedData(parsed);
+
+        if (parsed.detectedMetadata) {
+          if (parsed.detectedMetadata.detectedClass) {
+            setTargetClass(parsed.detectedMetadata.detectedClass);
+          }
+          if (parsed.detectedMetadata.detectedSection) {
+            setTargetSection(parsed.detectedMetadata.detectedSection);
+          }
+        }
+
+        if (uploadType === "exam_results") {
+          let initialMapping = autoSuggestResultMapping(parsed.headers);
+          if (selectedTemplate !== "auto" && RESULT_TEMPLATE_PRESETS[selectedTemplate]) {
+            initialMapping = { ...initialMapping, ...RESULT_TEMPLATE_PRESETS[selectedTemplate].mapping };
+          }
+          setColumnMapping(initialMapping);
+        } else {
+          let initialMapping = autoSuggestMapping(parsed.headers);
+          if (selectedTemplate !== "auto" && TEMPLATE_PRESETS[selectedTemplate]) {
+            initialMapping = { ...initialMapping, ...TEMPLATE_PRESETS[selectedTemplate].mapping };
+          }
+          setColumnMapping(initialMapping);
+        }
+      } catch (err: any) {
+        setParseError(err.message || "Failed to switch sheet");
+      } finally {
+        setIsParsing(false);
+      }
+    },
+    [file, uploadType, selectedTemplate]
+  );
+
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -868,6 +908,33 @@ export default function BulkUploadPage() {
                     )}
                   </div>
 
+                  {/* Multi-Sheet Selector */}
+                  {parsedData.sheetNames && parsedData.sheetNames.length > 1 && (
+                    <div className="w-full flex flex-col sm:flex-row items-center justify-center gap-2 pt-2.5 pb-1 border-t mt-1">
+                      <span className="text-xs font-semibold text-foreground">Select Active Sheet:</span>
+                      <div className="flex flex-wrap gap-1.5 justify-center">
+                        {parsedData.sheetNames.map((sName, idx) => (
+                          <button
+                            key={sName}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSheetChange(idx);
+                            }}
+                            className={cn(
+                              "px-2.5 py-1 text-xs font-medium rounded-lg border transition-all cursor-pointer",
+                              parsedData.selectedSheet === sName
+                                ? "bg-primary text-primary-foreground border-primary shadow-2xs font-semibold"
+                                : "bg-background hover:bg-muted text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            📄 {sName}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Action buttons: Change File and Remove/Deselect File */}
                   <div className="flex items-center justify-center gap-2.5 pt-2">
                     <button
@@ -1019,15 +1086,19 @@ export default function BulkUploadPage() {
                               }))
                             }
                             options={[
-                              { label: "— Ignore this column —", value: "ignore" },
+                              { label: "— Ignore this column —", value: "ignore", icon: "🚫" },
                               ...(isResultsMode
                                 ? RESULT_TARGET_FIELDS.map((f) => ({
-                                    label: `[${f.category}] ${f.label}${f.required ? " *" : ""}`,
+                                    label: `${f.label}${f.required ? " *" : ""}`,
                                     value: f.key,
+                                    icon: f.icon,
+                                    category: f.category,
                                   }))
                                 : TARGET_FIELDS.map((f) => ({
-                                    label: `[${f.category}] ${f.label}${f.required ? " *" : ""}`,
+                                    label: `${f.label}${f.required ? " *" : ""}`,
                                     value: f.key,
+                                    icon: f.icon,
+                                    category: f.category,
                                   }))),
                             ]}
                           />

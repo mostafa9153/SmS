@@ -71,11 +71,60 @@ export function formatAadhaar(aadhaar: string): string {
   return aadhaar.replace(/(\d{4})(\d{4})(\d{4})/, "$1 $2 $3");
 }
 
-const CLASS_ORDER = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+export const CLASS_ORDER = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+const CLASS_ORDER_MAP: Record<string, number> = {
+  "V": 5, "5": 5,
+  "VI": 6, "6": 6,
+  "VII": 7, "7": 7,
+  "VIII": 8, "8": 8,
+  "IX": 9, "9": 9,
+  "X": 10, "10": 10,
+  "XI": 11, "11": 11,
+  "XII": 12, "12": 12,
+};
+
+/** Returns numeric sequence rank for any class string */
+export function getClassRank(className?: string | null): number {
+  if (!className) return 999;
+  const normalized = className.trim().toUpperCase().replace(/^CLASS\s+/i, "");
+  if (normalized in CLASS_ORDER_MAP) {
+    return CLASS_ORDER_MAP[normalized];
+  }
+  const parsed = parseInt(normalized, 10);
+  if (!isNaN(parsed)) return parsed;
+  return 999;
+}
 
 /** Sorts class names in curriculum order */
 export function sortClasses(classes: string[]): string[] {
   return [...classes].sort(
-    (a, b) => CLASS_ORDER.indexOf(a) - CLASS_ORDER.indexOf(b)
+    (a, b) => getClassRank(a) - getClassRank(b)
   );
+}
+
+/** 
+ * Compares two student objects so they are ordered by:
+ * Class (V -> VI -> VII -> VIII -> IX -> X -> XI -> XII)
+ * then Section (A -> B -> C...)
+ * then Roll (1 -> 2 -> 3...)
+ * then Name as fallback
+ */
+export function compareStudentsByClassAndRoll(
+  a: { presentClass?: string | null; presentSection?: string | null; presentRoll?: number | null; name?: string },
+  b: { presentClass?: string | null; presentSection?: string | null; presentRoll?: number | null; name?: string }
+): number {
+  const rankA = getClassRank(a.presentClass);
+  const rankB = getClassRank(b.presentClass);
+  if (rankA !== rankB) return rankA - rankB;
+
+  const secA = (a.presentSection || "").trim().toUpperCase();
+  const secB = (b.presentSection || "").trim().toUpperCase();
+  if (secA !== secB) return secA.localeCompare(secB);
+
+  const rollA = a.presentRoll ?? 999999;
+  const rollB = b.presentRoll ?? 999999;
+  if (rollA !== rollB) return rollA - rollB;
+
+  return (a.name || "").localeCompare(b.name || "");
 }

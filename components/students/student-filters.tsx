@@ -133,10 +133,9 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
           placeholder="Category"
           options={[
             { label: "General", value: "General" },
+            { label: "OBC", value: "OBC" },
             { label: "SC", value: "SC" },
             { label: "ST", value: "ST" },
-            { label: "OBC-A", value: "OBC-A" },
-            { label: "OBC-B", value: "OBC-B" },
           ]}
         />
 

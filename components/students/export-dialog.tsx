@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { getStudents } from "@/lib/data/students";
+import { searchStudents, getStudents } from "@/lib/data/students";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -133,29 +133,29 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
     setSelectedColIds(new Set(PRESETS[presetKey].cols));
   };
 
+  // Compute active filters list for display
+  const activeFilterBadges: string[] = [];
+  if (activeFilters.query) activeFilterBadges.push(`Search: "${activeFilters.query}"`);
+  if (activeFilters.class) activeFilterBadges.push(`Class: ${activeFilters.class}`);
+  if (activeFilters.section) activeFilterBadges.push(`Section: ${activeFilters.section}`);
+  if (activeFilters.gender) activeFilterBadges.push(`Gender: ${activeFilters.gender}`);
+  if (activeFilters.socialCategory) activeFilterBadges.push(`Category: ${activeFilters.socialCategory}`);
+  if (activeFilters.status) activeFilterBadges.push(`Status: ${activeFilters.status}`);
+  if (activeFilters.admissionYear) activeFilterBadges.push(`Year: ${activeFilters.admissionYear}`);
+  if (activeFilters.scheme) activeFilterBadges.push(`Scheme: ${activeFilters.scheme}`);
+  if (activeFilters.hasAadhaar) activeFilterBadges.push(`Aadhaar: ${activeFilters.hasAadhaar === "yes" ? "Yes" : "No"}`);
+
   const handleDownload = async () => {
     setIsExporting(true);
     try {
-      // Fetch all students matching active filters
-      const allStudents = await getStudents();
-      
-      // Filter in-memory using activeFilters
-      const filtered = allStudents.filter((s) => {
-        if (activeFilters.class && s.presentClass !== activeFilters.class) return false;
-        if (activeFilters.section && s.presentSection !== activeFilters.section) return false;
-        if (activeFilters.status && s.currentStatus !== activeFilters.status) return false;
-        if (activeFilters.admissionYear && s.admissionYear !== activeFilters.admissionYear) return false;
-        if (activeFilters.query) {
-          const q = activeFilters.query.toLowerCase();
-          return (
-            s.name.toLowerCase().includes(q) ||
-            s.schoolId.toLowerCase().includes(q) ||
-            (s.pen && s.pen.toLowerCase().includes(q)) ||
-            (s.aadhaar && s.aadhaar.includes(q))
-          );
-        }
-        return true;
-      });
+      // Fetch all students strictly matching active directory filters
+      const res = await searchStudents(activeFilters, 1, 100000);
+      const filtered = res.data || [];
+
+      if (filtered.length === 0) {
+        alert("No students found matching the applied filters.");
+        return;
+      }
 
       const exportColumns = ALL_EXPORT_COLUMNS.filter((c) => selectedColIds.has(c.id));
 
@@ -172,7 +172,8 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
       XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
 
       const timestamp = new Date().toISOString().split("T")[0];
-      const filename = `Students_Report_${timestamp}.${fileFormat}`;
+      const filterTag = activeFilters.class ? `_Class_${activeFilters.class}` : "";
+      const filename = `Students_Report${filterTag}_${timestamp}.${fileFormat}`;
 
       if (fileFormat === "xlsx") {
         XLSX.writeFile(workbook, filename);
@@ -191,26 +192,15 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
   const handleDownloadClassicReport = async () => {
     setIsExporting(true);
     try {
-      const allStudents = await getStudents();
-      const filtered = allStudents.filter((s) => {
-        if (activeFilters.class && s.presentClass !== activeFilters.class) return false;
-        if (activeFilters.section && s.presentSection !== activeFilters.section) return false;
-        if (activeFilters.status && s.currentStatus !== activeFilters.status) return false;
-        if (activeFilters.admissionYear && s.admissionYear !== activeFilters.admissionYear) return false;
-        if (activeFilters.query) {
-          const q = activeFilters.query.toLowerCase();
-          return (
-            s.name.toLowerCase().includes(q) ||
-            s.schoolId.toLowerCase().includes(q) ||
-            (s.pen && s.pen.toLowerCase().includes(q)) ||
-            (s.aadhaar && s.aadhaar.includes(q))
-          );
-        }
-        return true;
-      });
+      const res = await searchStudents(activeFilters, 1, 100000);
+      const filtered = res.data || [];
 
-      const listToExport = filtered.length > 0 ? filtered : allStudents;
-      exportClassicStrengthExcel(listToExport, "MARIGACHI HIGH SCHOOL (H. S.)");
+      if (filtered.length === 0) {
+        alert("No students found matching the applied filters.");
+        return;
+      }
+
+      exportClassicStrengthExcel(filtered, "MARIGACHI HIGH SCHOOL (H. S.)");
       onOpenChange(false);
     } catch (err: any) {
       alert(`Classic Report export failed: ${err.message}`);
@@ -236,13 +226,34 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                   Export Custom Student Report
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Select the exact data columns to include in your customized Excel or CSV export.
+                  Export data matching your active directory filters to Excel or CSV.
                 </DialogDescription>
               </div>
             </div>
-            <span className="hidden sm:inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-              {selectedColIds.size} of {ALL_EXPORT_COLUMNS.length} Columns Selected
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+                {selectedColIds.size} of {ALL_EXPORT_COLUMNS.length} Columns Selected
+              </span>
+            </div>
+          </div>
+
+          {/* Active Filter Scope Pill Notice */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
+            <span className="text-muted-foreground font-medium">Export Scope:</span>
+            {activeFilterBadges.length === 0 ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-foreground">
+                All Enrolled Students
+              </span>
+            ) : (
+              activeFilterBadges.map((f, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20"
+                >
+                  {f}
+                </span>
+              ))
+            )}
           </div>
         </div>
 

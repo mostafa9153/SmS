@@ -4,6 +4,7 @@ import { generateBatchSchoolIds } from "./school-id-generator";
 import type { Student, ImportBatchSummary, ImportBatchRecord, StudentStatus, Gender, BulkResultRow, BulkUploadType } from "@/lib/types";
 import { mapDBStudentToStudent, type DBStudent } from "./db-students";
 import { getClassFullMarks, calculateGrade } from "./db-results";
+import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
 
 interface ProcessResult {
   summary: ImportBatchSummary;
@@ -168,7 +169,7 @@ export async function dbProcessBulkUpload(
 
     applyIfPresent("name", inc.name?.trim(), existing.name, "Name");
     applyIfPresent("dob", inc.dob?.trim(), existing.dob, "Date of Birth");
-    if (inc.gender) applyIfPresent("gender", inc.gender, existing.gender, "Gender");
+    if (inc.gender) applyIfPresent("gender", normalizeGender(inc.gender), existing.gender, "Gender");
     applyIfPresent("father_name", inc.fatherName?.trim(), existing.father_name, "Father Name");
     applyIfPresent("mother_name", inc.motherName?.trim(), existing.mother_name, "Mother Name");
     applyIfPresent("mobile", inc.studentContact?.trim(), existing.mobile, "Mobile");
@@ -183,7 +184,7 @@ export async function dbProcessBulkUpload(
     applyIfPresent("aadhaar", inc.aadhaar?.trim().replace(/\D/g, ""), existing.aadhaar, "Aadhaar");
     applyIfPresent("student_unique_code", inc.studentUniqueCode?.trim(), existing.student_unique_code, "Unique Code");
     applyIfPresent("guardian_name", inc.guardianName?.trim(), existing.guardian_name, "Guardian Name");
-    applyIfPresent("social_category", inc.socialCategory?.trim(), existing.social_category, "Category");
+    applyIfPresent("social_category", normalizeSocialCategory(inc.socialCategory?.trim()), existing.social_category, "Category");
     applyIfPresent("religion", inc.religion?.trim(), existing.religion, "Religion");
     applyIfPresent("bank_ifsc", inc.bankIfsc?.trim(), existing.bank_ifsc, "IFSC");
     applyIfPresent("bank_account_no", inc.bankAccountNo?.trim(), existing.bank_account_no, "Account No");
@@ -251,7 +252,7 @@ export async function dbProcessBulkUpload(
       school_id: generatedSchoolId,
       name: inc.name?.trim() || "Unknown",
       dob: inc.dob?.trim() || "2015-01-01",
-      gender: (inc.gender || "Male") as Gender,
+      gender: normalizeGender(inc.gender),
       father_name: inc.fatherName?.trim() || "N/A",
       mother_name: inc.motherName?.trim() || "N/A",
       guardian_name: inc.guardianName?.trim() || null,
@@ -268,7 +269,7 @@ export async function dbProcessBulkUpload(
       pen: inc.pen?.trim() || null,
       aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
       student_unique_code: inc.studentUniqueCode?.trim() || null,
-      social_category: inc.socialCategory?.trim() || "General",
+      social_category: normalizeSocialCategory(inc.socialCategory?.trim()) || "General",
       religion: inc.religion?.trim() || null,
       bank_ifsc: inc.bankIfsc?.trim() || null,
       bank_account_no: inc.bankAccountNo?.trim() || null,

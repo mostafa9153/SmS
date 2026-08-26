@@ -1,20 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
   getCoreRowModel,
-  getSortedRowModel,
   getPaginationRowModel,
   flexRender,
   type ColumnDef,
-  type SortingState,
 } from "@tanstack/react-table";
 import {
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
   Inbox,
@@ -23,6 +18,7 @@ import type { Student } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 
 interface StudentTableProps {
@@ -43,11 +39,19 @@ export function StudentTable({
   isLoading,
 }: StudentTableProps) {
   const router = useRouter();
-  const [sorting, setSorting] = useState<SortingState>([]);
   const currentYear = new Date().getFullYear();
 
   const columns = useMemo<ColumnDef<Student>[]>(
     () => [
+      {
+        id: "slNo",
+        header: "Sl. No.",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold text-muted-foreground/80">
+            {(page - 1) * pageSize + row.index + 1}
+          </span>
+        ),
+      },
       {
         accessorKey: "name",
         header: "Name & Welfare Tags",
@@ -112,8 +116,9 @@ export function StudentTable({
           return (
             <div className="space-y-1 font-mono text-xs">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <code className="bg-muted px-1.5 py-0.5 rounded font-semibold text-foreground">
-                  {s.schoolId}
+                <code className="bg-muted px-1.5 py-0.5 rounded font-semibold text-foreground inline-flex items-center gap-1">
+                  <span>{s.schoolId}</span>
+                  <CopyButton text={s.schoolId} label="School ID" iconClassName="h-2.5 w-2.5" />
                 </code>
                 {hasAadhaar ? (
                   <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200 text-[9px] px-1.5 py-0 font-medium">
@@ -126,13 +131,15 @@ export function StudentTable({
                 )}
               </div>
               {s.pen && (
-                <div className="text-[11px] text-muted-foreground">
-                  PEN: {s.pen}
+                <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <span>PEN: {s.pen}</span>
+                  <CopyButton text={s.pen} label="PEN" iconClassName="h-2.5 w-2.5" />
                 </div>
               )}
               {s.studentUniqueCode && (
-                <div className="text-[10px] text-muted-foreground/80">
-                  BSP: {s.studentUniqueCode}
+                <div className="text-[10px] text-muted-foreground/80 flex items-center gap-1">
+                  <span>BSP: {s.studentUniqueCode}</span>
+                  <CopyButton text={s.studentUniqueCode} label="BSP ID" iconClassName="h-2.5 w-2.5" />
                 </div>
               )}
             </div>
@@ -142,7 +149,6 @@ export function StudentTable({
       {
         id: "classSection",
         header: "Class / Section / Roll",
-        enableSorting: false,
         cell: ({ row }) => (
           <span className="text-sm">
             Class <span className="font-bold text-foreground">{row.original.presentClass}</span> -{" "}
@@ -154,7 +160,6 @@ export function StudentTable({
       {
         accessorKey: "currentStatus",
         header: "Status",
-        enableSorting: false,
         cell: ({ getValue }) => (
           <StatusBadge status={getValue() as Student["currentStatus"]} />
         ),
@@ -169,16 +174,14 @@ export function StudentTable({
         ),
       },
     ],
-    [currentYear]
+    [currentYear, page, pageSize]
   );
 
   const table = useReactTable({
     data,
     columns,
-    state: { sorting, pagination: { pageIndex: page - 1, pageSize } },
-    onSortingChange: setSorting,
+    state: { pagination: { pageIndex: page - 1, pageSize } },
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     manualPagination: true,
     pageCount: Math.ceil(total / pageSize),
@@ -220,30 +223,12 @@ export function StudentTable({
                     key={header.id}
                     className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground tracking-wider whitespace-nowrap uppercase"
                   >
-                    {header.isPlaceholder ? null : (
-                      <button
-                        className={cn(
-                          "flex items-center gap-1.5",
-                          header.column.getCanSort() &&
-                            "cursor-pointer select-none hover:text-foreground transition-colors"
-                        )}
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
                           header.column.columnDef.header,
                           header.getContext()
                         )}
-                        {header.column.getCanSort() && (
-                          <span className="text-muted-foreground/50">
-                            {header.column.getIsSorted() === "asc" ? (
-                              <ChevronUp className="h-3.5 w-3.5 text-primary" />
-                            ) : header.column.getIsSorted() === "desc" ? (
-                              <ChevronDown className="h-3.5 w-3.5 text-primary" />
-                            ) : null}
-                          </span>
-                        )}
-                      </button>
-                    )}
                   </th>
                 ))}
               </tr>
@@ -329,12 +314,13 @@ function TableSkeleton() {
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className="bg-muted/50 border-b px-4 py-2.5 flex gap-8">
-        {["Name", "School ID", "Class/Sec/Roll", "Status", "Adm. Year"].map(
-          (h) => <Skeleton key={h} className="h-3 w-16" />
+        {["Sl.", "Name", "School ID", "Class/Sec/Roll", "Status", "Adm. Year"].map(
+          (h) => <Skeleton key={h} className="h-3 w-14" />
         )}
       </div>
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="border-b last:border-0 px-4 py-3 flex items-center gap-8">
+          <Skeleton className="h-3 w-6" />
           <div className="flex flex-col gap-1.5 flex-1">
             <Skeleton className="h-3 w-32" />
             <Skeleton className="h-2.5 w-24" />

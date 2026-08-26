@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
+import { CopyButton } from "@/components/ui/copy-button";
 import { formatDate, cn } from "@/lib/utils";
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
@@ -133,17 +134,33 @@ export default function StudentProfilePage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold">{student.name}</h1>
-            <div className="flex flex-wrap gap-2 mt-1">
-              <code className="inline-block rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
-                ID: {student.schoolId}
-              </code>
+            <div className="flex flex-wrap gap-2 mt-2 items-center">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
+                <span className="text-muted-foreground font-sans text-[11px] font-medium">School ID:</span>
+                <span className="font-semibold">{student.schoolId}</span>
+                <CopyButton text={student.schoolId} label="School ID" />
+              </span>
               {student.studentUniqueCode && (
-                <code className="inline-block rounded bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground">
-                  Unique Code: {student.studentUniqueCode}
-                </code>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
+                  <span className="text-muted-foreground font-sans text-[11px] font-medium">BSP ID:</span>
+                  <span className="font-semibold">{student.studentUniqueCode}</span>
+                  <CopyButton text={student.studentUniqueCode} label="BSP ID" />
+                </span>
+              )}
+              {student.pen ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
+                  <span className="text-muted-foreground font-sans text-[11px] font-medium">PEN:</span>
+                  <span className="font-semibold">{student.pen}</span>
+                  <CopyButton text={student.pen} label="PEN" />
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 border border-dashed px-2 py-0.5 text-xs font-mono text-muted-foreground">
+                  <span className="font-sans text-[11px]">PEN:</span>
+                  <span>Not Assigned</span>
+                </span>
               )}
             </div>
-            <div className="mt-2">
+            <div className="mt-2.5">
               <StatusBadge status={student.currentStatus} />
             </div>
           </div>
@@ -469,8 +486,8 @@ export default function StudentProfilePage() {
               These details are used for BPL entitlements, minority scholarships, and other direct benefit transfers (DBT).
             </p>
             <InfoGrid>
-              <InfoField label="Bank A/C Number" value={student.bankAccountNo} />
-              <InfoField label="Bank IFS Code" value={student.bankIfsc} />
+              <InfoField label="Bank A/C Number" value={student.bankAccountNo} copyable />
+              <InfoField label="Bank IFS Code" value={student.bankIfsc} copyable />
             </InfoGrid>
           </div>
         </TabsContent>
@@ -480,9 +497,9 @@ export default function StudentProfilePage() {
           <div className="rounded-xl border bg-card p-5">
             <SectionTitle>Government Identifiers</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
-              <InfoField label="PEN (Permanent Education Number)" value={student.pen} />
-              <InfoField label="DISE Code" value={student.diseCode} />
-              <InfoField label="Health ID" value={student.healthId} />
+              <InfoField label="PEN (Permanent Education Number)" value={student.pen} copyable />
+              <InfoField label="DISE Code" value={student.diseCode} copyable />
+              <InfoField label="Health ID" value={student.healthId} copyable />
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   Aadhaar Available? (Yes/No)
@@ -919,15 +936,23 @@ function InfoField({
   label,
   value,
   full,
+  copyable,
 }: {
   label: string;
-  value?: string;
+  value?: string | number | null;
   full?: boolean;
+  copyable?: boolean;
 }) {
+  const displayVal = value !== undefined && value !== null && String(value).trim() !== "" ? String(value) : "—";
   return (
     <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="text-sm font-medium break-all">{value || "—"}</p>
+      <div className="flex items-center gap-1.5">
+        <p className="text-sm font-medium break-all">{displayVal}</p>
+        {copyable && displayVal !== "—" && (
+          <CopyButton text={displayVal} label={label} iconClassName="h-3 w-3" />
+        )}
+      </div>
     </div>
   );
 }

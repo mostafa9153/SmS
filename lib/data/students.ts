@@ -4,6 +4,7 @@ import type {
   PaginatedStudents,
   StudentStatus,
 } from "@/lib/types";
+import { sortClasses } from "@/lib/utils";
 
 /**
  * Returns all students (unfiltered, unpaginated).
@@ -50,6 +51,7 @@ export async function searchStudents(
   if (filters.gender) params.append("gender", filters.gender);
   if (filters.socialCategory) params.append("socialCategory", filters.socialCategory);
   if (filters.scheme) params.append("scheme", filters.scheme);
+  if (filters.hasAadhaar) params.append("hasAadhaar", filters.hasAadhaar);
   params.append("page", String(page));
   params.append("pageSize", String(pageSize));
 
@@ -139,13 +141,7 @@ export async function bulkUpdateStudents(
 /** Returns unique sorted list of classes present in the database */
 export async function getDistinctClasses(): Promise<string[]> {
   const students = await getStudents();
-  const classes = [
-    ...new Set(students.map((s) => s.presentClass)),
-  ].sort((a, b) => {
-    const order = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-    return order.indexOf(a) - order.indexOf(b);
-  });
-  return classes;
+  return sortClasses([...new Set(students.map((s) => s.presentClass))]);
 }
 
 /** Returns unique sorted list of sections present in the database */

@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { Student, StudentFilters, PaginatedStudents, StudentStatus } from "@/lib/types";
+import { compareStudentsByClassAndRoll } from "@/lib/utils";
 
 // DB Row shape (snake_case)
 export interface DBStudent {
@@ -317,11 +318,11 @@ export async function dbGetStudents(): Promise<Student[]> {
   const supabase = await createServerClient();
   const { data, error } = await supabase
     .from("students")
-    .select("*, academic_history(*)")
-    .order("name", { ascending: true });
+    .select("*, academic_history(*)");
 
   if (error) throw new Error(error.message);
-  return (data as DBStudent[]).map(mapDBStudentToStudent);
+  const students = (data as DBStudent[]).map(mapDBStudentToStudent);
+  return students.sort(compareStudentsByClassAndRoll);
 }
 
 // GET student by ID
@@ -349,7 +350,7 @@ export async function dbSearchStudents(
   pageSize = 20
 ): Promise<PaginatedStudents> {
   const supabase = await createServerClient();
-  let query = supabase.from("students").select("*, academic_history(*)", { count: "exact" });
+  let query = supabase.from("students").select("*, academic_history(*)");
 
   // 1. Text Search
   if (filters.query && filters.query.trim() !== "") {
@@ -377,7 +378,11 @@ export async function dbSearchStudents(
     query = query.eq("gender", filters.gender);
   }
   if (filters.socialCategory) {
-    query = query.eq("social_category", filters.socialCategory);
+    if (filters.socialCategory === "OBC") {
+      query = query.or("social_category.eq.OBC,social_category.ilike.%OBC%");
+    } else {
+      query = query.eq("social_category", filters.socialCategory);
+    }
   }
   if (filters.scheme) {
     if (filters.scheme === "kanyashree" || filters.scheme === "kanyashree_k1" || filters.scheme === "kanyashree_k2") {
@@ -402,23 +407,19 @@ export async function dbSearchStudents(
     }
   }
 
-  // Sort by name
-  query = query.order("name", { ascending: true });
-
-  // 3. Pagination range
-  const start = (page - 1) * pageSize;
-  const end = start + pageSize - 1;
-  query = query.range(start, end);
-
-  const { data, count, error } = await query;
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
 
   const students = (data as DBStudent[]).map(mapDBStudentToStudent);
-  const total = count || 0;
+  students.sort(compareStudentsByClassAndRoll);
+
+  const total = students.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = (page - 1) * pageSize;
+  const paginatedData = students.slice(start, start + pageSize);
 
   return {
-    data: students,
+    data: paginatedData,
     meta: {
       total,
       page,
