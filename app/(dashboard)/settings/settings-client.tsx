@@ -21,7 +21,9 @@ import {
   Award,
   Sparkles,
   CalendarClock,
+  Cloud,
 } from "lucide-react";
+import { BackupRestoreTab } from "@/components/backup/backup-restore-tab";
 import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -410,6 +412,13 @@ export function SettingsClient() {
           >
             <Sliders className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
             School Config
+          </TabsTrigger>
+          <TabsTrigger
+            value="backup"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all text-blue-600 dark:text-blue-400 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-300 data-[state=active]:shadow-2xs"
+          >
+            <Cloud className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            Backup & Cloud
           </TabsTrigger>
           <TabsTrigger
             value="danger"
@@ -1061,7 +1070,12 @@ export function SettingsClient() {
           <AcademicSessionClient />
         </TabsContent>
 
-        {/* Tab 5: Danger Zone */}
+        {/* Tab 5: Backup & Cloud Recovery */}
+        <TabsContent value="backup" className="space-y-4 outline-none">
+          <BackupRestoreTab />
+        </TabsContent>
+
+        {/* Tab 6: Danger Zone */}
         <TabsContent value="danger" className="space-y-4 outline-none">
           <Card className="border-rose-200 dark:border-rose-900/50 bg-card shadow-xs">
             <CardHeader className="border-b border-rose-100 dark:border-rose-950/50 bg-rose-50/50 dark:bg-rose-950/20 pb-4">
