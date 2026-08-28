@@ -418,23 +418,13 @@ export function SettingsClient() {
   return (
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Dynamic Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-        <div className="flex items-center gap-3">
-          <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl shrink-0 shadow-2xs", currentTab.color)}>
-            <CurrentIcon className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Settings /</span>
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-                {currentTab.title}
-              </h1>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {currentTab.subtitle}
-            </p>
-          </div>
+      <div className="flex items-center gap-3 border-b pb-4">
+        <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl shrink-0 shadow-2xs", currentTab.color)}>
+          <CurrentIcon className="h-4.5 w-4.5" />
         </div>
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+          {currentTab.title}
+        </h1>
       </div>
 
       <Tabs
@@ -919,11 +909,8 @@ export function SettingsClient() {
               <div>
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
                   <Building className="h-5 w-5 text-primary" />
-                  School Institution Profile & Evaluation Defaults
+                  School Profile & Information
                 </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Update your school metadata, administrative details, and standard examination full marks rules.
-                </CardDescription>
               </div>
               <Button
                 onClick={() => {
@@ -1038,11 +1025,8 @@ export function SettingsClient() {
             <CardHeader className="border-b border-rose-100 dark:border-rose-950/50 bg-rose-50/50 dark:bg-rose-950/20 pb-4">
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
                 <ShieldAlert className="h-5 w-5 flex-shrink-0" />
-                <CardTitle className="text-base font-semibold">Danger Zone & Irreversible System Actions</CardTitle>
+                <CardTitle className="text-base font-semibold">Danger Zone</CardTitle>
               </div>
-              <CardDescription className="text-xs text-rose-600/90 dark:text-rose-400/80">
-                These operations permanently purge data from the system. Once wiped, records cannot be retrieved unless restored from offline backups.
-              </CardDescription>
             </CardHeader>
 
             <CardContent className="divide-y divide-border/60 p-0">

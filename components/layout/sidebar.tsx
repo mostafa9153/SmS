@@ -74,20 +74,12 @@ const navItems: NavItem[] = [
     icon: <ArrowUpDown className="h-4 w-4" />,
     iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/20 group-hover:scale-110",
   },
-  {
-    label: "System Settings",
-    href: "/settings",
-    adminOnly: true,
-    icon: <Settings className="h-4 w-4" />,
-    iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 group-hover:scale-110",
-  },
 ];
 
 const settingsNavItems = [
   {
     tab: "users",
     label: "User Management",
-    desc: "Admin & Staff Accounts",
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     activeColor: "from-blue-500/15 via-blue-500/8 text-blue-700 dark:text-blue-300 border-blue-600",
@@ -95,7 +87,6 @@ const settingsNavItems = [
   {
     tab: "session",
     label: "Academic Session",
-    desc: "Session 2026 & Promotion",
     icon: <CalendarClock className="h-4 w-4" />,
     iconBg: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
     activeColor: "from-cyan-500/15 via-cyan-500/8 text-cyan-700 dark:text-cyan-300 border-cyan-600",
@@ -103,7 +94,6 @@ const settingsNavItems = [
   {
     tab: "audit",
     label: "Audit Logs",
-    desc: "Activity History & Security",
     icon: <Activity className="h-4 w-4" />,
     iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400",
     activeColor: "from-violet-500/15 via-violet-500/8 text-violet-700 dark:text-violet-300 border-violet-600",
@@ -111,7 +101,6 @@ const settingsNavItems = [
   {
     tab: "config",
     label: "School Config",
-    desc: "School Identity & Rules",
     icon: <Sliders className="h-4 w-4" />,
     iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     activeColor: "from-amber-500/15 via-amber-500/8 text-amber-700 dark:text-amber-300 border-amber-600",
@@ -119,7 +108,6 @@ const settingsNavItems = [
   {
     tab: "backup",
     label: "Backup & Cloud",
-    desc: "Google Drive Recovery",
     icon: <Cloud className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
@@ -127,7 +115,6 @@ const settingsNavItems = [
   {
     tab: "danger",
     label: "Danger Zone",
-    desc: "System Reset & Wipeout",
     icon: <ShieldAlert className="h-4 w-4" />,
     iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
     activeColor: "from-rose-500/15 via-rose-500/8 text-rose-700 dark:text-rose-300 border-rose-600",
@@ -331,17 +318,14 @@ export function Sidebar({
         {isSettingsMode ? (
           <div className="space-y-2">
             {/* Return to Dashboard Action */}
-            <div className="mb-2.5">
+            <div className="mb-2">
               <Link
                 href="/"
                 onClick={onClose}
                 className="group flex items-center gap-2.5 rounded-xl border border-border/70 bg-accent/40 px-3 py-2 text-xs font-semibold text-foreground transition-all duration-200 hover:bg-accent hover:border-border hover:shadow-2xs"
               >
                 <ArrowLeft className="h-4 w-4 text-muted-foreground transition-transform duration-200 group-hover:-translate-x-1 group-hover:text-primary" />
-                <div className="flex flex-col">
-                  <span className="font-bold tracking-tight">Return to Dashboard</span>
-                  <span className="text-[10px] text-muted-foreground font-normal">মূল ড্যাশবোর্ডে ফিরুন</span>
-                </div>
+                <span className="text-xs font-bold tracking-tight">Return to Dashboard</span>
               </Link>
             </div>
 
@@ -368,10 +352,7 @@ export function Sidebar({
                     <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 shrink-0", item.iconBg)}>
                       {item.icon}
                     </div>
-                    <div className="flex flex-col min-w-0 flex-1">
-                      <span className="text-xs font-semibold tracking-tight truncate">{item.label}</span>
-                      <span className="text-[9px] text-muted-foreground truncate">{item.desc}</span>
-                    </div>
+                    <span className="text-xs font-semibold tracking-tight flex-1 truncate">{item.label}</span>
                     {isActive && (
                       <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
                     )}
