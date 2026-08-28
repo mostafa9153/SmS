@@ -275,7 +275,7 @@ export function Sidebar({
     <aside
       className={cn(
         "flex h-full flex-col bg-sidebar/95 backdrop-blur-md border-sidebar-border transition-all duration-300",
-        mobile ? "w-72" : "w-64 border-r"
+        mobile ? "w-72" : "w-full"
       )}
     >
       {/* Brand Logo Header */}
