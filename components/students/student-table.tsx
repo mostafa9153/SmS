@@ -17,6 +17,7 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
+import { getKanyashreeCategory } from "@/lib/utils";
 
 interface StudentTableProps {
   data: Student[];
@@ -75,7 +76,7 @@ export function StudentTable({
         header: "Name & Welfare Tags",
         cell: ({ row }) => {
           const s = row.original;
-          const age = s.dob ? currentYear - new Date(s.dob).getFullYear() : null;
+          const kanyashree = getKanyashreeCategory(s);
           const isMinority = !!s.minorityGroup || ["Islam", "Muslim", "Christianity", "Christian", "Sikh", "Buddhist"].some(r => s.religion?.toLowerCase().includes(r.toLowerCase()));
           const isScSt = ["SC", "ST"].includes(s.socialCategory || "");
 
@@ -108,12 +109,12 @@ export function StudentTable({
               </p>
               {/* Badges */}
               <div className="flex flex-wrap gap-1 pt-0.5">
-                {s.gender === "Female" && age !== null && age >= 18 && (
+                {kanyashree === "K2" && (
                   <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] px-1.5 py-0 font-medium">
                     Kanyashree K2 (18+)
                   </Badge>
                 )}
-                {s.gender === "Female" && age !== null && age >= 13 && age < 18 && (
+                {kanyashree === "K1" && (
                   <Badge className="bg-pink-100 text-pink-800 border-pink-200 text-[10px] px-1.5 py-0 font-medium">
                     Kanyashree K1
                   </Badge>

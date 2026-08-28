@@ -387,6 +387,21 @@ export async function dbSearchStudents(
   if (filters.scheme) {
     if (filters.scheme === "kanyashree" || filters.scheme === "kanyashree_k1" || filters.scheme === "kanyashree_k2") {
       query = query.eq("gender", "Female");
+      const today = new Date();
+      if (filters.scheme === "kanyashree_k1") {
+        // Age 13 to 17.99: born on or before (today - 13y) and after (today - 18y)
+        const date18YearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+        const date13YearsAgo = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+        query = query.lte("dob", date13YearsAgo).gt("dob", date18YearsAgo);
+      } else if (filters.scheme === "kanyashree_k2") {
+        // Age 18+: born on or before (today - 18y)
+        const date18YearsAgo = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+        query = query.lte("dob", date18YearsAgo);
+      } else if (filters.scheme === "kanyashree") {
+        // All eligible females (Age 13+)
+        const date13YearsAgo = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+        query = query.lte("dob", date13YearsAgo);
+      }
     } else if (filters.scheme === "aikyashree") {
       query = query.or("minority_group.not.is.null,religion.ilike.%muslim%,religion.ilike.%islam%,religion.ilike.%christian%");
     } else if (filters.scheme === "shikshashree") {

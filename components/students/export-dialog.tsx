@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { searchStudents } from "@/lib/data/students";
+import { getKanyashreeCategory } from "@/lib/utils";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
@@ -84,11 +85,11 @@ const ALL_EXPORT_COLUMNS: ExportColumn[] = [
     label: "Kanyashree Status",
     category: "Welfare",
     getValue: (s) => {
-      if (s.gender !== "Female" || !s.dob) return "N/A";
-      const age = new Date().getFullYear() - new Date(s.dob).getFullYear();
-      if (age >= 18) return "K2 (Eligible - Age 18+)";
-      if (age >= 13) return "K1 (Eligible - Age 13-17)";
-      return "Under-age";
+      const cat = getKanyashreeCategory(s);
+      if (cat === "K2") return "K2 (Eligible - Age 18+)";
+      if (cat === "K1") return "K1 (Eligible - Age 13-17)";
+      if (s.gender === "Female") return "Under-age (<13)";
+      return "N/A";
     },
   },
   { id: "isBpl", label: "BPL Beneficiary", category: "Welfare", getValue: (s) => s.isBpl ? "Yes" : "No" },

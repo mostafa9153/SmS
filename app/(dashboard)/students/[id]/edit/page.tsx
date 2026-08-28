@@ -128,6 +128,39 @@ type FormData = z.infer<typeof studentSchema>;
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
+const INDIAN_RELIGIONS = [
+  { label: "Islam", value: "Islam" },
+  { label: "Hinduism", value: "Hinduism" },
+  { label: "Christianity", value: "Christianity" },
+  { label: "Sikhism", value: "Sikhism" },
+  { label: "Buddhism", value: "Buddhism" },
+  { label: "Jainism", value: "Jainism" },
+  { label: "Other", value: "Other" },
+];
+
+const MOTHER_TONGUES = [
+  { label: "Bengali", value: "Bengali" },
+  { label: "Hindi", value: "Hindi" },
+  { label: "Urdu", value: "Urdu" },
+  { label: "English", value: "English" },
+  { label: "Santhali", value: "Santhali" },
+  { label: "Nepali", value: "Nepali" },
+  { label: "Other", value: "Other" },
+];
+
+const QUALIFICATION_OPTIONS = [
+  { label: "Illiterate", value: "Illiterate" },
+  { label: "Below Primary (Below Class 4)", value: "Below Primary" },
+  { label: "Primary (Class 4 Pass)", value: "Primary (Class 4 Pass)" },
+  { label: "Upper Primary (Class 8 Pass)", value: "Upper Primary (Class 8 Pass)" },
+  { label: "Secondary (M.P. Pass)", value: "Secondary (M.P. Pass)" },
+  { label: "Higher Secondary (H.S. Pass)", value: "Higher Secondary (H.S. Pass)" },
+  { label: "Graduate", value: "Graduate" },
+  { label: "Post Graduate", value: "Post Graduate" },
+  { label: "Doctorate / Professional", value: "Doctorate / Professional" },
+  { label: "Other", value: "Other" },
+];
+
 export default function EditStudentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -153,7 +186,7 @@ export default function EditStudentPage() {
           schoolId: student.schoolId,
           dob: student.dob,
           gender: student.gender,
-          motherTongue: student.motherTongue ?? "",
+          motherTongue: student.motherTongue || "Bengali",
           religion: student.religion ?? "",
           indianNationality: student.indianNationality !== false,
           bloodGroup: student.bloodGroup ?? "",
@@ -358,10 +391,31 @@ export default function EditStudentPage() {
               />
             </FormField>
             <FormField label="Mother Tongue" error={errors.motherTongue?.message}>
-              <input {...register("motherTongue")} />
+              <Controller
+                control={control}
+                name="motherTongue"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value || "Bengali"}
+                    onChange={field.onChange}
+                    options={MOTHER_TONGUES}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Religion" error={errors.religion?.message}>
-              <input {...register("religion")} />
+              <Controller
+                control={control}
+                name="religion"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select religion..."
+                    options={INDIAN_RELIGIONS}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Indian Nationality?" error={errors.indianNationality?.message}>
               <Controller
@@ -577,7 +631,23 @@ export default function EditStudentPage() {
               <input {...register("relationshipWithGuardian")} />
             </FormField>
             <FormField label="Guardian's Qualification" error={errors.guardianQualification?.message}>
-              <input {...register("guardianQualification")} />
+              <Controller
+                control={control}
+                name="guardianQualification"
+                render={({ field }) => {
+                  const options = field.value && !QUALIFICATION_OPTIONS.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
+                    ? [{ label: field.value, value: field.value }, ...QUALIFICATION_OPTIONS]
+                    : QUALIFICATION_OPTIONS;
+                  return (
+                    <CustomSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="Select qualification..."
+                      options={options}
+                    />
+                  );
+                }}
+              />
             </FormField>
             <FormField label="Annual Family Income" error={errors.annualFamilyIncome?.message}>
               <input {...register("annualFamilyIncome")} type="number" />

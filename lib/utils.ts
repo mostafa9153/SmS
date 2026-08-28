@@ -128,3 +128,35 @@ export function compareStudentsByClassAndRoll(
 
   return (a.name || "").localeCompare(b.name || "");
 }
+
+/**
+ * Calculates exact age in completed years from an ISO birthdate string (YYYY-MM-DD).
+ * Accurately compares day and month against today's date.
+ */
+export function calculateExactAge(dobIso?: string | null): number | null {
+  if (!dobIso) return null;
+  const birthDate = new Date(dobIso);
+  if (isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+/**
+ * Determines Kanyashree Prakalpa eligibility dynamically based on official WB Govt rules:
+ * - "K2": Unmarried Female, Age >= 18
+ * - "K1": Unmarried Female, 13 <= Age < 18
+ * - null: Not eligible (Male, under 13, or no DOB)
+ */
+export function getKanyashreeCategory(student: { gender?: string | null; dob?: string | null }): "K2" | "K1" | null {
+  if (student.gender !== "Female" || !student.dob) return null;
+  const age = calculateExactAge(student.dob);
+  if (age === null) return null;
+  if (age >= 18) return "K2";
+  if (age >= 13) return "K1";
+  return null;
+}

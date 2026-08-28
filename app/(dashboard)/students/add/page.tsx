@@ -135,6 +135,39 @@ type FormData = z.infer<typeof studentSchema>;
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
+const INDIAN_RELIGIONS = [
+  { label: "Islam", value: "Islam" },
+  { label: "Hinduism", value: "Hinduism" },
+  { label: "Christianity", value: "Christianity" },
+  { label: "Sikhism", value: "Sikhism" },
+  { label: "Buddhism", value: "Buddhism" },
+  { label: "Jainism", value: "Jainism" },
+  { label: "Other", value: "Other" },
+];
+
+const MOTHER_TONGUES = [
+  { label: "Bengali", value: "Bengali" },
+  { label: "Hindi", value: "Hindi" },
+  { label: "Urdu", value: "Urdu" },
+  { label: "English", value: "English" },
+  { label: "Santhali", value: "Santhali" },
+  { label: "Nepali", value: "Nepali" },
+  { label: "Other", value: "Other" },
+];
+
+const QUALIFICATION_OPTIONS = [
+  { label: "Illiterate", value: "Illiterate" },
+  { label: "Below Primary (Below Class 4)", value: "Below Primary" },
+  { label: "Primary (Class 4 Pass)", value: "Primary (Class 4 Pass)" },
+  { label: "Upper Primary (Class 8 Pass)", value: "Upper Primary (Class 8 Pass)" },
+  { label: "Secondary (M.P. Pass)", value: "Secondary (M.P. Pass)" },
+  { label: "Higher Secondary (H.S. Pass)", value: "Higher Secondary (H.S. Pass)" },
+  { label: "Graduate", value: "Graduate" },
+  { label: "Post Graduate", value: "Post Graduate" },
+  { label: "Doctorate / Professional", value: "Doctorate / Professional" },
+  { label: "Other", value: "Other" },
+];
+
 export default function AddStudentPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -150,6 +183,7 @@ export default function AddStudentPage() {
     resolver: zodResolver(studentSchema),
     defaultValues: {
       gender: "Male",
+      motherTongue: "Bengali",
       indianNationality: true,
       isBpl: false,
       isAay: false,
@@ -276,10 +310,31 @@ export default function AddStudentPage() {
               />
             </FormField>
             <FormField label="Mother Tongue" error={errors.motherTongue?.message}>
-              <input {...register("motherTongue")} placeholder="e.g. Bengali" />
+              <Controller
+                control={control}
+                name="motherTongue"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value || "Bengali"}
+                    onChange={field.onChange}
+                    options={MOTHER_TONGUES}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Religion" error={errors.religion?.message}>
-              <input {...register("religion")} placeholder="e.g. Hinduism" />
+              <Controller
+                control={control}
+                name="religion"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select religion..."
+                    options={INDIAN_RELIGIONS}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Indian Nationality?" error={errors.indianNationality?.message}>
               <Controller
@@ -495,7 +550,18 @@ export default function AddStudentPage() {
               <input {...register("relationshipWithGuardian")} placeholder="e.g. Uncle" />
             </FormField>
             <FormField label="Guardian's Qualification" error={errors.guardianQualification?.message}>
-              <input {...register("guardianQualification")} placeholder="e.g. Graduate" />
+              <Controller
+                control={control}
+                name="guardianQualification"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select qualification..."
+                    options={QUALIFICATION_OPTIONS}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Annual Family Income" error={errors.annualFamilyIncome?.message}>
               <input {...register("annualFamilyIncome")} type="number" placeholder="e.g. 120000" />
