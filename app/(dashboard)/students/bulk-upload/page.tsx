@@ -24,6 +24,7 @@ import {
   Calendar,
   Layers,
   X,
+  Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -343,10 +344,10 @@ export default function BulkUploadPage() {
       const transformed = applyMapping(
         parsedData.rawRows,
         columnMapping as any,
-        targetSessionYear,
+        uploadType === "current_students" ? currentYear : targetSessionYear,
         targetClass,
         targetSection,
-        targetStatus
+        uploadType === "current_students" ? "Continuing" : targetStatus
       );
       setMappedRows(transformed);
       const { issues, previewRows: pRows } = validateMappedRows(transformed);
@@ -728,11 +729,19 @@ export default function BulkUploadPage() {
               <div className="rounded-xl bg-muted/30 border p-4">
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                      Academic Session *
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground block">
+                        Academic Session *
+                      </label>
+                      {uploadType === "current_students" && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/40">
+                          <Lock className="h-2.5 w-2.5" /> Locked
+                        </span>
+                      )}
+                    </div>
                     <CustomSelect
                       value={targetSessionYear}
+                      disabled={uploadType === "current_students"}
                       onChange={(val) => setTargetSessionYear(Number(val))}
                       options={YEAR_OPTIONS.map((yr) => ({
                         label: `Session ${yr} ${yr === currentYear ? "(Current Active)" : "(Historical Session)"}`,
@@ -769,16 +778,24 @@ export default function BulkUploadPage() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                      Default Status *
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground block">
+                        Default Status *
+                      </label>
+                      {uploadType === "current_students" && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-900/40">
+                          <Lock className="h-2.5 w-2.5" /> Locked
+                        </span>
+                      )}
+                    </div>
                     <CustomSelect
                       value={targetStatus}
+                      disabled={uploadType === "current_students"}
                       onChange={(val) => setTargetStatus(val as StudentStatus)}
                       options={[
+                        { label: "Continuing (Active)", value: "Continuing" },
                         { label: "Passed Out (Old / Alumni)", value: "Passed Out" },
                         { label: "Drop Out", value: "Drop Out" },
-                        { label: "Continuing (Active)", value: "Continuing" },
                         { label: "Sent Up M.P.", value: "Sent Up M.P." },
                         { label: "C.C.H.S.", value: "C.C.H.S." },
                       ]}
