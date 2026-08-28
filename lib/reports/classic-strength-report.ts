@@ -820,6 +820,7 @@ export async function exportClassicStrengthWord(
   // Header 1
   table1Rows.push(
     new TableRow({
+      cantSplit: true,
       children: [
         createCell("Class", { bold: true, rowSpan: 2, color: "004080" }),
         createCell("Boys", { bold: true, colSpan: 2, color: "008000" }),
@@ -840,6 +841,7 @@ export async function exportClassicStrengthWord(
   // Header 2
   table1Rows.push(
     new TableRow({
+      cantSplit: true,
       children: [
         createCell("Hindu", { bold: true, color: "002060" }),
         createCell("Muslim", { bold: true, color: "008000" }),
@@ -923,12 +925,13 @@ export async function exportClassicStrengthWord(
       );
     }
 
-    table1Rows.push(new TableRow({ children: cells }));
+    table1Rows.push(new TableRow({ cantSplit: true, children: cells }));
   });
 
   // Top Totals Row
   table1Rows.push(
     new TableRow({
+      cantSplit: true,
       children: [
         createCell("Total", { bold: true, color: "004080" }),
         createCell(data.totals.boysHindu, { bold: true, color: "002060" }),
@@ -953,6 +956,7 @@ export async function exportClassicStrengthWord(
   // Bottom Header 1
   table2Rows.push(
     new TableRow({
+      cantSplit: true,
       children: [
         createCell("Class", { bold: true, rowSpan: 2, color: "004080" }),
         createCell("Boys", { bold: true, colSpan: 2, color: "008000" }),
@@ -971,6 +975,7 @@ export async function exportClassicStrengthWord(
   // Bottom Header 2
   table2Rows.push(
     new TableRow({
+      cantSplit: true,
       children: [
         createCell("Hindu", { bold: true, color: "002060" }),
         createCell("Muslim", { bold: true, color: "008000" }),
@@ -987,6 +992,7 @@ export async function exportClassicStrengthWord(
 
     table2Rows.push(
       new TableRow({
+        cantSplit: true,
         children: [
           createCell(cs.classLevel, { bold: true, italic: true, color: "004080" }),
           createCell(cs.boysHindu, { italic: true, color: "002060" }),
@@ -1011,7 +1017,7 @@ export async function exportClassicStrengthWord(
     );
   }
 
-  // Create Document in Landscape Orientation
+  // Create Document in Landscape A4 Orientation
   const doc = new Document({
     sections: [
       {
@@ -1019,12 +1025,14 @@ export async function exportClassicStrengthWord(
           page: {
             size: {
               orientation: PageOrientation.LANDSCAPE,
+              width: 16838, // Exactly A4 Landscape width (297 mm in dxa)
+              height: 11906, // Exactly A4 Landscape height (210 mm in dxa)
             },
             margin: {
-              top: 500,
-              bottom: 500,
-              left: 500,
-              right: 500,
+              top: 400, // Compact ~0.28 in margin to ensure single A4 page fit
+              bottom: 400,
+              left: 400,
+              right: 400,
             },
           },
         },
@@ -1036,20 +1044,20 @@ export async function exportClassicStrengthWord(
                 text: data.schoolName,
                 bold: true,
                 color: "800000",
-                size: 32, // 16pt
+                size: 28, // 14pt
               }),
             ],
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
+            spacing: { after: 120 },
             children: [
               new TextRun({
                 text: data.reportTitle,
                 bold: true,
                 italics: true,
                 color: "002060",
-                size: 24, // 12pt
+                size: 20, // 10pt
               }),
             ],
           }),
@@ -1057,10 +1065,64 @@ export async function exportClassicStrengthWord(
             rows: table1Rows,
             width: { size: 100, type: WidthType.PERCENTAGE },
           }),
-          new Paragraph({ spacing: { before: 200, after: 100 } }),
+          new Paragraph({ spacing: { before: 120, after: 80 } }),
           new Table({
             rows: table2Rows,
             width: { size: 100, type: WidthType.PERCENTAGE },
+          }),
+          // Document Signature & Footer Block
+          new Paragraph({ spacing: { before: 180 } }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.NONE },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        children: [
+                          new TextRun({
+                            text: "Generated from Marigachi High School SMS",
+                            size: 16, // 8pt
+                            italics: true,
+                            color: "666666",
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                  new TableCell({
+                    width: { size: 50, type: WidthType.PERCENTAGE },
+                    borders: {
+                      top: { style: BorderStyle.NONE },
+                      bottom: { style: BorderStyle.NONE },
+                      left: { style: BorderStyle.NONE },
+                      right: { style: BorderStyle.NONE },
+                    },
+                    children: [
+                      new Paragraph({
+                        alignment: AlignmentType.RIGHT,
+                        children: [
+                          new TextRun({
+                            text: "Headmaster / TIC Signature",
+                            bold: true,
+                            size: 18, // 9pt
+                            color: "000000",
+                          }),
+                        ],
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            ],
           }),
         ],
       },
