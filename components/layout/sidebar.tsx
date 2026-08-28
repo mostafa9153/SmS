@@ -15,7 +15,6 @@ import {
   X,
   Award,
   CalendarClock,
-  PanelLeftClose,
   LogOut,
   ArrowLeft,
   ShieldAlert,
@@ -284,30 +283,17 @@ export function Sidebar({
           <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-sm border border-amber-500/30 bg-black transition-transform duration-300 hover:scale-105">
             <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
           </div>
-          <div>
-            <p className="text-sm font-bold tracking-tight text-foreground leading-tight">
-              MHS School
-            </p>
-            <p className="text-[10px] text-muted-foreground font-medium">
-              Student Management
-            </p>
-          </div>
+          <p className="text-sm font-bold tracking-tight text-foreground leading-tight">
+            MHS School
+          </p>
         </div>
 
-        {mobile ? (
+        {mobile && (
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={toggleSidebar}
-            title="Collapse sidebar (মেনু বন্ধ করুন)"
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200 hover:scale-105"
-          >
-            <PanelLeftClose className="h-4 w-4" />
           </button>
         )}
       </div>

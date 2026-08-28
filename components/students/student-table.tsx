@@ -81,10 +81,11 @@ export function StudentTable({
 
           return (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <p className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">
                   {s.name}
                 </p>
+                <CopyButton text={s.name} label="Student Name" iconClassName="h-2.5 w-2.5" />
                 {s.dob && (
                   <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/80 text-foreground px-1.5 py-0.5 rounded-md border border-border/50">
                     <span>DOB: {s.dob}</span>
@@ -92,9 +93,18 @@ export function StudentTable({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Father: {s.fatherName}
-                {s.altMobile && <span className="ml-1 text-[11px]">· Guardian: {s.altMobile}</span>}
+              <p className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+                <span>Father: {s.fatherName}</span>
+                {(s.altMobile || s.studentContact) && (
+                  <span className="inline-flex items-center gap-1 text-[11px]">
+                    <span>· Guardian: {s.altMobile || s.studentContact}</span>
+                    <CopyButton
+                      text={s.altMobile || s.studentContact || ""}
+                      label="Phone Number"
+                      iconClassName="h-2.5 w-2.5"
+                    />
+                  </span>
+                )}
               </p>
               {/* Badges */}
               <div className="flex flex-wrap gap-1 pt-0.5">

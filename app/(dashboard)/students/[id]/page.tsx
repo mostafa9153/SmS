@@ -133,7 +133,10 @@ export default function StudentProfilePage() {
       <div className="rounded-2xl border bg-card shadow-xs p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold">{student.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold">{student.name}</h1>
+              <CopyButton text={student.name} label="Student Name" iconClassName="h-3.5 w-3.5" />
+            </div>
             <div className="flex flex-wrap gap-2 mt-2 items-center">
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
                 <span className="text-muted-foreground font-sans text-[11px] font-medium">School ID:</span>
@@ -189,11 +192,25 @@ export default function StudentProfilePage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">DOB</p>
-            <p className="font-medium">{formatDate(student.dob)}</p>
+            <div className="font-medium flex items-center gap-1">
+              <span>{formatDate(student.dob)}</span>
+              {student.dob && (
+                <CopyButton text={student.dob} label="Date of Birth" iconClassName="h-3 w-3" />
+              )}
+            </div>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Contact</p>
-            <p className="font-medium">{student.studentContact || student.altMobile || "N/A"}</p>
+            <div className="font-medium flex items-center gap-1">
+              <span>{student.studentContact || student.altMobile || "N/A"}</span>
+              {(student.studentContact || student.altMobile) && (
+                <CopyButton
+                  text={student.studentContact || student.altMobile || ""}
+                  label="Contact Phone"
+                  iconClassName="h-3 w-3"
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -237,8 +254,8 @@ export default function StudentProfilePage() {
             <div>
               <SectionTitle>Student Demographics</SectionTitle>
               <InfoGrid>
-                <InfoField label="Full Name" value={student.name} />
-                <InfoField label="Date of Birth" value={formatDate(student.dob)} />
+                <InfoField label="Full Name" value={student.name} copyable />
+                <InfoField label="Date of Birth" value={formatDate(student.dob)} copyable />
                 <InfoField label="Gender" value={student.gender} />
                 <InfoField label="Mother Tongue" value={student.motherTongue} />
                 <InfoField label="Religion" value={student.religion} />
@@ -292,8 +309,8 @@ export default function StudentProfilePage() {
                 <InfoField label="Relationship with Guardian" value={student.relationshipWithGuardian} />
                 <InfoField label="Guardian's Qualification" value={student.guardianQualification} />
                 <InfoField label="Annual Family Income" value={student.annualFamilyIncome ? `₹${student.annualFamilyIncome.toLocaleString("en-IN")}` : undefined} />
-                <InfoField label="Primary Mobile" value={student.studentContact} />
-                <InfoField label="Guardian Contact No" value={student.altMobile} />
+                <InfoField label="Primary Mobile" value={student.studentContact} copyable />
+                <InfoField label="Guardian Contact No" value={student.altMobile} copyable />
                 <InfoField label="Email ID" value={student.email} />
                 <InfoField label="Address" value={student.address} full />
                 <InfoField label="Pincode" value={student.pincode} />
