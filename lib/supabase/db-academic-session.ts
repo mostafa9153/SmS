@@ -1,10 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Student, StudentStatus } from "@/lib/types";
 
-const CLASS_NEXT: Record<string, string> = {
+export const CLASS_NEXT: Record<string, string> = {
   V: "VI", VI: "VII", VII: "VIII", VIII: "IX",
   IX: "X", X: "XI", XI: "XII", XII: "XII",
 };
+
+export const AUTO_PASS_CLASSES = new Set(["V", "VI", "VII", "VIII"]);
+
+export interface DetainedStudentInfo {
+  id: string;
+  name: string;
+  presentClass: string;
+  presentSection: string;
+  presentRoll: number;
+  percentage: number | null;
+  marksObtained: number | null;
+  reason: string;
+}
 
 export interface ClassReadinessStat {
   className: string;
@@ -12,16 +25,23 @@ export interface ClassReadinessStat {
   resultsEntered: number;
   passedCount: number;
   pendingCount: number;
+  promotedCount: number;
+  detainedCount: number;
+  isAutoPass: boolean;
   isReady: boolean;
 }
 
 export interface SessionReadinessReport {
   currentYear: number;
   nextYear: number;
+  minPassPercentage: number;
   totalStudents: number;
   totalEvaluated: number;
+  totalPromoted: number;
+  totalDetained: number;
   readinessPercentage: number;
   classes: ClassReadinessStat[];
+  detainedStudents: DetainedStudentInfo[];
 }
 
 export interface SessionTransitionParams {
@@ -29,11 +49,14 @@ export interface SessionTransitionParams {
   toYear: number;
   rollStrategy: "rank" | "preserve" | "alphabetical";
   examName?: string;
+  minPassPercentage?: number;
+  overriddenStudentIds?: string[];
 }
 
 export interface SessionTransitionResult {
   success: boolean;
   promotedCount: number;
+  detainedCount: number;
   passedOutCount: number;
   archivedHistoryCount: number;
   classesProcessed: string[];
@@ -42,7 +65,8 @@ export interface SessionTransitionResult {
 // 1. Get Session Readiness Audit
 export async function dbGetSessionReadiness(
   currentYear = new Date().getFullYear(),
-  examName = "Annual Examination"
+  examName = "Annual Examination",
+  minPassPercentage = 30
 ): Promise<SessionReadinessReport> {
   const supabase = await createClient();
 
@@ -63,51 +87,107 @@ export async function dbGetSessionReadiness(
 
   if (resultsErr) throw new Error(resultsErr.message);
 
-  const evaluatedStudentIds = new Set((results || []).map((r) => r.student_id));
+  const resultsMap = new Map<string, any>();
+  for (const r of results || []) {
+    resultsMap.set(r.student_id, r);
+  }
 
   // Group by class
   const classOrder = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-  const classMap = new Map<string, { total: number; evaluated: number; passed: number }>();
+  const classMap = new Map<
+    string,
+    {
+      total: number;
+      evaluated: number;
+      passed: number;
+      promoted: number;
+      detained: number;
+    }
+  >();
 
   for (const c of classOrder) {
-    classMap.set(c, { total: 0, evaluated: 0, passed: 0 });
+    classMap.set(c, { total: 0, evaluated: 0, passed: 0, promoted: 0, detained: 0 });
   }
+
+  const detainedStudents: DetainedStudentInfo[] = [];
 
   for (const s of students || []) {
     const c = (s.present_class || "").toUpperCase().trim();
     if (!classMap.has(c)) {
-      classMap.set(c, { total: 0, evaluated: 0, passed: 0 });
+      classMap.set(c, { total: 0, evaluated: 0, passed: 0, promoted: 0, detained: 0 });
     }
     const stat = classMap.get(c)!;
     stat.total += 1;
-    if (evaluatedStudentIds.has(s.id)) {
+
+    const res = resultsMap.get(s.id);
+    if (res) {
       stat.evaluated += 1;
+    }
+
+    const isAutoPass = AUTO_PASS_CLASSES.has(c);
+    if (isAutoPass) {
+      // Classes 5 to 8: RTE Government Policy 100% Auto-Promotion
       stat.passed += 1;
+      stat.promoted += 1;
+    } else {
+      // Classes 9, 10, 11, 12: Passing percentage check
+      const studentPct = res ? Number(res.percentage) : null;
+      if (studentPct !== null && studentPct >= minPassPercentage) {
+        stat.passed += 1;
+        stat.promoted += 1;
+      } else {
+        stat.detained += 1;
+        detainedStudents.push({
+          id: s.id,
+          name: s.name,
+          presentClass: s.present_class,
+          presentSection: s.present_section,
+          presentRoll: s.present_roll,
+          percentage: studentPct,
+          marksObtained: res ? Number(res.marks_obtained) : null,
+          reason: !res
+            ? "No exam marks recorded"
+            : `Scored ${studentPct}% (Cutoff: ${minPassPercentage}%)`,
+        });
+      }
     }
   }
 
   const classes: ClassReadinessStat[] = Array.from(classMap.entries())
     .filter(([_, stat]) => stat.total > 0)
-    .map(([className, stat]) => ({
-      className,
-      totalStudents: stat.total,
-      resultsEntered: stat.evaluated,
-      passedCount: stat.passed,
-      pendingCount: Math.max(0, stat.total - stat.evaluated),
-      isReady: stat.evaluated >= stat.total && stat.total > 0,
-    }));
+    .map(([className, stat]) => {
+      const isAutoPass = AUTO_PASS_CLASSES.has(className);
+      return {
+        className,
+        totalStudents: stat.total,
+        resultsEntered: stat.evaluated,
+        passedCount: stat.passed,
+        pendingCount: Math.max(0, stat.total - stat.evaluated),
+        promotedCount: stat.promoted,
+        detainedCount: stat.detained,
+        isAutoPass,
+        isReady: isAutoPass ? true : stat.evaluated >= stat.total && stat.total > 0,
+      };
+    });
 
   const totalStudents = students?.length || 0;
-  const totalEvaluated = evaluatedStudentIds.size;
-  const readinessPercentage = totalStudents > 0 ? Math.round((totalEvaluated / totalStudents) * 100) : 0;
+  const totalEvaluated = resultsMap.size;
+  const totalPromoted = classes.reduce((sum, c) => sum + c.promotedCount, 0);
+  const totalDetained = classes.reduce((sum, c) => sum + c.detainedCount, 0);
+  const readinessPercentage =
+    totalStudents > 0 ? Math.round((totalEvaluated / totalStudents) * 100) : 0;
 
   return {
     currentYear,
     nextYear: currentYear + 1,
+    minPassPercentage,
     totalStudents,
     totalEvaluated,
+    totalPromoted,
+    totalDetained,
     readinessPercentage,
     classes,
+    detainedStudents,
   };
 }
 
@@ -117,11 +197,20 @@ export async function dbExecuteSessionTransition(
   performedByUserId: string
 ): Promise<SessionTransitionResult> {
   const supabase = await createClient();
-  const { fromYear, toYear, rollStrategy, examName = "Annual Examination" } = params;
+  const {
+    fromYear,
+    toYear,
+    rollStrategy,
+    examName = "Annual Examination",
+    minPassPercentage = 30,
+    overriddenStudentIds = [],
+  } = params;
 
   if (toYear <= fromYear) {
     throw new Error("Target academic year must be greater than current academic year.");
   }
+
+  const overrideSet = new Set(overriddenStudentIds || []);
 
   // 1. Fetch all continuing students
   const { data: students, error: studentErr } = await supabase
@@ -134,40 +223,46 @@ export async function dbExecuteSessionTransition(
     throw new Error("No active continuing students found to transition.");
   }
 
-  // 2. Fetch results for rank-based roll assignment if strategy === 'rank'
-  let resultsMap = new Map<string, { marks: number; rankInSection?: number }>();
-  if (rollStrategy === "rank") {
-    const { data: results } = await supabase
-      .from("student_results")
-      .select("student_id, marks_obtained, rank_in_section")
-      .eq("academic_year", fromYear)
-      .eq("exam_name", examName);
+  // 2. Fetch results for evaluation and rank-based roll assignment
+  const resultsMap = new Map<string, { marks: number; percentage: number; rankInSection?: number }>();
+  const { data: results } = await supabase
+    .from("student_results")
+    .select("student_id, marks_obtained, percentage, rank_in_section")
+    .eq("academic_year", fromYear)
+    .eq("exam_name", examName);
 
-    if (results) {
-      for (const r of results) {
-        resultsMap.set(r.student_id, {
-          marks: Number(r.marks_obtained),
-          rankInSection: r.rank_in_section ? Number(r.rank_in_section) : undefined,
-        });
-      }
+  if (results) {
+    for (const r of results) {
+      resultsMap.set(r.student_id, {
+        marks: Number(r.marks_obtained),
+        percentage: Number(r.percentage),
+        rankInSection: r.rank_in_section ? Number(r.rank_in_section) : undefined,
+      });
     }
   }
 
-  // 3. Group students by target class and section to compute roll numbers
-  // Process classes in reverse order (XII down to V)
-  const classProcessOrder = ["XII", "XI", "X", "IX", "VIII", "VII", "VI", "V"];
+  // 3. Process students cohort by cohort
   let promotedCount = 0;
+  let detainedCount = 0;
   let passedOutCount = 0;
-  let historyInserts: any[] = [];
-  let studentUpdates: { id: string; dbUpdates: any }[] = [];
+  const historyInserts: any[] = [];
+  const studentUpdates: { id: string; dbUpdates: any }[] = [];
 
-  for (const currClass of classProcessOrder) {
-    const classStudents = students.filter((s) => s.present_class === currClass);
-    if (classStudents.length === 0) continue;
+  // Group cohorts by their target class and section for the new academic year
+  // Map key: `${targetClass}_${targetSection}`
+  const targetCohortGroups = new Map<string, { student: any; isPromoted: boolean; isDetained: boolean }[]>();
+
+  for (const s of students) {
+    const currClass = (s.present_class || "").toUpperCase().trim();
+    const currSection = s.present_section || "A";
+    const res = resultsMap.get(s.id);
+    const pct = res ? res.percentage : 0;
+    const isOverridden = overrideSet.has(s.id);
 
     if (currClass === "XII") {
-      // Class XII students graduate / Pass Out
-      for (const s of classStudents) {
+      // Class XII: Passes out or detained
+      const isEligible = pct >= minPassPercentage || isOverridden;
+      if (isEligible) {
         passedOutCount++;
         historyInserts.push({
           student_id: s.id,
@@ -188,70 +283,104 @@ export async function dbExecuteSessionTransition(
             academic_year: toYear,
           },
         });
+      } else {
+        // Detained in Class XII
+        detainedCount++;
+        const targetGroupKey = `XII_${currSection}`;
+        if (!targetCohortGroups.has(targetGroupKey)) {
+          targetCohortGroups.set(targetGroupKey, []);
+        }
+        targetCohortGroups.get(targetGroupKey)!.push({
+          student: s,
+          isPromoted: false,
+          isDetained: true,
+        });
       }
     } else {
-      // Class V through XI get promoted to next class
-      const nextClass = CLASS_NEXT[currClass] || currClass;
+      const isAutoPass = AUTO_PASS_CLASSES.has(currClass);
+      const isEligible = isAutoPass || pct >= minPassPercentage || isOverridden;
 
-      // Group by section for roll numbering
-      const sectionGroups = new Map<string, any[]>();
-      for (const s of classStudents) {
-        const sec = s.present_section || "A";
-        if (!sectionGroups.has(sec)) sectionGroups.set(sec, []);
-        sectionGroups.get(sec)!.push(s);
-      }
-
-      for (const [section, sectionStudents] of sectionGroups.entries()) {
-        // Sort students within section based on roll strategy
-        if (rollStrategy === "rank") {
-          sectionStudents.sort((a, b) => {
-            const resA = resultsMap.get(a.id);
-            const resB = resultsMap.get(b.id);
-            const marksA = resA ? resA.marks : -1;
-            const marksB = resB ? resB.marks : -1;
-            if (marksB !== marksA) return marksB - marksA; // highest marks first
-            return a.name.localeCompare(b.name);
-          });
-        } else if (rollStrategy === "alphabetical") {
-          sectionStudents.sort((a, b) => a.name.localeCompare(b.name));
-        } else {
-          // preserve: sort by previous roll
-          sectionStudents.sort((a, b) => (a.present_roll || 0) - (b.present_roll || 0));
+      if (isEligible) {
+        // Promoted to next class
+        promotedCount++;
+        const nextClass = CLASS_NEXT[currClass] || currClass;
+        const targetGroupKey = `${nextClass}_${currSection}`;
+        if (!targetCohortGroups.has(targetGroupKey)) {
+          targetCohortGroups.set(targetGroupKey, []);
         }
-
-        // Assign new sequential roll numbers (1, 2, 3...)
-        sectionStudents.forEach((s, idx) => {
-          const assignedRoll = rollStrategy === "preserve" ? (s.present_roll || idx + 1) : idx + 1;
-          promotedCount++;
-
-          historyInserts.push({
-            student_id: s.id,
-            year: fromYear,
-            class: s.present_class,
-            section: s.present_section,
-            roll: s.present_roll,
-            status: "Continuing",
-          });
-
-          studentUpdates.push({
-            id: s.id,
-            dbUpdates: {
-              present_class: nextClass,
-              present_section: section,
-              present_roll: assignedRoll,
-              current_status: "Continuing",
-              previous_class: s.present_class,
-              previous_section: s.present_section,
-              previous_roll_no: s.present_roll,
-              academic_year: toYear,
-            },
-          });
+        targetCohortGroups.get(targetGroupKey)!.push({
+          student: s,
+          isPromoted: true,
+          isDetained: false,
+        });
+      } else {
+        // Detained in same class
+        detainedCount++;
+        const targetGroupKey = `${currClass}_${currSection}`;
+        if (!targetCohortGroups.has(targetGroupKey)) {
+          targetCohortGroups.set(targetGroupKey, []);
+        }
+        targetCohortGroups.get(targetGroupKey)!.push({
+          student: s,
+          isPromoted: false,
+          isDetained: true,
         });
       }
     }
   }
 
-  // 4. Batch persist history entries
+  // 4. Assign new rolls per cohort group based on rollStrategy
+  for (const [groupKey, cohort] of targetCohortGroups.entries()) {
+    const [targetClass, targetSection] = groupKey.split("_");
+
+    // Sort cohort
+    if (rollStrategy === "rank") {
+      cohort.sort((a, b) => {
+        const resA = resultsMap.get(a.student.id);
+        const resB = resultsMap.get(b.student.id);
+        const marksA = resA ? resA.marks : -1;
+        const marksB = resB ? resB.marks : -1;
+        if (marksB !== marksA) return marksB - marksA; // highest marks first
+        return a.student.name.localeCompare(b.student.name);
+      });
+    } else if (rollStrategy === "alphabetical") {
+      cohort.sort((a, b) => a.student.name.localeCompare(b.student.name));
+    } else {
+      // preserve: sort by previous roll
+      cohort.sort((a, b) => (a.student.present_roll || 0) - (b.student.present_roll || 0));
+    }
+
+    // Assign rolls 1, 2, 3...
+    cohort.forEach((item, idx) => {
+      const s = item.student;
+      const assignedRoll = rollStrategy === "preserve" ? (s.present_roll || idx + 1) : idx + 1;
+
+      historyInserts.push({
+        student_id: s.id,
+        year: fromYear,
+        class: s.present_class,
+        section: s.present_section,
+        roll: s.present_roll,
+        status: "Continuing",
+      });
+
+      studentUpdates.push({
+        id: s.id,
+        dbUpdates: {
+          present_class: targetClass,
+          present_section: targetSection,
+          present_roll: assignedRoll,
+          current_status: "Continuing",
+          previous_class: s.present_class,
+          previous_section: s.present_section,
+          previous_roll_no: s.present_roll,
+          academic_year: toYear,
+        },
+      });
+    });
+  }
+
+  // 5. Batch persist history entries
   if (historyInserts.length > 0) {
     const { error: histErr } = await supabase.from("academic_history").insert(historyInserts);
     if (histErr) {
@@ -259,7 +388,7 @@ export async function dbExecuteSessionTransition(
     }
   }
 
-  // 5. Update students table
+  // 6. Update students table in batches
   for (const item of studentUpdates) {
     await supabase
       .from("students")
@@ -267,7 +396,7 @@ export async function dbExecuteSessionTransition(
       .eq("id", item.id);
   }
 
-  // 6. Audit Log
+  // 7. Audit Log
   await supabase.from("audit_log").insert({
     performed_by: performedByUserId,
     action: "SESSION_TRANSITION",
@@ -276,7 +405,10 @@ export async function dbExecuteSessionTransition(
       fromYear,
       toYear,
       rollStrategy,
+      minPassPercentage,
+      overriddenCount: overriddenStudentIds.length,
       promotedCount,
+      detainedCount,
       passedOutCount,
       totalProcessed: studentUpdates.length,
     },
@@ -285,8 +417,9 @@ export async function dbExecuteSessionTransition(
   return {
     success: true,
     promotedCount,
+    detainedCount,
     passedOutCount,
     archivedHistoryCount: historyInserts.length,
-    classesProcessed: classProcessOrder,
+    classesProcessed: Object.keys(CLASS_NEXT),
   };
 }

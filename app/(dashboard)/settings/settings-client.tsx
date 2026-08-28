@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   UserPlus, 
@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { cn } from "@/lib/utils";
 
 interface UserProfile {
   id: string;
@@ -65,6 +66,7 @@ interface AuditLogEntry {
 import { getCurrentUserRole } from "@/lib/data/students";
 
 export function SettingsClient() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -109,11 +111,6 @@ export function SettingsClient() {
   const [schoolEmail, setSchoolEmail] = useState("contact@marigachihighschool.in");
   const [schoolPhone, setSchoolPhone] = useState("+91 98765 43210");
   const [establishedYear, setEstablishedYear] = useState("1965");
-  const [marksClass5, setMarksClass5] = useState("500");
-  const [marksClass6, setMarksClass6] = useState("1050");
-  const [marksClass7_8, setMarksClass7_8] = useState("1200");
-  const [marksClass9_10, setMarksClass9_10] = useState("700");
-  const [marksClass11_12, setMarksClass11_12] = useState("500");
   const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // Danger Zone / Data Wipeout state
@@ -376,58 +373,78 @@ export function SettingsClient() {
     );
   }
 
+  const tabMeta: Record<string, { title: string; subtitle: string; icon: any; color: string }> = {
+    users: {
+      title: "User Management & Role Permissions",
+      subtitle: "Manage authorized staff and admin accounts, passwords, and system access levels.",
+      icon: UserPlus,
+      color: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
+    },
+    session: {
+      title: "Academic Session, Promotion & Full Marks Rules",
+      subtitle: "Configure examination full marks, RTE auto-promotion, merit cutoffs, and session advancement.",
+      icon: CalendarClock,
+      color: "text-cyan-600 dark:text-cyan-400 bg-cyan-500/10",
+    },
+    audit: {
+      title: "System Audit Logs & Security History",
+      subtitle: "Track administrative operations, student changes, and security events.",
+      icon: Activity,
+      color: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
+    },
+    config: {
+      title: "School Identity & Configuration",
+      subtitle: "Manage institutional name, contact details, affiliation, and official credentials.",
+      icon: Sliders,
+      color: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    },
+    backup: {
+      title: "Cloud & Local Database Backup Recovery",
+      subtitle: "Automated Google Drive cloud backups, offline exports, and 1-click restore.",
+      icon: Cloud,
+      color: "text-blue-600 dark:text-blue-400 bg-blue-500/10",
+    },
+    danger: {
+      title: "Danger Zone & System Reset",
+      subtitle: "High-risk administrative operations: database wipeout and system state initialization.",
+      icon: ShieldAlert,
+      color: "text-rose-600 dark:text-rose-400 bg-rose-500/10",
+    },
+  };
+
+  const currentTab = tabMeta[activeTab] || tabMeta.users;
+  const CurrentIcon = currentTab.icon;
+
   return (
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-lg sm:text-xl font-bold tracking-tight">System Settings</h1>
+      {/* Dynamic Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+        <div className="flex items-center gap-3">
+          <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl shrink-0 shadow-2xs", currentTab.color)}>
+            <CurrentIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Settings /</span>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                {currentTab.title}
+              </h1>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {currentTab.subtitle}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-        <TabsList className="bg-muted/60 border backdrop-blur-md p-1 rounded-2xl flex-wrap h-auto gap-1 shadow-2xs">
-          <TabsTrigger
-            value="users"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
-          >
-            <UserPlus className="h-3.5 w-3.5 text-primary" />
-            User Management
-          </TabsTrigger>
-          <TabsTrigger
-            value="session"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
-          >
-            <CalendarClock className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
-            Academic Session
-          </TabsTrigger>
-          <TabsTrigger
-            value="audit"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
-          >
-            <Activity className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-            Audit Logs
-          </TabsTrigger>
-          <TabsTrigger
-            value="config"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-2xs"
-          >
-            <Sliders className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-            School Config
-          </TabsTrigger>
-          <TabsTrigger
-            value="backup"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all text-blue-600 dark:text-blue-400 data-[state=active]:bg-blue-500/10 data-[state=active]:text-blue-700 dark:data-[state=active]:text-blue-300 data-[state=active]:shadow-2xs"
-          >
-            <Cloud className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            Backup & Cloud
-          </TabsTrigger>
-          <TabsTrigger
-            value="danger"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl transition-all text-rose-600 dark:text-rose-400 data-[state=active]:bg-rose-500/10 data-[state=active]:text-rose-700 dark:data-[state=active]:text-rose-300 data-[state=active]:shadow-2xs"
-          >
-            <ShieldAlert className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-            Danger Zone
-          </TabsTrigger>
-        </TabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={(val) => {
+          setActiveTab(val);
+          router.push(`/settings?tab=${val}`);
+        }}
+        className="space-y-4 sm:space-y-6"
+      >
 
         {/* Tab 1: User Management */}
         <TabsContent value="users" className="space-y-4 outline-none">
@@ -1001,66 +1018,6 @@ export function SettingsClient() {
                 </div>
               </div>
 
-              {/* Class Full Marks Rules */}
-              <div className="space-y-4 border-t pt-5">
-                <div className="flex items-center gap-1.5">
-                  <Award className="h-4 w-4 text-amber-500" />
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Class-Wise Examination Full Marks Rules
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  These limits are enforced across the entire Results & Marks module to prevent entry mistakes.
-                </p>
-
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-                    <span className="text-xs font-bold text-foreground">Class V</span>
-                    <Input
-                      value={marksClass5}
-                      onChange={(e) => setMarksClass5(e.target.value)}
-                      className="text-xs font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-muted-foreground">Marks Total</span>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-                    <span className="text-xs font-bold text-foreground">Class VI</span>
-                    <Input
-                      value={marksClass6}
-                      onChange={(e) => setMarksClass6(e.target.value)}
-                      className="text-xs font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-muted-foreground">Marks Total</span>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-                    <span className="text-xs font-bold text-foreground">Class VII & VIII</span>
-                    <Input
-                      value={marksClass7_8}
-                      onChange={(e) => setMarksClass7_8(e.target.value)}
-                      className="text-xs font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-muted-foreground">Marks Total</span>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-                    <span className="text-xs font-bold text-foreground">Class IX & X</span>
-                    <Input
-                      value={marksClass9_10}
-                      onChange={(e) => setMarksClass9_10(e.target.value)}
-                      className="text-xs font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-muted-foreground">Marks Total</span>
-                  </div>
-                  <div className="rounded-lg border bg-muted/20 p-3 space-y-1">
-                    <span className="text-xs font-bold text-foreground">Class XI & XII</span>
-                    <Input
-                      value={marksClass11_12}
-                      onChange={(e) => setMarksClass11_12(e.target.value)}
-                      className="text-xs font-mono font-bold"
-                    />
-                    <span className="text-[10px] text-muted-foreground">Marks Total</span>
-                  </div>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </TabsContent>

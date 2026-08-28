@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context";
@@ -18,7 +19,9 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         )}
       >
         <div className="w-64 h-full">
-          <Sidebar />
+          <Suspense fallback={<div className="w-64 h-full bg-sidebar/95" />}>
+            <Sidebar />
+          </Suspense>
         </div>
       </div>
 

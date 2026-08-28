@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock } from "lucide-react";
@@ -71,7 +71,9 @@ export function Topbar() {
           <Menu className="h-4.5 w-4.5" />
         </SheetTrigger>
         <SheetContent side="left" className="p-0 w-72 border-r border-sidebar-border" showCloseButton={false}>
-          <Sidebar mobile onClose={() => setMobileMenuOpen(false)} />
+          <Suspense fallback={<div className="w-72 h-full bg-sidebar/95" />}>
+            <Sidebar mobile onClose={() => setMobileMenuOpen(false)} />
+          </Suspense>
         </SheetContent>
       </Sheet>
 

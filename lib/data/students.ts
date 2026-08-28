@@ -346,12 +346,17 @@ export async function getStudentResultHistory(studentId: string) {
 }
 
 /**
- * Fetch session readiness audit report for academic session transition.
+ * Fetch whole-school academic session readiness audit.
  */
-export async function getSessionReadiness(year?: number, examName = "Annual Examination") {
+export async function getSessionReadiness(
+  year?: number,
+  examName = "Annual Examination",
+  minPassPercentage = 30
+) {
   const params = new URLSearchParams();
   if (year) params.append("year", String(year));
   params.append("examName", examName);
+  params.append("minPassPercentage", String(minPassPercentage));
 
   const res = await fetch(`/api/academic-session/readiness?${params.toString()}`);
   if (!res.ok) {
@@ -370,6 +375,8 @@ export async function executeSessionTransition(params: {
   toYear: number;
   rollStrategy: "rank" | "preserve" | "alphabetical";
   examName?: string;
+  minPassPercentage?: number;
+  overriddenStudentIds?: string[];
 }) {
   const res = await fetch("/api/academic-session/transition", {
     method: "POST",

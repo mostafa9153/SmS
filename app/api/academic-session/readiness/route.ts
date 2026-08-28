@@ -14,8 +14,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : new Date().getFullYear();
     const examName = searchParams.get("examName") || "Annual Examination";
+    const minPassPercentage = searchParams.get("minPassPercentage") ? parseInt(searchParams.get("minPassPercentage")!) : 30;
 
-    const report = await dbGetSessionReadiness(year, examName);
+    const report = await dbGetSessionReadiness(year, examName, minPassPercentage);
     return NextResponse.json({ success: true, report });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to fetch session readiness report" }, { status: 500 });

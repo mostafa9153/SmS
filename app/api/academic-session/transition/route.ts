@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { fromYear, toYear, rollStrategy, examName } = body;
+    const { fromYear, toYear, rollStrategy, examName, minPassPercentage, overriddenStudentIds } = body;
 
     if (!fromYear || !toYear || !rollStrategy) {
       return NextResponse.json({ error: "Missing required parameters (fromYear, toYear, rollStrategy)" }, { status: 400 });
@@ -35,6 +35,8 @@ export async function POST(req: Request) {
         toYear: Number(toYear),
         rollStrategy,
         examName,
+        minPassPercentage: minPassPercentage !== undefined ? Number(minPassPercentage) : 30,
+        overriddenStudentIds: Array.isArray(overriddenStudentIds) ? overriddenStudentIds : [],
       },
       user.id
     );
