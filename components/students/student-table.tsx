@@ -81,9 +81,17 @@ export function StudentTable({
 
           return (
             <div className="space-y-1">
-              <p className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">
-                {s.name}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-sm text-foreground hover:text-primary transition-colors cursor-pointer">
+                  {s.name}
+                </p>
+                {s.dob && (
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/80 text-foreground px-1.5 py-0.5 rounded-md border border-border/50">
+                    <span>DOB: {s.dob}</span>
+                    <CopyButton text={s.dob} label="Date of Birth" iconClassName="h-2.5 w-2.5" />
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Father: {s.fatherName}
                 {s.altMobile && <span className="ml-1 text-[11px]">· Guardian: {s.altMobile}</span>}
@@ -167,28 +175,31 @@ export function StudentTable({
       {
         id: "classSection",
         header: "Class / Section / Roll",
-        cell: ({ row }) => (
-          <span className="text-sm">
-            Class <span className="font-bold text-foreground">{row.original.presentClass}</span> -{" "}
-            <span>Sec {row.original.presentSection}</span> -{" "}
-            <span className="font-bold text-primary">Roll {row.original.presentRoll}</span>
-          </span>
-        ),
+        cell: ({ row }) => {
+          const s = row.original;
+          const sessionYear = s.academicYear || s.admissionYear;
+          return (
+            <div className="space-y-0.5">
+              <div className="text-sm font-medium">
+                Class <span className="font-bold text-foreground">{s.presentClass}</span> -{" "}
+                <span>Sec {s.presentSection}</span> -{" "}
+                <span className="font-bold text-primary">Roll {s.presentRoll}</span>
+              </div>
+              {sessionYear && (
+                <div className="text-xs text-muted-foreground font-mono flex items-center gap-1">
+                  <span className="text-[11px] text-muted-foreground/80">Session:</span>
+                  <span className="font-semibold text-foreground">{sessionYear}</span>
+                </div>
+              )}
+            </div>
+          );
+        },
       },
       {
         accessorKey: "currentStatus",
         header: "Status",
         cell: ({ getValue }) => (
           <StatusBadge status={getValue() as Student["currentStatus"]} />
-        ),
-      },
-      {
-        accessorKey: "admissionYear",
-        header: "Adm. Year",
-        cell: ({ getValue }) => (
-          <span className="text-sm text-muted-foreground font-mono">
-            {getValue() as number}
-          </span>
         ),
       },
     ],
