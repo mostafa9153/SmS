@@ -72,7 +72,7 @@ export default function StudentsClient() {
               className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs active:scale-95 cursor-pointer"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              Export Custom Report
+              Report
             </button>
             <Link
               href="/students/add"

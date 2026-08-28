@@ -130,14 +130,22 @@ export default function ReportsPage() {
         </div>
       ) : (
         /* Printable Official Document Container */
-        <div className="bg-white text-black border border-black/30 rounded-2xl shadow-sm overflow-hidden p-3 sm:p-5 print:border-none print:shadow-none print:p-0">
-          
+        <div
+          id="print-report-area"
+          className="bg-white text-black border border-black/30 rounded-2xl shadow-sm overflow-hidden p-3 sm:p-5 print:border-none print:shadow-none print:p-0 print:m-0 print:w-full"
+        >
           {/* Document Title (Matches Image) */}
-          <div className="text-center pb-2">
-            <h2 className="text-lg sm:text-2xl font-bold tracking-tight uppercase" style={{ color: "#800000", fontFamily: "serif" }}>
+          <div className="text-center pb-2 print:pb-1">
+            <h2
+              className="text-lg sm:text-2xl font-bold tracking-tight uppercase print:text-xl"
+              style={{ color: "#800000", fontFamily: "serif" }}
+            >
               {reportData.schoolName}
             </h2>
-            <p className="text-xs sm:text-sm font-bold uppercase tracking-wider italic" style={{ color: "#002060", fontFamily: "serif" }}>
+            <p
+              className="text-xs sm:text-sm font-bold uppercase tracking-wider italic print:text-xs"
+              style={{ color: "#002060", fontFamily: "serif" }}
+            >
               {reportData.reportTitle}
             </p>
           </div>
@@ -145,7 +153,7 @@ export default function ReportsPage() {
           {/* ──────────────────────────────────────────────────────────── */}
           {/* TABLE 1: SECTION-WISE BREAKDOWN MATRIX                       */}
           {/* ──────────────────────────────────────────────────────────── */}
-          <div className="overflow-x-auto border border-black rounded-sm mt-2">
+          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-2 print:mt-1">
             <table className="w-full text-xs text-center border-collapse border border-black">
               <thead>
                 {/* Header Row 1 */}
@@ -353,7 +361,7 @@ export default function ReportsPage() {
           {/* ──────────────────────────────────────────────────────────── */}
           {/* TABLE 2: SIDE-BY-SIDE CLASS SUMMARY & DEFERENTIALS          */}
           {/* ──────────────────────────────────────────────────────────── */}
-          <div className="overflow-x-auto border border-black rounded-sm mt-4">
+          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-4 print:mt-2">
             <table className="w-full text-xs text-center border-collapse border border-black">
               <thead>
                 <tr className="font-bold border-b border-black text-black text-xs">

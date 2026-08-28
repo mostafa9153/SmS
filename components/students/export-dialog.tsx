@@ -1,7 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileSpreadsheet, CheckSquare, Square, Sparkles, Loader2, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Download,
+  FileSpreadsheet,
+  CheckSquare,
+  Square,
+  Sparkles,
+  Loader2,
+  Check,
+  ExternalLink,
+  RotateCcw,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +26,6 @@ import { searchStudents } from "@/lib/data/students";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
-import { exportClassicStrengthExcel } from "@/lib/reports/classic-strength-report";
 
 interface ExportColumn {
   id: string;
@@ -88,16 +98,52 @@ const ALL_EXPORT_COLUMNS: ExportColumn[] = [
 
 const PRESETS = {
   bsp: {
-    name: "Banglar Shiksha (BSP) Standard",
+    id: "bsp",
+    name: "Banglar Shiksha (BSP)",
+    badge: "Official",
     cols: ["studentUniqueCode", "name", "gender", "dob", "presentClass", "presentSection", "presentRoll", "fatherName", "motherName", "studentContact", "aadhaar", "pen", "socialCategory", "bankIfsc", "bankAccountNo"],
   },
+  exam: {
+    id: "exam",
+    name: "Board Exam (MP/HS)",
+    badge: "Academic",
+    cols: ["schoolId", "studentUniqueCode", "name", "gender", "dob", "presentClass", "presentSection", "presentRoll", "fatherName", "motherName", "aadhaar", "pen", "socialCategory", "religion"],
+  },
   bank: {
-    name: "Bank Disbursal Format",
+    id: "bank",
+    name: "Bank Disbursal",
+    badge: "Financial",
     cols: ["schoolId", "name", "presentClass", "presentSection", "presentRoll", "bankIfsc", "bankAccountNo", "studentContact", "kanyashreeStatus"],
   },
+  kanyashree: {
+    id: "kanyashree",
+    name: "Kanyashree / Schemes",
+    badge: "Welfare",
+    cols: ["schoolId", "name", "gender", "dob", "presentClass", "presentSection", "presentRoll", "aadhaar", "bankIfsc", "bankAccountNo", "kanyashreeStatus", "isBpl"],
+  },
   contact: {
-    name: "Parent Contact Directory",
+    id: "contact",
+    name: "Parent Contact",
+    badge: "Directory",
     cols: ["schoolId", "name", "presentClass", "presentSection", "presentRoll", "fatherName", "motherName", "guardianName", "studentContact", "altMobile", "address"],
+  },
+  idcard: {
+    id: "idcard",
+    name: "ID Card Data",
+    badge: "Identity",
+    cols: ["schoolId", "name", "presentClass", "presentSection", "presentRoll", "bloodGroup", "dob", "studentContact", "guardianName", "address"],
+  },
+  attendance: {
+    id: "attendance",
+    name: "Attendance Register",
+    badge: "Register",
+    cols: ["presentClass", "presentSection", "presentRoll", "schoolId", "name", "gender", "guardianName", "studentContact"],
+  },
+  category: {
+    id: "category",
+    name: "Caste & Census",
+    badge: "Demographic",
+    cols: ["schoolId", "name", "gender", "presentClass", "presentSection", "socialCategory", "religion", "isBpl", "isCwsn", "isEws"],
   },
 };
 
@@ -108,9 +154,11 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialogProps) {
+  const router = useRouter();
   const [selectedColIds, setSelectedColIds] = useState<Set<string>>(
     new Set(["name", "schoolId", "presentClass", "presentSection", "presentRoll", "dob", "gender", "fatherName", "studentContact", "pen", "aadhaar"])
   );
+  const [activePreset, setActivePreset] = useState<string | null>(null);
   const [fileFormat, setFileFormat] = useState<"xlsx" | "csv">("xlsx");
   const [isExporting, setIsExporting] = useState(false);
 
@@ -119,18 +167,27 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
     if (next.has(id)) next.delete(id);
     else next.add(id);
     setSelectedColIds(next);
+    setActivePreset(null);
   };
 
   const selectAll = () => {
     setSelectedColIds(new Set(ALL_EXPORT_COLUMNS.map((c) => c.id)));
+    setActivePreset(null);
   };
 
   const clearAll = () => {
     setSelectedColIds(new Set(["name", "schoolId"]));
+    setActivePreset(null);
   };
 
   const applyPreset = (presetKey: keyof typeof PRESETS) => {
     setSelectedColIds(new Set(PRESETS[presetKey].cols));
+    setActivePreset(presetKey);
+  };
+
+  const handleGoToClassicReport = () => {
+    onOpenChange(false);
+    router.push("/reports");
   };
 
   // Compute active filters list for display
@@ -189,26 +246,6 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
     }
   };
 
-  const handleDownloadClassicReport = async () => {
-    setIsExporting(true);
-    try {
-      const res = await searchStudents(activeFilters, 1, 100000);
-      const filtered = res.data || [];
-
-      if (filtered.length === 0) {
-        alert("No students found matching the applied filters.");
-        return;
-      }
-
-      exportClassicStrengthExcel(filtered, "MARIGACHI HIGH SCHOOL (H. S.)");
-      onOpenChange(false);
-    } catch (err: any) {
-      alert(`Classic Report export failed: ${err.message}`);
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
   const categories = ["Basic", "Identifiers", "Enrolment", "Family", "Contact", "Bank", "Welfare"] as const;
 
   return (
@@ -223,10 +260,10 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
               </div>
               <div>
                 <DialogTitle className="text-base font-bold text-foreground">
-                  Export Custom Student Report
+                  Report
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Export data matching your active directory filters to Excel or CSV.
+                  Export custom directory records or access official institutional reports.
                 </DialogDescription>
               </div>
             </div>
@@ -259,50 +296,76 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
 
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
-          {/* Presets Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/40 p-3.5 rounded-xl border">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-foreground">
-              <Sparkles className="h-4 w-4 text-amber-500" />
-              <span>Quick Presets:</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Highlighted Classic Report Button */}
+          {/* Quick Presets Section */}
+          <div className="bg-muted/40 p-4 rounded-xl border space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                <span className="text-xs font-bold text-foreground">Quick Presets & Templates</span>
+              </div>
+
+              {/* Redirect to Official Classic Report */}
               <button
                 type="button"
-                onClick={handleDownloadClassicReport}
-                disabled={isExporting}
-                title="Download complete Class & Section Matrix Report (West Bengal High School Standard)"
-                className="group relative inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm hover:shadow-md hover:brightness-110 active:scale-95 transition-all ring-2 ring-amber-400/50"
+                onClick={handleGoToClassicReport}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1.5 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                title="Go to official West Bengal Students Strength Tabulation Report"
               >
-                <Sparkles className="h-3.5 w-3.5 text-amber-100 animate-pulse" />
+                <ExternalLink className="h-3.5 w-3.5" />
                 <span>Classic Report</span>
-                <span className="rounded bg-black/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-100">
-                  .xlsx
+                <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-200">
+                  Tabulation ↗
                 </span>
               </button>
+            </div>
 
-              <div className="h-4 w-px bg-border mx-0.5" />
+            {/* Presets List */}
+            <div className="flex flex-wrap items-center gap-2">
+              {Object.entries(PRESETS).map(([key, p]) => {
+                const isActive = activePreset === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => applyPreset(key as any)}
+                    className={cn(
+                      "group flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all shadow-2xs cursor-pointer",
+                      isActive
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
+                        : "bg-background text-foreground hover:bg-muted/80 hover:border-primary/40"
+                    )}
+                  >
+                    <span>{p.name}</span>
+                    <span
+                      className={cn(
+                        "rounded px-1 py-0.5 text-[9px] uppercase tracking-wider font-semibold",
+                        isActive
+                          ? "bg-primary-foreground/20 text-primary-foreground"
+                          : "bg-muted text-muted-foreground group-hover:text-foreground"
+                      )}
+                    >
+                      {p.badge}
+                    </span>
+                  </button>
+                );
+              })}
 
-              {Object.entries(PRESETS).map(([key, p]) => (
-                <button
-                  key={key}
-                  onClick={() => applyPreset(key as any)}
-                  className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 hover:border-primary/40 transition-all shadow-2xs"
-                >
-                  {p.name}
-                </button>
-              ))}
-              <div className="h-4 w-px bg-border mx-0.5" />
+              <div className="h-4 w-px bg-border mx-1" />
+
+              {/* Utility Select / Reset Buttons */}
               <button
+                type="button"
                 onClick={selectAll}
-                className="rounded-lg border bg-background px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+                className="rounded-lg border bg-background px-2.5 py-1.5 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors cursor-pointer"
               >
                 Select All
               </button>
               <button
+                type="button"
                 onClick={clearAll}
-                className="rounded-lg border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="flex items-center gap-1 rounded-lg border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
+                <RotateCcw className="h-3 w-3" />
                 Reset
               </button>
             </div>
@@ -320,11 +383,12 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                     <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                       {category} Fields
                     </span>
-                    <span className="text-[10px] text-muted-foreground">({catCols.length})</span>
-                    <div className="flex-1 border-t" />
+                    <span className="text-[11px] text-muted-foreground/60">
+                      ({catCols.filter((c) => selectedColIds.has(c.id)).length} of {catCols.length})
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {catCols.map((col) => {
                       const isSelected = selectedColIds.has(col.id);
                       return (
@@ -333,18 +397,18 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                           type="button"
                           onClick={() => toggleColumn(col.id)}
                           className={cn(
-                            "flex items-center gap-2.5 p-2.5 rounded-xl border text-xs text-left cursor-pointer select-none transition-all",
+                            "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium border text-left transition-all cursor-pointer select-none",
                             isSelected
-                              ? "bg-primary/5 border-primary/50 text-foreground font-semibold shadow-2xs"
-                              : "bg-background border-border/80 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                              ? "bg-primary/5 border-primary/40 text-foreground font-semibold shadow-2xs"
+                              : "bg-background border-border/70 text-muted-foreground hover:border-border hover:bg-muted/40"
                           )}
                         >
                           <div
                             className={cn(
-                              "h-4 w-4 rounded-md flex items-center justify-center border transition-colors shrink-0",
+                              "flex h-4 w-4 items-center justify-center rounded-md border transition-colors shrink-0",
                               isSelected
                                 ? "bg-primary border-primary text-primary-foreground"
-                                : "border-muted-foreground/30 bg-background"
+                                : "border-muted-foreground/40 bg-background"
                             )}
                           >
                             {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
@@ -361,19 +425,18 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
         </div>
 
         {/* Footer */}
-        <div className="border-t bg-muted/30 px-6 py-3.5 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-            <span className="text-xs text-muted-foreground font-medium">
-              Export Format:
-            </span>
-            <div className="flex rounded-lg border bg-background p-0.5 shadow-2xs">
+        <div className="border-t px-6 py-3.5 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Format Selector */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-muted-foreground font-medium">Export Format:</span>
+            <div className="flex items-center rounded-lg border bg-background p-0.5">
               <button
                 type="button"
                 onClick={() => setFileFormat("xlsx")}
                 className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-md transition-all",
+                  "px-2.5 py-1 rounded-md font-semibold text-xs transition-all cursor-pointer",
                   fileFormat === "xlsx"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-emerald-600 text-white shadow-2xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -383,9 +446,9 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                 type="button"
                 onClick={() => setFileFormat("csv")}
                 className={cn(
-                  "px-3 py-1 text-xs font-semibold rounded-md transition-all",
+                  "px-2.5 py-1 rounded-md font-semibold text-xs transition-all cursor-pointer",
                   fileFormat === "csv"
-                    ? "bg-emerald-600 text-white shadow-xs"
+                    ? "bg-emerald-600 text-white shadow-2xs"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -394,11 +457,12 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
             </div>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="flex-1 sm:flex-initial rounded-lg border bg-background px-4 py-2 text-xs font-semibold hover:bg-muted transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground border rounded-xl bg-background hover:bg-muted transition-colors cursor-pointer"
             >
               Cancel
             </button>
@@ -406,16 +470,16 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
               type="button"
               onClick={handleDownload}
               disabled={isExporting || selectedColIds.size === 0}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-all shadow-sm"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 rounded-xl shadow-xs transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Generating…
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
                 </>
               ) : (
                 <>
-                  <Download className="h-3.5 w-3.5" />
+                  <Download className="h-4 w-4" />
                   Download Report ({selectedColIds.size})
                 </>
               )}

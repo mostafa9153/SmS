@@ -10,11 +10,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const { isOpen } = useSidebar();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-muted/30">
+    <div className="flex h-screen overflow-hidden bg-muted/30 print:h-auto print:overflow-visible print:bg-white">
       {/* Desktop sidebar with smooth collapse/expand animation */}
       <div
         className={cn(
-          "hidden md:flex flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-r bg-background",
+          "hidden md:flex flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden border-r bg-background print:hidden",
           isOpen ? "w-64 opacity-100" : "w-0 border-r-0 opacity-0"
         )}
       >
@@ -26,9 +26,11 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-        <Topbar />
-        <main className="flex-1 overflow-y-auto min-w-0 custom-scrollbar animate-fade-in-up">
+      <div className="flex flex-1 flex-col overflow-hidden min-w-0 print:overflow-visible print:h-auto">
+        <div className="print:hidden">
+          <Topbar />
+        </div>
+        <main className="flex-1 overflow-y-auto min-w-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
           {children}
         </main>
       </div>
