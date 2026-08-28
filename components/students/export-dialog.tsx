@@ -258,39 +258,18 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
                 <FileSpreadsheet className="h-5 w-5" />
               </div>
-              <div>
-                <DialogTitle className="text-base font-bold text-foreground">
-                  Report
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Export custom directory records or access official institutional reports.
-                </DialogDescription>
-              </div>
+              <DialogTitle className="text-base font-bold text-foreground">
+                Report
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                Student report export
+              </DialogDescription>
             </div>
             <div className="flex items-center gap-2">
-              <span className="hidden sm:inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
+              <span className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
                 {selectedColIds.size} of {ALL_EXPORT_COLUMNS.length} Columns Selected
               </span>
             </div>
-          </div>
-
-          {/* Active Filter Scope Pill Notice */}
-          <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-border/40 text-xs">
-            <span className="text-muted-foreground font-medium">Export Scope:</span>
-            {activeFilterBadges.length === 0 ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-muted text-foreground">
-                All Enrolled Students
-              </span>
-            ) : (
-              activeFilterBadges.map((f, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20"
-                >
-                  {f}
-                </span>
-              ))
-            )}
           </div>
         </div>
 
