@@ -58,7 +58,6 @@ const navItems: NavItem[] = [
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
     children: [
       { label: "All Students Directory", href: "/students" },
-      { label: "Add New Student", href: "/students/add" },
       { label: "Bulk Upload & Archive", href: "/students/bulk-upload" },
     ],
   },
