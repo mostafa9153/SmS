@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useMemo } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { searchStudents } from "@/lib/data/students";
 import type { StudentFilters } from "@/lib/types";
@@ -11,7 +11,7 @@ import { ExportDialog } from "@/components/students/export-dialog";
 import { FileSpreadsheet, Plus } from "lucide-react";
 import Link from "next/link";
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export default function StudentsClient() {
   const searchParams = useSearchParams();
@@ -20,7 +20,6 @@ export default function StudentsClient() {
   const [filters, setFilters] = useState<StudentFilters>({
     query: initialQuery,
   });
-  const [page, setPage] = useState(1);
   const [exportOpen, setExportOpen] = useState(false);
 
   // Sync URL search parameter changes
@@ -30,19 +29,34 @@ export default function StudentsClient() {
       ...prev,
       query: queryParam || undefined,
     }));
-    setPage(1);
   }, [queryParam]);
 
   function handleFilterChange(newFilters: StudentFilters) {
     setFilters(newFilters);
-    setPage(1);
   }
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["students", filters, page],
-    queryFn: () => searchStudents(filters, page, PAGE_SIZE),
-    placeholderData: (prev) => prev,
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery({
+    queryKey: ["students-infinite", filters],
+    queryFn: ({ pageParam = 1 }) => searchStudents(filters, pageParam, PAGE_SIZE),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage || !lastPage.meta) return undefined;
+      const nextPage = lastPage.meta.page + 1;
+      return nextPage <= lastPage.meta.totalPages ? nextPage : undefined;
+    },
   });
+
+  const allStudents = useMemo(
+    () => data?.pages.flatMap((page) => page.data) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages[0]?.meta.total ?? 0;
 
   return (
     <div className="flex flex-col min-h-full">
@@ -55,7 +69,7 @@ export default function StudentsClient() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setExportOpen(true)}
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs active:scale-95"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs active:scale-95 cursor-pointer"
             >
               <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
               Export Custom Report
@@ -71,12 +85,12 @@ export default function StudentsClient() {
         </div>
 
         <StudentTable
-          data={data?.data ?? []}
-          total={data?.meta.total ?? 0}
-          page={page}
-          pageSize={PAGE_SIZE}
-          onPageChange={setPage}
+          data={allStudents}
+          total={totalCount}
           isLoading={isLoading}
+          isFetchingNextPage={isFetchingNextPage}
+          hasNextPage={hasNextPage}
+          onLoadMore={fetchNextPage}
         />
       </div>
 
@@ -89,4 +103,3 @@ export default function StudentsClient() {
     </div>
   );
 }
-

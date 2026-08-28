@@ -1,45 +1,63 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
 import {
-  ChevronLeft,
-  ChevronRight,
   Inbox,
+  Loader2,
 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
-import { cn } from "@/lib/utils";
 
 interface StudentTableProps {
   data: Student[];
   total: number;
-  page: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
   isLoading?: boolean;
+  isFetchingNextPage?: boolean;
+  hasNextPage?: boolean;
+  onLoadMore?: () => void;
 }
 
 export function StudentTable({
   data,
   total,
-  page,
-  pageSize,
-  onPageChange,
   isLoading,
+  isFetchingNextPage,
+  hasNextPage,
+  onLoadMore,
 }: StudentTableProps) {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-fetch next page as user scrolls near bottom
+  useEffect(() => {
+    if (!hasNextPage || isFetchingNextPage || !onLoadMore) return;
+
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          onLoadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: "350px" }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, onLoadMore]);
 
   const columns = useMemo<ColumnDef<Student>[]>(
     () => [
@@ -48,7 +66,7 @@ export function StudentTable({
         header: "Sl. No.",
         cell: ({ row }) => (
           <span className="font-mono text-xs font-semibold text-muted-foreground/80">
-            {(page - 1) * pageSize + row.index + 1}
+            {row.index + 1}
           </span>
         ),
       },
@@ -174,22 +192,16 @@ export function StudentTable({
         ),
       },
     ],
-    [currentYear, page, pageSize]
+    [currentYear]
   );
 
   const table = useReactTable({
     data,
     columns,
-    state: { pagination: { pageIndex: page - 1, pageSize } },
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: true,
-    pageCount: Math.ceil(total / pageSize),
   });
 
-  const totalPages = Math.ceil(total / pageSize);
-
-  if (isLoading) {
+  if (isLoading && data.length === 0) {
     return <TableSkeleton />;
   }
 
@@ -210,8 +222,7 @@ export function StudentTable({
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-muted-foreground px-1">
-        Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)}{" "}
-        of {total} students
+        Showing {data.length} of {total} students
       </p>
       <div className="rounded-2xl border border-border/80 bg-card/90 overflow-x-auto shadow-xs">
         <table className="w-full text-sm">
@@ -252,60 +263,28 @@ export function StudentTable({
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5 px-1 py-1">
-          <p className="text-xs text-muted-foreground">
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex items-center gap-1 flex-wrap justify-center">
-            <button
-              onClick={() => onPageChange(page - 1)}
-              disabled={page <= 1}
-              className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter(
-                (p) =>
-                  p === 1 || p === totalPages || Math.abs(p - page) <= 1
-              )
-              .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1)
-                  acc.push("…");
-                acc.push(p);
-                return acc;
-              }, [])
-              .map((p, idx) =>
-                p === "…" ? (
-                  <span key={`ellipsis-${idx}`} className="px-1.5 py-1 text-xs text-muted-foreground">
-                    …
-                  </span>
-                ) : (
-                  <button
-                    key={p}
-                    onClick={() => onPageChange(p as number)}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1 text-xs font-semibold transition-all active:scale-95",
-                      p === page
-                        ? "bg-primary text-primary-foreground shadow-2xs"
-                        : "hover:bg-accent text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    {p}
-                  </button>
-                )
-              )}
-            <button
-              onClick={() => onPageChange(page + 1)}
-              disabled={page >= totalPages}
-              className="rounded-lg p-1.5 hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
+      {/* Infinite Scroll Sentinel & Loader */}
+      <div ref={sentinelRef} className="py-4 flex flex-col items-center justify-center min-h-[44px]">
+        {isFetchingNextPage && (
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span>Loading more students...</span>
           </div>
-        </div>
-      )}
+        )}
+        {!isFetchingNextPage && hasNextPage && (
+          <button
+            onClick={() => onLoadMore?.()}
+            className="text-xs font-semibold text-primary hover:underline py-1.5 px-4 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer"
+          >
+            Load More Students
+          </button>
+        )}
+        {!hasNextPage && data.length > 0 && (
+          <p className="text-xs text-muted-foreground/60 py-2">
+            All {total} students loaded
+          </p>
+        )}
+      </div>
     </div>
   );
 }
