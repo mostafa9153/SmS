@@ -221,9 +221,6 @@ export function StudentTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground px-1">
-        Showing {data.length} of {total} students
-      </p>
       <div className="rounded-2xl border border-border/80 bg-card/90 overflow-x-auto shadow-xs">
         <table className="w-full text-sm">
           <thead>
