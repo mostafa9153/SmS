@@ -1,18 +1,5 @@
-import ExcelJS from "exceljs";
-import {
-  Document,
-  Packer,
-  Paragraph,
-  Table,
-  TableRow,
-  TableCell,
-  TextRun,
-  WidthType,
-  AlignmentType,
-  VerticalAlign,
-  PageOrientation,
-  BorderStyle,
-} from "docx";
+import type ExcelJS from "exceljs";
+import type { TableRow, TableCell } from "docx";
 import type { Student } from "@/lib/types";
 
 export interface SectionMatrixRow {
@@ -357,6 +344,7 @@ export async function exportClassicStrengthExcel(
   academicYear = "2026"
 ) {
   const data = computeClassicStrengthData(students, schoolName, customDate, academicYear);
+  const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("STUDENTS STRENGTH", {
     views: [{ showGridLines: true }],
@@ -773,6 +761,21 @@ export async function exportClassicStrengthWord(
   academicYear = "2026"
 ) {
   const data = computeClassicStrengthData(students, schoolName, customDate, academicYear);
+
+  const {
+    Document,
+    Packer,
+    Paragraph,
+    Table,
+    TableRow,
+    TableCell,
+    TextRun,
+    WidthType,
+    AlignmentType,
+    VerticalAlign,
+    PageOrientation,
+    BorderStyle,
+  } = await import("docx");
 
   const cellBorder = {
     top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },

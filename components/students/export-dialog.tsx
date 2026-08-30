@@ -26,7 +26,6 @@ import { searchStudents } from "@/lib/data/students";
 import { getKanyashreeCategory } from "@/lib/utils";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
 
 interface ExportColumn {
   id: string;
@@ -224,7 +223,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
         }
         return rowObj;
       });
-
+      const XLSX = await import("xlsx");
       const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Students");

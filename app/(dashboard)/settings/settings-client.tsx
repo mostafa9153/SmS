@@ -23,9 +23,32 @@ import {
   CalendarClock,
   Cloud,
   ArrowLeft,
+  School,
 } from "lucide-react";
-import { BackupRestoreTab } from "@/components/backup/backup-restore-tab";
-import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
+import dynamic from "next/dynamic";
+
+const TabLoadingSkeleton = () => (
+  <div className="p-6 space-y-4 rounded-2xl border bg-card/50">
+    <Skeleton className="h-8 w-48 rounded-xl" />
+    <Skeleton className="h-4 w-72 rounded-lg" />
+    <Skeleton className="h-[300px] w-full rounded-2xl" />
+  </div>
+);
+
+const BackupRestoreTab = dynamic(
+  () => import("@/components/backup/backup-restore-tab").then((mod) => mod.BackupRestoreTab),
+  { loading: () => <TabLoadingSkeleton /> }
+);
+
+const AcademicSessionClient = dynamic(
+  () => import("@/app/(dashboard)/academic-session/academic-session-client"),
+  { loading: () => <TabLoadingSkeleton /> }
+);
+
+const SchoolDetailsTab = dynamic(
+  () => import("@/components/school-details/school-details-tab").then((mod) => mod.SchoolDetailsTab),
+  { loading: () => <TabLoadingSkeleton /> }
+);
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -104,15 +127,6 @@ export function SettingsClient() {
   // Audit log detail modal state
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
 
-  // School Config states
-  const [schoolName, setSchoolName] = useState("Marigachi High School (H.S.)");
-  const [udiseCode, setUdiseCode] = useState("19111305602");
-  const [boardAffiliation, setBoardAffiliation] = useState("WBBSE / WBCHSE");
-  const [schoolAddress, setSchoolAddress] = useState("Marigachi, Mathurapur II, South 24 Parganas, West Bengal - 743349");
-  const [schoolEmail, setSchoolEmail] = useState("contact@marigachihighschool.in");
-  const [schoolPhone, setSchoolPhone] = useState("+91 98765 43210");
-  const [establishedYear, setEstablishedYear] = useState("1965");
-  const [isSavingConfig, setIsSavingConfig] = useState(false);
 
   // Danger Zone / Data Wipeout state
   const [isWipeoutModalOpen, setIsWipeoutModalOpen] = useState(false);
@@ -393,10 +407,16 @@ export function SettingsClient() {
       icon: Activity,
       color: "text-violet-600 dark:text-violet-400 bg-violet-500/10",
     },
+    "school-details": {
+      title: "School Details & Institutional Setup",
+      subtitle: "Manage institutional school profile and comprehensive class & section configuration.",
+      icon: School,
+      color: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    },
     config: {
-      title: "School Identity & Configuration",
-      subtitle: "Manage institutional name, contact details, affiliation, and official credentials.",
-      icon: Sliders,
+      title: "School Details & Institutional Setup",
+      subtitle: "Manage institutional school profile and comprehensive class & section configuration.",
+      icon: School,
       color: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
     },
     backup: {
@@ -910,111 +930,12 @@ export function SettingsClient() {
           </Dialog>
         </TabsContent>
 
-        {/* Tab 3: School Config */}
+        {/* Tab 3: School Details (Profile & Class Management) */}
+        <TabsContent value="school-details" className="space-y-4 outline-none">
+          <SchoolDetailsTab />
+        </TabsContent>
         <TabsContent value="config" className="space-y-4 outline-none">
-          <Card className="border-muted bg-card">
-            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-              <div>
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Building className="h-5 w-5 text-primary" />
-                  School Profile & Information
-                </CardTitle>
-              </div>
-              <Button
-                onClick={() => {
-                  setIsSavingConfig(true);
-                  setTimeout(() => {
-                    setIsSavingConfig(false);
-                    showToast({
-                      type: "success",
-                      title: "Settings Saved Successfully",
-                      description: "School institution profile and evaluation parameters have been updated.",
-                    });
-                  }, 600);
-                }}
-                disabled={isSavingConfig}
-                className="flex items-center gap-1.5 self-start sm:self-auto bg-primary text-primary-foreground text-xs font-semibold"
-              >
-                <Save className="h-4 w-4" />
-                {isSavingConfig ? "Saving..." : "Save Configuration"}
-              </Button>
-            </CardHeader>
-
-            <CardContent className="space-y-6 pt-6">
-              {/* Institution Details */}
-              <div className="space-y-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Institution Metadata
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolName" className="text-xs">School Name</Label>
-                    <Input
-                      id="schoolName"
-                      value={schoolName}
-                      onChange={(e) => setSchoolName(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="udiseCode" className="text-xs">UDISE+ Code</Label>
-                    <Input
-                      id="udiseCode"
-                      value={udiseCode}
-                      onChange={(e) => setUdiseCode(e.target.value)}
-                      className="text-xs font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="boardAffiliation" className="text-xs">Board / Council Affiliation</Label>
-                    <Input
-                      id="boardAffiliation"
-                      value={boardAffiliation}
-                      onChange={(e) => setBoardAffiliation(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="establishedYear" className="text-xs">Year of Establishment</Label>
-                    <Input
-                      id="establishedYear"
-                      value={establishedYear}
-                      onChange={(e) => setEstablishedYear(e.target.value)}
-                      className="text-xs font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="schoolAddress" className="text-xs">Full Address</Label>
-                    <Input
-                      id="schoolAddress"
-                      value={schoolAddress}
-                      onChange={(e) => setSchoolAddress(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolEmail" className="text-xs">Official Contact Email</Label>
-                    <Input
-                      id="schoolEmail"
-                      value={schoolEmail}
-                      onChange={(e) => setSchoolEmail(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolPhone" className="text-xs">Contact Phone Number</Label>
-                    <Input
-                      id="schoolPhone"
-                      value={schoolPhone}
-                      onChange={(e) => setSchoolPhone(e.target.value)}
-                      className="text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-            </CardContent>
-          </Card>
+          <SchoolDetailsTab />
         </TabsContent>
 
         {/* Tab 4: Academic Session */}

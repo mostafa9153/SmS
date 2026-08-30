@@ -31,7 +31,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
-import * as XLSX from "xlsx";
 
 const CLASS_OPTIONS = [
   { value: "V", label: "Class V" },
@@ -228,7 +227,7 @@ export default function ResultsClient() {
   };
 
   // Export to Excel
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!summary || !summary.results.length) return;
 
     const exportRows = summary.results.map((r) => ({
@@ -248,6 +247,7 @@ export default function ResultsClient() {
       "Remarks": r.remarks || "",
     }));
 
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(exportRows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `Class_${selectedClass}_Results`);

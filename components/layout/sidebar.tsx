@@ -97,9 +97,9 @@ const settingsNavItems = [
     activeColor: "from-violet-500/15 via-violet-500/8 text-violet-700 dark:text-violet-300 border-violet-600",
   },
   {
-    tab: "config",
-    label: "School Config",
-    icon: <Sliders className="h-4 w-4" />,
+    tab: "school-details",
+    label: "School Details",
+    icon: <School className="h-4 w-4" />,
     iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     activeColor: "from-amber-500/15 via-amber-500/8 text-amber-700 dark:text-amber-300 border-amber-600",
   },
@@ -326,7 +326,7 @@ export function Sidebar({
 
             <div className="space-y-1">
               {settingsNavItems.map((item) => {
-                const isActive = activeSettingTab === item.tab;
+                const isActive = activeSettingTab === item.tab || (item.tab === "school-details" && activeSettingTab === "config");
                 return (
                   <Link
                     key={item.tab}
