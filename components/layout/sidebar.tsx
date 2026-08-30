@@ -280,12 +280,17 @@ export function Sidebar({
       {/* Brand Logo Header */}
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl overflow-hidden shadow-sm border border-amber-500/30 bg-black transition-transform duration-300 hover:scale-105">
-            <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden shadow-sm border border-primary/20 bg-background/80 transition-transform duration-300 hover:scale-105 shrink-0">
+            <img src="/logo.png" alt="Logo" className="h-full w-full object-contain p-0.5" />
           </div>
-          <p className="text-sm font-bold tracking-tight text-foreground leading-tight">
-            MHS School
-          </p>
+          <div className="flex flex-col min-w-0">
+            <p className="text-sm font-bold tracking-tight text-foreground leading-tight truncate">
+              Marigachi HS
+            </p>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              SMS Portal
+            </span>
+          </div>
         </div>
 
         {mobile && (

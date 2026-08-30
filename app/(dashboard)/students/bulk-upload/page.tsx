@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as XLSX from "xlsx";
 import {
@@ -80,6 +81,7 @@ const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 
 export default function BulkUploadPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
@@ -556,7 +558,14 @@ export default function BulkUploadPage() {
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.back()}
+            title="Back"
+            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight">Bulk Upload Management</h1>
         </div>
         <button

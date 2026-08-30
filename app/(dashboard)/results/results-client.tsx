@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
@@ -21,6 +22,7 @@ import {
   Eye,
   Filter,
   Upload,
+  ArrowLeft,
 } from "lucide-react";
 import { getClassResults, saveStudentResult, recalculateClassRanks } from "@/lib/data/students";
 import type { StudentResult, ClassResultsSummary } from "@/lib/types";
@@ -56,6 +58,7 @@ const EXAMS = [
 ];
 
 export default function ResultsClient() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
@@ -298,7 +301,14 @@ export default function ResultsClient() {
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.back()}
+            title="Back"
+            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight">Results & Marks Management</h1>
         </div>
 

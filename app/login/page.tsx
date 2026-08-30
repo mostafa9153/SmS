@@ -98,8 +98,8 @@ export default function LoginPage() {
             </div>
             
             <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black overflow-hidden border border-amber-500/30 shadow-lg shadow-amber-500/10">
-                <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 shadow-xl shadow-blue-950/30 p-1 shrink-0">
+                <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-white leading-tight">Marigachi High School</h1>
@@ -141,8 +141,8 @@ export default function LoginPage() {
         <div className="p-8 sm:p-12 flex flex-col justify-center bg-slate-900/20">
           {/* Logo only for Mobile */}
           <div className="flex md:hidden flex-col items-center mb-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black overflow-hidden border border-amber-500/30 mb-3 shadow-lg shadow-amber-500/10">
-              <img src="/logo.png" alt="Logo" className="h-full w-full object-cover" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 mb-3 shadow-xl shadow-blue-950/30 p-1 shrink-0">
+              <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
             </div>
             <h1 className="text-lg font-bold text-white">Marigachi High School</h1>
             <p className="text-xs text-slate-400">Student Management System</p>

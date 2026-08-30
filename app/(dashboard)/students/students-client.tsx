@@ -2,18 +2,19 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { searchStudents } from "@/lib/data/students";
 import type { StudentFilters } from "@/lib/types";
 import { StudentFiltersBar } from "@/components/students/student-filters";
 import { StudentTable } from "@/components/students/student-table";
 import { ExportDialog } from "@/components/students/export-dialog";
-import { FileSpreadsheet, Plus } from "lucide-react";
+import { FileSpreadsheet, Plus, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 const PAGE_SIZE = 20;
 
 export default function StudentsClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? undefined;
 
@@ -63,7 +64,14 @@ export default function StudentsClient() {
       <StudentFiltersBar filters={filters} onChange={handleFilterChange} />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => router.back()}
+              title="Back"
+              className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
             <h1 className="text-lg font-bold tracking-tight">Student Directory</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">

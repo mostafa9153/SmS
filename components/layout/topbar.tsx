@@ -2,8 +2,8 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -19,9 +19,11 @@ import {
 
 export function Topbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
   const { isOpen, toggleSidebar } = useSidebar();
   
+  const isHome = pathname === "/";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [fullName, setFullName] = useState("Guest");
@@ -76,6 +78,18 @@ export function Topbar() {
           </Suspense>
         </SheetContent>
       </Sheet>
+
+      {/* Back Navigation Button for all pages except Home */}
+      {!isHome && (
+        <button
+          onClick={() => router.back()}
+          title="Back (পেছনে যান)"
+          className="flex items-center gap-1 rounded-lg px-2 sm:px-2.5 py-1 text-xs font-bold text-foreground bg-primary/10 hover:bg-primary/20 border border-primary/25 transition-all duration-150 active:scale-95 shrink-0 shadow-2xs group"
+        >
+          <ArrowLeft className="h-4 w-4 text-primary transition-transform group-hover:-translate-x-0.5" />
+          <span className="hidden sm:inline">Back</span>
+        </button>
+      )}
 
       {/* Desktop Sidebar Toggle Button */}
       <button

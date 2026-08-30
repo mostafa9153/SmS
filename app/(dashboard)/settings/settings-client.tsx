@@ -22,6 +22,7 @@ import {
   Sparkles,
   CalendarClock,
   Cloud,
+  ArrowLeft,
 } from "lucide-react";
 import { BackupRestoreTab } from "@/components/backup/backup-restore-tab";
 import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
@@ -419,6 +420,13 @@ export function SettingsClient() {
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       {/* Dynamic Header */}
       <div className="flex items-center gap-3 border-b pb-4">
+        <button
+          onClick={() => router.back()}
+          title="Back"
+          className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
         <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl shrink-0 shadow-2xs", currentTab.color)}>
           <CurrentIcon className="h-4.5 w-4.5" />
         </div>

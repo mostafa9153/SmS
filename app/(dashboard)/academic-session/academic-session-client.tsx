@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarClock,
@@ -21,6 +22,7 @@ import {
   UserX,
   RotateCcw,
   Save,
+  ArrowLeft,
 } from "lucide-react";
 import { getSessionReadiness, executeSessionTransition } from "@/lib/data/students";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import Link from "next/link";
 
 export default function AcademicSessionClient() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
   const [fromYear, setFromYear] = useState<number>(currentYear);
@@ -124,6 +127,13 @@ export default function AcademicSessionClient() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 border-b pb-4">
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.back()}
+            title="Back"
+            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
           <h1 className="text-lg sm:text-xl font-bold tracking-tight">Academic Session Transition</h1>
         </div>

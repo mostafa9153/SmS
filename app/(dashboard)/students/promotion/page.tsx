@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getStudents,
@@ -13,7 +14,7 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn, sortClasses } from "@/lib/utils";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, ArrowLeft } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -23,6 +24,7 @@ const CLASS_NEXT: Record<string, string> = {
 };
 
 export default function PromotionPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedSection, setSelectedSection] = useState("");
@@ -164,7 +166,14 @@ export default function PromotionPage() {
 
   return (
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
-      <div>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => router.back()}
+          title="Back"
+          className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
         <h1 className="text-lg sm:text-xl font-bold">Promotion & Transfer</h1>
       </div>
 
