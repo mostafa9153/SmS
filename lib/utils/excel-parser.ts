@@ -119,8 +119,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Enrolment",
     icon: "📖",
     aliases: [
-      "admission no",
       "admission number",
+      "admission no",
       "admission_no",
       "admission no.",
       "adm no",
@@ -128,6 +128,12 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "adm number",
       "admission#",
       "admission id",
+      "admission num",
+      "admission",
+      "admission code",
+      "student admission no",
+      "admission roll",
+      "admission serial",
     ],
   },
   {
@@ -142,6 +148,10 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "doa",
       "adm date",
       "enrolment date",
+      "admission dt",
+      "date of adm",
+      "admission_dt",
+      "admission day",
     ],
   },
   {
@@ -184,6 +194,10 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "stream name",
       "discipline",
       "arts/science/commerce",
+      "academic_stream",
+      "academic stream name",
+      "higher secondary stream",
+      "hs stream",
     ],
   },
   {
@@ -196,6 +210,11 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "medium",
       "instruction medium",
       "language of instruction",
+      "medium_of_instruction",
+      "medium of study",
+      "instruction_medium",
+      "instruction language",
+      "school medium",
     ],
   },
 
@@ -307,6 +326,12 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "dise_code",
       "udise_code",
       "school dise code",
+      "dise",
+      "udise",
+      "school dise",
+      "school udise code",
+      "school dise no",
+      "udise code no",
     ],
   },
   {
@@ -329,10 +354,20 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     icon: "📄",
     aliases: [
       "birth registration no",
+      "birth registration number",
       "birth reg no",
       "birth certificate no",
       "birth_registration_no",
       "birth cert no",
+      "birth registration",
+      "birth reg. no",
+      "birth reg. no.",
+      "birth reg no.",
+      "birth cert number",
+      "birth certificate number",
+      "birth reg",
+      "brn",
+      "birth cert #",
     ],
   },
   {
@@ -346,6 +381,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "body mark",
       "visible mark",
       "identification_mark",
+      "identity mark",
     ],
   },
 
@@ -523,6 +559,9 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "first language",
       "native language",
       "mother language",
+      "mothertongue",
+      "mother tounge",
+      "home language",
     ],
   },
   {
@@ -536,6 +575,9 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "minority_group",
       "minority community",
       "minority status",
+      "minority name",
+      "minority group name",
+      "minority type",
     ],
   },
   {
@@ -545,10 +587,15 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     icon: "🩸",
     aliases: [
       "blood group",
+      "lood group",
       "blood_group",
       "blood",
       "bg",
       "blood group name",
+      "blood grp",
+      "lood grp",
+      "blood group (+/-)",
+      "blood type",
     ],
   },
   {
@@ -557,11 +604,15 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Personal",
     icon: "📏",
     aliases: [
-      "height",
+      "height (cm)",
       "height cm",
       "height in cm",
+      "height",
       "height_cm",
       "student height",
+      "height(cm)",
+      "height in centimeter",
+      "height in cms",
     ],
   },
   {
@@ -570,11 +621,15 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Personal",
     icon: "⚖️",
     aliases: [
-      "weight",
+      "weight (kg)",
       "weight kg",
       "weight in kg",
+      "weight",
       "weight_kg",
       "student weight",
+      "weight(kg)",
+      "weight in kilogram",
+      "weight in kgs",
     ],
   },
 
@@ -585,13 +640,19 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Welfare",
     icon: "🎫",
     aliases: [
+      "bpl beneficiary",
       "bpl",
       "is bpl",
       "bpl status",
       "bpl y/n",
       "bpl y n",
-      "bpl beneficiary",
       "bpl card holder",
+      "bpl beneficiary (yes/no)",
+      "bpl (y/n)",
+      "bpl yes/no",
+      "bpl beneficiary y/n",
+      "bpl category",
+      "below poverty line",
     ],
   },
   {
@@ -600,6 +661,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Welfare",
     icon: "♿",
     aliases: [
+      "cwsn / disability",
+      "cwsn disability",
       "cwsn",
       "is cwsn",
       "cwsn y/n",
@@ -609,6 +672,12 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "disability",
       "cwsn y n",
       "special needs",
+      "cwsn / disability (yes/no)",
+      "cwsn (y/n)",
+      "cwsn yes/no",
+      "disability y/n",
+      "disability (y/n)",
+      "child with special needs",
     ],
   },
   {
@@ -617,11 +686,16 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Welfare",
     icon: "📜",
     aliases: [
-      "impairment type",
       "disability type",
+      "impairment type",
       "type of disability",
       "impairment",
       "nature of disability",
+      "disability_type",
+      "disability impairment type",
+      "type of impairment",
+      "cwsn type",
+      "disability name",
     ],
   },
   {
@@ -630,12 +704,20 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Welfare",
     icon: "💰",
     aliases: [
-      "annual income",
       "annual family income",
+      "annual income",
       "family income",
       "income",
       "annual_income",
       "family annual income",
+      "annual family income (₹)",
+      "annual family income rs",
+      "annual family income in rs",
+      "family annual income (rs)",
+      "parental income",
+      "parents annual income",
+      "annual income rs",
+      "total family income",
     ],
   },
 
@@ -730,13 +812,20 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     category: "Previous",
     icon: "📊",
     aliases: [
+      "previous marks (%)",
+      "previous marks %",
       "previous marks",
       "previous marks percent",
       "prev marks",
       "last exam percentage",
       "previous %",
-      "previous marks %",
       "previous_marks_percent",
+      "previous marks in %",
+      "previous marks percentage",
+      "last year marks %",
+      "last exam marks",
+      "marks in previous class",
+      "prev class %",
     ],
   },
 ];
@@ -752,6 +841,23 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "Student DOB": "dob",
       "Date of Birth": "dob",
       "Academic Year": "academicYear",
+      "Admission Number": "admissionNo",
+      "Admission Date": "admissionDate",
+      "Academic Stream": "academicStream",
+      "Medium of Instruction": "mediumOfInstruction",
+      "Birth Registration No": "birthRegistrationNo",
+      "DISE Code": "diseCode",
+      "Minority Group": "minorityGroup",
+      "Mother Tongue": "motherTongue",
+      "BPL Beneficiary": "isBpl",
+      "Annual Family Income": "annualFamilyIncome",
+      "CWSN / Disability": "isCwsn",
+      "Disability Type": "impairmentType",
+      "Blood Group": "bloodGroup",
+      "lood Group": "bloodGroup",
+      "Height (cm)": "heightCm",
+      "Weight (kg)": "weightKg",
+      "Previous Marks (%)": "previousMarksPercent",
       "Father Name": "fatherName",
       "Mother Name": "motherName",
       "Guardian Name": "guardianName",
@@ -788,6 +894,23 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "Aadhaar Number": "aadhaar",
       "Mobile Number": "studentContact",
       "Caste": "socialCategory",
+      "Admission Number": "admissionNo",
+      "Admission Date": "admissionDate",
+      "Academic Stream": "academicStream",
+      "Medium of Instruction": "mediumOfInstruction",
+      "Birth Registration No": "birthRegistrationNo",
+      "DISE Code": "diseCode",
+      "Minority Group": "minorityGroup",
+      "Mother Tongue": "motherTongue",
+      "BPL Beneficiary": "isBpl",
+      "Annual Family Income": "annualFamilyIncome",
+      "CWSN / Disability": "isCwsn",
+      "Disability Type": "impairmentType",
+      "Blood Group": "bloodGroup",
+      "lood Group": "bloodGroup",
+      "Height (cm)": "heightCm",
+      "Weight (kg)": "weightKg",
+      "Previous Marks (%)": "previousMarksPercent",
     },
   },
 };
@@ -873,6 +996,8 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
     "dob",
     "date of birth",
     "birth",
+    "birth registration",
+    "birth reg no",
     "father",
     "mother",
     "guardian",
@@ -882,6 +1007,17 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
     "academic",
     "academic year",
     "session",
+    "admission",
+    "admission number",
+    "admission no",
+    "admission date",
+    "stream",
+    "academic stream",
+    "medium",
+    "medium of instruction",
+    "dise",
+    "dise code",
+    "udise",
     "class",
     "section",
     "sec",
@@ -897,7 +1033,27 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
     "sex",
     "caste",
     "category",
+    "social category",
     "religion",
+    "mother tongue",
+    "tongue",
+    "minority",
+    "minority group",
+    "bpl",
+    "bpl beneficiary",
+    "income",
+    "annual income",
+    "annual family income",
+    "cwsn",
+    "disability",
+    "disability type",
+    "blood",
+    "blood group",
+    "lood",
+    "lood group",
+    "height",
+    "weight",
+    "previous marks",
     "marks",
     "score",
     "total",
@@ -1171,27 +1327,50 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "altMobile",
     "studentContact",
     "guardianName",
+    "relationshipWithGuardian",
+    "guardianQualification",
     "studentUniqueCode",
     "bankAccountNo",
     "bankIfsc",
-    "dob",
+    "birthRegistrationNo",
+    "diseCode",
+    "healthId",
+    "identificationMark",
+    "admissionNo",
+    "admissionDate",
     "academicYear",
     "admissionYear",
+    "academicStream",
+    "mediumOfInstruction",
+    "dob",
     "presentRoll",
     "presentClass",
     "presentSection",
     "pen",
     "hasAadhaar",
     "aadhaar",
-    "name",
-    "gender",
-    "schoolId",
     "socialCategory",
     "religion",
+    "motherTongue",
+    "minorityGroup",
+    "isBpl",
+    "annualFamilyIncome",
+    "isCwsn",
+    "impairmentType",
+    "bloodGroup",
+    "heightCm",
+    "weightKg",
+    "previousMarksPercent",
+    "previousSchool",
+    "previousClass",
+    "previousRollNo",
     "email",
     "address",
     "pincode",
     "currentStatus",
+    "schoolId",
+    "gender",
+    "name",
   ];
 
   const fieldMap = new Map<keyof Student, FieldDefinition>();
@@ -1199,12 +1378,19 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     fieldMap.set(f.key, f);
   }
 
+  // Ensure all defined target fields are checked
+  const allTargetKeys = TARGET_FIELDS.map((f) => f.key);
+  const orderedKeys: (keyof Student)[] = [
+    ...PRIORITY_KEYS,
+    ...allTargetKeys.filter((k) => !PRIORITY_KEYS.includes(k)),
+  ];
+
   for (const rawHeader of headers) {
     const cleanHeader = clean(rawHeader);
     let bestMatch: keyof Student | "ignore" = "ignore";
 
-    // 1. Direct exact or boundary match in priority order
-    for (const key of PRIORITY_KEYS) {
+    // Pass 1: Direct EXACT match across all fields (highest confidence)
+    for (const key of orderedKeys) {
       const field = fieldMap.get(key);
       if (!field) continue;
 
@@ -1212,8 +1398,6 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
         const cleanAlias = clean(alias);
         return (
           cleanHeader === cleanAlias ||
-          cleanHeader.startsWith(cleanAlias + " ") ||
-          cleanHeader.endsWith(" " + cleanAlias) ||
           cleanHeader === cleanAlias.replace(/\s+/g, "")
         );
       });
@@ -1224,9 +1408,37 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
       }
     }
 
-    // 2. Fallback partial contains check in priority order
+    // Pass 2: Word-boundary start/end match (prioritize specific multi-word fields)
     if (bestMatch === "ignore") {
-      for (const key of PRIORITY_KEYS) {
+      for (const key of orderedKeys) {
+        const field = fieldMap.get(key);
+        if (!field) continue;
+
+        // Skip prefix match if it would misclassify specific fields
+        if (key === "motherName" && cleanHeader.includes("tongue")) continue;
+        if (key === "fatherName" && cleanHeader.includes("income")) continue;
+        if (key === "isCwsn" && (cleanHeader.includes("type") || cleanHeader.includes("nature") || cleanHeader.includes("impairment"))) continue;
+        if (key === "admissionNo" && cleanHeader.includes("date")) continue;
+
+        const matched = field.aliases.some((alias) => {
+          const cleanAlias = clean(alias);
+          if (cleanAlias.length < 3) return false;
+          return (
+            cleanHeader.startsWith(cleanAlias + " ") ||
+            cleanHeader.endsWith(" " + cleanAlias)
+          );
+        });
+
+        if (matched) {
+          bestMatch = key;
+          break;
+        }
+      }
+    }
+
+    // Pass 3: Fallback partial contains check in priority order
+    if (bestMatch === "ignore") {
+      for (const key of orderedKeys) {
         const field = fieldMap.get(key);
         if (!field) continue;
 
@@ -1239,9 +1451,13 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
         ) {
           continue;
         }
+        if (key === "motherName" && cleanHeader.includes("tongue")) continue;
+        if (key === "isCwsn" && (cleanHeader.includes("type") || cleanHeader.includes("nature") || cleanHeader.includes("impairment"))) continue;
+        if (key === "admissionNo" && cleanHeader.includes("date")) continue;
 
         const matched = field.aliases.some((alias) => {
           const cleanAlias = clean(alias);
+          if (cleanAlias.length < 3) return false;
           return cleanHeader.includes(cleanAlias);
         });
 
@@ -1263,8 +1479,22 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
  */
 export function normalizeDate(value: any): string {
   if (!value) return "";
+  // Excel serial date number
+  if (typeof value === "number" && value > 1000 && value < 100000) {
+    const date = new Date(Math.round((value - 25569) * 86400 * 1000));
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split("T")[0];
+    }
+  }
   if (typeof value === "string") {
     const trimmed = value.trim();
+    if (!isNaN(Number(trimmed)) && Number(trimmed) > 1000 && Number(trimmed) < 100000) {
+      const serial = Number(trimmed);
+      const date = new Date(Math.round((serial - 25569) * 86400 * 1000));
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split("T")[0];
+      }
+    }
     // DD/MM/YYYY or DD-MM-YYYY
     const ddmmyyyy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
     if (ddmmyyyy) {

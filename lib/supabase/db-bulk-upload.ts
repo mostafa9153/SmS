@@ -188,6 +188,29 @@ export async function dbProcessBulkUpload(
     applyIfPresent("religion", inc.religion?.trim(), existing.religion, "Religion");
     applyIfPresent("bank_ifsc", inc.bankIfsc?.trim(), existing.bank_ifsc, "IFSC");
     applyIfPresent("bank_account_no", inc.bankAccountNo?.trim(), existing.bank_account_no, "Account No");
+    applyIfPresent("admission_no", inc.admissionNo?.trim(), existing.admission_no, "Admission Number");
+    applyIfPresent("admission_date", inc.admissionDate?.trim(), existing.admission_date, "Admission Date");
+    applyIfPresent("academic_stream", inc.academicStream?.trim(), existing.academic_stream, "Academic Stream");
+    applyIfPresent("medium_of_instruction", inc.mediumOfInstruction?.trim(), existing.medium_of_instruction, "Medium of Instruction");
+    applyIfPresent("birth_registration_no", inc.birthRegistrationNo?.trim(), existing.birth_registration_no, "Birth Registration No");
+    applyIfPresent("dise_code", inc.diseCode?.trim(), existing.dise_code, "DISE Code");
+    applyIfPresent("minority_group", inc.minorityGroup?.trim(), existing.minority_group, "Minority Group");
+    applyIfPresent("mother_tongue", inc.motherTongue?.trim(), existing.mother_tongue, "Mother Tongue");
+    if (inc.isBpl !== undefined) applyIfPresent("is_bpl", inc.isBpl, existing.is_bpl, "BPL");
+    if (inc.isCwsn !== undefined) applyIfPresent("is_cwsn", inc.isCwsn, existing.is_cwsn, "CWSN");
+    applyIfPresent("impairment_type", inc.impairmentType?.trim(), existing.impairment_type, "Disability Type");
+    if (inc.annualFamilyIncome != null) applyIfPresent("annual_family_income", Number(inc.annualFamilyIncome), existing.annual_family_income, "Annual Income");
+    applyIfPresent("blood_group", inc.bloodGroup?.trim(), existing.blood_group, "Blood Group");
+    if (inc.heightCm != null) applyIfPresent("height_cm", Number(inc.heightCm), existing.height_cm, "Height");
+    if (inc.weightKg != null) applyIfPresent("weight_kg", Number(inc.weightKg), existing.weight_kg, "Weight");
+    if (inc.previousMarksPercent != null) applyIfPresent("previous_marks_percent", Number(inc.previousMarksPercent), existing.previous_marks_percent, "Previous Marks");
+    applyIfPresent("previous_school", inc.previousSchool?.trim(), existing.previous_school, "Previous School");
+    applyIfPresent("previous_class", inc.previousClass?.trim(), existing.previous_class, "Previous Class");
+    if (inc.previousRollNo != null) applyIfPresent("previous_roll_no", Number(inc.previousRollNo), existing.previous_roll_no, "Previous Roll");
+    applyIfPresent("relationship_with_guardian", inc.relationshipWithGuardian?.trim(), existing.relationship_with_guardian, "Guardian Relation");
+    applyIfPresent("guardian_qualification", inc.guardianQualification?.trim(), existing.guardian_qualification, "Guardian Qualification");
+    applyIfPresent("identification_mark", inc.identificationMark?.trim(), existing.identification_mark, "Identification Mark");
+    applyIfPresent("health_id", inc.healthId?.trim(), existing.health_id, "Health ID");
 
     if (Object.keys(dbPatch).length === 0) {
       skippedCount++;
@@ -266,6 +289,14 @@ export async function dbProcessBulkUpload(
       present_roll: inc.presentRoll != null ? Number(inc.presentRoll) : 1,
       current_status: (inc.currentStatus || (uploadType === "old_students" ? "Passed Out" : "Continuing")) as StudentStatus,
       admission_year: inc.admissionYear != null ? Number(inc.admissionYear) : currentYear,
+      admission_date: inc.admissionDate?.trim() || null,
+      admission_no: inc.admissionNo?.trim() || null,
+      academic_stream: inc.academicStream?.trim() || null,
+      medium_of_instruction: inc.mediumOfInstruction?.trim() || null,
+      birth_registration_no: inc.birthRegistrationNo?.trim() || null,
+      dise_code: inc.diseCode?.trim() || null,
+      minority_group: inc.minorityGroup?.trim() || null,
+      mother_tongue: inc.motherTongue?.trim() || null,
       pen: inc.pen?.trim() || null,
       aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
       student_unique_code: inc.studentUniqueCode?.trim() || null,
@@ -274,10 +305,23 @@ export async function dbProcessBulkUpload(
       bank_ifsc: inc.bankIfsc?.trim() || null,
       bank_account_no: inc.bankAccountNo?.trim() || null,
       is_cwsn: inc.isCwsn || false,
+      impairment_type: inc.impairmentType?.trim() || null,
       is_bpl: inc.isBpl || false,
       is_aay: inc.isAay || false,
       is_ews: inc.isEws || false,
       indian_nationality: inc.indianNationality ?? true,
+      annual_family_income: inc.annualFamilyIncome != null ? Number(inc.annualFamilyIncome) : null,
+      blood_group: inc.bloodGroup?.trim() || null,
+      height_cm: inc.heightCm != null ? Number(inc.heightCm) : null,
+      weight_kg: inc.weightKg != null ? Number(inc.weightKg) : null,
+      previous_school: inc.previousSchool?.trim() || null,
+      previous_class: inc.previousClass?.trim() || null,
+      previous_roll_no: inc.previousRollNo != null ? Number(inc.previousRollNo) : null,
+      previous_marks_percent: inc.previousMarksPercent != null ? Number(inc.previousMarksPercent) : null,
+      relationship_with_guardian: inc.relationshipWithGuardian?.trim() || null,
+      guardian_qualification: inc.guardianQualification?.trim() || null,
+      identification_mark: inc.identificationMark?.trim() || null,
+      health_id: inc.healthId?.trim() || null,
     };
 
     const { data: newRecord, error: insertError } = await supabase
