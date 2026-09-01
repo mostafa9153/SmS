@@ -126,7 +126,23 @@ export interface StudentFilters {
   admissionYear?: number;
   gender?: "Male" | "Female" | "Other";
   socialCategory?: "General" | "SC" | "ST" | "OBC" | string;
-  scheme?: "kanyashree" | "kanyashree_k1" | "kanyashree_k2" | "aikyashree" | "shikshashree" | "cwsn" | "bpl";
+  scheme?:
+    | "kanyashree"
+    | "kanyashree_k1"
+    | "kanyashree_k2"
+    | "aikyashree"
+    | "sikshashree"
+    | "shikshashree"
+    | "medhashree"
+    | "oasis"
+    | "oasis_pre"
+    | "oasis_post"
+    | "svmcm"
+    | "taruner_swapno"
+    | "sabooj_sathi"
+    | "sabooj_sarathi"
+    | "cwsn"
+    | "bpl";
   hasAadhaar?: "yes" | "no";
 }
 

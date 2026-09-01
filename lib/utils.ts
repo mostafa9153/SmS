@@ -58,11 +58,12 @@ export function formatDate(iso: string): string {
   });
 }
 
-/** Masks an Aadhaar number: XXXX-XXXX-1234 */
-export function maskAadhaar(aadhaar: string): string {
-  if (!aadhaar || aadhaar.length < 4) return "••••-••••-••••";
-  const last4 = aadhaar.slice(-4);
-  return `XXXX-XXXX-${last4}`;
+/** Masks an Aadhaar number: ••••-••••-1234 */
+export function maskAadhaar(aadhaar?: string | null): string {
+  if (!aadhaar) return "—";
+  const cleaned = aadhaar.replace(/\s+/g, "").replace(/-/g, "");
+  if (cleaned.length < 4) return "••••-••••-••••";
+  return `••••-••••-${cleaned.slice(-4)}`;
 }
 
 /** Formats Aadhaar for display with spaces: 1234 5678 9012 */

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { dbExecuteSessionTransition } from "@/lib/supabase/db-academic-session";
 
 // POST /api/academic-session/transition
@@ -12,13 +13,14 @@ export async function POST(req: Request) {
     }
 
     // Require Admin role for school-wide session transition
-    const { data: roleData } = await supabase
+    const adminClient = createAdminClient();
+    const { data: roleData } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
       .single();
 
-    if (roleData?.role !== "Admin") {
+    if (!roleData || roleData.role !== "Admin") {
       return NextResponse.json({ error: "Forbidden: Only Administrators can execute Academic Session transitions." }, { status: 403 });
     }
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentStatus } from "@/lib/types";
 
 export const CLASS_NEXT: Record<string, string> = {
@@ -196,7 +197,7 @@ export async function dbExecuteSessionTransition(
   params: SessionTransitionParams,
   performedByUserId: string
 ): Promise<SessionTransitionResult> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const {
     fromYear,
     toYear,
@@ -380,20 +381,28 @@ export async function dbExecuteSessionTransition(
     });
   }
 
-  // 5. Batch persist history entries
-  if (historyInserts.length > 0) {
-    const { error: histErr } = await supabase.from("academic_history").insert(historyInserts);
+  // 5. Batch persist history entries in chunks of 100
+  const CHUNK_SIZE = 100;
+  for (let i = 0; i < historyInserts.length; i += CHUNK_SIZE) {
+    const chunk = historyInserts.slice(i, i + CHUNK_SIZE);
+    const { error: histErr } = await supabase.from("academic_history").insert(chunk);
     if (histErr) {
       console.warn("History batch insert notice:", histErr.message);
     }
   }
 
-  // 6. Update students table in batches
-  for (const item of studentUpdates) {
-    await supabase
-      .from("students")
-      .update(item.dbUpdates)
-      .eq("id", item.id);
+  // 6. Update students table in parallel batches
+  const BATCH_SIZE = 25;
+  for (let i = 0; i < studentUpdates.length; i += BATCH_SIZE) {
+    const batch = studentUpdates.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map((item) =>
+        supabase
+          .from("students")
+          .update(item.dbUpdates)
+          .eq("id", item.id)
+      )
+    );
   }
 
   // 7. Audit Log

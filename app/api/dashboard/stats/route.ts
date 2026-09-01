@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import type { StudentStatus } from "@/lib/types";
 import { normalizeSocialCategory } from "@/lib/utils/excel-parser";
+import { calculateExactAge } from "@/lib/utils";
 
 export async function GET() {
   try {
@@ -62,6 +63,9 @@ export async function GET() {
     let kanyashreeK2 = 0;
     let shikshashree = 0;
     let aikyashree = 0;
+    let medhashree = 0;
+    let tarunerSwapno = 0;
+    let saboojSarathi = 0;
     let bpl = 0;
     let cwsn = 0;
     let withAadhaar = 0;
@@ -82,14 +86,8 @@ export async function GET() {
         categoryCounts["General"]++;
       }
 
-      // Age calculation
-      let age: number | null = null;
-      if (s.dob) {
-        const bYear = new Date(s.dob).getFullYear();
-        if (!isNaN(bYear)) {
-          age = currentYear - bYear;
-        }
-      }
+      // Exact Age calculation (accurately compares month and day against current date)
+      const age = calculateExactAge(s.dob);
 
       // Kanyashree eligibility (Females)
       if (s.gender === "Female") {
@@ -115,20 +113,47 @@ export async function GET() {
         shikshashree++;
       }
 
-      // Aikyashree (Minority communities)
+      // Aikyashree (Minority communities: Muslim, Christian, Buddhist, Sikh, Jain, Parsi)
       const rel = String(s.religion || "").toLowerCase();
       const minGroup = String(s.minority_group || "").toLowerCase();
+      const isHindu = rel.includes("hindu") || rel.includes("sanatan");
       const isMinority =
-        minGroup.length > 0 ||
-        rel.includes("muslim") ||
-        rel.includes("islam") ||
-        rel.includes("christian") ||
-        rel.includes("buddhist") ||
-        rel.includes("sikh") ||
-        rel.includes("jain") ||
-        rel.includes("parsi");
+        !isHindu &&
+        (
+          rel.includes("muslim") ||
+          rel.includes("islam") ||
+          rel.includes("christian") ||
+          rel.includes("buddhist") ||
+          rel.includes("sikh") ||
+          rel.includes("jain") ||
+          rel.includes("parsi") ||
+          minGroup.includes("muslim") ||
+          minGroup.includes("islam") ||
+          minGroup.includes("christian") ||
+          minGroup.includes("buddhist") ||
+          minGroup.includes("sikh") ||
+          minGroup.includes("jain") ||
+          minGroup.includes("parsi")
+        );
       if (isMinority) {
         aikyashree++;
+      }
+
+      // Medhashree (OBC in Class 5-8)
+      const isOBC = cat.toUpperCase().includes("OBC");
+      if (isOBC && isUpperPrimary) {
+        medhashree++;
+      }
+
+      // Taruner Swapno (Class 11 & 12)
+      const clsUpper = String(s.present_class || "").toUpperCase();
+      if (["XI", "XII", "11", "12"].includes(clsUpper)) {
+        tarunerSwapno++;
+      }
+
+      // Sabooj Sarathi (Class 9-12)
+      if (["IX", "X", "XI", "XII", "9", "10", "11", "12"].includes(clsUpper)) {
+        saboojSarathi++;
       }
 
       // BPL / CWSN
@@ -157,6 +182,9 @@ export async function GET() {
         totalKanyashree: kanyashreeK1 + kanyashreeK2,
         shikshashree,
         aikyashree,
+        medhashree,
+        tarunerSwapno,
+        saboojSarathi,
         bpl,
         cwsn,
         withAadhaar,

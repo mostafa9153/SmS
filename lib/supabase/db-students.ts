@@ -313,15 +313,35 @@ export function maskAadhaar(aadhaar?: string): string | undefined {
   return `••••-••••-${cleaned.slice(8)}`;
 }
 
-// GET all students
+// GET all students (with auto-pagination to handle full dataset)
 export async function dbGetStudents(): Promise<Student[]> {
   const supabase = await createServerClient();
-  const { data, error } = await supabase
-    .from("students")
-    .select("*, academic_history(*)");
+  const PAGE_SIZE = 1000;
+  let allRows: DBStudent[] = [];
+  let from = 0;
+  let hasMore = true;
 
-  if (error) throw new Error(error.message);
-  const students = (data as DBStudent[]).map(mapDBStudentToStudent);
+  while (hasMore) {
+    const { data, error } = await supabase
+      .from("students")
+      .select("*, academic_history(*)")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw new Error(error.message);
+
+    if (data && data.length > 0) {
+      allRows = allRows.concat(data as DBStudent[]);
+      if (data.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        from += PAGE_SIZE;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  const students = allRows.map(mapDBStudentToStudent);
   return students.sort(compareStudentsByClassAndRoll);
 }
 
@@ -347,7 +367,8 @@ export async function dbGetStudentById(id: string): Promise<Student | null> {
 export async function dbSearchStudents(
   filters: StudentFilters = {},
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  userRole?: string
 ): Promise<PaginatedStudents> {
   const supabase = await createServerClient();
   let query = supabase.from("students").select("*, academic_history(*)", { count: "exact" });
@@ -355,10 +376,20 @@ export async function dbSearchStudents(
   // 1. Text Search
   if (filters.query && filters.query.trim() !== "") {
     const q = filters.query.trim();
-    // Match fields using ILIKE
-    query = query.or(
-      `name.ilike.%${q}%,father_name.ilike.%${q}%,mother_name.ilike.%${q}%,school_id.ilike.%${q}%,pen.ilike.%${q}%,student_unique_code.ilike.%${q}%,admission_no.ilike.%${q}%,aadhaar.ilike.%${q}%`
-    );
+    const searchFields = [
+      `name.ilike.%${q}%`,
+      `father_name.ilike.%${q}%`,
+      `mother_name.ilike.%${q}%`,
+      `school_id.ilike.%${q}%`,
+      `pen.ilike.%${q}%`,
+      `student_unique_code.ilike.%${q}%`,
+      `admission_no.ilike.%${q}%`,
+    ];
+    // Only Admin accounts are permitted to query by full Aadhaar
+    if (userRole === "Admin") {
+      searchFields.push(`aadhaar.ilike.%${q}%`);
+    }
+    query = query.or(searchFields.join(","));
   }
 
   // 2. Dropdown filters
@@ -403,9 +434,25 @@ export async function dbSearchStudents(
         query = query.lte("dob", date13YearsAgo);
       }
     } else if (filters.scheme === "aikyashree") {
-      query = query.or("minority_group.not.is.null,religion.ilike.%muslim%,religion.ilike.%islam%,religion.ilike.%christian%");
-    } else if (filters.scheme === "shikshashree") {
-      query = query.in("social_category", ["SC", "ST"]);
+      query = query.or(
+        "religion.ilike.%muslim%,religion.ilike.%islam%,religion.ilike.%christian%,religion.ilike.%buddhist%,religion.ilike.%sikh%,religion.ilike.%jain%,religion.ilike.%parsi%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%,minority_group.ilike.%christian%,minority_group.ilike.%buddhist%,minority_group.ilike.%sikh%,minority_group.ilike.%jain%,minority_group.ilike.%parsi%"
+      );
+    } else if (filters.scheme === "sikshashree" || filters.scheme === "shikshashree") {
+      query = query.in("social_category", ["SC", "ST"]).in("present_class", ["V", "VI", "VII", "VIII", "5", "6", "7", "8"]);
+    } else if (filters.scheme === "medhashree") {
+      query = query.or("social_category.eq.OBC,social_category.ilike.%OBC%").in("present_class", ["V", "VI", "VII", "VIII", "5", "6", "7", "8"]);
+    } else if (filters.scheme === "oasis_pre") {
+      query = query.in("social_category", ["SC", "ST"]).in("present_class", ["IX", "X", "9", "10"]);
+    } else if (filters.scheme === "oasis_post") {
+      query = query.or("social_category.in.(SC,ST),social_category.ilike.%OBC%").in("present_class", ["XI", "XII", "11", "12"]);
+    } else if (filters.scheme === "oasis") {
+      query = query.or("social_category.in.(SC,ST),social_category.ilike.%OBC%").in("present_class", ["IX", "X", "XI", "XII", "9", "10", "11", "12"]);
+    } else if (filters.scheme === "svmcm") {
+      query = query.in("present_class", ["XI", "XII", "11", "12"]);
+    } else if (filters.scheme === "taruner_swapno") {
+      query = query.in("present_class", ["XI", "XII", "11", "12"]);
+    } else if (filters.scheme === "sabooj_sathi" || filters.scheme === "sabooj_sarathi" as any) {
+      query = query.in("present_class", ["IX", "X", "XI", "XII", "9", "10", "11", "12"]);
     } else if (filters.scheme === "cwsn") {
       query = query.eq("is_cwsn", true);
     } else if (filters.scheme === "bpl") {

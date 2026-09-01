@@ -106,13 +106,19 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
           onChange={(v) => onChange({ ...filters, scheme: (v as any) || undefined })}
           placeholder="Welfare Scheme"
           options={[
-            { label: "Kanyashree (All)", value: "kanyashree" },
-            { label: "Kanyashree K1 (13-17)", value: "kanyashree_k1" },
-            { label: "Kanyashree K2 (18+)", value: "kanyashree_k2" },
-            { label: "Aikyashree (Minority)", value: "aikyashree" },
-            { label: "Shikshashree (SC/ST)", value: "shikshashree" },
-            { label: "CWSN", value: "cwsn" },
-            { label: "BPL Beneficiary", value: "bpl" },
+            { label: "🎀 Kanyashree (All)", value: "kanyashree" },
+            { label: "🎀 Kanyashree K1 (Class 8-11)", value: "kanyashree_k1" },
+            { label: "🎓 Kanyashree K2 (Class 12 / 18+)", value: "kanyashree_k2" },
+            { label: "📗 Aikyashree (Minority)", value: "aikyashree" },
+            { label: "📘 Sikshashree (SC/ST V-VIII)", value: "sikshashree" },
+            { label: "📙 Medhashree (OBC V-VIII)", value: "medhashree" },
+            { label: "🏛️ OASIS Pre-Matric (SC/ST IX-X)", value: "oasis_pre" },
+            { label: "🏛️ OASIS Post-Matric (XI-XII)", value: "oasis_post" },
+            { label: "⭐ SVMCM (Bikash Bhavan XI-XII)", value: "svmcm" },
+            { label: "📱 Taruner Swapno (Tab Grant XI-XII)", value: "taruner_swapno" },
+            { label: "🚲 Sabooj Sarathi (Bicycle IX-XII)", value: "sabooj_sathi" },
+            { label: "♿ CWSN / Divyangjan", value: "cwsn" },
+            { label: "🏷️ BPL Beneficiary", value: "bpl" },
           ]}
         />
 
@@ -253,7 +259,7 @@ function FilterSelect({
 
       {/* Floating Animated Menu */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-[170px] max-w-[240px] max-h-[280px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl p-1.5 shadow-xl shadow-black/10 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-1.5 min-w-[220px] max-w-[320px] max-h-[380px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl p-1.5 shadow-xl shadow-black/10 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
           <div className="px-2 py-1 mb-1 border-b border-border/50 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             <span>{placeholder}</span>
             {value && (

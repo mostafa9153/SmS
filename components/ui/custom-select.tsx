@@ -195,34 +195,43 @@ export function CustomSelect({
                 No matching field found
               </div>
             ) : (
-              filteredOptions.map((opt) => {
+              filteredOptions.map((opt, idx) => {
                 const isSelected = String(opt.value) === String(value);
+                const prevOpt = idx > 0 ? filteredOptions[idx - 1] : null;
+                const showCategoryHeader = opt.category && (!prevOpt || prevOpt.category !== opt.category);
+
                 return (
-                  <button
-                    key={String(opt.value)}
-                    type="button"
-                    disabled={opt.disabled}
-                    onClick={() => {
-                      onChange(opt.value);
-                      setIsOpen(false);
-                      setSearchQuery("");
-                    }}
-                    className={cn(
-                      "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-medium text-left transition-all duration-150 cursor-pointer",
-                      opt.disabled && "opacity-40 cursor-not-allowed",
-                      isSelected
-                        ? "bg-primary/15 text-primary font-bold shadow-2xs"
-                        : "text-foreground hover:bg-primary/10 hover:text-primary"
+                  <React.Fragment key={String(opt.value) + idx}>
+                    {showCategoryHeader && (
+                      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2.5 pt-2 pb-1 bg-muted/40 rounded-md my-1">
+                        {opt.category}
+                      </div>
                     )}
-                  >
-                    <span className="truncate flex items-center gap-2">
-                      {opt.icon && <span className="text-sm shrink-0">{opt.icon}</span>}
-                      <span className="truncate">{opt.label}</span>
-                    </span>
-                    {isSelected && (
-                      <Check className="h-4 w-4 text-primary shrink-0 ml-1.5" />
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      disabled={opt.disabled}
+                      onClick={() => {
+                        onChange(opt.value);
+                        setIsOpen(false);
+                        setSearchQuery("");
+                      }}
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-medium text-left transition-all duration-150 cursor-pointer",
+                        opt.disabled && "opacity-40 cursor-not-allowed",
+                        isSelected
+                          ? "bg-primary/15 text-primary font-bold shadow-2xs"
+                          : "text-foreground hover:bg-primary/10 hover:text-primary"
+                      )}
+                    >
+                      <span className="truncate flex items-center gap-2">
+                        {opt.icon && <span className="text-sm shrink-0">{opt.icon}</span>}
+                        <span className="truncate">{opt.label}</span>
+                      </span>
+                      {isSelected && (
+                        <Check className="h-4 w-4 text-primary shrink-0 ml-1.5" />
+                      )}
+                    </button>
+                  </React.Fragment>
                 );
               })
             )}

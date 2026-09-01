@@ -17,7 +17,7 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
-import { getKanyashreeCategory } from "@/lib/utils";
+import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 
 interface StudentTableProps {
   data: Student[];
@@ -31,33 +31,31 @@ interface StudentTableProps {
 export function StudentTable({
   data,
   total,
-  isLoading,
-  isFetchingNextPage,
-  hasNextPage,
+  isLoading = false,
+  isFetchingNextPage = false,
+  hasNextPage = false,
   onLoadMore,
 }: StudentTableProps) {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  // Auto-fetch next page as user scrolls near bottom
+  // Infinite scroll trigger
   useEffect(() => {
     if (!hasNextPage || isFetchingNextPage || !onLoadMore) return;
-
-    const el = sentinelRef.current;
-    if (!el) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        if (entries[0].isIntersecting) {
           onLoadMore();
         }
       },
-      { threshold: 0.1, rootMargin: "350px" }
+      { threshold: 0.1 }
     );
-
-    observer.observe(el);
-    return () => observer.disconnect();
+    const el = sentinelRef.current;
+    if (el) observer.observe(el);
+    return () => {
+      if (el) observer.unobserve(el);
+    };
   }, [hasNextPage, isFetchingNextPage, onLoadMore]);
 
   const columns = useMemo<ColumnDef<Student>[]>(
@@ -76,9 +74,7 @@ export function StudentTable({
         header: "Name & Welfare Tags",
         cell: ({ row }) => {
           const s = row.original;
-          const kanyashree = getKanyashreeCategory(s);
-          const isMinority = !!s.minorityGroup || ["Islam", "Muslim", "Christianity", "Christian", "Sikh", "Buddhist"].some(r => s.religion?.toLowerCase().includes(r.toLowerCase()));
-          const isScSt = ["SC", "ST"].includes(s.socialCategory || "");
+          const { eligibleSchemes } = evaluateStudentScholarships(s);
 
           return (
             <div className="space-y-1">
@@ -107,37 +103,26 @@ export function StudentTable({
                   </span>
                 )}
               </p>
-              {/* Badges */}
+              {/* Welfare Badges */}
               <div className="flex flex-wrap gap-1 pt-0.5">
-                {kanyashree === "K2" && (
-                  <Badge className="bg-purple-100 text-purple-800 border-purple-200 text-[10px] px-1.5 py-0 font-medium">
-                    Kanyashree K2 (18+)
-                  </Badge>
-                )}
-                {kanyashree === "K1" && (
-                  <Badge className="bg-pink-100 text-pink-800 border-pink-200 text-[10px] px-1.5 py-0 font-medium">
-                    Kanyashree K1
-                  </Badge>
-                )}
-                {isMinority && (
-                  <Badge className="bg-teal-100 text-teal-800 border-teal-200 text-[10px] px-1.5 py-0 font-medium">
-                    Aikyashree
-                  </Badge>
-                )}
-                {isScSt && (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] px-1.5 py-0 font-medium">
-                    Shikshashree
-                  </Badge>
-                )}
-                {s.isCwsn && (
-                  <Badge className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] px-1.5 py-0 font-medium">
-                    CWSN
-                  </Badge>
+                {eligibleSchemes.slice(0, 4).map((scheme) => (
+                  <span
+                    key={scheme.id}
+                    className={`inline-flex items-center border text-[10px] px-1.5 py-0 rounded-md font-semibold font-mono ${scheme.colorBadge}`}
+                    title={`${scheme.name} (${scheme.amount})`}
+                  >
+                    {scheme.shortCode}
+                  </span>
+                ))}
+                {eligibleSchemes.length > 4 && (
+                  <span className="inline-flex items-center border bg-muted/60 text-muted-foreground text-[10px] px-1.5 py-0 rounded-md font-mono">
+                    +{eligibleSchemes.length - 4} more
+                  </span>
                 )}
                 {s.isBpl && (
-                  <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px] px-1.5 py-0 font-medium">
+                  <span className="inline-flex items-center border bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 text-[10px] px-1.5 py-0 rounded-md font-semibold">
                     BPL
-                  </Badge>
+                  </span>
                 )}
               </div>
             </div>

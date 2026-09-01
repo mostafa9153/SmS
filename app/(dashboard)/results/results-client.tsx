@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { getDynamicClassFullMarks } from "@/lib/utils/marks-config";
 
 const CLASS_OPTIONS = [
   { value: "V", label: "Class V" },
@@ -39,16 +40,9 @@ const CLASS_OPTIONS = [
   { value: "VIII", label: "Class VIII" },
   { value: "IX", label: "Class IX" },
   { value: "X", label: "Class X" },
+  { value: "XI", label: "Class XI" },
+  { value: "XII", label: "Class XII" },
 ];
-
-const CLASS_MARKS_MAP: Record<string, number> = {
-  V: 500,
-  VI: 1050,
-  VII: 1200,
-  VIII: 1200,
-  IX: 700,
-  X: 700,
-};
 
 const EXAMS = [
   "1st Summative Evaluation",
@@ -67,8 +61,19 @@ export default function ResultsClient() {
   const [selectedSection, setSelectedSection] = useState<string>("ALL");
   const [selectedExam, setSelectedExam] = useState<string>("1st Summative Evaluation");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [, setSchemeVersion] = useState<number>(0);
 
-  const currentFullMarks = CLASS_MARKS_MAP[selectedClass] ?? 500;
+  // Dynamic Full Marks resolved from Settings-configured Evaluation Scheme
+  const currentFullMarks = getDynamicClassFullMarks(selectedClass, selectedExam);
+
+  // Re-render when marks scheme is updated in Settings
+  useEffect(() => {
+    const handleSchemeUpdate = () => {
+      setSchemeVersion((v) => v + 1);
+    };
+    window.addEventListener("sms_marks_schemes_updated", handleSchemeUpdate);
+    return () => window.removeEventListener("sms_marks_schemes_updated", handleSchemeUpdate);
+  }, []);
 
   // Rank Display Mode: "section" | "class" | "both"
   const [rankViewMode, setRankViewMode] = useState<"both" | "section" | "class">("both");

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbProcessBulkUpload, dbGetImportBatches, dbGenerateBatchId } from "@/lib/supabase/db-bulk-upload";
 import { createAdminClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
 
 // GET /api/students/bulk-upload - Get history of import batches
 export async function GET() {
@@ -37,8 +36,8 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    // If roleData exists and is not Admin/Staff, deny access. If no user_roles entries exist yet, permit authenticated user.
-    if (roleData && roleData.role !== "Admin" && roleData.role !== "Staff") {
+    // Deny access if user has no role or is not Admin/Staff
+    if (!roleData || (roleData.role !== "Admin" && roleData.role !== "Staff")) {
       return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
     }
 

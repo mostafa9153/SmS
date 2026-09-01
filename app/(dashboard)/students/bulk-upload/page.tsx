@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import * as XLSX from "xlsx";
 import {
   Upload,
   FileSpreadsheet,
@@ -45,6 +44,7 @@ import {
   rollbackBulkUpload,
   getImportBatches,
 } from "@/lib/data/students";
+import { useNotifications } from "@/lib/stores/notification-store";
 import {
   parseExcelFile,
   reparseWithHeaderRow,
@@ -68,6 +68,7 @@ import type {
   BulkPreviewRow,
   BulkUploadType,
   BulkResultRow,
+  ImportBatchRecord,
 } from "@/lib/types";
 
 const STEPS = [
@@ -87,6 +88,7 @@ export default function BulkUploadPage() {
 
   // Wizard State
   const [step, setStep] = useState(1);
+  const { addNotification } = useNotifications();
   const [uploadType, setUploadType] = useState<BulkUploadType>("current_students");
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -124,7 +126,7 @@ export default function BulkUploadPage() {
   const [rollbackConfirmBatchId, setRollbackConfirmBatchId] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
 
-  const exportSkippedAndErrorsExcel = () => {
+  const exportSkippedAndErrorsExcel = async () => {
     if (!importResult?.details) return;
     const skipped = importResult.details.skipped || [];
     const errors = importResult.details.errors || [];
@@ -149,6 +151,7 @@ export default function BulkUploadPage() {
       });
     });
 
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Issues_Log");
@@ -161,7 +164,7 @@ export default function BulkUploadPage() {
     isLoading: isLoadingBatches,
     isFetching: isFetchingBatches,
     refetch: refetchBatches,
-  } = useQuery({
+  } = useQuery<ImportBatchRecord[]>({
     queryKey: ["import-batches"],
     queryFn: getImportBatches,
   });
@@ -368,10 +371,14 @@ export default function BulkUploadPage() {
       queryClient.invalidateQueries({ queryKey: ["students-all"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["import-batches"] });
+      
+      addNotification("activity", "Bulk Upload Successful", `Imported ${data.insertedCount} students in batch ${data.batchId}`);
+      
       setStep(4);
     },
     onError: (err: any) => {
       setParseError(err.message || "Import execution failed");
+      addNotification("system", "Upload Failed", `Bulk import failed: ${err.message || "Unknown error"}`);
     },
   });
 
@@ -383,10 +390,14 @@ export default function BulkUploadPage() {
       queryClient.invalidateQueries({ queryKey: ["student-results"] });
       queryClient.invalidateQueries({ queryKey: ["class-results"] });
       queryClient.invalidateQueries({ queryKey: ["import-batches"] });
+      
+      addNotification("activity", "Results Uploaded", `Successfully uploaded ${data.insertedCount} results in batch ${data.batchId}`);
+      
       setStep(4);
     },
     onError: (err: any) => {
       setParseError(err.message || "Results import execution failed");
+      addNotification("system", "Results Upload Failed", `Failed: ${err.message}`);
     },
   });
 
@@ -400,14 +411,16 @@ export default function BulkUploadPage() {
       queryClient.invalidateQueries({ queryKey: ["import-batches"] });
       setRollbackConfirmBatchId(null);
       refetchBatches();
+      addNotification("activity", "Batch Rolled Back", `Successfully reverted batch ${data.batchId}`);
     },
     onError: (err: any) => {
       alert(`Rollback failed: ${err.message}`);
+      addNotification("system", "Rollback Error", err.message);
     },
   });
 
   // Template Download helper
-  const downloadSampleTemplate = (type: BulkUploadType) => {
+  const downloadSampleTemplate = async (type: BulkUploadType) => {
     let wsData: any[] = [];
     let filename = "Template.xlsx";
 
@@ -544,6 +557,7 @@ export default function BulkUploadPage() {
       ];
     }
 
+    const XLSX = await import("xlsx");
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");

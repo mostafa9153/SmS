@@ -22,7 +22,17 @@ export async function generateSchoolId(
   // Pattern prefix: MHS/YYYY/01/CLASS/SECTION/
   const prefix = `${SCHOOL_PREFIX}/${yearStr}/${SESSION_CODE}/${classStr}/${sectionStr}/`;
 
-  // Find all existing school_ids with this prefix to get the maximum serial
+  // 1. Try atomic database RPC function if installed
+  try {
+    const { data: rpcId, error: rpcError } = await supabase.rpc("next_school_id", { prefix });
+    if (!rpcError && rpcId && typeof rpcId === "string") {
+      return rpcId;
+    }
+  } catch {
+    // Fall back to query-based generation
+  }
+
+  // 2. Resilient fallback query: Find all existing school_ids with this prefix to get the maximum serial
   const { data, error } = await supabase
     .from("students")
     .select("school_id")

@@ -4,16 +4,16 @@ import { generateBackupSnapshot } from "@/lib/backup/backup-engine";
 
 export async function GET(req: Request) {
   try {
-    // 1. Check Cron secret or Vercel header if configured
+    // 1. Strictly verify Cron Secret
     const authHeader = req.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      // Allow Vercel Cron internal header
-      const isVercelCron = req.headers.get("user-agent")?.includes("vercel-cron");
-      if (!isVercelCron) {
-        return NextResponse.json({ error: "Unauthorized cron execution" }, { status: 401 });
+    if (cronSecret) {
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json({ error: "Unauthorized: Invalid cron authorization token" }, { status: 401 });
       }
+    } else if (process.env.NODE_ENV === "production") {
+      return NextResponse.json({ error: "CRON_SECRET environment variable is missing in production" }, { status: 500 });
     }
 
     // 2. Check if backup is enabled

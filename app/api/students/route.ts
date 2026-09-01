@@ -60,7 +60,8 @@ export async function GET(req: Request) {
     const result = await dbSearchStudents(
       { query, class: studentClass, section, status, admissionYear, gender, socialCategory, scheme, hasAadhaar },
       page,
-      pageSize
+      pageSize,
+      role
     );
 
     result.data = applyAadhaarMasking(result.data, role);

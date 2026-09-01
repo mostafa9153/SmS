@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { NotificationPanel } from "@/components/layout/notification-panel";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/components/layout/sidebar-context";
 import {
@@ -111,14 +112,8 @@ export function Topbar() {
 
       {/* Right controls */}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-        {/* Notification Bell */}
-        <button
-          title="System notifications"
-          className="relative rounded-lg p-1.5 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-150 hover:scale-105"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-background" />
-        </button>
+        {/* Notification Panel */}
+        <NotificationPanel />
 
         <div className="h-3.5 w-px bg-border/60 mx-0.5 hidden sm:block" />
 

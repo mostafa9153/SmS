@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBatchSchoolIds } from "./school-id-generator";
 import type { Student, ImportBatchSummary, ImportBatchRecord, StudentStatus, Gender, BulkResultRow, BulkUploadType } from "@/lib/types";
 import { mapDBStudentToStudent, type DBStudent } from "./db-students";
-import { getClassFullMarks, calculateGrade } from "./db-results";
+import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "./db-results";
 import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
 
 interface ProcessResult {
@@ -433,12 +433,15 @@ export async function dbProcessResultsBulkUpload(
   const supabase = createAdminClient();
   const currentYear = new Date().getFullYear();
 
-  // 1. Fetch candidate students by identifiers
+  // 1. Fetch candidate students by identifiers & relevant class cohorts
   const lookupSchoolIds = rows.map((r) => r.schoolId?.trim().toUpperCase()).filter(Boolean) as string[];
   const lookupUniqueCodes = rows.map((r) => r.studentUniqueCode?.trim().toUpperCase()).filter(Boolean) as string[];
   const lookupPens = rows.map((r) => r.pen?.trim().toUpperCase()).filter(Boolean) as string[];
+  const relevantClasses = Array.from(
+    new Set(rows.map((r) => r.presentClass?.trim().toUpperCase()).filter(Boolean))
+  ) as string[];
 
-  const [bySchoolId, byUniqueCode, byPen, allStudents] = await Promise.all([
+  const [bySchoolId, byUniqueCode, byPen, byClassRoster] = await Promise.all([
     lookupSchoolIds.length > 0
       ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("school_id", lookupSchoolIds)
       : Promise.resolve({ data: [] }),
@@ -448,7 +451,9 @@ export async function dbProcessResultsBulkUpload(
     lookupPens.length > 0
       ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("pen", lookupPens)
       : Promise.resolve({ data: [] }),
-    supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").limit(2000),
+    relevantClasses.length > 0
+      ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("present_class", relevantClasses)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const schoolIdMap = new Map<string, any>();
@@ -456,7 +461,7 @@ export async function dbProcessResultsBulkUpload(
   const penMap = new Map<string, any>();
   const classSecRollMap = new Map<string, any>();
 
-  for (const s of (allStudents.data || [])) {
+  for (const s of (byClassRoster.data || [])) {
     if (s.school_id) schoolIdMap.set(s.school_id.toUpperCase().trim(), s);
     if (s.student_unique_code) uniqueCodeMap.set(s.student_unique_code.toUpperCase().trim(), s);
     if (s.pen) penMap.set(s.pen.toUpperCase().trim(), s);
@@ -520,7 +525,7 @@ export async function dbProcessResultsBulkUpload(
     const academicYear = r.academicYear || targetSessionYear || currentYear;
     const examName = r.examName || targetExamName || "1st Summative Evaluation";
     const className = r.presentClass || matchedStudent.present_class || "V";
-    const fullMarks = r.fullMarks || getClassFullMarks(className);
+    const fullMarks = r.fullMarks || getClassFullMarks(className, examName);
     const marksObtained = r.marksObtained;
     const percentage = r.percentage !== undefined ? r.percentage : Number(((marksObtained / fullMarks) * 100).toFixed(2));
     const grade = r.grade || calculateGrade(percentage);
@@ -623,6 +628,17 @@ export async function dbProcessResultsBulkUpload(
     }
   }
 
+  // Automatically recalculate dual ranks for all affected classes and academic years
+  const targetYear = targetSessionYear || currentYear;
+  const targetExam = targetExamName || "1st Summative Evaluation";
+  for (const cls of relevantClasses) {
+    try {
+      await dbCalculateAndAssignRanks(targetYear, cls, targetExam);
+    } catch (rankErr) {
+      console.warn(`Rank calculation notification for Class ${cls}:`, rankErr);
+    }
+  }
+
   // Insert master batch entry in audit log to ensure results batch is permanently tracked in history
   await supabase.from("audit_log").insert({
     performed_by: userId,
@@ -632,8 +648,8 @@ export async function dbProcessResultsBulkUpload(
       batch_id: batchId,
       upload_type: "EXAM_RESULTS",
       source: "RESULTS_BULK_UPLOAD",
-      academic_year: targetSessionYear || currentYear,
-      exam_name: targetExamName,
+      academic_year: targetYear,
+      exam_name: targetExam,
       total_rows: rows.length,
       created_count: createdList.length,
       updated_count: updatedList.length,
@@ -687,21 +703,19 @@ export async function dbRollbackBatch(
 ): Promise<{ success: boolean; revertedCount: number; deletedCount: number }> {
   const supabase = createAdminClient();
 
-  // Find all audit log entries
+  // Find audit log entries for this specific batch directly via JSONB filter in Postgres
   const { data: logs, error } = await supabase
     .from("audit_log")
     .select("*")
+    .filter("metadata->>batch_id", "eq", batchId)
+    .neq("action", "ROLLBACK")
     .order("created_at", { ascending: false });
 
   if (error || !logs) {
-    throw new Error("Failed to query audit logs for batch rollback.");
+    throw new Error(`Failed to query audit logs for batch rollback: ${error?.message || "Unknown error"}`);
   }
 
-  // Filter logs for this specific batch_id (excluding prior rollback logs)
-  const batchLogs = logs.filter((entry) => {
-    const meta = safeParseMetadata(entry.metadata);
-    return meta?.batch_id === batchId && entry.action !== "ROLLBACK";
-  });
+  const batchLogs = logs.filter((entry) => entry.action !== "ROLLBACK");
 
   if (batchLogs.length === 0) {
     throw new Error(`No active records found for batch ID [${batchId}] to delete/rollback.`);
@@ -848,38 +862,19 @@ export async function dbGetImportBatches(): Promise<ImportBatchRecord[]> {
 }
 
 /**
- * Helper to generate a sequential batch ID containing date, time and next sequence number:
- * Format: BATCH-YYYYMMDD-HHMMSS-SEQ
+ * Helper to generate a collision-free batch ID with ISO timestamp and random cryptographically unique suffix:
+ * Format: BATCH-YYYYMMDD-HHMMSS-XXXXXX
  */
 export async function dbGenerateBatchId(): Promise<string> {
-  const supabase = createAdminClient();
-  const { data: logs } = await supabase
-    .from("audit_log")
-    .select("metadata")
-    .order("created_at", { ascending: false })
-    .limit(2000);
-
-  const uniqueBatches = new Set(
-    (logs || [])
-      .map((log) => {
-        const meta = safeParseMetadata(log.metadata);
-        return meta?.batch_id;
-      })
-      .filter(Boolean)
-  );
-
-  const nextSeq = uniqueBatches.size + 1;
-  const seqString = String(nextSeq).padStart(4, "0");
-
   const now = new Date();
   
-  // Format YYYYMMDD and HHMMSS manually
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   const day = String(now.getDate()).padStart(2, "0");
   const hours = String(now.getHours()).padStart(2, "0");
   const minutes = String(now.getMinutes()).padStart(2, "0");
   const seconds = String(now.getSeconds()).padStart(2, "0");
+  const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  return `BATCH-${year}${month}${day}-${hours}${minutes}${seconds}-${seqString}`;
+  return `BATCH-${year}${month}${day}-${hours}${minutes}${seconds}-${randomSuffix}`;
 }

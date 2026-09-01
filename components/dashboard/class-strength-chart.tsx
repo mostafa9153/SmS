@@ -56,10 +56,10 @@ export function ClassStrengthChart() {
     );
   }
 
-  const sorted = sortClasses(Object.keys(stats.classWiseCounts));
+  const sorted = sortClasses(Object.keys(stats.classWiseCounts || {}));
   const chartData = sorted.map((cls) => ({
     class: `Class ${cls}`,
-    students: stats.classWiseCounts[cls] ?? 0,
+    students: stats.classWiseCounts?.[cls] ?? 0,
   }));
 
   return (

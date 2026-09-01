@@ -35,20 +35,11 @@ export async function getAuthenticatedUserRole(): Promise<AuthContext> {
       };
     }
 
-    // Auto-healing fallback: If user exists in Auth but user_roles table record was missing
-    const fallbackRole = (user.user_metadata?.role as "Admin" | "Staff") || "Staff";
-    const fullName = user.user_metadata?.full_name || user.email?.split("@")[0] || "User";
-
-    await admin.from("user_roles").upsert({
-      user_id: user.id,
-      role: fallbackRole,
-      full_name: fullName,
-    });
-
+    // If no verified role row exists in the database, return as Guest (no auto-heal privilege escalation)
     return {
       user,
-      role: fallbackRole,
-      fullName,
+      role: "Guest",
+      fullName: user.email?.split("@")[0] || "User",
     };
   } catch (err) {
     console.error("Error in getAuthenticatedUserRole:", err);

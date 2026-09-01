@@ -6,6 +6,8 @@ import { ClassStrengthChart } from "@/components/dashboard/class-strength-chart"
 import { CategoryDistributionChart } from "@/components/dashboard/category-distribution-chart";
 import { WelfareSchemesVisual } from "@/components/dashboard/welfare-schemes-visual";
 
+export const dynamic = "force-dynamic";
+
 export default function DashboardPage() {
   const currentYear = new Date().getFullYear();
 

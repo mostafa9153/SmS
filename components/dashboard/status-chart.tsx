@@ -45,13 +45,13 @@ export function StatusChart() {
   }
 
   const chartData = (
-    Object.entries(stats.statusCounts) as [StudentStatus, number][]
+    Object.entries(stats.statusCounts || {}) as [StudentStatus, number][]
   )
     .filter(([, count]) => count > 0)
     .map(([status, count]) => ({
       name: status,
       value: count,
-      color: STATUS_STYLES[status].chart,
+      color: STATUS_STYLES[status]?.chart || "#64748b",
     }));
 
   return (

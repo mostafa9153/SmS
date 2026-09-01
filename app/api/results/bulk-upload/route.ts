@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbProcessResultsBulkUpload, dbGenerateBatchId } from "@/lib/supabase/db-bulk-upload";
 import { createAdminClient } from "@/lib/supabase/admin";
-import crypto from "crypto";
 
 // POST /api/results/bulk-upload - Process bulk upload for examination results
 export async function POST(req: Request) {
@@ -21,7 +20,7 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    if (roleData && roleData.role !== "Admin" && roleData.role !== "Staff") {
+    if (!roleData || (roleData.role !== "Admin" && roleData.role !== "Staff")) {
       return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
     }
 

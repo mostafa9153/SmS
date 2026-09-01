@@ -1,19 +1,15 @@
 import type { Metadata } from "next";
-import { Manrope, Geist_Mono } from "next/font/google";
+import { Manrope } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "@/lib/query-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastContainer } from "@/components/ui/toast-banner";
+import { NotificationProvider } from "@/lib/stores/notification-store";
 
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -54,12 +50,14 @@ export default function RootLayout({
         />
       </head>
       <body className={`${manrope.className} font-sans antialiased`}>
-        <QueryProvider>
-          <TooltipProvider>
-            {children}
-            <ToastContainer />
-          </TooltipProvider>
-        </QueryProvider>
+        <NotificationProvider>
+          <QueryProvider>
+            <TooltipProvider>
+              {children}
+              <ToastContainer />
+            </TooltipProvider>
+          </QueryProvider>
+        </NotificationProvider>
       </body>
     </html>
   );

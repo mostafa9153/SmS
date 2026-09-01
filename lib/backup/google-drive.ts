@@ -35,10 +35,31 @@ interface StoredBackupConfig {
 }
 
 // -------------------------------------------------------------
-// 1. Config Persistence in Database (using audit_log as backing store)
+// 1. Config Persistence in Database (using dedicated system_config table with fallback)
 // -------------------------------------------------------------
 export async function getBackupConfig(): Promise<StoredBackupConfig> {
   const supabase = createAdminClient();
+
+  // 1. Try reading from dedicated system_config table
+  try {
+    const { data: configData, error: configError } = await supabase
+      .from("system_config")
+      .select("value")
+      .eq("key", "backup_settings")
+      .maybeSingle();
+
+    if (!configError && configData && configData.value) {
+      const meta = configData.value as StoredBackupConfig;
+      return {
+        ...meta,
+        frequency: meta.frequency || "monthly",
+      };
+    }
+  } catch {
+    // Fall back to legacy audit_log retrieval
+  }
+
+  // 2. Fallback to audit_log for backward compatibility
   const { data, error } = await supabase
     .from("audit_log")
     .select("metadata")
@@ -67,6 +88,25 @@ export async function saveBackupConfig(newConfig: Partial<StoredBackupConfig>, a
   };
 
   const supabase = createAdminClient();
+
+  // 1. Try persisting into system_config table
+  try {
+    const { error: upsertError } = await supabase
+      .from("system_config")
+      .upsert({
+        key: "backup_settings",
+        value: merged,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (!upsertError) {
+      return merged;
+    }
+  } catch {
+    // Fall back to audit_log persistence
+  }
+
+  // 2. Fallback to audit_log
   await supabase.from("audit_log").insert({
     performed_by: adminUserId || null,
     action: "SYSTEM_CONFIG",

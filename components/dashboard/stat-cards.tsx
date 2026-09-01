@@ -50,14 +50,14 @@ export function StatCards() {
     },
     {
       label: "Continuing",
-      value: stats.statusCounts["Continuing"] ?? 0,
+      value: stats.statusCounts?.["Continuing"] ?? 0,
       icon: <TrendingUp className="h-4 w-4" />,
       color: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/20",
       borderHover: "hover:border-emerald-500/40",
     },
     {
       label: "Drop Out",
-      value: stats.statusCounts["Drop Out"] ?? 0,
+      value: stats.statusCounts?.["Drop Out"] ?? 0,
       icon: <TrendingDown className="h-4 w-4" />,
       color: "text-rose-600 dark:text-rose-400 bg-rose-500/10 ring-1 ring-rose-500/20",
       borderHover: "hover:border-rose-500/40",

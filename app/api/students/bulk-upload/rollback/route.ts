@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    if (roleData && roleData.role !== "Admin") {
+    if (!roleData || roleData.role !== "Admin") {
       return NextResponse.json({ error: "Forbidden: Only Administrators can rollback or delete import batches" }, { status: 403 });
     }
 

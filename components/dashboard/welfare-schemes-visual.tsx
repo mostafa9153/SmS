@@ -13,6 +13,9 @@ import {
   ShieldAlert,
   Accessibility,
   ArrowUpRight,
+  Smartphone,
+  Bike,
+  BookOpen,
 } from "lucide-react";
 
 export function WelfareSchemesVisual() {
@@ -30,12 +33,15 @@ export function WelfareSchemesVisual() {
     );
   }
 
-  const welfare = stats.welfareStats || {
+  const welfare = (stats as any).welfareStats || {
     kanyashreeK1: 0,
     kanyashreeK2: 0,
     totalKanyashree: 0,
     shikshashree: 0,
     aikyashree: 0,
+    medhashree: 0,
+    tarunerSwapno: 0,
+    saboojSarathi: 0,
     bpl: 0,
     cwsn: 0,
   };
@@ -69,15 +75,39 @@ export function WelfareSchemesVisual() {
       link: "/students?scheme=aikyashree",
     },
     {
-      title: "Shikshashree",
+      title: "Sikshashree",
       count: welfare.shikshashree,
       icon: <GraduationCap className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
       accent: "bg-amber-500",
       percent: Math.min(100, Math.round((welfare.shikshashree / totalStudents) * 100)),
-      link: "/students?scheme=shikshashree",
+      link: "/students?scheme=sikshashree",
     },
     {
-      title: "BPL",
+      title: "Medhashree (OBC)",
+      count: welfare.medhashree || 0,
+      icon: <BookOpen className="h-4 w-4 text-orange-600 dark:text-orange-400" />,
+      accent: "bg-orange-500",
+      percent: Math.min(100, Math.round(((welfare.medhashree || 0) / totalStudents) * 100)),
+      link: "/students?scheme=medhashree",
+    },
+    {
+      title: "Taruner Swapno",
+      count: welfare.tarunerSwapno || 0,
+      icon: <Smartphone className="h-4 w-4 text-violet-600 dark:text-violet-400" />,
+      accent: "bg-violet-500",
+      percent: Math.min(100, Math.round(((welfare.tarunerSwapno || 0) / totalStudents) * 100)),
+      link: "/students?scheme=taruner_swapno",
+    },
+    {
+      title: "Sabooj Sarathi",
+      count: welfare.saboojSarathi || 0,
+      icon: <Bike className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
+      accent: "bg-teal-500",
+      percent: Math.min(100, Math.round(((welfare.saboojSarathi || 0) / totalStudents) * 100)),
+      link: "/students?scheme=sabooj_sathi",
+    },
+    {
+      title: "BPL Beneficiaries",
       count: welfare.bpl,
       icon: <ShieldAlert className="h-4 w-4 text-purple-600 dark:text-purple-400" />,
       accent: "bg-purple-500",
@@ -85,7 +115,7 @@ export function WelfareSchemesVisual() {
       link: "/students?scheme=bpl",
     },
     {
-      title: "CWSN",
+      title: "CWSN / Divyangjan",
       count: welfare.cwsn,
       icon: <Accessibility className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />,
       accent: "bg-cyan-500",

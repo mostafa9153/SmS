@@ -1,26 +1,49 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import type { StudentResult, ResultEntryInput, ClassResultsSummary } from "@/lib/types";
 
-// Standard Full Marks mapping per class as requested by user
-export const CLASS_DEFAULT_FULL_MARKS: Record<string, number> = {
-  V: 500,
-  VI: 1050,
-  VII: 1200,
-  VIII: 1200,
-  IX: 700,
-  X: 700,
-  XI: 500,
-  XII: 500,
+// ------------------------------------------------------------------
+// Full Marks mapping: class × exam → total full marks
+// Based on West Bengal board marking scheme:
+//   Class V  (5 subjects): 1st=20, 2nd=30, Annual=50 per subject
+//   Class VI (7 subjects): 1st=30, 2nd=50, Annual=70 per subject
+//   Class VII/VIII (8 subjects): 1st=30, 2nd=50, Annual=70 per subject
+//   Class IX/X (7 subjects): 1st/2nd=40+10=50, Annual=90+10=100 per subject
+// ------------------------------------------------------------------
+export const CLASS_EXAM_FULL_MARKS: Record<string, Record<string, number>> = {
+  V:    { "1st": 100,  "2nd": 150,  "annual": 250 },
+  VI:   { "1st": 210,  "2nd": 350,  "annual": 490 },
+  VII:  { "1st": 240,  "2nd": 400,  "annual": 560 },
+  VIII: { "1st": 240,  "2nd": 400,  "annual": 560 },
+  IX:   { "1st": 350,  "2nd": 350,  "annual": 700 },
+  X:    { "1st": 350,  "2nd": 350,  "annual": 700 },
+  XI:   { "1st": 250,  "2nd": 250,  "annual": 500 },
+  XII:  { "1st": 250,  "2nd": 250,  "annual": 500 },
 };
 
-export function getClassFullMarks(className: string): number {
-  const norm = (className || "V").toUpperCase().trim();
+/** Helper: map an exam name string to a slot key ("1st" | "2nd" | "annual") */
+function resolveExamSlot(examName?: string): "1st" | "2nd" | "annual" {
+  if (!examName) return "annual";
+  const e = examName.toLowerCase();
+  if (e.includes("1st") || e.includes("first")) return "1st";
+  if (e.includes("2nd") || e.includes("second")) return "2nd";
+  return "annual"; // 3rd summative, Annual Examination, Selection Test, etc.
+}
+
+// Backward-compat alias (annual marks per class, kept for any legacy reference)
+export const CLASS_DEFAULT_FULL_MARKS: Record<string, number> = Object.fromEntries(
+  Object.entries(CLASS_EXAM_FULL_MARKS).map(([cls, exams]) => [cls, exams["annual"]])
+);
+
+export function getClassFullMarks(className: string, examName?: string): number {
   const digitMap: Record<string, string> = {
     "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
   };
+  const norm = (className || "V").toUpperCase().trim();
   const standardKey = digitMap[norm] || norm;
-  return CLASS_DEFAULT_FULL_MARKS[standardKey] ?? 500;
+  const slot = resolveExamSlot(examName);
+  return CLASS_EXAM_FULL_MARKS[standardKey]?.[slot] ?? CLASS_DEFAULT_FULL_MARKS[standardKey] ?? 500;
 }
+
 
 export function calculateGrade(percentage: number): string {
   if (percentage >= 90) return "AA (Outstanding)";
@@ -43,7 +66,7 @@ export async function dbGetResultsByClass(
 ): Promise<ClassResultsSummary> {
   const supabase = await createServerClient();
   const normClass = (className || "V").toUpperCase().trim();
-  const fullMarks = getClassFullMarks(normClass);
+  const fullMarks = getClassFullMarks(normClass, examName);
 
   // 1. Fetch all students currently in this class & section
   let studentsQuery = supabase
@@ -171,7 +194,7 @@ export async function dbSaveOrUpdateResult(
   userId: string
 ): Promise<StudentResult> {
   const supabase = await createServerClient();
-  const fullMarks = input.fullMarks || getClassFullMarks(input.class);
+  const fullMarks = input.fullMarks || getClassFullMarks(input.class, input.examName);
 
   // Validation: Marks cannot exceed Full Marks
   if (input.marksObtained > fullMarks) {
@@ -339,7 +362,7 @@ export async function dbGetStudentResultHistory(studentId: string): Promise<Stud
   if (error || !data) return [];
 
   return data.map((r) => {
-    const fm = getClassFullMarks(r.class);
+    const fm = getClassFullMarks(r.class, r.exam_name);
     const marksObt = Number(r.marks_obtained);
     const percentage = Number(((marksObt / fm) * 100).toFixed(2));
 
