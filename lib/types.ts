@@ -204,6 +204,7 @@ export interface ImportBatchRecord {
 export interface BulkResultRow {
   schoolId?: string;
   studentUniqueCode?: string;
+  pen?: string;
   name?: string;
   presentClass?: string;
   presentSection?: string;

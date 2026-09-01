@@ -436,24 +436,30 @@ export async function dbProcessResultsBulkUpload(
   // 1. Fetch candidate students by identifiers
   const lookupSchoolIds = rows.map((r) => r.schoolId?.trim().toUpperCase()).filter(Boolean) as string[];
   const lookupUniqueCodes = rows.map((r) => r.studentUniqueCode?.trim().toUpperCase()).filter(Boolean) as string[];
+  const lookupPens = rows.map((r) => r.pen?.trim().toUpperCase()).filter(Boolean) as string[];
 
-  const [bySchoolId, byUniqueCode, allStudents] = await Promise.all([
+  const [bySchoolId, byUniqueCode, byPen, allStudents] = await Promise.all([
     lookupSchoolIds.length > 0
-      ? supabase.from("students").select("id, school_id, student_unique_code, name, present_class, present_section, present_roll").in("school_id", lookupSchoolIds)
+      ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("school_id", lookupSchoolIds)
       : Promise.resolve({ data: [] }),
     lookupUniqueCodes.length > 0
-      ? supabase.from("students").select("id, school_id, student_unique_code, name, present_class, present_section, present_roll").in("student_unique_code", lookupUniqueCodes)
+      ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("student_unique_code", lookupUniqueCodes)
       : Promise.resolve({ data: [] }),
-    supabase.from("students").select("id, school_id, student_unique_code, name, present_class, present_section, present_roll").limit(2000),
+    lookupPens.length > 0
+      ? supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").in("pen", lookupPens)
+      : Promise.resolve({ data: [] }),
+    supabase.from("students").select("id, school_id, student_unique_code, pen, name, present_class, present_section, present_roll").limit(2000),
   ]);
 
   const schoolIdMap = new Map<string, any>();
   const uniqueCodeMap = new Map<string, any>();
+  const penMap = new Map<string, any>();
   const classSecRollMap = new Map<string, any>();
 
   for (const s of (allStudents.data || [])) {
     if (s.school_id) schoolIdMap.set(s.school_id.toUpperCase().trim(), s);
     if (s.student_unique_code) uniqueCodeMap.set(s.student_unique_code.toUpperCase().trim(), s);
+    if (s.pen) penMap.set(s.pen.toUpperCase().trim(), s);
     if (s.present_class && s.present_section && s.present_roll) {
       const key = `${s.present_class.toUpperCase().trim()}-${s.present_section.toUpperCase().trim()}-${s.present_roll}`;
       classSecRollMap.set(key, s);
@@ -465,6 +471,9 @@ export async function dbProcessResultsBulkUpload(
   }
   for (const s of (byUniqueCode.data || [])) {
     if (s.student_unique_code) uniqueCodeMap.set(s.student_unique_code.toUpperCase().trim(), s);
+  }
+  for (const s of (byPen.data || [])) {
+    if (s.pen) penMap.set(s.pen.toUpperCase().trim(), s);
   }
 
   const createdList: Array<{ name: string; examName: string; academicYear: number; marks: number }> = [];
@@ -482,6 +491,7 @@ export async function dbProcessResultsBulkUpload(
 
     const schoolIdKey = r.schoolId?.trim().toUpperCase();
     const uniqueCodeKey = r.studentUniqueCode?.trim().toUpperCase();
+    const penKey = r.pen?.trim().toUpperCase();
     const classKey = r.presentClass && r.presentSection && r.presentRoll
       ? `${r.presentClass.toUpperCase().trim()}-${r.presentSection.toUpperCase().trim()}-${r.presentRoll}`
       : undefined;
@@ -491,6 +501,8 @@ export async function dbProcessResultsBulkUpload(
       matchedStudent = schoolIdMap.get(schoolIdKey);
     } else if (uniqueCodeKey && uniqueCodeMap.has(uniqueCodeKey)) {
       matchedStudent = uniqueCodeMap.get(uniqueCodeKey);
+    } else if (penKey && penMap.has(penKey)) {
+      matchedStudent = penMap.get(penKey);
     } else if (classKey && classSecRollMap.has(classKey)) {
       matchedStudent = classSecRollMap.get(classKey);
     }

@@ -1940,6 +1940,7 @@ export const RESULT_TARGET_FIELDS: ResultFieldDefinition[] = [
   // Student identification
   { key: "schoolId", label: "School ID", category: "Identifier", icon: "🔢", aliases: ["school id", "student id", "school_id", "admission no", "id"] },
   { key: "studentUniqueCode", label: "Student Code (BSP)", category: "Identifier", icon: "🆔", aliases: ["student code", "bsp id", "bsp code", "student unique code", "student_code"] },
+  { key: "pen", label: "PEN Number", category: "Identifier", icon: "📝", aliases: ["pen", "pen no", "pen number", "permanent education number", "pen_no", "pen no."] },
   { key: "name", label: "Student Name", category: "Identifier", icon: "👤", aliases: ["student name", "name", "student's name"] },
   { key: "presentClass", label: "Class", category: "Enrolment", icon: "🏫", aliases: ["class", "standard", "grade", "present class"] },
   { key: "presentSection", label: "Section", category: "Enrolment", icon: "🔤", aliases: ["section", "sec", "present section"] },
@@ -1948,20 +1949,26 @@ export const RESULT_TARGET_FIELDS: ResultFieldDefinition[] = [
   // Evaluation specifics
   { key: "academicYear", label: "Academic Session / Year", category: "Exam", icon: "🗓️", aliases: ["academic year", "session", "year", "session year", "exam year"], required: true },
   { key: "examName", label: "Evaluation / Exam Name", category: "Exam", icon: "📝", aliases: ["exam name", "evaluation name", "exam", "evaluation", "term", "summative"], required: true },
-  { key: "fullMarks", label: "Full Marks", category: "Marks", icon: "💯", aliases: ["full marks", "maximum marks", "max marks", "fm", "total full marks"] },
+  // NOTE: fullMarks must appear before marksObtained in both the array and PRIORITY_KEYS
+  // so that "Full Marks" header is not matched by the "marks" alias of marksObtained
+  { key: "fullMarks", label: "Full Marks", category: "Marks", icon: "💯", aliases: ["full marks", "maximum marks", "max marks", "fm", "total full marks", "full mark"] },
   { key: "marksObtained", label: "Total Marks Obtained", category: "Marks", icon: "📊", aliases: ["total marks", "marks obtained", "total obtained", "obtained marks", "grand total", "total", "marks"], required: true },
   { key: "percentage", label: "Percentage (%)", category: "Marks", icon: "📈", aliases: ["percentage", "percent", "%", "marks percent"] },
   { key: "grade", label: "Grade", category: "Marks", icon: "🏆", aliases: ["grade", "division", "rank grade"] },
   { key: "remarks", label: "Remarks / Result Status", category: "Marks", icon: "💬", aliases: ["remarks", "remark", "result", "status", "comment"] },
 
-  // Subjects (West Bengal Secondary Board subjects)
+  // Subjects (West Bengal Secondary/Primary Board subjects)
   { key: "bengali", label: "Bengali (First Language)", category: "Subjects", icon: "📚", aliases: ["bengali", "first language", "1st language", "ben", "fl"] },
   { key: "english", label: "English (Second Language)", category: "Subjects", icon: "📚", aliases: ["english", "second language", "2nd language", "eng", "sl"] },
   { key: "mathematics", label: "Mathematics", category: "Subjects", icon: "📐", aliases: ["mathematics", "math", "maths", "mat"] },
+  { key: "ourEnvironment", label: "Our Environment", category: "Subjects", icon: "🌿", aliases: ["our environment", "environment", "environmental studies", "evs", "our env", "environment studies", "paribesh", "amader paribesh"] },
   { key: "physicalScience", label: "Physical Science", category: "Subjects", icon: "🔬", aliases: ["physical science", "physical sc", "psc", "physics", "phy sc"] },
   { key: "lifeScience", label: "Life Science", category: "Subjects", icon: "🧬", aliases: ["life science", "life sc", "lsc", "biology", "bio sc"] },
   { key: "history", label: "History", category: "Subjects", icon: "📜", aliases: ["history", "hist", "his"] },
   { key: "geography", label: "Geography", category: "Subjects", icon: "🗺️", aliases: ["geography", "geog", "geo"] },
+  { key: "artEducation", label: "Art & Work Education", category: "Subjects", icon: "🎨", aliases: ["art & work education", "art and work education", "art work education", "art education", "work education", "art & craft", "art craft", "chitrakala", "art"] },
+  { key: "healthPE", label: "Health & Physical Education", category: "Subjects", icon: "🏃", aliases: ["health & physical education", "health and physical education", "health physical education", "physical education", "health education", "pe", "hp education", "health pe", "svasthya"] },
+  { key: "workEducation", label: "Work Education", category: "Subjects", icon: "🔧", aliases: ["work education", "socially useful productive work", "supw", "work ed"] },
 ];
 
 export type ResultColumnMapping = Record<string, string>;
@@ -2021,24 +2028,31 @@ export function autoSuggestResultMapping(headers: string[]): ResultColumnMapping
   const PRIORITY_KEYS = [
     "studentUniqueCode",
     "schoolId",
+    "pen",
     "presentRoll",
     "presentSection",
     "presentClass",
     "name",
     "academicYear",
     "examName",
-    "marksObtained",
+    // fullMarks MUST come before marksObtained so "Full Marks" header isn't
+    // greedily matched by the broad "marks" alias in marksObtained
     "fullMarks",
+    "marksObtained",
     "percentage",
     "grade",
     "remarks",
     "bengali",
     "english",
     "mathematics",
+    "ourEnvironment",
     "physicalScience",
     "lifeScience",
     "history",
     "geography",
+    "artEducation",
+    "healthPE",
+    "workEducation",
   ];
 
   const fieldMap = new Map<string, ResultFieldDefinition>();
@@ -2137,9 +2151,19 @@ export function applyResultMapping(
       } else if (field === "presentClass") {
         result.presentClass = normalizeClass(strVal);
       } else if (
-        ["bengali", "english", "mathematics", "physicalScience", "lifeScience", "history", "geography"].includes(
-          field
-        )
+        [
+          "bengali",
+          "english",
+          "mathematics",
+          "ourEnvironment",
+          "physicalScience",
+          "lifeScience",
+          "history",
+          "geography",
+          "artEducation",
+          "healthPE",
+          "workEducation",
+        ].includes(field)
       ) {
         const mark = parseFloat(strVal);
         if (!isNaN(mark)) {
@@ -2162,9 +2186,22 @@ export function applyResultMapping(
       result.marksObtained = 0;
     }
 
-    // Calculate percentage if fullMarks exists
-    if (result.fullMarks && result.fullMarks > 0 && result.percentage === undefined) {
-      result.percentage = Number(((result.marksObtained / result.fullMarks) * 100).toFixed(2));
+    // Calculate (or recalculate) percentage from actual marks:
+    // - If subject marks were summed, always recalculate so we don't use
+    //   the Excel's per-subject or incorrect pre-calculated percentage.
+    // - Also guard against the case where fullMarks is a per-subject value
+    //   (e.g. 100) while marksObtained is the total sum of subjects — in
+    //   that scenario the percentage would exceed 100%, which is wrong.
+    //   Clear fullMarks so the DB layer picks the correct class total.
+    if (hasSubjectMarks && result.fullMarks !== undefined && result.fullMarks > 0 && result.marksObtained > result.fullMarks) {
+      // fullMarks was per-subject; discard it so getClassFullMarks() is used
+      result.fullMarks = undefined;
+    }
+
+    if (result.fullMarks && result.fullMarks > 0) {
+      if (hasSubjectMarks || result.percentage === undefined) {
+        result.percentage = Number(((result.marksObtained / result.fullMarks) * 100).toFixed(2));
+      }
     }
 
     return result as BulkResultRow;
