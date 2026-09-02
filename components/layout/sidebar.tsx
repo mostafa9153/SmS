@@ -79,6 +79,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
     children: [
       { label: "Admission Invoice", href: "/generate/invoice" },
+      { label: "CCE Marksheet", href: "/generate/marksheet" },
     ],
   },
 ];
