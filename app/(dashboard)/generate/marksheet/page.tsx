@@ -688,10 +688,10 @@ function MarksheetGeneratorContent() {
             display: none !important;
           }
 
-          /* Exact Landscape Page - Full A4 Fit */
+          /* Exact Landscape Page - Full Fit without clipping */
           @page {
-            size: A4 landscape;
-            margin: 5mm;
+            size: landscape;
+            margin: 4mm;
           }
 
           html,
@@ -702,8 +702,7 @@ function MarksheetGeneratorContent() {
             margin: 0 !important;
             width: 100% !important;
             height: 100% !important;
-            max-height: 100% !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -711,14 +710,13 @@ function MarksheetGeneratorContent() {
           #printable-marksheet-canvas {
             background: transparent !important;
             padding: 0 !important;
-            margin: 0 !important;
+            margin: 0 auto !important;
             border: none !important;
             box-shadow: none !important;
             width: 100% !important;
             max-width: 100% !important;
-            height: 100% !important;
-            max-height: 198mm !important;
-            overflow: hidden !important;
+            height: auto !important;
+            overflow: visible !important;
             transform: none !important;
             zoom: 1 !important;
             display: flex !important;
