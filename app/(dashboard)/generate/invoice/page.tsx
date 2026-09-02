@@ -38,6 +38,8 @@ import {
   DollarSign,
   Layers,
   Eye,
+  Clock,
+  RefreshCw,
 } from "lucide-react";
 
 function InvoiceGeneratorContent() {
@@ -48,12 +50,33 @@ function InvoiceGeneratorContent() {
   const [copyType, setCopyType] = useState<"both" | "student" | "office">("both");
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [autoDateTime, setAutoDateTime] = useState(true);
+
+  // Helper for live formatted Indian Date & Time
+  function getLiveFormattedDateTime() {
+    const today = new Date();
+    const dateStr = today.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }); // "02/09/2026"
+    const timeStr = today.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }); // "06:45 PM"
+    return { dateStr, timeStr };
+  }
 
   // Invoice State
   const [invoice, setInvoice] = useState<InvoiceData>(() => {
     const today = new Date();
-    const dateStr = today.toISOString().split("T")[0];
-    const timeStr = today.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const dateStr = today.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+    const timeStr = today.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
     const currentYear = today.getFullYear();
 
     return {
@@ -75,6 +98,22 @@ function InvoiceGeneratorContent() {
       remarks: "Annual admission fee collected with thanks.",
     };
   });
+
+  // Auto-sync current date and time continuously when enabled
+  useEffect(() => {
+    if (!autoDateTime) return;
+    const syncCurrent = () => {
+      const { dateStr, timeStr } = getLiveFormattedDateTime();
+      setInvoice((prev) => ({
+        ...prev,
+        issueDate: dateStr,
+        issueTime: timeStr,
+      }));
+    };
+    syncCurrent();
+    const timer = setInterval(syncCurrent, 30000);
+    return () => clearInterval(timer);
+  }, [autoDateTime]);
 
   // Fetch all students for selector
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
@@ -190,7 +229,17 @@ function InvoiceGeneratorContent() {
   const wordsAmount = numberToWordsINR(grandTotal);
 
   function handlePrint() {
-    window.print();
+    if (autoDateTime) {
+      const { dateStr, timeStr } = getLiveFormattedDateTime();
+      setInvoice((prev) => ({
+        ...prev,
+        issueDate: dateStr,
+        issueTime: timeStr,
+      }));
+    }
+    setTimeout(() => {
+      window.print();
+    }, 50);
   }
 
   return (
@@ -377,11 +426,35 @@ function InvoiceGeneratorContent() {
 
           {/* Card 2: Invoice Metadata & Payment */}
           <Card className="border shadow-2xs">
-            <CardHeader className="p-4 border-b bg-muted/20">
+            <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <Sliders className="h-3.5 w-3.5 text-primary" />
                 <span>Invoice Metadata & Payment</span>
               </CardTitle>
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !autoDateTime;
+                  setAutoDateTime(nextState);
+                  if (nextState) {
+                    const { dateStr, timeStr } = getLiveFormattedDateTime();
+                    setInvoice((prev) => ({ ...prev, issueDate: dateStr, issueTime: timeStr }));
+                    showToast({
+                      type: "success",
+                      title: "Live Auto Date & Time",
+                      description: "Current date and time synchronized automatically.",
+                    });
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                  autoDateTime
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
+                    : "bg-muted text-muted-foreground border-border"
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${autoDateTime ? "bg-emerald-500 animate-pulse" : "bg-muted-foreground"}`} />
+                <span>{autoDateTime ? "Auto Date & Time: ON" : "Auto Date & Time: OFF"}</span>
+              </button>
             </CardHeader>
             <CardContent className="p-4 grid grid-cols-2 gap-2.5">
               <div className="space-y-1">
@@ -403,21 +476,32 @@ function InvoiceGeneratorContent() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-muted-foreground">Date</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-semibold text-muted-foreground">Date</Label>
+                  {autoDateTime && <span className="text-[9px] font-semibold text-emerald-600">Auto Live</span>}
+                </div>
                 <Input
-                  type="date"
                   value={invoice.issueDate}
-                  onChange={(e) => setInvoice({ ...invoice, issueDate: e.target.value })}
-                  className="text-xs h-8"
+                  onChange={(e) => {
+                    setAutoDateTime(false);
+                    setInvoice({ ...invoice, issueDate: e.target.value });
+                  }}
+                  className="text-xs font-mono font-bold h-8"
                 />
               </div>
 
               <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-muted-foreground">Time</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-semibold text-muted-foreground">Time</Label>
+                  {autoDateTime && <span className="text-[9px] font-semibold text-emerald-600">Auto Live</span>}
+                </div>
                 <Input
                   value={invoice.issueTime}
-                  onChange={(e) => setInvoice({ ...invoice, issueTime: e.target.value })}
-                  className="text-xs h-8"
+                  onChange={(e) => {
+                    setAutoDateTime(false);
+                    setInvoice({ ...invoice, issueTime: e.target.value });
+                  }}
+                  className="text-xs font-mono font-bold h-8"
                 />
               </div>
 
@@ -558,7 +642,7 @@ function InvoiceGeneratorContent() {
         </div>
       </div>
 
-      {/* Global CSS for Print Mode */}
+      {/* Global CSS for Strict 1-Page A4 Print Mode */}
       <style jsx global>{`
         @media print {
           /* Hide non-printable UI elements */
@@ -570,17 +654,23 @@ function InvoiceGeneratorContent() {
             display: none !important;
           }
 
-          /* Ensure page margins and background colors print cleanly */
+          /* Ensure page margins and background colors print cleanly on exactly 1 single A4 page */
           @page {
             size: A4 portrait;
-            margin: 10mm;
+            margin: 6mm 6mm 6mm 6mm;
           }
 
+          html,
           body {
             background: white !important;
             color: black !important;
             padding: 0 !important;
             margin: 0 !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            overflow: hidden !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           #printable-invoice-canvas {
@@ -589,6 +679,11 @@ function InvoiceGeneratorContent() {
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 280mm !important;
+            max-height: 280mm !important;
+            overflow: hidden !important;
           }
         }
       `}</style>
