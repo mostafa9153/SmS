@@ -21,6 +21,7 @@ import {
   Activity,
   Sliders,
   Cloud,
+  Sparkles,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -71,6 +72,14 @@ const navItems: NavItem[] = [
     href: "/students/promotion",
     icon: <ArrowUpDown className="h-4 w-4" />,
     iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Generators",
+    icon: <Sparkles className="h-4 w-4" />,
+    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
+    children: [
+      { label: "Admission Invoice", href: "/generate/invoice" },
+    ],
   },
 ];
 

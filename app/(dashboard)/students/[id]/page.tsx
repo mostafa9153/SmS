@@ -36,6 +36,7 @@ import {
   Sparkles,
   Plus,
   Loader2,
+  FileText,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -169,6 +170,13 @@ export default function StudentProfilePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={`/generate/invoice?studentId=${student.id}`}
+              className="flex items-center gap-1.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-sm font-medium hover:bg-teal-500/20 transition-colors shadow-2xs"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span>Fee Invoice</span>
+            </Link>
             <Link
               href={`/students/${student.id}/edit`}
               className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
