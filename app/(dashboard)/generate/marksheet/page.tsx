@@ -48,7 +48,7 @@ function MarksheetGeneratorContent() {
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const [previewScale, setPreviewScale] = useState<number>(0.72);
+  const [previewScale, setPreviewScale] = useState<number>(1.0);
   const [isFetchingResults, setIsFetchingResults] = useState(false);
   const [dbResultsLoaded, setDbResultsLoaded] = useState<{
     found: boolean;
@@ -783,10 +783,10 @@ function MarksheetGeneratorContent() {
               id="printable-marksheet-canvas"
               style={{
                 transform: `scale(${previewScale})`,
-                transformOrigin: "center center",
+                transformOrigin: "center top",
                 transition: "transform 0.15s ease-out",
               }}
-              className="shrink-0"
+              className="shrink-0 m-auto"
             >
               <MarksheetPrintableView data={marksheet} />
             </div>
