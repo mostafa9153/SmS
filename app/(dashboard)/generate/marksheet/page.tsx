@@ -314,7 +314,7 @@ function MarksheetGeneratorContent() {
             className="h-8 text-xs gap-1.5 bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-sm font-semibold cursor-pointer"
           >
             <Printer className="h-3.5 w-3.5" />
-            <span>Print Marksheet (A4 Landscape)</span>
+            <span>Print Marksheet</span>
           </Button>
         </div>
       </div>
