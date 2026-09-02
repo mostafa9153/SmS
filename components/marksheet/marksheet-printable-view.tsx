@@ -270,114 +270,196 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
           </table>
         </div>
 
-        {/* BOTTOM SECTION: Signatures, Promotion Status & WBBSE Grade Scale */}
-        <div className="flex justify-between items-end gap-2.5 mt-1 pt-1 border-t border-[#14206b]/20">
-          {/* 1. Signature of Class Teacher */}
-          <div className="w-[17%] flex flex-col justify-end text-center pb-0.5">
-            <div className="h-[40px]" />
-            <div className="border-t-[1.5px] border-[#111] pt-1">
-              <div className="text-[10.5px] font-bold text-neutral-800 leading-tight font-serif">
-                Signature of Class Teacher
-              </div>
-              <div className="text-[9px] text-neutral-500 font-sans mt-0.5">
-                Date: ........................
-              </div>
-            </div>
-          </div>
+        {/* BOTTOM SECTION: Signatures, Grade Scale, Tall Promotion Status & HOD Signature */}
+        {(() => {
+          const rankInput = data.classRank || "1st";
+          const match = rankInput.match(/\d+/);
+          const rankNum = match ? parseInt(match[0], 10) : NaN;
+          const isTop10 = !isNaN(rankNum) && rankNum >= 1 && rankNum <= 10;
+          const suffix = rankNum === 1 ? "st" : rankNum === 2 ? "nd" : rankNum === 3 ? "rd" : "th";
+          const formattedRank = !isNaN(rankNum) ? `${rankNum}${suffix}` : rankInput;
 
-          {/* 2. Signature of Guardian */}
-          <div className="w-[17%] flex flex-col justify-end text-center pb-0.5">
-            <div className="h-[40px]" />
-            <div className="border-t-[1.5px] border-[#111] pt-1">
-              <div className="text-[10.5px] font-bold text-neutral-800 leading-tight font-serif">
-                Signature of Guardian
+          return (
+            <div className="flex justify-between items-end gap-2 mt-1 pt-1 border-t border-[#14206b]/20">
+              {/* 1. Signature of Class Teacher */}
+              <div className="w-[15.5%] h-[116px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[45px]" />
+                <div className="border-t-[1.5px] border-[#111] pt-1">
+                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
+                    Signature of Class Teacher
+                  </div>
+                  <div className="text-[8.5px] text-neutral-500 font-sans mt-0.5">
+                    Date: ........................
+                  </div>
+                </div>
               </div>
-              <div className="text-[9px] text-neutral-500 font-sans mt-0.5">
-                Date: ........................
-              </div>
-            </div>
-          </div>
 
-          {/* 3. Promotion & Result Badge (Center) */}
-          <div className="w-[18%] flex flex-col justify-end pb-0.5">
-            <div className="border-[1.5px] border-[#14206b] rounded-sm p-1.5 bg-amber-50/80 text-center shadow-2xs">
-              <div className="text-[9px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
-                Promotion Status
+              {/* 2. Signature of Guardian */}
+              <div className="w-[15.5%] h-[116px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[45px]" />
+                <div className="border-t-[1.5px] border-[#111] pt-1">
+                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
+                    Signature of Guardian
+                  </div>
+                  <div className="text-[8.5px] text-neutral-500 font-sans mt-0.5">
+                    Date: ........................
+                  </div>
+                </div>
               </div>
-              <div className="text-[11.5px] font-extrabold text-[#14206b] tracking-wide my-0.5 leading-tight">
-                {data.promotionStatus === "PROMOTED"
-                  ? `PROMOTED TO CLASS ${data.promotedToClass || "X"}`
-                  : data.promotionStatus === "PASSED"
-                  ? "PASSED WITH MERIT"
-                  : "ELIGIBLE FOR RETEST"}
-              </div>
-              {/* Class Rank / Position Display */}
-              <div className="my-0.5 py-0.5 px-1 bg-[#14206b]/10 rounded border border-[#14206b]/20 flex items-center justify-center gap-1.5">
-                <span className="text-[8.5px] font-bold uppercase tracking-tight text-neutral-600">Rank:</span>
-                <span className="text-[11px] font-extrabold font-mono text-[#14206b]">
-                  {data.classRank || "1st"}
-                </span>
-              </div>
-              <div className="text-[8.5px] text-neutral-600 font-sans">
-                Date: <span className="font-mono font-bold text-neutral-900">{data.issueDate || "02/09/2026"}</span>
-              </div>
-            </div>
-          </div>
 
-          {/* 4. Signature of Teacher-in-Charge / Headmaster (Digital signature on top, no line) */}
-          <div className="w-[20%] flex flex-col items-center justify-end text-center pb-0.5">
-            <div className="h-[40px] flex items-end justify-center mb-0.5">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/hod-signature.png"
-                alt="Teacher-in-Charge Signature"
-                className="max-h-[38px] max-w-[145px] object-contain mix-blend-multiply"
-              />
-            </div>
-            <div className="text-[10.5px] font-bold text-[#14206b] leading-tight font-serif">
-              Signature of Teacher-in-Charge
-            </div>
-            <div className="text-[9px] text-neutral-600 font-sans leading-tight mt-0.5">
-              Headmaster &bull; Morigachi High School
-            </div>
-          </div>
+              {/* 3. Official WBBSE Grade Scale Table (Beside Promotion Status) */}
+              <div className="w-[25.5%] h-[116px] border border-[#14206b] rounded-xs overflow-hidden flex flex-col justify-between">
+                <table className="w-full border-collapse text-[8.5px] h-full">
+                  <thead>
+                    <tr className="bg-[#14206b] text-white text-center font-bold">
+                      <th colSpan={3} className="py-0.5 text-[9px] tracking-wide">
+                        Scale of Evaluation &ndash; WBBSE
+                      </th>
+                    </tr>
+                    <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b]">
+                      <th className="py-0.5 px-1 text-left pl-1.5">Range of Marks</th>
+                      <th className="py-0.5 px-0.5">Grade</th>
+                      <th className="py-0.5 px-1 text-left">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-sans">
+                    {WBBSE_GRADE_SCALE.map((g, idx) => (
+                      <tr
+                        key={g.grade}
+                        className={`border-t border-[#c8cbe0] ${
+                          totals.overallGrade === g.grade
+                            ? "bg-amber-100 font-bold"
+                            : idx % 2 === 1
+                            ? "bg-slate-50/50"
+                            : "bg-white"
+                        }`}
+                      >
+                        <td className="py-[0.5px] px-1 pl-1.5 text-left font-mono text-[8px]">{g.range}</td>
+                        <td className="py-[0.5px] px-0.5 text-center font-extrabold text-[#14206b] text-[9px]">{g.grade}</td>
+                        <td className="py-[0.5px] px-1 text-left text-neutral-700 text-[8px]">{g.remarks}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-          {/* 5. Official WBBSE Grade Scale Table (Right) */}
-          <div className="w-[26%] border border-[#14206b] rounded-xs overflow-hidden">
-            <table className="w-full border-collapse text-[9px]">
-              <thead>
-                <tr className="bg-[#14206b] text-white text-center font-bold">
-                  <th colSpan={3} className="py-0.5 text-[9.5px] tracking-wide">
-                    Scale of Evaluation &ndash; WBBSE
-                  </th>
-                </tr>
-                <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b]">
-                  <th className="py-0.5 px-1 text-left pl-1.5">Range of Marks</th>
-                  <th className="py-0.5 px-0.5">Grade</th>
-                  <th className="py-0.5 px-1 text-left">Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="font-sans">
-                {WBBSE_GRADE_SCALE.map((g, idx) => (
-                  <tr
-                    key={g.grade}
-                    className={`border-t border-[#c8cbe0] ${
-                      totals.overallGrade === g.grade
-                        ? "bg-amber-100 font-bold"
-                        : idx % 2 === 1
-                        ? "bg-slate-50/50"
-                        : "bg-white"
-                    }`}
-                  >
-                    <td className="py-[1px] px-1 pl-1.5 text-left font-mono text-[8.5px]">{g.range}</td>
-                    <td className="py-[1px] px-0.5 text-center font-extrabold text-[#14206b] text-[9.5px]">{g.grade}</td>
-                    <td className="py-[1px] px-1 text-left text-neutral-700 text-[8.5px]">{g.remarks}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              {/* 4. Tall Promotion Status & Special Top 10 Rank Plaque */}
+              <div className="w-[23.5%] h-[116px] border-[1.5px] border-[#14206b] rounded-xs bg-amber-50/70 p-1.5 flex flex-col justify-between text-center shadow-xs">
+                {/* Header & Promotion */}
+                <div>
+                  <div className="text-[8.5px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
+                    Promotion Status
+                  </div>
+                  <div className="text-[11.5px] font-extrabold text-[#14206b] tracking-wide leading-tight my-0.5">
+                    {data.promotionStatus === "PROMOTED"
+                      ? `PROMOTED TO CLASS ${data.promotedToClass || "X"}`
+                      : data.promotionStatus === "PASSED"
+                      ? "PASSED WITH MERIT"
+                      : "ELIGIBLE FOR RETEST"}
+                  </div>
+                </div>
+
+                {/* Special Top 10 Rank Showcase */}
+                {isTop10 ? (
+                  rankNum === 1 ? (
+                    // Rank 1: Gold Topper Plaque
+                    <div className="my-0.5 py-1 px-1.5 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-600 rounded shadow-xs">
+                      <div className="text-[8px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
+                        <span>&#9733;</span>
+                        <span>CLASS TOPPER</span>
+                        <span>&#9733;</span>
+                      </div>
+                      <div className="text-[13px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                        RANK: 1st
+                      </div>
+                      <div className="text-[7.5px] font-bold text-amber-900 tracking-tight">
+                        ACADEMIC EXCELLENCE
+                      </div>
+                    </div>
+                  ) : rankNum === 2 ? (
+                    // Rank 2: Silver Plaque
+                    <div className="my-0.5 py-1 px-1.5 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 border border-slate-500 rounded shadow-xs">
+                      <div className="text-[8px] font-black uppercase tracking-wider text-slate-900 flex items-center justify-center gap-1">
+                        <span>&#9733;</span>
+                        <span>2ND POSITION</span>
+                        <span>&#9733;</span>
+                      </div>
+                      <div className="text-[13px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                        RANK: 2nd
+                      </div>
+                      <div className="text-[7.5px] font-bold text-slate-700 tracking-tight">
+                        DISTINCTION IN MERIT
+                      </div>
+                    </div>
+                  ) : rankNum === 3 ? (
+                    // Rank 3: Bronze Plaque
+                    <div className="my-0.5 py-1 px-1.5 bg-gradient-to-r from-orange-200 via-amber-100 to-orange-200 border border-amber-700 rounded shadow-xs">
+                      <div className="text-[8px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
+                        <span>&#9733;</span>
+                        <span>3RD POSITION</span>
+                        <span>&#9733;</span>
+                      </div>
+                      <div className="text-[13px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                        RANK: 3rd
+                      </div>
+                      <div className="text-[7.5px] font-bold text-amber-900 tracking-tight">
+                        HIGH ACHIEVEMENT
+                      </div>
+                    </div>
+                  ) : (
+                    // Ranks 4 to 10: Special Top 10 Honors Plaque
+                    <div className="my-0.5 py-1 px-1.5 bg-gradient-to-r from-[#14206b]/15 via-[#14206b]/5 to-[#14206b]/15 border border-[#14206b]/40 rounded shadow-xs">
+                      <div className="text-[8px] font-black uppercase tracking-wider text-[#14206b] flex items-center justify-center gap-1">
+                        <span>&#9733;</span>
+                        <span>TOP 10 HONORS</span>
+                        <span>&#9733;</span>
+                      </div>
+                      <div className="text-[12.5px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                        RANK: {formattedRank}
+                      </div>
+                      <div className="text-[7.5px] font-bold text-neutral-600 tracking-tight">
+                        MERIT ROLL HOLDER
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  // Rank 11 and above: Standard Academic Rank
+                  <div className="my-0.5 py-1 px-1 bg-slate-100 border border-slate-300 rounded">
+                    <div className="text-[8px] font-bold uppercase tracking-wider text-neutral-500">
+                      Class Position
+                    </div>
+                    <div className="text-[12px] font-extrabold font-mono text-[#14206b] leading-tight">
+                      RANK: {formattedRank}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer Date */}
+                <div className="text-[8px] text-neutral-600 font-sans">
+                  Date: <span className="font-mono font-bold text-neutral-900">{data.issueDate || "02/09/2026"}</span>
+                </div>
+              </div>
+
+              {/* 5. Signature of Teacher-in-Charge / Headmaster (Moved to the Right End) */}
+              <div className="w-[20%] h-[116px] flex flex-col items-center justify-end text-center pb-0.5">
+                <div className="h-[45px] flex items-end justify-center mb-0.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/hod-signature.png"
+                    alt="Teacher-in-Charge Signature"
+                    className="max-h-[38px] max-w-[145px] object-contain mix-blend-multiply"
+                  />
+                </div>
+                <div className="text-[10.5px] font-bold text-[#14206b] leading-tight font-serif">
+                  Signature of Teacher-in-Charge
+                </div>
+                <div className="text-[9px] text-neutral-600 font-sans leading-tight mt-0.5">
+                  Headmaster &bull; Morigachi High School
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
