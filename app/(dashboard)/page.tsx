@@ -51,15 +51,15 @@ export default function DashboardPage() {
       {/* 1. Stat Cards */}
       <StatCards />
 
-      {/* 2. Category & Welfare Visual Analytics */}
+      {/* 2. Class Strength & Welfare Visual Analytics */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <CategoryDistributionChart />
+        <ClassStrengthChart />
         <WelfareSchemesVisual />
       </div>
 
-      {/* 3. Class Strength & Enrolment Status Breakdown */}
+      {/* 3. Category & Enrolment Status Breakdown */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <ClassStrengthChart />
+        <CategoryDistributionChart />
         <StatusChart />
       </div>
 
