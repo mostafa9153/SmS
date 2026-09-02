@@ -50,13 +50,13 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             {/* Header Text */}
             <div className="flex-1 text-center px-1">
               <h1 className="text-[23px] sm:text-[25px] font-bold tracking-tight text-[#14206b] leading-tight m-0 uppercase font-serif">
-                Morigachi High School (H.S.)
+                Marigachi High School (H.S.)
               </h1>
               <div className="text-[11.5px] font-semibold text-[#14206b]/90 italic leading-snug">
                 (Co-educational &bull; Higher Secondary Institution &bull; Estd. 1966)
               </div>
               <div className="text-[9.5px] text-neutral-800 leading-tight mt-0.5 tracking-tight">
-                <span>Morigachi, Diamond Harbour, South 24 Parganas &ndash; 743368</span>
+                <span>Marigachi, Diamond Harbour, South 24 Parganas &ndash; 743368</span>
                 <span className="mx-1.5 font-bold text-[#14206b]">&bull;</span>
                 <span>Index No. &ndash; C2-121</span>
                 <span className="mx-1.5 font-bold text-[#14206b]">&bull;</span>
@@ -139,13 +139,13 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                   Subject
                 </th>
                 <th colSpan={3} className="border border-[#14206b] w-[21%] p-0.5">
-                  First Periodic Assessment
+                  1st Summative Evaluation
                 </th>
                 <th colSpan={3} className="border border-[#14206b] w-[21%] p-0.5">
-                  Second Periodic Assessment
+                  2nd Summative Evaluation
                 </th>
                 <th colSpan={3} className="border border-[#14206b] w-[21%] p-0.5">
-                  Third Periodic Assessment
+                  3rd Summative Evaluation
                 </th>
                 <th colSpan={3} className="border border-[#14206b] w-[16%] p-0.5 bg-[#e4e8f7]">
                   Overall Marks &amp; Grade
@@ -453,7 +453,7 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                   Signature of Teacher-in-Charge
                 </div>
                 <div className="text-[8px] text-neutral-600 font-sans leading-tight mt-0.5">
-                  Headmaster &bull; Morigachi High School
+                  Headmaster &bull; Marigachi High School
                 </div>
               </div>
             </div>

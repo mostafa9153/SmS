@@ -3,8 +3,8 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents } from "@/lib/data/students";
-import { Student } from "@/lib/types";
+import { getStudents, getStudentResultHistory, getClassResults } from "@/lib/data/students";
+import { Student, StudentResult, ClassResultsSummary } from "@/lib/types";
 import {
   MarksheetData,
   DEFAULT_CLASS_IX_SUBJECTS,
@@ -12,6 +12,8 @@ import {
   calculateSubjectRow,
   calculateMarksheetTotals,
   SubjectMarksheetRow,
+  buildMarksheetFromDBResults,
+  getStandardSubjectsForClass,
 } from "@/lib/utils/marksheet-calc";
 import { MarksheetPrintableView } from "@/components/marksheet/marksheet-printable-view";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +36,9 @@ import {
   Trash2,
   Calendar,
   CheckCircle2,
+  Database,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 
 function MarksheetGeneratorContent() {
@@ -44,6 +49,16 @@ function MarksheetGeneratorContent() {
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(0.72);
+  const [isFetchingResults, setIsFetchingResults] = useState(false);
+  const [dbResultsLoaded, setDbResultsLoaded] = useState<{
+    found: boolean;
+    count: number;
+    examNames: string[];
+  }>({
+    found: false,
+    count: 0,
+    examNames: [],
+  });
 
   // Helper for live formatted Indian Date
   function getLiveDate() {
@@ -84,6 +99,72 @@ function MarksheetGeneratorContent() {
     queryFn: getStudents,
   });
 
+  // Auto-fetch results from Database for a student
+  async function fetchStudentResultsFromDB(student: Student) {
+    setIsFetchingResults(true);
+    try {
+      // 1. Fetch student's multi-year result history
+      const results: StudentResult[] = await getStudentResultHistory(student.id);
+
+      // 2. Fetch class summary for highest marks & class ranking if available
+      let classSummary: ClassResultsSummary | null = null;
+      try {
+        const year = results[0]?.academicYear || Number(marksheet.academicYear) || new Date().getFullYear();
+        classSummary = await getClassResults(year, student.presentClass || "IX", "ALL", "1st Summative Evaluation");
+      } catch (e) {
+        // Non-critical if class results summary fails
+      }
+
+      if (results && results.length > 0) {
+        const dbMarksheetData = buildMarksheetFromDBResults(results, student, classSummary);
+        setMarksheet((prev) => ({
+          ...prev,
+          ...dbMarksheetData,
+        }));
+
+        const uniqueExams = Array.from(new Set(results.map((r) => r.examName)));
+        setDbResultsLoaded({
+          found: true,
+          count: results.length,
+          examNames: uniqueExams,
+        });
+
+        showToast({
+          type: "success",
+          title: "Results Auto-Fetched",
+          description: `Loaded ${results.length} exam result(s) from Database (${uniqueExams.join(", ")})`,
+        });
+      } else {
+        // No results in DB yet: load standard empty template for student's class
+        const classSubjects = getStandardSubjectsForClass(student.presentClass);
+        const blankRows = createBlankSubjectRows(classSubjects);
+        setMarksheet((prev) => ({
+          ...prev,
+          subjects: blankRows,
+        }));
+        setDbResultsLoaded({
+          found: false,
+          count: 0,
+          examNames: [],
+        });
+        showToast({
+          type: "info",
+          title: "Student Loaded",
+          description: `No exam results found in database for ${student.name}. Blank template ready for manual entry.`,
+        });
+      }
+    } catch (err: any) {
+      console.error("Auto-fetch results error:", err);
+      showToast({
+        type: "error",
+        title: "Auto-fetch Error",
+        description: err.message || "Failed to fetch results from database.",
+      });
+    } finally {
+      setIsFetchingResults(false);
+    }
+  }
+
   // Load student by query param if provided
   useEffect(() => {
     if (studentIdParam && students.length > 0) {
@@ -95,7 +176,7 @@ function MarksheetGeneratorContent() {
   }, [studentIdParam, students]);
 
   // Handle student selection
-  function handleSelectStudent(student: Student) {
+  async function handleSelectStudent(student: Student) {
     setSelectedStudent(student);
     const nextClassMap: Record<string, string> = {
       V: "VI",
@@ -110,7 +191,7 @@ function MarksheetGeneratorContent() {
     const promotedTo = nextClassMap[currentClass] || "Next Higher Class";
 
     const rollNum = Number(student.presentRoll);
-    const rankStr = !isNaN(rollNum) && rollNum > 0
+    const defaultRankStr = !isNaN(rollNum) && rollNum > 0
       ? rollNum === 1 ? "1st" : rollNum === 2 ? "2nd" : rollNum === 3 ? "3rd" : `${rollNum}th`
       : "1st";
 
@@ -124,14 +205,11 @@ function MarksheetGeneratorContent() {
       guardianName: student.guardianName || student.fatherName || "",
       penNumber: student.pen || "",
       promotedToClass: promotedTo,
-      classRank: rankStr,
+      classRank: defaultRankStr,
     }));
 
-    showToast({
-      type: "success",
-      title: "Student Loaded",
-      description: `Loaded ${student.name} (${student.presentClass}-${student.presentSection || "A"})`,
-    });
+    // Auto-fetch results from Database
+    await fetchStudentResultsFromDB(student);
   }
 
   // Filter students for searchable dropdown
@@ -325,11 +403,24 @@ function MarksheetGeneratorContent() {
         <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2">
           {/* Card 1: Student Selector */}
           <Card className="border shadow-2xs">
-            <CardHeader className="p-4 border-b bg-muted/20">
+            <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <User className="h-3.5 w-3.5 text-primary" />
                 <span>Student Particulars</span>
               </CardTitle>
+              {selectedStudent && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isFetchingResults}
+                  onClick={() => fetchStudentResultsFromDB(selectedStudent)}
+                  className="h-6 text-[10px] gap-1 px-2 cursor-pointer"
+                  title="Re-sync marks from Database"
+                >
+                  <RefreshCw className={`h-3 w-3 text-primary ${isFetchingResults ? "animate-spin" : ""}`} />
+                  <span>{isFetchingResults ? "Fetching..." : "Re-sync DB"}</span>
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {/* Search Bar */}
@@ -365,6 +456,33 @@ function MarksheetGeneratorContent() {
                   </div>
                 )}
               </div>
+
+              {/* Database Auto-Fetch Status Banner */}
+              {selectedStudent && (
+                <div className="flex items-center justify-between text-[11px] p-2 rounded-md bg-muted/40 border">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <Database className="h-3.5 w-3.5 shrink-0 text-[#14206b]" />
+                    <span className="truncate font-medium">
+                      {isFetchingResults ? (
+                        <span className="text-amber-600 flex items-center gap-1">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Fetching DB results...
+                        </span>
+                      ) : dbResultsLoaded.found ? (
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
+                          DB Results: {dbResultsLoaded.examNames.join(", ")}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">No saved DB results (Manual Entry)</span>
+                      )}
+                    </span>
+                  </div>
+                  {dbResultsLoaded.found && (
+                    <Badge variant="secondary" className="text-[9.5px] bg-emerald-100 text-emerald-800 font-mono shrink-0">
+                      Auto-Fetched
+                    </Badge>
+                  )}
+                </div>
+              )}
 
               {/* Student Fields */}
               <div className="grid grid-cols-2 gap-2.5 pt-1">
@@ -500,7 +618,7 @@ function MarksheetGeneratorContent() {
             </CardHeader>
             <CardContent className="p-3 space-y-3">
               <div className="text-[11px] text-muted-foreground font-medium pb-1 border-b flex justify-between">
-                <span>Enter 1st (40+10), 2nd (40+10), 3rd (90+10) marks</span>
+                <span>Enter 1st Summative (40+10), 2nd (40+10), 3rd (90+10) marks</span>
                 <span className="font-bold text-foreground">Totals Auto-Calculate</span>
               </div>
 
@@ -538,9 +656,9 @@ function MarksheetGeneratorContent() {
 
                     {/* 3 Term Inputs Grid */}
                     <div className="grid grid-cols-3 gap-2 text-[10px]">
-                      {/* Term 1 */}
+                      {/* Term 1: 1st Summative Evaluation */}
                       <div className="space-y-1 bg-background p-1.5 rounded-md border">
-                        <span className="font-bold text-muted-foreground block text-[9.5px]">Term 1 (Max 50)</span>
+                        <span className="font-bold text-muted-foreground block text-[9.5px]">1st Summative (Max 50)</span>
                         <div className="flex gap-1">
                           <Input
                             placeholder="W /40"
@@ -559,9 +677,9 @@ function MarksheetGeneratorContent() {
                         </div>
                       </div>
 
-                      {/* Term 2 */}
+                      {/* Term 2: 2nd Summative Evaluation */}
                       <div className="space-y-1 bg-background p-1.5 rounded-md border">
-                        <span className="font-bold text-muted-foreground block text-[9.5px]">Term 2 (Max 50)</span>
+                        <span className="font-bold text-muted-foreground block text-[9.5px]">2nd Summative (Max 50)</span>
                         <div className="flex gap-1">
                           <Input
                             placeholder="W /40"
@@ -580,9 +698,9 @@ function MarksheetGeneratorContent() {
                         </div>
                       </div>
 
-                      {/* Term 3 */}
+                      {/* Term 3: 3rd Summative Evaluation */}
                       <div className="space-y-1 bg-background p-1.5 rounded-md border">
-                        <span className="font-bold text-muted-foreground block text-[9.5px]">Term 3 (Max 100)</span>
+                        <span className="font-bold text-muted-foreground block text-[9.5px]">3rd Summative (Max 100)</span>
                         <div className="flex gap-1">
                           <Input
                             placeholder="W /90"
