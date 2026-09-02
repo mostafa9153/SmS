@@ -280,22 +280,9 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
 
           return (
             <div className="flex justify-between items-end gap-2 mt-1 pt-0.5 border-t border-[#14206b]/20">
-              {/* 1. Signature of Class Teacher */}
-              <div className="w-[15.5%] h-[100px] flex flex-col justify-end text-center pb-0.5">
-                <div className="h-[36px]" />
-                <div className="border-t-[1.5px] border-[#111] pt-0.5">
-                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
-                    Signature of Class Teacher
-                  </div>
-                  <div className="text-[8px] text-neutral-500 font-sans mt-0.5">
-                    Date: ........................
-                  </div>
-                </div>
-              </div>
-
-              {/* 2. Signature of Guardian */}
-              <div className="w-[15.5%] h-[100px] flex flex-col justify-end text-center pb-0.5">
-                <div className="h-[36px]" />
+              {/* 1. Signature of Guardian (Far Left) */}
+              <div className="w-[14.5%] h-[114px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[42px]" />
                 <div className="border-t-[1.5px] border-[#111] pt-0.5">
                   <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
                     Signature of Guardian
@@ -306,44 +293,39 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                 </div>
               </div>
 
-              {/* 3. Official WBBSE Grade Scale Table (Beside Promotion Status) */}
-              <div className="w-[25.5%] h-[100px] border border-[#14206b] rounded-xs overflow-hidden flex flex-col justify-between">
-                <table className="w-full border-collapse text-[8px] h-full">
-                  <thead>
-                    <tr className="bg-[#14206b] text-white text-center font-bold">
-                      <th colSpan={3} className="py-0.5 text-[8.5px] tracking-wide">
-                        Scale of Evaluation &ndash; WBBSE
-                      </th>
-                    </tr>
-                    <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b]">
-                      <th className="py-0.5 px-1 text-left pl-1.5">Range of Marks</th>
-                      <th className="py-0.5 px-0.5">Grade</th>
-                      <th className="py-0.5 px-1 text-left">Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-sans">
-                    {WBBSE_GRADE_SCALE.map((g, idx) => (
-                      <tr
-                        key={g.grade}
-                        className={`border-t border-[#c8cbe0] ${
-                          totals.overallGrade === g.grade
-                            ? "bg-amber-100 font-bold"
-                            : idx % 2 === 1
-                            ? "bg-slate-50/50"
-                            : "bg-white"
-                        }`}
-                      >
-                        <td className="py-[0.5px] px-1 pl-1.5 text-left font-mono text-[7.5px]">{g.range}</td>
-                        <td className="py-[0.5px] px-0.5 text-center font-extrabold text-[#14206b] text-[8.5px]">{g.grade}</td>
-                        <td className="py-[0.5px] px-1 text-left text-neutral-700 text-[7.5px]">{g.remarks}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* 2. Signature of Class Teacher */}
+              <div className="w-[15%] h-[114px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[42px]" />
+                <div className="border-t-[1.5px] border-[#111] pt-0.5">
+                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
+                    Signature of Class Teacher
+                  </div>
+                  <div className="text-[8px] text-neutral-500 font-sans mt-0.5">
+                    Date: ........................
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Signature of Teacher-in-Charge / Headmaster (HOD) */}
+              <div className="w-[18.5%] h-[114px] flex flex-col items-center justify-end text-center pb-0.5">
+                <div className="h-[42px] flex items-end justify-center mb-0.5">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/hod-signature.png"
+                    alt="Teacher-in-Charge Signature"
+                    className="max-h-[38px] max-w-[130px] object-contain mix-blend-multiply"
+                  />
+                </div>
+                <div className="text-[10px] font-bold text-[#14206b] leading-tight font-serif">
+                  Signature of Teacher-in-Charge
+                </div>
+                <div className="text-[8px] text-neutral-600 font-sans leading-tight mt-0.5">
+                  Headmaster &bull; Marigachi High School
+                </div>
               </div>
 
               {/* 4. Tall Promotion Status & Special Top 10 Rank Plaque */}
-              <div className="w-[23.5%] h-[100px] border-[1.5px] border-[#14206b] rounded-xs bg-amber-50/70 p-1 flex flex-col justify-between text-center shadow-xs">
+              <div className="w-[24%] h-[114px] border-[1.5px] border-[#14206b] rounded-xs bg-amber-50/70 p-1 flex flex-col justify-between text-center shadow-xs">
                 {/* Header & Promotion */}
                 <div>
                   <div className="text-[8px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
@@ -439,22 +421,40 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                 </div>
               </div>
 
-              {/* 5. Signature of Teacher-in-Charge / Headmaster (Moved to the Right End) */}
-              <div className="w-[20%] h-[100px] flex flex-col items-center justify-end text-center pb-0.5">
-                <div className="h-[36px] flex items-end justify-center mb-0.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/hod-signature.png"
-                    alt="Teacher-in-Charge Signature"
-                    className="max-h-[32px] max-w-[140px] object-contain mix-blend-multiply"
-                  />
-                </div>
-                <div className="text-[10px] font-bold text-[#14206b] leading-tight font-serif">
-                  Signature of Teacher-in-Charge
-                </div>
-                <div className="text-[8px] text-neutral-600 font-sans leading-tight mt-0.5">
-                  Headmaster &bull; Marigachi High School
-                </div>
+              {/* 5. Official WBBSE Grade Scale Table (Full Box at the Far Right) */}
+              <div className="w-[26%] h-[114px] border border-[#14206b] rounded-xs bg-white overflow-hidden flex flex-col justify-between">
+                <table className="w-full border-collapse text-[7.5px] h-full">
+                  <thead>
+                    <tr className="bg-[#14206b] text-white text-center font-bold">
+                      <th colSpan={3} className="py-0.5 text-[8.5px] tracking-wide">
+                        Scale of Evaluation &ndash; WBBSE
+                      </th>
+                    </tr>
+                    <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b]">
+                      <th className="py-[1px] px-1 text-left pl-1.5">Range of Marks</th>
+                      <th className="py-[1px] px-0.5">Grade</th>
+                      <th className="py-[1px] px-1 text-left">Remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-sans">
+                    {WBBSE_GRADE_SCALE.map((g, idx) => (
+                      <tr
+                        key={g.grade}
+                        className={`border-t border-[#c8cbe0] ${
+                          totals.overallGrade === g.grade
+                            ? "bg-amber-100 font-bold"
+                            : idx % 2 === 1
+                            ? "bg-slate-50/50"
+                            : "bg-white"
+                        }`}
+                      >
+                        <td className="py-[0.5px] px-1 pl-1.5 text-left font-mono text-[7.5px]">{g.range}</td>
+                        <td className="py-[0.5px] px-0.5 text-center font-extrabold text-[#14206b] text-[8.5px]">{g.grade}</td>
+                        <td className="py-[0.5px] px-1 text-left text-neutral-700 text-[7.5px]">{g.remarks}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           );
