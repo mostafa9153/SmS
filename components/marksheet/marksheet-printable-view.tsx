@@ -271,73 +271,82 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
         </div>
 
         {/* BOTTOM SECTION: Signatures, Promotion Status & WBBSE Grade Scale */}
-        <div className="flex justify-between items-end gap-3 mt-1.5 pt-1">
-          {/* Signatures Column (Left) */}
-          <div className="w-[45%] flex flex-col justify-between h-[82px]">
-            {/* Signature of Class Teacher & Guardian */}
-            <div className="flex justify-between items-end gap-4">
-              <div className="flex-1 text-center">
-                <div className="h-[26px]" />
-                <div className="border-t border-[#111] text-[10.5px] font-bold pt-0.5 text-neutral-800">
-                  Signature of Class Teacher
-                </div>
+        <div className="flex justify-between items-end gap-3 mt-2 pt-1 border-t border-[#14206b]/20">
+          {/* 1. Signature of Class Teacher */}
+          <div className="w-[17%] flex flex-col justify-end text-center pb-0.5">
+            <div className="h-[40px]" />
+            <div className="border-t-[1.5px] border-[#111] pt-1">
+              <div className="text-[10.5px] font-bold text-neutral-800 leading-tight font-serif">
+                Signature of Class Teacher
               </div>
-
-              <div className="flex-1 text-center">
-                <div className="h-[26px]" />
-                <div className="border-t border-[#111] text-[10.5px] font-bold pt-0.5 text-neutral-800">
-                  Signature of Guardian
-                </div>
-              </div>
-            </div>
-
-            {/* Signature of Teacher-in-Charge with Official Image */}
-            <div className="flex items-end gap-3 pt-1">
-              <div className="w-[140px] h-[34px] flex items-end justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/hod-signature.png"
-                  alt="Teacher-in-Charge Signature"
-                  className="max-w-[130px] max-h-[32px] object-contain"
-                />
-              </div>
-              <div className="flex-1 border-t border-[#111] text-center text-[10.5px] font-bold pt-0.5 text-[#14206b]">
-                Signature of Teacher-in-Charge / Headmaster
+              <div className="text-[9px] text-neutral-500 font-sans mt-0.5">
+                Date: ........................
               </div>
             </div>
           </div>
 
-          {/* Promotion & Result Badge (Center) */}
-          <div className="w-[20%] text-center px-1 flex flex-col items-center justify-center">
-            <div className="border border-[#14206b] rounded-sm p-1.5 bg-amber-50/70 w-full shadow-2xs">
-              <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-sans font-bold">
+          {/* 2. Signature of Guardian */}
+          <div className="w-[17%] flex flex-col justify-end text-center pb-0.5">
+            <div className="h-[40px]" />
+            <div className="border-t-[1.5px] border-[#111] pt-1">
+              <div className="text-[10.5px] font-bold text-neutral-800 leading-tight font-serif">
+                Signature of Guardian
+              </div>
+              <div className="text-[9px] text-neutral-500 font-sans mt-0.5">
+                Date: ........................
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Promotion & Result Badge (Center) */}
+          <div className="w-[18%] flex flex-col justify-end pb-0.5">
+            <div className="border-[1.5px] border-[#14206b] rounded-sm p-1.5 bg-amber-50/80 text-center shadow-2xs">
+              <div className="text-[9px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
                 Promotion Status
               </div>
-              <div className="text-[12px] font-extrabold text-[#14206b] tracking-wide my-0.5">
+              <div className="text-[11.5px] font-extrabold text-[#14206b] tracking-wide my-0.5">
                 {data.promotionStatus === "PROMOTED"
                   ? `PROMOTED TO CLASS ${data.promotedToClass || "X"}`
                   : data.promotionStatus === "PASSED"
                   ? "PASSED WITH MERIT"
                   : "ELIGIBLE FOR RETEST"}
               </div>
-              <div className="text-[9px] text-neutral-600 font-sans mt-0.5">
+              <div className="text-[9px] text-neutral-600 font-sans">
                 Date: <span className="font-mono font-bold text-neutral-900">{data.issueDate || "02/09/2026"}</span>
               </div>
             </div>
           </div>
 
-          {/* Official WBBSE Grade Scale Table (Right) */}
-          <div className="w-[33%] border border-[#14206b] rounded-xs overflow-hidden">
-            <table className="w-full border-collapse text-[9.5px]">
+          {/* 4. Signature of Teacher-in-Charge / Headmaster (Digital signature on top, no line) */}
+          <div className="w-[20%] flex flex-col items-center justify-end text-center pb-0.5">
+            <div className="h-[40px] flex items-end justify-center mb-0.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/hod-signature.png"
+                alt="Teacher-in-Charge Signature"
+                className="max-h-[38px] max-w-[145px] object-contain mix-blend-multiply"
+              />
+            </div>
+            <div className="text-[10.5px] font-bold text-[#14206b] leading-tight font-serif">
+              Signature of Teacher-in-Charge
+            </div>
+            <div className="text-[9px] text-neutral-600 font-sans leading-tight mt-0.5">
+              Headmaster &bull; Morigachi High School
+            </div>
+          </div>
+
+          {/* 5. Official WBBSE Grade Scale Table (Right) */}
+          <div className="w-[26%] border border-[#14206b] rounded-xs overflow-hidden">
+            <table className="w-full border-collapse text-[9px]">
               <thead>
                 <tr className="bg-[#14206b] text-white text-center font-bold">
-                  <th colSpan={3} className="py-0.5 text-[10px] tracking-wide">
+                  <th colSpan={3} className="py-0.5 text-[9.5px] tracking-wide">
                     Scale of Evaluation &ndash; WBBSE
                   </th>
                 </tr>
                 <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b]">
-                  <th className="py-0.5 px-1 text-left pl-2">Range of Marks</th>
-                  <th className="py-0.5 px-1">Grade</th>
+                  <th className="py-0.5 px-1 text-left pl-1.5">Range of Marks</th>
+                  <th className="py-0.5 px-0.5">Grade</th>
                   <th className="py-0.5 px-1 text-left">Remarks</th>
                 </tr>
               </thead>
@@ -346,12 +355,16 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                   <tr
                     key={g.grade}
                     className={`border-t border-[#c8cbe0] ${
-                      totals.overallGrade === g.grade ? "bg-amber-100 font-bold" : idx % 2 === 1 ? "bg-slate-50/50" : "bg-white"
+                      totals.overallGrade === g.grade
+                        ? "bg-amber-100 font-bold"
+                        : idx % 2 === 1
+                        ? "bg-slate-50/50"
+                        : "bg-white"
                     }`}
                   >
-                    <td className="py-[1px] px-1 pl-2 text-left font-mono text-[9px]">{g.range}</td>
-                    <td className="py-[1px] px-1 text-center font-extrabold text-[#14206b]">{g.grade}</td>
-                    <td className="py-[1px] px-1 text-left text-neutral-700 text-[9px]">{g.remarks}</td>
+                    <td className="py-[1px] px-1 pl-1.5 text-left font-mono text-[8.5px]">{g.range}</td>
+                    <td className="py-[1px] px-0.5 text-center font-extrabold text-[#14206b] text-[9.5px]">{g.grade}</td>
+                    <td className="py-[1px] px-1 text-left text-neutral-700 text-[8.5px]">{g.remarks}</td>
                   </tr>
                 ))}
               </tbody>
