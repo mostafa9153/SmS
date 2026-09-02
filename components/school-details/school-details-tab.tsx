@@ -24,7 +24,8 @@ import {
   Info,
   Sliders,
   BookOpen,
-  Check
+  Check,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,10 +45,14 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
 import {
   type ClassMarksScheme,
+  type PromotionPolicy,
   DEFAULT_MARKS_SCHEMES,
+  DEFAULT_PROMOTION_POLICY,
   MASTER_SUBJECT_BANK,
   getSavedMarksSchemes,
   saveMarksSchemes,
+  getSavedPromotionPolicy,
+  savePromotionPolicy,
   computeSchemeTotals,
 } from "@/lib/utils/marks-config";
 
@@ -204,6 +209,10 @@ export function SchoolDetailsTab() {
   const [editCapacity, setEditCapacity] = useState("120");
   const [editAutoPass, setEditAutoPass] = useState("false");
 
+  // Promotion & Pass Criteria State
+  const [promotionPolicy, setPromotionPolicy] = useState<PromotionPolicy>(DEFAULT_PROMOTION_POLICY);
+  const [isSavingPolicy, setIsSavingPolicy] = useState(false);
+
   // Load saved state from localStorage if present
   useEffect(() => {
     try {
@@ -223,10 +232,25 @@ export function SchoolDetailsTab() {
       }
       const loadedSchemes = getSavedMarksSchemes();
       setMarksSchemes(loadedSchemes);
+      const loadedPolicy = getSavedPromotionPolicy();
+      setPromotionPolicy(loadedPolicy);
     } catch (e) {
       console.error("Failed to load local school details", e);
     }
   }, []);
+
+  const handleSavePromotionPolicy = () => {
+    setIsSavingPolicy(true);
+    savePromotionPolicy(promotionPolicy);
+    setTimeout(() => {
+      setIsSavingPolicy(false);
+      showToast({
+        type: "success",
+        title: "Policy Saved",
+        description: "Promotion & Pass Criteria Policy updated successfully.",
+      });
+    }, 400);
+  };
 
   // Open Edit Scheme Modal
   const handleOpenEditScheme = (scheme: ClassMarksScheme) => {
@@ -1915,6 +1939,88 @@ export function SchoolDetailsTab() {
                   </div>
                 );
               })()}
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Promotion & Pass Criteria Policy */}
+          <Card className="border bg-card shadow-xs overflow-hidden">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 shrink-0">
+                    <Sliders className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <span>Promotion & Pass Criteria Policy</span>
+                      <Badge variant="outline" className="text-[10px] bg-background font-medium">
+                        Session & Promotion Rules
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                      RTE Act compliance and minimum passing percentage rules for annual class transitions.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleSavePromotionPolicy}
+                  disabled={isSavingPolicy}
+                  className="h-8 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground shadow-xs"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>{isSavingPolicy ? "Saving..." : "Save Policy"}</span>
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Rule A: Class 5 to 8 Auto-Pass (RTE) */}
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      Classes V – VIII (RTE Auto-Promotion)
+                    </span>
+                    <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">
+                      Right to Education Act: No detention policy up to Elementary stage.
+                    </p>
+                  </div>
+                  <Badge className="bg-emerald-600 text-white text-[10px] shrink-0 font-semibold px-2.5 py-1">
+                    100% Auto-Pass
+                  </Badge>
+                </div>
+
+                {/* Rule B: Class 9 to 12 Minimum Pass Percentage */}
+                <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-4 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                      <Trophy className="h-4 w-4 text-blue-600" />
+                      Classes IX – XII Pass Cutoff
+                    </span>
+                    <p className="text-[11px] text-blue-800/80 dark:text-blue-400/80">
+                      Minimum required overall score across evaluations to be promoted.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={promotionPolicy.minPassPercentage}
+                      onChange={(e) =>
+                        setPromotionPolicy((prev) => ({
+                          ...prev,
+                          minPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="font-mono text-sm font-bold rounded-lg border border-blue-300 bg-background px-2 py-1 w-16 text-blue-700 dark:text-blue-400 text-center"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>

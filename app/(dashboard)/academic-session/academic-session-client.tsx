@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getSavedPromotionPolicy } from "@/lib/utils/marks-config";
 import {
   CalendarClock,
   Sparkles,
@@ -51,13 +52,21 @@ export default function AcademicSessionClient() {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [transitionResult, setTransitionResult] = useState<any>(null);
 
-  // Full Marks State
-  const [marksClass5, setMarksClass5] = useState("500");
-  const [marksClass6, setMarksClass6] = useState("1050");
-  const [marksClass7_8, setMarksClass7_8] = useState("1200");
-  const [marksClass9_10, setMarksClass9_10] = useState("700");
-  const [marksClass11_12, setMarksClass11_12] = useState("500");
-  const [isSavingMarks, setIsSavingMarks] = useState(false);
+  // Synchronize promotion policy from School Details configuration
+  useEffect(() => {
+    const policy = getSavedPromotionPolicy();
+    if (policy && typeof policy.minPassPercentage === "number") {
+      setMinPassPercentage(policy.minPassPercentage);
+    }
+    const handlePolicyUpdate = () => {
+      const updated = getSavedPromotionPolicy();
+      if (updated && typeof updated.minPassPercentage === "number") {
+        setMinPassPercentage(updated.minPassPercentage);
+      }
+    };
+    window.addEventListener("sms_promotion_policy_updated", handlePolicyUpdate);
+    return () => window.removeEventListener("sms_promotion_policy_updated", handlePolicyUpdate);
+  }, []);
 
   // Fetch readiness audit with minPassPercentage
   const { data: audit, isLoading: isLoadingAudit, refetch } = useQuery({
@@ -100,18 +109,6 @@ export default function AcademicSessionClient() {
     } else {
       setOverriddenStudentIds(new Set(allDetainedIds));
     }
-  }
-
-  function handleSaveMarksRules() {
-    setIsSavingMarks(true);
-    setTimeout(() => {
-      setIsSavingMarks(false);
-      showToast({
-        title: "Marks Rules Saved",
-        description: "Class-wise examination full marks updated.",
-        type: "success",
-      });
-    }, 500);
   }
 
   const detainedList = audit?.detainedStudents || [];
@@ -181,115 +178,31 @@ export default function AcademicSessionClient() {
         </div>
       )}
 
-      {/* SECTION 1: Class-Wise Examination Full Marks Rules */}
-      <div className="rounded-2xl border bg-card/90 backdrop-blur p-5 space-y-4 shadow-2xs">
-        <div className="flex items-center justify-between gap-3 border-b pb-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <Award className="h-4 w-4" />
-            </div>
-            <h2 className="text-sm font-bold text-foreground">
-              Class-Wise Examination Full Marks Rules
-            </h2>
-          </div>
-          <button
-            onClick={handleSaveMarksRules}
-            disabled={isSavingMarks}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs cursor-pointer"
-          >
-            {isSavingMarks ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            Save Marks
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="rounded-xl border bg-muted/20 p-3 space-y-1">
-            <span className="text-xs font-bold text-foreground">Class V</span>
-            <Input
-              value={marksClass5}
-              onChange={(e) => setMarksClass5(e.target.value)}
-              className="text-xs font-mono font-bold"
-            />
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-3 space-y-1">
-            <span className="text-xs font-bold text-foreground">Class VI</span>
-            <Input
-              value={marksClass6}
-              onChange={(e) => setMarksClass6(e.target.value)}
-              className="text-xs font-mono font-bold"
-            />
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-3 space-y-1">
-            <span className="text-xs font-bold text-foreground">Class VII & VIII</span>
-            <Input
-              value={marksClass7_8}
-              onChange={(e) => setMarksClass7_8(e.target.value)}
-              className="text-xs font-mono font-bold"
-            />
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-3 space-y-1">
-            <span className="text-xs font-bold text-foreground">Class IX & X</span>
-            <Input
-              value={marksClass9_10}
-              onChange={(e) => setMarksClass9_10(e.target.value)}
-              className="text-xs font-mono font-bold"
-            />
-          </div>
-          <div className="rounded-xl border bg-muted/20 p-3 space-y-1">
-            <span className="text-xs font-bold text-foreground">Class XI & XII</span>
-            <Input
-              value={marksClass11_12}
-              onChange={(e) => setMarksClass11_12(e.target.value)}
-              className="text-xs font-mono font-bold"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 2: Promotion & Pass Criteria Configuration */}
-      <div className="rounded-2xl border bg-card/90 backdrop-blur p-5 space-y-4 shadow-2xs">
-        <div className="flex items-center gap-2 border-b pb-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+      {/* Active Promotion Policy Summary Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-muted/40 border border-border/80 rounded-2xl p-4 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0 ring-1 ring-primary/20">
             <Sliders className="h-4 w-4" />
           </div>
-          <h2 className="text-sm font-bold text-foreground">
-            Promotion & Pass Criteria Policy
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Rule A: Class 5 to 8 Auto-Pass (RTE) */}
-          <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              Classes V – VIII (RTE Auto-Promotion)
-            </span>
-            <Badge className="bg-emerald-600 text-white text-[10px]">100% Auto-Pass</Badge>
-          </div>
-
-          {/* Rule B: Class 9 to 12 Minimum Pass Percentage */}
-          <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-4 flex items-center justify-between gap-3">
-            <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-              <Trophy className="h-4 w-4 text-blue-600" />
-              Classes IX – XII Pass Cutoff
-            </span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={minPassPercentage}
-                onChange={(e) => setMinPassPercentage(Math.max(0, Math.min(100, Number(e.target.value))))}
-                className="font-mono text-sm font-bold rounded-lg border border-blue-300 bg-background px-2 py-1 w-16 text-blue-700 dark:text-blue-400 text-center"
-              />
-              <span className="text-xs font-bold text-muted-foreground">%</span>
+          <div>
+            <span className="font-bold text-foreground">Active Promotion & Pass Policy</span>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200">
+                Classes V–VIII: 100% RTE Auto-Pass
+              </Badge>
+              <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 font-mono font-bold">
+                Classes IX–XII Cutoff: {minPassPercentage}%
+              </Badge>
             </div>
           </div>
         </div>
+        <Link
+          href="/settings?tab=school-details"
+          className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 shrink-0 self-start sm:self-auto bg-primary/5 border border-primary/20 rounded-lg px-3 py-1.5 transition-colors hover:bg-primary/10"
+        >
+          <span>Configure in School Details</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
 
       {/* SECTION 3: Session Selection & KPI Meter */}

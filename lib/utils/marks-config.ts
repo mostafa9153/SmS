@@ -379,3 +379,40 @@ export function getDynamicClassFullMarks(className: string, examName?: string): 
 
   return fallbackDefaults[standardKey]?.[slot] ?? 500;
 }
+
+/**
+ * Promotion & Pass Criteria Policy Configuration
+ */
+export interface PromotionPolicy {
+  autoPassClasses: string[]; // e.g. ["V", "VI", "VII", "VIII"]
+  minPassPercentage: number; // e.g. 30 (for classes IX - XII)
+}
+
+export const DEFAULT_PROMOTION_POLICY: PromotionPolicy = {
+  autoPassClasses: ["V", "VI", "VII", "VIII"],
+  minPassPercentage: 30,
+};
+
+const PROMOTION_POLICY_KEY = "sms_promotion_pass_policy";
+
+export function getSavedPromotionPolicy(): PromotionPolicy {
+  if (typeof window === "undefined") return DEFAULT_PROMOTION_POLICY;
+  try {
+    const raw = localStorage.getItem(PROMOTION_POLICY_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.error("Failed to load promotion policy:", e);
+  }
+  return DEFAULT_PROMOTION_POLICY;
+}
+
+export function savePromotionPolicy(policy: PromotionPolicy): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PROMOTION_POLICY_KEY, JSON.stringify(policy));
+    window.dispatchEvent(new Event("sms_promotion_policy_updated"));
+  } catch (e) {
+    console.error("Failed to save promotion policy:", e);
+  }
+}
+
