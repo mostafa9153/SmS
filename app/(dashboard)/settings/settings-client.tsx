@@ -24,6 +24,8 @@ import {
   Cloud,
   ArrowLeft,
   School,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -123,6 +125,8 @@ export function SettingsClient() {
   const [editRole, setEditRole] = useState<"Admin" | "Staff">("Staff");
   const [editPassword, setEditPassword] = useState("");
   const [editError, setEditError] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Audit log detail modal state
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
@@ -522,15 +526,36 @@ export function SettingsClient() {
                       </div>
 
                       <div className="grid gap-1">
-                        <Label htmlFor="password font-normal" className="text-xs">Initial Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="At least 6 characters"
-                          disabled={createUserMutation.isPending}
-                        />
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="password" className="text-xs">Initial Password</Label>
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+                          >
+                            {showNewPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            {showNewPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="At least 6 characters"
+                            autoComplete="new-password"
+                            disabled={createUserMutation.isPending}
+                            className="pr-10 text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="grid gap-1">
@@ -650,6 +675,7 @@ export function SettingsClient() {
                                   setEditRole(u.role);
                                   setEditPassword("");
                                   setEditError("");
+                                  setShowEditPassword(false);
                                 }}
                                 title="Reset password or change role"
                               >
@@ -738,18 +764,42 @@ export function SettingsClient() {
                       />
                     </div>
 
-                    <div className="grid gap-1">
-                      <Label htmlFor="editPassword" className="text-xs">
-                        New Password <span className="text-muted-foreground font-normal">(Leave blank to keep unchanged)</span>
-                      </Label>
-                      <Input
-                        id="editPassword"
-                        type="password"
-                        value={editPassword}
-                        onChange={(e) => setEditPassword(e.target.value)}
-                        placeholder="At least 6 characters"
-                        disabled={updateUserMutation.isPending}
-                      />
+                    <div className="grid gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="editPassword" className="text-xs">
+                          New Password <span className="text-muted-foreground font-normal">(Leave blank to keep unchanged)</span>
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+                        >
+                          {showEditPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                          {showEditPassword ? "Hide" : "Show"} Password
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          id="editPassword"
+                          type={showEditPassword ? "text" : "password"}
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          placeholder="Type new password (at least 6 chars)"
+                          autoComplete="new-password"
+                          disabled={updateUserMutation.isPending}
+                          className="pr-10 text-xs font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEditPassword(!showEditPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        🔒 সুরক্ষার কারণে পুরনো পাসওয়ার্ড ডেটাবেসে এনক্রিপ্ট থাকে। নতুন পাসওয়ার্ড সেট করতে চাইলে এখানে টাইপ করে <strong>Show Password</strong> চেপে নিশ্চিত হয়ে নিন এবং <strong>Save Changes</strong> চাপুন।
+                      </p>
                     </div>
                   </div>
 
