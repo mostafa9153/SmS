@@ -36,6 +36,7 @@ export interface MarksheetData {
   issueDate: string;
   promotionStatus: "PROMOTED" | "PASSED" | "DETAINED" | "ELIGIBLE";
   promotedToClass: string;
+  classRank?: string;          // e.g. "1st", "2nd", "3rd"
   attendanceDays?: number;
   totalWorkingDays?: number;
 }

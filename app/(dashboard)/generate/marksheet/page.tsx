@@ -71,6 +71,7 @@ function MarksheetGeneratorContent() {
       issueDate: getLiveDate(),
       promotionStatus: "PROMOTED",
       promotedToClass: "X",
+      classRank: "1st",
       attendanceDays: 210,
       totalWorkingDays: 235,
     };
@@ -107,6 +108,11 @@ function MarksheetGeneratorContent() {
     const currentClass = student.presentClass || "IX";
     const promotedTo = nextClassMap[currentClass] || "Next Higher Class";
 
+    const rollNum = Number(student.presentRoll);
+    const rankStr = !isNaN(rollNum) && rollNum > 0
+      ? rollNum === 1 ? "1st" : rollNum === 2 ? "2nd" : rollNum === 3 ? "3rd" : `${rollNum}th`
+      : "1st";
+
     setMarksheet((prev) => ({
       ...prev,
       studentId: student.schoolId || student.id,
@@ -117,6 +123,7 @@ function MarksheetGeneratorContent() {
       guardianName: student.guardianName || student.fatherName || "",
       penNumber: student.pen || "",
       promotedToClass: promotedTo,
+      classRank: rankStr,
     }));
 
     showToast({
@@ -458,6 +465,16 @@ function MarksheetGeneratorContent() {
                   value={marksheet.promotedToClass}
                   onChange={(e) => setMarksheet({ ...marksheet, promotedToClass: e.target.value })}
                   className="text-xs font-bold h-8 text-[#14206b]"
+                />
+              </div>
+
+              <div className="space-y-1 col-span-2">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Class Rank / Position</Label>
+                <Input
+                  value={marksheet.classRank || ""}
+                  onChange={(e) => setMarksheet({ ...marksheet, classRank: e.target.value })}
+                  placeholder="e.g. 1st, 2nd, 3rd, Top 10"
+                  className="text-xs font-bold h-8 font-mono text-[#14206b]"
                 />
               </div>
             </CardContent>

@@ -304,14 +304,21 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
               <div className="text-[9px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
                 Promotion Status
               </div>
-              <div className="text-[11.5px] font-extrabold text-[#14206b] tracking-wide my-0.5">
+              <div className="text-[11.5px] font-extrabold text-[#14206b] tracking-wide my-0.5 leading-tight">
                 {data.promotionStatus === "PROMOTED"
                   ? `PROMOTED TO CLASS ${data.promotedToClass || "X"}`
                   : data.promotionStatus === "PASSED"
                   ? "PASSED WITH MERIT"
                   : "ELIGIBLE FOR RETEST"}
               </div>
-              <div className="text-[9px] text-neutral-600 font-sans">
+              {/* Class Rank / Position Display */}
+              <div className="my-0.5 py-0.5 px-1 bg-[#14206b]/10 rounded border border-[#14206b]/20 flex items-center justify-center gap-1.5">
+                <span className="text-[8.5px] font-bold uppercase tracking-tight text-neutral-600">Rank:</span>
+                <span className="text-[11px] font-extrabold font-mono text-[#14206b]">
+                  {data.classRank || "1st"}
+                </span>
+              </div>
+              <div className="text-[8.5px] text-neutral-600 font-sans">
                 Date: <span className="font-mono font-bold text-neutral-900">{data.issueDate || "02/09/2026"}</span>
               </div>
             </div>
