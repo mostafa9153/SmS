@@ -56,7 +56,7 @@ export const WBBSE_GRADE_SCALE: GradeScaleEntry[] = [
   { range: "45% – 59%", grade: "B+", remarks: "Good" },
   { range: "35% – 44%", grade: "B", remarks: "Satisfactory" },
   { range: "25% – 34%", grade: "C", remarks: "Marginal" },
-  { range: "Below 25%", grade: "D", remarks: "Disqualified" },
+  { range: "Below 25%", grade: "D", remarks: "Fail" },
 ];
 
 /**
