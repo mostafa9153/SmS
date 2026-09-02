@@ -43,6 +43,7 @@ function MarksheetGeneratorContent() {
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [previewScale, setPreviewScale] = useState<number>(0.72);
 
   // Helper for live formatted Indian Date
   function getLiveDate() {
@@ -320,8 +321,8 @@ function MarksheetGeneratorContent() {
 
       {/* Main Studio Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: Data Entry Controls (4 cols on xl) */}
-        <div className="xl:col-span-4 space-y-4 print:hidden">
+        {/* LEFT COLUMN: Data Entry Controls (Scrollable) */}
+        <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2">
           {/* Card 1: Student Selector */}
           <Card className="border shadow-2xs">
             <CardHeader className="p-4 border-b bg-muted/20">
@@ -607,24 +608,70 @@ function MarksheetGeneratorContent() {
           </Card>
         </div>
 
-        {/* RIGHT COLUMN: Live Marksheet Preview (8 cols on xl) */}
-        <div className="xl:col-span-8 space-y-3">
-          <div className="flex items-center justify-between px-1 print:hidden">
+        {/* RIGHT COLUMN: Fixed Centered Live Marksheet Preview (Sticky) */}
+        <div className="xl:col-span-8 space-y-2 sticky top-4 h-[calc(100vh-140px)] flex flex-col">
+          <div className="flex items-center justify-between px-1 print:hidden shrink-0">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <Award className="h-3.5 w-3.5 text-primary" />
-              Live CCE Marksheet Preview (A4 Landscape)
+              Live CCE Marksheet (Centered &amp; Fixed)
             </span>
-            <span className="text-[11px] text-muted-foreground font-medium">
-              Fits 100% on 1 Single A4 Landscape Page
-            </span>
+
+            {/* Interactive Zoom Controls */}
+            <div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-lg border text-xs">
+              <button
+                type="button"
+                onClick={() => setPreviewScale((prev) => Math.max(0.45, Math.round((prev - 0.05) * 100) / 100))}
+                className="px-1.5 py-0.5 rounded hover:bg-background text-muted-foreground hover:text-foreground cursor-pointer font-mono font-bold"
+                title="Zoom Out"
+              >
+                &minus;
+              </button>
+              <span className="font-mono text-[11px] font-bold px-1 min-w-[40px] text-center text-[#14206b]">
+                {Math.round(previewScale * 100)}%
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewScale((prev) => Math.min(1.2, Math.round((prev + 0.05) * 100) / 100))}
+                className="px-1.5 py-0.5 rounded hover:bg-background text-muted-foreground hover:text-foreground cursor-pointer font-mono font-bold"
+                title="Zoom In"
+              >
+                +
+              </button>
+              <div className="h-3 w-[1px] bg-border mx-0.5" />
+              <button
+                type="button"
+                onClick={() => setPreviewScale(0.72)}
+                className={`px-2 py-0.5 rounded text-[10.5px] font-semibold cursor-pointer transition-colors ${
+                  previewScale === 0.72 ? "bg-primary text-primary-foreground" : "hover:bg-background text-muted-foreground"
+                }`}
+              >
+                Fit Window
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewScale(1.0)}
+                className={`px-2 py-0.5 rounded text-[10.5px] font-semibold cursor-pointer transition-colors ${
+                  previewScale === 1.0 ? "bg-primary text-primary-foreground" : "hover:bg-background text-muted-foreground"
+                }`}
+              >
+                100%
+              </button>
+            </div>
           </div>
 
-          {/* Printable Canvas with Horizontal Scroll for smaller viewports */}
-          <div
-            id="printable-marksheet-canvas"
-            className="bg-slate-200 dark:bg-slate-950 p-2 sm:p-5 rounded-2xl border shadow-inner overflow-x-auto"
-          >
-            <MarksheetPrintableView data={marksheet} />
+          {/* Printable Canvas with Scaling and Centering */}
+          <div className="flex-1 w-full bg-slate-200/70 dark:bg-slate-950/70 rounded-2xl border shadow-inner overflow-auto flex items-center justify-center p-2 lg:p-4">
+            <div
+              id="printable-marksheet-canvas"
+              style={{
+                transform: `scale(${previewScale})`,
+                transformOrigin: "center center",
+                transition: "transform 0.15s ease-out",
+              }}
+              className="shrink-0"
+            >
+              <MarksheetPrintableView data={marksheet} />
+            </div>
           </div>
         </div>
       </div>
@@ -641,10 +688,10 @@ function MarksheetGeneratorContent() {
             display: none !important;
           }
 
-          /* Exact A4 Landscape Page */
+          /* Exact Landscape Page - Adapts to both A4 and Letter */
           @page {
-            size: A4 landscape;
-            margin: 6mm 8mm 6mm 8mm;
+            size: landscape;
+            margin: 4mm 5mm 4mm 5mm;
           }
 
           html,
@@ -661,16 +708,21 @@ function MarksheetGeneratorContent() {
           }
 
           #printable-marksheet-canvas {
-            background: white !important;
+            background: transparent !important;
             padding: 0 !important;
             margin: 0 !important;
             border: none !important;
             box-shadow: none !important;
             width: 100% !important;
             max-width: 100% !important;
-            height: 194mm !important;
-            max-height: 194mm !important;
+            height: 100% !important;
+            max-height: 190mm !important;
             overflow: hidden !important;
+            transform: none !important;
+            zoom: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
           }
         }
       `}</style>
