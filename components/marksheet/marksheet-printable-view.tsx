@@ -32,21 +32,21 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
   // Dynamic row padding and font sizing based on subject count
   const rowPad =
     data.subjects.length <= 5
-      ? "py-2"
+      ? "py-1.5"
       : data.subjects.length <= 7
-      ? "py-[3.8px]"
-      : "py-[2.5px]";
-  const tbodyFontSize = data.subjects.length >= 8 ? "text-[9px]" : "text-[9.5px]";
+      ? "py-[2.6px]"
+      : "py-[1.8px]";
+  const tbodyFontSize = data.subjects.length >= 8 ? "text-[8.8px]" : "text-[9.2px]";
 
   return (
     <div
       id="pure-a4-landscape-marksheet-sheet"
-      className="mx-auto bg-[#fffdf5] text-[#111111] p-[4.5mm_7mm_4.5mm_7mm] border-[2.5px] border-[#14206b] relative shadow-2xl print:shadow-none print:m-0 print:border-[2px] font-serif box-border select-none print:w-full print:max-w-[286mm]"
+      className="mx-auto bg-[#fffdf5] text-[#111111] p-[3mm_6mm_3.5mm_6mm] border-[2.5px] border-[#14206b] relative shadow-2xl print:shadow-none print:m-0 print:border-[2px] font-serif box-border select-none print:w-full print:max-w-[286mm]"
       style={{
         width: "286mm",
-        height: "198mm",
-        minHeight: "198mm",
-        maxHeight: "198mm",
+        height: "196mm",
+        minHeight: "196mm",
+        maxHeight: "196mm",
         boxSizing: "border-box",
         pageBreakInside: "avoid",
         breakInside: "avoid",
@@ -115,44 +115,44 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
           </div>
 
           {/* Dividing Double Rule */}
-          <div className="border-b-[2px] border-[#14206b] my-1.5" />
+          <div className="border-b-[2px] border-[#14206b] my-1" />
 
           {/* CCE Document Title */}
-          <div className="text-center py-0.5">
-            <h2 className="text-[13.5px] sm:text-[14.5px] font-extrabold tracking-wider text-[#14206b] uppercase underline underline-offset-4 decoration-[#14206b] inline-block font-serif">
+          <div className="text-center py-0">
+            <h2 className="text-[13px] sm:text-[14px] font-extrabold tracking-wider text-[#14206b] uppercase underline underline-offset-4 decoration-[#14206b] inline-block font-serif">
               Continuous &amp; Comprehensive Evaluation &ndash; {data.academicYear || "2026"}
             </h2>
-            <div className="text-[9.5px] italic text-neutral-600 font-sans mt-0.5 font-medium">
+            <div className="text-[9px] italic text-neutral-600 font-sans mt-0.5 font-medium">
               Annual Academic Progress Report Card
             </div>
           </div>
 
           {/* Student Info Strip (Clean 4-Item Format: Name, Class, Roll No, Student ID) */}
-          <div className="flex justify-between items-baseline text-[12px] my-1.5 px-1 gap-4 font-serif">
+          <div className="flex justify-between items-baseline text-[11.5px] my-1 px-1 gap-4 font-serif">
             <div className="flex items-baseline gap-1.5 min-w-[320px] flex-1">
               <span className="font-bold text-[#14206b] whitespace-nowrap">Name of the Student:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 flex-1 text-left text-[13px] text-neutral-900 uppercase">
+              <span className="font-extrabold border-b border-[#111] px-2 flex-1 text-left text-[12.5px] text-neutral-900 uppercase">
                 {data.studentName || "Synthia Sanam"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Class:</span>
-              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12.5px] text-neutral-900">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12px] text-neutral-900">
                 {data.studentClass || "IX"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Roll No.:</span>
-              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12.5px] text-neutral-900 font-mono">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12px] text-neutral-900 font-mono">
                 {data.rollNo || "01"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Student ID:</span>
-              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[130px] text-[12px] text-neutral-900 font-mono">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[130px] text-[11.5px] text-neutral-900 font-mono">
                 {data.studentId || "MHS-2026-0036"}
               </span>
             </div>
@@ -162,32 +162,32 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
         {/* =================================================================== */}
         {/* 2. MARKS EVALUATION TABLE (SPACIOUS ROW PADDING & TOPPER COMPARISON) */}
         {/* =================================================================== */}
-        <table className="w-full border-collapse border border-[#14206b] my-1 text-[9.5px]">
+        <table className="w-full border-collapse border border-[#14206b] my-0.5 text-[9.2px]">
           <thead>
             {/* Row 1: Term Group Headers */}
             <tr className="bg-[#14206b] text-white text-center font-bold">
-              <th rowSpan={2} className="border border-[#14206b] py-1.5 px-1 text-left pl-2.5 font-serif text-[10.5px] w-[14%]">
+              <th rowSpan={2} className="border border-[#14206b] py-1 px-1 text-left pl-2.5 font-serif text-[10px] w-[14%]">
                 Subject
               </th>
-              <th colSpan={3} className="border border-[#14206b] py-1 px-1 text-[10px] w-[19%]">
+              <th colSpan={3} className="border border-[#14206b] py-0.5 px-1 text-[9.5px] w-[19%]">
                 1st Summative Evaluation
               </th>
-              <th colSpan={3} className="border border-[#14206b] py-1 px-1 text-[10px] w-[19%]">
+              <th colSpan={3} className="border border-[#14206b] py-0.5 px-1 text-[9.5px] w-[19%]">
                 2nd Summative Evaluation
               </th>
-              <th colSpan={3} className="border border-[#14206b] py-1 px-1 text-[10px] w-[19%]">
+              <th colSpan={3} className="border border-[#14206b] py-0.5 px-1 text-[9.5px] w-[19%]">
                 3rd Summative Evaluation
               </th>
-              <th colSpan={3} className="border border-[#14206b] py-1 px-1 text-[10px] w-[21%]">
+              <th colSpan={3} className="border border-[#14206b] py-0.5 px-1 text-[9.5px] w-[21%]">
                 Overall Marks &amp; Grade
               </th>
-              <th rowSpan={2} className="border border-[#14206b] py-1 px-1 text-[9px] w-[8%]">
+              <th rowSpan={2} className="border border-[#14206b] py-0.5 px-1 text-[8.5px] w-[8%]">
                 Highest Marks<br />in Class
               </th>
             </tr>
 
             {/* Row 2: Sub-headers */}
-            <tr className="bg-[#eef0f8] text-[#14206b] text-center font-bold text-[9px]">
+            <tr className="bg-[#eef0f8] text-[#14206b] text-center font-bold text-[8.5px]">
               {/* 1st Term */}
               <th className="border border-[#14206b] py-0.5 px-0.5">Periodic</th>
               <th className="border border-[#14206b] py-0.5 px-0.5">Preparatory</th>
@@ -210,7 +210,7 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             </tr>
 
             {/* Row 3: Max Marks */}
-            <tr className="bg-slate-100 text-[#14206b] text-center font-bold text-[8.5px] font-mono">
+            <tr className="bg-slate-100 text-[#14206b] text-center font-bold text-[8px] font-mono">
               <th className="border border-[#14206b] py-0.5 px-1 text-left pl-2.5 font-serif font-normal italic text-neutral-600">
                 Full Marks &rarr;
               </th>
@@ -267,21 +267,21 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             })}
             {/* GRAND TOTAL ROW */}
             <tr className="bg-[#eef0f8] font-bold text-[#14206b] border-t-2 border-[#14206b]">
-              <td colSpan={10} className="border border-[#14206b] text-right pr-3 py-1 font-serif text-[11px]">
+              <td colSpan={10} className="border border-[#14206b] text-right pr-3 py-0.5 font-serif text-[10.5px]">
                 Grand Total (Out of {totals.maxPossibleMarks}) &ndash;
               </td>
-              <td className="border border-[#14206b] py-1 font-extrabold text-[11px] bg-[#14206b] text-white font-mono">
+              <td className="border border-[#14206b] py-0.5 font-extrabold text-[10.5px] bg-[#14206b] text-white font-mono">
                 {totals.totalMarksObtained}
               </td>
-              <td className="border border-[#14206b] py-1 font-extrabold text-[10.5px] text-[#14206b] font-mono">
+              <td className="border border-[#14206b] py-0.5 font-extrabold text-[10px] text-[#14206b] font-mono">
                 {totals.overallPercentage}%
               </td>
-              <td className={`border border-[#14206b] py-1 font-extrabold text-[12px] ${
+              <td className={`border border-[#14206b] py-0.5 font-extrabold text-[11px] ${
                 totals.overallGrade === "D" ? "text-red-700 bg-red-100 font-black" : "text-[#14206b] bg-amber-100/80"
               }`}>
                 {totals.overallGrade || (totals.overallPercentage < 25 ? "D" : "")}
               </td>
-              <td className="border border-[#14206b] py-1 text-neutral-700 font-mono text-[10px]">
+              <td className="border border-[#14206b] py-0.5 text-neutral-700 font-mono text-[9.5px]">
                 {totals.highestTotalInClass}
               </td>
             </tr>
@@ -301,62 +301,62 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
           const formattedRank = !isNaN(rankNum) ? `${rankNum}${suffix}` : rankInput;
 
           return (
-            <div className="flex justify-between items-end gap-2 mt-2 pt-1 border-t border-[#14206b]/20">
+            <div className="flex justify-between items-end gap-2 mt-1 pt-1 border-t border-[#14206b]/20">
               {/* Guardian Signature */}
-              <div className="w-[14.5%] h-[134px] flex flex-col justify-end text-center pb-0.5">
-                <div className="h-[56px]" />
+              <div className="w-[14.5%] h-[114px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[40px]" />
                 <div className="border-t-[1.5px] border-[#111] pt-1">
-                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
+                  <div className="text-[9.5px] font-bold text-neutral-800 leading-tight font-serif">
                     Signature of Guardian
                   </div>
-                  <div className="text-[8px] text-neutral-500 font-sans mt-0.5">
+                  <div className="text-[7.5px] text-neutral-500 font-sans mt-0.5">
                     Date: ........................
                   </div>
                 </div>
               </div>
 
               {/* Class Teacher Signature */}
-              <div className="w-[15%] h-[134px] flex flex-col justify-end text-center pb-0.5">
-                <div className="h-[56px]" />
+              <div className="w-[15%] h-[114px] flex flex-col justify-end text-center pb-0.5">
+                <div className="h-[40px]" />
                 <div className="border-t-[1.5px] border-[#111] pt-1">
-                  <div className="text-[10px] font-bold text-neutral-800 leading-tight font-serif">
+                  <div className="text-[9.5px] font-bold text-neutral-800 leading-tight font-serif">
                     Signature of Class Teacher
                   </div>
-                  <div className="text-[8px] text-neutral-500 font-sans mt-0.5">
+                  <div className="text-[7.5px] text-neutral-500 font-sans mt-0.5">
                     Date: ........................
                   </div>
                 </div>
               </div>
 
               {/* Headmaster / Teacher-in-Charge Signature */}
-              <div className="w-[18.5%] h-[134px] flex flex-col items-center justify-end text-center pb-0.5">
-                <div className="h-[56px] flex items-end justify-center mb-0.5">
+              <div className="w-[18.5%] h-[114px] flex flex-col items-center justify-end text-center pb-0.5">
+                <div className="h-[40px] flex items-end justify-center mb-0.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src="/hod-signature.png"
                     alt="Teacher-in-Charge Signature"
-                    className="max-h-[44px] max-w-[135px] object-contain mix-blend-multiply select-none"
+                    className="max-h-[36px] max-w-[130px] object-contain mix-blend-multiply select-none"
                   />
                 </div>
-                <div className="text-[10px] font-bold text-[#14206b] leading-tight font-serif">
+                <div className="text-[9.5px] font-bold text-[#14206b] leading-tight font-serif">
                   Signature of Teacher-in-Charge
                 </div>
-                <div className="text-[8px] text-neutral-600 font-sans leading-tight mt-0.5">
+                <div className="text-[7.5px] text-neutral-600 font-sans leading-tight mt-0.5">
                   Headmaster &bull; Marigachi High School
                 </div>
               </div>
 
               {/* Promotion & Rank Status Card */}
-              <div className={`w-[24%] h-[134px] border-[1.5px] rounded-xs p-1 flex flex-col justify-between text-center shadow-xs ${
+              <div className={`w-[24%] h-[114px] border-[1.5px] rounded-xs p-1 flex flex-col justify-between text-center shadow-xs ${
                 isFailing
                   ? "border-red-600 bg-red-50/70"
                   : "border-[#14206b] bg-amber-50/70"
               }`}>
                 <div>
-                  <div className="text-[8px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
+                  <div className="text-[7.5px] uppercase tracking-wider text-neutral-600 font-sans font-bold">
                     Promotion Status
                   </div>
-                  <div className={`text-[11.5px] font-black tracking-wide leading-tight my-0.5 ${
+                  <div className={`text-[10.5px] font-black tracking-wide leading-tight my-0.5 ${
                     isFailing ? "text-red-700" : "text-[#14206b]"
                   }`}>
                     {isFailing
@@ -371,103 +371,103 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
 
                 {isFailing ? (
                   <div className="my-0.5 py-0.5 px-1 bg-red-100 border border-red-400 rounded shadow-xs">
-                    <div className="text-[7.5px] font-bold uppercase tracking-wider text-red-900">
+                    <div className="text-[7px] font-bold uppercase tracking-wider text-red-900">
                       Academic Evaluation
                     </div>
-                    <div className="text-[11.5px] font-black font-mono text-red-800 leading-tight">
+                    <div className="text-[10.5px] font-black font-mono text-red-800 leading-tight">
                       GRADE: D (FAIL)
                     </div>
-                    <div className="text-[7px] font-semibold text-red-700 tracking-tight">
+                    <div className="text-[6.5px] font-semibold text-red-700 tracking-tight">
                       Score Below 25% Qualifying Mark
                     </div>
                   </div>
                 ) : isTop10 ? (
                   rankNum === 1 ? (
                     <div className="my-0.5 py-0.5 px-1 bg-gradient-to-r from-amber-200 via-amber-100 to-amber-200 border border-amber-600 rounded shadow-xs">
-                      <div className="text-[7.5px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
+                      <div className="text-[7px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
                         <span>&#9733;</span>
                         <span>CLASS TOPPER</span>
                         <span>&#9733;</span>
                       </div>
-                      <div className="text-[12px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                      <div className="text-[11px] font-black font-mono text-[#14206b] leading-tight my-0.5">
                         RANK: 1st
                       </div>
-                      <div className="text-[7px] font-bold text-amber-900 tracking-tight">
+                      <div className="text-[6.5px] font-bold text-amber-900 tracking-tight">
                         ACADEMIC EXCELLENCE
                       </div>
                     </div>
                   ) : rankNum === 2 ? (
                     <div className="my-0.5 py-0.5 px-1 bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 border border-slate-500 rounded shadow-xs">
-                      <div className="text-[7.5px] font-black uppercase tracking-wider text-slate-900 flex items-center justify-center gap-1">
+                      <div className="text-[7px] font-black uppercase tracking-wider text-slate-900 flex items-center justify-center gap-1">
                         <span>&#9733;</span>
                         <span>2ND POSITION</span>
                         <span>&#9733;</span>
                       </div>
-                      <div className="text-[12px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                      <div className="text-[11px] font-black font-mono text-[#14206b] leading-tight my-0.5">
                         RANK: 2nd
                       </div>
-                      <div className="text-[7px] font-bold text-slate-700 tracking-tight">
+                      <div className="text-[6.5px] font-bold text-slate-700 tracking-tight">
                         DISTINCTION IN MERIT
                       </div>
                     </div>
                   ) : rankNum === 3 ? (
                     <div className="my-0.5 py-0.5 px-1 bg-gradient-to-r from-orange-200 via-amber-100 to-orange-200 border border-amber-700 rounded shadow-xs">
-                      <div className="text-[7.5px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
+                      <div className="text-[7px] font-black uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1">
                         <span>&#9733;</span>
                         <span>3RD POSITION</span>
                         <span>&#9733;</span>
                       </div>
-                      <div className="text-[12px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                      <div className="text-[11px] font-black font-mono text-[#14206b] leading-tight my-0.5">
                         RANK: 3rd
                       </div>
-                      <div className="text-[7px] font-bold text-amber-900 tracking-tight">
+                      <div className="text-[6.5px] font-bold text-amber-900 tracking-tight">
                         HIGH ACHIEVEMENT
                       </div>
                     </div>
                   ) : (
                     <div className="my-0.5 py-0.5 px-1 bg-gradient-to-r from-[#14206b]/15 via-[#14206b]/5 to-[#14206b]/15 border border-[#14206b]/40 rounded shadow-xs">
-                      <div className="text-[7.5px] font-black uppercase tracking-wider text-[#14206b] flex items-center justify-center gap-1">
+                      <div className="text-[7px] font-black uppercase tracking-wider text-[#14206b] flex items-center justify-center gap-1">
                         <span>&#9733;</span>
                         <span>TOP 10 HONORS</span>
                         <span>&#9733;</span>
                       </div>
-                      <div className="text-[11.5px] font-black font-mono text-[#14206b] leading-tight my-0.5">
+                      <div className="text-[10.5px] font-black font-mono text-[#14206b] leading-tight my-0.5">
                         RANK: {formattedRank}
                       </div>
-                      <div className="text-[7px] font-bold text-neutral-600 tracking-tight">
+                      <div className="text-[6.5px] font-bold text-neutral-600 tracking-tight">
                         MERIT ROLL HOLDER
                       </div>
                     </div>
                   )
                 ) : (
                   <div className="my-0.5 py-0.5 px-1 bg-slate-100 border border-slate-300 rounded">
-                    <div className="text-[7.5px] font-bold uppercase tracking-wider text-neutral-500">
+                    <div className="text-[7px] font-bold uppercase tracking-wider text-neutral-500">
                       Class Position
                     </div>
-                    <div className="text-[11.5px] font-extrabold font-mono text-[#14206b] leading-tight">
+                    <div className="text-[10.5px] font-extrabold font-mono text-[#14206b] leading-tight">
                       RANK: {formattedRank}
                     </div>
                   </div>
                 )}
 
-                <div className="text-[7.5px] text-neutral-600 font-sans">
+                <div className="text-[7px] text-neutral-600 font-sans">
                   Date: <span className="font-mono font-bold text-neutral-900">{data.issueDate || "03/09/2026"}</span>
                 </div>
               </div>
 
               {/* Complete 7-Row Scale of Evaluation - WBBSE (With Grade D & Fail) */}
-              <div className="w-[26%] h-[134px] border border-[#14206b] rounded-xs bg-white overflow-hidden flex flex-col justify-between shadow-2xs">
-                <table className="w-full border-collapse text-[7.5px] h-full">
+              <div className="w-[26%] h-[114px] border border-[#14206b] rounded-xs bg-white overflow-hidden flex flex-col justify-between shadow-2xs">
+                <table className="w-full border-collapse text-[7px] h-full">
                   <thead>
                     <tr className="bg-[#14206b] text-white text-center font-bold">
-                      <th colSpan={3} className="py-0.5 text-[8.5px] tracking-wide font-sans">
+                      <th colSpan={3} className="py-[1px] text-[8px] tracking-wide font-sans">
                         Scale of Evaluation &ndash; WBBSE
                       </th>
                     </tr>
-                    <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b] text-[7.5px]">
-                      <th className="py-[1px] px-1 text-left pl-1.5">Range of Marks</th>
-                      <th className="py-[1px] px-0.5">Grade</th>
-                      <th className="py-[1px] px-1 text-left">Remarks</th>
+                    <tr className="bg-[#eef0f8] text-[#14206b] font-bold text-center border-b border-[#14206b] text-[7px]">
+                      <th className="py-[0.5px] px-1 text-left pl-1.5">Range of Marks</th>
+                      <th className="py-[0.5px] px-0.5">Grade</th>
+                      <th className="py-[0.5px] px-1 text-left">Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="font-sans">
@@ -490,15 +490,15 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                               : "bg-white"
                           }`}
                         >
-                          <td className="py-[0.8px] px-1 pl-1.5 text-left font-mono text-[7.5px] font-semibold">
+                          <td className="py-[0.5px] px-1 pl-1.5 text-left font-mono text-[7px] font-semibold">
                             {g.range}
                           </td>
-                          <td className={`py-[0.8px] px-0.5 text-center font-black text-[8.5px] ${
+                          <td className={`py-[0.5px] px-0.5 text-center font-black text-[7.5px] ${
                             isFailRow ? "text-red-700" : "text-[#14206b]"
                           }`}>
                             {g.grade}
                           </td>
-                          <td className={`py-[0.8px] px-1 text-left text-[7.5px] ${
+                          <td className={`py-[0.5px] px-1 text-left text-[7px] ${
                             isFailRow ? "text-red-700 font-bold" : "text-neutral-700"
                           }`}>
                             {g.remarks}
