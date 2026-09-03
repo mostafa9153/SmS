@@ -1200,7 +1200,7 @@ function MarksheetGeneratorContent() {
         </div>
       )}
 
-      {/* Global CSS for Strict Landscape Print Mode */}
+      {/* Global CSS for Strict A4 Landscape Print Mode */}
       <style jsx global>{`
         @media print {
           /* Hide non-printable elements */
@@ -1212,10 +1212,10 @@ function MarksheetGeneratorContent() {
             display: none !important;
           }
 
-          /* Exact Landscape Page */
+          /* Exact A4 Landscape Page with Zero Margin */
           @page {
-            size: landscape;
-            margin: 4mm;
+            size: A4 landscape !important;
+            margin: 0mm !important;
           }
 
           html,
@@ -1224,6 +1224,11 @@ function MarksheetGeneratorContent() {
             color: black !important;
             padding: 0 !important;
             margin: 0 !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            max-width: 297mm !important;
+            max-height: 210mm !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -1235,15 +1240,41 @@ function MarksheetGeneratorContent() {
             margin: 0 auto !important;
             border: none !important;
             box-shadow: none !important;
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto !important;
-            overflow: visible !important;
+            width: 297mm !important;
+            max-width: 297mm !important;
+            height: 210mm !important;
+            max-height: 210mm !important;
+            overflow: hidden !important;
             transform: none !important;
             zoom: 1 !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            box-sizing: border-box !important;
+          }
+
+          #printable-marksheet-canvas > div {
+            transform: none !important;
+            width: 100% !important;
+            height: 100% !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          #pure-a4-landscape-marksheet-sheet {
+            width: 286mm !important;
+            height: 198mm !important;
+            max-width: 286mm !important;
+            max-height: 198mm !important;
+            box-sizing: border-box !important;
+            margin: 0 auto !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
 
           /* Bulk batch print page break styles */
