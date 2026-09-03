@@ -151,8 +151,8 @@ export async function GET() {
         tarunerSwapno++;
       }
 
-      // Sabooj Sarathi (Class 9-12)
-      if (["IX", "X", "XI", "XII", "9", "10", "11", "12"].includes(clsUpper)) {
+      // Sarathi (Class 9 only)
+      if (["IX", "9"].includes(clsUpper)) {
         saboojSarathi++;
       }
 

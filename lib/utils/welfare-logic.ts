@@ -134,13 +134,13 @@ export const SCHOLARSHIP_REGISTRY: Record<ScholarshipId, ScholarshipSchemeMeta> 
   },
   sabooj_sathi: {
     id: "sabooj_sathi",
-    name: "Sabooj Sarathi (Bicycle)",
-    shortCode: "Sabooj Sarathi",
+    name: "Sarathi (Bicycle)",
+    shortCode: "Sarathi",
     type: "Asset",
     amount: "Free Bi-Cycle",
     category: "All",
     colorBadge: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300",
-    description: "Free bi-cycle for all students studying in Class IX, X, XI, and XII",
+    description: "Free bi-cycle for all students studying in Class IX",
   },
   cwsn_scholarship: {
     id: "cwsn_scholarship",
@@ -270,8 +270,8 @@ export function evaluateStudentScholarships(student: StudentEligibilityInput): {
     eligibleIds.push("taruner_swapno");
   }
 
-  // Sabooj Sathi: Class IX, X, XI, XII (Free Bicycle)
-  if (["IX", "X", "XI", "XII"].includes(cls)) {
+  // Sarathi: Class IX only (Free Bicycle)
+  if (cls === "IX") {
     eligibleIds.push("sabooj_sathi");
   }
 

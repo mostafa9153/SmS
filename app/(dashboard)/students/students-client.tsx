@@ -8,7 +8,7 @@ import type { StudentFilters } from "@/lib/types";
 import { StudentFiltersBar } from "@/components/students/student-filters";
 import { StudentTable } from "@/components/students/student-table";
 import { ExportDialog } from "@/components/students/export-dialog";
-import { FileSpreadsheet, Plus, ArrowLeft } from "lucide-react";
+import { FileSpreadsheet, Plus, ArrowLeft, FileText, Award } from "lucide-react";
 import Link from "next/link";
 
 const PAGE_SIZE = 20;
@@ -75,6 +75,26 @@ export default function StudentsClient() {
             <h1 className="text-lg font-bold tracking-tight">Student Directory</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {filters.class && (
+              <div className="flex items-center gap-1.5">
+                <Link
+                  href={`/generate/invoice?mode=bulk&class=${encodeURIComponent(filters.class)}${filters.section ? `&section=${encodeURIComponent(filters.section)}` : ""}`}
+                  className="flex items-center gap-1 rounded-xl border bg-card px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
+                  title={`Generate bulk fee invoices for Class ${filters.class}`}
+                >
+                  <FileText className="h-3.5 w-3.5 text-teal-600" />
+                  <span>Class {filters.class} Invoices</span>
+                </Link>
+                <Link
+                  href={`/generate/marksheet?mode=bulk&class=${encodeURIComponent(filters.class)}${filters.section ? `&section=${encodeURIComponent(filters.section)}` : ""}`}
+                  className="flex items-center gap-1 rounded-xl border bg-card px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
+                  title={`Generate bulk marksheets for Class ${filters.class}`}
+                >
+                  <Award className="h-3.5 w-3.5 text-amber-600" />
+                  <span>Class {filters.class} Marksheets</span>
+                </Link>
+              </div>
+            )}
             <button
               onClick={() => setExportOpen(true)}
               className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs active:scale-95 cursor-pointer"

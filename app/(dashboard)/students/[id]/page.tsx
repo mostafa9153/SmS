@@ -37,6 +37,9 @@ import {
   Plus,
   Loader2,
   FileText,
+  GraduationCap,
+  FileSpreadsheet,
+  HeartHandshake,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -170,6 +173,34 @@ export default function StudentProfilePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href={`/generate/certificate?studentId=${student.id}`}
+              className="flex items-center gap-1.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-sm font-medium hover:bg-blue-500/20 transition-colors shadow-2xs"
+            >
+              <Award className="h-3.5 w-3.5" />
+              <span>Character Cert</span>
+            </Link>
+            <Link
+              href={`/generate/pass-certificate?studentId=${student.id}`}
+              className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500/20 transition-colors shadow-2xs"
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+              <span>Pass Out Cert</span>
+            </Link>
+            <Link
+              href={`/generate/transfer-certificate?studentId=${student.id}`}
+              className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500/20 transition-colors shadow-2xs"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              <span>Transfer Cert</span>
+            </Link>
+            <Link
+              href={`/generate/kanyashree?studentId=${student.id}`}
+              className="flex items-center gap-1.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-3 py-1.5 text-sm font-medium hover:bg-purple-500/20 transition-colors shadow-2xs"
+            >
+              <HeartHandshake className="h-3.5 w-3.5" />
+              <span>Kanyashree Cert</span>
+            </Link>
             <Link
               href={`/generate/invoice?studentId=${student.id}`}
               className="flex items-center gap-1.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-sm font-medium hover:bg-teal-500/20 transition-colors shadow-2xs"

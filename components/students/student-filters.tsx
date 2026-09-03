@@ -116,7 +116,7 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
             { label: "🏛️ OASIS Post-Matric (XI-XII)", value: "oasis_post" },
             { label: "⭐ SVMCM (Bikash Bhavan XI-XII)", value: "svmcm" },
             { label: "📱 Taruner Swapno (Tab Grant XI-XII)", value: "taruner_swapno" },
-            { label: "🚲 Sabooj Sarathi (Bicycle IX-XII)", value: "sabooj_sathi" },
+            { label: "🚲 Sarathi (Bicycle IX)", value: "sabooj_sathi" },
             { label: "♿ CWSN / Divyangjan", value: "cwsn" },
             { label: "🏷️ BPL Beneficiary", value: "bpl" },
           ]}

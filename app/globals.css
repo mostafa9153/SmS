@@ -265,11 +265,6 @@
 
 /* Print Configuration for Official Institutional Reports */
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 5mm 7mm;
-  }
-
   html,
   body {
     background: #ffffff !important;

@@ -75,21 +75,25 @@ export function getWBBSEGrade(percentage: number): string {
 /**
  * Calculates a single subject row with its 3 term totals, 200-mark overall total, %, and letter grade
  */
-export function calculateSubjectRow(row: SubjectMarksheetRow): SubjectMarksheetRow {
+export function calculateSubjectRow(
+  row: SubjectMarksheetRow,
+  maxSubjectMarks: number = 200
+): SubjectMarksheetRow {
   const p1 = Number(row.term1.periodic) || 0;
   const prep1 = Number(row.term1.preparatory) || 0;
-  const t1 = Math.min(50, p1 + prep1);
+  const t1 = p1 + prep1;
 
   const p2 = Number(row.term2.periodic) || 0;
   const prep2 = Number(row.term2.preparatory) || 0;
-  const t2 = Math.min(50, p2 + prep2);
+  const t2 = p2 + prep2;
 
   const p3 = Number(row.term3.periodic) || 0;
   const prep3 = Number(row.term3.preparatory) || 0;
-  const t3 = Math.min(100, p3 + prep3);
+  const t3 = p3 + prep3;
 
-  const overallTotal = t1 + t2 + t3; // max 200
-  const percentage = Math.round(((overallTotal / 200) * 100) * 10) / 10;
+  const overallTotal = t1 + t2 + t3;
+  const maxMarks = maxSubjectMarks > 0 ? maxSubjectMarks : 200;
+  const percentage = Math.round(((overallTotal / maxMarks) * 100) * 10) / 10;
   const grade = overallTotal > 0 ? getWBBSEGrade(percentage) : "";
 
   return {
@@ -186,23 +190,11 @@ export const DEFAULT_CLASS_IX_SUBJECTS: SubjectMarksheetRow[] = [
   },
 ];
 
-export const CLASS_V_SUBJECTS = [
-  "Bengali",
-  "English",
-  "Mathematics",
-  "Our Environment",
-  "Health & Physical Education",
-];
-
-export const CLASS_VI_VIII_SUBJECTS = [
-  "Bengali",
-  "English",
-  "Mathematics",
-  "Science",
-  "History",
-  "Geography",
-  "Health & Physical Education",
-];
+import {
+  getSavedMarksSchemes,
+  DEFAULT_MARKS_SCHEMES,
+  ClassMarksScheme,
+} from "@/lib/utils/marks-config";
 
 /**
  * Normalizes subject names across various spellings and abbreviations
@@ -212,26 +204,128 @@ export function normalizeSubjectName(raw: string): string {
   const s = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (s.includes("bengali") || s === "ben" || s === "fl" || s.includes("firstlanguage")) return "Bengali";
   if (s.includes("english") || s === "eng" || s === "sl" || s.includes("secondlanguage")) return "English";
+  if (s.includes("sanskrit") || s === "sans" || s.includes("thirdlanguage")) return "Sanskrit (3rd Language)";
   if (s.includes("math") || s === "mat") return "Mathematics";
   if (s.includes("physic") || s === "psc" || s.includes("physicalsc")) return "Physical Science";
   if (s.includes("lifesc") || s.includes("bio") || s === "lsc" || s.includes("lifescience")) return "Life Science";
   if (s.includes("history") || s === "his" || s === "hist") return "History";
   if (s.includes("geography") || s === "geo" || s === "geog") return "Geography";
   if (s.includes("environ") || s.includes("paribesh") || s === "evs") return "Our Environment";
-  if (s.includes("science") && !s.includes("life") && !s.includes("physical")) return "Science";
+  if (s.includes("science") && !s.includes("life") && !s.includes("physical")) return "Environment & Science";
   if (s.includes("health") || s === "pe" || s.includes("physicaled") || s === "hp") return "Health & Physical Education";
   if (s.includes("art") || s.includes("work") || s.includes("supw")) return "Art & Work Education";
   return raw;
 }
 
 /**
- * Resolves standard curriculum subject names by class
+ * Resolves the configuration scheme for a class
+ */
+export function getClassScheme(className?: string): ClassMarksScheme {
+  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
+  const digitMap: Record<string, string> = {
+    "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
+  };
+  const standardKey = digitMap[raw] || raw;
+  const schemes = typeof window !== "undefined" ? getSavedMarksSchemes() : DEFAULT_MARKS_SCHEMES;
+  const matched = schemes.find(
+    (s) => s.classCode.toUpperCase() === standardKey || s.className.toUpperCase().includes(standardKey)
+  );
+  if (matched) return matched;
+  return DEFAULT_MARKS_SCHEMES.find((s) => s.classCode === standardKey) || DEFAULT_MARKS_SCHEMES[4]; // Fallback to Class IX
+}
+
+/**
+ * Resolves standard curriculum subject names by class dynamically
+ * Class V: 5 subjects
+ * Class VI: 7 subjects
+ * Class VII & VIII: 8 subjects
+ * Class IX & X: 7 subjects
+ * Class XI & XII: 5 or 6 subjects
  */
 export function getStandardSubjectsForClass(className?: string): string[] {
-  const c = (className || "IX").toUpperCase().trim();
-  if (c === "V" || c === "5") return CLASS_V_SUBJECTS;
-  if (["VI", "VII", "VIII", "6", "7", "8"].includes(c)) return CLASS_VI_VIII_SUBJECTS;
+  const scheme = getClassScheme(className);
+  if (scheme.subjects && scheme.subjects.length > 0) {
+    return scheme.subjects;
+  }
+
+  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
+  if (raw === "V" || raw === "5") {
+    return [
+      "Bengali",
+      "English",
+      "Mathematics",
+      "Our Environment",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "VI" || raw === "6") {
+    return [
+      "Bengali",
+      "English",
+      "Mathematics",
+      "Environment & Science",
+      "Environment & History",
+      "Environment & Geography",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "VII" || raw === "7" || raw === "VIII" || raw === "8") {
+    return [
+      "Bengali",
+      "English",
+      "Sanskrit (3rd Language)",
+      "Mathematics",
+      "Environment & Science",
+      "History",
+      "Geography",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "XI" || raw === "11" || raw === "XII" || raw === "12") {
+    return [
+      "Bengali",
+      "English",
+      "Physics",
+      "Chemistry",
+      "Mathematics",
+    ];
+  }
+
   return DEFAULT_CLASS_IX_SUBJECTS.map((s) => s.subjectName);
+}
+
+/**
+ * Generates realistic sample subject marks for any class (5, 7, 8, etc. subjects)
+ */
+export function getSampleSubjectsForClass(className?: string): SubjectMarksheetRow[] {
+  const subjects = getStandardSubjectsForClass(className);
+  const sampleScores = [
+    { p1: 34, prep1: 9, p2: 36, prep2: 10, p3: 78, prep3: 9, high: 192 },
+    { p1: 32, prep1: 8, p2: 35, prep2: 9, p3: 74, prep3: 9, high: 188 },
+    { p1: 38, prep1: 10, p2: 39, prep2: 10, p3: 86, prep3: 10, high: 198 },
+    { p1: 35, prep1: 9, p2: 37, prep2: 9, p3: 80, prep3: 10, high: 194 },
+    { p1: 36, prep1: 10, p2: 38, prep2: 10, p3: 82, prep3: 10, high: 195 },
+    { p1: 33, prep1: 9, p2: 34, prep2: 9, p3: 76, prep3: 9, high: 189 },
+    { p1: 35, prep1: 9, p2: 36, prep2: 10, p3: 79, prep3: 10, high: 191 },
+    { p1: 37, prep1: 10, p2: 38, prep2: 9, p3: 84, prep3: 10, high: 196 },
+    { p1: 34, prep1: 9, p2: 35, prep2: 10, p3: 77, prep3: 9, high: 187 },
+  ];
+
+  return subjects.map((subName, idx) => {
+    const s = sampleScores[idx % sampleScores.length];
+    const row: SubjectMarksheetRow = {
+      id: `sub-${idx + 1}`,
+      subjectName: subName,
+      term1: { periodic: s.p1, preparatory: s.prep1, total: 0 },
+      term2: { periodic: s.p2, preparatory: s.prep2, total: 0 },
+      term3: { periodic: s.p3, preparatory: s.prep3, total: 0 },
+      overallTotal: 0,
+      percentage: 0,
+      grade: "",
+      highestMarksInClass: s.high,
+    };
+    return calculateSubjectRow(row);
+  });
 }
 
 /**
@@ -431,9 +525,12 @@ export interface MarksheetGrandTotals {
   resultStatus: "PROMOTED" | "PASSED" | "DETAINED";
 }
 
-export function calculateMarksheetTotals(subjects: SubjectMarksheetRow[]): MarksheetGrandTotals {
+export function calculateMarksheetTotals(
+  subjects: SubjectMarksheetRow[],
+  subjectMax: number = 200
+): MarksheetGrandTotals {
   const count = subjects.length || 7;
-  const maxPossibleMarks = count * 200;
+  const maxPossibleMarks = count * (subjectMax > 0 ? subjectMax : 200);
 
   const totalMarksObtained = subjects.reduce((sum, row) => sum + (row.overallTotal || 0), 0);
   const highestTotalInClass = subjects.reduce((sum, row) => sum + (Number(row.highestMarksInClass) || 0), 0);

@@ -99,7 +99,7 @@ export function WelfareSchemesVisual() {
       link: "/students?scheme=taruner_swapno",
     },
     {
-      title: "Sabooj Sarathi",
+      title: "Sarathi",
       count: welfare.saboojSarathi || 0,
       icon: <Bike className="h-4 w-4 text-teal-600 dark:text-teal-400" />,
       accent: "bg-teal-500",

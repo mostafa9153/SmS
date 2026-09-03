@@ -80,6 +80,10 @@ const navItems: NavItem[] = [
     children: [
       { label: "Admission Invoice", href: "/generate/invoice" },
       { label: "CCE Marksheet", href: "/generate/marksheet" },
+      { label: "Character Certificate", href: "/generate/certificate" },
+      { label: "Pass Out Certificate", href: "/generate/pass-certificate" },
+      { label: "Transfer Certificate (TC)", href: "/generate/transfer-certificate" },
+      { label: "Kanyashree Certificate", href: "/generate/kanyashree" },
     ],
   },
 ];
