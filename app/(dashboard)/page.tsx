@@ -95,7 +95,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-amber-600 transition-colors">
-                Results & Marksheets
+                Results &amp; Marks
               </p>
             </div>
           </Link>

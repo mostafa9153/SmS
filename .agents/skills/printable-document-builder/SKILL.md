@@ -125,10 +125,10 @@ Embed this exact print stylesheet inside the generator page or component:
     display: none !important;
   }
 
-  /* 2. Lock page size to exact paper format with zero margins */
+  /* 2. Lock page size to exact paper format with zero margins (NEVER use !important inside @page) */
   @page {
-    size: A5 portrait !important; /* Change to 'A4 portrait' or 'A4 landscape' as required */
-    margin: 0mm !important;
+    size: 210mm 297mm; /* Or '297mm 210mm' for A4 landscape, '148mm 210mm' for A5 portrait. Note: NO !important inside @page */
+    margin: 0;
   }
 
   /* 3. Base page reset */

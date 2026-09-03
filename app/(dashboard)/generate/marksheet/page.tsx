@@ -4,48 +4,37 @@ import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents, getStudentResultHistory, getClassResults } from "@/lib/data/students";
-import { Student, StudentResult, ClassResultsSummary } from "@/lib/types";
+import type { Student, StudentResult } from "@/lib/types";
+import { CustomSelect } from "@/components/ui/custom-select";
 import {
   MarksheetData,
-  DEFAULT_CLASS_IX_SUBJECTS,
-  createBlankSubjectRows,
   calculateSubjectRow,
-  calculateMarksheetTotals,
-  SubjectMarksheetRow,
+  getSampleSubjectsForClass,
   buildMarksheetFromDBResults,
   getStandardSubjectsForClass,
-  getSampleSubjectsForClass,
   getClassScheme,
 } from "@/lib/utils/marksheet-calc";
 import {
   MarksheetPrintableView,
   MarksheetPrintableBatchView,
 } from "@/components/marksheet/marksheet-printable-view";
-import { CustomSelect } from "@/components/ui/custom-select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Printer,
-  Search,
   Sparkles,
-  ArrowLeft,
-  User,
+  Search,
   Users,
-  Sliders,
-  Award,
+  User,
   RotateCcw,
   BookOpen,
-  Plus,
-  Trash2,
-  Calendar,
-  CheckCircle2,
-  Database,
+  Award,
   RefreshCw,
-  Loader2,
+  Calendar,
   CheckSquare,
   Square,
   ChevronLeft,
@@ -54,7 +43,6 @@ import {
 } from "lucide-react";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const STANDARD_SECTIONS = ["ALL", "A", "B", "C", "D"];
 
 function MarksheetGeneratorContent() {
   const searchParams = useSearchParams();
@@ -62,7 +50,6 @@ function MarksheetGeneratorContent() {
   const studentIdParam = searchParams.get("studentId");
   const modeParam = searchParams.get("mode");
   const classParam = searchParams.get("class");
-  const sectionParam = searchParams.get("section");
 
   // Mode: "single" vs "bulk"
   const [generatorMode, setGeneratorMode] = useState<"single" | "bulk">(
@@ -86,7 +73,6 @@ function MarksheetGeneratorContent() {
   // Bulk Mode States
   const currentYear = new Date().getFullYear();
   const [bulkClass, setBulkClass] = useState<string>(classParam?.toUpperCase() || "IX");
-  const [bulkSection, setBulkSection] = useState<string>(sectionParam?.toUpperCase() || "ALL");
   const [bulkAcademicYear, setBulkAcademicYear] = useState<string>(String(currentYear));
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkRosterSearch, setBulkRosterSearch] = useState("");
@@ -100,7 +86,7 @@ function MarksheetGeneratorContent() {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
-    }); // "02/09/2026"
+    }); // "03/09/2026"
   }
 
   // Master Marksheet State (Single Mode)
@@ -109,50 +95,92 @@ function MarksheetGeneratorContent() {
       academicYear: `${currentYear}`,
       studentName: "Synthia Sanam",
       studentClass: "IX",
-      section: "A",
       rollNo: "01",
       studentId: "MHS-2026-0036",
       registrationNo: "WB-2026-98124",
-      penNumber: "191802010041234",
+      penNumber: "PEN-2026-98124",
       guardianName: "Md. Ruhul Amin",
-      subjects: DEFAULT_CLASS_IX_SUBJECTS,
+      subjects: getSampleSubjectsForClass("IX"),
       classTeacherName: "S. K. Gayen",
       issueDate: getLiveDate(),
       promotionStatus: "PROMOTED",
       promotedToClass: "X",
       classRank: "1st",
-      attendanceDays: 210,
+      attendanceDays: 215,
       totalWorkingDays: 235,
     };
   });
 
-  // Fetch all students for selector
-  const { data: students = [], isLoading: isLoadingStudents } = useQuery({
+  // Calculate maximum marks per subject based on current class scheme
+  const activeClassScheme = useMemo(() => getClassScheme(marksheet.studentClass), [marksheet.studentClass]);
+  const activeSubjectMax = useMemo(() => {
+    const t1 = (activeClassScheme?.firstSummativeWritten || 40) + (activeClassScheme?.firstSummativePractical || 10);
+    const t2 = (activeClassScheme?.secondSummativeWritten || 40) + (activeClassScheme?.secondSummativePractical || 10);
+    const t3 = (activeClassScheme?.annualWritten || 90) + (activeClassScheme?.annualPractical || 10);
+    return t1 + t2 + t3 || 200;
+  }, [activeClassScheme]);
+
+  // Fetch all students for search dropdown and bulk rosters
+  const { data: students = [] } = useQuery<Student[]>({
     queryKey: ["all-students-for-marksheet"],
     queryFn: getStudents,
   });
 
-  // Auto-fetch results from Database for single student
+  // Handle URL studentId query param auto-selection
+  useEffect(() => {
+    if (studentIdParam && students.length > 0) {
+      const match = students.find(
+        (s) =>
+          s.id === studentIdParam ||
+          s.schoolId === studentIdParam ||
+          s.pen === studentIdParam
+      );
+      if (match) {
+        handleSelectStudent(match);
+      }
+    }
+  }, [studentIdParam, students]);
+
+  // Fetch student examination results from database
   async function fetchStudentResultsFromDB(student: Student) {
     setIsFetchingResults(true);
     try {
       const results: StudentResult[] = await getStudentResultHistory(student.id);
-      let classSummary: ClassResultsSummary | null = null;
-      try {
-        const year = results[0]?.academicYear || Number(marksheet.academicYear) || new Date().getFullYear();
-        classSummary = await getClassResults(year, student.presentClass || "IX", "ALL", "1st Summative Evaluation");
-      } catch (e) {
-        // Non-critical
-      }
 
       if (results && results.length > 0) {
-        const dbMarksheetData = buildMarksheetFromDBResults(results, student, classSummary);
-        setMarksheet((prev) => ({
-          ...prev,
-          ...dbMarksheetData,
-        }));
+        // Also fetch whole class summary to compare highest marks in class
+        let classSummary = null;
+        try {
+          const classResultRes = await getClassResults(
+            parseInt(marksheet.academicYear, 10) || currentYear,
+            student.presentClass || "IX",
+            undefined,
+            "Annual Examination"
+          );
+          classSummary = classResultRes;
+        } catch {
+          // ignore class summary error
+        }
 
-        const uniqueExams = Array.from(new Set(results.map((r) => r.examName)));
+        const generated = buildMarksheetFromDBResults(results, student, classSummary);
+        const uniqueExams = Array.from(new Set(results.map((r) => r.examName || "Evaluation")));
+
+        setMarksheet((prev) => {
+          const updated = {
+            ...prev,
+            ...generated,
+            studentName: student.name,
+            studentClass: student.presentClass || prev.studentClass,
+            rollNo: String(student.presentRoll || prev.rollNo),
+            studentId: student.schoolId || student.id,
+            registrationNo: (student as any).registrationNo || student.pen || prev.registrationNo,
+            penNumber: student.pen || prev.penNumber,
+            guardianName: student.guardianName || student.fatherName || prev.guardianName,
+            issueDate: getLiveDate(),
+          };
+          return updated;
+        });
+
         setDbResultsLoaded({
           found: true,
           count: results.length,
@@ -161,52 +189,35 @@ function MarksheetGeneratorContent() {
 
         showToast({
           type: "success",
-          title: "Results Auto-Fetched",
-          description: `Loaded ${results.length} exam result(s) from Database (${uniqueExams.join(", ")})`,
+          title: "Database Results Synced",
+          description: `Loaded ${results.length} term results for ${student.name} (${uniqueExams.join(", ")}). Highest marks computed.`,
         });
       } else {
-        const classSubjects = getStandardSubjectsForClass(student.presentClass);
-        const blankRows = createBlankSubjectRows(classSubjects);
-        setMarksheet((prev) => ({
-          ...prev,
-          subjects: blankRows,
-        }));
-        setDbResultsLoaded({
-          found: false,
-          count: 0,
-          examNames: [],
-        });
+        setDbResultsLoaded({ found: false, count: 0, examNames: [] });
         showToast({
           type: "info",
-          title: "Student Loaded",
-          description: `No exam results found in database for ${student.name}. Blank template ready for manual entry.`,
+          title: "No DB Results Found",
+          description: `No recorded evaluation marks found for ${student.name}. Loaded standard syllabus template for Class ${student.presentClass || "IX"}.`,
         });
       }
-    } catch (err: any) {
-      console.error("Auto-fetch results error:", err);
+    } catch {
+      setDbResultsLoaded({ found: false, count: 0, examNames: [] });
       showToast({
         type: "error",
-        title: "Auto-fetch Error",
-        description: err.message || "Failed to fetch results from database.",
+        title: "Sync Error",
+        description: "Could not retrieve student results from database.",
       });
     } finally {
       setIsFetchingResults(false);
     }
   }
 
-  // Load student by query param if provided
-  useEffect(() => {
-    if (studentIdParam && students.length > 0) {
-      const match = students.find((s) => s.id === studentIdParam);
-      if (match) {
-        handleSelectStudent(match);
-      }
-    }
-  }, [studentIdParam, students]);
-
-  // Handle student selection in Single Mode
-  async function handleSelectStudent(student: Student) {
+  // Student selection handler in Single Mode
+  function handleSelectStudent(student: Student) {
     setSelectedStudent(student);
+    const normClass = (student.presentClass || "IX").toUpperCase().trim();
+
+    // Map next class
     const nextClassMap: Record<string, string> = {
       V: "VI",
       VI: "VII",
@@ -216,35 +227,24 @@ function MarksheetGeneratorContent() {
       X: "XI",
       XI: "XII",
     };
-    const currentClass = student.presentClass || "IX";
-    const promotedTo = nextClassMap[currentClass] || "Next Higher Class";
-
-    const rollNum = Number(student.presentRoll);
-    const defaultRankStr =
-      !isNaN(rollNum) && rollNum > 0
-        ? rollNum === 1
-          ? "1st"
-          : rollNum === 2
-          ? "2nd"
-          : rollNum === 3
-          ? "3rd"
-          : `${rollNum}th`
-        : "1st";
+    const promotedTo = nextClassMap[normClass] || "Next Higher Class";
 
     setMarksheet((prev) => ({
       ...prev,
-      studentId: student.schoolId || student.id,
       studentName: student.name,
-      studentClass: student.presentClass || "IX",
-      section: student.presentSection || "A",
+      studentClass: normClass,
       rollNo: String(student.presentRoll || "01"),
-      guardianName: student.guardianName || student.fatherName || "",
+      studentId: student.schoolId || student.id,
+      registrationNo: (student as any).registrationNo || student.pen || `WB-${prev.academicYear}-${student.schoolId || student.id}`,
       penNumber: student.pen || "",
+      guardianName: student.guardianName || student.fatherName || "",
       promotedToClass: promotedTo,
-      classRank: defaultRankStr,
+      subjects: getSampleSubjectsForClass(normClass),
+      issueDate: getLiveDate(),
     }));
 
-    await fetchStudentResultsFromDB(student);
+    // Fetch live DB results for selected student
+    fetchStudentResultsFromDB(student);
   }
 
   // Filter students for searchable dropdown (Single Mode)
@@ -260,28 +260,20 @@ function MarksheetGeneratorContent() {
         .slice(0, 6)
     : [];
 
-  // Bulk Mode: Filter students by class & section, sorted by Roll No ascending
+  // Bulk Mode: Filter students by class, sorted by Roll No ascending
   const classRoster = useMemo(() => {
     const normClass = bulkClass.toUpperCase().trim();
-    const normSec = bulkSection.toUpperCase().trim();
 
     return students
-      .filter((s) => {
-        const cMatch = String(s.presentClass || "").toUpperCase().trim() === normClass;
-        if (!cMatch) return false;
-        if (normSec !== "ALL") {
-          return String(s.presentSection || "A").toUpperCase().trim() === normSec;
-        }
-        return true;
-      })
+      .filter((s) => String(s.presentClass || "").toUpperCase().trim() === normClass)
       .sort((a, b) => {
         const rollA = parseInt(String(a.presentRoll || "9999"), 10) || 9999;
         const rollB = parseInt(String(b.presentRoll || "9999"), 10) || 9999;
         return rollA - rollB;
       });
-  }, [students, bulkClass, bulkSection]);
+  }, [students, bulkClass]);
 
-  // Automatically select all students when class or section changes in bulk mode
+  // Automatically select all students when class changes in bulk mode
   useEffect(() => {
     if (classRoster.length > 0) {
       setSelectedStudentIds(classRoster.map((s) => s.id));
@@ -294,12 +286,12 @@ function MarksheetGeneratorContent() {
 
   // Bulk Mode: Fetch class results from DB for the selected year and class
   const { data: classResultsData, isLoading: isLoadingBulkResults } = useQuery({
-    queryKey: ["class-results-for-bulk", bulkClass, bulkSection, bulkAcademicYear],
+    queryKey: ["class-results-for-bulk", bulkClass, bulkAcademicYear],
     queryFn: () =>
       getClassResults(
         parseInt(bulkAcademicYear, 10) || currentYear,
         bulkClass,
-        bulkSection === "ALL" ? undefined : bulkSection,
+        undefined,
         "Annual Examination"
       ),
     enabled: generatorMode === "bulk" && Boolean(bulkClass),
@@ -354,7 +346,6 @@ function MarksheetGeneratorContent() {
           academicYear: bulkAcademicYear,
           studentName: s.name,
           studentClass: s.presentClass || bulkClass,
-          section: s.presentSection || "A",
           rollNo: String(s.presentRoll || idx + 1),
           studentId: s.schoolId || s.id,
           registrationNo: (s as any).registrationNo || s.pen || `WB-${bulkAcademicYear}-${s.schoolId || s.id}`,
@@ -376,7 +367,6 @@ function MarksheetGeneratorContent() {
         academicYear: bulkAcademicYear,
         studentName: s.name,
         studentClass: s.presentClass || bulkClass,
-        section: s.presentSection || "A",
         rollNo: String(s.presentRoll || idx + 1),
         studentId: s.schoolId || s.id,
         registrationNo: (s as any).registrationNo || s.pen || `WB-${bulkAcademicYear}-${s.schoolId || s.id}`,
@@ -388,7 +378,7 @@ function MarksheetGeneratorContent() {
         promotionStatus: "PROMOTED",
         promotedToClass: promotedTo,
         classRank: rankStr,
-        attendanceDays: 210,
+        attendanceDays: 215,
         totalWorkingDays: 235,
       };
     });
@@ -481,45 +471,35 @@ function MarksheetGeneratorContent() {
     });
   }
 
-  // Clear scores (Single Mode)
-  function handleClearScores() {
-    setMarksheet((prev) => ({
-      ...prev,
-      subjects: createBlankSubjectRows(prev.subjects.map((s) => s.subjectName)),
-    }));
+  // Clear marks
+  function handleClearMarks() {
+    setMarksheet((prev) => {
+      const cleared = prev.subjects.map((s) =>
+        calculateSubjectRow(
+          {
+            ...s,
+            term1: { periodic: "", preparatory: "", total: 0 },
+            term2: { periodic: "", preparatory: "", total: 0 },
+            term3: { periodic: "", preparatory: "", total: 0 },
+            highestMarksInClass: "",
+          },
+          activeSubjectMax
+        )
+      );
+      return {
+        ...prev,
+        subjects: cleared,
+        classRank: "",
+      };
+    });
     showToast({
       type: "info",
       title: "Scores Cleared",
-      description: "All assessment marks reset to blank for fresh entry.",
+      description: "Subject marks reset to blank for fresh data entry.",
     });
   }
 
-  // Print Handler
-  function handlePrint() {
-    if (generatorMode === "single") {
-      setMarksheet((prev) => ({
-        ...prev,
-        issueDate: getLiveDate(),
-      }));
-    } else {
-      setBulkIssueDate(getLiveDate());
-    }
-    setTimeout(() => {
-      window.print();
-    }, 50);
-  }
-
-  const activeScheme = getClassScheme(marksheet.studentClass);
-  const activeSubjectMax =
-    (activeScheme?.firstSummativeWritten || 40) +
-    (activeScheme?.firstSummativePractical || 10) +
-    (activeScheme?.secondSummativeWritten || 40) +
-    (activeScheme?.secondSummativePractical || 10) +
-    (activeScheme?.annualWritten || 90) +
-    (activeScheme?.annualPractical || 10) || 200;
-  const grandTotals = calculateMarksheetTotals(marksheet.subjects, activeSubjectMax);
-
-  // Toggle selection in bulk mode
+  // Bulk Checklist Toggles
   function toggleStudentSelection(id: string) {
     setSelectedStudentIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
@@ -534,42 +514,106 @@ function MarksheetGeneratorContent() {
     setSelectedStudentIds([]);
   }
 
+  // Trigger Native Browser Print
+  function handlePrint() {
+    window.print();
+  }
+
   return (
-    <div className="p-3.5 sm:p-6 max-w-[1700px] mx-auto space-y-6">
-      {/* Top Action Header (Hidden in Print) */}
+    <div className="space-y-6 pb-20">
+      {/* ========================================================================= */}
+      {/* EMBEDDED PRINT STYLESHEET (STRICT A4 LANDSCAPE 297mm × 210mm)             */}
+      {/* ========================================================================= */}
+      <style jsx global>{`
+        @page {
+          size: 297mm 210mm;
+          margin: 0;
+        }
+        @media print {
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            width: 297mm !important;
+            height: 210mm !important;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #pure-print-container,
+          #pure-print-container * {
+            visibility: visible !important;
+          }
+          #pure-print-container {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 297mm !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            background: transparent !important;
+          }
+          #pure-a4-landscape-marksheet-sheet {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            box-shadow: none !important;
+            margin: 0 auto !important;
+          }
+        }
+      `}</style>
+
+      {/* ========================================================================= */}
+      {/* DEDICATED PRINT CONTAINER (Off-screen on Web, Solo Visible in Print)      */}
+      {/* ========================================================================= */}
+      <div id="pure-print-container" className="hidden print:block">
+        {generatorMode === "single" ? (
+          <div className="w-full flex justify-center">
+            <MarksheetPrintableView data={marksheet} />
+          </div>
+        ) : (
+          <MarksheetPrintableBatchView marksheets={bulkMarksheets} />
+        )}
+      </div>
+
+      {/* ========================================================================= */}
+      {/* TOP HEADER & STUDIO CONTROLS                                              */}
+      {/* ========================================================================= */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => router.back()}
-            title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-xl border p-2 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Go back"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center ring-1 ring-amber-500/20">
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>CCE Marksheet &amp; Progress Report</span>
-              <Badge
-                variant="outline"
-                className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono"
-              >
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold tracking-tight text-foreground">
+                CCE Marksheet &amp; Progress Report
+              </h1>
+              <Badge variant="outline" className="text-[10px] uppercase font-bold text-amber-600 border-amber-500/30">
                 Generator
               </Badge>
-            </h1>
+            </div>
             <p className="text-xs text-muted-foreground">
               Official Continuous &amp; Comprehensive Evaluation (WBBSE) 3-Term Marksheet Studio.
             </p>
           </div>
         </div>
 
-        {/* Mode Switcher + Action Buttons */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Mode Switcher Segmented Control */}
-          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Mode Switcher */}
+          <div className="flex items-center bg-muted/70 p-1 rounded-xl border text-xs font-semibold">
             <button
+              type="button"
               onClick={() => setGeneratorMode("single")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 generatorMode === "single"
@@ -577,10 +621,11 @@ function MarksheetGeneratorContent() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <User className="h-3.5 w-3.5 text-amber-600" />
+              <User className="h-3.5 w-3.5" />
               <span>Single Student</span>
             </button>
             <button
+              type="button"
               onClick={() => setGeneratorMode("bulk")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                 generatorMode === "bulk"
@@ -588,63 +633,67 @@ function MarksheetGeneratorContent() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Users className="h-3.5 w-3.5 text-primary" />
+              <Users className="h-3.5 w-3.5" />
               <span>Class Batch (Bulk)</span>
               {classRoster.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-primary/10 text-primary">
-                  {selectedStudentIds.length}
+                <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.2 rounded-full font-mono">
+                  {classRoster.length}
                 </span>
               )}
             </button>
           </div>
 
+          {/* Quick Actions (Single Mode) */}
           {generatorMode === "single" && (
             <>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleFillSampleData}
-                className="h-8 text-xs gap-1.5 cursor-pointer"
+                className="gap-1.5 text-xs h-9 cursor-pointer"
+                title="Load standard high scores for this class"
               >
                 <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                <span>Load Sample Marks</span>
+                <span className="hidden md:inline">Load Sample Marks</span>
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleClearScores}
-                className="h-8 text-xs gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
+                onClick={handleClearMarks}
+                className="gap-1.5 text-xs h-9 cursor-pointer"
+                title="Reset all subject marks to blank"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                <span>Clear Scores</span>
+                <span className="hidden md:inline">Clear Scores</span>
               </Button>
             </>
           )}
 
+          {/* Print Trigger */}
           <Button
             size="sm"
             onClick={handlePrint}
-            className="h-8 text-xs gap-1.5 bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-sm font-semibold cursor-pointer"
+            className="gap-1.5 text-xs h-9 bg-[#14206b] hover:bg-[#14206b]/90 text-white font-bold shadow-md cursor-pointer"
           >
-            <Printer className="h-3.5 w-3.5" />
+            <Printer className="h-4 w-4" />
             <span>
-              {generatorMode === "bulk"
-                ? `Print All Marksheets (${selectedStudentIds.length} Pages)`
-                : "Print Marksheet"}
+              {generatorMode === "single"
+                ? "Print Marksheet"
+                : `Print All (${selectedStudentIds.length}) Marksheets`}
             </span>
           </Button>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* SINGLE MODE CONTENT                                                       */}
+      {/* SINGLE STUDENT GENERATOR CONTENT                                          */}
       {/* ========================================================================= */}
       {generatorMode === "single" && (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          {/* LEFT COLUMN: Data Entry Controls (Scrollable) */}
+          {/* LEFT COLUMN: Data Entry Studio Forms */}
           <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2">
-            {/* Card 1: Student Selector */}
+            {/* Card 1: Student Particulars with Database Search */}
             <Card className="border shadow-2xs">
               <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
@@ -727,14 +776,6 @@ function MarksheetGeneratorContent() {
                     </select>
                   </div>
                   <div>
-                    <Label className="text-[10px] font-semibold text-muted-foreground">Section</Label>
-                    <Input
-                      value={marksheet.section}
-                      onChange={(e) => setMarksheet({ ...marksheet, section: e.target.value })}
-                      className="h-7 text-xs font-semibold"
-                    />
-                  </div>
-                  <div>
                     <Label className="text-[10px] font-semibold text-muted-foreground">Roll No.</Label>
                     <Input
                       value={marksheet.rollNo}
@@ -750,8 +791,8 @@ function MarksheetGeneratorContent() {
                       className="h-7 text-xs font-mono"
                     />
                   </div>
-                  <div>
-                    <Label className="text-[10px] font-semibold text-muted-foreground">Reg. No.</Label>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Reg. No. / PEN</Label>
                     <Input
                       value={marksheet.registrationNo}
                       onChange={(e) => setMarksheet({ ...marksheet, registrationNo: e.target.value })}
@@ -759,10 +800,22 @@ function MarksheetGeneratorContent() {
                     />
                   </div>
                 </div>
+
+                {dbResultsLoaded.found && (
+                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-[10px] text-emerald-700 dark:text-emerald-400 space-y-0.5">
+                    <div className="font-bold flex items-center gap-1">
+                      <span>✓</span>
+                      <span>Synced {dbResultsLoaded.count} DB Evaluation Records</span>
+                    </div>
+                    <div className="text-[9px] text-muted-foreground">
+                      Terms: {dbResultsLoaded.examNames.join(", ")}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Card 2: Subject Marks Editor */}
+            {/* Card 2: Subject-wise Marks Entry Studio */}
             <Card className="border shadow-2xs">
               <CardHeader className="p-4 border-b bg-muted/20">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
@@ -770,98 +823,137 @@ function MarksheetGeneratorContent() {
                   <span>Subject-wise CCE Marks (3 Terms)</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3 space-y-3">
-                <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                  {marksheet.subjects.map((sub) => (
-                    <div
-                      key={sub.id || sub.subjectName}
-                      className="p-2.5 rounded-lg border bg-card/60 text-xs space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground">{sub.subjectName}</span>
-                        <Badge variant="secondary" className="text-[10px] font-mono">
-                          Total: {sub.overallTotal} / {activeSubjectMax}
-                        </Badge>
+              <CardContent className="p-4 space-y-3">
+                {marksheet.subjects.map((sub, idx) => (
+                  <div
+                    key={sub.id || idx}
+                    className="p-2.5 rounded-lg border bg-card/60 space-y-2 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-foreground">{sub.subjectName}</span>
+                      <Badge variant="secondary" className="text-[10px] font-mono">
+                        Total: {sub.overallTotal} / {activeSubjectMax}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-[10px]">
+                      {/* Term 1 */}
+                      <div className="p-1.5 rounded border bg-muted/20 space-y-1 text-center">
+                        <span className="font-semibold text-muted-foreground block">Term 1</span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            placeholder="P (40)"
+                            value={sub.term1.periodic}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term1", "periodic", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
+                          <Input
+                            placeholder="Pr (10)"
+                            value={sub.term1.preparatory}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term1", "preparatory", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* Term 1 */}
-                        <div className="space-y-1 bg-muted/30 p-1.5 rounded">
-                          <span className="text-[10px] font-bold text-muted-foreground">Term 1</span>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              placeholder="W"
-                              value={sub.term1.periodic}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term1", "periodic", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="P"
-                              value={sub.term1.preparatory}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term1", "preparatory", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                          </div>
+                      {/* Term 2 */}
+                      <div className="p-1.5 rounded border bg-muted/20 space-y-1 text-center">
+                        <span className="font-semibold text-muted-foreground block">Term 2</span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            placeholder="P (40)"
+                            value={sub.term2.periodic}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term2", "periodic", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
+                          <Input
+                            placeholder="Pr (10)"
+                            value={sub.term2.preparatory}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term2", "preparatory", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
                         </div>
+                      </div>
 
-                        {/* Term 2 */}
-                        <div className="space-y-1 bg-muted/30 p-1.5 rounded">
-                          <span className="text-[10px] font-bold text-muted-foreground">Term 2</span>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              placeholder="W"
-                              value={sub.term2.periodic}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term2", "periodic", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="P"
-                              value={sub.term2.preparatory}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term2", "preparatory", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Term 3 (Annual) */}
-                        <div className="space-y-1 bg-muted/30 p-1.5 rounded">
-                          <span className="text-[10px] font-bold text-muted-foreground">Annual</span>
-                          <div className="flex gap-1">
-                            <Input
-                              type="number"
-                              placeholder="W"
-                              value={sub.term3.periodic}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term3", "periodic", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                            <Input
-                              type="number"
-                              placeholder="P"
-                              value={sub.term3.preparatory}
-                              onChange={(e) =>
-                                handleMarkChange(sub.id, "term3", "preparatory", e.target.value)
-                              }
-                              className="h-6 text-[10px] px-1 font-mono text-center"
-                            />
-                          </div>
+                      {/* Term 3 */}
+                      <div className="p-1.5 rounded border bg-muted/20 space-y-1 text-center">
+                        <span className="font-semibold text-muted-foreground block">Annual</span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            placeholder="P (90)"
+                            value={sub.term3.periodic}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term3", "periodic", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
+                          <Input
+                            placeholder="Pr (10)"
+                            value={sub.term3.preparatory}
+                            onChange={(e) =>
+                              handleMarkChange(sub.id, "term3", "preparatory", e.target.value)
+                            }
+                            className="h-6 text-[10px] text-center p-0.5"
+                          />
                         </div>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Session & Metadata */}
+            <Card className="border shadow-2xs">
+              <CardHeader className="p-4 border-b bg-muted/20">
+                <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <span>Academic Session &amp; Promotion</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Academic Year</Label>
+                    <Input
+                      value={marksheet.academicYear}
+                      onChange={(e) => setMarksheet({ ...marksheet, academicYear: e.target.value })}
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Issue Date</Label>
+                    <Input
+                      value={marksheet.issueDate}
+                      onChange={(e) => setMarksheet({ ...marksheet, issueDate: e.target.value })}
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Class Rank / Honors</Label>
+                    <Input
+                      value={marksheet.classRank || ""}
+                      onChange={(e) => setMarksheet({ ...marksheet, classRank: e.target.value })}
+                      placeholder="1st, 2nd, 3rd, Top 10"
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Promoted To Class</Label>
+                    <Input
+                      value={marksheet.promotedToClass}
+                      onChange={(e) => setMarksheet({ ...marksheet, promotedToClass: e.target.value })}
+                      className="h-7 text-xs font-bold"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -922,7 +1014,7 @@ function MarksheetGeneratorContent() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: Class Roster & Batch Settings */}
           <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2">
-            {/* Card 1: Class & Section Selector with Roster Checklist */}
+            {/* Card 1: Class Selector with Roster Checklist */}
             <Card className="border shadow-2xs">
               <CardHeader className="p-4 border-b bg-muted/20">
                 <div className="flex items-center justify-between">
@@ -937,7 +1029,7 @@ function MarksheetGeneratorContent() {
               </CardHeader>
               <CardContent className="p-4 space-y-3.5">
                 {/* Selectors */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-[10px] font-semibold text-muted-foreground">Class</Label>
                     <CustomSelect
@@ -946,20 +1038,6 @@ function MarksheetGeneratorContent() {
                       options={STANDARD_CLASSES.map((c) => ({
                         label: `Class ${c}`,
                         value: c,
-                      }))}
-                      searchable={false}
-                      triggerClassName="h-8 text-xs font-bold"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-semibold text-muted-foreground">Section</Label>
-                    <CustomSelect
-                      value={bulkSection}
-                      onChange={(val) => setBulkSection(val)}
-                      options={STANDARD_SECTIONS.map((s) => ({
-                        label: s === "ALL" ? "All Sec" : `Sec ${s}`,
-                        value: s,
                       }))}
                       searchable={false}
                       triggerClassName="h-8 text-xs font-bold"
@@ -987,18 +1065,19 @@ function MarksheetGeneratorContent() {
                       className="pl-7 text-xs h-7"
                     />
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
                       onClick={handleSelectAll}
-                      className="text-[11px] px-2 py-1 rounded border hover:bg-muted font-semibold text-primary transition-colors cursor-pointer"
+                      className="text-[10px] font-semibold text-primary hover:underline px-1 cursor-pointer"
                     >
                       All
                     </button>
+                    <span className="text-muted-foreground text-[10px]">&bull;</span>
                     <button
                       type="button"
                       onClick={handleDeselectAll}
-                      className="text-[11px] px-2 py-1 rounded border hover:bg-muted font-semibold text-muted-foreground transition-colors cursor-pointer"
+                      className="text-[10px] font-semibold text-muted-foreground hover:underline px-1 cursor-pointer"
                     >
                       Clear
                     </button>
@@ -1009,8 +1088,7 @@ function MarksheetGeneratorContent() {
                 <div className="border rounded-xl divide-y max-h-56 overflow-y-auto bg-card text-xs">
                   {displayedRoster.length === 0 ? (
                     <div className="p-4 text-center text-muted-foreground text-xs">
-                      No students found in Class {bulkClass}{" "}
-                      {bulkSection !== "ALL" ? `Sec ${bulkSection}` : ""}.
+                      No students found in Class {bulkClass}.
                     </div>
                   ) : (
                     displayedRoster.map((s) => {
@@ -1030,23 +1108,14 @@ function MarksheetGeneratorContent() {
                               <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                             )}
                             <div>
-                              <p className="font-semibold text-foreground text-xs leading-tight">
+                              <div className="font-semibold text-foreground text-xs leading-tight">
                                 {s.name}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                Roll: <span className="font-bold text-foreground">{s.presentRoll || "—"}</span> • Sec:{" "}
-                                {s.presentSection || "A"} • {s.schoolId || s.id}
-                              </p>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                Roll: {s.presentRoll || "–"} &bull; {s.schoolId || s.id.slice(0, 8)}
+                              </div>
                             </div>
                           </div>
-                          {isChecked && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] bg-primary/10 text-primary border-primary/30"
-                            >
-                              Included
-                            </Badge>
-                          )}
                         </div>
                       );
                     })
@@ -1055,97 +1124,74 @@ function MarksheetGeneratorContent() {
               </CardContent>
             </Card>
 
-            {/* Card 2: Batch Marksheet Settings */}
+            {/* Card 2: Batch Metadata */}
             <Card className="border shadow-2xs">
               <CardHeader className="p-4 border-b bg-muted/20">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
-                  <Sliders className="h-3.5 w-3.5 text-primary" />
-                  <span>Batch Marksheet Particulars</span>
+                  <GraduationCap className="h-3.5 w-3.5 text-primary" />
+                  <span>Batch Signatures &amp; Issue Date</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold text-muted-foreground">
-                      Class Teacher Name
-                    </Label>
+              <CardContent className="p-4 space-y-3 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Class Teacher</Label>
                     <Input
                       value={bulkClassTeacher}
                       onChange={(e) => setBulkClassTeacher(e.target.value)}
-                      className="text-xs font-semibold h-8"
+                      className="h-7 text-xs font-semibold"
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold text-muted-foreground">
-                      Issue Date
-                    </Label>
+                  <div>
+                    <Label className="text-[10px] font-semibold text-muted-foreground">Issue Date</Label>
                     <Input
                       value={bulkIssueDate}
                       onChange={(e) => setBulkIssueDate(e.target.value)}
-                      className="text-xs font-mono h-8"
+                      className="h-7 text-xs font-mono"
                     />
                   </div>
-                </div>
-
-                <div className="p-2.5 rounded-lg bg-muted/40 border text-[11px] text-muted-foreground flex items-center gap-2">
-                  <Database className="h-4 w-4 text-amber-500 shrink-0" />
-                  <span>
-                    {isLoadingBulkResults
-                      ? "Querying database for class examination records..."
-                      : classResultsData?.results?.length
-                      ? `Found ${classResultsData.results.length} exam entries in DB for this class.`
-                      : `No DB exam marks found for Class ${bulkClass} (${bulkAcademicYear}). Using standard evaluation template.`}
-                  </span>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* RIGHT COLUMN: Batch Preview Slider & Screen Output */}
+          {/* RIGHT COLUMN: Live Interactive Batch Preview & Pagination */}
           <div className="xl:col-span-8 space-y-4">
             <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                   <Award className="h-3.5 w-3.5 text-primary" />
-                  Inspection Preview
+                  Batch Marksheet Preview ({bulkMarksheets.length} Selected)
                 </span>
+
                 {bulkMarksheets.length > 0 && (
-                  <Badge variant="outline" className="text-[11px] font-mono">
-                    Marksheet {currentPreviewIndex + 1} of {bulkMarksheets.length}
-                  </Badge>
+                  <div className="flex items-center gap-1 bg-muted/70 px-2 py-0.5 rounded-lg border text-xs">
+                    <button
+                      type="button"
+                      disabled={currentPreviewIndex <= 0}
+                      onClick={() => setCurrentPreviewIndex((prev) => Math.max(0, prev - 1))}
+                      className="p-0.5 rounded hover:bg-background disabled:opacity-40 cursor-pointer"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="font-mono text-[11px] font-bold">
+                      {currentPreviewIndex + 1} / {bulkMarksheets.length}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={currentPreviewIndex >= bulkMarksheets.length - 1}
+                      onClick={() =>
+                        setCurrentPreviewIndex((prev) =>
+                          Math.min(bulkMarksheets.length - 1, prev + 1)
+                        )
+                      }
+                      className="p-0.5 rounded hover:bg-background disabled:opacity-40 cursor-pointer"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
-
-              {/* Inspector Prev/Next Navigator */}
-              {bulkMarksheets.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setCurrentPreviewIndex((prev) => Math.max(0, prev - 1))}
-                    disabled={currentPreviewIndex === 0}
-                    className="p-1.5 rounded-lg border bg-background hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer"
-                    title="Previous Student"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="text-xs font-semibold px-2">
-                    {activeBulkPreviewMarksheet.studentName} (Roll:{" "}
-                    {activeBulkPreviewMarksheet.rollNo})
-                  </span>
-                  <button
-                    onClick={() =>
-                      setCurrentPreviewIndex((prev) =>
-                        Math.min(bulkMarksheets.length - 1, prev + 1)
-                      )
-                    }
-                    disabled={currentPreviewIndex >= bulkMarksheets.length - 1}
-                    className="p-1.5 rounded-lg border bg-background hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer"
-                    title="Next Student"
-                  >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
 
               {/* Zoom Scale Controls */}
               <div className="flex items-center gap-2">
@@ -1167,130 +1213,41 @@ function MarksheetGeneratorContent() {
               </div>
             </div>
 
-            {/* Single Screen Preview for inspection (Hidden in print) */}
-            <div className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:hidden">
-              {bulkMarksheets.length > 0 ? (
-                <div
-                  style={{
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: "center top",
-                    transition: "transform 0.15s ease-out",
-                  }}
-                  className="shrink-0 m-auto"
-                >
-                  <MarksheetPrintableView data={activeBulkPreviewMarksheet} />
-                </div>
-              ) : (
-                <div className="py-20 text-center text-muted-foreground text-sm">
-                  Please select at least 1 student from the left roster to generate marksheets.
-                </div>
-              )}
+            {/* Scrollable Canvas for Batch Preview */}
+            <div
+              id="printable-marksheet-canvas"
+              className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent"
+            >
+              <div
+                style={{
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: "center top",
+                  transition: "transform 0.15s ease-out",
+                }}
+                className="shrink-0 m-auto"
+              >
+                <MarksheetPrintableView data={activeBulkPreviewMarksheet} />
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* ========================================================================= */}
-      {/* BATCH PRINT CANVAS (PRINT ONLY)                                           */}
-      {/* Renders all selected students' marksheets with landscape page breaks     */}
-      {/* ========================================================================= */}
-      {generatorMode === "bulk" && bulkMarksheets.length > 0 && (
-        <div id="printable-bulk-marksheet-canvas" className="hidden print:block w-full">
-          <MarksheetPrintableBatchView marksheets={bulkMarksheets} />
-        </div>
-      )}
-
-      {/* Global CSS for Strict A4 Landscape Print Mode */}
-      <style jsx global>{`
-        @media print {
-          /* Hide non-printable elements */
-          header,
-          aside,
-          nav,
-          .print\\:hidden,
-          button {
-            display: none !important;
-          }
-
-          /* Exact A4 Landscape Page with Zero Margin */
-          @page {
-            size: A4 landscape !important;
-            margin: 0mm !important;
-          }
-
-          html,
-          body {
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 297mm !important;
-            height: 210mm !important;
-            max-width: 297mm !important;
-            max-height: 210mm !important;
-            overflow: hidden !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* Single mode canvas layout */
-          #printable-marksheet-canvas {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            border: none !important;
-            box-shadow: none !important;
-            width: 297mm !important;
-            max-width: 297mm !important;
-            height: 210mm !important;
-            max-height: 210mm !important;
-            overflow: hidden !important;
-            transform: none !important;
-            zoom: 1 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            box-sizing: border-box !important;
-          }
-
-          #printable-marksheet-canvas > div {
-            transform: none !important;
-            width: 100% !important;
-            height: 100% !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-
-          #pure-a4-landscape-marksheet-sheet {
-            width: 286mm !important;
-            height: 198mm !important;
-            max-width: 286mm !important;
-            max-height: 198mm !important;
-            box-sizing: border-box !important;
-            margin: 0 auto !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
-
-          /* Bulk batch print page break styles */
-          .print\\:break-after-page {
-            break-after: page !important;
-            page-break-after: always !important;
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
 export default function MarksheetGeneratorPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-xs text-muted-foreground">Loading Marksheet Generator...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex items-center gap-2 text-muted-foreground text-xs">
+            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+            <span>Loading Marksheet Studio...</span>
+          </div>
+        </div>
+      }
+    >
       <MarksheetGeneratorContent />
     </Suspense>
   );

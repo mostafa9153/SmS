@@ -600,8 +600,8 @@ function PassCertificateGeneratorContent() {
           }
 
           @page {
-            size: A5 portrait !important;
-            margin: 0mm !important;
+            size: 148mm 210mm;
+            margin: 0;
           }
 
           html,

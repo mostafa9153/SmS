@@ -1,9 +1,14 @@
 /**
- * Calculation and Data Models for Continuous & Comprehensive Evaluation (CCE) Marksheet
+ * Calculation Engine and Data Models for Continuous & Comprehensive Evaluation (CCE) Marksheet
  * Marigachi High School (H.S.) - WBBSE / WBCHSE Curriculum
  */
 
 import type { StudentResult, ClassResultsSummary, Student } from "@/lib/types";
+import {
+  getSavedMarksSchemes,
+  DEFAULT_MARKS_SCHEMES,
+  ClassMarksScheme,
+} from "@/lib/utils/marks-config";
 
 export interface AssessmentTerm {
   periodic: number | "";      // Written assessment
@@ -14,20 +19,20 @@ export interface AssessmentTerm {
 export interface SubjectMarksheetRow {
   id: string;
   subjectName: string;
-  term1: AssessmentTerm;       // 1st Summative Evaluation: 40 + 10 = 50
+  term1: AssessmentTerm;       // 1st Summative Evaluation: 40 + 10 = 50 (or per class scheme)
   term2: AssessmentTerm;       // 2nd Summative Evaluation: 40 + 10 = 50
   term3: AssessmentTerm;       // 3rd Summative Evaluation: 90 + 10 = 100
   overallTotal: number;        // Out of 200
   percentage: number;          // Out of 100%
   grade: string;               // AA, A+, A, B+, B, C, D
-  highestMarksInClass?: number | ""; // Out of 200
+  highestMarksInClass?: number | ""; // Highest in class / 1st boy marks comparison
 }
 
 export interface MarksheetData {
-  academicYear: string;        // "2025" / "2026"
+  academicYear: string;        // "2026"
   studentName: string;
-  studentClass: string;        // "IX"
-  section: string;             // "A"
+  studentClass: string;        // "IX", "V", "VI", etc.
+  section?: string;            // Optional
   rollNo: string;              // "01"
   studentId: string;           // "MHS-2026-0036"
   registrationNo?: string;
@@ -38,7 +43,7 @@ export interface MarksheetData {
   issueDate: string;
   promotionStatus: "PROMOTED" | "PASSED" | "DETAINED" | "ELIGIBLE";
   promotedToClass: string;
-  classRank?: string;          // e.g. "1st", "2nd", "3rd"
+  classRank?: string;          // e.g. "1st", "2nd", "3rd", "10th"
   attendanceDays?: number;
   totalWorkingDays?: number;
 }
@@ -49,6 +54,9 @@ export interface GradeScaleEntry {
   remarks: string;
 }
 
+/**
+ * Official WBBSE 7-Tier Evaluation Grading Scale
+ */
 export const WBBSE_GRADE_SCALE: GradeScaleEntry[] = [
   { range: "90% – 100%", grade: "AA", remarks: "Outstanding" },
   { range: "80% – 89%", grade: "A+", remarks: "Excellent" },
@@ -70,6 +78,105 @@ export function getWBBSEGrade(percentage: number): string {
   if (percentage >= 35) return "B";
   if (percentage >= 25) return "C";
   return "D";
+}
+
+/**
+ * Normalizes subject names across various spellings, abbreviations, and language keys
+ */
+export function normalizeSubjectName(raw: string): string {
+  if (!raw) return "";
+  const s = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (s.includes("bengali") || s === "ben" || s === "fl" || s.includes("firstlanguage") || s === "beng") return "Bengali";
+  if (s.includes("english") || s === "eng" || s === "sl" || s.includes("secondlanguage")) return "English";
+  if (s.includes("sanskrit") || s === "sans" || s.includes("thirdlanguage")) return "Sanskrit (3rd Language)";
+  if (s.includes("math") || s === "mat") return "Mathematics";
+  if (s.includes("physic") || s === "psc" || s.includes("physicalsc")) return "Physical Science";
+  if (s.includes("lifesc") || s.includes("bio") || s === "lsc" || s.includes("lifescience")) return "Life Science";
+  if (s.includes("history") || s === "his" || s === "hist") return "History";
+  if (s.includes("geography") || s === "geo" || s === "geog") return "Geography";
+  if (s.includes("environ") || s.includes("paribesh") || s === "evs") return "Our Environment";
+  if (s.includes("science") && !s.includes("life") && !s.includes("physical")) return "Environment & Science";
+  if (s.includes("health") || s === "pe" || s.includes("physicaled") || s === "hp") return "Health & Physical Education";
+  if (s.includes("art") || s.includes("work") || s.includes("supw")) return "Art & Work Education";
+  return raw;
+}
+
+/**
+ * Resolves the configuration scheme for a class
+ */
+export function getClassScheme(className?: string): ClassMarksScheme {
+  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
+  const digitMap: Record<string, string> = {
+    "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
+  };
+  const standardKey = digitMap[raw] || raw;
+  const schemes = typeof window !== "undefined" ? getSavedMarksSchemes() : DEFAULT_MARKS_SCHEMES;
+  const matched = schemes.find(
+    (s) => s.classCode.toUpperCase() === standardKey || s.className.toUpperCase().includes(standardKey)
+  );
+  if (matched) return matched;
+  return DEFAULT_MARKS_SCHEMES.find((s) => s.classCode === standardKey) || DEFAULT_MARKS_SCHEMES[4]; // Fallback to Class IX
+}
+
+/**
+ * Resolves standard curriculum subject names by class dynamically
+ * - Class V: 5 subjects
+ * - Class VI: 7 subjects
+ * - Class VII & VIII: 8 subjects
+ * - Class IX & X: 7 subjects
+ * - Class XI & XII: 5 or 6 subjects
+ */
+export function getStandardSubjectsForClass(className?: string): string[] {
+  const scheme = getClassScheme(className);
+  if (scheme.subjects && scheme.subjects.length > 0) {
+    return scheme.subjects;
+  }
+
+  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
+  if (raw === "V" || raw === "5") {
+    return [
+      "Bengali",
+      "English",
+      "Mathematics",
+      "Our Environment",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "VI" || raw === "6") {
+    return [
+      "Bengali",
+      "English",
+      "Mathematics",
+      "Environment & Science",
+      "Environment & History",
+      "Environment & Geography",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "VII" || raw === "7" || raw === "VIII" || raw === "8") {
+    return [
+      "Bengali",
+      "English",
+      "Sanskrit (3rd Language)",
+      "Mathematics",
+      "Environment & Science",
+      "History",
+      "Geography",
+      "Health & Physical Education",
+    ];
+  }
+  if (raw === "XI" || raw === "11" || raw === "XII" || raw === "12") {
+    return [
+      "Bengali",
+      "English",
+      "Physics",
+      "Chemistry",
+      "Mathematics",
+      "Biological Sciences",
+    ];
+  }
+
+  return DEFAULT_CLASS_IX_SUBJECTS.map((s) => s.subjectName);
 }
 
 /**
@@ -190,110 +297,6 @@ export const DEFAULT_CLASS_IX_SUBJECTS: SubjectMarksheetRow[] = [
   },
 ];
 
-import {
-  getSavedMarksSchemes,
-  DEFAULT_MARKS_SCHEMES,
-  ClassMarksScheme,
-} from "@/lib/utils/marks-config";
-
-/**
- * Normalizes subject names across various spellings and abbreviations
- */
-export function normalizeSubjectName(raw: string): string {
-  if (!raw) return "";
-  const s = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (s.includes("bengali") || s === "ben" || s === "fl" || s.includes("firstlanguage")) return "Bengali";
-  if (s.includes("english") || s === "eng" || s === "sl" || s.includes("secondlanguage")) return "English";
-  if (s.includes("sanskrit") || s === "sans" || s.includes("thirdlanguage")) return "Sanskrit (3rd Language)";
-  if (s.includes("math") || s === "mat") return "Mathematics";
-  if (s.includes("physic") || s === "psc" || s.includes("physicalsc")) return "Physical Science";
-  if (s.includes("lifesc") || s.includes("bio") || s === "lsc" || s.includes("lifescience")) return "Life Science";
-  if (s.includes("history") || s === "his" || s === "hist") return "History";
-  if (s.includes("geography") || s === "geo" || s === "geog") return "Geography";
-  if (s.includes("environ") || s.includes("paribesh") || s === "evs") return "Our Environment";
-  if (s.includes("science") && !s.includes("life") && !s.includes("physical")) return "Environment & Science";
-  if (s.includes("health") || s === "pe" || s.includes("physicaled") || s === "hp") return "Health & Physical Education";
-  if (s.includes("art") || s.includes("work") || s.includes("supw")) return "Art & Work Education";
-  return raw;
-}
-
-/**
- * Resolves the configuration scheme for a class
- */
-export function getClassScheme(className?: string): ClassMarksScheme {
-  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
-  const digitMap: Record<string, string> = {
-    "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
-  };
-  const standardKey = digitMap[raw] || raw;
-  const schemes = typeof window !== "undefined" ? getSavedMarksSchemes() : DEFAULT_MARKS_SCHEMES;
-  const matched = schemes.find(
-    (s) => s.classCode.toUpperCase() === standardKey || s.className.toUpperCase().includes(standardKey)
-  );
-  if (matched) return matched;
-  return DEFAULT_MARKS_SCHEMES.find((s) => s.classCode === standardKey) || DEFAULT_MARKS_SCHEMES[4]; // Fallback to Class IX
-}
-
-/**
- * Resolves standard curriculum subject names by class dynamically
- * Class V: 5 subjects
- * Class VI: 7 subjects
- * Class VII & VIII: 8 subjects
- * Class IX & X: 7 subjects
- * Class XI & XII: 5 or 6 subjects
- */
-export function getStandardSubjectsForClass(className?: string): string[] {
-  const scheme = getClassScheme(className);
-  if (scheme.subjects && scheme.subjects.length > 0) {
-    return scheme.subjects;
-  }
-
-  const raw = (className || "IX").toUpperCase().trim().replace(/^CLASS\s+/i, "");
-  if (raw === "V" || raw === "5") {
-    return [
-      "Bengali",
-      "English",
-      "Mathematics",
-      "Our Environment",
-      "Health & Physical Education",
-    ];
-  }
-  if (raw === "VI" || raw === "6") {
-    return [
-      "Bengali",
-      "English",
-      "Mathematics",
-      "Environment & Science",
-      "Environment & History",
-      "Environment & Geography",
-      "Health & Physical Education",
-    ];
-  }
-  if (raw === "VII" || raw === "7" || raw === "VIII" || raw === "8") {
-    return [
-      "Bengali",
-      "English",
-      "Sanskrit (3rd Language)",
-      "Mathematics",
-      "Environment & Science",
-      "History",
-      "Geography",
-      "Health & Physical Education",
-    ];
-  }
-  if (raw === "XI" || raw === "11" || raw === "XII" || raw === "12") {
-    return [
-      "Bengali",
-      "English",
-      "Physics",
-      "Chemistry",
-      "Mathematics",
-    ];
-  }
-
-  return DEFAULT_CLASS_IX_SUBJECTS.map((s) => s.subjectName);
-}
-
 /**
  * Generates realistic sample subject marks for any class (5, 7, 8, etc. subjects)
  */
@@ -329,7 +332,49 @@ export function getSampleSubjectsForClass(className?: string): SubjectMarksheetR
 }
 
 /**
+ * Summary totals across all subjects
+ */
+export interface MarksheetGrandTotals {
+  maxPossibleMarks: number;
+  totalMarksObtained: number;
+  overallPercentage: number;
+  overallGrade: string;
+  highestTotalInClass: number;
+  resultStatus: "PROMOTED" | "PASSED" | "DETAINED";
+}
+
+export function calculateMarksheetTotals(
+  subjects: SubjectMarksheetRow[],
+  subjectMax: number = 200
+): MarksheetGrandTotals {
+  const count = subjects.length || 7;
+  const maxPossibleMarks = count * (subjectMax > 0 ? subjectMax : 200);
+
+  const totalMarksObtained = subjects.reduce((sum, row) => sum + (row.overallTotal || 0), 0);
+  const highestTotalInClass = subjects.reduce((sum, row) => sum + (Number(row.highestMarksInClass) || 0), 0);
+
+  const overallPercentage = maxPossibleMarks > 0
+    ? Math.round(((totalMarksObtained / maxPossibleMarks) * 100) * 10) / 10
+    : 0;
+
+  const overallGrade = overallPercentage > 0 ? getWBBSEGrade(overallPercentage) : "";
+
+  // RTE Promotion rule: 25% minimum or passing grade C
+  const resultStatus = overallPercentage >= 25 ? "PROMOTED" : "DETAINED";
+
+  return {
+    maxPossibleMarks,
+    totalMarksObtained,
+    overallPercentage,
+    overallGrade,
+    highestTotalInClass,
+    resultStatus,
+  };
+}
+
+/**
  * Automatically transforms database result records for a student into complete marksheet subject rows
+ * and calculates highest marks in class per subject
  */
 export function buildMarksheetFromDBResults(
   studentResults: StudentResult[],
@@ -381,7 +426,7 @@ export function buildMarksheetFromDBResults(
 
   const subjectList = Array.from(subjectSet);
 
-  // Compute highest marks per subject in class if classSummary is provided
+  // Compute highest marks per subject in class (First Boy comparison)
   const highestMarksMap = new Map<string, number>();
   if (classSummary?.results) {
     for (const res of classSummary.results) {
@@ -429,7 +474,6 @@ export function buildMarksheetFromDBResults(
     const num = Number(rawVal);
     if (isNaN(num)) return { periodic: "", preparatory: "", total: 0 };
 
-    // Standard WBBSE distribution: if single combined mark provided
     const capped = Math.min(maxCap, num);
     return { periodic: capped, preparatory: 0, total: capped };
   }
@@ -463,9 +507,6 @@ export function buildMarksheetFromDBResults(
   if (bestRankResult?.rankInClass && bestRankResult.rankInClass > 0) {
     const r = bestRankResult.rankInClass;
     classRankStr = r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`;
-  } else if (bestRankResult?.rankInSection && bestRankResult.rankInSection > 0) {
-    const r = bestRankResult.rankInSection;
-    classRankStr = r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`;
   } else {
     const rollNum = Number(student.presentRoll);
     if (!isNaN(rollNum) && rollNum > 0) {
@@ -495,62 +536,3 @@ export function buildMarksheetFromDBResults(
     promotedToClass: promotedTo,
   };
 }
-
-/**
- * Creates blank subject rows for data entry
- */
-export function createBlankSubjectRows(subjects: string[]): SubjectMarksheetRow[] {
-  return subjects.map((name, idx) => ({
-    id: `sub-${idx + 1}`,
-    subjectName: name,
-    term1: { periodic: "", preparatory: "", total: 0 },
-    term2: { periodic: "", preparatory: "", total: 0 },
-    term3: { periodic: "", preparatory: "", total: 0 },
-    overallTotal: 0,
-    percentage: 0,
-    grade: "",
-    highestMarksInClass: "",
-  }));
-}
-
-/**
- * Summary totals across all subjects
- */
-export interface MarksheetGrandTotals {
-  maxPossibleMarks: number;
-  totalMarksObtained: number;
-  overallPercentage: number;
-  overallGrade: string;
-  highestTotalInClass: number;
-  resultStatus: "PROMOTED" | "PASSED" | "DETAINED";
-}
-
-export function calculateMarksheetTotals(
-  subjects: SubjectMarksheetRow[],
-  subjectMax: number = 200
-): MarksheetGrandTotals {
-  const count = subjects.length || 7;
-  const maxPossibleMarks = count * (subjectMax > 0 ? subjectMax : 200);
-
-  const totalMarksObtained = subjects.reduce((sum, row) => sum + (row.overallTotal || 0), 0);
-  const highestTotalInClass = subjects.reduce((sum, row) => sum + (Number(row.highestMarksInClass) || 0), 0);
-
-  const overallPercentage = maxPossibleMarks > 0
-    ? Math.round(((totalMarksObtained / maxPossibleMarks) * 100) * 10) / 10
-    : 0;
-
-  const overallGrade = overallPercentage > 0 ? getWBBSEGrade(overallPercentage) : "";
-
-  // RTE Promotion rule: 25% minimum or passing grade C
-  const resultStatus = overallPercentage >= 25 ? "PROMOTED" : "DETAINED";
-
-  return {
-    maxPossibleMarks,
-    totalMarksObtained,
-    overallPercentage,
-    overallGrade,
-    highestTotalInClass,
-    resultStatus,
-  };
-}
-

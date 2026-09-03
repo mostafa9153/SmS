@@ -29,7 +29,7 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
   const subjectMax = t1TotalMax + t2TotalMax + t3TotalMax || 200;
   const totals = calculateMarksheetTotals(data.subjects, subjectMax);
 
-  // Dynamic row padding and font sizing based on subject count for spacious breathing room
+  // Dynamic row padding and font sizing based on subject count
   const rowPad =
     data.subjects.length <= 5
       ? "py-2"
@@ -127,39 +127,32 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             </div>
           </div>
 
-          {/* Student Info Strip */}
-          <div className="flex justify-between items-baseline text-[11.5px] my-1.5 px-1 gap-3 font-serif">
-            <div className="flex items-baseline gap-1.5 min-w-[260px]">
+          {/* Student Info Strip (Clean 4-Item Format: Name, Class, Roll No, Student ID) */}
+          <div className="flex justify-between items-baseline text-[12px] my-1.5 px-1 gap-4 font-serif">
+            <div className="flex items-baseline gap-1.5 min-w-[320px] flex-1">
               <span className="font-bold text-[#14206b] whitespace-nowrap">Name of the Student:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 flex-1 text-left min-w-[160px] text-[12.5px] text-neutral-900 uppercase">
+              <span className="font-extrabold border-b border-[#111] px-2 flex-1 text-left text-[13px] text-neutral-900 uppercase">
                 {data.studentName || "Synthia Sanam"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Class:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 text-center min-w-[40px] text-[12px] text-neutral-900">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12.5px] text-neutral-900">
                 {data.studentClass || "IX"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
-              <span className="font-bold text-[#14206b]">Section:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 text-center min-w-[32px] text-[12px] text-neutral-900">
-                {data.section || "A"}
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Roll No.:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 text-center min-w-[40px] text-[12px] text-neutral-900 font-mono">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[50px] text-[12.5px] text-neutral-900 font-mono">
                 {data.rollNo || "01"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-1.5">
               <span className="font-bold text-[#14206b]">Student ID:</span>
-              <span className="font-extrabold border-b border-[#111] px-2 text-center min-w-[120px] text-[11.5px] text-neutral-900 font-mono">
+              <span className="font-extrabold border-b border-[#111] px-3 text-center min-w-[130px] text-[12px] text-neutral-900 font-mono">
                 {data.studentId || "MHS-2026-0036"}
               </span>
             </div>
@@ -167,7 +160,7 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
         </div>
 
         {/* =================================================================== */}
-        {/* 2. MARKS EVALUATION TABLE (SPACIOUS ROW PADDING)                     */}
+        {/* 2. MARKS EVALUATION TABLE (SPACIOUS ROW PADDING & TOPPER COMPARISON) */}
         {/* =================================================================== */}
         <table className="w-full border-collapse border border-[#14206b] my-1 text-[9.5px]">
           <thead>
@@ -266,7 +259,9 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                   <td className={`border border-[#14206b] ${rowPad} font-extrabold ${isFailingSubject ? "text-red-600 bg-red-50" : "text-[#14206b]"}`}>
                     {sub.grade || (sub.percentage < 25 ? "D" : "")}
                   </td>
-                  <td className={`border border-[#14206b] ${rowPad} font-mono`}>{sub.highestMarksInClass}</td>
+                  <td className={`border border-[#14206b] ${rowPad} font-mono font-semibold text-[#14206b]`}>
+                    {sub.highestMarksInClass}
+                  </td>
                 </tr>
               );
             })}

@@ -86,7 +86,7 @@ export default function StudentsClient() {
                   <span>Class {filters.class} Invoices</span>
                 </Link>
                 <Link
-                  href={`/generate/marksheet?mode=bulk&class=${encodeURIComponent(filters.class)}${filters.section ? `&section=${encodeURIComponent(filters.section)}` : ""}`}
+                  href={`/generate/marksheet?mode=bulk&class=${encodeURIComponent(filters.class)}`}
                   className="flex items-center gap-1 rounded-xl border bg-card px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
                   title={`Generate bulk marksheets for Class ${filters.class}`}
                 >

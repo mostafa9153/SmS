@@ -1223,8 +1223,8 @@ function InvoiceGeneratorContent() {
           }
 
           @page {
-            size: A5 landscape !important;
-            margin: 0mm !important;
+            size: 210mm 148mm;
+            margin: 0;
           }
 
           html,
