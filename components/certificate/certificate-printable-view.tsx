@@ -75,25 +75,25 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
       <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-[#14206b] pointer-events-none" />
       <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-[#14206b] pointer-events-none" />
 
-      {/* Background Institutional Watermark */}
+      {/* Background Institutional Watermark with 0.12 intensity */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/school-logo.png"
           alt="School Watermark"
-          className="w-48 h-48 object-contain opacity-[0.045] grayscale"
+          className="w-56 h-56 object-contain opacity-[0.12] grayscale"
         />
       </div>
 
       {/* CONTENT WRAPPER */}
       <div className="relative z-10 flex flex-col justify-between h-full">
         {/* =================================================================== */}
-        {/* 1. INSTITUTIONAL HEADER                                             */}
+        {/* 1. INSTITUTIONAL HEADER (LOWERED & PERFECTLY FITTED CREST)          */}
         {/* =================================================================== */}
-        <div className="border-b-2 border-[#14206b] pb-2">
-          <div className="flex items-center justify-between gap-2.5">
-            {/* School Crest */}
-            <div className="w-12 h-12 shrink-0">
+        <div className="border-b-2 border-[#14206b] pt-3 pb-2.5 mt-0.5">
+          <div className="flex items-center justify-between gap-3.5">
+            {/* School Crest - Fits full header text height */}
+            <div className="w-[78px] h-[78px] shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/school-logo.png"
@@ -103,24 +103,24 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
             </div>
 
             {/* School Headings */}
-            <div className="text-center flex-1">
-              <h1 className="text-[14.5px] font-extrabold tracking-tight uppercase text-[#14206b] font-serif leading-tight">
+            <div className="text-center flex-1 space-y-1">
+              <h1 className="text-[20px] font-black tracking-normal uppercase text-[#14206b] font-serif leading-none">
                 MARIGACHI HIGH SCHOOL (H.S.)
               </h1>
-              <p className="text-[9px] font-semibold text-slate-700 tracking-wide mt-0.5">
+              <p className="text-[10.5px] font-bold text-slate-700 tracking-wide pt-0.5">
                 (Co-Educational &bull; Established 1966 &bull; Govt. Sponsored)
               </p>
-              <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
+              <p className="text-[9.5px] text-slate-600 leading-tight pt-0.5">
                 Vill. &amp; P.O.: Kharigachi, P.S.: Diamond Harbour, Dist.: South 24 Parganas, PIN: 743368
               </p>
-              <p className="text-[7.5px] font-mono text-slate-500 mt-0.5">
+              <p className="text-[8.5px] font-mono text-slate-500 pt-0.5">
                 Index: C2-121 &bull; H.S. Code: 102298 &bull; UDISE: 19180201004 &bull; Phone: (03174) 211-926
               </p>
             </div>
 
             {/* Symmetry seal badge */}
-            <div className="w-11 h-11 shrink-0 flex items-center justify-center">
-              <div className="w-full h-full rounded-full border border-dashed border-[#14206b]/40 flex items-center justify-center text-[7px] font-sans font-semibold text-slate-400 uppercase text-center p-0.5 leading-none">
+            <div className="w-[74px] h-[74px] shrink-0 flex items-center justify-center">
+              <div className="w-full h-full rounded-full border border-dashed border-[#14206b]/40 flex items-center justify-center text-[8.5px] font-sans font-semibold text-slate-400 uppercase text-center p-1 leading-tight">
                 Official Seal
               </div>
             </div>
@@ -131,7 +131,7 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
         {/* 2. CERTIFICATE TITLE & REF NO                                       */}
         {/* =================================================================== */}
         <div className="text-center py-1.5 space-y-1">
-          <div className="text-[9.5px] font-mono flex items-center justify-between px-1 text-slate-700">
+          <div className="text-[10.5px] font-mono flex items-center justify-between px-2 text-slate-700">
             <div>
               <span className="font-semibold text-slate-500">Ref. No.: </span>
               <span className="font-bold text-slate-900">{data.certificateNo || "MHS/CC/2026/0001"}</span>
@@ -144,20 +144,20 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
 
           <div className="pt-0.5">
             <div className="inline-block relative">
-              <h2 className="text-[13.5px] px-5 py-0.5 border-b-[2px] border-t-[2px] font-bold uppercase tracking-wider text-[#14206b] border-[#14206b]">
+              <h2 className="text-[14.5px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#14206b] border-[#14206b]">
                 CHARACTER CERTIFICATE
               </h2>
             </div>
-            <p className="text-[8px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
+            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
               To Whomsoever It May Concern
             </p>
           </div>
         </div>
 
         {/* =================================================================== */}
-        {/* 3. CERTIFICATE BODY (BALANCED, LEGIBLE & LUXURIOUS)                 */}
+        {/* 3. CERTIFICATE BODY (LARGER TEXT WITH LUXURIOUS SIDE MARGINS)       */}
         {/* =================================================================== */}
-        <div className="space-y-2.5 text-[11.5px] leading-[1.8] text-slate-800 text-justify px-1 font-serif my-auto">
+        <div className="space-y-2.5 text-[13px] leading-[1.85] text-slate-800 text-justify px-4 sm:px-5 font-serif my-auto">
           <p>
             This is to certify that{" "}
             <span className="font-extrabold uppercase text-[#14206b] border-b border-dotted border-slate-700 px-0.5">{data.studentName || "________________________"}</span>, {childOf}{" "}
@@ -174,7 +174,7 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
             <span className="font-bold text-[#14206b]">{examTitle}</span> conducted by the{" "}
             <span className="font-semibold text-slate-900">{examBoard}</span> in the year{" "}
             <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">
-              {data.passingYear || "2024"}
+              {data.passingYear || "2026"}
             </span>
             {data.boardRollNo ? (
               <>
@@ -195,14 +195,14 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
 
           <p>
             To the best of my knowledge, personal observation, and official school records, {pronounSubject.toLowerCase()}{" "}
-            bears an <span className="font-bold text-slate-950">{data.conduct || "exemplary moral character"}</span> and
+            bears an <span className="font-bold text-slate-950">{data.conduct || "good moral character"}</span> and
             upright conduct during {pronounPossessive} tenure at this school. {pronounSubject} was obedient, sincere,
             energetic, and took an active interest in institutional activities.
           </p>
 
           <p>
             {data.remarks ||
-              `I wish ${pronounObject} every success, prosperity, and fulfillment in all ${pronounPossessive} future academic and life endeavors.`}
+              `I wish ${pronounObject} every success, prosperity, and fulfillment in all ${pronounPossessive} future academic and personal endeavors.`}
           </p>
         </div>
 
@@ -210,23 +210,23 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
         {/* 4. FOOTER & SIGNATURES (SOLIDLY ANCHORED)                           */}
         {/* =================================================================== */}
         <div className="pt-2 border-t border-slate-300 mt-auto">
-          <div className="flex items-end justify-between px-1">
+          <div className="flex items-end justify-between px-2">
             {/* Left: Prepared by */}
             <div className="text-left space-y-0.5">
               <div className="h-6 flex items-end">
                 <span className="w-24 border-b border-slate-400 inline-block" />
               </div>
-              <p className="text-[9.5px] font-bold text-slate-900 uppercase">
-                Prepared By
+              <p className="text-[10.5px] font-bold text-slate-900 uppercase">
+                PREPARED BY
               </p>
-              <p className="text-[7.5px] text-slate-500 font-sans">
+              <p className="text-[8.5px] text-slate-500 font-sans">
                 Office Staff
               </p>
             </div>
 
             {/* Middle: Round Seal */}
             <div className="text-center pb-0.5">
-              <div className="w-13 h-13 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[7px] text-slate-400 uppercase text-center p-1 leading-tight">
+              <div className="w-14 h-14 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[8px] text-slate-400 uppercase text-center p-1 leading-tight">
                 Institutional Seal
               </div>
             </div>
@@ -241,13 +241,13 @@ export function CertificatePrintableView({ data }: CertificatePrintableViewProps
                   className="max-h-7 object-contain select-none"
                 />
               </div>
-              <p className="text-[10px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
-                {data.headmasterTitle || "Teacher-in-Charge / Headmaster"}
+              <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
+                {data.headmasterTitle || "TEACHER-IN-CHARGE / HEADMASTER"}
               </p>
-              <p className="text-[8.5px] font-medium text-slate-700 leading-tight">
+              <p className="text-[9.5px] font-medium text-slate-700 leading-tight">
                 Marigachi High School (H.S.)
               </p>
-              <p className="text-[7.5px] text-slate-500 font-sans leading-tight">
+              <p className="text-[8.5px] text-slate-500 font-sans leading-tight">
                 Diamond Harbour, South 24 Pgs
               </p>
             </div>

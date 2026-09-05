@@ -61,7 +61,7 @@ function InvoiceGeneratorContent() {
     modeParam === "bulk" ? "bulk" : "single"
   );
 
-  const [copyType, setCopyType] = useState<"both" | "student" | "office">("both");
+  const [copyType, setCopyType] = useState<"both" | "student" | "school">("both");
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [autoDateTime, setAutoDateTime] = useState(true);
@@ -454,7 +454,7 @@ function InvoiceGeneratorContent() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Dual (Student + Office)
+              Dual (Student + School)
             </button>
             <button
               onClick={() => setCopyType("student")}
@@ -467,14 +467,14 @@ function InvoiceGeneratorContent() {
               Student Only
             </button>
             <button
-              onClick={() => setCopyType("office")}
+              onClick={() => setCopyType("school")}
               className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                copyType === "office"
+                copyType === "school"
                   ? "bg-background text-foreground shadow-2xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              Office Only
+              School Only
             </button>
           </div>
 
@@ -852,7 +852,7 @@ function InvoiceGeneratorContent() {
                 Live Invoice Preview (A5 Landscape Dual-Slip)
               </span>
               <span className="text-[11px] text-muted-foreground font-medium">
-                Click &apos;Print Invoice&apos; to print both Student &amp; Office copies
+                Click &apos;Print Invoice&apos; to print both Student &amp; School copies
               </span>
             </div>
 

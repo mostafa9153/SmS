@@ -162,31 +162,31 @@ export function TransferCertificatePrintableView({
       <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-[#1e3a8a] pointer-events-none" />
       <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-[#1e3a8a] pointer-events-none" />
 
-      {/* Faint Watermark */}
+      {/* Institutional Watermark with 0.12 intensity */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/school-logo.png"
           alt="School Watermark"
-          className="w-48 h-48 object-contain opacity-[0.04] grayscale"
+          className="w-56 h-56 object-contain opacity-[0.12] grayscale"
         />
       </div>
 
       {/* CONTENT WRAPPER */}
       <div className="relative z-10 flex flex-col justify-between h-full">
         {/* ================================================================= */}
-        {/* 1. TOP HEADER & METADATA                                          */}
+        {/* 1. TOP HEADER & METADATA (LARGE CREST & PROMINENT BRANDING)       */}
         {/* ================================================================= */}
-        <div className="border-b-2 border-[#1e3a8a] pb-1.5">
+        <div className="border-b-2 border-[#1e3a8a] pt-1 pb-1.5">
           {/* Top identifiers row: No. (Left) - Crest (Center) - Copy Type (Right) */}
-          <div className="flex items-center justify-between text-[9px] font-mono text-slate-700 px-1 mb-0.5">
+          <div className="flex items-center justify-between text-[10px] font-mono text-slate-700 px-2 mb-1">
             <div>
               <span className="font-semibold text-slate-500">No.- </span>
               <strong className="text-slate-900 font-bold">{data.certificateNo || "MHS/TC/2026/0001"}</strong>
             </div>
 
-            {/* School Crest Centered */}
-            <div className="w-9 h-9 shrink-0 mx-auto">
+            {/* School Crest Centered - Enlarged */}
+            <div className="w-16 h-16 shrink-0 mx-auto">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/school-logo.png"
@@ -196,24 +196,24 @@ export function TransferCertificatePrintableView({
             </div>
 
             <div className="text-right">
-              <span className="inline-block border border-slate-700 bg-slate-100 text-slate-900 font-bold text-[8px] uppercase px-1.5 py-0.5 rounded font-sans">
+              <span className="inline-block border border-slate-700 bg-slate-100 text-slate-900 font-bold text-[9px] uppercase px-2 py-0.5 rounded font-sans">
                 [{data.copyType || "Original"}]
               </span>
             </div>
           </div>
 
           {/* School Name & Official Details */}
-          <div className="text-center mt-0.5">
-            <h1 className="text-[14.5px] font-black tracking-tight uppercase text-[#1e3a8a] font-serif leading-tight">
+          <div className="text-center space-y-0.5">
+            <h1 className="text-[19px] font-black tracking-normal uppercase text-[#1e3a8a] font-serif leading-none">
               MARIGACHI HIGH SCHOOL
             </h1>
-            <p className="text-[8.5px] font-semibold text-slate-700 leading-tight">
+            <p className="text-[10px] font-bold text-slate-700 leading-tight pt-1">
               (Co-Educational) &nbsp;&bull;&nbsp; (Govt. Aided)
             </p>
-            <p className="text-[7.5px] text-slate-600 leading-tight mt-0.5">
+            <p className="text-[9px] text-slate-600 leading-tight pt-0.5">
               Marigachi, Diamond Harbour, S. 24 Parganas, PIN &ndash; 743368 &bull; Mob &ndash; 9800971797
             </p>
-            <p className="text-[7px] font-mono text-slate-500 leading-tight mt-0.5">
+            <p className="text-[8.5px] font-mono text-slate-500 leading-tight pt-0.5">
               Index No. C2-121 &bull; H.S. Code &ndash; 102298 &bull; email &ndash; marigachihighschool@gmail.com
             </p>
           </div>
@@ -222,21 +222,21 @@ export function TransferCertificatePrintableView({
         {/* ================================================================= */}
         {/* 2. TITLE BANNER                                                   */}
         {/* ================================================================= */}
-        <div className="text-center py-1">
+        <div className="text-center py-1.5">
           <div className="inline-block relative">
-            <h2 className="text-[13px] px-5 py-0.5 border-b-[2px] border-t-[2px] font-bold uppercase tracking-wider text-[#1e3a8a] border-[#1e3a8a]">
+            <h2 className="text-[14px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#1e3a8a] border-[#1e3a8a]">
               TRANSFER CERTIFICATE
             </h2>
           </div>
-          <p className="text-[8.5px] uppercase tracking-widest text-slate-600 font-sans font-bold mt-0.5">
+          <p className="text-[9px] uppercase tracking-widest text-slate-600 font-sans font-bold mt-0.5">
             [BONAFIDE CERTIFICATE]
           </p>
         </div>
 
         {/* ================================================================= */}
-        {/* 3. CERTIFICATE BODY TEXT (LEGIBLE, BALANCED & AIRY)               */}
+        {/* 3. CERTIFICATE BODY TEXT (LARGER FONT & LUXURIOUS SIDE MARGINS)   */}
         {/* ================================================================= */}
-        <div className="space-y-2 text-[11px] leading-[1.75] text-slate-800 text-justify px-1 font-serif my-auto">
+        <div className="space-y-2 text-[12px] leading-[1.8] text-slate-800 text-justify px-4 sm:px-5 font-serif my-auto">
           {/* Paragraph 1: Certification, parentage, address & date of leaving */}
           <p>
             Certified that{" "}
@@ -284,12 +284,12 @@ export function TransferCertificatePrintableView({
 
           <p>
             Character :{" "}
-            <span className="font-bold text-slate-950 uppercase tracking-wide border-b border-dotted border-slate-700 px-1">{data.conduct || "Good"}</span>.
+            <span className="font-bold text-slate-950 uppercase tracking-wide border-b border-dotted border-slate-700 px-1">{data.conduct || "GOOD"}</span>.
           </p>
 
           {/* Paragraph 5: Reasons for Leaving (Numbered List with active selection) */}
-          <div className="pt-0.5 space-y-0.5 text-[9.5px]">
-            <span className="font-bold text-slate-900 block text-[10px]">Reasons for Leaving :</span>
+          <div className="pt-0.5 space-y-0.5 text-[10.5px]">
+            <span className="font-bold text-slate-900 block text-[11px]">Reasons for Leaving :</span>
             <div className="grid grid-cols-1 pl-2 space-y-0.5">
               {LEAVING_REASONS.map((reason, idx) => {
                 const isSelected = data.selectedReasonIndex === idx + 1;
@@ -298,11 +298,11 @@ export function TransferCertificatePrintableView({
                     key={idx}
                     className={`flex items-center gap-1.5 ${
                       isSelected
-                        ? "font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1 rounded"
+                        ? "font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1.5 py-0.5 rounded"
                         : "text-slate-600"
                     }`}
                   >
-                    <span className="font-mono text-[9px] w-3 shrink-0">
+                    <span className="font-mono text-[10px] w-3.5 shrink-0">
                       {isSelected ? "✔" : `${idx + 1}.`}
                     </span>
                     <span className={isSelected ? "underline decoration-dotted" : ""}>
@@ -312,8 +312,8 @@ export function TransferCertificatePrintableView({
                 );
               })}
               {data.selectedReasonIndex === 0 && data.customReason && (
-                <div className="flex items-center gap-1.5 font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1 rounded">
-                  <span className="font-mono text-[9px] w-3 shrink-0">✔</span>
+                <div className="flex items-center gap-1.5 font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1.5 py-0.5 rounded">
+                  <span className="font-mono text-[10px] w-3.5 shrink-0">✔</span>
                   <span>{data.customReason}</span>
                 </div>
               )}
@@ -325,20 +325,20 @@ export function TransferCertificatePrintableView({
         {/* 4. FOOTER SIGNATURES & OFFICIAL SEAL                              */}
         {/* ================================================================= */}
         <div className="pt-1.5 border-t border-slate-300 mt-auto">
-          <div className="flex items-end justify-between px-1">
+          <div className="flex items-end justify-between px-2">
             {/* Left: Issue Date */}
             <div className="text-left space-y-0.5 pb-0.5">
-              <p className="text-[10px] font-bold text-slate-900">
+              <p className="text-[11px] font-bold text-slate-900">
                 Date : <span className="font-mono font-semibold">{data.issueDate}</span>
               </p>
-              <p className="text-[7.5px] text-slate-500 font-sans">
+              <p className="text-[8.5px] text-slate-500 font-sans">
                 Office of Marigachi High School
               </p>
             </div>
 
             {/* Middle: Round Seal */}
             <div className="text-center pb-0.5">
-              <div className="w-13 h-13 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[7px] text-slate-400 uppercase text-center p-1 leading-tight">
+              <div className="w-14 h-14 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[8px] text-slate-400 uppercase text-center p-1 leading-tight">
                 Institutional Seal
               </div>
             </div>
@@ -353,13 +353,13 @@ export function TransferCertificatePrintableView({
                   className="max-h-7 object-contain select-none"
                 />
               </div>
-              <p className="text-[10px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
-                {data.hoiTitle || "Signature of HOI"}
+              <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
+                {data.hoiTitle || "SIGNATURE OF HOI"}
               </p>
-              <p className="text-[8px] font-medium text-slate-700 leading-tight">
+              <p className="text-[9.5px] font-medium text-slate-700 leading-tight">
                 Marigachi High School (H.S.)
               </p>
-              <p className="text-[7px] text-slate-500 font-sans leading-tight">
+              <p className="text-[8.5px] text-slate-500 font-sans leading-tight">
                 Diamond Harbour, South 24 Pgs
               </p>
             </div>

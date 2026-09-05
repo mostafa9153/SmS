@@ -78,6 +78,7 @@ const navItems: NavItem[] = [
     icon: <Sparkles className="h-4 w-4" />,
     iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
     children: [
+      { label: "Admission Form", href: "/generate/admission-form" },
       { label: "Admission Invoice", href: "/generate/invoice" },
       { label: "CCE Marksheet", href: "/generate/marksheet" },
       { label: "Character Certificate", href: "/generate/certificate" },
