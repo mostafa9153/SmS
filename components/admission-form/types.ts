@@ -229,7 +229,7 @@ export const BLANK_FORM_XI: AdmissionFormXIData = {
   officeUse: {
     doa: "",
     slNo: "",
-    class: "XI",
+    class: "",
     sec: "",
     rollNo: "",
   },
