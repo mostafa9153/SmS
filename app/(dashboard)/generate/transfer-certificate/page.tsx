@@ -29,6 +29,7 @@ import {
   FileText,
   FileSpreadsheet,
 } from "lucide-react";
+import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -157,6 +158,22 @@ function TransferCertificateGeneratorContent() {
       certificateNo: `MHS/TC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
     }));
   }
+
+  // Load institutional head designation from saved school profile
+  useEffect(() => {
+    try {
+      const profile = getSavedSchoolProfile();
+      const title = getEffectiveHeadTitle(profile);
+      if (title) {
+        setCert((prev) => ({
+          ...prev,
+          hoiTitle: `Signature of ${title}`,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load school profile head title", e);
+    }
+  }, []);
 
   // Pre-load student from query param
   useEffect(() => {

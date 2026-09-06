@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   FileText,
 } from "lucide-react";
+import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 
 function CertificateGeneratorContent() {
   const router = useRouter();
@@ -136,6 +137,22 @@ function CertificateGeneratorContent() {
       remarks: `I wish ${pronounObject} every success, prosperity, and fulfillment in all ${pronounPossessive} future academic and personal endeavors.`,
     }));
   }
+
+  // Load institutional head designation from saved school profile
+  useEffect(() => {
+    try {
+      const profile = getSavedSchoolProfile();
+      const title = getEffectiveHeadTitle(profile);
+      if (title) {
+        setCert((prev) => ({
+          ...prev,
+          headmasterTitle: title,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load school profile head title", e);
+    }
+  }, []);
 
   // Pre-load student from query param
   useEffect(() => {

@@ -29,6 +29,7 @@ import {
   HeartHandshake,
   GraduationCap,
 } from "lucide-react";
+import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["A", "B", "C", "D"];
@@ -153,6 +154,22 @@ function KanyashreeCertificateGeneratorContent() {
       remarks: `${pronounSubject} is an honest, energetic, and sincere student bearing an exemplary moral character and disciplined conduct. I wish ${pronounObject} all success and empowerment in all future academic pursuits and career endeavors.`,
     }));
   }
+
+  // Load institutional head designation from saved school profile
+  useEffect(() => {
+    try {
+      const profile = getSavedSchoolProfile();
+      const title = getEffectiveHeadTitle(profile);
+      if (title) {
+        setCert((prev) => ({
+          ...prev,
+          headmasterTitle: title,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load school profile head title", e);
+    }
+  }, []);
 
   // Pre-load student from query param
   useEffect(() => {

@@ -345,14 +345,7 @@ export function TransferCertificatePrintableView({
 
             {/* Right: Signature of HOI */}
             <div className="text-center flex flex-col items-center">
-              <div className="h-8 w-28 flex items-end justify-center relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/hod-signature.png"
-                  alt="Signature of HOI"
-                  className="max-h-7 object-contain select-none"
-                />
-              </div>
+              <div className="h-8 w-28 flex items-end justify-center" />
               <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
                 {data.hoiTitle || "SIGNATURE OF HOI"}
               </p>

@@ -280,14 +280,7 @@ export function KanyashreeCertificatePrintableView({
 
             {/* Right: Headmaster Signature & Seal */}
             <div className="text-center flex flex-col items-center">
-              <div className="h-8 w-28 flex items-end justify-center relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/hod-signature.png"
-                  alt="Headmaster Signature"
-                  className="max-h-7 object-contain select-none"
-                />
-              </div>
+              <div className="h-8 w-28 flex items-end justify-center" />
               <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
                 {data.headmasterTitle || "TEACHER-IN-CHARGE / HEADMASTER"}
               </p>

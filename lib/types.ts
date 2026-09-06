@@ -24,7 +24,7 @@ export interface AcademicHistoryEntry {
 
 export interface Student {
   id: string;                    // Internal UUID / unique key
-  schoolId: string;              // Permanent school-issued ID — format: MHS/YYYY/NN/CLASS/SECTION/NNN
+  schoolId: string;              // Permanent school-issued ID — format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)
   name: string;
   pen?: string;                  // Permanent Education Number (govt)
   hasAadhaar?: boolean | string; // Aadhaar availability: Yes / No

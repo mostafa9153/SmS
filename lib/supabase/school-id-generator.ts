@@ -1,26 +1,44 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import {
+  SCHOOL_PREFIX,
+  formatRegisterNo,
+  formatRollNo,
+  buildSchoolId,
+} from "@/lib/utils/school-id";
 
-const SCHOOL_PREFIX = "MHS";
-const SESSION_CODE = "01";
+export {
+  SCHOOL_PREFIX,
+  formatRegisterNo,
+  formatRollNo,
+  buildSchoolId,
+};
 
 /**
  * Server-side atomic generator for unique permanent School IDs.
- * Format: MHS/YYYY/01/CLASS/SECTION/NNN
+ * Format: MHS/YYYY/REGISTER_NO/CLASS/SECTION/ROLL_NO
  * 
  * Example: MHS/2026/01/V/A/001
  */
 export async function generateSchoolId(
   admissionYear: number,
   presentClass: string,
-  presentSection: string
+  presentSection: string,
+  presentRoll?: number | string,
+  registerNo: number | string = 1
 ): Promise<string> {
   const supabase = await createServerClient();
   const yearStr = String(admissionYear || new Date().getFullYear());
   const classStr = (presentClass || "V").toUpperCase().trim();
   const sectionStr = (presentSection || "A").toUpperCase().trim();
+  const regFormatted = formatRegisterNo(registerNo);
 
-  // Pattern prefix: MHS/YYYY/01/CLASS/SECTION/
-  const prefix = `${SCHOOL_PREFIX}/${yearStr}/${SESSION_CODE}/${classStr}/${sectionStr}/`;
+  // If a valid roll number is provided, format and return directly
+  if (presentRoll !== undefined && presentRoll !== null && presentRoll !== "" && Number(presentRoll) > 0) {
+    return buildSchoolId(yearStr, regFormatted, classStr, sectionStr, presentRoll);
+  }
+
+  // Pattern prefix: MHS/YYYY/REG/CLASS/SECTION/
+  const prefix = `${SCHOOL_PREFIX}/${yearStr}/${regFormatted}/${classStr}/${sectionStr}/`;
 
   // 1. Try atomic database RPC function if installed
   try {
@@ -32,7 +50,7 @@ export async function generateSchoolId(
     // Fall back to query-based generation
   }
 
-  // 2. Resilient fallback query: Find all existing school_ids with this prefix to get the maximum serial
+  // 2. Resilient fallback query: Find all existing school_ids with this prefix to get the maximum serial/roll
   const { data, error } = await supabase
     .from("students")
     .select("school_id")
@@ -60,26 +78,32 @@ export async function generateSchoolId(
     }
   }
 
-  // Find the next available unallocated serial number
-  let nextSerial = maxSerial + 1;
-  while (existingSerials.has(nextSerial)) {
-    nextSerial++;
+  // Find the next available unallocated roll number
+  let nextRoll = maxSerial + 1;
+  while (existingSerials.has(nextRoll)) {
+    nextRoll++;
   }
 
-  const formattedSerial = String(nextSerial).padStart(3, "0");
-  return `${prefix}${formattedSerial}`;
+  const formattedRoll = formatRollNo(nextRoll);
+  return `${prefix}${formattedRoll}`;
 }
 
 /**
  * Batch generator to allocate N sequential school IDs safely in memory for bulk insert.
  */
 export async function generateBatchSchoolIds(
-  allocations: Array<{ admissionYear: number; presentClass: string; presentSection: string }>
+  allocations: Array<{ 
+    admissionYear: number; 
+    presentClass: string; 
+    presentSection: string;
+    presentRoll?: number | string;
+    registerNo?: number | string;
+  }>
 ): Promise<string[]> {
   const supabase = await createServerClient();
   const generatedIds: string[] = [];
 
-  // Group by (year, class, section) to calculate starting counters
+  // Group by (year, regNo, class, section) to calculate starting counters
   const groupCounters: Record<string, number> = {};
   const groupExisting: Record<string, Set<number>> = {};
 
@@ -87,7 +111,14 @@ export async function generateBatchSchoolIds(
     const yearStr = String(alloc.admissionYear || new Date().getFullYear());
     const classStr = (alloc.presentClass || "V").toUpperCase().trim();
     const sectionStr = (alloc.presentSection || "A").toUpperCase().trim();
-    const key = `${SCHOOL_PREFIX}/${yearStr}/${SESSION_CODE}/${classStr}/${sectionStr}/`;
+    const regFormatted = formatRegisterNo(alloc.registerNo || 1);
+
+    if (alloc.presentRoll !== undefined && alloc.presentRoll !== null && alloc.presentRoll !== "" && Number(alloc.presentRoll) > 0) {
+      generatedIds.push(buildSchoolId(yearStr, regFormatted, classStr, sectionStr, alloc.presentRoll));
+      continue;
+    }
+
+    const key = `${SCHOOL_PREFIX}/${yearStr}/${regFormatted}/${classStr}/${sectionStr}/`;
 
     if (groupCounters[key] === undefined) {
       const { data } = await supabase
@@ -125,8 +156,8 @@ export async function generateBatchSchoolIds(
     groupCounters[key] = nextSerial;
     groupExisting[key].add(nextSerial);
 
-    const serialStr = String(nextSerial).padStart(3, "0");
-    generatedIds.push(`${key}${serialStr}`);
+    const rollStr = formatRollNo(nextSerial);
+    generatedIds.push(`${key}${rollStr}`);
   }
 
   return generatedIds;

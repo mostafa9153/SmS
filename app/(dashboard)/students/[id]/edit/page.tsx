@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { SchoolIdInput } from "@/components/students/school-id-input";
 
 const studentSchema = z.object({
   // Identity
@@ -19,8 +20,8 @@ const studentSchema = z.object({
     .string()
     .min(1, "School ID is required")
     .regex(
-      /^[A-Z]+\/\d{4}\/\d{2}\/[A-Z]+\/[A-Z]+\/\d{3}$/,
-      "School ID must match format: MHS/YYYY/NN/CLASS/SECTION/NNN"
+      /^[A-Z0-9_-]+\/\d{4}\/\d{2,}\/[A-Z0-9_-]+\/[A-Z0-9_-]+\/\d{2,}$/i,
+      "School ID format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)"
     ),
   dob: z.string().refine((v) => {
     const d = new Date(v);
@@ -368,7 +369,16 @@ export default function EditStudentPage() {
               <input {...register("name")} />
             </FormField>
             <FormField label="School ID *" error={errors.schoolId?.message}>
-              <input {...register("schoolId")} disabled className="opacity-60 bg-muted cursor-not-allowed" />
+              <Controller
+                control={control}
+                name="schoolId"
+                render={({ field }) => (
+                  <SchoolIdInput
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Date of Birth *" error={errors.dob?.message}>
               <input {...register("dob")} type="date" />

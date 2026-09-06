@@ -547,12 +547,15 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
 // UPDATE student
 export async function dbUpdateStudent(
   id: string,
-  updates: Partial<Omit<Student, "id" | "schoolId">>
+  updates: Partial<Omit<Student, "id">>
 ): Promise<Student | null> {
   const supabase = await createServerClient();
   
   // Map frontend update fields to database fields
   const dbUpdates: any = {};
+  if (updates.schoolId !== undefined && typeof updates.schoolId === "string" && updates.schoolId.trim() !== "") {
+    dbUpdates.school_id = updates.schoolId.trim();
+  }
   if (updates.name !== undefined) dbUpdates.name = updates.name;
   if (updates.pen !== undefined) dbUpdates.pen = updates.pen;
   if (updates.aadhaar !== undefined) dbUpdates.aadhaar = updates.aadhaar;

@@ -22,7 +22,7 @@ export function Topbar() {
   const router = useRouter();
   const supabase = createClient();
   const { isOpen, toggleSidebar } = useSidebar();
-  
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [fullName, setFullName] = useState("Guest");
@@ -38,7 +38,7 @@ export function Topbar() {
           .select("full_name, role")
           .eq("user_id", user.id)
           .single();
-        
+
         if (profile) {
           setFullName(profile.full_name || "User");
           setRole(profile.role || "");
@@ -138,7 +138,7 @@ export function Topbar() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
-            
+
             {role === "Admin" && (
               <DropdownMenuItem onClick={() => router.push("/settings")} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer hover:bg-accent transition-colors">
                 <Settings className="h-3.5 w-3.5 text-rose-500" />

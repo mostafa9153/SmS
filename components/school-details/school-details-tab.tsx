@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Building, 
   GraduationCap, 
@@ -26,6 +26,9 @@ import {
   BookOpen,
   Check,
   Trophy,
+  Upload,
+  UserCheck,
+  PenTool,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +47,11 @@ import {
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
 import {
+  type SchoolProfileData,
+  DEFAULT_SCHOOL_PROFILE,
+  HEAD_DESIGNATION_OPTIONS,
+} from "@/lib/utils/school-profile";
+import {
   type ClassMarksScheme,
   type PromotionPolicy,
   DEFAULT_MARKS_SCHEMES,
@@ -56,29 +64,7 @@ import {
   computeSchemeTotals,
 } from "@/lib/utils/marks-config";
 
-// Interface for School Profile
-interface SchoolProfileData {
-  schoolName: string;
-  schoolCode: string;
-  udiseCode: string;
-  boardAffiliation: string;
-  establishedYear: string;
-  schoolCategory: string;
-  schoolType: string;
-  mediumOfInstruction: string;
-  headmasterName: string;
-  schoolEmail: string;
-  schoolPhone: string;
-  altPhone: string;
-  schoolWebsite: string;
-  schoolAddress: string;
-  village: string;
-  policeStation: string;
-  district: string;
-  state: string;
-  pincode: string;
-  schoolMotto: string;
-}
+
 
 // Interface for Class Item
 interface ClassItem {
@@ -125,28 +111,7 @@ export function getNextAvailableLetter(existing: string[]): string {
   return "+";
 }
 
-const DEFAULT_SCHOOL_PROFILE: SchoolProfileData = {
-  schoolName: "Marigachi High School (H.S.)",
-  schoolCode: "MHS-1965",
-  udiseCode: "19111305602",
-  boardAffiliation: "WBBSE / WBCHSE",
-  establishedYear: "1965",
-  schoolCategory: "Higher Secondary (Class V to XII)",
-  schoolType: "Co-educational (Day School)",
-  mediumOfInstruction: "Bengali (First Language)",
-  headmasterName: "Dr. A. K. Mondal",
-  schoolEmail: "contact@marigachihighschool.in",
-  schoolPhone: "+91 98765 43210",
-  altPhone: "03218-245678",
-  schoolWebsite: "https://marigachihighschool.in",
-  schoolAddress: "Marigachi, Mathurapur II, South 24 Parganas, West Bengal - 743349",
-  village: "Marigachi",
-  policeStation: "Mathurapur",
-  district: "South 24 Parganas",
-  state: "West Bengal",
-  pincode: "743349",
-  schoolMotto: "Knowledge, Character, Excellence (আলো থেকে আলো)",
-};
+
 
 const DEFAULT_CLASSES: ClassItem[] = [
   { id: "c-5", name: "Class V", code: "V", sections: ["A", "B"], classTeacher: "S. Roy", roomNo: "Room 101", capacity: 120, isAutoPass: true, status: "Active" },
@@ -213,12 +178,127 @@ export function SchoolDetailsTab() {
   const [promotionPolicy, setPromotionPolicy] = useState<PromotionPolicy>(DEFAULT_PROMOTION_POLICY);
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
 
+  // Reference for signature file upload
+  const signatureInputRef = useRef<HTMLInputElement>(null);
+  // Reference for school logo file upload
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle school logo/crest image upload
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast({
+        type: "error",
+        title: "Invalid File Type",
+        description: "Please upload an image file (PNG, JPG, SVG, or WEBP).",
+      });
+      return;
+    }
+
+    if (file.size > 3 * 1024 * 1024) {
+      showToast({
+        type: "error",
+        title: "File Too Large",
+        description: "School crest image size should be under 3MB.",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setProfile((prev) => ({
+          ...prev,
+          schoolLogoUrl: dataUrl,
+        }));
+        showToast({
+          type: "success",
+          title: "Logo Uploaded",
+          description: "School emblem preview updated. Click 'Save Profile Details' to store permanently.",
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Reset logo to default /logo.png
+  const handleResetLogo = () => {
+    setProfile((prev) => ({
+      ...prev,
+      schoolLogoUrl: "/logo.png",
+    }));
+    showToast({
+      type: "info",
+      title: "Logo Reset",
+      description: "School crest restored to original institutional emblem.",
+    });
+  };
+
+  // Handle digital signature image upload
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showToast({
+        type: "error",
+        title: "Invalid File Type",
+        description: "Please upload an image file (PNG, JPG, or WEBP).",
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast({
+        type: "error",
+        title: "File Too Large",
+        description: "Signature image size should be under 2MB.",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setProfile((prev) => ({
+          ...prev,
+          headSignatureUrl: dataUrl,
+        }));
+        showToast({
+          type: "success",
+          title: "Signature Uploaded",
+          description: "Signature preview updated. Click 'Save Profile' to store permanently.",
+        });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // Handle signature removal
+  const handleRemoveSignature = () => {
+    setProfile((prev) => ({
+      ...prev,
+      headSignatureUrl: "",
+    }));
+    showToast({
+      type: "info",
+      title: "Signature Removed",
+      description: "Digital signature removed. Certificates will leave clear space for manual pen signing.",
+    });
+  };
+
   // Load saved state from localStorage if present
   useEffect(() => {
     try {
       const savedProfile = localStorage.getItem("sms_school_profile");
       if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
+        setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...JSON.parse(savedProfile) });
       }
       const savedClasses = localStorage.getItem("sms_class_management");
       if (savedClasses) {
@@ -710,6 +790,12 @@ export function SchoolDetailsTab() {
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
                     <span>UDISE+: <strong className="font-mono text-foreground">{profile.udiseCode}</strong></span>
+                    {profile.hsCode && (
+                      <>
+                        <span>•</span>
+                        <span>H.S. Code: <strong className="font-mono text-foreground">{profile.hsCode}</strong></span>
+                      </>
+                    )}
                     <span>•</span>
                     <span>Affiliation: <strong className="text-foreground">{profile.boardAffiliation}</strong></span>
                     <span>•</span>
@@ -758,6 +844,17 @@ export function SchoolDetailsTab() {
                       onChange={(e) => setProfile({ ...profile, udiseCode: e.target.value })}
                       className="text-xs font-mono"
                       placeholder="11-digit UDISE Code"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="hsCode" className="text-xs">H.S. Code</Label>
+                    <Input
+                      id="hsCode"
+                      value={profile.hsCode || ""}
+                      onChange={(e) => setProfile({ ...profile, hsCode: e.target.value })}
+                      className="text-xs font-mono"
+                      placeholder="e.g. 102298"
                     />
                   </div>
 
@@ -957,25 +1054,82 @@ export function SchoolDetailsTab() {
             <div className="space-y-5">
               <Card className="border bg-card shadow-2xs">
                 <CardHeader className="pb-3 border-b">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-amber-500" />
-                    School Crest & Motto
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-500" />
+                      School Crest & Motto
+                    </CardTitle>
+                    {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" ? (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                        Custom Logo Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                        Default Crest
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription className="text-xs">
+                    Official emblem & institutional motto used on marksheets, ID cards, admit cards, and certificates.
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-4 space-y-4 text-center">
-                  <div className="mx-auto h-28 w-28 rounded-2xl border-2 border-dashed border-primary/30 p-2 flex items-center justify-center bg-muted/20">
-                    <img
-                      src="/logo.png"
-                      alt="School Crest"
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Official School Emblem used on official marksheets, ID cards, and reports.
-                  </p>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
 
-                  <div className="space-y-1.5 text-left">
-                    <Label htmlFor="schoolMotto" className="text-xs">School Motto / Tagline</Label>
+                  {/* Logo Display Box with Hover Action Overlay */}
+                  <div className="space-y-2">
+                    <div 
+                      onClick={() => logoInputRef.current?.click()}
+                      className="mx-auto h-32 w-32 rounded-2xl border-2 border-dashed border-primary/40 p-2.5 flex items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer relative group overflow-hidden"
+                      title="Click to change school crest"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profile.schoolLogoUrl || "/logo.png"}
+                        alt="School Crest"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                      <div className="absolute inset-0 bg-background/85 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1 text-center">
+                        <Upload className="h-4 w-4 text-primary" />
+                        <span className="text-[10px] font-semibold text-foreground">Click to Change</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 pt-0.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => logoInputRef.current?.click()}
+                        className="h-7 text-xs px-2.5"
+                      >
+                        <Upload className="h-3 w-3 mr-1" />
+                        Change Logo
+                      </Button>
+                      {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={handleResetLogo}
+                          className="h-7 text-xs text-muted-foreground hover:text-destructive px-2"
+                          title="Restore default school logo"
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left pt-1 border-t">
+                    <Label htmlFor="schoolMotto" className="text-xs font-medium">School Motto / Tagline</Label>
                     <Input
                       id="schoolMotto"
                       value={profile.schoolMotto}
@@ -995,6 +1149,166 @@ export function SchoolDetailsTab() {
                       <Save className="h-3.5 w-3.5 mr-1.5" />
                       {isSavingProfile ? "Saving..." : "Save Profile Details"}
                     </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Head of Institution (HOI) & Signature Card */}
+              <Card className="border bg-card shadow-2xs">
+                <CardHeader className="pb-3 border-b">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-primary" />
+                      Head of Institution & Signature
+                    </CardTitle>
+                    {profile.headSignatureUrl ? (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                        Signature Loaded
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                        Manual Sign Mode
+                      </Badge>
+                    )}
+                  </div>
+                  <CardDescription className="text-xs">
+                    Configure institutional authority designation (T.I.C. / Headmaster / Principal) and official digital signature.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-4">
+                  {/* Head Designation / Role Selection */}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Head Designation / Role</Label>
+                    <CustomSelect
+                      value={profile.headDesignation || "Teacher-in-Charge"}
+                      onChange={(val) => setProfile({ ...profile, headDesignation: String(val) })}
+                      options={HEAD_DESIGNATION_OPTIONS}
+                      placeholder="Select Designation"
+                      searchable={false}
+                    />
+                  </div>
+
+                  {profile.headDesignation === "Custom" && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="customHeadDesignation" className="text-xs">Custom Designation Title</Label>
+                      <Input
+                        id="customHeadDesignation"
+                        value={profile.customHeadDesignation || ""}
+                        onChange={(e) => setProfile({ ...profile, customHeadDesignation: e.target.value })}
+                        className="text-xs"
+                        placeholder="e.g. Acting Headmaster / Vice Principal"
+                      />
+                    </div>
+                  )}
+
+                  {/* Headmaster / TIC Name */}
+                  <div className="space-y-1.5">
+                    <Label htmlFor="headmasterNameRight" className="text-xs font-medium">Head of Institution Name</Label>
+                    <Input
+                      id="headmasterNameRight"
+                      value={profile.headmasterName}
+                      onChange={(e) => setProfile({ ...profile, headmasterName: e.target.value })}
+                      className="text-xs font-medium"
+                      placeholder="e.g. Sheikh Sirajuddin / Dr. A. K. Mondal"
+                    />
+                  </div>
+
+                  {/* Signature Upload & Preview Section */}
+                  <div className="space-y-2 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold flex items-center gap-1.5">
+                        <PenTool className="h-3.5 w-3.5 text-primary" />
+                        Official Digital Signature
+                      </Label>
+                      {profile.headSignatureUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveSignature}
+                          className="text-[11px] text-destructive hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={handleSignatureUpload}
+                      className="hidden"
+                    />
+
+                    {profile.headSignatureUrl ? (
+                      <div className="space-y-2">
+                        <div className="h-20 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 flex flex-col items-center justify-center relative overflow-hidden group">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={profile.headSignatureUrl}
+                            alt="Head Signature"
+                            className="max-h-14 max-w-full object-contain"
+                          />
+                          <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => signatureInputRef.current?.click()}
+                              className="h-7 text-xs"
+                            >
+                              <Upload className="h-3 w-3 mr-1" />
+                              Replace
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              onClick={handleRemoveSignature}
+                              className="h-7 text-xs"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-[10.5px] text-muted-foreground text-center">
+                          Signature configured. Used for marksheets, invoices, and digital exports.
+                        </p>
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => signatureInputRef.current?.click()}
+                        className="h-20 w-full rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-primary/60 bg-muted/20 hover:bg-muted/40 transition-colors flex flex-col items-center justify-center cursor-pointer p-2 text-center"
+                      >
+                        <Upload className="h-4 w-4 text-muted-foreground mb-1" />
+                        <span className="text-[11px] font-medium text-foreground">Click to Upload Signature</span>
+                        <span className="text-[9.5px] text-muted-foreground">PNG (transparent background), JPG or WEBP max 2MB</span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => signatureInputRef.current?.click()}
+                        className="flex-1 text-xs h-8"
+                      >
+                        <Upload className="h-3 w-3 mr-1.5" />
+                        {profile.headSignatureUrl ? "Update Signature" : "Upload Signature"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleSaveProfile}
+                        disabled={isSavingProfile}
+                        className="flex-1 bg-primary text-primary-foreground text-xs h-8 font-semibold"
+                      >
+                        <Save className="h-3 w-3 mr-1.5" />
+                        {isSavingProfile ? "Saving..." : "Save Settings"}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

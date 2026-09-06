@@ -22,6 +22,7 @@ import {
   Sliders,
   Cloud,
   Sparkles,
+  ClipboardCheck,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -36,13 +37,25 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+interface NavChildSubItem {
+  label: string;
+  href: string;
+}
+
+interface NavChildItem {
+  label: string;
+  href?: string;
+  icon?: React.ReactNode;
+  children?: NavChildSubItem[];
+}
+
 interface NavItem {
   label: string;
   href?: string;
   icon: React.ReactNode;
   iconBg: string;
   adminOnly?: boolean;
-  children?: { label: string; href: string }[];
+  children?: NavChildItem[];
 }
 
 const navItems: NavItem[] = [
@@ -54,12 +67,15 @@ const navItems: NavItem[] = [
   },
   {
     label: "Students",
+    href: "/students",
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
-    children: [
-      { label: "All Students Directory", href: "/students" },
-      { label: "Bulk Upload & Archive", href: "/students/bulk-upload" },
-    ],
+  },
+  {
+    label: "Bulk Upload",
+    href: "/students/bulk-upload",
+    icon: <Upload className="h-4 w-4" />,
+    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
   },
   {
     label: "Results & Marks",
@@ -76,16 +92,35 @@ const navItems: NavItem[] = [
   {
     label: "Generators",
     icon: <Sparkles className="h-4 w-4" />,
-    iconBg: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20 group-hover:scale-110",
+    iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20 group-hover:scale-110",
     children: [
       { label: "Admission Form", href: "/generate/admission-form" },
       { label: "Admission Invoice", href: "/generate/invoice" },
       { label: "CCE Marksheet", href: "/generate/marksheet" },
-      { label: "Character Certificate", href: "/generate/certificate" },
-      { label: "Pass Out Certificate", href: "/generate/pass-certificate" },
-      { label: "Transfer Certificate (TC)", href: "/generate/transfer-certificate" },
-      { label: "Kanyashree Certificate", href: "/generate/kanyashree" },
+      {
+        label: "Certificates",
+        icon: <Award className="h-3.5 w-3.5 text-amber-500" />,
+        children: [
+          { label: "Character Certificate", href: "/generate/certificate" },
+          { label: "Pass Out Certificate", href: "/generate/pass-certificate" },
+          { label: "Transfer Certificate (TC)", href: "/generate/transfer-certificate" },
+          { label: "Kanyashree Certificate", href: "/generate/kanyashree" },
+        ],
+      },
     ],
+  },
+  {
+    label: "EMS (Exam Manager)",
+    href: "/ems",
+    icon: <ClipboardCheck className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Settings & Access",
+    href: "/settings",
+    icon: <Settings className="h-4 w-4" />,
+    iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 group-hover:scale-110",
+    adminOnly: true,
   },
 ];
 
@@ -134,6 +169,79 @@ const settingsNavItems = [
   },
 ];
 
+function NavSubGroup({
+  subItem,
+  onNavigate,
+}: {
+  subItem: NavChildItem;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const isSubGroupActive = subItem.children?.some(
+    (c) => pathname === c.href || pathname.startsWith(c.href + "/")
+  );
+  const [open, setOpen] = useState(isSubGroupActive || false);
+
+  useEffect(() => {
+    if (isSubGroupActive) {
+      setOpen(true);
+    }
+  }, [isSubGroupActive]);
+
+  return (
+    <div className="space-y-1 pt-1 pb-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          "group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer",
+          isSubGroupActive
+            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold"
+            : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          {subItem.icon || <Award className="h-3.5 w-3.5 text-amber-500" />}
+          <span>{subItem.label}</span>
+        </div>
+        <ChevronDown
+          className={cn(
+            "h-3 w-3 text-muted-foreground/70 transition-transform duration-200",
+            open && "rotate-180 text-foreground"
+          )}
+        />
+      </button>
+
+      {open && subItem.children && (
+        <div className="ml-3 pl-3 border-l-2 border-amber-500/30 flex flex-col gap-1 py-0.5 transition-all duration-200">
+          {subItem.children.map((subChild) => {
+            const isChildActive =
+              pathname === subChild.href || pathname.startsWith(subChild.href + "/");
+            return (
+              <Link
+                key={subChild.href}
+                href={subChild.href}
+                onClick={onNavigate}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 relative truncate",
+                  isChildActive
+                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
+                )}
+              >
+                {isChildActive && (
+                  <span className="absolute -left-[14px] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-amber-500 ring-3 ring-amber-500/20" />
+                )}
+                {subChild.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NavGroup({
   item,
   onNavigate,
@@ -142,23 +250,48 @@ function NavGroup({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+
+  const isChildItemActive = (c: NavChildItem) => {
+    if (c.href) {
+      if (c.href === "/students") {
+        return (
+          pathname === "/students" ||
+          (pathname.startsWith("/students/") &&
+            !["/students/add", "/students/bulk-upload", "/students/promotion"].some((route) =>
+              pathname.startsWith(route)
+            ))
+        );
+      }
+      return pathname === c.href || pathname.startsWith(c.href + "/");
+    }
+    if (c.children) {
+      return c.children.some((sub) => pathname === sub.href || pathname.startsWith(sub.href + "/"));
+    }
+    return false;
+  };
+
+  const isGroupActive = item.children ? item.children.some(isChildItemActive) : false;
+
   const [open, setOpen] = useState(() => {
     if (item.children) {
-      return item.children.some((c) => pathname.startsWith(c.href));
+      return item.children.some(isChildItemActive);
     }
     return false;
   });
 
+  useEffect(() => {
+    if (isGroupActive) {
+      setOpen(true);
+    }
+  }, [isGroupActive]);
+
   if (item.children) {
-    const isGroupActive = item.children.some((c) =>
-      pathname.startsWith(c.href)
-    );
     return (
       <div className="space-y-0.5">
         <button
           onClick={() => setOpen((o) => !o)}
           className={cn(
-            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200",
+            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer",
             isGroupActive
               ? "bg-primary/10 text-primary font-semibold shadow-2xs"
               : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
@@ -179,19 +312,24 @@ function NavGroup({
         {open && (
           <div className="ml-5 pl-4 border-l-2 border-primary/20 flex flex-col gap-1 py-1 transition-all duration-300">
             {item.children.map((child) => {
-              const isChildActive = (() => {
-                if (child.href === "/students") {
-                  return pathname === "/students" || (pathname.startsWith("/students/") && !["/students/add", "/students/bulk-upload", "/students/promotion"].some(route => pathname.startsWith(route)));
-                }
-                return pathname === child.href || pathname.startsWith(child.href + "/");
-              })();
+              if (child.children && child.children.length > 0) {
+                return (
+                  <NavSubGroup
+                    key={child.label}
+                    subItem={child}
+                    onNavigate={onNavigate}
+                  />
+                );
+              }
+
+              const isChildActive = isChildItemActive(child);
               return (
                 <Link
                   key={child.href}
-                  href={child.href}
+                  href={child.href!}
                   onClick={onNavigate}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 relative",
+                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 relative truncate",
                     isChildActive
                       ? "bg-primary/15 text-primary font-semibold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
@@ -210,10 +348,21 @@ function NavGroup({
     );
   }
 
-  const isActive =
-    item.href === "/"
-      ? pathname === "/"
-      : pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive = (() => {
+    if (item.href === "/") return pathname === "/";
+    if (item.href === "/students") {
+      return (
+        pathname === "/students" ||
+        (pathname.startsWith("/students/") &&
+          !pathname.startsWith("/students/bulk-upload") &&
+          !pathname.startsWith("/students/promotion"))
+      );
+    }
+    if (item.href) {
+      return pathname === item.href || pathname.startsWith(item.href + "/");
+    }
+    return false;
+  })();
 
   return (
     <Link
@@ -411,18 +560,7 @@ export function Sidebar({
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
             
-            {role === "Admin" && (
-              <DropdownMenuItem 
-                onClick={() => {
-                  if (onClose) onClose();
-                  router.push("/settings");
-                }} 
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer hover:bg-accent transition-colors"
-              >
-                <Settings className="h-3.5 w-3.5 text-rose-500" />
-                <span>Settings & Access</span>
-              </DropdownMenuItem>
-            )}
+
 
             <DropdownMenuItem 
               onClick={handleLogout} 

@@ -29,6 +29,7 @@ import {
   FileText,
   GraduationCap,
 } from "lucide-react";
+import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -158,6 +159,22 @@ function PassCertificateGeneratorContent() {
       remarks: `To the best of my knowledge, ${pronounSubject.toLowerCase()} bears an exemplary moral character and upright conduct during ${pronounPossessive} academic tenure. I wish ${pronounObject} every success and prosperity in all future academic pursuits and career endeavors.`,
     }));
   }
+
+  // Load institutional head designation from saved school profile
+  useEffect(() => {
+    try {
+      const profile = getSavedSchoolProfile();
+      const title = getEffectiveHeadTitle(profile);
+      if (title) {
+        setCert((prev) => ({
+          ...prev,
+          headmasterTitle: title,
+        }));
+      }
+    } catch (e) {
+      console.error("Failed to load school profile head title", e);
+    }
+  }, []);
 
   // Pre-load student from query param
   useEffect(() => {
