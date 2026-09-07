@@ -1,0 +1,687 @@
+"use client";
+
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { getStudents } from "@/lib/data/students";
+import { Student } from "@/lib/types";
+import {
+  getSavedSchoolProfile,
+  SchoolProfileData,
+} from "@/lib/utils/school-profile";
+import {
+  getDynamicClassCodes,
+  getDynamicSectionsForClass,
+  getDatabaseSubjectsForClass,
+  syncAllEmsConfigsFromDb,
+} from "@/lib/ems/ems-config-loader";
+import {
+  TabulationSheetPrintableView,
+  TabulationStudentItem,
+} from "@/components/tabulation/tabulation-sheet-printable-view";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Printer,
+  FileSpreadsheet,
+  FileText,
+  BookOpen,
+  Users,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  CheckCheck,
+  Scissors,
+  RefreshCw,
+  ArrowLeft,
+  ImageIcon,
+} from "lucide-react";
+
+export default function TabulationGeneratorPage() {
+  const router = useRouter();
+
+  // Academic year auto-detection
+  const [academicYear] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sms_active_academic_year");
+      if (saved && !isNaN(parseInt(saved))) return parseInt(saved);
+    }
+    return new Date().getFullYear();
+  });
+  const evaluationTitle = "Summative Evaluation";
+  const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
+
+  // Universal Default School Logo (Synced from DB school_profile or standard fallback)
+  const effectiveLogoUrl =
+    schoolProfile?.schoolLogoUrl && schoolProfile.schoolLogoUrl.trim() !== ""
+      ? schoolProfile.schoolLogoUrl
+      : "/school-logo.png";
+
+  // Class, Section, Subject state
+  const [availableClasses, setAvailableClasses] = useState<string[]>(["V", "VI", "VII", "VIII", "IX", "X"]);
+  const [selectedClass, setSelectedClass] = useState<string>("VII");
+  const [selectedSection, setSelectedSection] = useState<string>("B");
+  const [selectedSubject, setSelectedSubject] = useState<string>("Bengali");
+  const [isAllSubjectsMode, setIsAllSubjectsMode] = useState<boolean>(false);
+  const [customSubjectText, setCustomSubjectText] = useState<string>("");
+
+  // Layout & Preview state
+  const [layoutMode, setLayoutMode] = useState<"dual-copy" | "continuous">("dual-copy");
+  const [zoom, setZoom] = useState<number>(0.75);
+  const [showWatermark, setShowWatermark] = useState<boolean>(true);
+  const [manualCount, setManualCount] = useState<number>(31);
+
+  // Sync freshest school profile and classes from DB
+  useEffect(() => {
+    syncAllEmsConfigsFromDb().then(({ profile }) => {
+      setSchoolProfile(profile);
+      const classes = getDynamicClassCodes();
+      if (classes.length > 0) {
+        setAvailableClasses(classes);
+        if (!classes.includes(selectedClass)) {
+          setSelectedClass(classes[0]);
+        }
+      }
+    });
+  }, []);
+
+  // Fetch all students from DB (with caching and reactive refetch)
+  const { data: allStudents = [], isLoading: isStudentsLoading, refetch } = useQuery({
+    queryKey: ["students", "all"],
+    queryFn: getStudents,
+    staleTime: 60 * 1000,
+  });
+
+  // Compute available sections for the selected class
+  const availableSections = useMemo(() => {
+    return getDynamicSectionsForClass(selectedClass);
+  }, [selectedClass]);
+
+  useEffect(() => {
+    if (availableSections.length > 0 && !availableSections.includes(selectedSection)) {
+      setSelectedSection(availableSections[0]);
+    }
+  }, [availableSections, selectedSection]);
+
+  // Compute real available subjects for the selected class directly from database marks distribution & student records
+  const availableSubjects = useMemo(() => {
+    return getDatabaseSubjectsForClass(selectedClass, allStudents);
+  }, [selectedClass, allStudents]);
+
+  useEffect(() => {
+    if (availableSubjects.length > 0 && !availableSubjects.includes(selectedSubject) && !isAllSubjectsMode) {
+      setSelectedSubject(availableSubjects[0]);
+    }
+  }, [availableSubjects, selectedSubject, isAllSubjectsMode]);
+
+  // Helper to normalize class strings (e.g. "7", "VII", "Class 7" -> "VII")
+  const normalizeClassStr = (raw?: string | null): string => {
+    if (!raw) return "";
+    const s = String(raw).trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+    const romanMap: Record<string, string> = {
+      "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V",
+      "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X",
+      "11": "XI", "12": "XII",
+    };
+    return romanMap[s] || s;
+  };
+
+  // Helper to normalize section strings (e.g. "Sec B", "B" -> "B")
+  const normalizeSectionStr = (raw?: string | null): string => {
+    if (!raw) return "A";
+    const s = String(raw).trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+    return s || "A";
+  };
+
+  // Extract student roll number
+  const getStudentRollNumber = (s: any): number => {
+    if (typeof s.presentRoll === "number" && !isNaN(s.presentRoll)) return s.presentRoll;
+    if (typeof s.presentRoll === "string" && !isNaN(parseInt(s.presentRoll))) return parseInt(s.presentRoll);
+    if (typeof s.roll === "number" && !isNaN(s.roll)) return s.roll;
+    if (typeof s.rollNumber === "number" && !isNaN(s.rollNumber)) return s.rollNumber;
+    return 9999;
+  };
+
+  // Filter and auto-fetch students strictly matching selected Class, Section, and Subject
+  const dbMatchedStudents: TabulationStudentItem[] = useMemo(() => {
+    const targetClass = normalizeClassStr(selectedClass);
+    const targetSection = normalizeSectionStr(selectedSection);
+    const targetSubject = selectedSubject ? selectedSubject.trim().toUpperCase() : "";
+
+    return allStudents
+      .filter((s: Student) => {
+        const studentClass = normalizeClassStr(s.presentClass);
+        const studentSection = normalizeSectionStr(s.presentSection);
+        const isContinuing = !s.currentStatus || s.currentStatus.toLowerCase() === "continuing";
+
+        const matchesClassAndSection = studentClass === targetClass && studentSection === targetSection;
+        if (!matchesClassAndSection || !isContinuing) return false;
+
+        // Subject elective check (for XI/XII elective groups; compulsory for secondary)
+        if (targetSubject && targetSubject !== "CUSTOM" && !isAllSubjectsMode) {
+          const studentElectives = [
+            ...(s.mandatorySubjects || []),
+            ...(s.additionalSubjects || []),
+          ].map((sub) => sub.trim().toUpperCase());
+
+          if (studentElectives.length > 0) {
+            const matchesSubject = studentElectives.some(
+              (sub) => sub.includes(targetSubject) || targetSubject.includes(sub)
+            );
+            if (!matchesSubject) return false;
+          }
+        }
+
+        return true;
+      })
+      .map((s: Student) => ({
+        roll: getStudentRollNumber(s),
+        name: (s.name || "").trim().toUpperCase(),
+        studentId: s.id,
+      }))
+      .sort((a, b) => a.roll - b.roll);
+  }, [allStudents, selectedClass, selectedSection, selectedSubject, isAllSubjectsMode]);
+
+  // Final student list: DB matched students or graceful numbered blank rows fallback
+  const enrolledStudents: TabulationStudentItem[] = useMemo(() => {
+    if (dbMatchedStudents.length > 0) {
+      return dbMatchedStudents;
+    }
+
+    // Fallback if no students in DB for this class/sec: generate empty numbered rows
+    return Array.from({ length: manualCount }).map((_, i) => ({
+      roll: i + 1,
+      name: "",
+    }));
+  }, [dbMatchedStudents, manualCount]);
+
+  // Keyboard shortcut: Ctrl + P to trigger print
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        handlePrint();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const handlePrint = () => {
+    setTimeout(() => {
+      window.print();
+    }, 60);
+  };
+
+  // Determine subjects to render
+  const subjectsToRender = isAllSubjectsMode
+    ? availableSubjects
+    : [selectedSubject === "CUSTOM" ? customSubjectText : selectedSubject];
+
+  return (
+    <div className="p-3.5 sm:p-6 max-w-[1700px] mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
+      {/* ============================================================== */}
+      {/* TOP HEADER (Hidden in Print)                                   */}
+      {/* ============================================================== */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            title="Back"
+            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <FileSpreadsheet className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>Exam Tabulation Sheet</span>
+              <Badge
+                variant="outline"
+                className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 font-mono"
+              >
+                WB Standard Twin-Cut
+              </Badge>
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {schoolProfile.schoolName || "Marigachi High School (H.S.)"} &bull; Summative Evaluation &bull; Session {academicYear}
+            </p>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Live Status Pill */}
+          <div className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border bg-muted/40 text-muted-foreground">
+            <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <span className="text-foreground">Class {selectedClass}-{selectedSection}</span>
+            <span>&bull;</span>
+            <span>{enrolledStudents.length} Students</span>
+            <span>&bull;</span>
+            <span className="text-purple-600 dark:text-purple-400 font-bold">
+              {isAllSubjectsMode ? `Batch (${availableSubjects.length} Subs)` : selectedSubject}
+            </span>
+          </div>
+
+          {/* Strictly A4 Format Badge */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
+            <FileText className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Pure A4 Full-Bleed</span>
+          </div>
+
+          <Button
+            onClick={handlePrint}
+            className="gap-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer"
+          >
+            <Printer className="h-4 w-4" />
+            <span>Print Tabulation Sheet</span>
+            <span className="hidden sm:inline-block text-[10px] opacity-80 font-normal bg-black/20 px-1 rounded">
+              Ctrl+P
+            </span>
+          </Button>
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* MAIN GRID: Controls (Left) + Canvas Preview (Right)             */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
+        
+        {/* LEFT COLUMN: Controls (Hidden in Print) */}
+        <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-1">
+          
+          {/* Card 1: Class & Section Selector */}
+          <Card className="border shadow-2xs">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <CardTitle className="text-xs font-bold flex items-center justify-between text-foreground">
+                <span className="flex items-center gap-2">
+                  <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  Class &amp; Section Selection
+                </span>
+                <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground">
+                  Year {academicYear}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* Class Selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Class:</Label>
+                  <CustomSelect
+                    value={selectedClass}
+                    onChange={(val) => setSelectedClass(val)}
+                    options={availableClasses.map((c) => ({
+                      value: c,
+                      label: `Class ${c}`,
+                    }))}
+                  />
+                </div>
+
+                {/* Section Selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-[11px] text-muted-foreground">Section:</Label>
+                  <CustomSelect
+                    value={selectedSection}
+                    onChange={(val) => setSelectedSection(val)}
+                    options={availableSections.map((s) => ({
+                      value: s,
+                      label: `Sec ${s}`,
+                    }))}
+                  />
+                </div>
+              </div>
+
+              {/* Student Auto-Fetch Status */}
+              <div className="pt-2 border-t space-y-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Matched Students:</span>
+                  <span className="font-mono font-bold text-foreground">
+                    {enrolledStudents.length} Students
+                  </span>
+                </div>
+
+                {dbMatchedStudents.length > 0 ? (
+                  <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <CheckCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="truncate">
+                        Auto-fetched <strong>{dbMatchedStudents.length}</strong> students (Roll {dbMatchedStudents[0].roll} &ndash; {dbMatchedStudents[dbMatchedStudents.length - 1].roll})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="p-1 hover:bg-emerald-500/20 rounded text-emerald-700 dark:text-emerald-400 hover:text-foreground shrink-0 ml-1 cursor-pointer transition-colors"
+                      title="Refresh student list from database"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-xs text-amber-800 dark:text-amber-300">
+                    <span className="font-semibold block">No database records found for Class {selectedClass}-{selectedSection}.</span>
+                    <span className="text-[11px] text-muted-foreground block">Using {manualCount} numbered blank rows (Roll 1 to {manualCount}):</span>
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <Input
+                        type="number"
+                        min={10}
+                        max={80}
+                        value={manualCount}
+                        onChange={(e) => setManualCount(parseInt(e.target.value) || 31)}
+                        className="h-7 w-20 text-xs font-mono"
+                      />
+                      <span className="text-[11px] text-muted-foreground">Rows to print</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Card 2: Subject Selection */}
+          <Card className="border shadow-2xs">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
+                  <BookOpen className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                  Subject Selection
+                </CardTitle>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAllSubjectsMode(!isAllSubjectsMode)}
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    isAllSubjectsMode
+                      ? "bg-purple-600 text-white shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {isAllSubjectsMode ? "✓ Batch: All Subjects" : "Batch: All Subjects"}
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              {!isAllSubjectsMode ? (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Choose Specific Subject:</Label>
+                  <CustomSelect
+                    value={selectedSubject}
+                    onChange={(val) => setSelectedSubject(val)}
+                    options={[
+                      ...availableSubjects.map((sub) => ({
+                        value: sub,
+                        label: sub,
+                      })),
+                      { value: "CUSTOM", label: "Custom / Blank Subject" },
+                    ]}
+                  />
+
+                  {selectedSubject === "CUSTOM" && (
+                    <div className="pt-2 space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Type Custom Subject Name:</Label>
+                      <Input
+                        value={customSubjectText}
+                        onChange={(e) => setCustomSubjectText(e.target.value)}
+                        placeholder="Leave blank for handwriting..."
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs text-purple-800 dark:text-purple-300 space-y-1.5">
+                  <span className="font-bold flex items-center gap-1">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    Generating {availableSubjects.length} Subject Sheets:
+                  </span>
+                  <p className="text-[11px] leading-relaxed font-mono text-muted-foreground">
+                    {availableSubjects.join(", ")}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Each subject will be rendered on a fresh A4 twin sheet ready for printing!
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Card 3: Layout & Print Preferences */}
+          <Card className="border shadow-2xs">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
+                <Scissors className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                Layout &amp; Print Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode("dual-copy")}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                    layoutMode === "dual-copy"
+                      ? "border-purple-500 bg-purple-500/10 text-foreground ring-1 ring-purple-500/40"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Dual Twin Copy</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Office + Teacher Copy (Sample)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayoutMode("continuous")}
+                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
+                    layoutMode === "continuous"
+                      ? "border-purple-500 bg-purple-500/10 text-foreground ring-1 ring-purple-500/40"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Continuous</span>
+                  <span className="block text-[10px] text-muted-foreground mt-0.5">
+                    Roll 1-31 Left, 32-62 Right
+                  </span>
+                </button>
+              </div>
+
+              <div className="pt-2 border-t space-y-2">
+                <div className="p-3 rounded-xl border bg-muted/30 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg border bg-background flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-2xs">
+                      <img
+                        src={effectiveLogoUrl}
+                        alt="School Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <Label htmlFor="print-logo-checkbox" className="text-xs font-bold text-foreground block cursor-pointer">
+                        Print School Logo
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        Default Institutional Crest (Auto-synced from DB)
+                      </p>
+                    </div>
+                  </div>
+
+                  <input
+                    id="print-logo-checkbox"
+                    type="checkbox"
+                    checked={showWatermark}
+                    onChange={(e) => setShowWatermark(e.target.checked)}
+                    className="rounded border-input text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer shrink-0"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Printing Advice Callout */}
+          <div className="p-3 bg-muted/40 border rounded-xl text-[11px] text-muted-foreground leading-relaxed">
+            <span className="font-bold text-foreground block mb-1">💡 Printing Advice:</span>
+            In the browser print preview, ensure <strong>Margins: None</strong> and <strong>Background Graphics: Checked</strong> are selected for pixel-perfect zero-margin output.
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Live Print-Ready Preview Canvas */}
+        <div className="xl:col-span-8 space-y-4 print:w-full print:m-0 print:p-0">
+          <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <FileSpreadsheet className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+              Live Tabulation Sheet Preview (A4 Portrait &bull; WB Twin-Cut)
+            </span>
+
+            {/* Zoom / Scale Controls */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
+              {[0.6, 0.75, 0.85, 1.0].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setZoom(s)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                    Math.abs(zoom - s) < 0.02
+                      ? "bg-purple-600 text-white font-bold shadow-2xs"
+                      : "bg-background hover:bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {Math.round(s * 100)}%
+                </button>
+              ))}
+              <div className="flex items-center ml-1 border rounded-lg overflow-hidden bg-background">
+                <button
+                  onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.05).toFixed(2))))}
+                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setZoom((z) => Math.min(1.5, Number((z + 0.05).toFixed(2))))}
+                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setZoom(0.75)}
+                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors border-l cursor-pointer"
+                  title="Reset Zoom (75%)"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Canvas Wrapper */}
+          <div
+            id="tabulation-printable-canvas"
+            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 sm:p-6 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
+          >
+            <div
+              style={{
+                transform: `scale(${zoom})`,
+                transformOrigin: "center top",
+                transition: "transform 0.15s ease-out",
+              }}
+              className="shrink-0 m-auto shadow-2xl print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 print:block"
+            >
+              {subjectsToRender.map((sub, sIdx) => (
+                <div
+                  key={`subject-sheet-wrap-${sIdx}`}
+                  className={sIdx > 0 ? "mt-12 print:mt-0" : ""}
+                  style={{
+                    pageBreakAfter: sIdx < subjectsToRender.length - 1 ? "always" : "auto",
+                    breakAfter: sIdx < subjectsToRender.length - 1 ? "page" : "auto",
+                  }}
+                >
+                  <TabulationSheetPrintableView
+                    schoolProfile={schoolProfile}
+                    academicYear={academicYear}
+                    evaluationTitle={evaluationTitle}
+                    className={selectedClass}
+                    section={selectedSection}
+                    subject={sub}
+                    students={enrolledStudents}
+                    layoutMode={layoutMode}
+                    showWatermark={showWatermark}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* ZERO-MARGIN NATIVE PRINT STYLESHEET                            */}
+      {/* ============================================================== */}
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: 210mm 297mm;
+            margin: 0 !important;
+          }
+
+          body,
+          html {
+            background: white !important;
+            color: black !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 210mm !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
+          /* Hide non-printable elements */
+          header,
+          aside,
+          nav,
+          button,
+          .print\\:hidden {
+            display: none !important;
+          }
+
+          /* Reset Canvas */
+          #tabulation-printable-canvas {
+            transform: none !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: transparent !important;
+          }
+
+          #tabulation-printable-canvas > div {
+            transform: none !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .tabulation-sheet {
+            width: 210mm !important;
+            height: 295mm !important;
+            max-height: 295mm !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            page-break-inside: avoid !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

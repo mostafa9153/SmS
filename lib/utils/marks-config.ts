@@ -305,6 +305,15 @@ export function saveMarksSchemes(schemes: ClassMarksScheme[]): void {
   } catch (e) {
     console.error("Failed to save marks schemes:", e);
   }
+
+  // Background sync to database
+  try {
+    fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "marks_schemes", value: schemes }),
+    }).catch((err) => console.warn("Background DB sync for marks schemes failed:", err));
+  } catch {}
 }
 
 /**
@@ -414,5 +423,14 @@ export function savePromotionPolicy(policy: PromotionPolicy): void {
   } catch (e) {
     console.error("Failed to save promotion policy:", e);
   }
+
+  // Background sync to database
+  try {
+    fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "promotion_policy", value: policy }),
+    }).catch((err) => console.warn("Background DB sync for promotion policy failed:", err));
+  } catch {}
 }
 

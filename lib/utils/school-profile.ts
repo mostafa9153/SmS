@@ -92,7 +92,63 @@ export function saveSchoolProfile(profile: SchoolProfileData): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem("sms_school_profile", JSON.stringify(profile));
+    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
   } catch (e) {
     console.error("Failed to save school profile to storage", e);
   }
+
+  // Background sync to database
+  saveSchoolProfileToDb(profile).catch((err) => {
+    console.warn("Background DB sync for school profile failed:", err);
+  });
 }
+
+/**
+ * Asynchronously fetches the latest school profile from Supabase system_config
+ * and synchronizes it into local storage.
+ */
+export async function fetchSchoolProfileFromDb(): Promise<SchoolProfileData> {
+  try {
+    const res = await fetch("/api/school-config?key=school_profile", { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data) {
+        const merged: SchoolProfileData = { ...DEFAULT_SCHOOL_PROFILE, ...json.data };
+        if (typeof window !== "undefined") {
+          localStorage.setItem("sms_school_profile", JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: merged }));
+        }
+        return merged;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching school profile from DB:", err);
+  }
+  return getSavedSchoolProfile();
+}
+
+/**
+ * Saves the school profile to both localStorage and the Supabase database.
+ */
+export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise<boolean> {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("sms_school_profile", JSON.stringify(profile));
+    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
+  }
+
+  try {
+    const res = await fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: "school_profile",
+        value: profile,
+      }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to save school profile to DB:", err);
+    return false;
+  }
+}
+

@@ -28,7 +28,9 @@ import {
   CheckCircle2,
   Wand2,
   Armchair,
+  Printer,
 } from "lucide-react";
+import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
 
 export default function EmsSeatingMapPage() {
   const searchParams = useSearchParams();
@@ -38,6 +40,7 @@ export default function EmsSeatingMapPage() {
   const [allocations, setAllocations] = useState<ExamAllocation[]>([]);
   const [currentAllocation, setCurrentAllocation] = useState<ExamAllocation | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -163,34 +166,45 @@ export default function EmsSeatingMapPage() {
               </p>
             </div>
 
-            {/* Room Selector Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto">
-              {currentAllocation.roomAllocations.map((room) => {
-                const isSelected = room.roomId === selectedRoomId;
-                return (
-                  <button
-                    key={room.roomId}
-                    onClick={() => setSelectedRoomId(room.roomId)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                      isSelected
-                        ? "bg-primary text-primary-foreground shadow-md scale-105"
-                        : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60"
-                    }`}
-                  >
-                    <DoorOpen className="h-3.5 w-3.5" />
-                    <span>{room.roomNumber}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+            {/* Room Selector Pills & Print Button */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto">
+                {currentAllocation.roomAllocations.map((room) => {
+                  const isSelected = room.roomId === selectedRoomId;
+                  return (
+                    <button
+                      key={room.roomId}
+                      onClick={() => setSelectedRoomId(room.roomId)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                         isSelected
-                          ? "bg-primary-foreground/20 text-white"
-                          : "bg-background text-muted-foreground"
+                          ? "bg-primary text-primary-foreground shadow-md scale-105"
+                          : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60"
                       }`}
                     >
-                      {room.occupiedSeats}/{room.totalSeats}
-                    </span>
-                  </button>
-                );
-              })}
+                      <DoorOpen className="h-3.5 w-3.5" />
+                      <span>{room.roomNumber}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                          isSelected
+                            ? "bg-primary-foreground/20 text-white"
+                            : "bg-background text-muted-foreground"
+                        }`}
+                      >
+                        {room.occupiedSeats}/{room.totalSeats}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <Button
+                size="sm"
+                onClick={() => setPrintDialogOpen(true)}
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-md ml-auto cursor-pointer"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                Print Exam Suite
+              </Button>
             </div>
           </div>
 
@@ -209,6 +223,16 @@ export default function EmsSeatingMapPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* EMS Print Suite Modal */}
+      {currentAllocation && (
+        <EmsPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          allocation={currentAllocation}
+          defaultRoomId={selectedRoomId || "ALL"}
+        />
       )}
     </div>
   );

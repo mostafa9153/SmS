@@ -33,8 +33,11 @@ import {
   Armchair,
 } from "lucide-react";
 
-const CLASS_OPTIONS = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const SECTION_OPTIONS = ["A", "B", "C", "D"];
+import {
+  getDynamicClassCodes,
+  getDynamicSectionsForClass,
+  syncAllEmsConfigsFromDb,
+} from "@/lib/ems/ems-config-loader";
 
 export default function EmsManualAllocationPage() {
   const router = useRouter();
@@ -50,7 +53,14 @@ export default function EmsManualAllocationPage() {
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
   const [pendingAllocation, setPendingAllocation] = useState<ExamAllocation | null>(null);
 
+  const [availableClasses, setAvailableClasses] = useState<string[]>(() => getDynamicClassCodes());
+
   useEffect(() => {
+    syncAllEmsConfigsFromDb().then(() => {
+      setAvailableClasses(getDynamicClassCodes());
+      const freshRooms = getSavedRooms();
+      setRooms(freshRooms);
+    });
     const saved = getSavedRooms();
     setRooms(saved);
     if (saved.length > 0) {
@@ -277,10 +287,17 @@ export default function EmsManualAllocationPage() {
                         <Label className="text-[11px] font-semibold">Class</Label>
                         <select
                           value={colInput.class}
-                          onChange={(e) => updateColumn(idx, "class", e.target.value)}
+                          onChange={(e) => {
+                            const newClass = e.target.value;
+                            updateColumn(idx, "class", newClass);
+                            const validSecs = getDynamicSectionsForClass(newClass);
+                            if (!validSecs.includes(colInput.section)) {
+                              updateColumn(idx, "section", validSecs[0] || "A");
+                            }
+                          }}
                           className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
                         >
-                          {CLASS_OPTIONS.map((c) => (
+                          {availableClasses.map((c) => (
                             <option key={c} value={c}>
                               Class {c}
                             </option>
@@ -295,7 +312,7 @@ export default function EmsManualAllocationPage() {
                           onChange={(e) => updateColumn(idx, "section", e.target.value)}
                           className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
                         >
-                          {SECTION_OPTIONS.map((s) => (
+                          {getDynamicSectionsForClass(colInput.class).map((s) => (
                             <option key={s} value={s}>
                               Sec {s}
                             </option>

@@ -38,8 +38,11 @@ import {
   Armchair,
 } from "lucide-react";
 
-const CLASS_OPTIONS = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const SECTION_OPTIONS = ["A", "B", "C", "D"];
+import {
+  getDynamicClassCodes,
+  getDynamicSectionsForClass,
+  syncAllEmsConfigsFromDb,
+} from "@/lib/ems/ems-config-loader";
 
 export default function EmsAutoAllocationPage() {
   const router = useRouter();
@@ -63,7 +66,13 @@ export default function EmsAutoAllocationPage() {
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
   const [pendingAllocation, setPendingAllocation] = useState<ExamAllocation | null>(null);
 
+  const [availableClasses, setAvailableClasses] = useState<string[]>(() => getDynamicClassCodes());
+
   useEffect(() => {
+    syncAllEmsConfigsFromDb().then(() => {
+      setAvailableClasses(getDynamicClassCodes());
+      setRooms(getSavedRooms());
+    });
     const saved = getSavedRooms();
     setRooms(saved);
     // By default, select first 2 rooms if available
@@ -268,10 +277,17 @@ export default function EmsAutoAllocationPage() {
                       <Label className="text-[11px] text-muted-foreground">Class:</Label>
                       <select
                         value={c.class}
-                        onChange={(e) => updateClassRow(idx, "class", e.target.value)}
+                        onChange={(e) => {
+                          const newClass = e.target.value;
+                          updateClassRow(idx, "class", newClass);
+                          const validSecs = getDynamicSectionsForClass(newClass);
+                          if (!validSecs.includes(c.section)) {
+                            updateClassRow(idx, "section", validSecs[0] || "A");
+                          }
+                        }}
                         className="h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
                       >
-                        {CLASS_OPTIONS.map((opt) => (
+                        {availableClasses.map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>
@@ -286,7 +302,7 @@ export default function EmsAutoAllocationPage() {
                         onChange={(e) => updateClassRow(idx, "section", e.target.value)}
                         className="h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
                       >
-                        {SECTION_OPTIONS.map((opt) => (
+                        {getDynamicSectionsForClass(c.class).map((opt) => (
                           <option key={opt} value={opt}>
                             {opt}
                           </option>

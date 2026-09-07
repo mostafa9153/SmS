@@ -97,6 +97,7 @@ const navItems: NavItem[] = [
       { label: "Admission Form", href: "/generate/admission-form" },
       { label: "Admission Invoice", href: "/generate/invoice" },
       { label: "CCE Marksheet", href: "/generate/marksheet" },
+      { label: "Tabulation Sheet", href: "/generate/tabulation" },
       {
         label: "Certificates",
         icon: <Award className="h-3.5 w-3.5 text-amber-500" />,

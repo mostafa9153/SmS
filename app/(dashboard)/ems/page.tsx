@@ -53,10 +53,19 @@ import {
   Armchair,
   Loader2,
   Edit2,
+  Printer,
+  AlertCircle,
+  CheckCircle2,
+  Users,
+  CheckCheck,
+  Building2,
 } from "lucide-react";
-
-const CLASS_OPTIONS = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const SECTION_OPTIONS = ["A", "B", "C", "D"];
+import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
+import {
+  getDynamicClassCodes,
+  getDynamicSectionsForClass,
+  syncAllEmsConfigsFromDb,
+} from "@/lib/ems/ems-config-loader";
 
 const STEPS: StepItem[] = [
   { id: 1, title: "Session & Mode" },
@@ -100,6 +109,7 @@ export default function EmsMasterPage() {
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
   const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
   const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Loading & Mismatch Modal
   const [loading, setLoading] = useState(false);
@@ -107,7 +117,22 @@ export default function EmsMasterPage() {
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
   const [pendingAllocation, setPendingAllocation] = useState<ExamAllocation | null>(null);
 
+  // Dynamic classes from DB
+  const [availableClasses, setAvailableClasses] = useState<string[]>(() => getDynamicClassCodes());
+
   useEffect(() => {
+    // Sync fresh configs (classes, school profile, rooms) from database
+    syncAllEmsConfigsFromDb().then(() => {
+      const freshClasses = getDynamicClassCodes();
+      setAvailableClasses(freshClasses);
+      const freshRooms = getSavedRooms();
+      setRooms(freshRooms);
+      if (freshRooms.length > 0) {
+        setSelectedRoomIds((prev) => (prev.length === 0 ? [freshRooms[0].id] : prev));
+        setManualTargetRoomId((prev) => (!prev ? freshRooms[0].id : prev));
+      }
+    });
+
     const saved = getSavedRooms();
     setRooms(saved);
     if (saved.length > 0) {
@@ -164,6 +189,12 @@ export default function EmsMasterPage() {
   };
 
   // Calculations
+  const allRoomsTotalBenches = rooms.reduce(
+    (acc, r) => acc + r.columns.reduce((colAcc, c) => colAcc + c.benchCount, 0),
+    0
+  );
+  const allRoomsTotalCapacity = allRoomsTotalBenches * studentsPerBench;
+
   const selectedRooms = rooms.filter((r) => selectedRoomIds.includes(r.id));
   const totalBenches = selectedRooms.reduce(
     (acc, r) => acc + r.columns.reduce((colAcc, c) => colAcc + c.benchCount, 0),
@@ -175,6 +206,14 @@ export default function EmsMasterPage() {
     (sum, c) => sum + Math.max(0, c.rollTo - c.rollFrom + 1),
     0
   );
+
+  const handleToggleSelectAllRooms = () => {
+    if (selectedRoomIds.length === rooms.length) {
+      if (rooms.length > 0) setSelectedRoomIds([rooms[0].id]);
+    } else {
+      setSelectedRoomIds(rooms.map((r) => r.id));
+    }
+  };
 
   const markStepDone = (stepId: number) => {
     if (!completedSteps.includes(stepId)) {
@@ -192,6 +231,11 @@ export default function EmsMasterPage() {
     if (classes.length === 0 || totalStudentsExpected <= 0) {
       alert("Please configure at least one class group with valid rolls.");
       return;
+    }
+    // If selected room capacity is short, but all rooms combined can seat all candidates,
+    // auto-select all rooms so the user starts with 100% sufficient seats!
+    if (totalDynamicCapacity < totalStudentsExpected && allRoomsTotalCapacity >= totalStudentsExpected) {
+      setSelectedRoomIds(rooms.map((r) => r.id));
     }
     markStepDone(2);
     setStep(3);
@@ -558,10 +602,15 @@ export default function EmsMasterPage() {
                         value={c.class}
                         onChange={(val) => {
                           const updated = [...classes];
-                          updated[idx].class = String(val);
+                          const newClass = String(val);
+                          updated[idx].class = newClass;
+                          const validSecs = getDynamicSectionsForClass(newClass);
+                          if (!validSecs.includes(updated[idx].section)) {
+                            updated[idx].section = validSecs[0] || "A";
+                          }
                           setClasses(updated);
                         }}
-                        options={CLASS_OPTIONS.map((opt) => ({
+                        options={availableClasses.map((opt) => ({
                           label: `Class ${opt}`,
                           value: opt,
                         }))}
@@ -569,7 +618,7 @@ export default function EmsMasterPage() {
                       />
                     </div>
 
-                    {/* Section Dropdown */}
+                    {/* Section Dropdown (Dynamically loaded for selected class) */}
                     <div>
                       <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                         Section *
@@ -581,7 +630,7 @@ export default function EmsMasterPage() {
                           updated[idx].section = String(val);
                           setClasses(updated);
                         }}
-                        options={SECTION_OPTIONS.map((opt) => ({
+                        options={getDynamicSectionsForClass(c.class).map((opt) => ({
                           label: `Section ${opt}`,
                           value: opt,
                         }))}
@@ -697,71 +746,252 @@ export default function EmsMasterPage() {
               </div>
             </div>
 
-            {/* STUDENTS VS ROOM CAPACITY ANIMATED PROGRESS LINE */}
-            <div className="pt-2.5 border-t border-border/50 space-y-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-foreground">
-                    Capacity: <strong className="font-mono">{totalDynamicCapacity} / {totalStudentsExpected}</strong> Seats
-                  </span>
-                  {totalDynamicCapacity < totalStudentsExpected && (
-                    <Badge variant="destructive" className="text-[10px] font-mono font-semibold">
-                      Need {totalStudentsExpected - totalDynamicCapacity} more seats
-                    </Badge>
+            {/* TOTAL SEATS VS TOTAL EXAM STUDENTS DUAL ANIMATED VISUALIZER */}
+            {(() => {
+              const isSufficientCapacity = totalDynamicCapacity >= totalStudentsExpected;
+              const accommodatedStudents = Math.min(totalStudentsExpected, totalDynamicCapacity);
+              const availableSeats = Math.max(0, totalDynamicCapacity - totalStudentsExpected);
+              const deficitStudents = Math.max(0, totalStudentsExpected - totalDynamicCapacity);
+
+              // Percentage of capacity occupied by accommodated students
+              const capacityOccupancyPercent = totalDynamicCapacity > 0
+                ? Math.min(100, Math.round((accommodatedStudents / totalDynamicCapacity) * 100))
+                : 0;
+              const availablePercent = totalDynamicCapacity > 0
+                ? Math.max(0, 100 - capacityOccupancyPercent)
+                : 0;
+
+              // Percentage of exam candidates who have seats
+              const studentCoveragePercent = totalStudentsExpected > 0
+                ? Math.round((accommodatedStudents / totalStudentsExpected) * 100)
+                : 100;
+
+              return (
+                <div className="pt-3 border-t border-border/50 space-y-2.5">
+                  {/* Top Stats Cards: Total Seats vs Total Exam Students */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    {/* Stat 1: Total Exam Candidates */}
+                    <div className="p-2.5 rounded-xl border border-border/60 bg-muted/30 flex flex-col justify-between">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                        <Users className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                        <span>Total Exam Students:</span>
+                      </span>
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-base font-bold font-mono text-foreground">
+                          {totalStudentsExpected}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">Candidates</span>
+                      </div>
+                    </div>
+
+                    {/* Stat 2: Total Seats in Selected Rooms */}
+                    <div className="p-2.5 rounded-xl border border-border/60 bg-muted/30 flex flex-col justify-between">
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                        <Armchair className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span>Selected Rooms Seats:</span>
+                      </span>
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-base font-bold font-mono text-primary">
+                          {totalDynamicCapacity}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {selectedRooms.length} of {rooms.length} Rooms
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stat 3: Seated / Accommodated Students */}
+                    <div className="p-2.5 rounded-xl border border-border/60 bg-indigo-500/5 dark:bg-indigo-500/10 flex flex-col justify-between">
+                      <span className="text-[11px] text-indigo-700 dark:text-indigo-300 flex items-center gap-1 font-medium">
+                        <span className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                        <span>Seated / Accommodated:</span>
+                      </span>
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-base font-bold font-mono text-indigo-600 dark:text-indigo-400">
+                          {accommodatedStudents}
+                        </span>
+                        <span className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-mono">
+                          {studentCoveragePercent}% Seated
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Stat 4: Available / Vacant Seats or Deficit */}
+                    <div
+                      className={cn(
+                        "p-2.5 rounded-xl border flex flex-col justify-between",
+                        deficitStudents > 0
+                          ? "border-rose-500/40 bg-rose-500/5 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                          : "border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      )}
+                    >
+                      <span className="text-[11px] flex items-center gap-1 font-medium">
+                        {deficitStudents > 0 ? (
+                          <>
+                            <AlertCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                            <span>Shortage / Need:</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <span>Available Vacant Seats:</span>
+                          </>
+                        )}
+                      </span>
+                      <div className="mt-1 flex items-baseline justify-between">
+                        <span className="text-base font-bold font-mono">
+                          {deficitStudents > 0 ? deficitStudents : availableSeats}
+                        </span>
+                        <span className="text-[10px] font-mono">
+                          {deficitStudents > 0 ? "Seats Short" : `${availablePercent}% Free`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dual Animated Progress Bar: Reserved Students vs Available Seats */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-foreground flex items-center gap-1.5">
+                        <span>Total Seats vs Exam Students:</span>
+                        <span className="text-muted-foreground font-normal">
+                          {totalDynamicCapacity > 0
+                            ? `${accommodatedStudents} of ${totalDynamicCapacity} seats reserved for candidates`
+                            : "No rooms selected"}
+                        </span>
+                      </span>
+                      <span className="font-mono text-muted-foreground">
+                        All Rooms Combined: <strong>{allRoomsTotalCapacity}</strong> Seats
+                      </span>
+                    </div>
+
+                    <div className="h-4 sm:h-5 rounded-full bg-muted/80 overflow-hidden relative border border-border/70 flex p-0.5 shadow-inner">
+                      {totalDynamicCapacity === 0 ? (
+                        <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground font-medium">
+                          Select examination rooms below to activate capacity
+                        </div>
+                      ) : (
+                        <>
+                          {/* Segment 1: Reserved / Seated Students */}
+                          {capacityOccupancyPercent > 0 && (
+                            <div
+                              className={cn(
+                                "h-full transition-all duration-700 ease-out relative flex items-center justify-center overflow-hidden",
+                                availablePercent === 0 ? "rounded-full" : "rounded-l-full",
+                                deficitStudents > 0
+                                  ? "bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 shadow-sm"
+                                  : "bg-gradient-to-r from-indigo-600 via-indigo-500 to-indigo-500 shadow-sm"
+                              )}
+                              style={{ width: `${capacityOccupancyPercent}%` }}
+                              title={`Reserved: ${accommodatedStudents} seats for exam candidates (${capacityOccupancyPercent}%)`}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
+                              {capacityOccupancyPercent >= 16 && (
+                                <span className="relative z-10 text-[9px] font-bold text-white font-mono drop-shadow-xs truncate px-1">
+                                  Reserved: {accommodatedStudents} ({capacityOccupancyPercent}%)
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Segment 2: Available Vacant Seats */}
+                          {availablePercent > 0 && (
+                            <div
+                              className={cn(
+                                "h-full transition-all duration-700 ease-out relative flex items-center justify-center overflow-hidden bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 shadow-sm",
+                                capacityOccupancyPercent === 0 ? "rounded-full" : "rounded-r-full"
+                              )}
+                              style={{ width: `${availablePercent}%` }}
+                              title={`Available: ${availableSeats} vacant seats remaining (${availablePercent}%)`}
+                            >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse" />
+                              {availablePercent >= 16 && (
+                                <span className="relative z-10 text-[9px] font-bold text-white font-mono drop-shadow-xs truncate px-1">
+                                  Available: {availableSeats} ({availablePercent}%)
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contextual Action Banner */}
+                  {deficitStudents > 0 ? (
+                    <div className="p-2.5 rounded-xl border border-rose-500/30 bg-rose-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span>
+                          <strong>Seat Shortage:</strong> {deficitStudents} students do not have seats. Selected rooms provide {totalDynamicCapacity} seats for {totalStudentsExpected} students.
+                        </span>
+                      </div>
+                      {allRoomsTotalCapacity >= totalStudentsExpected && selectedRoomIds.length < rooms.length && (
+                        <Button
+                          size="sm"
+                          type="button"
+                          onClick={() => setSelectedRoomIds(rooms.map((r) => r.id))}
+                          className="h-7 text-xs bg-rose-600 hover:bg-rose-500 text-white font-semibold shrink-0 cursor-pointer shadow-xs"
+                        >
+                          Select All Rooms ({allRoomsTotalCapacity} Seats)
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
+                          <span>Reserved: Students taking exam</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                          <span>Available: Vacant room seats</span>
+                        </span>
+                      </div>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                        All {totalStudentsExpected} students accommodated ({availableSeats} extra seats available)
+                      </span>
+                    </div>
                   )}
                 </div>
-
-                <span
-                  className={cn(
-                    "text-xs font-bold font-mono",
-                    totalDynamicCapacity >= totalStudentsExpected
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-amber-600 dark:text-amber-400"
-                  )}
-                >
-                  {totalStudentsExpected > 0
-                    ? Math.min(100, Math.round((totalDynamicCapacity / totalStudentsExpected) * 100))
-                    : 100}%
-                </span>
-              </div>
-
-              {/* Animated Progress Line */}
-              <div className="h-2.5 rounded-full bg-muted/80 overflow-hidden relative border border-border/60">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-700 ease-out relative overflow-hidden",
-                    totalDynamicCapacity >= totalStudentsExpected
-                      ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-                      : "bg-gradient-to-r from-amber-500 to-rose-500"
-                  )}
-                  style={{
-                    width: `${Math.max(
-                      4,
-                      Math.min(100, (totalDynamicCapacity / (totalStudentsExpected || 1)) * 100)
-                    )}%`,
-                  }}
-                >
-                  {/* Animated Shimmer Ray */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse" />
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
-          {/* Rooms Selection */}
+          {/* Rooms Selection Header with Select All button */}
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Select Examination Rooms
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Select Examination Rooms</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    ({selectedRooms.length} of {rooms.length} Selected • {totalDynamicCapacity} Seats)
+                  </span>
+                </p>
+              </div>
               <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  type="button"
+                  variant={selectedRoomIds.length === rooms.length ? "secondary" : "outline"}
+                  onClick={handleToggleSelectAllRooms}
+                  className="h-7 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer"
+                >
+                  <CheckCheck className="h-3.5 w-3.5 text-primary" />
+                  {selectedRoomIds.length === rooms.length
+                    ? "Deselect Others"
+                    : `Select All Rooms (${rooms.length})`}
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setRoomsManagerOpen(true)}
                   className="h-7 text-xs font-semibold gap-1 hover:border-primary/40 cursor-pointer"
                 >
-                  <DoorOpen className="h-3.5 w-3.5 text-primary" /> View All Rooms ({rooms.length})
+                  <DoorOpen className="h-3.5 w-3.5 text-primary" /> View All ({rooms.length})
                 </Button>
                 <Button
                   size="sm"
@@ -946,10 +1176,15 @@ export default function EmsMasterPage() {
                             value={colInput.class}
                             onChange={(val) => {
                               const updated = [...manualColumnInputs];
-                              updated[idx].class = String(val);
+                              const newClass = String(val);
+                              updated[idx].class = newClass;
+                              const validSecs = getDynamicSectionsForClass(newClass);
+                              if (!validSecs.includes(updated[idx].section)) {
+                                updated[idx].section = validSecs[0] || "A";
+                              }
                               setManualColumnInputs(updated);
                             }}
-                            options={CLASS_OPTIONS.map((c) => ({
+                            options={availableClasses.map((c) => ({
                               label: `Class ${c}`,
                               value: c,
                             }))}
@@ -968,7 +1203,7 @@ export default function EmsMasterPage() {
                               updated[idx].section = String(val);
                               setManualColumnInputs(updated);
                             }}
-                            options={SECTION_OPTIONS.map((s) => ({
+                            options={getDynamicSectionsForClass(colInput.class).map((s) => ({
                               label: `Sec ${s}`,
                               value: s,
                             }))}
@@ -1064,29 +1299,40 @@ export default function EmsMasterPage() {
                 </p>
               </div>
 
-              {/* Room Pills */}
-              <div className="flex items-center gap-1.5">
-                {generatedAllocation.roomAllocations.map((room) => {
-                  const isSelected = room.roomId === activeBlueprintRoomId;
-                  return (
-                    <button
-                      key={room.roomId}
-                      onClick={() => setActiveBlueprintRoomId(room.roomId)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer",
-                        isSelected
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "bg-muted/60 text-muted-foreground hover:text-foreground border border-border/60"
-                      )}
-                    >
-                      <DoorOpen className="h-3.5 w-3.5" />
-                      <span>{room.roomNumber}</span>
-                      <span className="text-[10px] opacity-80">
-                        ({room.occupiedSeats}/{room.totalSeats})
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* Room Pills & Print Suite Button */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 overflow-x-auto">
+                  {generatedAllocation.roomAllocations.map((room) => {
+                    const isSelected = room.roomId === activeBlueprintRoomId;
+                    return (
+                      <button
+                        key={room.roomId}
+                        onClick={() => setActiveBlueprintRoomId(room.roomId)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer",
+                          isSelected
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "bg-muted/60 text-muted-foreground hover:text-foreground border border-border/60"
+                        )}
+                      >
+                        <DoorOpen className="h-3.5 w-3.5" />
+                        <span>{room.roomNumber}</span>
+                        <span className="text-[10px] opacity-80">
+                          ({room.occupiedSeats}/{room.totalSeats})
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => setPrintDialogOpen(true)}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-md ml-1 cursor-pointer shrink-0"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print Exam Suite
+                </Button>
               </div>
             </div>
           )}
@@ -1131,18 +1377,32 @@ export default function EmsMasterPage() {
             </div>
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setGeneratedAllocation(savedAllocations[0]);
-              setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
-              setStep(4);
-            }}
-            className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shrink-0"
-          >
-            <RotateCcw className="h-3.5 w-3.5 text-primary" /> View Seating Blueprint
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setGeneratedAllocation(savedAllocations[0]);
+                setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
+                setStep(4);
+              }}
+              className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer"
+            >
+              <RotateCcw className="h-3.5 w-3.5 text-primary" /> View Seating Blueprint
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={() => {
+                setGeneratedAllocation(savedAllocations[0]);
+                setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
+                setPrintDialogOpen(true);
+              }}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print Suite
+            </Button>
+          </div>
         </div>
       )}
 
@@ -1176,6 +1436,16 @@ export default function EmsMasterPage() {
         report={mismatchReport}
         allowProceedOnError={true}
       />
+
+      {/* EMS Print Suite Modal */}
+      {generatedAllocation && (
+        <EmsPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          allocation={generatedAllocation}
+          defaultRoomId={activeBlueprintRoomId || "ALL"}
+        />
+      )}
     </div>
   );
 }

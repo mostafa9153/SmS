@@ -50,6 +50,7 @@ import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
   HEAD_DESIGNATION_OPTIONS,
+  saveSchoolProfileToDb,
 } from "@/lib/utils/school-profile";
 import {
   type ClassMarksScheme,
@@ -293,7 +294,22 @@ export function SchoolDetailsTab() {
     });
   };
 
-  // Load saved state from localStorage if present
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+
+  // Helper to sync classes to database and localStorage
+  const updateAndSyncClasses = (updated: ClassItem[]) => {
+    setClasses(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sms_class_management", JSON.stringify(updated));
+    }
+    fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "class_management", value: updated }),
+    }).catch((err) => console.warn("Background DB sync for classes failed:", err));
+  };
+
+  // Load saved state from localStorage if present, then fetch latest from Database
   useEffect(() => {
     try {
       const savedProfile = localStorage.getItem("sms_school_profile");
@@ -317,6 +333,32 @@ export function SchoolDetailsTab() {
     } catch (e) {
       console.error("Failed to load local school details", e);
     }
+
+    // Seamlessly fetch and synchronize all 4 school configs from Supabase database
+    fetch("/api/school-config", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data) {
+          if (json.data.school_profile) {
+            setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...json.data.school_profile });
+            localStorage.setItem("sms_school_profile", JSON.stringify(json.data.school_profile));
+          }
+          if (json.data.class_management && Array.isArray(json.data.class_management) && json.data.class_management.length > 0) {
+            setClasses(json.data.class_management);
+            localStorage.setItem("sms_class_management", JSON.stringify(json.data.class_management));
+          }
+          if (json.data.marks_schemes && Array.isArray(json.data.marks_schemes) && json.data.marks_schemes.length > 0) {
+            setMarksSchemes(json.data.marks_schemes);
+            localStorage.setItem("sms_marks_distribution_schemes", JSON.stringify(json.data.marks_schemes));
+          }
+          if (json.data.promotion_policy) {
+            setPromotionPolicy(json.data.promotion_policy);
+            localStorage.setItem("sms_promotion_pass_policy", JSON.stringify(json.data.promotion_policy));
+          }
+          setIsCloudSynced(true);
+        }
+      })
+      .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
   }, []);
 
   const handleSavePromotionPolicy = () => {
@@ -467,19 +509,21 @@ export function SchoolDetailsTab() {
     });
   };
 
-  // Save Profile Handler
-  const handleSaveProfile = () => {
+  // Save Profile Handler (Syncs to DB and LocalStorage)
+  const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
       localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-      setTimeout(() => {
-        setIsSavingProfile(false);
-        showToast({
-          type: "success",
-          title: "School Profile Saved",
-          description: "Institutional metadata and contact credentials updated successfully.",
-        });
-      }, 500);
+      const success = await saveSchoolProfileToDb(profile);
+      setIsSavingProfile(false);
+      setIsCloudSynced(success);
+      showToast({
+        type: success ? "success" : "info",
+        title: success ? "Saved to Cloud Database" : "Saved Locally",
+        description: success
+          ? "Institutional metadata updated in database and synchronized across all devices."
+          : "Saved in browser storage.",
+      });
     } catch (e) {
       setIsSavingProfile(false);
       showToast({
@@ -518,8 +562,7 @@ export function SchoolDetailsTab() {
     };
 
     const updated = [...classes, newClassItem];
-    setClasses(updated);
-    localStorage.setItem("sms_class_management", JSON.stringify(updated));
+    updateAndSyncClasses(updated);
 
     showToast({
       type: "success",
@@ -615,8 +658,7 @@ export function SchoolDetailsTab() {
       return c;
     });
 
-    setClasses(updated);
-    localStorage.setItem("sms_class_management", JSON.stringify(updated));
+    updateAndSyncClasses(updated);
 
     showToast({
       type: "success",
@@ -631,8 +673,7 @@ export function SchoolDetailsTab() {
   const handleDeleteClass = (id: string, name: string) => {
     if (window.confirm(`Are you sure you want to remove ${name} from class management?`)) {
       const updated = classes.filter((c) => c.id !== id);
-      setClasses(updated);
-      localStorage.setItem("sms_class_management", JSON.stringify(updated));
+      updateAndSyncClasses(updated);
       showToast({
         type: "success",
         title: "Class Removed",
@@ -654,8 +695,7 @@ export function SchoolDetailsTab() {
       return c;
     });
 
-    setClasses(updated);
-    localStorage.setItem("sms_class_management", JSON.stringify(updated));
+    updateAndSyncClasses(updated);
     showToast({
       type: "success",
       title: "Section Added",
@@ -684,8 +724,7 @@ export function SchoolDetailsTab() {
       return c;
     });
 
-    setClasses(updated);
-    localStorage.setItem("sms_class_management", JSON.stringify(updated));
+    updateAndSyncClasses(updated);
     showToast({
       type: "success",
       title: "Section Removed",
@@ -803,10 +842,22 @@ export function SchoolDetailsTab() {
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5" />
-                Verified Institution
-              </Badge>
+              <div className="flex items-center gap-2">
+                {isCloudSynced ? (
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                    Cloud Synced
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border-neutral-200 text-xs py-1 px-2.5">
+                    Local Storage
+                  </Badge>
+                )}
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Verified Institution
+                </Badge>
+              </div>
             </div>
           </div>
 

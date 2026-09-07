@@ -79,7 +79,6 @@ export function getSavedRooms(): EmsRoom[] {
   }
 }
 
-// Save rooms list
 export function saveRooms(rooms: EmsRoom[]): void {
   if (typeof window === "undefined") return;
   try {
@@ -87,6 +86,15 @@ export function saveRooms(rooms: EmsRoom[]): void {
   } catch (err) {
     console.error("Error saving rooms to localStorage:", err);
   }
+
+  // Background DB Sync
+  try {
+    fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "ems_rooms", value: rooms }),
+    }).catch((err) => console.warn("Failed to sync rooms to DB:", err));
+  } catch {}
 }
 
 // Get single room by ID
@@ -149,6 +157,15 @@ export function saveAllocation(allocation: ExamAllocation): void {
       allocations.unshift(updated);
     }
     localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(allocations));
+
+    // Background DB Sync
+    try {
+      fetch("/api/school-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "ems_allocations", value: allocations }),
+      }).catch((err) => console.warn("Failed to sync allocations to DB:", err));
+    } catch {}
   } catch (err) {
     console.error("Error saving allocation:", err);
   }
@@ -160,11 +177,19 @@ export function getAllocationById(id: string): ExamAllocation | undefined {
   return allocations.find((a) => a.id === id);
 }
 
-// Delete allocation
 export function deleteAllocation(id: string): void {
   const allocations = getSavedAllocations().filter((a) => a.id !== id);
   if (typeof window === "undefined") return;
   localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(allocations));
+
+  // Background DB Sync
+  try {
+    fetch("/api/school-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "ems_allocations", value: allocations }),
+    }).catch((err) => console.warn("Failed to sync allocations deletion to DB:", err));
+  } catch {}
 }
 
 // Swap two seats in an allocation
