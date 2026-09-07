@@ -62,7 +62,7 @@ export default function TabulationGeneratorPage() {
       : "/school-logo.png";
 
   // Class, Section, Subject state
-  const [availableClasses, setAvailableClasses] = useState<string[]>(["V", "VI", "VII", "VIII", "IX", "X"]);
+  const [availableClasses, setAvailableClasses] = useState<string[]>(["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]);
   const [selectedClass, setSelectedClass] = useState<string>("VII");
   const [selectedSection, setSelectedSection] = useState<string>("B");
   const [selectedSubject, setSelectedSubject] = useState<string>("Bengali");
@@ -70,7 +70,6 @@ export default function TabulationGeneratorPage() {
   const [customSubjectText, setCustomSubjectText] = useState<string>("");
 
   // Layout & Preview state
-  const [layoutMode, setLayoutMode] = useState<"dual-copy" | "continuous">("dual-copy");
   const [zoom, setZoom] = useState<number>(0.75);
   const [showWatermark, setShowWatermark] = useState<boolean>(true);
   const [manualCount, setManualCount] = useState<number>(31);
@@ -107,10 +106,24 @@ export default function TabulationGeneratorPage() {
     }
   }, [availableSections, selectedSection]);
 
-  // Compute real available subjects for the selected class directly from database marks distribution & student records
+  // Reactive listener for live updates made in Settings -> School Details -> Class Subjects
+  const [schemesVersion, setSchemesVersion] = useState(0);
+  useEffect(() => {
+    const handleSchemesUpdate = () => {
+      setSchemesVersion((v) => v + 1);
+    };
+    window.addEventListener("sms_marks_schemes_updated", handleSchemesUpdate);
+    window.addEventListener("storage", handleSchemesUpdate);
+    return () => {
+      window.removeEventListener("sms_marks_schemes_updated", handleSchemesUpdate);
+      window.removeEventListener("storage", handleSchemesUpdate);
+    };
+  }, []);
+
+  // Compute real available subjects directly from Settings / School Details / Class Subjects (besio na komo na)
   const availableSubjects = useMemo(() => {
     return getDatabaseSubjectsForClass(selectedClass, allStudents);
-  }, [selectedClass, allStudents]);
+  }, [selectedClass, allStudents, schemesVersion]);
 
   useEffect(() => {
     if (availableSubjects.length > 0 && !availableSubjects.includes(selectedSubject) && !isAllSubjectsMode) {
@@ -161,8 +174,9 @@ export default function TabulationGeneratorPage() {
         const matchesClassAndSection = studentClass === targetClass && studentSection === targetSection;
         if (!matchesClassAndSection || !isContinuing) return false;
 
-        // Subject elective check (for XI/XII elective groups; compulsory for secondary)
-        if (targetSubject && targetSubject !== "CUSTOM" && !isAllSubjectsMode) {
+        // Subject elective check (Only for Higher Secondary XI/XII streams; in V-X all enrolled students study all subjects)
+        const isHigherSecondary = ["XI", "XII"].includes(targetClass);
+        if (isHigherSecondary && targetSubject && targetSubject !== "CUSTOM" && !isAllSubjectsMode) {
           const studentElectives = [
             ...(s.mandatorySubjects || []),
             ...(s.additionalSubjects || []),
@@ -246,7 +260,7 @@ export default function TabulationGeneratorPage() {
                 variant="outline"
                 className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 font-mono"
               >
-                WB Standard Twin-Cut
+                WB Continuous Register (40 Rows/Col)
               </Badge>
             </h1>
             <p className="text-xs text-muted-foreground">
@@ -294,10 +308,10 @@ export default function TabulationGeneratorPage() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         
         {/* LEFT COLUMN: Controls (Hidden in Print) */}
-        <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-1">
+        <div className="xl:col-span-4 space-y-4 print:hidden">
           
           {/* Card 1: Class & Section Selector */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center justify-between text-foreground">
                 <span className="flex items-center gap-2">
@@ -309,7 +323,7 @@ export default function TabulationGeneratorPage() {
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               <div className="grid grid-cols-2 gap-2.5">
                 {/* Class Selector */}
                 <div className="space-y-1.5">
@@ -367,14 +381,14 @@ export default function TabulationGeneratorPage() {
                 ) : (
                   <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1.5 text-xs text-amber-800 dark:text-amber-300">
                     <span className="font-semibold block">No database records found for Class {selectedClass}-{selectedSection}.</span>
-                    <span className="text-[11px] text-muted-foreground block">Using {manualCount} numbered blank rows (Roll 1 to {manualCount}):</span>
+                    <span className="text-[11px] text-muted-foreground block">Using {manualCount} numbered blank rows:</span>
                     <div className="flex items-center gap-2 pt-0.5">
                       <Input
                         type="number"
                         min={10}
-                        max={80}
+                        max={160}
                         value={manualCount}
-                        onChange={(e) => setManualCount(parseInt(e.target.value) || 31)}
+                        onChange={(e) => setManualCount(parseInt(e.target.value) || 80)}
                         className="h-7 w-20 text-xs font-mono"
                       />
                       <span className="text-[11px] text-muted-foreground">Rows to print</span>
@@ -386,7 +400,7 @@ export default function TabulationGeneratorPage() {
           </Card>
 
           {/* Card 2: Subject Selection */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
@@ -407,21 +421,52 @@ export default function TabulationGeneratorPage() {
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               {!isAllSubjectsMode ? (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Choose Specific Subject:</Label>
-                  <CustomSelect
-                    value={selectedSubject}
-                    onChange={(val) => setSelectedSubject(val)}
-                    options={[
-                      ...availableSubjects.map((sub) => ({
-                        value: sub,
-                        label: sub,
-                      })),
-                      { value: "CUSTOM", label: "Custom / Blank Subject" },
-                    ]}
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Choose Specific Subject:</Label>
+                    <CustomSelect
+                      value={selectedSubject}
+                      onChange={(val) => setSelectedSubject(val)}
+                      options={[
+                        ...availableSubjects.map((sub) => ({
+                          value: sub,
+                          label: sub,
+                        })),
+                        { value: "CUSTOM", label: "Custom / Blank Subject" },
+                      ]}
+                    />
+                  </div>
+
+                  {/* 1-Click Quick Subject Selection Buttons */}
+                  <div className="pt-2 border-t space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-muted-foreground">
+                        Class {selectedClass} Subjects ({availableSubjects.length}):
+                      </span>
+                      <span className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">1-Click Pick</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableSubjects.map((sub) => {
+                        const isSelected = selectedSubject === sub;
+                        return (
+                          <button
+                            key={`quick-sub-btn-${sub}`}
+                            type="button"
+                            onClick={() => setSelectedSubject(sub)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                              isSelected
+                                ? "bg-purple-600 text-white border-purple-600 shadow-xs scale-102"
+                                : "bg-muted/60 hover:bg-purple-500/10 hover:border-purple-300 text-foreground border-border/80"
+                            }`}
+                          >
+                            {sub}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
                   {selectedSubject === "CUSTOM" && (
                     <div className="pt-2 space-y-1">
@@ -445,90 +490,17 @@ export default function TabulationGeneratorPage() {
                     {availableSubjects.join(", ")}
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    Each subject will be rendered on a fresh A4 twin sheet ready for printing!
+                    Each subject will be rendered on a fresh A4 register sheet (40 rows left + 40 rows right) ready for printing!
                   </p>
                 </div>
               )}
             </CardContent>
           </Card>
 
-          {/* Card 3: Layout & Print Preferences */}
-          <Card className="border shadow-2xs">
-            <CardHeader className="p-4 border-b bg-muted/20">
-              <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
-                <Scissors className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-                Layout &amp; Print Preferences
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setLayoutMode("dual-copy")}
-                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
-                    layoutMode === "dual-copy"
-                      ? "border-purple-500 bg-purple-500/10 text-foreground ring-1 ring-purple-500/40"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="block text-xs font-bold">Dual Twin Copy</span>
-                  <span className="block text-[10px] text-muted-foreground mt-0.5">
-                    Office + Teacher Copy (Sample)
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setLayoutMode("continuous")}
-                  className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer ${
-                    layoutMode === "continuous"
-                      ? "border-purple-500 bg-purple-500/10 text-foreground ring-1 ring-purple-500/40"
-                      : "border-border bg-card text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  <span className="block text-xs font-bold">Continuous</span>
-                  <span className="block text-[10px] text-muted-foreground mt-0.5">
-                    Roll 1-31 Left, 32-62 Right
-                  </span>
-                </button>
-              </div>
-
-              <div className="pt-2 border-t space-y-2">
-                <div className="p-3 rounded-xl border bg-muted/30 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg border bg-background flex items-center justify-center p-1 shrink-0 overflow-hidden shadow-2xs">
-                      <img
-                        src={effectiveLogoUrl}
-                        alt="School Logo"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <Label htmlFor="print-logo-checkbox" className="text-xs font-bold text-foreground block cursor-pointer">
-                        Print School Logo
-                      </Label>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        Default Institutional Crest (Auto-synced from DB)
-                      </p>
-                    </div>
-                  </div>
-
-                  <input
-                    id="print-logo-checkbox"
-                    type="checkbox"
-                    checked={showWatermark}
-                    onChange={(e) => setShowWatermark(e.target.checked)}
-                    className="rounded border-input text-purple-600 focus:ring-purple-500 h-4 w-4 cursor-pointer shrink-0"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Printing Advice Callout */}
           <div className="p-3 bg-muted/40 border rounded-xl text-[11px] text-muted-foreground leading-relaxed">
             <span className="font-bold text-foreground block mb-1">💡 Printing Advice:</span>
-            In the browser print preview, ensure <strong>Margins: None</strong> and <strong>Background Graphics: Checked</strong> are selected for pixel-perfect zero-margin output.
+            In the browser print preview, ensure <strong>Margins: None</strong> and <strong>Background Graphics: Checked</strong> are selected for pixel-perfect A4 zero-margin output (40 rows left &amp; 40 rows right &bull; 80 students/sheet).
           </div>
         </div>
 
@@ -537,49 +509,57 @@ export default function TabulationGeneratorPage() {
           <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
               <FileSpreadsheet className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-              Live Tabulation Sheet Preview (A4 Portrait &bull; WB Twin-Cut)
+              Live Tabulation Sheet Preview (A4 Portrait &bull; 40 Rows/Col &bull; 80/Page)
             </span>
 
-            {/* Zoom / Scale Controls */}
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-              {[0.6, 0.75, 0.85, 1.0].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setZoom(s)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
-                    Math.abs(zoom - s) < 0.02
-                      ? "bg-purple-600 text-white font-bold shadow-2xs"
-                      : "bg-background hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {Math.round(s * 100)}%
-                </button>
-              ))}
-              <div className="flex items-center ml-1 border rounded-lg overflow-hidden bg-background">
-                <button
-                  onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.05).toFixed(2))))}
-                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setZoom((z) => Math.min(1.5, Number((z + 0.05).toFixed(2))))}
-                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => setZoom(0.75)}
-                  className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors border-l cursor-pointer"
-                  title="Reset Zoom (75%)"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
+            {/* Smooth Line Scale Slider Zoom Control */}
+            <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
+              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                <span>Scale:</span>
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.05).toFixed(2))))}
+                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer"
+                title="Zoom Out (-5%)"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Range Line Scale Slider */}
+              <div className="flex items-center w-24 sm:w-32">
+                <input
+                  type="range"
+                  min="0.4"
+                  max="1.5"
+                  step="0.02"
+                  value={zoom}
+                  onChange={(e) => setZoom(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-600 focus:outline-none"
+                  title={`Slide to zoom: ${Math.round(zoom * 100)}%`}
+                />
               </div>
+
+              <button
+                type="button"
+                onClick={() => setZoom((z) => Math.min(1.5, Number((z + 0.05).toFixed(2))))}
+                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer"
+                title="Zoom In (+5%)"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+
+              {/* Percentage Badge & Reset */}
+              <button
+                type="button"
+                onClick={() => setZoom(0.75)}
+                className="px-2 py-0.5 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 border border-purple-500/20"
+                title="Click to reset to default 75%"
+              >
+                <span>{Math.round(zoom * 100)}%</span>
+                <RotateCcw className="w-2.5 h-2.5 opacity-60 hover:opacity-100" />
+              </button>
             </div>
           </div>
 
@@ -613,7 +593,6 @@ export default function TabulationGeneratorPage() {
                     section={selectedSection}
                     subject={sub}
                     students={enrolledStudents}
-                    layoutMode={layoutMode}
                     showWatermark={showWatermark}
                   />
                 </div>

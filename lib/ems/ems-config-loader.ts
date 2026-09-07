@@ -1,6 +1,6 @@
-// Dynamic configuration loader for EMS (Classes, Sections, Subjects, and School Profile from DB)
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { getSavedMarksSchemes, ClassMarksScheme } from "@/lib/utils/marks-config";
+import { getStandardSubjectsForClass } from "@/lib/utils/marksheet-calc";
 
 export interface DynamicClassItem {
   id?: string;
@@ -131,50 +131,79 @@ export function getDynamicSubjectsForClasses(classCodes: string[]): string[] {
 
 /**
  * Get pure, unpadded real subjects configured in the database for a specific class.
- * Reads directly from saved Marks Schemes (synced from DB) and checks students' subjects.
+ * Normalizes Roman/number class representations, reads directly from saved Marks Schemes
+ * (synced from DB), checks students' subjects, and merges standard WBBSE/WBCHSE subjects.
  * Never adds dummy "Exam X" values.
  */
 export function getDatabaseSubjectsForClass(
   classCode: string,
-  students: { presentClass?: string; mandatorySubjects?: string[]; additionalSubjects?: string[] }[] = []
+  students: {
+    presentClass?: string;
+    mandatorySubjects?: string[];
+    additionalSubjects?: string[];
+    coCurricularSubjects?: string[];
+    languageGroup?: string[];
+  }[] = []
 ): string[] {
+  const normClass = (classCode || "VII")
+    .trim()
+    .toUpperCase()
+    .replace(/^CLASS\s*[-_]?\s*/i, "");
+
+  const romanMap: Record<string, string> = {
+    "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V",
+    "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X",
+    "11": "XI", "12": "XII",
+  };
+  const normalizedClass = romanMap[normClass] || normClass;
+
+  const cleanSubjectName = (sub: string): string => {
+    if (!sub) return "";
+    let s = sub.trim();
+    // Clean "(1st Language)", "(2nd Language)", etc. for clean tabular display
+    s = s.replace(/\s*\([^)]*\)/g, "").trim();
+    return s;
+  };
+
+  // 1. Primary Source of Truth: Settings -> School Details & Institutional Setup -> Class Subjects
   const schemes: ClassMarksScheme[] = getSavedMarksSchemes();
-  const subjectsSet = new Set<string>();
-  const targetCode = classCode.trim().toUpperCase();
-
-  // 1. Check matching scheme in database
-  const matched = schemes.find((s) => s.classCode.trim().toUpperCase() === targetCode);
-  if (matched && Array.isArray(matched.subjects) && matched.subjects.length > 0) {
-    matched.subjects.forEach((sub) => {
-      const clean = sub.replace(/\s*\([^)]*\)/g, "").trim();
-      if (clean) subjectsSet.add(clean);
-    });
-  }
-
-  // 2. Check students belonging to this class in database for their subjects
-  const classStudents = students.filter(
-    (st) => (st.presentClass || "").trim().toUpperCase() === targetCode
-  );
-  classStudents.forEach((st) => {
-    [...(st.mandatorySubjects || []), ...(st.additionalSubjects || [])].forEach((sub) => {
-      const clean = sub.replace(/\s*\([^)]*\)/g, "").trim();
-      if (clean) subjectsSet.add(clean);
-    });
+  const matchedScheme = schemes.find((s) => {
+    const sCode = (s.classCode || s.className || "")
+      .trim()
+      .toUpperCase()
+      .replace(/^CLASS\s*[-_]?\s*/i, "");
+    return (romanMap[sCode] || sCode) === normalizedClass;
   });
 
-  // 3. If found in database, return list
-  if (subjectsSet.size > 0) {
-    return Array.from(subjectsSet);
+  // If configured in School Details -> Class Subjects, return EXACTLY those subjects (besio na, komo na)
+  if (matchedScheme && Array.isArray(matchedScheme.subjects) && matchedScheme.subjects.length > 0) {
+    const exactConfiguredSubjects: string[] = [];
+    matchedScheme.subjects.forEach((sub) => {
+      const clean = cleanSubjectName(sub);
+      if (clean && !exactConfiguredSubjects.includes(clean)) {
+        exactConfiguredSubjects.push(clean);
+      }
+    });
+    if (exactConfiguredSubjects.length > 0) {
+      return exactConfiguredSubjects;
+    }
   }
 
-  // 4. Default fallback based on WBBSE curriculum if class not yet configured in DB
-  if (["IX", "X"].includes(targetCode)) {
-    return ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"];
-  }
-  if (["XI", "XII"].includes(targetCode)) {
-    return ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biological Sciences", "History", "Geography"];
-  }
-  return ["Bengali", "English", "Mathematics", "Environment & Science", "History", "Geography", "Health & Physical Education"];
+  // 2. Default fallback if no scheme is configured yet in Settings
+  const fallbackCurriculumMap: Record<string, string[]> = {
+    V: ["Bengali", "English", "Mathematics", "Our Environment"],
+    VI: ["Bengali", "English", "Mathematics", "Environment & Science", "History", "Geography"],
+    VII: ["Bengali", "English", "Sanskrit", "Mathematics", "Environment & Science", "History", "Geography"],
+    VIII: ["Bengali", "English", "Sanskrit", "Mathematics", "Environment & Science", "History", "Geography"],
+    IX: ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"],
+    X: ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"],
+    XI: ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biological Sciences"],
+    XII: ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biological Sciences"],
+  };
+
+  return fallbackCurriculumMap[normalizedClass] || [
+    "Bengali", "English", "Mathematics", "Environment & Science", "History", "Geography",
+  ];
 }
 
 /**

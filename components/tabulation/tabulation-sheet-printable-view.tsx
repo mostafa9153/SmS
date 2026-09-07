@@ -17,11 +17,12 @@ export interface TabulationSheetProps {
   section: string;          // e.g. "B"
   subject: string;          // e.g. "BENGALI" or "MATHEMATICS"
   students: TabulationStudentItem[];
-  layoutMode?: "dual-copy" | "continuous"; // "dual-copy" = office copy + teacher copy (specimen), "continuous" = roll 1-31 left, roll 32-62 right
   showWatermark?: boolean;
 }
 
-const ROWS_PER_PAGE = 31; // Matches specimen: 31 students fit perfectly on A4 portrait
+// 40 rows per column = 80 student records per A4 sheet (2 continuous columns)
+const ROWS_PER_COLUMN = 40;
+const ROWS_PER_PAGE = ROWS_PER_COLUMN * 2; // 80 rows per A4 page
 
 export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
   schoolProfile,
@@ -31,72 +32,84 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
   section,
   subject,
   students,
-  layoutMode = "dual-copy",
   showWatermark = true,
 }) => {
-  // Ensure students are sorted by roll
+  // Ensure students are strictly sorted by roll number
   const sortedStudents = [...students].sort((a, b) => a.roll - b.roll);
 
-  // If continuous mode: each page holds 2 x ROWS_PER_PAGE (left and right columns)
-  // If dual-copy mode: each page holds ROWS_PER_PAGE (both left and right get the SAME students)
-  const pageSize = layoutMode === "continuous" ? ROWS_PER_PAGE * 2 : ROWS_PER_PAGE;
+  // Calculate total pages needed (at least 1 page)
+  const totalPages = Math.max(1, Math.ceil(sortedStudents.length / ROWS_PER_PAGE) || 1);
 
-  const totalPages = Math.max(1, Math.ceil(sortedStudents.length / pageSize) || 1);
-
-  const pages: { leftStudents: (TabulationStudentItem | null)[]; rightStudents: (TabulationStudentItem | null)[] }[] = [];
+  const pages: {
+    leftStudents: TabulationStudentItem[];
+    rightStudents: TabulationStudentItem[];
+    startRollLeft: number;
+    endRollLeft: number;
+    startRollRight: number;
+    endRollRight: number;
+  }[] = [];
 
   for (let p = 0; p < totalPages; p++) {
-    if (layoutMode === "dual-copy") {
-      // Both columns receive the same students for that page
-      const pageSlice = sortedStudents.slice(p * ROWS_PER_PAGE, (p + 1) * ROWS_PER_PAGE);
-      // Pad to ROWS_PER_PAGE
-      const padded: (TabulationStudentItem | null)[] = Array.from({ length: ROWS_PER_PAGE }).map(
-        (_, i) => pageSlice[i] || null
-      );
-      pages.push({
-        leftStudents: padded,
-        rightStudents: padded,
-      });
-    } else {
-      // Continuous 2-column: Left column gets first 31, Right column gets next 31
-      const startIdx = p * pageSize;
-      const leftSlice = sortedStudents.slice(startIdx, startIdx + ROWS_PER_PAGE);
-      const rightSlice = sortedStudents.slice(startIdx + ROWS_PER_PAGE, startIdx + pageSize);
+    const pageStartIdx = p * ROWS_PER_PAGE;
+    const leftSlice = sortedStudents.slice(pageStartIdx, pageStartIdx + ROWS_PER_COLUMN);
+    const rightSlice = sortedStudents.slice(pageStartIdx + ROWS_PER_COLUMN, pageStartIdx + ROWS_PER_PAGE);
 
-      const paddedLeft: (TabulationStudentItem | null)[] = Array.from({ length: ROWS_PER_PAGE }).map(
-        (_, i) => leftSlice[i] || null
-      );
-      const paddedRight: (TabulationStudentItem | null)[] = Array.from({ length: ROWS_PER_PAGE }).map(
-        (_, i) => rightSlice[i] || null
-      );
+    const startRollLeft = p * ROWS_PER_PAGE + 1;
+    const endRollLeft = p * ROWS_PER_PAGE + ROWS_PER_COLUMN;
+    const startRollRight = p * ROWS_PER_PAGE + ROWS_PER_COLUMN + 1;
+    const endRollRight = (p + 1) * ROWS_PER_PAGE;
 
-      pages.push({
-        leftStudents: paddedLeft,
-        rightStudents: paddedRight,
-      });
-    }
+    // Fill left column first (Row 1 to 40)
+    const paddedLeft: TabulationStudentItem[] = Array.from({ length: ROWS_PER_COLUMN }).map((_, i) => {
+      const existing = leftSlice[i];
+      if (existing) return existing;
+      return {
+        roll: startRollLeft + i,
+        name: "",
+      };
+    });
+
+    // Then fill right column (Row 41 to 80)
+    const paddedRight: TabulationStudentItem[] = Array.from({ length: ROWS_PER_COLUMN }).map((_, i) => {
+      const existing = rightSlice[i];
+      if (existing) return existing;
+      return {
+        roll: startRollRight + i,
+        name: "",
+      };
+    });
+
+    pages.push({
+      leftStudents: paddedLeft,
+      rightStudents: paddedRight,
+      startRollLeft,
+      endRollLeft,
+      startRollRight,
+      endRollRight,
+    });
   }
 
   const renderSingleTable = (
-    tableStudents: (TabulationStudentItem | null)[],
-    copyLabel?: string
+    tableStudents: TabulationStudentItem[],
+    rangeLabel: string,
+    signatureLabel: string
   ) => {
     return (
       <div className="flex flex-col h-full justify-between select-none">
-        {/* TOP HEADER */}
-        <div className="text-center pb-1">
+        {/* TOP INSTITUTIONAL HEADER */}
+        <div className="text-center pb-1 shrink-0">
           {/* School Name */}
-          <h2 className="text-[12px] font-black uppercase tracking-tight text-black leading-tight">
-            {schoolProfile.schoolName || "MORIGACHI HIGH SCHOOL (H. S.)"}
+          <h2 className="text-[11.5px] font-black uppercase tracking-tight text-black leading-tight">
+            {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
           </h2>
 
           {/* Exam Title */}
-          <p className="text-[9px] font-bold text-neutral-800 leading-tight mt-0.5">
+          <p className="text-[8.5px] font-bold text-neutral-800 leading-tight mt-0.5">
             {evaluationTitle} - {academicYear}
           </p>
 
-          {/* Class, Subject, Section Subheader */}
-          <div className="grid grid-cols-12 text-[9px] font-bold text-black border-t border-black mt-1 pt-0.5 items-center">
+          {/* Class & Subject Subheader */}
+          <div className="grid grid-cols-12 text-[8.5px] font-bold text-black border-t border-black mt-1 pt-0.5 items-center">
             <div className="col-span-5 text-left text-purple-900 font-extrabold truncate">
               Class - {studentClass}
             </div>
@@ -108,7 +121,8 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-12 text-[9px] font-bold text-black border-t border-black mt-0.5 pt-0.5 items-center">
+          {/* Section & Summative Tag */}
+          <div className="grid grid-cols-12 text-[8.5px] font-bold text-black border-t border-black mt-0.5 pt-0.5 items-center">
             <div className="col-span-5 text-left text-purple-900 font-extrabold truncate">
               Sec - {section}
             </div>
@@ -118,24 +132,24 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
           </div>
         </div>
 
-        {/* MARKS TABLE */}
-        <div className="flex-1 min-h-0">
-          <table className="w-full border-collapse border-[1.2px] border-black text-[7.5px] table-fixed">
+        {/* 40-ROW TABULATION TABLE: Fully expanded to fill the entire A4 vertical page */}
+        <div className="flex-1 min-h-0 flex flex-col justify-between my-0.5">
+          <table className="w-full h-full border-collapse border-[1.2px] border-black text-[7.5px] table-fixed">
             <thead>
-              <tr className="border-b-[1.2px] border-black bg-neutral-100/70 text-black">
-                <th className="border-r-[1.2px] border-black w-[18px] text-center font-black p-0.5 text-[7px]">
+              <tr className="border-b-[1.2px] border-black bg-neutral-100/80 text-black" style={{ height: "6.2mm" }}>
+                <th className="border-r-[1.2px] border-black w-[19px] text-center font-black p-0 text-[7.5px]">
                   Rol
                 </th>
-                <th className="border-r-[1.2px] border-black text-left font-black p-0.5 pl-1 text-[7px] truncate" style={{ width: "calc(100% - 72px)" }}>
+                <th className="border-r-[1.2px] border-black text-left font-black p-0 pl-1 text-[7.5px] truncate" style={{ width: "calc(100% - 66px)" }}>
                   Name of Students
                 </th>
-                <th className="border-r border-black w-[18px] text-center font-black p-0.5 text-[6.5px] text-red-700">
+                <th className="border-r border-black w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
                   1st
                 </th>
-                <th className="border-r border-black w-[18px] text-center font-black p-0.5 text-[6.5px] text-red-700">
+                <th className="border-r border-black w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
                   2nd
                 </th>
-                <th className="w-[18px] text-center font-black p-0.5 text-[6.5px] text-red-700">
+                <th className="w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
                   3rd
                 </th>
               </tr>
@@ -143,38 +157,38 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
             <tbody>
               {tableStudents.map((st, idx) => (
                 <tr
-                  key={`st-row-${idx}`}
-                  className="border-b border-black/80"
-                  style={{ height: "6.8mm", boxSizing: "border-box" }}
+                  key={`st-row-${st.roll}-${idx}`}
+                  className="border-b border-black/70"
+                  style={{ height: "6.45mm", boxSizing: "border-box" }}
                 >
-                  {/* Roll Number */}
-                  <td className="border-r-[1.2px] border-black text-center font-mono font-bold text-[7.5px] p-0 text-black">
-                    {st ? st.roll : idx + 1}
+                  {/* Sequential Roll Number */}
+                  <td className="border-r-[1.2px] border-black text-center font-mono font-bold text-[7.5px] p-0 text-black leading-none">
+                    {st.roll}
                   </td>
 
-                  {/* Student Name (ALL CAPS) */}
-                  <td className="border-r-[1.2px] border-black px-1 font-bold text-[7.5px] uppercase truncate text-black">
-                    {st ? st.name : ""}
+                  {/* Student Name */}
+                  <td className="border-r-[1.2px] border-black px-1 font-bold text-[7.5px] uppercase truncate text-black leading-none">
+                    {st.name || ""}
                   </td>
 
                   {/* 1st Summative Score Box */}
-                  <td className="border-r border-black text-center p-0 font-mono text-[7.5px]" />
+                  <td className="border-r border-black text-center p-0 font-mono text-[7px]" />
 
                   {/* 2nd Summative Score Box */}
-                  <td className="border-r border-black text-center p-0 font-mono text-[7.5px]" />
+                  <td className="border-r border-black text-center p-0 font-mono text-[7px]" />
 
                   {/* 3rd Summative Score Box */}
-                  <td className="text-center p-0 font-mono text-[7.5px]" />
+                  <td className="text-center p-0 font-mono text-[7px]" />
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* FOOTER SIGNATURE & COPY LABEL */}
-        <div className="pt-1.5 flex items-center justify-between text-[7px] font-semibold text-neutral-700 border-t border-dashed border-neutral-400 mt-1">
-          <span>{copyLabel || "Evaluator Copy"}</span>
-          <span className="font-mono">Subject Teacher's Sign: ______________</span>
+        {/* FOOTER: ROLL RANGE & SIGNATURE LINE */}
+        <div className="pt-1 flex items-center justify-between text-[7px] font-semibold text-neutral-800 border-t border-black/60 mt-0.5 shrink-0">
+          <span className="font-mono font-bold text-black">{rangeLabel}</span>
+          <span className="font-mono">{signatureLabel}: ______________</span>
         </div>
       </div>
     );
@@ -199,14 +213,14 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
               Class {studentClass}-{section} ({subject || "General"})
             </span>
             <span>•</span>
-            <span>
-              {layoutMode === "dual-copy" ? "Twin Office + Teacher Copy" : "Continuous Roster"}
+            <span className="text-neutral-300 font-medium">
+              Roll {page.startRollLeft} – {page.endRollRight} (40 Rows/Col)
             </span>
           </div>
 
-          {/* Actual Sheet Box */}
+          {/* Actual Pure A4 Sheet Box (210mm x 295mm) */}
           <div
-            className="tabulation-sheet w-[210mm] h-[295mm] max-h-[295mm] mx-auto p-[4.5mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
+            className="tabulation-sheet w-[210mm] h-[295mm] max-h-[295mm] mx-auto p-[4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
             style={{
               pageBreakAfter: pageIdx < pages.length - 1 ? "always" : "auto",
               breakAfter: pageIdx < pages.length - 1 ? "page" : "auto",
@@ -218,37 +232,28 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
                 <img
                   src={effectiveLogoUrl}
                   alt="School Logo Watermark"
-                  className="w-80 h-80 object-contain opacity-[0.08] grayscale select-none"
+                  className="w-80 h-80 object-contain opacity-[0.07] grayscale select-none"
                 />
               </div>
             )}
 
-            {/* TWIN COLUMNS CONTAINER WITH CENTER DASHED CUTTING LINE */}
-            <div className="relative z-10 w-full h-full grid grid-cols-2 gap-[5mm]">
-              {/* LEFT HALF TABLE */}
-              <div className="relative pr-[2.5mm] border-r border-dashed border-neutral-400 flex flex-col justify-between h-full">
-                {/* Micro Cut Scissors Icon on divider */}
-                <span className="absolute -top-1 -right-2 text-[8px] text-neutral-400 select-none pointer-events-none bg-white px-0.5">
-                  ✂
-                </span>
-                <span className="absolute top-1/2 -right-2 text-[8px] text-neutral-400 select-none pointer-events-none bg-white px-0.5">
-                  ✂
-                </span>
-                <span className="absolute -bottom-1 -right-2 text-[8px] text-neutral-400 select-none pointer-events-none bg-white px-0.5">
-                  ✂
-                </span>
-
+            {/* TWO CONTINUOUS COLUMNS (40 Rows Left -> 40 Rows Right) */}
+            <div className="relative z-10 w-full h-full grid grid-cols-2 gap-[4.5mm]">
+              {/* LEFT COLUMN: Roll 1 - 40 */}
+              <div className="relative pr-[2.25mm] border-r border-black/80 flex flex-col justify-between h-full">
                 {renderSingleTable(
                   page.leftStudents,
-                  layoutMode === "dual-copy" ? "Office / School Record Copy" : `Rolls: ${page.leftStudents[0]?.roll || 1}-${page.leftStudents[page.leftStudents.length - 1]?.roll || 31}`
+                  `Roll ${page.startRollLeft} – ${page.endRollLeft}`,
+                  "Subject Teacher's Sign"
                 )}
               </div>
 
-              {/* RIGHT HALF TABLE */}
-              <div className="pl-[2.5mm] flex flex-col justify-between h-full">
+              {/* RIGHT COLUMN: Roll 41 - 80 */}
+              <div className="pl-[2.25mm] flex flex-col justify-between h-full">
                 {renderSingleTable(
                   page.rightStudents,
-                  layoutMode === "dual-copy" ? "Subject Teacher / Evaluator Copy" : `Rolls: ${page.rightStudents[0]?.roll || 32}-${page.rightStudents[page.rightStudents.length - 1]?.roll || 62}`
+                  `Roll ${page.startRollRight} – ${page.endRollRight}`,
+                  "Head of Institution's Sign"
                 )}
               </div>
             </div>
