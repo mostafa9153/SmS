@@ -665,7 +665,8 @@ export default function CertificateTrackerPage() {
                 { label: "Transfer (TC)", value: "transfer-certificate" },
                 { label: "Kanyashree", value: "kanyashree" },
               ]}
-              triggerClassName="h-8 text-xs w-[130px] bg-background"
+              className="w-[145px] shrink-0"
+              triggerClassName="h-8 text-xs bg-background px-3"
             />
 
             <CustomSelect
@@ -675,7 +676,8 @@ export default function CertificateTrackerPage() {
                 { label: "All Sec", value: "ALL" },
                 ...STANDARD_SECTIONS.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
               ]}
-              triggerClassName="h-8 text-xs w-[100px] bg-background"
+              className="w-[105px] shrink-0"
+              triggerClassName="h-8 text-xs bg-background px-3"
             />
 
             <CustomSelect
@@ -686,7 +688,8 @@ export default function CertificateTrackerPage() {
                 { label: "Valid", value: "Valid" },
                 { label: "Cancelled", value: "Cancelled" },
               ]}
-              triggerClassName="h-8 text-xs w-[110px] bg-background"
+              className="w-[135px] shrink-0"
+              triggerClassName="h-8 text-xs bg-background px-3"
             />
           </div>
 

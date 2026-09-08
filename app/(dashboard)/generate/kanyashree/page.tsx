@@ -23,12 +23,11 @@ import {
   MapPin,
   Calendar,
   Search,
-  Award,
   CheckCircle2,
-  FileText,
   HeartHandshake,
   GraduationCap,
   RotateCcw,
+  Eye,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 import {
@@ -265,18 +264,9 @@ function KanyashreeCertificateGeneratorContent() {
             <HeartHandshake className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>Kanyashree &amp; Bonafide Certificate</span>
-              <Badge
-                variant="outline"
-                className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 font-mono"
-              >
-                K1 / K2 Scheme
-              </Badge>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Kanyashree &amp; Bonafide Certificate
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Official institutional bonafide &amp; unmarried verification certificate studio for Kanyashree and scholarships.
-            </p>
           </div>
         </div>
 
@@ -298,12 +288,6 @@ function KanyashreeCertificateGeneratorContent() {
                 {type}
               </button>
             ))}
-          </div>
-
-          {/* Strictly A5 Format Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Pure A5 Full-Bleed</span>
           </div>
 
           <Button
@@ -634,13 +618,18 @@ function KanyashreeCertificateGeneratorContent() {
         {/* RIGHT COLUMN: Live Print-Ready Certificate Preview */}
         <div className="xl:col-span-7 space-y-4 print:w-full print:m-0 print:p-0">
           <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-purple-600" />
-              Live Kanyashree Certificate Preview (A5 Portrait &bull; 148 &times; 210 mm)
-            </span>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-base font-semibold tracking-tight text-foreground">
+                Preview
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+                A5 Portrait
+              </span>
+            </div>
 
             {/* Scale slider */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
               <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
               {[0.9, 1.0, 1.1].map((s) => (
                 <button
