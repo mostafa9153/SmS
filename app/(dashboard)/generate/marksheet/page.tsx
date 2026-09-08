@@ -41,6 +41,7 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  Eye,
 } from "lucide-react";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -522,7 +523,7 @@ function MarksheetGeneratorContent() {
   }
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="p-3.5 sm:p-6 max-w-[1700px] mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* ========================================================================= */}
       {/* EMBEDDED PRINT STYLESHEET (STRICT A4 LANDSCAPE 297mm × 210mm)             */}
       {/* ========================================================================= */}
@@ -596,17 +597,9 @@ function MarksheetGeneratorContent() {
             <Award className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-foreground">
-                CCE Marksheet &amp; Progress Report
-              </h1>
-              <Badge variant="outline" className="text-[10px] uppercase font-bold text-amber-600 border-amber-500/30">
-                Generator
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Official Continuous &amp; Comprehensive Evaluation (WBBSE) 3-Term Marksheet Studio.
-            </p>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              CCE Marksheet &amp; Progress Report
+            </h1>
           </div>
         </div>
 
@@ -964,13 +957,18 @@ function MarksheetGeneratorContent() {
           {/* RIGHT COLUMN: Live Interactive Single Marksheet Preview */}
           <div className="xl:col-span-8 space-y-4">
             <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <Award className="h-3.5 w-3.5 text-primary" />
-                Live Marksheet Preview (A4 Landscape)
-              </span>
+              <div className="flex items-center gap-2">
+                <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-base font-semibold tracking-tight text-foreground">
+                  Preview
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+                  A4 Landscape
+                </span>
+              </div>
 
               {/* Zoom Scale Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
                 {[0.75, 0.85, 1.0].map((s) => (
                   <button
@@ -1161,13 +1159,16 @@ function MarksheetGeneratorContent() {
           <div className="xl:col-span-8 space-y-4">
             <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Award className="h-3.5 w-3.5 text-primary" />
-                  Batch Marksheet Preview ({bulkMarksheets.length} Selected)
+                <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-base font-semibold tracking-tight text-foreground">
+                  Preview
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+                  A4 Landscape
                 </span>
 
                 {bulkMarksheets.length > 0 && (
-                  <div className="flex items-center gap-1 bg-muted/70 px-2 py-0.5 rounded-lg border text-xs">
+                  <div className="flex items-center gap-1 bg-muted/70 px-2 py-0.5 rounded-lg border text-xs ml-1">
                     <button
                       type="button"
                       disabled={currentPreviewIndex <= 0}
@@ -1196,7 +1197,7 @@ function MarksheetGeneratorContent() {
               </div>
 
               {/* Zoom Scale Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
                 {[0.75, 0.85, 1.0].map((s) => (
                   <button

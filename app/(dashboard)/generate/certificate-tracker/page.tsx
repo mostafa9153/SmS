@@ -38,9 +38,7 @@ import {
   getLocalCachedCertificates,
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
-
-const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const STANDARD_SECTIONS = ["A", "B", "C", "D"];
+import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config-loader";
 
 export default function CertificateTrackerPage() {
   // Verification State
@@ -52,6 +50,9 @@ export default function CertificateTrackerPage() {
     certificate: DBCertificateRow | null;
     message?: string;
   }>({ checked: false, valid: false, certificate: null });
+
+  // School Profile & Dynamic Classes/Sections State
+  const [schoolClasses, setSchoolClasses] = useState<DynamicClassItem[]>(getDynamicClassList);
 
   // Registry & Analytics State
   const [stats, setStats] = useState<CertificateStats | null>(null);
@@ -69,6 +70,60 @@ export default function CertificateTrackerPage() {
   const [selectedCert, setSelectedCert] = useState<DBCertificateRow | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Dynamic Class Management List from School Profile / Settings
+  const dynamicClasses = useMemo<DynamicClassItem[]>(() => {
+    if (Array.isArray(schoolClasses) && schoolClasses.length > 0) {
+      return schoolClasses.map((c: any) => ({
+        name: c.name || `Class ${c.code}`,
+        code: String(c.code || c.name).trim().toUpperCase(),
+        sections: Array.isArray(c.sections) && c.sections.length > 0 ? c.sections : ["A", "B"],
+        stream: c.stream,
+      }));
+    }
+    return getDynamicClassList();
+  }, [schoolClasses]);
+
+  const availableClasses = useMemo(() => {
+    return dynamicClasses.map((c) => c.code);
+  }, [dynamicClasses]);
+
+  // Dynamic sections strictly from School Profile / Class Management
+  const availableSections = useMemo(() => {
+    if (classFilter !== "ALL") {
+      const currentClassObj = dynamicClasses.find(
+        (c) => c.code.toUpperCase() === classFilter.toUpperCase()
+      );
+      if (currentClassObj && Array.isArray(currentClassObj.sections) && currentClassObj.sections.length > 0) {
+        return currentClassObj.sections;
+      }
+    }
+
+    const set = new Set<string>();
+    dynamicClasses.forEach((c) => {
+      if (Array.isArray(c.sections)) {
+        c.sections.forEach((s) => {
+          if (s && s.trim()) set.add(s.trim().toUpperCase());
+        });
+      }
+    });
+
+    certificates.forEach((cert) => {
+      if (cert.section && cert.section.trim()) {
+        set.add(cert.section.trim().toUpperCase());
+      }
+    });
+
+    const result = Array.from(set).sort();
+    return result.length > 0 ? result : ["A", "B"];
+  }, [dynamicClasses, classFilter, certificates]);
+
+  // Auto-reset section filter if selected section is not available in new class
+  useEffect(() => {
+    if (sectionFilter !== "ALL" && !availableSections.includes(sectionFilter)) {
+      setSectionFilter("ALL");
+    }
+  }, [availableSections, sectionFilter]);
 
   // Load Data
   const loadData = async () => {
@@ -91,6 +146,22 @@ export default function CertificateTrackerPage() {
       } else {
         setCertificates(getLocalCachedCertificates());
       }
+
+      // 3. Fetch School Config for live Class Management & Sections from School Profile
+      try {
+        const configRes = await fetch("/api/school-config", { cache: "no-store" });
+        if (configRes.ok) {
+          const configJson = await configRes.json();
+          if (configJson?.data?.class_management && Array.isArray(configJson.data.class_management)) {
+            setSchoolClasses(configJson.data.class_management);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("sms_class_management", JSON.stringify(configJson.data.class_management));
+            }
+          }
+        }
+      } catch {
+        // use local cache
+      }
     } catch {
       setStats(getLocalCertificateStats());
       setCertificates(getLocalCachedCertificates());
@@ -106,9 +177,19 @@ export default function CertificateTrackerPage() {
       loadData();
     };
 
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "sms_class_management") {
+        setSchoolClasses(getDynamicClassList());
+      }
+    };
+
     window.addEventListener("sms_certificate_recorded", handleCertRecorded);
+    window.addEventListener("sms_school_profile_updated", loadData);
+    window.addEventListener("storage", handleStorage);
     return () => {
       window.removeEventListener("sms_certificate_recorded", handleCertRecorded);
+      window.removeEventListener("sms_school_profile_updated", loadData);
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
@@ -610,7 +691,7 @@ export default function CertificateTrackerPage() {
         >
           All
         </button>
-        {STANDARD_CLASSES.map((cls) => {
+        {availableClasses.map((cls) => {
           const count = stats?.byClass[cls] || 0;
           const isActive = classFilter === cls;
           return (
@@ -674,9 +755,9 @@ export default function CertificateTrackerPage() {
               onChange={setSectionFilter}
               options={[
                 { label: "All Sec", value: "ALL" },
-                ...STANDARD_SECTIONS.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
+                ...availableSections.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
               ]}
-              className="w-[105px] shrink-0"
+              className="w-[110px] shrink-0"
               triggerClassName="h-8 text-xs bg-background px-3"
             />
 
