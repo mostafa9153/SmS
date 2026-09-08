@@ -29,7 +29,7 @@ import {
   FileText,
   FileSpreadsheet,
 } from "lucide-react";
-import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -45,6 +45,7 @@ function TransferCertificateGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get("studentId");
+  const { profile: schoolProfile } = useSchoolProfile();
 
   // Fetch all students for search & auto-fill
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
@@ -68,62 +69,45 @@ function TransferCertificateGeneratorContent() {
 
   // Transfer Certificate Master State (Strictly A5)
   const [cert, setCert] = useState<TransferCertificateData>(() => ({
-    certificateNo: `MHS/TC/${currentYear}/0036`,
+    certificateNo: `MHS/TC/${currentYear}/0010`,
     issueDate: getLiveDate(),
     copyType: "Original",
-    studentId: "MHS-2026-0036",
-    studentName: "Synthia Sanam",
+    studentId: "MHS-2026-0010",
+    studentName: "TANIA HALDER",
     gender: "Female",
-    fatherName: "Md. Ruhul Amin",
+    fatherName: "Manas Das",
     village: "Marigachi",
-    postOffice: "Kharigachi",
+    postOffice: "Mathurapur",
     policeStation: "Diamond Harbour",
     district: "South 24 Parganas",
     pincode: "743368",
-    dateOfLeaving: getLiveDate(),
+    dateOfLeaving: "05/09/2026",
     academicSession: String(currentYear),
-    readingClass: "X",
+    readingClass: "IX",
     hasPassedAnnualExam: true,
-    promotedClass: "XI",
+    promotedClass: "X",
     isCourseCompleted: false,
-    dateOfBirth: "2010-08-15",
-    dateOfBirthDayWords: "Fifteenth",
-    dateOfBirthMonthWords: "August",
-    dateOfBirthYearWords: "Ten",
-    feesClearedUpToDate: getLiveDate(),
-    conduct: "Good",
-    selectedReasonIndex: 3, // Default: Completion of the school course
+    dateOfBirth: "2011-11-04",
+    dateOfBirthDayWords: "Fourth",
+    dateOfBirthMonthWords: "November",
+    dateOfBirthYearWords: "Two Thousand and Eleven",
+    feesClearedUpToDate: "05/09/2026",
+    conduct: "GOOD",
+    selectedReasonIndex: 1, // Default: Unavoidable change of residence
     customReason: "",
     hoiTitle: "Signature of HOI",
   }));
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
-    if (!addr) {
-      return {
-        village: "Marigachi",
-        postOffice: "Kharigachi",
-        policeStation: "Diamond Harbour",
-        district: "South 24 Parganas",
-        pincode: "743368",
-      };
-    }
-    const parts = addr.split(",").map((p) => p.trim());
-    const pinMatch = addr.match(/\b\d{6}\b/);
-    return {
-      village: parts[0] || "Marigachi",
-      postOffice: parts[1] || "Kharigachi",
-      policeStation: parts[2] || "Diamond Harbour",
-      district: parts[3] || "South 24 Parganas",
-      pincode: pinMatch ? pinMatch[0] : "743368",
-    };
+    return parseStudentAddress(addr, schoolProfile);
   }
 
   // Handle student selection from database
   function applyStudentToCertificate(s: Student) {
     setSelectedStudent(s);
     const parsedAddr = parseAddress(s.address);
-    const passedCls = s.presentClass || "X";
+    const passedCls = s.presentClass || "IX";
     const nextCls = getNextClass(passedCls);
 
     const isPassedOutStatus =
@@ -131,7 +115,7 @@ function TransferCertificateGeneratorContent() {
       s.currentStatus === "C.C.H.S." ||
       passedCls === "XII";
 
-    const dobVal = s.dob || "2010-08-15";
+    const dobVal = s.dob || "2011-11-04";
     const dobParsed = parseDobComponents(dobVal);
 
     setCert((prev) => ({
@@ -155,25 +139,28 @@ function TransferCertificateGeneratorContent() {
       dateOfBirthDayWords: dobParsed.dayWords,
       dateOfBirthMonthWords: dobParsed.monthWords,
       dateOfBirthYearWords: dobParsed.yearWords,
-      certificateNo: `MHS/TC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
+      certificateNo: `MHS/TC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0010"}`,
     }));
   }
 
-  // Load institutional head designation from saved school profile
+  // Load institutional head designation and defaults from school profile
   useEffect(() => {
-    try {
-      const profile = getSavedSchoolProfile();
-      const title = getEffectiveHeadTitle(profile);
-      if (title) {
-        setCert((prev) => ({
+    if (schoolProfile) {
+      const title = getEffectiveHeadTitle(schoolProfile);
+      setCert((prev) => {
+        const isDefaultDemo = !selectedStudent;
+        return {
           ...prev,
-          hoiTitle: `Signature of ${title}`,
-        }));
-      }
-    } catch (e) {
-      console.error("Failed to load school profile head title", e);
+          hoiTitle: title ? `Signature of ${title}` : prev.hoiTitle,
+          village: isDefaultDemo ? (schoolProfile.village || prev.village) : prev.village,
+          postOffice: isDefaultDemo ? (schoolProfile.postOffice || schoolProfile.village || prev.postOffice) : prev.postOffice,
+          policeStation: isDefaultDemo ? (schoolProfile.policeStation || prev.policeStation) : prev.policeStation,
+          district: isDefaultDemo ? (schoolProfile.district || prev.district) : prev.district,
+          pincode: isDefaultDemo ? (schoolProfile.pincode || prev.pincode) : prev.pincode,
+        };
+      });
     }
-  }, []);
+  }, [schoolProfile, selectedStudent]);
 
   // Pre-load student from query param
   useEffect(() => {
@@ -295,14 +282,14 @@ function TransferCertificateGeneratorContent() {
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
         <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
           {/* Card 1: Student Search & Core Details */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <User className="h-3.5 w-3.5 text-primary" />
                 <span>Student Search &amp; Particulars</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               {/* Search Existing Student */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -397,14 +384,14 @@ function TransferCertificateGeneratorContent() {
           </Card>
 
           {/* Card 2: Academic, Promotion & Financial Details */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <Calendar className="h-3.5 w-3.5 text-primary" />
                 <span>Academic Leaving &amp; Fee Record</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Date Left School</Label>
@@ -514,14 +501,14 @@ function TransferCertificateGeneratorContent() {
           </Card>
 
           {/* Card 3: Reason for Leaving & Official DOB */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <Award className="h-3.5 w-3.5 text-primary" />
                 <span>Reason for Leaving &amp; Date of Birth</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               {/* Reason Selector */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -661,6 +648,15 @@ function TransferCertificateGeneratorContent() {
                     className="text-xs h-8 font-mono"
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Issue Date</Label>
+                  <Input
+                    value={cert.issueDate}
+                    onChange={(e) => setCert({ ...cert, issueDate: e.target.value })}
+                    className="text-xs h-8 font-mono"
+                    placeholder="DD/MM/YYYY"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -707,7 +703,7 @@ function TransferCertificateGeneratorContent() {
               }}
               className="shrink-0 m-auto print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
             >
-              <TransferCertificatePrintableView data={cert} />
+              <TransferCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </div>
           </div>
         </div>

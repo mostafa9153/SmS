@@ -29,7 +29,7 @@ import {
   HeartHandshake,
   GraduationCap,
 } from "lucide-react";
-import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["A", "B", "C", "D"];
@@ -45,6 +45,7 @@ function KanyashreeCertificateGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get("studentId");
+  const { profile: schoolProfile } = useSchoolProfile();
 
   // Fetch all students for search & auto-fill
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
@@ -68,54 +69,38 @@ function KanyashreeCertificateGeneratorContent() {
 
   // Master State (Strictly A5)
   const [cert, setCert] = useState<KanyashreeCertificateData>(() => ({
-    certificateNo: `MHS/KP/${currentYear}/0036`,
+    certificateNo: `MHS/KP/${currentYear}/0010`,
     issueDate: getLiveDate(),
+    copyType: "Original",
     schemeType: "Kanyashree Prakalpa (K1 / K2)",
-    studentId: "MHS-2026-0036",
-    kanyashreeId: "19180201004200036",
-    pen: "20180201004",
-    studentName: "Synthia Sanam",
+    studentId: "MHS-2026-0010",
+    kanyashreeId: "19111305602200010",
+    pen: "20180201010",
+    studentName: "TANIA HALDER",
     gender: "Female",
-    fatherName: "Md. Ruhul Amin",
-    motherName: "",
+    fatherName: "Manas Das",
+    motherName: "Chaitali Saha",
     village: "Marigachi",
-    postOffice: "Kharigachi",
+    postOffice: "Mathurapur",
     policeStation: "Diamond Harbour",
     district: "South 24 Parganas",
     pincode: "743368",
     academicSession: String(currentYear),
-    presentClass: "X",
+    presentClass: "IX",
     presentSection: "A",
-    presentRoll: "01",
-    dateOfBirth: "2010-08-15",
-    dateOfBirthWords: "Fifteenth August, 2010",
+    presentRoll: "10",
+    dateOfBirth: "2011-11-04",
+    dateOfBirthWords: "Fourth November, Two Thousand Eleven",
     isUnmarried: true,
-    conduct: "good moral character",
+    conduct: "exemplary moral character",
     remarks:
-      "She is an honest, energetic, and sincere student bearing an exemplary moral character and disciplined conduct. I wish her all success and empowerment in all future academic pursuits and career endeavors.",
+      "She bears an exemplary moral character and disciplined conduct. I wish her all success and empowerment in all future academic pursuits and career endeavours.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
   }));
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
-    if (!addr) {
-      return {
-        village: "Marigachi",
-        postOffice: "Kharigachi",
-        policeStation: "Diamond Harbour",
-        district: "South 24 Parganas",
-        pincode: "743368",
-      };
-    }
-    const parts = addr.split(",").map((p) => p.trim());
-    const pinMatch = addr.match(/\b\d{6}\b/);
-    return {
-      village: parts[0] || "Marigachi",
-      postOffice: parts[1] || "Kharigachi",
-      policeStation: parts[2] || "Diamond Harbour",
-      district: parts[3] || "South 24 Parganas",
-      pincode: pinMatch ? pinMatch[0] : "743368",
-    };
+    return parseStudentAddress(addr, schoolProfile);
   }
 
   // Handle student selection from database
@@ -126,13 +111,13 @@ function KanyashreeCertificateGeneratorContent() {
     const pronounObject = isFemale ? "her" : "him";
     const pronounSubject = isFemale ? "She" : "He";
 
-    const dobVal = s.dob || "2010-08-15";
+    const dobVal = s.dob || "2011-11-04";
     const dobWords = formatDobToWords(dobVal);
 
     setCert((prev) => ({
       ...prev,
       studentId: s.id,
-      kanyashreeId: s.pen ? `19180201004${s.pen.slice(-6)}` : `19180201004${s.id.replace(/\D/g, "").padStart(8, "0")}`,
+      kanyashreeId: s.pen ? `19111305602${s.pen.slice(-6)}` : `19111305602${s.id.replace(/\D/g, "").padStart(8, "0")}`,
       pen: s.pen || "",
       studentName: s.name,
       gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",
@@ -143,33 +128,36 @@ function KanyashreeCertificateGeneratorContent() {
       policeStation: parsedAddr.policeStation,
       district: parsedAddr.district,
       pincode: parsedAddr.pincode,
-      presentClass: s.presentClass || "X",
+      presentClass: s.presentClass || "IX",
       presentSection: s.presentSection || "A",
-      presentRoll: s.presentRoll ? String(s.presentRoll).padStart(2, "0") : "01",
+      presentRoll: s.presentRoll ? String(s.presentRoll).padStart(2, "0") : "10",
       academicSession: String(currentYear),
       dateOfBirth: dobVal,
       dateOfBirthWords: dobWords,
       isUnmarried: true,
-      certificateNo: `MHS/KP/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
-      remarks: `${pronounSubject} is an honest, energetic, and sincere student bearing an exemplary moral character and disciplined conduct. I wish ${pronounObject} all success and empowerment in all future academic pursuits and career endeavors.`,
+      certificateNo: `MHS/KP/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0010"}`,
+      remarks: `${pronounSubject} bears an exemplary moral character and disciplined conduct. I wish ${pronounObject} all success and empowerment in all future academic pursuits and career endeavours.`,
     }));
   }
 
-  // Load institutional head designation from saved school profile
+  // Load institutional head designation and defaults from school profile
   useEffect(() => {
-    try {
-      const profile = getSavedSchoolProfile();
-      const title = getEffectiveHeadTitle(profile);
-      if (title) {
-        setCert((prev) => ({
+    if (schoolProfile) {
+      const title = getEffectiveHeadTitle(schoolProfile);
+      setCert((prev) => {
+        const isDefaultDemo = !selectedStudent;
+        return {
           ...prev,
-          headmasterTitle: title,
-        }));
-      }
-    } catch (e) {
-      console.error("Failed to load school profile head title", e);
+          headmasterTitle: title || prev.headmasterTitle,
+          village: isDefaultDemo ? (schoolProfile.village || prev.village) : prev.village,
+          postOffice: isDefaultDemo ? (schoolProfile.postOffice || schoolProfile.village || prev.postOffice) : prev.postOffice,
+          policeStation: isDefaultDemo ? (schoolProfile.policeStation || prev.policeStation) : prev.policeStation,
+          district: isDefaultDemo ? (schoolProfile.district || prev.district) : prev.district,
+          pincode: isDefaultDemo ? (schoolProfile.pincode || prev.pincode) : prev.pincode,
+        };
+      });
     }
-  }, []);
+  }, [schoolProfile, selectedStudent]);
 
   // Pre-load student from query param
   useEffect(() => {
@@ -250,6 +238,24 @@ function KanyashreeCertificateGeneratorContent() {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Copy Type Selector */}
+          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
+            {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setCert({ ...cert, copyType: type })}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  cert.copyType === type
+                    ? "bg-background text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
           {/* Strictly A5 Format Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
             <FileText className="h-3.5 w-3.5 text-emerald-600" />
@@ -271,14 +277,15 @@ function KanyashreeCertificateGeneratorContent() {
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
         <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
           {/* Card 1: Kanyashree Student Search & Particulars */}
-          <Card className="border shadow-2xs">
+          {/* Card 1: Student Search & Core Details */}
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <User className="h-3.5 w-3.5 text-primary" />
                 <span>Kanyashree Student Search &amp; Particulars</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               {/* Search Existing Student */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -373,14 +380,14 @@ function KanyashreeCertificateGeneratorContent() {
           </Card>
 
           {/* Card 2: Academic Enrollment & Marital Status */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <GraduationCap className="h-3.5 w-3.5 text-primary" />
                 <span>Class Enrollment &amp; Kanyashree Records</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Present Class</Label>
@@ -610,7 +617,7 @@ function KanyashreeCertificateGeneratorContent() {
               }}
               className="shrink-0 m-auto print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
             >
-              <KanyashreeCertificatePrintableView data={cert} />
+              <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </div>
           </div>
         </div>

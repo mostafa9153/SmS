@@ -29,13 +29,14 @@ import {
   CheckCircle2,
   FileText,
 } from "lucide-react";
-import { getSavedSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 
 function CertificateGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get("studentId");
   const examParam = searchParams.get("exam");
+  const { profile: schoolProfile } = useSchoolProfile();
 
   // Fetch all students for search & auto-fill
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
@@ -61,45 +62,29 @@ function CertificateGeneratorContent() {
   const [cert, setCert] = useState<CharacterCertificateData>(() => ({
     certificateNo: `MHS/CC/${currentYear}/0036`,
     issueDate: getLiveDate(),
+    copyType: "Original",
     examType: examParam === "HS" ? "HS" : "MP",
     studentId: "MHS-2026-0036",
     studentName: "Synthia Sanam",
     gender: "Female",
     fatherName: "Md. Ruhul Amin",
     village: "Marigachi",
-    postOffice: "Kharigachi",
-    policeStation: "Diamond Harbour",
+    postOffice: "Marigachi",
+    policeStation: "Mathurapur",
     district: "South 24 Parganas",
-    pincode: "743368",
+    pincode: "743349",
     passingYear: String(currentYear),
     boardRollNo: "123456N 0012",
-    boardRegistrationNo: "19180201004/2024",
+    boardRegistrationNo: "19111305602/2024",
     conduct: "good moral character",
     remarks:
-      "I wish her every success, prosperity, and fulfillment in all her future academic and personal endeavors.",
+      "I wish her every success and prosperity in her future academic and personal endeavours.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
   }));
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
-    if (!addr) {
-      return {
-        village: "Marigachi",
-        postOffice: "Kharigachi",
-        policeStation: "Diamond Harbour",
-        district: "South 24 Parganas",
-        pincode: "743368",
-      };
-    }
-    const parts = addr.split(",").map((p) => p.trim());
-    const pinMatch = addr.match(/\b\d{6}\b/);
-    return {
-      village: parts[0] || "Marigachi",
-      postOffice: parts[1] || "Kharigachi",
-      policeStation: parts[2] || "Diamond Harbour",
-      district: parts[3] || "South 24 Parganas",
-      pincode: pinMatch ? pinMatch[0] : "743368",
-    };
+    return parseStudentAddress(addr, schoolProfile);
   }
 
   // Handle student selection from database
@@ -134,25 +119,28 @@ function CertificateGeneratorContent() {
       boardRollNo: s.presentRoll ? `123456N 00${s.presentRoll}` : prev.boardRollNo,
       boardRegistrationNo: s.pen || s.schoolId || prev.boardRegistrationNo,
       certificateNo: `MHS/CC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
-      remarks: `I wish ${pronounObject} every success, prosperity, and fulfillment in all ${pronounPossessive} future academic and personal endeavors.`,
+      remarks: `I wish ${pronounObject} every success and prosperity in ${pronounPossessive} future academic and personal endeavours.`,
     }));
   }
 
-  // Load institutional head designation from saved school profile
+  // Load institutional head designation and defaults from school profile
   useEffect(() => {
-    try {
-      const profile = getSavedSchoolProfile();
-      const title = getEffectiveHeadTitle(profile);
-      if (title) {
-        setCert((prev) => ({
+    if (schoolProfile) {
+      const title = getEffectiveHeadTitle(schoolProfile);
+      setCert((prev) => {
+        const isDefaultDemo = !selectedStudent;
+        return {
           ...prev,
-          headmasterTitle: title,
-        }));
-      }
-    } catch (e) {
-      console.error("Failed to load school profile head title", e);
+          headmasterTitle: title || prev.headmasterTitle,
+          village: isDefaultDemo ? (schoolProfile.village || prev.village) : prev.village,
+          postOffice: isDefaultDemo ? (schoolProfile.postOffice || schoolProfile.village || prev.postOffice) : prev.postOffice,
+          policeStation: isDefaultDemo ? (schoolProfile.policeStation || prev.policeStation) : prev.policeStation,
+          district: isDefaultDemo ? (schoolProfile.district || prev.district) : prev.district,
+          pincode: isDefaultDemo ? (schoolProfile.pincode || prev.pincode) : prev.pincode,
+        };
+      });
     }
-  }, []);
+  }, [schoolProfile, selectedStudent]);
 
   // Pre-load student from query param
   useEffect(() => {
@@ -257,6 +245,24 @@ function CertificateGeneratorContent() {
             </button>
           </div>
 
+          {/* Copy Type Selector */}
+          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
+            {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => setCert({ ...cert, copyType: type })}
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  cert.copyType === type
+                    ? "bg-background text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+
           {/* Strictly A5 Format Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
             <FileText className="h-3.5 w-3.5 text-emerald-600" />
@@ -278,14 +284,14 @@ function CertificateGeneratorContent() {
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
         <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
           {/* Card 1: Student Search & Core Details */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <User className="h-3.5 w-3.5 text-primary" />
                 <span>Student Information &amp; Auto-Fill</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               {/* Search Existing Student */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -442,14 +448,14 @@ function CertificateGeneratorContent() {
           </Card>
 
           {/* Card 3: Examination & Character Metadata */}
-          <Card className="border shadow-2xs">
+          <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
               <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-primary" />
                 <span>Examination &amp; Character Metadata</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3">
+            <CardContent className="p-4 space-y-3 overflow-visible">
               <div className="grid grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Certificate Ref No</Label>
@@ -552,7 +558,7 @@ function CertificateGeneratorContent() {
               }}
               className="shrink-0 m-auto print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
             >
-              <CertificatePrintableView data={cert} />
+              <CertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </div>
           </div>
         </div>

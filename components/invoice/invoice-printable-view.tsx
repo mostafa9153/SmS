@@ -1,23 +1,33 @@
-"use client";
-
 import React from "react";
 import { type InvoiceData, calculateFeeTotal, numberToWordsINR } from "@/lib/utils/fee-config";
+import {
+  type SchoolProfileData,
+  getSavedSchoolProfile,
+  getEffectiveHeadTitle,
+} from "@/lib/utils/school-profile";
 import { CheckCircle2 } from "lucide-react";
 
 interface InvoicePrintableViewProps {
   data: InvoiceData;
   copyType?: "student" | "school" | "office" | "both";
+  schoolProfile?: SchoolProfileData;
 }
 
 function CompactInvoiceSlip({
   data,
   copyLabel,
+  schoolProfile,
 }: {
   data: InvoiceData;
   copyLabel: string;
+  schoolProfile?: SchoolProfileData;
 }) {
+  const profile = schoolProfile || getSavedSchoolProfile();
   const grandTotal = calculateFeeTotal(data.feeItems);
   const wordsAmount = numberToWordsINR(grandTotal);
+  const logoSrc = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
+  const signatureSrc = profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? profile.headSignatureUrl : "/hod-signature.png";
+  const effectiveHeadTitle = getEffectiveHeadTitle(profile);
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between text-slate-900 font-sans text-xs select-none px-1">
@@ -25,7 +35,7 @@ function CompactInvoiceSlip({
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/school-logo.png"
+          src={logoSrc}
           alt="School Watermark"
           className="w-36 h-36 object-contain opacity-[0.12] grayscale"
         />
@@ -41,7 +51,7 @@ function CompactInvoiceSlip({
             <div className="w-13 h-13 shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/school-logo.png"
+                src={logoSrc}
                 alt="School Logo"
                 className="w-full h-full object-contain"
               />
@@ -50,13 +60,13 @@ function CompactInvoiceSlip({
             {/* School Details */}
             <div className="text-center flex-1 space-y-0.5">
               <h1 className="text-[14.5px] font-black tracking-tight text-slate-950 uppercase leading-none font-serif">
-                MARIGACHI HIGH SCHOOL (H.S.)
+                {profile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
               </h1>
               <p className="text-[9px] font-bold text-slate-700 leading-tight pt-0.5">
-                (Co-Educational &bull; Established 1966)
+                ({profile.schoolType || "Co-Educational"} &bull; Established {profile.establishedYear || "1966"})
               </p>
               <p className="text-[8px] text-slate-600 leading-tight">
-                Kharigachi, Diamond Harbour, South 24 Parganas, PIN: 743368
+                {profile.village ? `${profile.village}, ` : ""}{profile.policeStation ? `${profile.policeStation}, ` : ""}{profile.district ? `${profile.district}, ` : ""}PIN: {profile.pincode || "743368"}
               </p>
             </div>
 
@@ -204,15 +214,15 @@ function CompactInvoiceSlip({
             <div className="h-6 flex items-end justify-end relative w-24">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/hod-signature.png"
-                alt="Headmaster Signature"
+                src={signatureSrc}
+                alt="Head Signature"
                 className="max-h-5 object-contain select-none"
               />
             </div>
             <p className="text-[8.5px] font-bold text-slate-950 uppercase leading-none mt-0.5">
-              Teacher-in-Charge / H.M.
+              {effectiveHeadTitle}
             </p>
-            <p className="text-[7.5px] text-slate-600 leading-none">Marigachi High School (H.S.)</p>
+            <p className="text-[7.5px] text-slate-600 leading-none">{profile.schoolName || "Marigachi High School (H.S.)"}</p>
           </div>
         </div>
       </div>
@@ -223,6 +233,7 @@ function CompactInvoiceSlip({
 export function InvoicePrintableView({
   data,
   copyType = "both",
+  schoolProfile,
 }: InvoicePrintableViewProps) {
   if (copyType === "student") {
     return (
@@ -231,7 +242,7 @@ export function InvoicePrintableView({
         className="relative bg-white text-slate-900 border border-slate-400 font-sans box-border select-none mx-auto overflow-hidden p-2.5 w-[210mm] h-[146mm] min-w-[210mm] max-w-[210mm] min-h-[146mm] max-h-[146mm] shadow-md print:shadow-none print:border print:border-slate-400 flex items-center justify-center"
       >
         <div className="w-[102mm] h-full border border-slate-300 p-3 rounded bg-white">
-          <CompactInvoiceSlip data={data} copyLabel="STUDENT COPY" />
+          <CompactInvoiceSlip data={data} copyLabel="STUDENT COPY" schoolProfile={schoolProfile} />
         </div>
       </div>
     );
@@ -244,7 +255,7 @@ export function InvoicePrintableView({
         className="relative bg-white text-slate-900 border border-slate-400 font-sans box-border select-none mx-auto overflow-hidden p-2.5 w-[210mm] h-[146mm] min-w-[210mm] max-w-[210mm] min-h-[146mm] max-h-[146mm] shadow-md print:shadow-none print:border print:border-slate-400 flex items-center justify-center"
       >
         <div className="w-[102mm] h-full border border-slate-300 p-3 rounded bg-white">
-          <CompactInvoiceSlip data={data} copyLabel="SCHOOL COPY" />
+          <CompactInvoiceSlip data={data} copyLabel="SCHOOL COPY" schoolProfile={schoolProfile} />
         </div>
       </div>
     );
@@ -263,7 +274,7 @@ export function InvoicePrintableView({
     >
       {/* LEFT HALF: STUDENT COPY */}
       <div className="w-[calc(50%-3.5mm)] h-full flex flex-col justify-between border border-slate-200 p-3 rounded-lg bg-white">
-        <CompactInvoiceSlip data={data} copyLabel="STUDENT COPY" />
+        <CompactInvoiceSlip data={data} copyLabel="STUDENT COPY" schoolProfile={schoolProfile} />
       </div>
 
       {/* CENTER PERFORATION / CUTTING LINE */}
@@ -279,7 +290,7 @@ export function InvoicePrintableView({
 
       {/* RIGHT HALF: SCHOOL COPY */}
       <div className="w-[calc(50%-3.5mm)] h-full flex flex-col justify-between border border-slate-200 p-3 rounded-lg bg-white">
-        <CompactInvoiceSlip data={data} copyLabel="SCHOOL COPY" />
+        <CompactInvoiceSlip data={data} copyLabel="SCHOOL COPY" schoolProfile={schoolProfile} />
       </div>
     </div>
   );
@@ -288,9 +299,11 @@ export function InvoicePrintableView({
 export function InvoicePrintableBatchView({
   invoices,
   copyType = "both",
+  schoolProfile,
 }: {
   invoices: InvoiceData[];
   copyType?: "student" | "school" | "office" | "both";
+  schoolProfile?: SchoolProfileData;
 }) {
   return (
     <div className="w-full print:w-full space-y-4 print:space-y-0">
@@ -305,7 +318,7 @@ export function InvoicePrintableBatchView({
             breakAfter: index < invoices.length - 1 ? "page" : "auto",
           }}
         >
-          <InvoicePrintableView data={inv} copyType={copyType} />
+          <InvoicePrintableView data={inv} copyType={copyType} schoolProfile={schoolProfile} />
         </div>
       ))}
     </div>

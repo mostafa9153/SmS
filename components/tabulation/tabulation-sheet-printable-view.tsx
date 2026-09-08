@@ -7,6 +7,9 @@ export interface TabulationStudentItem {
   roll: number;
   name: string;
   studentId?: string;
+  firstMarks?: string | number;
+  secondMarks?: string | number;
+  thirdMarks?: string | number;
 }
 
 export interface TabulationSheetProps {
@@ -14,7 +17,7 @@ export interface TabulationSheetProps {
   academicYear: number | string;
   evaluationTitle?: string; // e.g. "Summative Evaluation"
   className: string;        // e.g. "VII"
-  section: string;          // e.g. "B"
+  section: string;          // e.g. "B" or "ALL"
   subject: string;          // e.g. "BENGALI" or "MATHEMATICS"
   students: TabulationStudentItem[];
   showWatermark?: boolean;
@@ -34,13 +37,40 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
   students,
   showWatermark = true,
 }) => {
-  // Ensure students are strictly sorted by roll number
-  const sortedStudents = [...students].sort((a, b) => a.roll - b.roll);
+  // 1. Index all students by their roll number
+  const studentByRoll = new Map<number, TabulationStudentItem>();
+  const unassignedStudents: TabulationStudentItem[] = [];
 
-  // Calculate total pages needed (at least 1 page)
-  const totalPages = Math.max(1, Math.ceil(sortedStudents.length / ROWS_PER_PAGE) || 1);
+  students.forEach((st) => {
+    const r = typeof st.roll === "number" && !isNaN(st.roll) ? Math.floor(st.roll) : 0;
+    if (r > 0 && !studentByRoll.has(r)) {
+      studentByRoll.set(r, { ...st, roll: r });
+    } else {
+      unassignedStudents.push(st);
+    }
+  });
+
+  // Assign any unassigned or duplicate roll students to the next available roll numbers
+  let nextRoll = 1;
+  unassignedStudents.forEach((st) => {
+    while (studentByRoll.has(nextRoll)) {
+      nextRoll++;
+    }
+    studentByRoll.set(nextRoll, { ...st, roll: nextRoll });
+  });
+
+  // Determine highest roll number in this class
+  let maxRoll = 0;
+  studentByRoll.forEach((_, r) => {
+    if (r > maxRoll) maxRoll = r;
+  });
+
+  // Total count is whichever is higher: total students, max roll, or at least 1
+  const totalCount = Math.max(students.length, maxRoll, 1);
+  const totalPages = Math.max(1, Math.ceil(totalCount / ROWS_PER_PAGE));
 
   const pages: {
+    pageNumber: number;
     leftStudents: TabulationStudentItem[];
     rightStudents: TabulationStudentItem[];
     startRollLeft: number;
@@ -50,36 +80,27 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
   }[] = [];
 
   for (let p = 0; p < totalPages; p++) {
-    const pageStartIdx = p * ROWS_PER_PAGE;
-    const leftSlice = sortedStudents.slice(pageStartIdx, pageStartIdx + ROWS_PER_COLUMN);
-    const rightSlice = sortedStudents.slice(pageStartIdx + ROWS_PER_COLUMN, pageStartIdx + ROWS_PER_PAGE);
-
     const startRollLeft = p * ROWS_PER_PAGE + 1;
     const endRollLeft = p * ROWS_PER_PAGE + ROWS_PER_COLUMN;
     const startRollRight = p * ROWS_PER_PAGE + ROWS_PER_COLUMN + 1;
     const endRollRight = (p + 1) * ROWS_PER_PAGE;
 
-    // Fill left column first (Row 1 to 40)
-    const paddedLeft: TabulationStudentItem[] = Array.from({ length: ROWS_PER_COLUMN }).map((_, i) => {
-      const existing = leftSlice[i];
-      if (existing) return existing;
-      return {
-        roll: startRollLeft + i,
-        name: "",
-      };
-    });
+    // Fill left column (Row 1 to 40 on page p)
+    const paddedLeft: TabulationStudentItem[] = [];
+    for (let r = startRollLeft; r <= endRollLeft; r++) {
+      const existing = studentByRoll.get(r);
+      paddedLeft.push(existing ? { ...existing, roll: r } : { roll: r, name: "" });
+    }
 
-    // Then fill right column (Row 41 to 80)
-    const paddedRight: TabulationStudentItem[] = Array.from({ length: ROWS_PER_COLUMN }).map((_, i) => {
-      const existing = rightSlice[i];
-      if (existing) return existing;
-      return {
-        roll: startRollRight + i,
-        name: "",
-      };
-    });
+    // Fill right column (Row 41 to 80 on page p)
+    const paddedRight: TabulationStudentItem[] = [];
+    for (let r = startRollRight; r <= endRollRight; r++) {
+      const existing = studentByRoll.get(r);
+      paddedRight.push(existing ? { ...existing, roll: r } : { roll: r, name: "" });
+    }
 
     pages.push({
+      pageNumber: p + 1,
       leftStudents: paddedLeft,
       rightStudents: paddedRight,
       startRollLeft,
@@ -121,12 +142,12 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
             </div>
           </div>
 
-          {/* Section & Summative Tag */}
-          <div className="grid grid-cols-12 text-[8.5px] font-bold text-black border-t border-black mt-0.5 pt-0.5 items-center">
-            <div className="col-span-5 text-left text-purple-900 font-extrabold truncate">
-              Sec - {section}
+          {/* Section & Summative Tag: Aligned 90px width with the 3 Summative columns below */}
+          <div className="flex text-[8.5px] font-bold text-black border-t border-black mt-0.5 pt-0.5 items-center justify-between">
+            <div className="text-left text-purple-900 font-extrabold truncate pl-0.5">
+              Sec - {section === "ALL" ? "ALL" : section}
             </div>
-            <div className="col-span-7 text-center text-red-700 font-extrabold uppercase tracking-wide">
+            <div className="w-[90px] text-center text-red-700 font-black uppercase tracking-wider text-[8.5px]">
               Summative
             </div>
           </div>
@@ -137,19 +158,23 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
           <table className="w-full h-full border-collapse border-[1.2px] border-black text-[7.5px] table-fixed">
             <thead>
               <tr className="border-b-[1.2px] border-black bg-neutral-100/80 text-black" style={{ height: "6.2mm" }}>
-                <th className="border-r-[1.2px] border-black w-[19px] text-center font-black p-0 text-[7.5px]">
+                <th className="border-r-[1.2px] border-black w-[21px] text-center font-black p-0 text-[7.5px] text-black">
                   Rol
                 </th>
-                <th className="border-r-[1.2px] border-black text-left font-black p-0 pl-1 text-[7.5px] truncate" style={{ width: "calc(100% - 66px)" }}>
+                <th
+                  className="border-r-[1.2px] border-black text-left font-black p-0 pl-1 text-[7.5px] text-black truncate"
+                  style={{ width: "calc(100% - 111px)" }}
+                >
                   Name of Students
                 </th>
-                <th className="border-r border-black w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
+                {/* 30px width per column = Generous side space for 2-digit marks */}
+                <th className="border-r border-black w-[30px] text-center font-black p-0 text-[8px] text-red-700">
                   1st
                 </th>
-                <th className="border-r border-black w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
+                <th className="border-r border-black w-[30px] text-center font-black p-0 text-[8px] text-red-700">
                   2nd
                 </th>
-                <th className="w-[16px] text-center font-black p-0 text-[6.5px] text-red-700">
+                <th className="w-[30px] text-center font-black p-0 text-[8px] text-red-700">
                   3rd
                 </th>
               </tr>
@@ -171,14 +196,20 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
                     {st.name || ""}
                   </td>
 
-                  {/* 1st Summative Score Box */}
-                  <td className="border-r border-black text-center p-0 font-mono text-[7px]" />
+                  {/* 1st Summative Score Box: 30px wide with side margin for 2-digit writing/printing */}
+                  <td className="border-r border-black text-center p-0 font-mono font-bold text-[8px] text-black leading-none">
+                    {st.firstMarks !== undefined && st.firstMarks !== null ? st.firstMarks : ""}
+                  </td>
 
-                  {/* 2nd Summative Score Box */}
-                  <td className="border-r border-black text-center p-0 font-mono text-[7px]" />
+                  {/* 2nd Summative Score Box: 30px wide with side margin for 2-digit writing/printing */}
+                  <td className="border-r border-black text-center p-0 font-mono font-bold text-[8px] text-black leading-none">
+                    {st.secondMarks !== undefined && st.secondMarks !== null ? st.secondMarks : ""}
+                  </td>
 
-                  {/* 3rd Summative Score Box */}
-                  <td className="text-center p-0 font-mono text-[7px]" />
+                  {/* 3rd Summative Score Box: 30px wide with side margin for 2-digit writing/printing */}
+                  <td className="text-center p-0 font-mono font-bold text-[8px] text-black leading-none">
+                    {st.thirdMarks !== undefined && st.thirdMarks !== null ? st.thirdMarks : ""}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -202,19 +233,24 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
   return (
     <div className="tabulation-print-container flex flex-col items-center">
       {pages.map((page, pageIdx) => (
-        <div key={`tabulation-page-${pageIdx}`} className="w-full flex flex-col items-center">
+        <div
+          key={`tabulation-page-${pageIdx}`}
+          className={`tabulation-page-wrapper w-full flex flex-col items-center ${
+            pageIdx > 0 ? "mt-10 print:mt-0" : ""
+          }`}
+        >
           {/* Visual Page Counter in Screen Preview */}
           <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
             <span className="bg-neutral-800 text-neutral-300 px-2.5 py-0.5 rounded border border-neutral-700">
-              Page {pageIdx + 1} of {totalPages}
+              Page {page.pageNumber} of {totalPages}
             </span>
             <span>•</span>
             <span className="text-neutral-300">
-              Class {studentClass}-{section} ({subject || "General"})
+              Class {studentClass}-{section === "ALL" ? "ALL" : section} ({subject || "General"})
             </span>
             <span>•</span>
             <span className="text-neutral-300 font-medium">
-              Roll {page.startRollLeft} – {page.endRollRight} (40 Rows/Col)
+              Roll {page.startRollLeft} – {page.endRollRight} (80 Students/Page)
             </span>
           </div>
 

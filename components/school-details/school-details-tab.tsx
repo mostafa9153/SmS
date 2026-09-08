@@ -910,13 +910,13 @@ export function SchoolDetailsTab() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="schoolCode" className="text-xs">School Index / Registration Code</Label>
+                    <Label htmlFor="indexNo" className="text-xs">WBBSE Index No</Label>
                     <Input
-                      id="schoolCode"
-                      value={profile.schoolCode}
-                      onChange={(e) => setProfile({ ...profile, schoolCode: e.target.value })}
+                      id="indexNo"
+                      value={profile.indexNo || ""}
+                      onChange={(e) => setProfile({ ...profile, indexNo: e.target.value })}
                       className="text-xs font-mono"
-                      placeholder="e.g. MHS-1965"
+                      placeholder="e.g. B2-026"
                     />
                   </div>
 
@@ -1069,7 +1069,18 @@ export function SchoolDetailsTab() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="policeStation" className="text-xs">Police Station / Block</Label>
+                    <Label htmlFor="postOffice" className="text-xs">Post Office (P.O.)</Label>
+                    <Input
+                      id="postOffice"
+                      value={profile.postOffice || ""}
+                      onChange={(e) => setProfile({ ...profile, postOffice: e.target.value })}
+                      className="text-xs"
+                      placeholder="e.g. KHARIGACHI"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="policeStation" className="text-xs">Police Station / Block (P.S.)</Label>
                     <Input
                       id="policeStation"
                       value={profile.policeStation}

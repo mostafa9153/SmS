@@ -18,6 +18,7 @@ import {
   MarksheetPrintableView,
   MarksheetPrintableBatchView,
 } from "@/components/marksheet/marksheet-printable-view";
+import { useSchoolProfile } from "@/lib/utils/school-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +46,7 @@ import {
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
 function MarksheetGeneratorContent() {
+  const { profile: schoolProfile } = useSchoolProfile();
   const searchParams = useSearchParams();
   const router = useRouter();
   const studentIdParam = searchParams.get("studentId");
@@ -570,10 +572,10 @@ function MarksheetGeneratorContent() {
       <div id="pure-print-container" className="hidden print:block">
         {generatorMode === "single" ? (
           <div className="w-full flex justify-center">
-            <MarksheetPrintableView data={marksheet} />
+            <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} />
           </div>
         ) : (
-          <MarksheetPrintableBatchView marksheets={bulkMarksheets} />
+          <MarksheetPrintableBatchView marksheets={bulkMarksheets} schoolProfile={schoolProfile} />
         )}
       </div>
 
@@ -1000,7 +1002,7 @@ function MarksheetGeneratorContent() {
                 }}
                 className="shrink-0 m-auto"
               >
-                <MarksheetPrintableView data={marksheet} />
+                <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} />
               </div>
             </div>
           </div>
@@ -1226,7 +1228,7 @@ function MarksheetGeneratorContent() {
                 }}
                 className="shrink-0 m-auto"
               >
-                <MarksheetPrintableView data={activeBulkPreviewMarksheet} />
+                <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} />
               </div>
             </div>
           </div>

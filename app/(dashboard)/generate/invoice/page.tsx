@@ -44,6 +44,7 @@ import {
   ChevronRight,
   Receipt,
 } from "lucide-react";
+import { useSchoolProfile } from "@/lib/utils/school-profile";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["ALL", "A", "B", "C", "D"];
@@ -55,6 +56,7 @@ function InvoiceGeneratorContent() {
   const modeParam = searchParams.get("mode");
   const classParam = searchParams.get("class");
   const sectionParam = searchParams.get("section");
+  const { profile: schoolProfile } = useSchoolProfile();
 
   // Mode: "single" vs "bulk"
   const [generatorMode, setGeneratorMode] = useState<"single" | "bulk">(
@@ -861,7 +863,7 @@ function InvoiceGeneratorContent() {
               id="printable-invoice-canvas"
               className="bg-slate-100 dark:bg-slate-900 p-2 sm:p-4 rounded-2xl border shadow-inner overflow-x-auto flex justify-center print:p-0 print:border-none print:bg-transparent print:w-full print:block"
             >
-              <InvoicePrintableView data={invoice} copyType={copyType} />
+              <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
             </div>
           </div>
         </div>
@@ -1186,6 +1188,7 @@ function InvoiceGeneratorContent() {
                 <InvoicePrintableView
                   data={activeBulkPreviewInvoice}
                   copyType={copyType}
+                  schoolProfile={schoolProfile}
                 />
               ) : (
                 <div className="py-20 text-center text-muted-foreground text-sm">
@@ -1206,6 +1209,7 @@ function InvoiceGeneratorContent() {
           <InvoicePrintableBatchView
             invoices={bulkInvoices}
             copyType={copyType}
+            schoolProfile={schoolProfile}
           />
         </div>
       )}

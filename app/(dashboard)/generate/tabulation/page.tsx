@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import {
-  getSavedSchoolProfile,
+  useSchoolProfile,
   SchoolProfileData,
 } from "@/lib/utils/school-profile";
 import {
@@ -43,6 +43,7 @@ import {
 
 export default function TabulationGeneratorPage() {
   const router = useRouter();
+  const { profile: schoolProfile } = useSchoolProfile();
 
   // Academic year auto-detection
   const [academicYear] = useState<number>(() => {
@@ -53,7 +54,6 @@ export default function TabulationGeneratorPage() {
     return new Date().getFullYear();
   });
   const evaluationTitle = "Summative Evaluation";
-  const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
 
   // Universal Default School Logo (Synced from DB school_profile or standard fallback)
   const effectiveLogoUrl =
@@ -74,10 +74,9 @@ export default function TabulationGeneratorPage() {
   const [showWatermark, setShowWatermark] = useState<boolean>(true);
   const [manualCount, setManualCount] = useState<number>(31);
 
-  // Sync freshest school profile and classes from DB
+  // Sync freshest classes from DB
   useEffect(() => {
-    syncAllEmsConfigsFromDb().then(({ profile }) => {
-      setSchoolProfile(profile);
+    syncAllEmsConfigsFromDb().then(() => {
       const classes = getDynamicClassCodes();
       if (classes.length > 0) {
         setAvailableClasses(classes);
@@ -101,7 +100,7 @@ export default function TabulationGeneratorPage() {
   }, [selectedClass]);
 
   useEffect(() => {
-    if (availableSections.length > 0 && !availableSections.includes(selectedSection)) {
+    if (availableSections.length > 0 && !availableSections.includes(selectedSection) && selectedSection !== "ALL") {
       setSelectedSection(availableSections[0]);
     }
   }, [availableSections, selectedSection]);
@@ -147,6 +146,7 @@ export default function TabulationGeneratorPage() {
   const normalizeSectionStr = (raw?: string | null): string => {
     if (!raw) return "A";
     const s = String(raw).trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+    if (s === "ALL") return "ALL";
     return s || "A";
   };
 
@@ -171,7 +171,9 @@ export default function TabulationGeneratorPage() {
         const studentSection = normalizeSectionStr(s.presentSection);
         const isContinuing = !s.currentStatus || s.currentStatus.toLowerCase() === "continuing";
 
-        const matchesClassAndSection = studentClass === targetClass && studentSection === targetSection;
+        const matchesClassAndSection =
+          studentClass === targetClass &&
+          (targetSection === "ALL" || studentSection === targetSection);
         if (!matchesClassAndSection || !isContinuing) return false;
 
         // Subject elective check (Only for Higher Secondary XI/XII streams; in V-X all enrolled students study all subjects)
@@ -344,10 +346,13 @@ export default function TabulationGeneratorPage() {
                   <CustomSelect
                     value={selectedSection}
                     onChange={(val) => setSelectedSection(val)}
-                    options={availableSections.map((s) => ({
-                      value: s,
-                      label: `Sec ${s}`,
-                    }))}
+                    options={[
+                      { value: "ALL", label: "All Sections (Entire Class)" },
+                      ...availableSections.map((s) => ({
+                        value: s,
+                        label: `Sec ${s}`,
+                      })),
+                    ]}
                   />
                 </div>
               </div>
@@ -386,12 +391,13 @@ export default function TabulationGeneratorPage() {
                       <Input
                         type="number"
                         min={10}
-                        max={160}
+                        max={320}
+                        step={10}
                         value={manualCount}
                         onChange={(e) => setManualCount(parseInt(e.target.value) || 80)}
                         className="h-7 w-20 text-xs font-mono"
                       />
-                      <span className="text-[11px] text-muted-foreground">Rows to print</span>
+                      <span className="text-[11px] text-muted-foreground">Rows to print (80/page)</span>
                     </div>
                   </div>
                 )}
@@ -609,7 +615,7 @@ export default function TabulationGeneratorPage() {
         @media print {
           @page {
             size: 210mm 297mm;
-            margin: 0 !important;
+            margin: 0;
           }
 
           body,
@@ -641,6 +647,7 @@ export default function TabulationGeneratorPage() {
             box-shadow: none !important;
             border: none !important;
             background: transparent !important;
+            display: block !important;
           }
 
           #tabulation-printable-canvas > div {
@@ -648,6 +655,28 @@ export default function TabulationGeneratorPage() {
             width: 210mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            display: block !important;
+          }
+
+          .tabulation-print-container {
+            display: block !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .tabulation-page-wrapper {
+            display: block !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+
+          .tabulation-page-wrapper:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
 
           .tabulation-sheet {
@@ -658,6 +687,7 @@ export default function TabulationGeneratorPage() {
             box-sizing: border-box !important;
             overflow: hidden !important;
             page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
         }
       `}</style>

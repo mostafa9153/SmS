@@ -12,7 +12,9 @@ import {
   BLANK_FORM_XI,
   DEFAULT_SCHOOL_INFO,
   formatFormNumber,
+  schoolProfileToSchoolInfo,
 } from "@/components/admission-form/types";
+import { useSchoolProfile } from "@/lib/utils/school-profile";
 import { AdmissionFormVIxPrintableView } from "@/components/admission-form/admission-form-v-ix-printable";
 import { AdmissionFormXIPrintableView } from "@/components/admission-form/admission-form-xi-printable";
 import { Button } from "@/components/ui/button";
@@ -43,6 +45,8 @@ import {
 import { cn } from "@/lib/utils";
 
 function AdmissionFormGeneratorContent() {
+  const { profile: schoolProfile } = useSchoolProfile();
+  const schoolInfo = useMemo(() => schoolProfileToSchoolInfo(schoolProfile), [schoolProfile]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const formTypeParam = searchParams.get("type"); // 'v-ix' or 'xi'
@@ -936,6 +940,7 @@ function AdmissionFormGeneratorContent() {
                       ...formVIx,
                       formNo: generationMode === "bulk" ? bulkSerialList[previewBulkIndex] : formVIx.formNo,
                     }}
+                    school={schoolInfo}
                     activePage={activePageView}
                   />
                 ) : (
@@ -944,6 +949,7 @@ function AdmissionFormGeneratorContent() {
                       ...formXI,
                       formNo: generationMode === "bulk" ? bulkSerialList[previewBulkIndex] : formXI.formNo,
                     }}
+                    school={schoolInfo}
                     activePage={activePageView}
                   />
                 )}
@@ -960,6 +966,7 @@ function AdmissionFormGeneratorContent() {
                             ...formVIx,
                             formNo: serial,
                           }}
+                          school={schoolInfo}
                           activePage="all"
                         />
                       ) : (
@@ -968,6 +975,7 @@ function AdmissionFormGeneratorContent() {
                             ...formXI,
                             formNo: serial,
                           }}
+                          school={schoolInfo}
                           activePage="all"
                         />
                       )}

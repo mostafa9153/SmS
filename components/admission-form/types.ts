@@ -1,3 +1,5 @@
+import { SchoolProfileData } from "@/lib/utils/school-profile";
+
 export interface SchoolInfo {
   name: string;
   subTitle?: string;
@@ -9,11 +11,31 @@ export interface SchoolInfo {
 
 export const DEFAULT_SCHOOL_INFO: SchoolInfo = {
   name: "MARIGACHI HIGH SCHOOL (H.S.)",
-  address: "Vill+P. O. : MARIGACHI, P. S. : DIAMOND HARBOUR",
-  districtStatePin: "Dt: SOUTH 24 PARGANAS, State: WEST BENGAL, PIN - 743368",
-  contact: "Mobile: 9800971797, Email: marigachihighschool@gmail.com",
-  logoUrl: "/logo.png",
+  address: "Vill+P. O. : MARIGACHI, P. S. : MATHURAPUR",
+  districtStatePin: "Dt: SOUTH 24 PARGANAS, State: WEST BENGAL, PIN - 743349",
+  contact: "Mobile: +91 98765 43210, Email: contact@marigachihighschool.in",
+  logoUrl: "/school-logo.png",
 };
+
+export function schoolProfileToSchoolInfo(profile: Partial<SchoolProfileData>): SchoolInfo {
+  const village = profile.village || "MARIGACHI";
+  const po = profile.postOffice || profile.village || "MARIGACHI";
+  const ps = profile.policeStation || "MATHURAPUR";
+  const dist = profile.district || "SOUTH 24 PARGANAS";
+  const state = profile.state || "WEST BENGAL";
+  const pin = profile.pincode || "743349";
+  const phone = profile.schoolPhone || profile.altPhone || "+91 98765 43210";
+  const email = profile.schoolEmail || "contact@marigachihighschool.in";
+  const logo = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
+
+  return {
+    name: (profile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)").toUpperCase(),
+    address: `Vill+P. O. : ${village}${po !== village ? ` / ${po}` : ""}, P. S. : ${ps}`.toUpperCase(),
+    districtStatePin: `Dt: ${dist}, State: ${state}, PIN - ${pin}`.toUpperCase(),
+    contact: `Mobile: ${phone}, Email: ${email}`,
+    logoUrl: logo,
+  };
+}
 
 export interface OfficeUseData {
   doa?: string; // Date of Admission (especially for Class 11)

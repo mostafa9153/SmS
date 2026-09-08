@@ -1,5 +1,3 @@
-"use client";
-
 import React from "react";
 import {
   MarksheetData,
@@ -7,12 +5,23 @@ import {
   WBBSE_GRADE_SCALE,
   getClassScheme,
 } from "@/lib/utils/marksheet-calc";
+import {
+  type SchoolProfileData,
+  getSavedSchoolProfile,
+  getEffectiveHeadTitle,
+} from "@/lib/utils/school-profile";
 
 interface MarksheetPrintableViewProps {
   data: MarksheetData;
+  schoolProfile?: SchoolProfileData;
 }
 
-export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
+export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintableViewProps) {
+  const profile = schoolProfile || getSavedSchoolProfile();
+  const effectiveHeadTitle = getEffectiveHeadTitle(profile);
+  const logoSrc = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
+  const signatureSrc = profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? profile.headSignatureUrl : "/hod-signature.png";
+
   const scheme = getClassScheme(data.studentClass);
   const t1PeriodicMax = scheme?.firstSummativeWritten || 40;
   const t1PrepMax = scheme?.firstSummativePractical || 10;
@@ -61,7 +70,7 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/school-logo.png"
+          src={logoSrc}
           alt="Watermark"
           className="w-[250px] h-[250px] object-contain opacity-[0.042] grayscale"
         />
@@ -77,8 +86,8 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             <div className="shrink-0 w-[68px] text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/school-logo.png"
-                alt="Marigachi High School Logo"
+                src={logoSrc}
+                alt="School Logo"
                 className="w-[62px] h-[62px] object-contain mx-auto drop-shadow-xs"
               />
             </div>
@@ -86,30 +95,30 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
             {/* Header Text */}
             <div className="flex-1 text-center px-1">
               <h1 className="text-[23px] sm:text-[25px] font-black tracking-tight text-[#14206b] leading-tight m-0 uppercase font-serif">
-                Marigachi High School (H.S.)
+                {profile.schoolName || "Marigachi High School (H.S.)"}
               </h1>
               <div className="text-[11.5px] font-bold text-[#14206b]/90 italic leading-snug mt-0.5">
-                (Co-educational &bull; Higher Secondary Institution &bull; Estd. 1966)
+                ({profile.schoolType || "Co-educational"} &bull; {profile.schoolCategory || "Higher Secondary Institution"} &bull; Estd. {profile.establishedYear || "1966"})
               </div>
               <div className="text-[9.5px] text-neutral-800 leading-tight mt-0.5 tracking-tight font-medium">
-                <span>Marigachi, Diamond Harbour, South 24 Parganas &ndash; 743368</span>
+                <span>{profile.village ? `${profile.village}, ` : ""}{profile.policeStation ? `${profile.policeStation}, ` : ""}{profile.district ? `${profile.district} – ` : ""}{profile.pincode || "743368"}</span>
                 <span className="mx-1.5 font-bold text-[#14206b]">&bull;</span>
-                <span>Index No. &ndash; C2-121</span>
+                <span>Index No. &ndash; {profile.indexNo || profile.schoolCode || "C2-121"}</span>
                 <span className="mx-1.5 font-bold text-[#14206b]">&bull;</span>
-                <span>H.S. Code &ndash; 102298</span>
+                <span>H.S. Code &ndash; {profile.hsCode || "102298"}</span>
                 <span className="mx-1.5 font-bold text-[#14206b]">&bull;</span>
-                <span>Phone &ndash; (03174) 211-926</span>
+                <span>Phone &ndash; {profile.schoolPhone || profile.altPhone || "(03174) 211-926"}</span>
               </div>
             </div>
 
             {/* Established & UDISE Badge */}
             <div className="shrink-0 w-[110px] text-right text-[10.5px] italic space-y-0.5">
-              <div className="font-bold text-[#14206b]">Established &ndash; 1966</div>
+              <div className="font-bold text-[#14206b]">Established &ndash; {profile.establishedYear || "1966"}</div>
               <div className="text-[9px] text-neutral-600 not-italic font-mono">
-                UDISE: 19180201004
+                UDISE: {profile.udiseCode || "19180201004"}
               </div>
               <div className="text-[8.5px] bg-[#14206b]/10 text-[#14206b] font-bold px-2 py-0.5 rounded-sm inline-block not-italic font-sans">
-                WBBSE Curriculum
+                {profile.boardAffiliation?.split("/")[0]?.trim() || "WBBSE"} Curriculum
               </div>
             </div>
           </div>
@@ -333,16 +342,16 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
                 <div className="h-[40px] flex items-end justify-center mb-0.5">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src="/hod-signature.png"
-                    alt="Teacher-in-Charge Signature"
+                    src={signatureSrc}
+                    alt="Head Signature"
                     className="max-h-[36px] max-w-[130px] object-contain mix-blend-multiply select-none"
                   />
                 </div>
                 <div className="text-[9.5px] font-bold text-[#14206b] leading-tight font-serif">
-                  Signature of Teacher-in-Charge
+                  Signature of {effectiveHeadTitle}
                 </div>
                 <div className="text-[7.5px] text-neutral-600 font-sans leading-tight mt-0.5">
-                  Headmaster &bull; Marigachi High School
+                  {effectiveHeadTitle} &bull; {profile.schoolName || "Marigachi High School"}
                 </div>
               </div>
 
@@ -519,8 +528,10 @@ export function MarksheetPrintableView({ data }: MarksheetPrintableViewProps) {
 
 export function MarksheetPrintableBatchView({
   marksheets,
+  schoolProfile,
 }: {
   marksheets: MarksheetData[];
+  schoolProfile?: SchoolProfileData;
 }) {
   return (
     <div className="w-full print:w-full space-y-8 print:space-y-0">
@@ -535,7 +546,7 @@ export function MarksheetPrintableBatchView({
             breakAfter: index < marksheets.length - 1 ? "page" : "auto",
           }}
         >
-          <MarksheetPrintableView data={ms} />
+          <MarksheetPrintableView data={ms} schoolProfile={schoolProfile} />
         </div>
       ))}
     </div>

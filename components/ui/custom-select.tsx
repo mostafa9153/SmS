@@ -113,7 +113,7 @@ export function CustomSelect({
   }
 
   return (
-    <div className={cn("relative w-full", className)} ref={containerRef}>
+    <div className={cn("relative w-full", isOpen && "z-50", className)} ref={containerRef}>
       {/* Trigger Button */}
       <button
         id={id}
@@ -153,7 +153,7 @@ export function CustomSelect({
       {isOpen && !disabled && (
         <div
           className={cn(
-            "absolute left-0 top-full mt-1.5 w-full min-w-[220px] max-h-72 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl p-1.5 shadow-xl shadow-black/10 z-50 animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col",
+            "absolute left-0 top-full mt-1.5 w-full min-w-[220px] max-h-72 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 shadow-2xl z-[9999] animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col",
             dropdownClassName
           )}
         >

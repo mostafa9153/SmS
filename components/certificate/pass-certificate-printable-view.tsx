@@ -1,10 +1,18 @@
 "use client";
 
 import React from "react";
+import {
+  type SchoolProfileData,
+  getSavedSchoolProfile,
+  getEffectiveHeadTitle,
+  cleanAddressPart,
+  formatSchoolNameParts,
+} from "@/lib/utils/school-profile";
 
 export interface PassCertificateData {
   certificateNo: string;
   issueDate: string;
+  copyType?: "Original" | "Duplicate" | "Office Copy";
 
   // Student Particulars
   studentId: string;
@@ -42,6 +50,7 @@ export interface PassCertificateData {
 
 interface PassCertificatePrintableViewProps {
   data: PassCertificateData;
+  schoolProfile?: SchoolProfileData;
 }
 
 // Convert DD/MM/YYYY or YYYY-MM-DD to words, e.g. "15th August Two Thousand Ten"
@@ -79,12 +88,22 @@ export function formatDobToWords(dateStr?: string): string {
   return `${dayName} ${monthName}, ${y}`;
 }
 
-export function PassCertificatePrintableView({ data }: PassCertificatePrintableViewProps) {
+export function PassCertificatePrintableView({ data, schoolProfile }: PassCertificatePrintableViewProps) {
+  const profile = schoolProfile || getSavedSchoolProfile();
+  const effectiveHeadTitle = data.headmasterTitle || getEffectiveHeadTitle(profile);
+  const logoSrc = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
+
   const isFemale = data.gender === "Female";
   const childOf = isFemale ? "daughter of" : "son of";
   const pronounSubject = isFemale ? "She" : "He";
   const pronounPossessive = isFemale ? "her" : "his";
   const pronounObject = isFemale ? "her" : "him";
+
+  const displayVillage = cleanAddressPart(data.village, "village") || profile.village || "Marigachi";
+  const displayPO = cleanAddressPart(data.postOffice, "po") || profile.postOffice || profile.village || "Marigachi";
+  const displayPS = cleanAddressPart(data.policeStation, "ps") || profile.policeStation || "Mathurapur";
+  const displayDist = cleanAddressPart(data.district, "dist") || profile.district || "South 24 Parganas";
+  const displayPin = (data.pincode || "").replace(/\D/g, "") || profile.pincode || "743349";
 
   const dobDisplay = data.dateOfBirth
     ? data.dateOfBirth.includes("-")
@@ -120,7 +139,7 @@ export function PassCertificatePrintableView({ data }: PassCertificatePrintableV
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/school-logo.png"
+          src={logoSrc}
           alt="School Watermark"
           className="w-56 h-56 object-contain opacity-[0.12] grayscale"
         />
@@ -134,35 +153,57 @@ export function PassCertificatePrintableView({ data }: PassCertificatePrintableV
         <div className="border-b-2 border-[#0f766e] pt-3 pb-2.5 mt-0.5">
           <div className="flex items-center justify-between gap-3.5">
             {/* School Crest - Fits full header text height */}
-            <div className="w-[78px] h-[78px] shrink-0 flex items-center justify-center">
+            <div className="w-[84px] h-[84px] shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/school-logo.png"
-                alt="Marigachi High School Crest"
+                src={logoSrc}
+                alt="School Crest"
                 className="w-full h-full object-contain"
               />
             </div>
 
             {/* School Headings */}
-            <div className="text-center flex-1 space-y-1">
-              <h1 className="text-[20px] font-black tracking-normal uppercase text-[#0f766e] font-serif leading-none">
-                MARIGACHI HIGH SCHOOL (H.S.)
-              </h1>
-              <p className="text-[10.5px] font-bold text-slate-700 tracking-wide pt-0.5">
-                (Co-Educational &bull; Established 1966 &bull; Govt. Sponsored)
-              </p>
-              <p className="text-[9.5px] text-slate-600 leading-tight pt-0.5">
-                Vill. &amp; P.O.: Kharigachi, P.S.: Diamond Harbour, Dist.: South 24 Parganas, PIN: 743368
-              </p>
-              <p className="text-[8.5px] font-mono text-slate-500 pt-0.5">
-                Index: C2-121 &bull; H.S. Code: 102298 &bull; UDISE: 19180201004 &bull; Phone: (03174) 211-926
-              </p>
-            </div>
+            {(() => {
+              const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
+              return (
+                <div className="text-center flex-1 space-y-0.5">
+                  <h1 className="text-[20px] sm:text-[21px] font-black tracking-normal uppercase text-[#0f766e] font-serif leading-tight whitespace-nowrap">
+                    {mainName}
+                  </h1>
+                  {suffix ? (
+                    <div className="text-[14px] font-black tracking-wider uppercase text-[#0f766e] font-serif leading-none">
+                      {suffix}
+                    </div>
+                  ) : null}
+                  <p className="text-[10.5px] font-semibold text-slate-700 leading-tight pt-0.5">
+                    {profile.village ? `Vill.: ${profile.village}, ` : ""}{profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}{profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}{profile.district ? `Dist.: ${profile.district}, ` : ""}PIN: {profile.pincode || "743349"}
+                  </p>
+                  <p className="text-[9px] font-mono font-medium text-slate-600 pt-0.5">
+                    Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code: {profile.hsCode || "102298"} &bull; UDISE: {profile.udiseCode || "19111305602"} &bull; Phone: {profile.schoolPhone || profile.altPhone || "+91 98765 43210"}
+                  </p>
+                </div>
+              );
+            })()}
 
-            {/* Symmetry seal badge */}
-            <div className="w-[74px] h-[74px] shrink-0 flex items-center justify-center">
-              <div className="w-full h-full rounded-full border border-dashed border-[#0f766e]/40 flex items-center justify-center text-[8.5px] font-sans font-semibold text-slate-400 uppercase text-center p-1 leading-tight">
-                Official Seal
+            {/* Symmetry seal badge with Low-Opacity Official Seal & [ORIGINAL] Badge */}
+            <div className="w-[80px] h-[80px] shrink-0 flex items-center justify-center relative text-[#0f766e]">
+              <div className="w-full h-full rounded-full border border-dashed border-[#0f766e]/35 flex flex-col items-center justify-center p-1 relative overflow-hidden select-none bg-transparent">
+                {/* Low-opacity Official Seal Text */}
+                <div className="flex flex-col items-center justify-center opacity-25 select-none pointer-events-none">
+                  <span className="text-[7.5px] font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-500">
+                    OFFICIAL
+                  </span>
+                  <span className="text-[7px] font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-500">
+                    SEAL
+                  </span>
+                </div>
+
+                {/* Overlay [ORIGINAL] badge */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold text-[8.5px] uppercase px-1.5 py-0.5 rounded font-sans tracking-wide shadow-xs">
+                    [{data.copyType || "Original"}]
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -190,7 +231,7 @@ export function PassCertificatePrintableView({ data }: PassCertificatePrintableV
               </h2>
             </div>
             <p className="text-[9px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
-              To Whomsoever It May Concern
+              To Whom It May Concern
             </p>
           </div>
         </div>
@@ -203,11 +244,11 @@ export function PassCertificatePrintableView({ data }: PassCertificatePrintableV
             This is to certify that{" "}
             <span className="font-extrabold uppercase text-[#0f766e] border-b border-dotted border-slate-700 px-0.5">{data.studentName || "________________________"}</span>, {childOf}{" "}
             <span className="font-semibold text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.fatherName || "________________________"}</span>, residing at Village:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.village || "Marigachi"}</span>, P.O.:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.postOffice || "Kharigachi"}</span>, P.S.:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.policeStation || "Diamond Harbour"}</span>, District:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.district || "South 24 Parganas"}</span>, PIN:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{data.pincode || "743368"}</span>, was a bona fide regular student of this institution.
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayVillage}</span>, P.O.:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPO}</span>, P.S.:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPS}</span>, District:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayDist}</span>, PIN:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{displayPin}</span>, was a bona fide regular student of this institution.
           </p>
 
           <p>
@@ -279,13 +320,13 @@ export function PassCertificatePrintableView({ data }: PassCertificatePrintableV
             <div className="text-center flex flex-col items-center">
               <div className="h-8 w-28 flex items-end justify-center" />
               <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
-                {data.headmasterTitle || "TEACHER-IN-CHARGE / HEADMASTER"}
+                {effectiveHeadTitle}
               </p>
               <p className="text-[9.5px] font-medium text-slate-700 leading-tight">
-                Marigachi High School (H.S.)
+                {profile.schoolName || "Marigachi High School (H.S.)"}
               </p>
               <p className="text-[8.5px] text-slate-500 font-sans leading-tight">
-                Diamond Harbour, South 24 Pgs
+                {profile.policeStation || "Diamond Harbour"}, {profile.district || "South 24 Pgs"}
               </p>
             </div>
           </div>

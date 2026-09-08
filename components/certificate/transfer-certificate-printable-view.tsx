@@ -1,6 +1,13 @@
 "use client";
 
 import React from "react";
+import {
+  type SchoolProfileData,
+  getSavedSchoolProfile,
+  getEffectiveHeadTitle,
+  cleanAddressPart,
+  formatSchoolNameParts,
+} from "@/lib/utils/school-profile";
 
 export interface TransferCertificateData {
   certificateNo: string;
@@ -55,28 +62,35 @@ export const LEAVING_REASONS = [
 
 interface TransferCertificatePrintableViewProps {
   data: TransferCertificateData;
+  schoolProfile?: SchoolProfileData;
 }
 
-// Convert number to words, e.g. 10 -> "Ten"
-function numberToWords(num: number): string {
-  const ones = [
-    "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
-    "Seventeen", "Eighteen", "Nineteen", "Twenty", "Twenty-One", "Twenty-Two",
-    "Twenty-Three", "Twenty-Four", "Twenty-Five", "Twenty-Six", "Twenty-Seven",
-    "Twenty-Eight", "Twenty-Nine", "Thirty", "Thirty-One"
-  ];
-  return ones[num] || String(num);
+// Helper to convert numbers to English words
+function numberToEnglishWords(num: number): string {
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  if (num < 20) return ones[num];
+  if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? ` ${ones[num % 10]}` : "");
+  if (num < 1000) return ones[Math.floor(num / 100)] + " Hundred" + (num % 100 !== 0 ? ` and ${numberToEnglishWords(num % 100)}` : "");
+  if (num >= 2000 && num < 2100) {
+    const rem = num - 2000;
+    return rem === 0 ? "Two Thousand" : `Two Thousand and ${numberToEnglishWords(rem)}`;
+  }
+  if (num >= 1900 && num < 2000) {
+    const rem = num - 1900;
+    return rem === 0 ? "Nineteen Hundred" : `Nineteen Hundred and ${numberToEnglishWords(rem)}`;
+  }
+  return String(num);
 }
 
 // Parse date into Day, Month, Year in words
 export function parseDobComponents(dateStr?: string) {
   if (!dateStr) {
     return {
-      dayWords: "Fifteenth",
-      monthWords: "August",
-      yearWords: "Ten",
-      formattedDate: "15/08/2010",
+      dayWords: "Fourth",
+      monthWords: "November",
+      yearWords: "Two Thousand and Eleven",
+      formattedDate: "04/11/2011",
     };
   }
 
@@ -114,22 +128,24 @@ export function parseDobComponents(dateStr?: string) {
     "July", "August", "September", "October", "November", "December"
   ];
 
-  const yearSuffix = y >= 2000 ? y - 2000 : y;
-  const yearInWords = numberToWords(yearSuffix);
-
   return {
     dayWords: ordinalDays[d] || `${d}th`,
     monthWords: months[m - 1] || "",
-    yearWords: yearInWords,
+    yearWords: numberToEnglishWords(y),
     formattedDate: `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`,
   };
 }
 
 export function TransferCertificatePrintableView({
   data,
+  schoolProfile,
 }: TransferCertificatePrintableViewProps) {
+  const profile = schoolProfile || getSavedSchoolProfile();
+  const effectiveHoiTitle = data.hoiTitle || getEffectiveHeadTitle(profile);
+  const logoSrc = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
+
   const isFemale = data.gender === "Female";
-  const childOf = isFemale ? "Daughter of" : "Son of";
+  const childOf = isFemale ? "daughter of" : "son of";
   const pronounSubject = isFemale ? "She" : "He";
   const pronounPossessive = isFemale ? "Her" : "His";
   const pronounObject = isFemale ? "her" : "him";
@@ -139,6 +155,18 @@ export function TransferCertificatePrintableView({
   const monthWords = data.dateOfBirthMonthWords || dobInfo.monthWords;
   const yearWords = data.dateOfBirthYearWords || dobInfo.yearWords;
   const dobFormatted = dobInfo.formattedDate;
+
+  const displayVillage = cleanAddressPart(data.village, "village") || profile.village || "Marigachi";
+  const displayPO = cleanAddressPart(data.postOffice, "po") || profile.postOffice || profile.village || "Mathurapur";
+  const displayPS = cleanAddressPart(data.policeStation, "ps") || profile.policeStation || "Diamond Harbour";
+  const displayDist = cleanAddressPart(data.district, "dist") || profile.district || "South 24 Parganas";
+
+  const activeReason =
+    data.selectedReasonIndex === 0 && data.customReason
+      ? data.customReason
+      : LEAVING_REASONS[data.selectedReasonIndex - 1] ||
+        data.customReason ||
+        "Unavoidable change of residence.";
 
   return (
     <div
@@ -166,7 +194,7 @@ export function TransferCertificatePrintableView({
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden select-none">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/school-logo.png"
+          src={logoSrc}
           alt="School Watermark"
           className="w-56 h-56 object-contain opacity-[0.12] grayscale"
         />
@@ -175,100 +203,131 @@ export function TransferCertificatePrintableView({
       {/* CONTENT WRAPPER */}
       <div className="relative z-10 flex flex-col justify-between h-full">
         {/* ================================================================= */}
-        {/* 1. TOP HEADER & METADATA (LARGE CREST & PROMINENT BRANDING)       */}
+        {/* 1. INSTITUTIONAL HEADER (MATCHING CHARACTER CERTIFICATE)          */}
         {/* ================================================================= */}
-        <div className="border-b-2 border-[#1e3a8a] pt-1 pb-1.5">
-          {/* Top identifiers row: No. (Left) - Crest (Center) - Copy Type (Right) */}
-          <div className="flex items-center justify-between text-[10px] font-mono text-slate-700 px-2 mb-1">
-            <div>
-              <span className="font-semibold text-slate-500">No.- </span>
-              <strong className="text-slate-900 font-bold">{data.certificateNo || "MHS/TC/2026/0001"}</strong>
-            </div>
-
-            {/* School Crest Centered - Enlarged */}
-            <div className="w-16 h-16 shrink-0 mx-auto">
+        <div className="border-b-2 border-[#1e3a8a] pt-3 pb-2.5 mt-0.5">
+          <div className="flex items-center justify-between gap-3.5">
+            {/* School Crest - Fits full header text height */}
+            <div className="w-[84px] h-[84px] shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/school-logo.png"
-                alt="Marigachi High School Crest"
+                src={logoSrc}
+                alt="School Crest"
                 className="w-full h-full object-contain"
               />
             </div>
 
-            <div className="text-right">
-              <span className="inline-block border border-slate-700 bg-slate-100 text-slate-900 font-bold text-[9px] uppercase px-2 py-0.5 rounded font-sans">
-                [{data.copyType || "Original"}]
-              </span>
-            </div>
-          </div>
+            {/* School Headings */}
+            {(() => {
+              const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
+              return (
+                <div className="text-center flex-1 space-y-0.5">
+                  <h1 className="text-[20px] sm:text-[21px] font-black tracking-normal uppercase text-[#1e3a8a] font-serif leading-tight whitespace-nowrap">
+                    {mainName}
+                  </h1>
+                  {suffix ? (
+                    <div className="text-[14px] font-black tracking-wider uppercase text-[#1e3a8a] font-serif leading-none">
+                      {suffix}
+                    </div>
+                  ) : null}
+                  <p className="text-[10.5px] font-semibold text-slate-700 leading-tight pt-0.5">
+                    {profile.village ? `Vill.: ${profile.village}, ` : ""}{profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}{profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}{profile.district ? `Dist.: ${profile.district}, ` : ""}PIN &ndash; {profile.pincode || "743349"} &bull; Mob &ndash; {profile.schoolPhone || profile.altPhone || "+91 98765 43210"}
+                  </p>
+                  <p className="text-[9px] font-mono font-medium text-slate-600 leading-tight pt-0.5">
+                    Index No. {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code &ndash; {profile.hsCode || "102298"} &bull; email &ndash; {profile.schoolEmail || "contact@marigachihighschool.in"}
+                  </p>
+                </div>
+              );
+            })()}
 
-          {/* School Name & Official Details */}
-          <div className="text-center space-y-0.5">
-            <h1 className="text-[19px] font-black tracking-normal uppercase text-[#1e3a8a] font-serif leading-none">
-              MARIGACHI HIGH SCHOOL
-            </h1>
-            <p className="text-[10px] font-bold text-slate-700 leading-tight pt-1">
-              (Co-Educational) &nbsp;&bull;&nbsp; (Govt. Aided)
-            </p>
-            <p className="text-[9px] text-slate-600 leading-tight pt-0.5">
-              Marigachi, Diamond Harbour, S. 24 Parganas, PIN &ndash; 743368 &bull; Mob &ndash; 9800971797
-            </p>
-            <p className="text-[8.5px] font-mono text-slate-500 leading-tight pt-0.5">
-              Index No. C2-121 &bull; H.S. Code &ndash; 102298 &bull; email &ndash; marigachihighschool@gmail.com
-            </p>
+            {/* Symmetry seal badge with Low-Opacity Official Seal & [ORIGINAL] Badge */}
+            <div className="w-[80px] h-[80px] shrink-0 flex items-center justify-center relative text-[#1e3a8a]">
+              <div className="w-full h-full rounded-full border border-dashed border-[#1e3a8a]/35 flex flex-col items-center justify-center p-1 relative overflow-hidden select-none bg-transparent">
+                {/* Low-opacity Official Seal Text */}
+                <div className="flex flex-col items-center justify-center opacity-25 select-none pointer-events-none">
+                  <span className="text-[7.5px] font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-500">
+                    OFFICIAL
+                  </span>
+                  <span className="text-[7px] font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-500">
+                    SEAL
+                  </span>
+                </div>
+
+                {/* Overlay [ORIGINAL] badge */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold text-[8.5px] uppercase px-1.5 py-0.5 rounded font-sans tracking-wide shadow-xs">
+                    [{data.copyType || "Original"}]
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* ================================================================= */}
-        {/* 2. TITLE BANNER                                                   */}
+        {/* 2. CERTIFICATE TITLE & REF NO / DATE (MATCHING CHARACTER CERT)   */}
         {/* ================================================================= */}
-        <div className="text-center py-1.5">
-          <div className="inline-block relative">
-            <h2 className="text-[14px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#1e3a8a] border-[#1e3a8a]">
-              TRANSFER CERTIFICATE
-            </h2>
+        <div className="text-center py-1 space-y-1">
+          <div className="text-[10.5px] font-mono flex items-center justify-between px-2 text-slate-700">
+            <div>
+              <span className="font-semibold text-slate-500">Ref. No.: </span>
+              <span className="font-bold text-slate-900">{data.certificateNo || "MHS/TC/2026/0001"}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-slate-500">Date: </span>
+              <span className="font-bold text-slate-900">{data.issueDate}</span>
+            </div>
           </div>
-          <p className="text-[9px] uppercase tracking-widest text-slate-600 font-sans font-bold mt-0.5">
-            [BONAFIDE CERTIFICATE]
-          </p>
+
+          <div className="pt-0.5">
+            <div className="inline-block relative">
+              <h2 className="text-[14.5px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#1e3a8a] border-[#1e3a8a]">
+                TRANSFER CERTIFICATE
+              </h2>
+            </div>
+            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
+              To Whom It May Concern
+            </p>
+          </div>
         </div>
 
         {/* ================================================================= */}
         {/* 3. CERTIFICATE BODY TEXT (LARGER FONT & LUXURIOUS SIDE MARGINS)   */}
         {/* ================================================================= */}
-        <div className="space-y-2 text-[12px] leading-[1.8] text-slate-800 text-justify px-4 sm:px-5 font-serif my-auto">
+        <div className="space-y-2.5 text-[13px] leading-[1.85] text-slate-800 text-justify px-4 sm:px-5 font-serif my-auto">
           {/* Paragraph 1: Certification, parentage, address & date of leaving */}
           <p>
             Certified that{" "}
             <span className="font-extrabold uppercase text-[#1e3a8a] border-b border-dotted border-slate-700 px-0.5">{data.studentName || "________________________"}</span>,{" "}
             {childOf}{" "}
-            <span className="font-semibold text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.fatherName || "________________________"}</span>, an inhabitant of Village{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.village || "Marigachi"}</span>, P.O.{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.postOffice || "Kharigachi"}</span>, in the District of{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.district || "South 24 Parganas"}</span>, left this school on{" "}
+            <span className="font-semibold text-slate-900 border-b border-dotted border-slate-700 px-0.5">{data.fatherName || "________________________"}</span>, an inhabitant of Village:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayVillage}</span>, P.O.:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPO}</span>, P.S.:{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPS}</span>, in the District of{" "}
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayDist}</span>, left this school on{" "}
             <span className="font-mono font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{data.dateOfLeaving || data.issueDate}</span>.
           </p>
 
           {/* Paragraph 2: Date of Birth in words */}
           <p>
-            {pronounPossessive} date of birth as recorded in the Admission Register was{" "}
+            {pronounPossessive} date of birth, as recorded in the Admission Register, is the{" "}
             <span className="font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{dayWords}</span> day of{" "}
-            <span className="font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{monthWords}</span>, Two Thousand and{" "}
+            <span className="font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{monthWords}</span>,{" "}
             <span className="font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{yearWords}</span>{" "}
             (in figures: <span className="font-mono font-bold text-slate-900">{dobFormatted}</span>).
           </p>
 
           {/* Paragraph 3: Class & Promotion Status */}
           <p>
-            {pronounSubject} was reading in class{" "}
-            <span className="font-bold text-[#1e3a8a] border-b border-dotted border-slate-700 px-1">Class {data.readingClass || "X"}</span> in the session{" "}
+            {pronounSubject} was studying in Class{" "}
+            <span className="font-bold text-[#1e3a8a] border-b border-dotted border-slate-700 px-1">{data.readingClass || "IX"}</span> during the academic session{" "}
             <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">{data.academicSession || "2026"}</span>, and{" "}
             {data.isCourseCompleted ? (
               <span className="font-semibold text-slate-950">has successfully completed the school course of studies</span>
             ) : data.hasPassedAnnualExam ? (
               <>
-                <span className="font-semibold text-slate-950">had passed</span> the Annual Examination for promotion to{" "}
-                <span className="font-bold text-[#1e3a8a]">Class {data.promotedClass || "XI"}</span>
+                <span className="font-semibold text-slate-950">has passed the Annual Examination for promotion to</span>{" "}
+                <span className="font-bold text-[#1e3a8a]">Class {data.promotedClass || "X"}</span>
               </>
             ) : (
               <span className="font-semibold text-slate-950">had not passed the Annual Examination for promotion to the higher class</span>
@@ -276,63 +335,44 @@ export function TransferCertificatePrintableView({
             .
           </p>
 
-          {/* Paragraph 4: Financial Clearance & Character */}
+          {/* Paragraph 4: Financial Clearance */}
           <p>
-            All sums due by {pronounObject} have been paid viz. : Fees and fines up to{" "}
-            <span className="font-mono font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{data.feesClearedUpToDate || data.issueDate}</span>.
+            All dues and school fees have been paid by {pronounObject} up to{" "}
+            <span className="font-mono font-bold text-slate-950 border-b border-dotted border-slate-700 px-1">{data.feesClearedUpToDate || data.dateOfLeaving || data.issueDate}</span>.
           </p>
 
-          <p>
-            Character :{" "}
-            <span className="font-bold text-slate-950 uppercase tracking-wide border-b border-dotted border-slate-700 px-1">{data.conduct || "GOOD"}</span>.
-          </p>
-
-          {/* Paragraph 5: Reasons for Leaving (Numbered List with active selection) */}
-          <div className="pt-0.5 space-y-0.5 text-[10.5px]">
-            <span className="font-bold text-slate-900 block text-[11px]">Reasons for Leaving :</span>
-            <div className="grid grid-cols-1 pl-2 space-y-0.5">
-              {LEAVING_REASONS.map((reason, idx) => {
-                const isSelected = data.selectedReasonIndex === idx + 1;
-                return (
-                  <div
-                    key={idx}
-                    className={`flex items-center gap-1.5 ${
-                      isSelected
-                        ? "font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1.5 py-0.5 rounded"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    <span className="font-mono text-[10px] w-3.5 shrink-0">
-                      {isSelected ? "✔" : `${idx + 1}.`}
-                    </span>
-                    <span className={isSelected ? "underline decoration-dotted" : ""}>
-                      {reason}
-                    </span>
-                  </div>
-                );
-              })}
-              {data.selectedReasonIndex === 0 && data.customReason && (
-                <div className="flex items-center gap-1.5 font-extrabold text-[#1e3a8a] bg-blue-50/80 px-1.5 py-0.5 rounded">
-                  <span className="font-mono text-[10px] w-3.5 shrink-0">✔</span>
-                  <span>{data.customReason}</span>
-                </div>
-              )}
-            </div>
+          {/* Paragraph 5: Character & Reason for Leaving */}
+          <div className="pt-0.5 space-y-1">
+            <p>
+              <span className="font-semibold text-slate-900">Character: </span>
+              <span className="font-bold text-slate-950 uppercase tracking-wide border-b border-dotted border-slate-700 px-1">
+                {data.conduct || "GOOD"}
+              </span>
+            </p>
+            <p className="pt-0.5">
+              <span className="font-semibold text-slate-900">Reason for Leaving: </span>
+              <span className="italic font-semibold text-slate-950 border-b border-dotted border-slate-700 px-1">
+                {activeReason}
+              </span>
+            </p>
           </div>
         </div>
 
         {/* ================================================================= */}
-        {/* 4. FOOTER SIGNATURES & OFFICIAL SEAL                              */}
+        {/* 4. FOOTER & SIGNATURES (MATCHING CHARACTER CERTIFICATE)           */}
         {/* ================================================================= */}
-        <div className="pt-1.5 border-t border-slate-300 mt-auto">
+        <div className="pt-2 border-t border-slate-300 mt-auto">
           <div className="flex items-end justify-between px-2">
-            {/* Left: Issue Date */}
-            <div className="text-left space-y-0.5 pb-0.5">
-              <p className="text-[11px] font-bold text-slate-900">
-                Date : <span className="font-mono font-semibold">{data.issueDate}</span>
+            {/* Left: Prepared by */}
+            <div className="text-left space-y-0.5">
+              <div className="h-6 flex items-end">
+                <span className="w-24 border-b border-slate-400 inline-block" />
+              </div>
+              <p className="text-[10.5px] font-bold text-slate-900 uppercase">
+                PREPARED BY
               </p>
               <p className="text-[8.5px] text-slate-500 font-sans">
-                Office of Marigachi High School
+                Office Staff
               </p>
             </div>
 
@@ -347,13 +387,13 @@ export function TransferCertificatePrintableView({
             <div className="text-center flex flex-col items-center">
               <div className="h-8 w-28 flex items-end justify-center" />
               <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
-                {data.hoiTitle || "SIGNATURE OF HOI"}
+                {effectiveHoiTitle}
               </p>
               <p className="text-[9.5px] font-medium text-slate-700 leading-tight">
-                Marigachi High School (H.S.)
+                {profile.schoolName || "Marigachi High School (H.S.)"}
               </p>
               <p className="text-[8.5px] text-slate-500 font-sans leading-tight">
-                Diamond Harbour, South 24 Pgs
+                {profile.policeStation || "Mathurapur"}, {profile.district || "South 24 Parganas"}
               </p>
             </div>
           </div>
