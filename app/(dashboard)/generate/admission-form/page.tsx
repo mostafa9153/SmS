@@ -41,6 +41,7 @@ import {
   Hash,
   ListOrdered,
   Package,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -68,11 +69,30 @@ function AdmissionFormGeneratorContent() {
   // Preview zoom scale
   const [previewScale, setPreviewScale] = useState<number>(0.8);
 
-  // Serial Numbering State
-  const [serialPrefix, setSerialPrefix] = useState<string>("MHS/AF/26/");
+  const currentYear = new Date().getFullYear();
+  const yearSuffix = String(currentYear).slice(-2);
+  const serialPrefix = `MHS/AF/${yearSuffix}/`;
+  const paddingDigits = 4; // Strictly 4 digits (0001, 0002... 0100)
+  const STORAGE_KEY = `sms_admission_form_last_serial_${currentYear}`;
+
+  // Serial Numbering State (Auto-initialized to 1 or loaded from localStorage)
   const [startSerial, setStartSerial] = useState<number>(1);
   const [bulkCount, setBulkCount] = useState<number>(100);
-  const [paddingDigits, setPaddingDigits] = useState<number>(3); // 3 -> 001, 4 -> 0001, 0 -> 1
+
+  // Load last used serial on mount/year change
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const nextNum = parseInt(saved, 10) + 1;
+        if (!isNaN(nextNum) && nextNum >= 1) {
+          setStartSerial(nextNum);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, [STORAGE_KEY]);
 
   // For Bulk Preview: Which serial index (0-based) is currently being previewed
   const [previewBulkIndex, setPreviewBulkIndex] = useState<number>(0);
@@ -83,13 +103,15 @@ function AdmissionFormGeneratorContent() {
   // Master form state for Class V-IX
   const [formVIx, setFormVIx] = useState<AdmissionFormVIxData>(() => ({
     ...BLANK_FORM_V_IX,
-    formNo: formatFormNumber("MHS/AF/26/", 1, 3),
+    academicYear: String(currentYear),
+    formNo: formatFormNumber(serialPrefix, 1, 4),
   }));
 
   // Master form state for Class XI
   const [formXI, setFormXI] = useState<AdmissionFormXIData>(() => ({
     ...BLANK_FORM_XI,
-    formNo: formatFormNumber("MHS/AF/26/", 1, 3),
+    academicYear: String(currentYear),
+    formNo: formatFormNumber(serialPrefix, 1, 4),
   }));
 
   // Database students query
@@ -122,11 +144,11 @@ function AdmissionFormGeneratorContent() {
       setFormVIx((p) => ({ ...p, formNo: currentSingleFormNo }));
       setFormXI((p) => ({ ...p, formNo: currentSingleFormNo }));
     } else {
-      const activeSerial = bulkSerialList[previewBulkIndex] || bulkSerialList[0] || "MHS/AF/26/001";
+      const activeSerial = bulkSerialList[previewBulkIndex] || bulkSerialList[0] || `${serialPrefix}0001`;
       setFormVIx((p) => ({ ...p, formNo: activeSerial }));
       setFormXI((p) => ({ ...p, formNo: activeSerial }));
     }
-  }, [generationMode, currentSingleFormNo, bulkSerialList, previewBulkIndex]);
+  }, [generationMode, currentSingleFormNo, bulkSerialList, previewBulkIndex, serialPrefix]);
 
   // Auto-fill student address components
   function parseAddress(addr?: string) {
@@ -324,18 +346,41 @@ function AdmissionFormGeneratorContent() {
     const defaultSerial = formatFormNumber(serialPrefix, startSerial, paddingDigits);
     setFormVIx({
       ...BLANK_FORM_V_IX,
+      academicYear: String(currentYear),
       formNo: defaultSerial,
     });
     setFormXI({
       ...BLANK_FORM_XI,
+      academicYear: String(currentYear),
       formNo: defaultSerial,
     });
+  }
+
+  // Helper to persist last used serial and advance state
+  function saveLastUsedSerial(highestUsed: number) {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(highestUsed));
+    } catch (e) {
+      console.error(e);
+    }
+    setStartSerial(highestUsed + 1);
+  }
+
+  // Reset Serial Number back to 0001
+  function handleResetSerialToOne() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.error(e);
+    }
+    setStartSerial(1);
   }
 
   // Single Form Print Trigger
   const handlePrintSingle = (pageTarget: "all" | "page1" | "page2" = "all") => {
     setIsBulkPrinting(false);
     setActivePageView(pageTarget);
+    saveLastUsedSerial(startSerial);
     setTimeout(() => {
       window.print();
     }, 100);
@@ -345,6 +390,8 @@ function AdmissionFormGeneratorContent() {
   const handlePrintBulk = () => {
     setIsBulkPrinting(true);
     setActivePageView("all");
+    const endSerial = startSerial + bulkCount - 1;
+    saveLastUsedSerial(endSerial);
     setTimeout(() => {
       window.print();
       setTimeout(() => {
@@ -605,48 +652,65 @@ function AdmissionFormGeneratorContent() {
 
                 {/* Serial Prefix & Numbering Controls */}
                 <div className="p-3.5 bg-muted/30 rounded-xl border border-border/70 space-y-3">
+                  {/* Serial Prefix Format (Locked) */}
                   <div className="space-y-1">
                     <Label className="text-[11px] font-bold text-foreground flex items-center justify-between">
-                      <span>Serial Prefix Format</span>
-                      <span className="text-[10px] text-muted-foreground font-mono">Example: MHS/AF/26/</span>
+                      <span className="flex items-center gap-1.5">
+                        <Lock className="h-3 w-3 text-muted-foreground" />
+                        <span>Serial Prefix Format</span>
+                      </span>
+                      <span className="text-[9.5px] bg-muted-foreground/10 text-muted-foreground font-mono font-bold px-1.5 py-0.5 rounded border border-border/60">
+                        System Standard (Locked)
+                      </span>
                     </Label>
-                    <Input
-                      value={serialPrefix}
-                      onChange={(e) => setSerialPrefix(e.target.value)}
-                      placeholder="MHS/AF/26/"
-                      className="h-8 text-xs font-mono font-bold uppercase"
-                    />
+                    <div className="relative flex items-center">
+                      <Input
+                        value={serialPrefix}
+                        disabled
+                        readOnly
+                        className="h-8 text-xs font-mono font-bold uppercase bg-muted/70 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
+                      />
+                      <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/70 pointer-events-none" />
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-semibold">Start Serial No.</Label>
+                  {/* Start Serial No. (Auto Continuous Sequence) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-bold flex items-center gap-1.5 text-foreground">
+                        <Hash className="h-3 w-3 text-primary" />
+                        <span>Start Serial No.</span>
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={handleResetSerialToOne}
+                        title="Reset serial number sequence to 0001 for this year"
+                        className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <RefreshCw className="h-2.5 w-2.5" />
+                        <span>Reset to 0001</span>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <Input
                         type="number"
                         min={1}
                         value={startSerial}
                         onChange={(e) => setStartSerial(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="h-8 text-xs font-mono font-bold"
+                        className="h-8 text-xs font-mono font-bold flex-1"
                       />
+                      <div className="h-8 px-2.5 rounded-lg border bg-primary/10 text-[11px] font-mono font-bold text-primary flex items-center shrink-0">
+                        {formatFormNumber(serialPrefix, startSerial, 4)}
+                      </div>
                     </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-[11px] font-semibold">Digit Padding</Label>
-                      <select
-                        value={paddingDigits}
-                        onChange={(e) => setPaddingDigits(parseInt(e.target.value))}
-                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs font-medium"
-                      >
-                        <option value={3}>3 digits (001, 002...)</option>
-                        <option value={4}>4 digits (0001, 0002...)</option>
-                        <option value={0}>No padding (1, 2, 3...)</option>
-                      </select>
-                    </div>
+                    <p className="text-[10px] text-muted-foreground">
+                      ✓ 4-digit padding (0001, 0002...) &bull; Auto-saved per print batch
+                    </p>
                   </div>
 
                   {/* Bulk Quantity Selectors (Only shown in bulk mode) */}
                   {generationMode === "bulk" && (
-                    <div className="space-y-2 pt-1 border-t border-border/60">
+                    <div className="space-y-2 pt-2 border-t border-border/60">
                       <div className="flex items-center justify-between">
                         <Label className="text-[11px] font-bold">Total Forms to Generate</Label>
                         <span className="text-xs font-bold text-primary font-mono">{bulkCount} Forms</span>

@@ -153,14 +153,14 @@ export interface AdmissionFormXIData {
   otherInfo: OtherInfoData;
 }
 
-export function formatFormNumber(prefix: string, serial: number, padding: number = 3): string {
+export function formatFormNumber(prefix: string, serial: number, padding: number = 4): string {
   const cleanPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
   const serialStr = padding > 0 ? String(serial).padStart(padding, "0") : String(serial);
   return `${cleanPrefix}${serialStr}`;
 }
 
 export const BLANK_FORM_V_IX: AdmissionFormVIxData = {
-  formNo: "MHS/AF/26/001",
+  formNo: "MHS/AF/26/0001",
   academicYear: "2026",
   officeUse: {
     slNo: "",
@@ -246,7 +246,7 @@ export const BLANK_FORM_V_IX: AdmissionFormVIxData = {
 };
 
 export const BLANK_FORM_XI: AdmissionFormXIData = {
-  formNo: "MHS/AF/26/001",
+  formNo: "MHS/AF/26/0001",
   academicYear: "2026",
   officeUse: {
     doa: "",
