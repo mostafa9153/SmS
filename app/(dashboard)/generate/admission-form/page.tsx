@@ -43,8 +43,13 @@ import {
   Package,
   Lock,
   Undo2,
+  Users,
+  UserCheck,
+  X,
+  Filter,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getClassRank } from "@/lib/utils";
+import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 
 function AdmissionFormGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -82,6 +87,11 @@ function AdmissionFormGeneratorContent() {
   const [prevStartSerial, setPrevStartSerial] = useState<number | null>(null);
   const [bulkCount, setBulkCount] = useState<number>(100);
 
+  // Bulk Class and Section for Pre-filled Bulk Generation
+  const [bulkClass, setBulkClass] = useState<string>("IX");
+  const [bulkSection, setBulkSection] = useState<string>("ALL");
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
+
   // Load last used serial and previous serial on mount/year change
   useEffect(() => {
     try {
@@ -104,7 +114,16 @@ function AdmissionFormGeneratorContent() {
     }
   }, [STORAGE_KEY, PREV_STORAGE_KEY]);
 
-  // For Bulk Preview: Which serial index (0-based) is currently being previewed
+  // Sync class filter with tab
+  useEffect(() => {
+    if (activeTab === "xi") {
+      setBulkClass("XI");
+    } else if (bulkClass === "XI") {
+      setBulkClass("IX");
+    }
+  }, [activeTab]);
+
+  // For Bulk Preview: Which serial/student index (0-based) is currently being previewed
   const [previewBulkIndex, setPreviewBulkIndex] = useState<number>(0);
 
   // Flag during bulk print execution
@@ -132,33 +151,6 @@ function AdmissionFormGeneratorContent() {
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-
-  // Computed current single form number
-  const currentSingleFormNo = useMemo(() => {
-    return formatFormNumber(serialPrefix, startSerial, paddingDigits);
-  }, [serialPrefix, startSerial, paddingDigits]);
-
-  // Computed list of bulk serial numbers
-  const bulkSerialList = useMemo(() => {
-    const list: string[] = [];
-    const count = Math.max(1, Math.min(500, bulkCount));
-    for (let i = 0; i < count; i++) {
-      list.push(formatFormNumber(serialPrefix, startSerial + i, paddingDigits));
-    }
-    return list;
-  }, [serialPrefix, startSerial, bulkCount, paddingDigits]);
-
-  // Sync formNo in state when prefix/serial changes
-  useEffect(() => {
-    if (generationMode === "single") {
-      setFormVIx((p) => ({ ...p, formNo: currentSingleFormNo }));
-      setFormXI((p) => ({ ...p, formNo: currentSingleFormNo }));
-    } else {
-      const activeSerial = bulkSerialList[previewBulkIndex] || bulkSerialList[0] || `${serialPrefix}0001`;
-      setFormVIx((p) => ({ ...p, formNo: activeSerial }));
-      setFormXI((p) => ({ ...p, formNo: activeSerial }));
-    }
-  }, [generationMode, currentSingleFormNo, bulkSerialList, previewBulkIndex, serialPrefix]);
 
   // Auto-fill student address components
   function parseAddress(addr?: string) {
@@ -188,9 +180,8 @@ function AdmissionFormGeneratorContent() {
     };
   }
 
-  // Handle student auto-fill from database
-  function handleSelectStudent(student: Student) {
-    setSelectedStudent(student);
+  // Reusable converter from student DB record to Admission Form Data
+  function studentToFormData(student: Student, serialNo: string) {
     const parsedAddr = parseAddress(student.address);
 
     const commonBasic = {
@@ -205,7 +196,7 @@ function AdmissionFormGeneratorContent() {
       nationality: "INDIAN",
       aadhaarNo: student.aadhaar || "",
       bloodGroup: student.bloodGroup || "",
-      studentId: student.id || "",
+      studentId: student.schoolId || student.id || "",
       healthId: student.healthId || "",
       identificationMark: student.identificationMark || "",
     };
@@ -249,105 +240,251 @@ function AdmissionFormGeneratorContent() {
       disabilityType: student.impairmentType || "",
     };
 
-    if (activeTab === "v-ix") {
-      setFormVIx((prev) => ({
-        ...prev,
-        officeUse: {
-          ...prev.officeUse,
-          class: student.presentClass || "",
-          sec: student.presentSection || "",
-          rollNo: student.presentRoll ? String(student.presentRoll) : "",
-        },
-        basicInfo: {
-          ...prev.basicInfo,
-          ...commonBasic,
-        },
-        educationalInfo: {
-          ...prev.educationalInfo,
-          presentClass: student.presentClass || "",
-          presentSection: student.presentSection || "",
-          presentRoll: student.presentRoll ? String(student.presentRoll) : "",
-          previousClass: student.previousClass || "",
-          previousSection: student.previousSection || "",
-          previousRoll: student.previousRollNo ? String(student.previousRollNo) : "",
-          previousStream: student.previousStream || "",
-          medium: student.mediumOfInstruction || "BENGALI",
-        },
-        contactInfo: {
-          ...prev.contactInfo,
-          ...commonContact,
-        },
-        guardianDetails: {
-          ...prev.guardianDetails,
-          ...commonGuardian,
-        },
-        guardianContact: {
-          ...prev.guardianContact,
-          ...commonContact,
-        },
-        bankDetails: {
-          ...prev.bankDetails,
-          ...commonBank,
-        },
-        otherInfo: {
-          ...prev.otherInfo,
-          ...commonOther,
-        },
-      }));
-    } else {
-      setFormXI((prev) => ({
-        ...prev,
-        officeUse: {
-          ...prev.officeUse,
-          class: "XI",
-          sec: student.presentSection || "",
-          rollNo: student.presentRoll ? String(student.presentRoll) : "",
-        },
-        basicInfo: {
-          ...prev.basicInfo,
-          ...commonBasic,
-        },
-        educationalInfo: {
-          ...prev.educationalInfo,
-          previousSchoolName: student.previousSchool || "Marigachi High School (H.S.)",
-        },
-        contactInfo: {
-          ...prev.contactInfo,
-          ...commonContact,
-        },
-        guardianDetails: {
-          ...prev.guardianDetails,
-          ...commonGuardian,
-        },
-        guardianContact: {
-          ...prev.guardianContact,
-          ...commonContact,
-        },
-        bankDetails: {
-          ...prev.bankDetails,
-          ...commonBank,
-        },
-        otherInfo: {
-          ...prev.otherInfo,
-          ...commonOther,
-        },
-      }));
-    }
+    const vIx: AdmissionFormVIxData = {
+      ...BLANK_FORM_V_IX,
+      academicYear: String(currentYear),
+      formNo: serialNo,
+      officeUse: {
+        slNo: "",
+        doa: "",
+        class: student.presentClass || "",
+        sec: student.presentSection || "",
+        rollNo: student.presentRoll ? String(student.presentRoll) : "",
+      },
+      basicInfo: {
+        ...BLANK_FORM_V_IX.basicInfo,
+        ...commonBasic,
+      },
+      educationalInfo: {
+        ...BLANK_FORM_V_IX.educationalInfo,
+        presentClass: student.presentClass || "",
+        presentSection: student.presentSection || "",
+        presentRoll: student.presentRoll ? String(student.presentRoll) : "",
+        previousClass: student.previousClass || "",
+        previousSection: student.previousSection || "",
+        previousRoll: student.previousRollNo ? String(student.previousRollNo) : "",
+        previousStream: student.previousStream || "",
+        medium: student.mediumOfInstruction || "BENGALI",
+        attendanceDays: student.previousDaysAttended ? String(student.previousDaysAttended) : "",
+      },
+      contactInfo: {
+        ...BLANK_FORM_V_IX.contactInfo,
+        ...commonContact,
+      },
+      guardianDetails: {
+        ...BLANK_FORM_V_IX.guardianDetails,
+        ...commonGuardian,
+      },
+      guardianContact: {
+        ...BLANK_FORM_V_IX.guardianContact,
+        ...commonContact,
+      },
+      bankDetails: {
+        ...BLANK_FORM_V_IX.bankDetails,
+        ...commonBank,
+      },
+      otherInfo: {
+        ...BLANK_FORM_V_IX.otherInfo,
+        ...commonOther,
+      },
+    };
+
+    const xi: AdmissionFormXIData = {
+      ...BLANK_FORM_XI,
+      academicYear: String(currentYear),
+      formNo: serialNo,
+      officeUse: {
+        slNo: "",
+        doa: "",
+        class: "XI",
+        sec: student.presentSection || "",
+        rollNo: student.presentRoll ? String(student.presentRoll) : "",
+      },
+      basicInfo: {
+        ...BLANK_FORM_XI.basicInfo,
+        ...commonBasic,
+      },
+      educationalInfo: {
+        ...BLANK_FORM_XI.educationalInfo,
+        previousSchoolName: student.previousSchool || "Marigachi High School (H.S.)",
+      },
+      contactInfo: {
+        ...BLANK_FORM_XI.contactInfo,
+        ...commonContact,
+      },
+      guardianDetails: {
+        ...BLANK_FORM_XI.guardianDetails,
+        ...commonGuardian,
+      },
+      guardianContact: {
+        ...BLANK_FORM_XI.guardianContact,
+        ...commonContact,
+      },
+      bankDetails: {
+        ...BLANK_FORM_XI.bankDetails,
+        ...commonBank,
+      },
+      otherInfo: {
+        ...BLANK_FORM_XI.otherInfo,
+        ...commonOther,
+      },
+    };
+
+    return { formVIx: vIx, formXI: xi };
   }
 
-  // Filter student list for autocomplete
+  // Handle single student selection from database
+  function handleSelectStudent(student: Student) {
+    setSelectedStudent(student);
+    const targetSerial = generationMode === "single" ? currentSingleFormNo : (bulkSerialList[previewBulkIndex] || `${serialPrefix}0001`);
+    const { formVIx: newVIx, formXI: newXI } = studentToFormData(student, targetSerial);
+
+    // Auto-switch tab if student is in XI
+    const sClass = (student.presentClass || "").toUpperCase();
+    if (sClass === "XI" || sClass === "XII") {
+      setActiveTab("xi");
+    } else if (sClass) {
+      setActiveTab("v-ix");
+    }
+
+    setFormVIx(newVIx);
+    setFormXI(newXI);
+    setIsSearchFocused(false);
+  }
+
+  // Filter student list for autocomplete search
   const filteredStudents = useMemo(() => {
-    if (!studentSearch.trim()) return [];
-    const q = studentSearch.toLowerCase();
+    const q = studentSearch.trim().toLowerCase();
+    if (!q) {
+      return students.slice(0, 10);
+    }
     return students
       .filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q) ||
-          (s.presentRoll && String(s.presentRoll).includes(q))
+          (s.name && s.name.toLowerCase().includes(q)) ||
+          (s.id && s.id.toLowerCase().includes(q)) ||
+          (s.schoolId && s.schoolId.toLowerCase().includes(q)) ||
+          (s.pen && s.pen.toLowerCase().includes(q)) ||
+          (s.presentClass && s.presentClass.toLowerCase().includes(q)) ||
+          (s.presentSection && s.presentSection.toLowerCase().includes(q)) ||
+          (s.presentRoll && String(s.presentRoll).includes(q)) ||
+          (s.studentContact && s.studentContact.includes(q)) ||
+          (s.aadhaar && s.aadhaar.includes(q)) ||
+          (s.fatherName && s.fatherName.toLowerCase().includes(q))
       )
-      .slice(0, 6);
+      .slice(0, 15);
   }, [students, studentSearch]);
+
+  // Bulk Class Roster: Filter students by Class & Section
+  const classRoster = useMemo(() => {
+    return students
+      .filter((s) => {
+        const sClass = (s.presentClass || "").toUpperCase().trim();
+        const sSec = (s.presentSection || "").toUpperCase().trim();
+        const matchesClass = !bulkClass || bulkClass === "ALL" || sClass === bulkClass.toUpperCase().trim();
+        const matchesSection = !bulkSection || bulkSection === "ALL" || sSec === bulkSection.toUpperCase().trim();
+        return matchesClass && matchesSection;
+      })
+      .sort((a, b) => (Number(a.presentRoll) || 9999) - (Number(b.presentRoll) || 9999));
+  }, [students, bulkClass, bulkSection]);
+
+  // Fetch dynamic class configuration from Database / Settings (/settings?tab=school-details)
+  const { data: schoolConfig } = useQuery({
+    queryKey: ["school-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/school-config", { cache: "no-store" });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return json?.data || null;
+    },
+  });
+
+  // Dynamic Class Management List from Settings
+  const dynamicClasses = useMemo(() => {
+    if (schoolConfig?.class_management && Array.isArray(schoolConfig.class_management) && schoolConfig.class_management.length > 0) {
+      return schoolConfig.class_management.map((c: any) => ({
+        name: c.name || `Class ${c.code}`,
+        code: String(c.code || c.name).trim().toUpperCase(),
+        sections: Array.isArray(c.sections) && c.sections.length > 0 ? c.sections : ["A", "B"],
+      }));
+    }
+    return getDynamicClassList();
+  }, [schoolConfig]);
+
+  // All dynamic classes configured in Settings / DB, sorted in curriculum order (V -> VI -> ... -> XI -> XII)
+  const availableClasses = useMemo(() => {
+    return [...dynamicClasses].sort((a: any, b: any) => getClassRank(a.code) - getClassRank(b.code));
+  }, [dynamicClasses]);
+
+  // Dynamic sections strictly for the currently selected class from Settings + actual student DB records
+  const availableSections = useMemo(() => {
+    const currentClassObj = dynamicClasses.find(
+      (c: any) => c.code.toUpperCase() === bulkClass.toUpperCase()
+    );
+    const configuredSecs: string[] = currentClassObj && Array.isArray(currentClassObj.sections) && currentClassObj.sections.length > 0
+      ? currentClassObj.sections
+      : [];
+
+    const studentSecsSet = new Set<string>();
+    students
+      .filter((s) => (s.presentClass || "").toUpperCase().trim() === bulkClass.toUpperCase().trim())
+      .forEach((s) => {
+        if (s.presentSection) studentSecsSet.add(s.presentSection.toUpperCase().trim());
+      });
+
+    // Merge configured sections with actual student sections (no artificial hardcoded C, D)
+    const combinedSet = new Set<string>(configuredSecs);
+    studentSecsSet.forEach((sec) => combinedSet.add(sec));
+
+    const secList = Array.from(combinedSet).filter(Boolean).sort();
+    
+    // If only 1 section or no sections exist, return array
+    if (secList.length <= 1) {
+      return secList.length === 1 ? secList : ["A"];
+    }
+
+    // If multiple sections exist, prepend "ALL"
+    return ["ALL", ...secList];
+  }, [dynamicClasses, students, bulkClass]);
+
+  // Computed current single form number
+  const currentSingleFormNo = useMemo(() => {
+    return formatFormNumber(serialPrefix, startSerial, paddingDigits);
+  }, [serialPrefix, startSerial, paddingDigits]);
+
+  // Computed effective bulk count
+  const effectiveBulkTotal = useMemo(() => {
+    if (formMode === "prefilled") {
+      return classRoster.length;
+    }
+    return Math.max(1, Math.min(500, bulkCount));
+  }, [formMode, classRoster.length, bulkCount]);
+
+  // Computed list of bulk serial numbers
+  const bulkSerialList = useMemo(() => {
+    const list: string[] = [];
+    const count = Math.max(1, effectiveBulkTotal);
+    for (let i = 0; i < count; i++) {
+      list.push(formatFormNumber(serialPrefix, startSerial + i, paddingDigits));
+    }
+    return list;
+  }, [serialPrefix, startSerial, effectiveBulkTotal, paddingDigits]);
+
+  // Sync formNo in state when prefix/serial changes
+  useEffect(() => {
+    if (generationMode === "single") {
+      if (!selectedStudent) {
+        setFormVIx((p) => ({ ...p, formNo: currentSingleFormNo }));
+        setFormXI((p) => ({ ...p, formNo: currentSingleFormNo }));
+      }
+    } else {
+      if (formMode === "blank") {
+        const activeSerial = bulkSerialList[previewBulkIndex] || bulkSerialList[0] || `${serialPrefix}0001`;
+        setFormVIx((p) => ({ ...p, formNo: activeSerial }));
+        setFormXI((p) => ({ ...p, formNo: activeSerial }));
+      }
+    }
+  }, [generationMode, formMode, selectedStudent, currentSingleFormNo, bulkSerialList, previewBulkIndex, serialPrefix]);
 
   // Reset to clean blank form
   function handleResetBlank() {
@@ -415,22 +552,42 @@ function AdmissionFormGeneratorContent() {
     saveLastUsedSerial(startSerial, startSerial);
     setTimeout(() => {
       window.print();
-    }, 100);
+    }, 150);
   };
 
-  // Bulk Forms Print Trigger (Prints all serials consecutively)
+  // Bulk Forms Print Trigger (Prints all serials / students consecutively)
   const handlePrintBulk = () => {
+    const totalCount = formMode === "prefilled" ? Math.max(1, classRoster.length) : bulkCount;
     setIsBulkPrinting(true);
     setActivePageView("all");
-    const endSerial = startSerial + bulkCount - 1;
+    const endSerial = startSerial + totalCount - 1;
     saveLastUsedSerial(endSerial, startSerial);
     setTimeout(() => {
       window.print();
       setTimeout(() => {
         setIsBulkPrinting(false);
-      }, 500);
-    }, 200);
+      }, 1000);
+    }, 250);
   };
+
+  // Computed Live Active Form Data for Screen Preview
+  const previewFormData = useMemo(() => {
+    if (generationMode === "bulk" && formMode === "prefilled" && classRoster.length > 0) {
+      const activeStudent = classRoster[previewBulkIndex] || classRoster[0];
+      const activeSerial = formatFormNumber(serialPrefix, startSerial + previewBulkIndex, paddingDigits);
+      return studentToFormData(activeStudent, activeSerial);
+    }
+    return {
+      formVIx: {
+        ...formVIx,
+        formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formVIx.formNo) : formVIx.formNo,
+      },
+      formXI: {
+        ...formXI,
+        formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formXI.formNo) : formXI.formNo,
+      },
+    };
+  }, [generationMode, formMode, classRoster, previewBulkIndex, serialPrefix, startSerial, paddingDigits, formVIx, formXI, bulkSerialList]);
 
   return (
     <>
@@ -439,14 +596,18 @@ function AdmissionFormGeneratorContent() {
       {/* ------------------------------------------------------------- */}
       <style jsx global>{`
         @media print {
-          /* 1. Hide non-printable web UI */
+          /* 1. Hide non-printable web UI completely */
           header,
           aside,
           nav,
-          .print\\:hidden,
           button,
+          .print\\:hidden,
           .no-print {
             display: none !important;
+          }
+
+          body * {
+            visibility: hidden;
           }
 
           /* 2. Lock page size to exact A4 with zero margin */
@@ -467,47 +628,49 @@ function AdmissionFormGeneratorContent() {
             print-color-adjust: exact !important;
           }
 
-          /* 4. Canvas Isolation */
-          #printable-canvas,
-          #bulk-printable-canvas {
-            background: transparent !important;
+          /* 4. Pure Print Container: ONLY this container is visible */
+          #pure-print-container,
+          #pure-print-container * {
+            visibility: visible !important;
+          }
+
+          #pure-print-container {
+            display: block !important;
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
             padding: 0 !important;
-            margin: 0 auto !important;
-            border: none !important;
-            box-shadow: none !important;
-            width: 210mm !important;
-            max-width: 210mm !important;
-            display: block !important;
-          }
-
-          #printable-canvas > div,
-          #bulk-printable-canvas > div {
-            transform: none !important;
-            width: 210mm !important;
             margin: 0 !important;
-            display: block !important;
+            background: transparent !important;
           }
 
-          /* 5. Target Sheet Page-breaks */
+          /* Screen preview canvas is completely hidden in print */
+          #printable-canvas {
+            display: none !important;
+          }
+
+          /* 5. Target Sheet Page-breaks and Geometry */
           .admission-sheet {
-            width: 210mm !important;
-            min-height: 295mm !important;
-            max-height: 295mm !important;
-            margin: 0 auto !important;
-            padding: 6mm 10mm !important;
+            width: 205mm !important;
+            min-height: 291mm !important;
+            max-height: 291mm !important;
+            margin: 2.5mm auto !important;
+            padding: 3.5mm 4.5mm !important;
             box-sizing: border-box !important;
+            border: 2px solid black !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
 
-          #admission-page-1 {
+          .page-break-after-sheet {
             page-break-after: always !important;
             break-after: page !important;
           }
 
-          #admission-page-2 {
-            page-break-after: always !important;
-            break-after: page !important;
+          .no-page-break-after {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
 
           .bulk-form-wrapper {
@@ -517,7 +680,88 @@ function AdmissionFormGeneratorContent() {
         }
       `}</style>
 
-      <div className="p-4 md:p-6 max-w-[1700px] mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
+      {/* ========================================================================= */}
+      {/* DEDICATED PURE PRINT CONTAINER (Hidden on Screen, Sole Element in Print)  */}
+      {/* ========================================================================= */}
+      <div id="pure-print-container" className="hidden print:block">
+        {isBulkPrinting ? (
+          formMode === "prefilled" ? (
+            classRoster.map((student, idx) => {
+              const isLast = idx === classRoster.length - 1;
+              const serial = formatFormNumber(serialPrefix, startSerial + idx, paddingDigits);
+              const { formVIx: prefilledV, formXI: prefilledXI } = studentToFormData(student, serial);
+              return (
+                <div key={student.id || idx} className="bulk-form-wrapper">
+                  {activeTab === "v-ix" ? (
+                    <AdmissionFormVIxPrintableView
+                      data={prefilledV}
+                      school={schoolInfo}
+                      activePage="all"
+                      isLastInBatch={isLast}
+                    />
+                  ) : (
+                    <AdmissionFormXIPrintableView
+                      data={prefilledXI}
+                      school={schoolInfo}
+                      activePage="all"
+                      isLastInBatch={isLast}
+                    />
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            bulkSerialList.map((serial, idx) => {
+              const isLast = idx === bulkSerialList.length - 1;
+              return (
+                <div key={idx} className="bulk-form-wrapper">
+                  {activeTab === "v-ix" ? (
+                    <AdmissionFormVIxPrintableView
+                      data={{
+                        ...formVIx,
+                        formNo: serial,
+                      }}
+                      school={schoolInfo}
+                      activePage="all"
+                      isLastInBatch={isLast}
+                    />
+                  ) : (
+                    <AdmissionFormXIPrintableView
+                      data={{
+                        ...formXI,
+                        formNo: serial,
+                      }}
+                      school={schoolInfo}
+                      activePage="all"
+                      isLastInBatch={isLast}
+                    />
+                  )}
+                </div>
+              );
+            })
+          )
+        ) : (
+          <div className="single-form-wrapper">
+            {activeTab === "v-ix" ? (
+              <AdmissionFormVIxPrintableView
+                data={previewFormData.formVIx}
+                school={schoolInfo}
+                activePage={activePageView}
+                isLastInBatch={true}
+              />
+            ) : (
+              <AdmissionFormXIPrintableView
+                data={previewFormData.formXI}
+                school={schoolInfo}
+                activePage={activePageView}
+                isLastInBatch={true}
+              />
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 md:p-6 max-w-[1700px] mx-auto space-y-6 print:hidden">
         {/* ========================================================= */}
         {/* STUDIO HEADER */}
         {/* ========================================================= */}
@@ -538,11 +782,11 @@ function AdmissionFormGeneratorContent() {
                   Admission Form Generator
                 </h1>
                 <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary">
-                  Bulk Serial Print
+                  {formMode === "prefilled" ? "Database Auto-fill" : "Bulk Serial Print"}
                 </Badge>
               </div>
               <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                Generate and bulk print serialized 2-page A4 application forms for Class V–IX & Class XI
+                Generate and print serialized or auto-filled 2-page A4 application forms for Class V–IX & Class XI
               </p>
             </div>
           </div>
@@ -553,10 +797,13 @@ function AdmissionFormGeneratorContent() {
               <Button
                 size="sm"
                 onClick={handlePrintBulk}
-                className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2 h-9.5"
+                disabled={formMode === "prefilled" && classRoster.length === 0}
+                className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2 h-9.5 cursor-pointer"
               >
                 <Printer className="h-4 w-4" />
-                Print {bulkCount} Forms ({bulkCount * 2} Pages)
+                {formMode === "prefilled"
+                  ? `Print ${classRoster.length} Pre-filled Forms (${classRoster.length * 2} Pages)`
+                  : `Print ${bulkCount} Forms (${bulkCount * 2} Pages)`}
               </Button>
             ) : (
               <>
@@ -564,7 +811,7 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrintSingle("page1")}
-                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80"
+                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80 cursor-pointer"
                   title="Print Page 1 only"
                 >
                   <FileText className="h-3.5 w-3.5 text-blue-500" />
@@ -574,7 +821,7 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrintSingle("page2")}
-                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80"
+                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80 cursor-pointer"
                   title="Print Page 2 only"
                 >
                   <FileText className="h-3.5 w-3.5 text-emerald-500" />
@@ -583,7 +830,7 @@ function AdmissionFormGeneratorContent() {
                 <Button
                   size="sm"
                   onClick={() => handlePrintSingle("all")}
-                  className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-9"
+                  className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-9 cursor-pointer"
                 >
                   <Printer className="h-4 w-4" />
                   Print Single Form
@@ -644,15 +891,49 @@ function AdmissionFormGeneratorContent() {
               </CardContent>
             </Card>
 
-            {/* Print Quantity Mode (Bulk vs Single) */}
+            {/* Print Quantity Mode (Bulk vs Single) & Pre-filled Settings */}
             <Card className="shadow-xs border-border/80 rounded-2xl">
               <CardHeader className="p-4 pb-3 border-b bg-muted/20">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <Package className="h-4 w-4 text-violet-600" />
-                  Print Quantity & Serial Mode
+                  Print Quantity & Mode
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-4">
+                {/* Mode Selector (Blank vs Pre-filled) */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Form Content Mode</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setFormMode("blank")}
+                      className={cn(
+                        "py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                        formMode === "blank"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "border-border/70 hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      <FileText className="h-4 w-4" />
+                      <span>Blank Forms</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormMode("prefilled")}
+                      className={cn(
+                        "py-2.5 px-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+                        formMode === "prefilled"
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "border-border/70 hover:bg-muted text-muted-foreground"
+                      )}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Pre-filled / Auto-fill</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quantity Toggle: Single vs Bulk */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -665,7 +946,11 @@ function AdmissionFormGeneratorContent() {
                     )}
                   >
                     <ListOrdered className="h-4 w-4" />
-                    <span>Bulk Print ({bulkCount} Forms)</span>
+                    <span>
+                      {formMode === "prefilled"
+                        ? `Bulk Class (${classRoster.length} Students)`
+                        : `Bulk Print (${bulkCount} Forms)`}
+                    </span>
                   </button>
                   <button
                     type="button"
@@ -681,6 +966,235 @@ function AdmissionFormGeneratorContent() {
                     <span>Single Form</span>
                   </button>
                 </div>
+
+                {/* ============================================================== */}
+                {/* PRE-FILLED SINGLE STUDENT SEARCH                               */}
+                {/* ============================================================== */}
+                {formMode === "prefilled" && generationMode === "single" && (
+                  <div className="p-3.5 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5 text-primary">
+                        <Search className="h-3.5 w-3.5" />
+                        <span>Search & Select Student</span>
+                      </Label>
+                      {selectedStudent && (
+                        <button
+                          type="button"
+                          onClick={handleResetBlank}
+                          className="text-[10px] text-muted-foreground hover:text-destructive flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="h-3 w-3" />
+                          <span>Clear</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Selected Student Highlight Card */}
+                    {selectedStudent ? (
+                      <div className="p-3 rounded-xl bg-background border-2 border-primary shadow-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-foreground uppercase tracking-wide">
+                            {selectedStudent.name}
+                          </span>
+                          <Badge className="text-[10px] bg-primary text-primary-foreground font-mono">
+                            Roll: {selectedStudent.presentRoll || "N/A"}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">
+                          Class: <strong className="text-foreground">{selectedStudent.presentClass || "N/A"}</strong>
+                          {" · "}
+                          Sec: <strong className="text-foreground">{selectedStudent.presentSection || "A"}</strong>
+                          {" · "}
+                          ID: <strong className="text-foreground font-mono">{selectedStudent.schoolId || selectedStudent.id}</strong>
+                        </p>
+                        {selectedStudent.fatherName && (
+                          <p className="text-[10.5px] text-muted-foreground truncate">
+                            Guardian: {selectedStudent.fatherName}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Search Input Box */}
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        value={studentSearch}
+                        onFocus={() => setIsSearchFocused(true)}
+                        onChange={(e) => {
+                          setStudentSearch(e.target.value);
+                          setIsSearchFocused(true);
+                        }}
+                        placeholder="Type name, ID, roll no or contact..."
+                        className="pl-8 pr-8 h-9 text-xs font-medium"
+                      />
+                      {studentSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setStudentSearch("")}
+                          className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Search Dropdown Results */}
+                    {isSearchFocused && (
+                      <div className="border rounded-xl bg-popover shadow-xl overflow-hidden divide-y divide-border/60 max-h-56 overflow-y-auto z-20">
+                        <div className="px-3 py-1.5 bg-muted/50 text-[10.5px] font-bold text-muted-foreground flex justify-between items-center">
+                          <span>Matching Students ({filteredStudents.length})</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsSearchFocused(false)}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            Close
+                          </button>
+                        </div>
+
+                        {filteredStudents.length > 0 ? (
+                          filteredStudents.map((s) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onClick={() => handleSelectStudent(s)}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-primary/10 flex items-center justify-between transition-colors cursor-pointer"
+                            >
+                              <div className="space-y-0.5">
+                                <p className="font-bold text-foreground">{s.name}</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Class: <strong className="text-foreground">{s.presentClass || "N/A"}</strong>
+                                  {" · "}
+                                  Roll: <strong className="text-foreground">{s.presentRoll || "N/A"}</strong>
+                                  {" · "}
+                                  ID: <span className="font-mono">{s.schoolId || s.id}</span>
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-[9.5px] font-bold shrink-0">
+                                Select
+                              </Badge>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="p-4 text-center text-xs text-muted-foreground">
+                            No students found matching &quot;{studentSearch}&quot;
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ============================================================== */}
+                {/* PRE-FILLED BULK CLASS & SECTION SELECTOR                       */}
+                {/* ============================================================== */}
+                {formMode === "prefilled" && generationMode === "bulk" && (
+                  <div className="p-3.5 bg-primary/5 rounded-xl border border-primary/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold flex items-center gap-1.5 text-primary">
+                        <Users className="h-3.5 w-3.5" />
+                        <span>Bulk Auto-fill by Class</span>
+                      </Label>
+                      <Badge className="text-[10px] bg-primary text-primary-foreground font-bold">
+                        {classRoster.length} Students
+                      </Badge>
+                    </div>
+
+                    {/* Class Selector (Ordered curriculum V -> X / XI -> XII) */}
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-semibold flex items-center justify-between">
+                        <span>Select Class</span>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          Class {bulkClass}
+                        </span>
+                      </Label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {availableClasses.map((cls: any) => {
+                          const code = typeof cls === "string" ? cls : cls.code;
+                          const name = typeof cls === "string" ? `Class ${cls}` : cls.name || `Class ${cls.code}`;
+                          const isSelected = bulkClass.toUpperCase() === code.toUpperCase();
+                          return (
+                            <button
+                              key={code}
+                              type="button"
+                              onClick={() => {
+                                setBulkClass(code);
+                                const upper = code.toUpperCase();
+                                if (upper === "XI" || upper === "XII") {
+                                  setActiveTab("xi");
+                                } else {
+                                  setActiveTab("v-ix");
+                                }
+                                setPreviewBulkIndex(0);
+                              }}
+                              className={cn(
+                                "py-2 px-2 text-xs font-bold rounded-lg border transition-all cursor-pointer text-center",
+                                isSelected
+                                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                  : "bg-background hover:bg-muted text-muted-foreground border-border/80"
+                              )}
+                            >
+                              {name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Section Selector (Only shown when multiple sections exist in Class Management settings) */}
+                    {availableSections.length > 1 && (
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] font-semibold flex items-center justify-between">
+                          <span>Select Section</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {bulkSection === "ALL" ? "All Sections" : `Section ${bulkSection}`}
+                          </span>
+                        </Label>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {availableSections.map((sec) => (
+                            <button
+                              key={sec}
+                              type="button"
+                              onClick={() => {
+                                setBulkSection(sec);
+                                setPreviewBulkIndex(0);
+                              }}
+                              className={cn(
+                                "flex-1 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer min-w-[50px]",
+                                bulkSection === sec
+                                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                                  : "bg-background hover:bg-muted text-muted-foreground border-border/80"
+                              )}
+                            >
+                              {sec === "ALL" ? "All Sec" : `Sec ${sec}`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Class Roster Summary */}
+                    {classRoster.length > 0 ? (
+                      <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-[11px] space-y-1">
+                        <p className="font-bold flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          Ready to Print {classRoster.length} Students:
+                        </p>
+                        <p className="font-mono text-[10.5px] font-bold">
+                          Class {bulkClass} {availableSections.length > 1 ? (bulkSection === "ALL" ? "(All Sections)" : `(Sec ${bulkSection})`) : ""}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          Serial: {bulkSerialList[0]} → {bulkSerialList[classRoster.length - 1]} ({classRoster.length * 2} pages)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs text-center font-medium">
+                        No students found in Class {bulkClass} {availableSections.length > 1 && bulkSection !== "ALL" ? `(Section ${bulkSection})` : ""}.
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Serial Numbering Controls */}
                 <div className="p-3.5 bg-muted/30 rounded-xl border border-border/70 space-y-3">
@@ -739,11 +1253,11 @@ function AdmissionFormGeneratorContent() {
                     </p>
                   </div>
 
-                  {/* Bulk Quantity Selectors (Only shown in bulk mode) */}
-                  {generationMode === "bulk" && (
+                  {/* Bulk Quantity Selectors (Only shown in blank bulk mode) */}
+                  {generationMode === "bulk" && formMode === "blank" && (
                     <div className="space-y-2 pt-2 border-t border-border/60">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[11px] font-bold">Total Forms to Generate</Label>
+                        <Label className="text-[11px] font-bold">Total Blank Forms to Generate</Label>
                         <span className="text-xs font-bold text-primary font-mono">{bulkCount} Forms</span>
                       </div>
                       <Input
@@ -791,98 +1305,18 @@ function AdmissionFormGeneratorContent() {
                   )}
                 </div>
 
-                {/* Mode Selector (Blank vs Pre-filled) */}
-                <div className="space-y-1.5 pt-1">
-                  <Label className="text-xs font-semibold">Form Content Mode</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormMode("blank")}
-                      className={cn(
-                        "py-2 px-3 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
-                        formMode === "blank"
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "border-border/70 hover:bg-muted text-muted-foreground"
-                      )}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                      Blank Form (School Dist.)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormMode("prefilled")}
-                      className={cn(
-                        "py-2 px-3 rounded-lg border text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer",
-                        formMode === "prefilled"
-                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                          : "border-border/70 hover:bg-muted text-muted-foreground"
-                      )}
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      Pre-filled / Auto-fill
-                    </button>
-                  </div>
-                </div>
-
-                {/* Pre-filled Database Search Section */}
-                {formMode === "prefilled" && (
-                  <div className="space-y-3 pt-2 border-t">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold flex items-center justify-between">
-                        <span>Auto-fill from Student Directory</span>
-                        {selectedStudent && (
-                          <span className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Selected: {selectedStudent.name}
-                          </span>
-                        )}
-                      </Label>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={studentSearch}
-                          onChange={(e) => setStudentSearch(e.target.value)}
-                          placeholder="Search by student name, ID or roll..."
-                          className="pl-8 h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Search Dropdown Results */}
-                      {filteredStudents.length > 0 && (
-                        <div className="border rounded-xl bg-popover shadow-lg overflow-hidden divide-y divide-border/60 max-h-48 overflow-y-auto">
-                          {filteredStudents.map((s) => (
-                            <button
-                              key={s.id}
-                              type="button"
-                              onClick={() => {
-                                handleSelectStudent(s);
-                                setStudentSearch("");
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-accent flex items-center justify-between transition-colors"
-                            >
-                              <div>
-                                <p className="font-bold text-foreground">{s.name}</p>
-                                <p className="text-[10px] text-muted-foreground">
-                                  ID: {s.id} · Class: {s.presentClass || "N/A"} · Roll: {s.presentRoll || "N/A"}
-                                </p>
-                              </div>
-                              <Badge variant="outline" className="text-[9px]">Select</Badge>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Print Trigger Card */}
                 <div className="pt-2 border-t space-y-2">
                   {generationMode === "bulk" ? (
                     <Button
                       onClick={handlePrintBulk}
+                      disabled={formMode === "prefilled" && classRoster.length === 0}
                       className="w-full gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 h-10 cursor-pointer"
                     >
                       <Printer className="h-4 w-4" />
-                      Print {bulkCount} Forms with Serial Numbers
+                      {formMode === "prefilled"
+                        ? `Print ${classRoster.length} Pre-filled Forms (Class ${bulkClass})`
+                        : `Print ${bulkCount} Forms with Serial Numbers`}
                     </Button>
                   ) : (
                     <Button
@@ -916,23 +1350,44 @@ function AdmissionFormGeneratorContent() {
                       size="icon"
                       disabled={previewBulkIndex <= 0}
                       onClick={() => setPreviewBulkIndex((i) => Math.max(0, i - 1))}
-                      className="h-7 w-7 rounded-lg"
+                      className="h-7 w-7 rounded-lg cursor-pointer"
                       title="Previous Form Serial"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
 
                     <span className="text-xs font-bold px-2 font-mono">
-                      Form {previewBulkIndex + 1} of {bulkCount}:{" "}
-                      <span className="text-primary">{bulkSerialList[previewBulkIndex]}</span>
+                      {formMode === "prefilled" && classRoster.length > 0 ? (
+                        <>
+                          Student {previewBulkIndex + 1} of {classRoster.length}:{" "}
+                          <span className="text-primary font-sans">
+                            {classRoster[previewBulkIndex]?.name} (Roll {classRoster[previewBulkIndex]?.presentRoll || "N/A"})
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          Form {previewBulkIndex + 1} of {bulkCount}:{" "}
+                          <span className="text-primary">{bulkSerialList[previewBulkIndex]}</span>
+                        </>
+                      )}
                     </span>
 
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={previewBulkIndex >= bulkCount - 1}
-                      onClick={() => setPreviewBulkIndex((i) => Math.min(bulkCount - 1, i + 1))}
-                      className="h-7 w-7 rounded-lg"
+                      disabled={
+                        previewBulkIndex >=
+                        (formMode === "prefilled" ? Math.max(0, classRoster.length - 1) : bulkCount - 1)
+                      }
+                      onClick={() =>
+                        setPreviewBulkIndex((i) =>
+                          Math.min(
+                            formMode === "prefilled" ? Math.max(0, classRoster.length - 1) : bulkCount - 1,
+                            i + 1
+                          )
+                        )
+                      }
+                      className="h-7 w-7 rounded-lg cursor-pointer"
                       title="Next Form Serial"
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -987,7 +1442,7 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="icon"
                   onClick={() => setPreviewScale((prev) => Math.max(0.4, prev - 0.1))}
-                  className="h-8 w-8 rounded-lg"
+                  className="h-8 w-8 rounded-lg cursor-pointer"
                   title="Zoom Out"
                 >
                   <ZoomOut className="h-3.5 w-3.5" />
@@ -999,7 +1454,7 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="icon"
                   onClick={() => setPreviewScale((prev) => Math.min(1.2, prev + 0.1))}
-                  className="h-8 w-8 rounded-lg"
+                  className="h-8 w-8 rounded-lg cursor-pointer"
                   title="Zoom In"
                 >
                   <ZoomIn className="h-3.5 w-3.5" />
@@ -1008,15 +1463,15 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => setPreviewScale(0.8)}
-                  className="h-8 text-xs font-semibold rounded-lg px-2"
+                  className="h-8 text-xs font-semibold rounded-lg px-2 cursor-pointer"
                 >
                   Reset
                 </Button>
               </div>
             </div>
 
-            {/* Printable Canvas Viewport */}
-            <div className="overflow-auto bg-muted/40 p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:p-0 print:m-0 print:border-none print:bg-transparent print:w-full print:block">
+            {/* Screen Preview Viewport */}
+            <div className="overflow-auto bg-muted/40 p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden">
               {/* Screen Preview (renders 1 active form at previewScale for 60fps performance) */}
               <div
                 id="printable-canvas"
@@ -1024,60 +1479,22 @@ function AdmissionFormGeneratorContent() {
                   transform: `scale(${previewScale})`,
                   transformOrigin: "top center",
                 }}
-                className={cn(
-                  "transition-transform duration-150 print:transform-none print:w-full print:h-full print:m-0 print:p-0 space-y-6 print:space-y-0",
-                  isBulkPrinting ? "print:hidden" : "print:block"
-                )}
+                className="transition-transform duration-150 space-y-6 print:hidden"
               >
                 {activeTab === "v-ix" ? (
                   <AdmissionFormVIxPrintableView
-                    data={{
-                      ...formVIx,
-                      formNo: generationMode === "bulk" ? bulkSerialList[previewBulkIndex] : formVIx.formNo,
-                    }}
+                    data={previewFormData.formVIx}
                     school={schoolInfo}
                     activePage={activePageView}
                   />
                 ) : (
                   <AdmissionFormXIPrintableView
-                    data={{
-                      ...formXI,
-                      formNo: generationMode === "bulk" ? bulkSerialList[previewBulkIndex] : formXI.formNo,
-                    }}
+                    data={previewFormData.formXI}
                     school={schoolInfo}
                     activePage={activePageView}
                   />
                 )}
               </div>
-
-              {/* Bulk Print Multi-Page Container (Visible only during bulk print) */}
-              {isBulkPrinting && (
-                <div id="bulk-printable-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
-                  {bulkSerialList.map((serial, idx) => (
-                    <div key={idx} className="bulk-form-wrapper">
-                      {activeTab === "v-ix" ? (
-                        <AdmissionFormVIxPrintableView
-                          data={{
-                            ...formVIx,
-                            formNo: serial,
-                          }}
-                          school={schoolInfo}
-                          activePage="all"
-                        />
-                      ) : (
-                        <AdmissionFormXIPrintableView
-                          data={{
-                            ...formXI,
-                            formNo: serial,
-                          }}
-                          school={schoolInfo}
-                          activePage="all"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
