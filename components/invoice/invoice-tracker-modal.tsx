@@ -84,29 +84,68 @@ export function InvoiceTrackerModal({
   async function loadRegistryData() {
     setIsLoadingList(true);
     try {
-      // 1. Load Stats
-      const statsRes = await fetch("/api/invoices/stats");
-      const statsData = await statsRes.json();
-      if (statsRes.ok && statsData.stats && statsData.stats.totalInvoices > 0) {
-        setStats(statsData.stats);
-      } else {
-        // Fallback to local cache if table pending or empty
-        setStats(getLocalStats());
+      // 1. Fetch remote list
+      let list: DBInvoiceRow[] = [];
+      try {
+        const listRes = await fetch("/api/invoices?limit=100");
+        const listData = await listRes.json();
+        if (listRes.ok && Array.isArray(listData.data)) {
+          list = listData.data;
+        }
+      } catch (err) {
+        console.warn("Failed fetching from /api/invoices:", err);
       }
 
-      // 2. Load Invoices List
-      const listRes = await fetch("/api/invoices?limit=100");
-      const listData = await listRes.json();
-      if (listRes.ok && Array.isArray(listData.data) && listData.data.length > 0) {
-        setInvoicesList(listData.data);
+      // If remote list is empty, fallback to local cache or merge
+      const localInvoices = getLocalCachedInvoices();
+      if (list.length === 0 && localInvoices.length > 0) {
+        list = localInvoices;
+      } else if (localInvoices.length > 0) {
+        const remoteSet = new Set(list.map((inv) => inv.invoice_number.toUpperCase()));
+        const extra = localInvoices.filter((inv) => !remoteSet.has(inv.invoice_number.toUpperCase()));
+        if (extra.length > 0) {
+          list = [...list, ...extra];
+        }
+      }
+      setInvoicesList(list);
+
+      // 2. Fetch or compute stats
+      let remoteStats: InvoiceStats | null = null;
+      try {
+        const statsRes = await fetch("/api/invoices/stats");
+        const statsData = await statsRes.json();
+        if (statsRes.ok && statsData.stats && statsData.stats.totalInvoices > 0) {
+          remoteStats = statsData.stats;
+        }
+      } catch (err) {
+        console.warn("Failed fetching /api/invoices/stats:", err);
+      }
+
+      if (remoteStats && remoteStats.totalInvoices >= list.length) {
+        setStats(remoteStats);
+      } else if (list.length > 0) {
+        const totalFilled = list.filter((i) => !i.is_blank).length;
+        const totalBlank = list.filter((i) => i.is_blank).length;
+        const totalBulk = list.filter((i) => i.generator_mode === "bulk").length;
+        const totalSingle = list.filter((i) => i.generator_mode !== "bulk").length;
+        const totalAmount = list.reduce((sum, i) => sum + (Number(i.total_amount) || 0), 0);
+        setStats({
+          totalInvoices: list.length,
+          totalFilled,
+          totalBlank,
+          totalBulk,
+          totalSingle,
+          totalAmount,
+          byClass: {},
+        });
       } else {
-        // Fallback to local cache
-        setInvoicesList(getLocalCachedInvoices());
+        setStats(getLocalStats());
       }
     } catch (e) {
       console.warn("Using local cache for invoices registry:", e);
+      const local = getLocalCachedInvoices();
+      setInvoicesList(local);
       setStats(getLocalStats());
-      setInvoicesList(getLocalCachedInvoices());
     } finally {
       setIsLoadingList(false);
     }
@@ -208,10 +247,10 @@ export function InvoiceTrackerModal({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 gap-4">
-        <DialogHeader className="border-b pb-3.5 space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+        <DialogHeader className="border-b pb-4 space-y-3 pr-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center ring-1 ring-teal-500/20 shrink-0">
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div>
@@ -230,7 +269,7 @@ export function InvoiceTrackerModal({
               size="sm"
               onClick={loadRegistryData}
               disabled={isLoadingList}
-              className="h-8 text-xs font-semibold gap-1.5 cursor-pointer"
+              className="h-8 text-xs font-semibold gap-1.5 cursor-pointer rounded-xl self-start sm:self-auto shrink-0 border-border/80 hover:bg-muted"
             >
               <RefreshCw className={cn("h-3.5 w-3.5", isLoadingList && "animate-spin text-primary")} />
               <span>Refresh</span>
@@ -238,8 +277,8 @@ export function InvoiceTrackerModal({
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex items-center gap-2 pt-2">
-            <div className="flex items-center rounded-xl bg-muted/60 p-1 border border-border/80 text-xs font-bold">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center rounded-xl bg-muted/70 p-1 border border-border/80 text-xs font-bold">
               <button
                 type="button"
                 onClick={() => setActiveTab("verify")}
@@ -495,35 +534,39 @@ export function InvoiceTrackerModal({
             {/* KPI Metric Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               {/* Total Invoices */}
-              <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1">
+              <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-1.5 shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
                   <span>Total Generated</span>
-                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <div className="h-6 w-6 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                    <FileText className="h-3.5 w-3.5" />
+                  </div>
                 </span>
-                <p className="text-xl font-bold font-mono text-foreground">
+                <p className="text-2xl font-bold font-mono text-foreground">
                   {stats?.totalInvoices || 0}
                 </p>
-                <span className="text-[10px] text-muted-foreground">All time printed receipts</span>
+                <span className="text-[10px] text-muted-foreground block truncate">All time printed receipts</span>
               </div>
 
               {/* Pre-Filled vs Blank */}
-              <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1">
+              <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-1.5 shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
                   <span>Filled vs Blank</span>
-                  <UserCheck className="h-3.5 w-3.5 text-teal-600" />
+                  <div className="h-6 w-6 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center">
+                    <UserCheck className="h-3.5 w-3.5" />
+                  </div>
                 </span>
                 <div className="flex items-baseline gap-1 text-sm font-bold">
-                  <span className="text-teal-700 dark:text-teal-400 font-mono">
+                  <span className="text-teal-700 dark:text-teal-400 font-mono text-base">
                     {stats?.totalFilled || 0}
                   </span>
-                  <span className="text-muted-foreground font-normal text-xs">filled</span>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="text-amber-700 dark:text-amber-400 font-mono">
+                  <span className="text-muted-foreground font-normal text-[11px]">filled</span>
+                  <span className="text-muted-foreground">&bull;</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-mono text-base">
                     {stats?.totalBlank || 0}
                   </span>
-                  <span className="text-muted-foreground font-normal text-xs">blank</span>
+                  <span className="text-muted-foreground font-normal text-[11px]">blank</span>
                 </div>
-                <div className="w-full bg-muted h-1.5 rounded-full overflow-hidden flex">
+                <div className="w-full bg-muted/80 h-1.5 rounded-full overflow-hidden flex">
                   <div
                     style={{
                       width: `${
@@ -548,99 +591,132 @@ export function InvoiceTrackerModal({
               </div>
 
               {/* Bulk Batch vs Single */}
-              <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1">
+              <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-1.5 shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
                   <span>Batch vs Single</span>
-                  <Users className="h-3.5 w-3.5 text-blue-600" />
+                  <div className="h-6 w-6 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                    <Users className="h-3.5 w-3.5" />
+                  </div>
                 </span>
                 <div className="flex items-baseline gap-1 text-sm font-bold">
-                  <span className="text-blue-700 dark:text-blue-400 font-mono">
+                  <span className="text-blue-700 dark:text-blue-400 font-mono text-base">
                     {stats?.totalBulk || 0}
                   </span>
-                  <span className="text-muted-foreground font-normal text-xs">batch</span>
-                  <span className="text-muted-foreground">•</span>
-                  <span className="text-foreground font-mono">{stats?.totalSingle || 0}</span>
-                  <span className="text-muted-foreground font-normal text-xs">single</span>
+                  <span className="text-muted-foreground font-normal text-[11px]">batch</span>
+                  <span className="text-muted-foreground">&bull;</span>
+                  <span className="text-foreground font-mono text-base">{stats?.totalSingle || 0}</span>
+                  <span className="text-muted-foreground font-normal text-[11px]">single</span>
                 </div>
-                <span className="text-[10px] text-muted-foreground">Generation mode breakdown</span>
+                <span className="text-[10px] text-muted-foreground block truncate">Generation mode breakdown</span>
               </div>
 
               {/* Total Revenue */}
-              <div className="p-3 rounded-xl border border-border/80 bg-card space-y-1">
+              <div className="p-3.5 rounded-2xl border border-border/80 bg-muted/20 space-y-1.5 shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
                   <span>Total Amount</span>
-                  <CreditCard className="h-3.5 w-3.5 text-emerald-600" />
+                  <div className="h-6 w-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <CreditCard className="h-3.5 w-3.5" />
+                  </div>
                 </span>
-                <p className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-400">
+                <p className="text-xl font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">
                   ₹{(stats?.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                 </p>
-                <span className="text-[10px] text-muted-foreground">Cumulative fees recorded</span>
+                <span className="text-[10px] text-muted-foreground block truncate">Cumulative fees recorded</span>
               </div>
             </div>
 
             {/* Filter Toolbar */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-1">
-              <div className="relative sm:col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
+              <div className="relative sm:col-span-4">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
                   placeholder="Search receipt / student..."
                   value={tableSearch}
                   onChange={(e) => setTableSearch(e.target.value)}
-                  className="pl-8 text-xs h-8"
+                  className="pl-8 text-xs h-8 rounded-xl"
                 />
               </div>
 
-              <CustomSelect
-                value={typeFilter}
-                onChange={(val) => setTypeFilter(val as any)}
-                options={[
-                  { label: "All Types (Filled & Blank)", value: "ALL" },
-                  { label: "Pre-Filled Roster Only", value: "FILLED" },
-                  { label: "Blank Templates Only", value: "BLANK" },
-                ]}
-                searchable={false}
-                triggerClassName="h-8 text-xs"
-              />
+              <div className="sm:col-span-3">
+                <CustomSelect
+                  value={typeFilter}
+                  onChange={(val) => setTypeFilter(val as any)}
+                  options={[
+                    { label: "All Types", value: "ALL" },
+                    { label: "Pre-Filled Only", value: "FILLED" },
+                    { label: "Blank Only", value: "BLANK" },
+                  ]}
+                  searchable={false}
+                  triggerClassName="h-8 text-xs rounded-xl"
+                />
+              </div>
 
-              <CustomSelect
-                value={modeFilter}
-                onChange={(val) => setModeFilter(val as any)}
-                options={[
-                  { label: "All Modes (Batch & Single)", value: "ALL" },
-                  { label: "Batch (Bulk) Generated", value: "BULK" },
-                  { label: "Single Student Receipts", value: "SINGLE" },
-                ]}
-                searchable={false}
-                triggerClassName="h-8 text-xs"
-              />
+              <div className="sm:col-span-3">
+                <CustomSelect
+                  value={modeFilter}
+                  onChange={(val) => setModeFilter(val as any)}
+                  options={[
+                    { label: "All Modes", value: "ALL" },
+                    { label: "Batch Only", value: "BULK" },
+                    { label: "Single Only", value: "SINGLE" },
+                  ]}
+                  searchable={false}
+                  triggerClassName="h-8 text-xs rounded-xl"
+                />
+              </div>
 
-              <CustomSelect
-                value={classFilter}
-                onChange={(val) => setClassFilter(val)}
-                options={[
-                  { label: "All Classes", value: "ALL" },
-                  { label: "Class V", value: "V" },
-                  { label: "Class VI", value: "VI" },
-                  { label: "Class VII", value: "VII" },
-                  { label: "Class VIII", value: "VIII" },
-                  { label: "Class IX", value: "IX" },
-                  { label: "Class X", value: "X" },
-                  { label: "Class XI", value: "XI" },
-                  { label: "Class XII", value: "XII" },
-                ]}
-                searchable={false}
-                triggerClassName="h-8 text-xs"
-              />
+              <div className="sm:col-span-2">
+                <CustomSelect
+                  value={classFilter}
+                  onChange={(val) => setClassFilter(val)}
+                  options={[
+                    { label: "All Classes", value: "ALL" },
+                    { label: "Class V", value: "V" },
+                    { label: "Class VI", value: "VI" },
+                    { label: "Class VII", value: "VII" },
+                    { label: "Class VIII", value: "VIII" },
+                    { label: "Class IX", value: "IX" },
+                    { label: "Class X", value: "X" },
+                    { label: "Class XI", value: "XI" },
+                    { label: "Class XII", value: "XII" },
+                  ]}
+                  searchable={false}
+                  triggerClassName="h-8 text-xs rounded-xl"
+                />
+              </div>
             </div>
 
             {/* Invoices List Table */}
-            <div className="rounded-xl border border-border/80 overflow-hidden bg-card">
-              <div className="max-h-72 overflow-y-auto divide-y text-xs">
+            <div className="rounded-2xl border border-border/80 overflow-hidden bg-card shadow-2xs">
+              <div className="max-h-80 overflow-y-auto divide-y divide-border/60 text-xs">
                 {filteredList.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground text-xs space-y-1">
-                    <FileText className="h-6 w-6 mx-auto opacity-40" />
-                    <p className="font-semibold">No matching invoices found in database records.</p>
-                    <p className="text-[11px]">Print receipts to automatically populate this registry.</p>
+                  <div className="p-8 text-center text-muted-foreground text-xs space-y-2">
+                    <div className="h-10 w-10 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground/60 border border-border/60">
+                      <FileText className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-xs">No matching invoices found in registry</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {invoicesList.length > 0
+                          ? "Try clearing or adjusting the search and filters above."
+                          : "Print receipts from the generator to automatically populate this registry."}
+                      </p>
+                    </div>
+                    {tableSearch || typeFilter !== "ALL" || modeFilter !== "ALL" || classFilter !== "ALL" ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setTableSearch("");
+                          setTypeFilter("ALL");
+                          setModeFilter("ALL");
+                          setClassFilter("ALL");
+                        }}
+                        className="h-7 text-[11px] mt-2 rounded-lg cursor-pointer"
+                      >
+                        Clear Filters
+                      </Button>
+                    ) : null}
                   </div>
                 ) : (
                   filteredList.map((inv) => (
