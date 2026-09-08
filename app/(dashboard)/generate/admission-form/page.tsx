@@ -42,6 +42,7 @@ import {
   ListOrdered,
   Package,
   Lock,
+  Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +75,14 @@ function AdmissionFormGeneratorContent() {
   const serialPrefix = `MHS/AF/${yearSuffix}/`;
   const paddingDigits = 4; // Strictly 4 digits (0001, 0002... 0100)
   const STORAGE_KEY = `sms_admission_form_last_serial_${currentYear}`;
+  const PREV_STORAGE_KEY = `sms_admission_form_prev_serial_${currentYear}`;
 
   // Serial Numbering State (Auto-initialized to 1 or loaded from localStorage)
   const [startSerial, setStartSerial] = useState<number>(1);
+  const [prevStartSerial, setPrevStartSerial] = useState<number | null>(null);
   const [bulkCount, setBulkCount] = useState<number>(100);
 
-  // Load last used serial on mount/year change
+  // Load last used serial and previous serial on mount/year change
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -89,10 +92,17 @@ function AdmissionFormGeneratorContent() {
           setStartSerial(nextNum);
         }
       }
+      const savedPrev = localStorage.getItem(PREV_STORAGE_KEY);
+      if (savedPrev) {
+        const prevNum = parseInt(savedPrev, 10);
+        if (!isNaN(prevNum) && prevNum >= 1) {
+          setPrevStartSerial(prevNum);
+        }
+      }
     } catch (e) {
       console.error(e);
     }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, PREV_STORAGE_KEY]);
 
   // For Bulk Preview: Which serial index (0-based) is currently being previewed
   const [previewBulkIndex, setPreviewBulkIndex] = useState<number>(0);
@@ -357,22 +367,44 @@ function AdmissionFormGeneratorContent() {
   }
 
   // Helper to persist last used serial and advance state
-  function saveLastUsedSerial(highestUsed: number) {
+  function saveLastUsedSerial(highestUsed: number, currentStart: number) {
     try {
+      localStorage.setItem(PREV_STORAGE_KEY, String(currentStart));
       localStorage.setItem(STORAGE_KEY, String(highestUsed));
     } catch (e) {
       console.error(e);
     }
+    setPrevStartSerial(currentStart);
     setStartSerial(highestUsed + 1);
+  }
+
+  // Undo / Revert back to previous starting serial
+  function handleUndoLastBatch() {
+    if (prevStartSerial === null || prevStartSerial <= 0) return;
+    try {
+      if (prevStartSerial <= 1) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(PREV_STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, String(prevStartSerial - 1));
+        localStorage.removeItem(PREV_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setStartSerial(prevStartSerial);
+    setPrevStartSerial(null);
   }
 
   // Reset Serial Number back to 0001
   function handleResetSerialToOne() {
     try {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PREV_STORAGE_KEY);
     } catch (e) {
       console.error(e);
     }
+    setPrevStartSerial(null);
     setStartSerial(1);
   }
 
@@ -380,7 +412,7 @@ function AdmissionFormGeneratorContent() {
   const handlePrintSingle = (pageTarget: "all" | "page1" | "page2" = "all") => {
     setIsBulkPrinting(false);
     setActivePageView(pageTarget);
-    saveLastUsedSerial(startSerial);
+    saveLastUsedSerial(startSerial, startSerial);
     setTimeout(() => {
       window.print();
     }, 100);
@@ -391,7 +423,7 @@ function AdmissionFormGeneratorContent() {
     setIsBulkPrinting(true);
     setActivePageView("all");
     const endSerial = startSerial + bulkCount - 1;
-    saveLastUsedSerial(endSerial);
+    saveLastUsedSerial(endSerial, startSerial);
     setTimeout(() => {
       window.print();
       setTimeout(() => {
@@ -674,37 +706,50 @@ function AdmissionFormGeneratorContent() {
                     </div>
                   </div>
 
-                  {/* Start Serial No. (Auto Continuous Sequence) */}
-                  <div className="space-y-1">
+                  {/* Start Serial No. (Auto Continuous Sequence - Locked with Undo Support) */}
+                  <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <Label className="text-[11px] font-bold flex items-center gap-1.5 text-foreground">
                         <Hash className="h-3 w-3 text-primary" />
                         <span>Start Serial No.</span>
                       </Label>
-                      <button
-                        type="button"
-                        onClick={handleResetSerialToOne}
-                        title="Reset serial number sequence to 0001 for this year"
-                        className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
-                      >
-                        <RefreshCw className="h-2.5 w-2.5" />
-                        <span>Reset to 0001</span>
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        value={startSerial}
-                        onChange={(e) => setStartSerial(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="h-8 text-xs font-mono font-bold flex-1"
-                      />
-                      <div className="h-8 px-2.5 rounded-lg border bg-primary/10 text-[11px] font-mono font-bold text-primary flex items-center shrink-0">
-                        {formatFormNumber(serialPrefix, startSerial, 4)}
+                      <div className="flex items-center gap-2">
+                        {prevStartSerial !== null && prevStartSerial !== startSerial && (
+                          <button
+                            type="button"
+                            onClick={handleUndoLastBatch}
+                            title={`Revert back to Serial ${formatFormNumber(serialPrefix, prevStartSerial, 4)}`}
+                            className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-2xs"
+                          >
+                            <Undo2 className="h-3 w-3" />
+                            <span>Undo Print ({formatFormNumber(serialPrefix, prevStartSerial, 4)})</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleResetSerialToOne}
+                          title="Reset serial number sequence to 0001 for this year"
+                          className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          <span>Reset</span>
+                        </button>
                       </div>
                     </div>
-                    <p className="text-[10px] text-muted-foreground">
-                      ✓ 4-digit padding (0001, 0002...) &bull; Auto-saved per print batch
+
+                    <div className="relative flex items-center">
+                      <Input
+                        value={`${formatFormNumber(serialPrefix, startSerial, 4)}  (#${startSerial})`}
+                        disabled
+                        readOnly
+                        className="h-8 text-xs font-mono font-bold uppercase bg-muted/70 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
+                      />
+                      <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/70 pointer-events-none" />
+                    </div>
+
+                    <p className="text-[10px] text-muted-foreground flex items-center justify-between">
+                      <span>✓ Auto-sequenced (Locked)</span>
+                      <span>4-digit padding (0001, 0002...)</span>
                     </p>
                   </div>
 
