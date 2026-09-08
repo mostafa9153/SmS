@@ -47,9 +47,13 @@ import {
   UserCheck,
   X,
   Filter,
+  ArrowLeftRight,
+  RotateCcw,
 } from "lucide-react";
 import { cn, getClassRank } from "@/lib/utils";
 import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
+import { PrintHistoryModal } from "@/components/ui/print-history-modal";
+import { recordPrintBatch } from "@/lib/utils/print-history";
 
 function AdmissionFormGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -70,7 +74,7 @@ function AdmissionFormGeneratorContent() {
   const [formMode, setFormMode] = useState<"blank" | "prefilled">("blank");
 
   // Page view filter: 'all' (Both pages), 'page1', 'page2'
-  const [activePageView, setActivePageView] = useState<"all" | "page1" | "page2">("all");
+  const [activePageView, setActivePageView] = useState<"all" | "page1" | "page2">("page1");
 
   // Preview zoom scale
   const [previewScale, setPreviewScale] = useState<number>(0.8);
@@ -411,10 +415,18 @@ function AdmissionFormGeneratorContent() {
     return getDynamicClassList();
   }, [schoolConfig]);
 
-  // All dynamic classes configured in Settings / DB, sorted in curriculum order (V -> VI -> ... -> XI -> XII)
+  // Filter available classes according to active format tab (V-IX vs XI) and sort in curriculum order
   const availableClasses = useMemo(() => {
-    return [...dynamicClasses].sort((a: any, b: any) => getClassRank(a.code) - getClassRank(b.code));
-  }, [dynamicClasses]);
+    const list = dynamicClasses.filter((c: any) => {
+      const code = c.code.toUpperCase();
+      if (activeTab === "xi") {
+        return code === "XI" || code === "XII" || code === "11" || code === "12";
+      }
+      return code !== "XI" && code !== "XII" && code !== "11" && code !== "12";
+    });
+
+    return list.sort((a: any, b: any) => getClassRank(a.code) - getClassRank(b.code));
+  }, [dynamicClasses, activeTab]);
 
   // Dynamic sections strictly for the currently selected class from Settings + actual student DB records
   const availableSections = useMemo(() => {
@@ -545,11 +557,27 @@ function AdmissionFormGeneratorContent() {
     setStartSerial(1);
   }
 
+  // History Modal State
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+
   // Single Form Print Trigger
   const handlePrintSingle = (pageTarget: "all" | "page1" | "page2" = "all") => {
     setIsBulkPrinting(false);
     setActivePageView(pageTarget);
     saveLastUsedSerial(startSerial, startSerial);
+    recordPrintBatch(
+      {
+        docType: "admission-form",
+        mode: "single",
+        startSerial,
+        endSerial: startSerial,
+        formattedStart: currentSingleFormNo,
+        formattedEnd: currentSingleFormNo,
+        count: 1,
+        classInfo: selectedStudent ? selectedStudent.name : `Class ${activeTab.toUpperCase()}`,
+      },
+      currentYear
+    );
     setTimeout(() => {
       window.print();
     }, 150);
@@ -562,6 +590,23 @@ function AdmissionFormGeneratorContent() {
     setActivePageView("all");
     const endSerial = startSerial + totalCount - 1;
     saveLastUsedSerial(endSerial, startSerial);
+    recordPrintBatch(
+      {
+        docType: "admission-form",
+        mode: "bulk",
+        fillMode: formMode,
+        startSerial,
+        endSerial,
+        formattedStart: bulkSerialList[0] || currentSingleFormNo,
+        formattedEnd: bulkSerialList[bulkSerialList.length - 1] || currentSingleFormNo,
+        count: totalCount,
+        classInfo:
+          formMode === "prefilled"
+            ? `Class ${bulkClass} (Sec ${bulkSection})`
+            : `Blank Batch (${activeTab.toUpperCase()})`,
+      },
+      currentYear
+    );
     setTimeout(() => {
       window.print();
       setTimeout(() => {
@@ -777,22 +822,25 @@ function AdmissionFormGeneratorContent() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                  Admission Form Generator
-                </h1>
-                <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary">
-                  {formMode === "prefilled" ? "Database Auto-fill" : "Bulk Serial Print"}
-                </Badge>
-              </div>
-              <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                Generate and print serialized or auto-filled 2-page A4 application forms for Class V–IX & Class XI
-              </p>
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                Admission Form Generator
+              </h1>
             </div>
           </div>
 
           {/* Quick Actions Header Buttons */}
           <div className="flex flex-wrap items-center gap-2.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryOpen(true)}
+              title="View print history and undo any printed batch"
+              className="gap-1.5 text-xs font-semibold h-9.5 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Undo Last Print</span>
+            </Button>
+
             {generationMode === "bulk" ? (
               <Button
                 size="sm"
@@ -830,7 +878,7 @@ function AdmissionFormGeneratorContent() {
                 <Button
                   size="sm"
                   onClick={() => handlePrintSingle("all")}
-                  className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-9 cursor-pointer"
+                  className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-9.5 cursor-pointer"
                 >
                   <Printer className="h-4 w-4" />
                   Print Single Form
@@ -1120,12 +1168,6 @@ function AdmissionFormGeneratorContent() {
                               type="button"
                               onClick={() => {
                                 setBulkClass(code);
-                                const upper = code.toUpperCase();
-                                if (upper === "XI" || upper === "XII") {
-                                  setActiveTab("xi");
-                                } else {
-                                  setActiveTab("v-ix");
-                                }
                                 setPreviewBulkIndex(0);
                               }}
                               className={cn(
@@ -1208,22 +1250,12 @@ function AdmissionFormGeneratorContent() {
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={handleUndoLastBatch}
-                          disabled={!prevStartSerial || prevStartSerial === startSerial}
-                          title={
-                            prevStartSerial
-                              ? `Revert back to Serial ${formatFormNumber(serialPrefix, prevStartSerial, 4)}`
-                              : "No previous print batch to undo"
-                          }
-                          className={cn(
-                            "text-[10.5px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer",
-                            prevStartSerial && prevStartSerial !== startSerial
-                              ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/40 active:scale-95"
-                              : "bg-muted text-muted-foreground/40 border border-border/50 cursor-not-allowed"
-                          )}
+                          onClick={() => setIsHistoryOpen(true)}
+                          title="View print batch history & undo"
+                          className="text-[10.5px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/40 active:scale-95"
                         >
-                          <Undo2 className="h-3 w-3" />
-                          <span>Undo Last Print</span>
+                          <RotateCcw className="h-3 w-3" />
+                          <span>History &amp; Undo</span>
                         </button>
                         <button
                           type="button"
@@ -1246,11 +1278,6 @@ function AdmissionFormGeneratorContent() {
                       />
                       <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/70 pointer-events-none" />
                     </div>
-
-                    <p className="text-[10px] text-muted-foreground flex items-center justify-between">
-                      <span>✓ Auto-sequenced per batch (Locked)</span>
-                      <span>4-digit format ({serialPrefix}0001)</span>
-                    </p>
                   </div>
 
                   {/* Bulk Quantity Selectors (Only shown in blank bulk mode) */}
@@ -1304,33 +1331,6 @@ function AdmissionFormGeneratorContent() {
                     </div>
                   )}
                 </div>
-
-                {/* Print Trigger Card */}
-                <div className="pt-2 border-t space-y-2">
-                  {generationMode === "bulk" ? (
-                    <Button
-                      onClick={handlePrintBulk}
-                      disabled={formMode === "prefilled" && classRoster.length === 0}
-                      className="w-full gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 h-10 cursor-pointer"
-                    >
-                      <Printer className="h-4 w-4" />
-                      {formMode === "prefilled"
-                        ? `Print ${classRoster.length} Pre-filled Forms (Class ${bulkClass})`
-                        : `Print ${bulkCount} Forms with Serial Numbers`}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => handlePrintSingle("all")}
-                      className="w-full gap-2 text-xs font-bold rounded-xl shadow-sm bg-primary text-primary-foreground hover:bg-primary/90 py-2 h-9 cursor-pointer"
-                    >
-                      <Printer className="h-4 w-4" />
-                      Print Single Form (Both Pages)
-                    </Button>
-                  )}
-                  <p className="text-[10px] text-muted-foreground text-center">
-                    Standard A4 page (210mm × 297mm). Front & Back 2-page duplex print guaranteed.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -1341,9 +1341,9 @@ function AdmissionFormGeneratorContent() {
           <div className="xl:col-span-8 print:w-full print:m-0 print:p-0">
             {/* Preview Toolbar (Hidden in Print) */}
             <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-card border rounded-2xl mb-4 shadow-xs print:hidden">
-              {/* Bulk Form Index Navigator */}
-              {generationMode === "bulk" ? (
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Bulk Form Index Navigator (Bulk mode only) */}
+                {generationMode === "bulk" && (
                   <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl">
                     <Button
                       variant="ghost"
@@ -1393,48 +1393,67 @@ function AdmissionFormGeneratorContent() {
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                </div>
-              ) : (
-                /* Page Filter Buttons in Single Mode */
-                <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setActivePageView("all")}
-                    className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                      activePageView === "all"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    Both Pages (1 & 2)
-                  </button>
+                )}
+
+                {/* Page Switcher Icon Controls (Click to change page without scrolling) */}
+                <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
                   <button
                     type="button"
                     onClick={() => setActivePageView("page1")}
                     className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
                       activePageView === "page1"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-primary text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     )}
+                    title="View Page 1 (Front)"
                   >
-                    Page 1 (Front)
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Page 1</span>
                   </button>
+
                   <button
                     type="button"
                     onClick={() => setActivePageView("page2")}
                     className={cn(
-                      "px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
+                      "px-2.5 py-1 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
                       activePageView === "page2"
-                        ? "bg-background text-foreground shadow-xs"
+                        ? "bg-primary text-primary-foreground shadow-xs"
                         : "text-muted-foreground hover:text-foreground"
                     )}
+                    title="View Page 2 (Back)"
                   >
-                    Page 2 (Back)
+                    <FileText className="h-3.5 w-3.5" />
+                    <span>Page 2</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePageView((prev) => (prev === "page2" ? "page1" : "page2"))}
+                    className="p-1 text-xs font-bold rounded-lg bg-background hover:bg-muted text-foreground border border-border/80 shadow-2xs flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                    title="Flip Page (Page 1 ↔ Page 2)"
+                  >
+                    <ArrowLeftRight className="h-3.5 w-3.5 text-primary" />
+                  </button>
+
+                  <div className="h-4 w-px bg-border mx-0.5" />
+
+                  <button
+                    type="button"
+                    onClick={() => setActivePageView("all")}
+                    className={cn(
+                      "px-2 py-1 text-[11px] font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1",
+                      activePageView === "all"
+                        ? "bg-primary text-primary-foreground shadow-xs font-bold"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    title="View Both Pages Stacked"
+                  >
+                    <Layers className="h-3 w-3" />
+                    <span>Both</span>
                   </button>
                 </div>
-              )}
+              </div>
 
               {/* Zoom Controls */}
               <div className="flex items-center gap-1.5">
@@ -1471,7 +1490,20 @@ function AdmissionFormGeneratorContent() {
             </div>
 
             {/* Screen Preview Viewport */}
-            <div className="overflow-auto bg-muted/40 p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden">
+            <div className="relative overflow-auto bg-muted/40 p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden min-h-[500px]">
+              {/* Floating Quick Page Flip Button */}
+              <div className="absolute top-4 right-4 z-10">
+                <button
+                  type="button"
+                  onClick={() => setActivePageView((prev) => (prev === "page2" ? "page1" : "page2"))}
+                  className="bg-card/95 hover:bg-card border border-border shadow-md rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 text-foreground hover:text-primary transition-all cursor-pointer active:scale-95"
+                  title="Click to flip page"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5 text-primary" />
+                  <span>{activePageView === "page2" ? "View Page 1" : "View Page 2"}</span>
+                </button>
+              </div>
+
               {/* Screen Preview (renders 1 active form at previewScale for 60fps performance) */}
               <div
                 id="printable-canvas"
@@ -1499,6 +1531,13 @@ function AdmissionFormGeneratorContent() {
           </div>
         </div>
       </div>
+
+      <PrintHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        docType="admission-form"
+        onUndoBatch={(newStart) => setStartSerial(newStart)}
+      />
     </>
   );
 }

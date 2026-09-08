@@ -147,7 +147,7 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
             <div className="text-left text-purple-900 font-extrabold truncate pl-0.5">
               Sec - {section === "ALL" ? "ALL" : section}
             </div>
-            <div className="w-[90px] text-center text-red-700 font-black uppercase tracking-wider text-[8.5px]">
+            <div className="w-[120px] text-center text-red-700 font-black uppercase tracking-wider text-[8.5px]">
               Summative
             </div>
           </div>
@@ -163,18 +163,18 @@ export const TabulationSheetPrintableView: React.FC<TabulationSheetProps> = ({
                 </th>
                 <th
                   className="border-r-[1.2px] border-black text-left font-black p-0 pl-1 text-[7.5px] text-black truncate"
-                  style={{ width: "calc(100% - 111px)" }}
+                  style={{ width: "calc(100% - 141px)" }}
                 >
                   Name of Students
                 </th>
-                {/* 30px width per column = Generous side space for 2-digit marks */}
-                <th className="border-r border-black w-[30px] text-center font-black p-0 text-[8px] text-red-700">
+                {/* 40px width per column = Generous side space for 2-digit marks */}
+                <th className="border-r border-black w-[40px] text-center font-black p-0 text-[8px] text-red-700">
                   1st
                 </th>
-                <th className="border-r border-black w-[30px] text-center font-black p-0 text-[8px] text-red-700">
+                <th className="border-r border-black w-[40px] text-center font-black p-0 text-[8px] text-red-700">
                   2nd
                 </th>
-                <th className="w-[30px] text-center font-black p-0 text-[8px] text-red-700">
+                <th className="w-[40px] text-center font-black p-0 text-[8px] text-red-700">
                   3rd
                 </th>
               </tr>

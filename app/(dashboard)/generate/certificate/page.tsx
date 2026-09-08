@@ -25,11 +25,23 @@ import {
   Sparkles,
   GraduationCap,
   Building,
-  Award,
   CheckCircle2,
-  FileText,
+  Eye,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import {
+  getDocumentSequence,
+  saveDocumentSequence,
+  formatDocumentNumber,
+} from "@/lib/utils/document-sequence";
+import { PrintHistoryModal } from "@/components/ui/print-history-modal";
+import { recordPrintBatch } from "@/lib/utils/print-history";
+import {
+  recordPrintedCertificate,
+  buildCharacterCertInsert,
+} from "@/lib/utils/certificate-registry";
 
 function CertificateGeneratorContent() {
   const router = useRouter();
@@ -49,6 +61,7 @@ function CertificateGeneratorContent() {
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
+  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("character-certificate", currentYear));
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -60,11 +73,11 @@ function CertificateGeneratorContent() {
 
   // Certificate Master State (Strictly A5)
   const [cert, setCert] = useState<CharacterCertificateData>(() => ({
-    certificateNo: `MHS/CC/${currentYear}/0036`,
+    certificateNo: formatDocumentNumber("character-certificate", getDocumentSequence("character-certificate", currentYear), currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
     examType: examParam === "HS" ? "HS" : "MP",
-    studentId: "MHS-2026-0036",
+    studentId: `MHS-${currentYear}-0001`,
     studentName: "Synthia Sanam",
     gender: "Female",
     fatherName: "Md. Ruhul Amin",
@@ -81,6 +94,16 @@ function CertificateGeneratorContent() {
       "I wish her every success and prosperity in her future academic and personal endeavours.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
   }));
+
+  // Auto-sync sequence when year rolls over or on mount
+  useEffect(() => {
+    const seq = getDocumentSequence("character-certificate", currentYear);
+    setCertSeq(seq);
+    setCert((prev) => ({
+      ...prev,
+      certificateNo: formatDocumentNumber("character-certificate", seq, currentYear),
+    }));
+  }, [currentYear]);
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
@@ -118,7 +141,7 @@ function CertificateGeneratorContent() {
       passingYear: String(currentYear),
       boardRollNo: s.presentRoll ? `123456N 00${s.presentRoll}` : prev.boardRollNo,
       boardRegistrationNo: s.pen || s.schoolId || prev.boardRegistrationNo,
-      certificateNo: `MHS/CC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
+      certificateNo: prev.certificateNo || formatDocumentNumber("character-certificate", certSeq, currentYear),
       remarks: `I wish ${pronounObject} every success and prosperity in ${pronounPossessive} future academic and personal endeavours.`,
     }));
   }
@@ -175,8 +198,41 @@ function CertificateGeneratorContent() {
     }));
   }
 
+  // Sequence undo handler if print was aborted or needs correction
+  const handleUndoSequence = () => {
+    if (certSeq <= 1) return;
+    const prevSeq = certSeq - 1;
+    saveDocumentSequence("character-certificate", prevSeq, currentYear);
+    setCertSeq(prevSeq);
+    setCert((prev) => ({
+      ...prev,
+      certificateNo: formatDocumentNumber("character-certificate", prevSeq, currentYear),
+    }));
+  };
+
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
   const handlePrint = () => {
+    const nextSeq = certSeq + 1;
+    saveDocumentSequence("character-certificate", nextSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "character-certificate",
+        mode: "single",
+        startSerial: certSeq,
+        endSerial: certSeq,
+        formattedStart: cert.certificateNo,
+        formattedEnd: cert.certificateNo,
+        count: 1,
+        classInfo: `${cert.studentName} (${cert.examType})`,
+      },
+      currentYear
+    );
+    // Persist printed certificate to database registry & local cache
+    recordPrintedCertificate(buildCharacterCertInsert(cert, String(currentYear)));
+
+    setCertSeq(nextSeq);
     setCert((prev) => ({
       ...prev,
       issueDate: getLiveDate(),
@@ -194,57 +250,22 @@ function CertificateGeneratorContent() {
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-xl p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
             <FileCheck className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>Character Certificate</span>
-              <Badge
-                variant="outline"
-                className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 font-mono"
-              >
-                MP &amp; HS Generator
-              </Badge>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Character Certificate
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Official character &amp; conduct certificate studio for Madhyamik and Higher Secondary passouts.
-            </p>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* MP vs HS Toggle */}
-          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
-            <button
-              onClick={() => handleExamTypeChange("MP")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                cert.examType === "MP"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <GraduationCap className="h-3.5 w-3.5 text-blue-600" />
-              <span>Madhyamik (MP)</span>
-            </button>
-            <button
-              onClick={() => handleExamTypeChange("HS")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                cert.examType === "HS"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Building className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Higher Secondary (HS)</span>
-            </button>
-          </div>
-
           {/* Copy Type Selector */}
           <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
             {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
@@ -263,15 +284,20 @@ function CertificateGeneratorContent() {
             ))}
           </div>
 
-          {/* Strictly A5 Format Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Pure A5 Full-Bleed</span>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHistoryOpen(true)}
+            title="View print history and undo certificate serials"
+            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Undo Last Print</span>
+          </Button>
 
           <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-xs cursor-pointer"
+            className="gap-2 text-xs font-bold bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-xs cursor-pointer h-9 px-4 rounded-xl"
           >
             <Printer className="h-4 w-4" />
             <span>Print Certificate (A5)</span>
@@ -283,6 +309,34 @@ function CertificateGeneratorContent() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
         <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
+          {/* MP vs HS Toggle */}
+          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold shadow-2xs">
+            <button
+              type="button"
+              onClick={() => handleExamTypeChange("MP")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                cert.examType === "MP"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <GraduationCap className="h-4 w-4 text-blue-600" />
+              <span>Madhyamik (MP)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExamTypeChange("HS")}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg transition-all cursor-pointer ${
+                cert.examType === "HS"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Building className="h-4 w-4 text-indigo-600" />
+              <span>Higher Secondary (HS)</span>
+            </button>
+          </div>
+
           {/* Card 1: Student Search & Core Details */}
           <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
@@ -291,7 +345,7 @@ function CertificateGeneratorContent() {
                 <span>Student Information &amp; Auto-Fill</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 space-y-3 overflow-visible">
+            <CardContent className="p-4 space-y-3.5 overflow-visible">
               {/* Search Existing Student */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -299,8 +353,17 @@ function CertificateGeneratorContent() {
                   placeholder="Type Student ID, Name, Roll No, or PEN..."
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
-                  className="pl-8 text-xs h-8"
+                  className="pl-8 pr-8 text-xs h-8.5"
                 />
+                {studentSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setStudentSearch("")}
+                    className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
                 {filteredStudents.length > 0 && (
                   <div className="absolute z-20 top-9 left-0 right-0 rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden py-1">
                     {filteredStudents.map((s) => (
@@ -329,25 +392,48 @@ function CertificateGeneratorContent() {
               </div>
 
               {selectedStudent && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/40 p-2 text-xs text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  <span>
-                    Auto-filled from database: <strong>{selectedStudent.name}</strong> ({selectedStudent.id})
-                  </span>
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/40 p-2 text-xs text-emerald-800 dark:text-emerald-300">
+                  <div className="flex items-center gap-2 truncate">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span className="truncate">
+                      Auto-filled: <strong>{selectedStudent.name}</strong> ({selectedStudent.id})
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStudent(null)}
+                    className="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 p-0.5 rounded cursor-pointer shrink-0"
+                    title="Clear selection"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
-              {/* Student Name */}
-              <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-muted-foreground">
-                  Student Full Name
-                </Label>
-                <Input
-                  value={cert.studentName}
-                  onChange={(e) => setCert({ ...cert, studentName: e.target.value })}
-                  className="text-xs h-8 font-semibold"
-                  placeholder="e.g. Synthia Sanam"
-                />
+              {/* Row 1: Student Name & Student ID */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-muted-foreground">
+                    Student Full Name
+                  </Label>
+                  <Input
+                    value={cert.studentName}
+                    onChange={(e) => setCert({ ...cert, studentName: e.target.value })}
+                    className="text-xs h-8.5 font-semibold"
+                    placeholder="e.g. Synthia Sanam"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-muted-foreground">
+                    Student ID / PEN
+                  </Label>
+                  <Input
+                    value={cert.studentId}
+                    onChange={(e) => setCert({ ...cert, studentId: e.target.value })}
+                    className="text-xs h-8.5 font-mono"
+                    placeholder="e.g. MHS-2026-0001"
+                  />
+                </div>
               </div>
 
               {/* Parent Details & Gender */}
@@ -359,7 +445,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.fatherName}
                     onChange={(e) => setCert({ ...cert, fatherName: e.target.value })}
-                    className="text-xs h-8"
+                    className="text-xs h-8.5"
                     placeholder="e.g. Md. Ruhul Amin"
                   />
                 </div>
@@ -378,7 +464,7 @@ function CertificateGeneratorContent() {
                       { label: "Male (Son of / He / His)", value: "Male" },
                       { label: "Other (Child of / They / Their)", value: "Other" },
                     ]}
-                    className="w-full text-xs h-8"
+                    className="w-full text-xs h-8.5"
                   />
                 </div>
               </div>
@@ -394,13 +480,13 @@ function CertificateGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Village</Label>
                   <Input
                     value={cert.village}
                     onChange={(e) => setCert({ ...cert, village: e.target.value })}
-                    className="text-xs h-8"
+                    className="text-xs h-8.5"
                   />
                 </div>
                 <div className="space-y-1">
@@ -408,7 +494,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.postOffice}
                     onChange={(e) => setCert({ ...cert, postOffice: e.target.value })}
-                    className="text-xs h-8"
+                    className="text-xs h-8.5"
                   />
                 </div>
                 <div className="space-y-1">
@@ -416,7 +502,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.policeStation}
                     onChange={(e) => setCert({ ...cert, policeStation: e.target.value })}
-                    className="text-xs h-8"
+                    className="text-xs h-8.5"
                   />
                 </div>
                 <div className="space-y-1">
@@ -424,23 +510,16 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.district}
                     onChange={(e) => setCert({ ...cert, district: e.target.value })}
-                    className="text-xs h-8"
+                    className="text-xs h-8.5"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2">
                   <Label className="text-[11px] text-muted-foreground">PIN Code</Label>
                   <Input
                     value={cert.pincode}
                     onChange={(e) => setCert({ ...cert, pincode: e.target.value })}
-                    className="text-xs h-8 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Student ID / PEN</Label>
-                  <Input
-                    value={cert.studentId}
-                    onChange={(e) => setCert({ ...cert, studentId: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono max-w-xs"
+                    placeholder="e.g. 743349"
                   />
                 </div>
               </div>
@@ -456,21 +535,34 @@ function CertificateGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3 overflow-visible">
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Certificate Ref No</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-muted-foreground">Certificate Ref No</Label>
+                    {certSeq > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleUndoSequence}
+                        title="Undo sequence (decrement serial no)"
+                        className="text-[10px] text-muted-foreground hover:text-amber-600 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5" />
+                        <span>Undo Sl</span>
+                      </button>
+                    )}
+                  </div>
                   <Input
                     value={cert.certificateNo}
                     onChange={(e) => setCert({ ...cert, certificateNo: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Issue Date</Label>
+                  <Label className="text-[11px] font-semibold text-muted-foreground">Issue Date</Label>
                   <Input
                     value={cert.issueDate}
                     onChange={(e) => setCert({ ...cert, issueDate: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -478,7 +570,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.passingYear}
                     onChange={(e) => setCert({ ...cert, passingYear: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono"
                   />
                 </div>
                 <div className="space-y-1">
@@ -491,7 +583,7 @@ function CertificateGeneratorContent() {
                       { label: "Exemplary character", value: "exemplary moral character" },
                       { label: "Excellent character", value: "excellent character and conduct" },
                     ]}
-                    className="w-full text-xs h-8"
+                    className="w-full text-xs h-8.5"
                   />
                 </div>
                 <div className="space-y-1">
@@ -499,7 +591,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.boardRollNo || ""}
                     onChange={(e) => setCert({ ...cert, boardRollNo: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono"
                     placeholder="e.g. 123456N 0012"
                   />
                 </div>
@@ -508,7 +600,7 @@ function CertificateGeneratorContent() {
                   <Input
                     value={cert.boardRegistrationNo || ""}
                     onChange={(e) => setCert({ ...cert, boardRegistrationNo: e.target.value })}
-                    className="text-xs h-8 font-mono"
+                    className="text-xs h-8.5 font-mono"
                     placeholder="e.g. 19180201004/2024"
                   />
                 </div>
@@ -517,26 +609,29 @@ function CertificateGeneratorContent() {
           </Card>
         </div>
 
-        {/* RIGHT COLUMN: Live Print-Ready Certificate Preview */}
-        <div className="xl:col-span-7 space-y-4 print:w-full print:m-0 print:p-0">
+        {/* RIGHT COLUMN: Certificate Preview */}
+        <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
           <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-primary" />
-              Live Certificate Preview (A5 Portrait &bull; 148 &times; 210 mm)
-            </span>
-
-            {/* Scale slider */}
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-              {[0.9, 1.0, 1.1].map((s) => (
+              <Eye className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">Preview</span>
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/40 font-normal">
+                A5 Portrait
+              </Badge>
+            </div>
+
+            {/* Scale controls */}
+            <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border">
+              <span className="text-[10px] text-muted-foreground font-semibold px-1.5">Zoom:</span>
+              {[0.85, 1.0, 1.15].map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setPreviewScale(s)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono transition-all cursor-pointer ${
                     previewScale === s
-                      ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                      : "bg-background hover:bg-muted text-muted-foreground"
+                      ? "bg-background text-foreground font-bold shadow-2xs border"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {Math.round(s * 100)}%
@@ -548,7 +643,7 @@ function CertificateGeneratorContent() {
           {/* Certificate Canvas */}
           <div
             id="printable-certificate-canvas"
-            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
+            className="w-full overflow-x-auto rounded-2xl border bg-slate-100/80 dark:bg-slate-900/50 p-6 flex justify-center items-start shadow-xs print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[620px]"
           >
             <div
               style={{
@@ -638,6 +733,20 @@ function CertificateGeneratorContent() {
           }
         }
       `}</style>
+
+      {/* Print Batch History & Selective Undo Modal */}
+      <PrintHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        docType="character-certificate"
+        onUndoBatch={(newStart) => {
+          setCertSeq(newStart);
+          setCert((prev) => ({
+            ...prev,
+            certificateNo: formatDocumentNumber("character-certificate", newStart, currentYear),
+          }));
+        }}
+      />
     </div>
   );
 }

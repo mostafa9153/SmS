@@ -28,8 +28,16 @@ import {
   CheckCircle2,
   FileText,
   FileSpreadsheet,
+  RotateCcw,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import {
+  getDocumentSequence,
+  saveDocumentSequence,
+  formatDocumentNumber,
+} from "@/lib/utils/document-sequence";
+import { PrintHistoryModal } from "@/components/ui/print-history-modal";
+import { recordPrintBatch } from "@/lib/utils/print-history";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -58,6 +66,7 @@ function TransferCertificateGeneratorContent() {
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
+  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("transfer-certificate", currentYear));
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -69,10 +78,10 @@ function TransferCertificateGeneratorContent() {
 
   // Transfer Certificate Master State (Strictly A5)
   const [cert, setCert] = useState<TransferCertificateData>(() => ({
-    certificateNo: `MHS/TC/${currentYear}/0010`,
+    certificateNo: formatDocumentNumber("transfer-certificate", getDocumentSequence("transfer-certificate", currentYear), currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
-    studentId: "MHS-2026-0010",
+    studentId: `MHS-${currentYear}-0001`,
     studentName: "TANIA HALDER",
     gender: "Female",
     fatherName: "Manas Das",
@@ -97,6 +106,16 @@ function TransferCertificateGeneratorContent() {
     customReason: "",
     hoiTitle: "Signature of HOI",
   }));
+
+  // Auto-sync sequence when year rolls over or on mount
+  useEffect(() => {
+    const seq = getDocumentSequence("transfer-certificate", currentYear);
+    setCertSeq(seq);
+    setCert((prev) => ({
+      ...prev,
+      certificateNo: formatDocumentNumber("transfer-certificate", seq, currentYear),
+    }));
+  }, [currentYear]);
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
@@ -139,7 +158,7 @@ function TransferCertificateGeneratorContent() {
       dateOfBirthDayWords: dobParsed.dayWords,
       dateOfBirthMonthWords: dobParsed.monthWords,
       dateOfBirthYearWords: dobParsed.yearWords,
-      certificateNo: `MHS/TC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0010"}`,
+      certificateNo: prev.certificateNo || formatDocumentNumber("transfer-certificate", certSeq, currentYear),
     }));
   }
 
@@ -199,8 +218,26 @@ function TransferCertificateGeneratorContent() {
     }));
   }
 
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
   const handlePrint = () => {
+    const nextSeq = certSeq + 1;
+    saveDocumentSequence("transfer-certificate", nextSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "transfer-certificate",
+        mode: "single",
+        startSerial: certSeq,
+        endSerial: certSeq,
+        formattedStart: cert.certificateNo,
+        formattedEnd: cert.certificateNo,
+        count: 1,
+        classInfo: `${cert.studentName} (Class: ${cert.readingClass} → ${cert.promotedClass})`,
+      },
+      currentYear
+    );
+    setCertSeq(nextSeq);
     setCert((prev) => ({
       ...prev,
       issueDate: getLiveDate(),
@@ -268,8 +305,19 @@ function TransferCertificateGeneratorContent() {
           </div>
 
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHistoryOpen(true)}
+            title="View print history and undo certificate serials"
+            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Undo Last Print</span>
+          </Button>
+
+          <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer"
+            className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-9 px-4 rounded-xl"
           >
             <Printer className="h-4 w-4" />
             <span>Print TC (A5)</span>
@@ -783,6 +831,20 @@ function TransferCertificateGeneratorContent() {
           }
         }
       `}</style>
+
+      {/* Print Batch History & Selective Undo Modal */}
+      <PrintHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        docType="transfer-certificate"
+        onUndoBatch={(newStart) => {
+          setCertSeq(newStart);
+          setCert((prev) => ({
+            ...prev,
+            certificateNo: formatDocumentNumber("transfer-certificate", newStart, currentYear),
+          }));
+        }}
+      />
     </div>
   );
 }

@@ -28,8 +28,20 @@ import {
   FileText,
   HeartHandshake,
   GraduationCap,
+  RotateCcw,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import {
+  getDocumentSequence,
+  saveDocumentSequence,
+  formatDocumentNumber,
+} from "@/lib/utils/document-sequence";
+import { PrintHistoryModal } from "@/components/ui/print-history-modal";
+import { recordPrintBatch } from "@/lib/utils/print-history";
+import {
+  recordPrintedCertificate,
+  buildKanyashreeCertInsert,
+} from "@/lib/utils/certificate-registry";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["A", "B", "C", "D"];
@@ -58,6 +70,7 @@ function KanyashreeCertificateGeneratorContent() {
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
+  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("kanyashree", currentYear));
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -69,11 +82,11 @@ function KanyashreeCertificateGeneratorContent() {
 
   // Master State (Strictly A5)
   const [cert, setCert] = useState<KanyashreeCertificateData>(() => ({
-    certificateNo: `MHS/KP/${currentYear}/0010`,
+    certificateNo: formatDocumentNumber("kanyashree", getDocumentSequence("kanyashree", currentYear), currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
     schemeType: "Kanyashree Prakalpa (K1 / K2)",
-    studentId: "MHS-2026-0010",
+    studentId: `MHS-${currentYear}-0001`,
     kanyashreeId: "19111305602200010",
     pen: "20180201010",
     studentName: "TANIA HALDER",
@@ -97,6 +110,16 @@ function KanyashreeCertificateGeneratorContent() {
       "She bears an exemplary moral character and disciplined conduct. I wish her all success and empowerment in all future academic pursuits and career endeavours.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
   }));
+
+  // Auto-sync sequence when year rolls over or on mount
+  useEffect(() => {
+    const seq = getDocumentSequence("kanyashree", currentYear);
+    setCertSeq(seq);
+    setCert((prev) => ({
+      ...prev,
+      certificateNo: formatDocumentNumber("kanyashree", seq, currentYear),
+    }));
+  }, [currentYear]);
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
@@ -135,7 +158,7 @@ function KanyashreeCertificateGeneratorContent() {
       dateOfBirth: dobVal,
       dateOfBirthWords: dobWords,
       isUnmarried: true,
-      certificateNo: `MHS/KP/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0010"}`,
+      certificateNo: prev.certificateNo || formatDocumentNumber("kanyashree", certSeq, currentYear),
       remarks: `${pronounSubject} bears an exemplary moral character and disciplined conduct. I wish ${pronounObject} all success and empowerment in all future academic pursuits and career endeavours.`,
     }));
   }
@@ -194,8 +217,29 @@ function KanyashreeCertificateGeneratorContent() {
     }));
   }
 
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   // Native Direct Print Trigger
   const handlePrint = () => {
+    const nextSeq = certSeq + 1;
+    saveDocumentSequence("kanyashree", nextSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "kanyashree",
+        mode: "single",
+        startSerial: certSeq,
+        endSerial: certSeq,
+        formattedStart: cert.certificateNo,
+        formattedEnd: cert.certificateNo,
+        count: 1,
+        classInfo: `${cert.studentName} (${cert.schemeType})`,
+      },
+      currentYear
+    );
+    // Persist printed certificate to database registry & local cache
+    recordPrintedCertificate(buildKanyashreeCertInsert(cert, String(currentYear)));
+
+    setCertSeq(nextSeq);
     setCert((prev) => ({
       ...prev,
       issueDate: getLiveDate(),
@@ -263,8 +307,19 @@ function KanyashreeCertificateGeneratorContent() {
           </div>
 
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsHistoryOpen(true)}
+            title="View print history and undo certificate serials"
+            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Undo Last Print</span>
+          </Button>
+
+          <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#9333ea] hover:bg-[#9333ea]/90 text-white shadow-xs cursor-pointer"
+            className="gap-2 text-xs font-bold bg-[#9333ea] hover:bg-[#9333ea]/90 text-white shadow-xs cursor-pointer h-9 px-4 rounded-xl"
           >
             <Printer className="h-4 w-4" />
             <span>Print Certificate (A5)</span>
@@ -622,6 +677,19 @@ function KanyashreeCertificateGeneratorContent() {
           </div>
         </div>
       </div>
+
+      <PrintHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        docType="kanyashree"
+        onUndoBatch={(newStart) => {
+          setCertSeq(newStart);
+          setCert((prev) => ({
+            ...prev,
+            certificateNo: formatDocumentNumber("kanyashree", newStart, currentYear),
+          }));
+        }}
+      />
 
       {/* Direct Global Print Stylesheet */}
       <style jsx global>{`

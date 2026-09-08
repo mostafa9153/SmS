@@ -25,6 +25,7 @@ export interface InvoiceData {
   guardianName?: string;
   contactNumber?: string;
   penNumber?: string;
+  isBlankTemplate?: boolean;
 
   // Fee Details
   feeItems: FeeItem[];
@@ -175,9 +176,9 @@ export function numberToWordsINR(num: number): string {
  * Generate sequential formatted Invoice Number
  * e.g. MHS/2026/ADM-0036
  */
-export function generateInvoiceNumber(seqNo?: number): string {
-  const year = new Date().getFullYear();
-  const num = seqNo || Math.floor(1000 + Math.random() * 9000);
+export function generateInvoiceNumber(seqNo?: number, customYear?: number): string {
+  const year = customYear || new Date().getFullYear();
+  const num = seqNo !== undefined && seqNo >= 1 ? seqNo : 1;
   const formattedSeq = String(num).padStart(4, "0");
   return `MHS/${year}/ADM-${formattedSeq}`;
 }

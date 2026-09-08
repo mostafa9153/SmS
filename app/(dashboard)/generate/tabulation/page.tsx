@@ -28,17 +28,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
   FileSpreadsheet,
-  FileText,
   BookOpen,
   Users,
   ZoomIn,
   ZoomOut,
   RotateCcw,
   CheckCheck,
-  Scissors,
   RefreshCw,
   ArrowLeft,
-  ImageIcon,
+  Eye,
 } from "lucide-react";
 
 export default function TabulationGeneratorPage() {
@@ -256,25 +254,16 @@ export default function TabulationGeneratorPage() {
             <FileSpreadsheet className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>Exam Tabulation Sheet</span>
-              <Badge
-                variant="outline"
-                className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 font-mono"
-              >
-                WB Continuous Register (40 Rows/Col)
-              </Badge>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Exam Tabulation Sheet
             </h1>
-            <p className="text-xs text-muted-foreground">
-              {schoolProfile.schoolName || "Marigachi High School (H.S.)"} &bull; Summative Evaluation &bull; Session {academicYear}
-            </p>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Live Status Pill */}
-          <div className="hidden md:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border bg-muted/40 text-muted-foreground">
+          <div className="hidden sm:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border bg-muted/40 text-muted-foreground">
             <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             <span className="text-foreground">Class {selectedClass}-{selectedSection}</span>
             <span>&bull;</span>
@@ -285,15 +274,9 @@ export default function TabulationGeneratorPage() {
             </span>
           </div>
 
-          {/* Strictly A4 Format Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Pure A4 Full-Bleed</span>
-          </div>
-
           <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer"
+            className="gap-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer rounded-xl h-9 px-3.5"
           >
             <Printer className="h-4 w-4" />
             <span>Print Tabulation Sheet</span>
@@ -512,11 +495,16 @@ export default function TabulationGeneratorPage() {
 
         {/* RIGHT COLUMN: Live Print-Ready Preview Canvas */}
         <div className="xl:col-span-8 space-y-4 print:w-full print:m-0 print:p-0">
-          <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <FileSpreadsheet className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
-              Live Tabulation Sheet Preview (A4 Portrait &bull; 40 Rows/Col &bull; 80/Page)
-            </span>
+          <div className="flex items-center justify-between px-1 print:hidden">
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-base font-semibold tracking-tight text-foreground">
+                Preview
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+                A4 Portrait
+              </span>
+            </div>
 
             {/* Smooth Line Scale Slider Zoom Control */}
             <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">

@@ -102,6 +102,7 @@ const navItems: NavItem[] = [
         label: "Certificates",
         icon: <Award className="h-3.5 w-3.5 text-amber-500" />,
         children: [
+          { label: "Certificate Tracker", href: "/generate/certificate-tracker" },
           { label: "Character Certificate", href: "/generate/certificate" },
           { label: "Pass Out Certificate", href: "/generate/pass-certificate" },
           { label: "Transfer Certificate (TC)", href: "/generate/transfer-certificate" },

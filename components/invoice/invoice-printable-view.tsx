@@ -29,6 +29,10 @@ function CompactInvoiceSlip({
   const signatureSrc = profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? profile.headSignatureUrl : "/hod-signature.png";
   const effectiveHeadTitle = getEffectiveHeadTitle(profile);
 
+  const isBlank = Boolean(
+    data.isBlankTemplate || (!data.studentName?.trim() && !data.studentId?.trim())
+  );
+
   return (
     <div className="relative w-full h-full flex flex-col justify-between text-slate-900 font-sans text-xs select-none px-1">
       {/* Background Institutional Watermark with 0.12 opacity */}
@@ -112,36 +116,67 @@ function CompactInvoiceSlip({
             </div>
           </div>
 
-          <div className="grid grid-cols-12 gap-1 pt-0.5">
-            <div className="col-span-7">
-              <span className="text-slate-500 text-[8.5px]">Student: </span>
-              <strong className="text-slate-950 font-bold uppercase text-[10px]">
-                {data.studentName}
-              </strong>
+          {/* Row 1: Student Name (& ID only in Pre-Filled mode) */}
+          {isBlank ? (
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <span className="text-slate-500 text-[8.5px] shrink-0 font-medium">Student: </span>
+              <span className="flex-1 border-b border-dotted border-slate-400 h-3 align-bottom" />
             </div>
-            <div className="col-span-5 text-right">
-              <span className="text-slate-500 text-[8.5px]">ID: </span>
-              <strong className="font-mono text-slate-900 text-[9px]">
-                {data.studentId || data.penNumber || "N/A"}
-              </strong>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[8.5px]">
-            <div>
-              <span className="text-slate-500">Class: </span>
-              <strong className="text-slate-900">{data.studentClass} ({data.section || "A"})</strong>
-            </div>
-            <div>
-              <span className="text-slate-500">Roll No: </span>
-              <strong className="font-mono text-slate-900">{data.rollNo || "01"}</strong>
-            </div>
-            {data.guardianName && (
-              <div className="truncate max-w-[120px]">
-                <span className="text-slate-500">Guardian: </span>
-                <strong className="text-slate-800">{data.guardianName}</strong>
+          ) : (
+            <div className="grid grid-cols-12 gap-1 pt-0.5">
+              <div className="col-span-7">
+                <span className="text-slate-500 text-[8.5px]">Student: </span>
+                {data.studentName ? (
+                  <strong className="text-slate-950 font-bold uppercase text-[10px]">
+                    {data.studentName}
+                  </strong>
+                ) : (
+                  <span className="inline-block border-b border-dotted border-slate-400 w-36 h-3 align-bottom" />
+                )}
               </div>
-            )}
+              <div className="col-span-5 text-right">
+                <span className="text-slate-500 text-[8.5px]">ID: </span>
+                {data.studentId || data.penNumber ? (
+                  <strong className="font-mono text-slate-900 text-[9px]">
+                    {data.studentId || data.penNumber}
+                  </strong>
+                ) : (
+                  <span className="inline-block border-b border-dotted border-slate-400 w-20 h-3 align-bottom" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Row 2: Class, Roll No (shifted left), Guardian (shifted left with expansive write-in space) */}
+          <div className="flex items-center gap-3 pt-1 border-t border-slate-100 text-[8.5px]">
+            {/* Class */}
+            <div className="shrink-0 flex items-center gap-1">
+              <span className="text-slate-500">Class: </span>
+              <strong className="text-slate-900 font-bold">
+                {data.studentClass || "____"}
+                {data.section ? ` (${data.section})` : ""}
+              </strong>
+            </div>
+
+            {/* Roll No: shifted to the left near Class */}
+            <div className="shrink-0 flex items-center gap-1">
+              <span className="text-slate-500">Roll No: </span>
+              {isBlank ? (
+                <span className="inline-block border-b border-dotted border-slate-400 w-11 h-3 align-bottom" />
+              ) : (
+                <strong className="font-mono text-slate-900">{data.rollNo || "—"}</strong>
+              )}
+            </div>
+
+            {/* Guardian: shifted left right next to Roll No, expanding to fill remaining width */}
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              <span className="text-slate-500 shrink-0">Guardian: </span>
+              {isBlank ? (
+                <span className="flex-1 border-b border-dotted border-slate-400 h-3 align-bottom" />
+              ) : (
+                <strong className="text-slate-800 truncate">{data.guardianName || "—"}</strong>
+              )}
+            </div>
           </div>
         </div>
 
@@ -296,6 +331,65 @@ export function InvoicePrintableView({
   );
 }
 
+export function InvoicePrintableA4Sheet({
+  invoices,
+  copyLabel = "STUDENT COPY",
+  schoolProfile,
+}: {
+  invoices: (InvoiceData | null | undefined)[];
+  copyLabel?: string;
+  schoolProfile?: SchoolProfileData;
+}) {
+  return (
+    <div className="relative w-[204mm] h-[289mm] mx-auto box-border grid grid-cols-2 grid-rows-2 gap-x-[4mm] gap-y-[5mm]">
+      {/* Central Vertical Cutting Guide */}
+      <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-4 flex flex-col items-center justify-between py-1 pointer-events-none z-20 select-none">
+        <span className="text-[10px] text-slate-400 font-mono">✂</span>
+        <div className="h-full border-r border-dashed border-slate-300 my-0.5" />
+        <span className="text-[9px] text-slate-400 font-mono">✂</span>
+        <div className="h-full border-r border-dashed border-slate-300 my-0.5" />
+        <span className="text-[10px] text-slate-400 font-mono">✂</span>
+      </div>
+
+      {/* Central Horizontal Cutting Guide */}
+      <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-4 flex items-center justify-between px-1 pointer-events-none z-20 select-none">
+        <span className="text-[10px] text-slate-400 font-mono">✂</span>
+        <div className="w-full border-b border-dashed border-slate-300 mx-0.5" />
+        <span className="text-[9px] text-slate-400 font-mono">✂</span>
+        <div className="w-full border-b border-dashed border-slate-300 mx-0.5" />
+        <span className="text-[10px] text-slate-400 font-mono">✂</span>
+      </div>
+
+      {/* 4 Quadrants (2x2 Grid) */}
+      {[0, 1, 2, 3].map((slotIdx) => {
+        const inv = invoices[slotIdx];
+        if (inv) {
+          return (
+            <div
+              key={inv.invoiceNumber || slotIdx}
+              className="w-[100mm] h-[142mm] border border-slate-300 p-2.5 rounded-lg bg-white box-border flex flex-col justify-between overflow-hidden relative shadow-2xs print:shadow-none print:border-slate-300"
+            >
+              <CompactInvoiceSlip
+                data={inv}
+                copyLabel={copyLabel}
+                schoolProfile={schoolProfile}
+              />
+            </div>
+          );
+        }
+        return (
+          <div
+            key={`empty-slot-${slotIdx}`}
+            className="w-[100mm] h-[142mm] border border-dashed border-slate-200 rounded-lg bg-slate-50/20 box-border flex items-center justify-center text-slate-300 text-[10px] font-mono select-none print:border-slate-200 print:bg-transparent"
+          >
+            <span>✂ Blank / Cut Area</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function InvoicePrintableBatchView({
   invoices,
   copyType = "both",
@@ -305,22 +399,67 @@ export function InvoicePrintableBatchView({
   copyType?: "student" | "school" | "office" | "both";
   schoolProfile?: SchoolProfileData;
 }) {
+  const isA4FourUp = copyType === "student" || copyType === "school" || copyType === "office";
+  const copyLabel =
+    copyType === "school" || copyType === "office" ? "SCHOOL COPY" : "STUDENT COPY";
+
+  // Bulk Student (or School) copy: Group into 4 slips per A4 sheet (2x2 grid)
+  if (isA4FourUp) {
+    const chunks: InvoiceData[][] = [];
+    for (let i = 0; i < invoices.length; i += 4) {
+      chunks.push(invoices.slice(i, i + 4));
+    }
+
+    return (
+      <div className="w-full print:w-full space-y-6 print:space-y-0">
+        {chunks.map((chunk, chunkIdx) => {
+          const isLastPage = chunkIdx === chunks.length - 1;
+          return (
+            <div
+              key={`a4-page-${chunkIdx}`}
+              id="pure-a4-invoice-sheet"
+              className={`relative bg-white text-slate-900 border border-slate-400 font-sans box-border select-none mx-auto overflow-hidden w-[210mm] h-[295mm] min-w-[210mm] max-w-[210mm] min-h-[295mm] max-h-[295mm] p-[3mm] shadow-md print:shadow-none print:border-none print:p-[3mm] flex items-center justify-center ${
+                !isLastPage ? "print:break-after-page" : ""
+              }`}
+              style={{
+                pageBreakInside: "avoid",
+                breakInside: "avoid",
+                pageBreakAfter: !isLastPage ? "always" : "auto",
+                breakAfter: !isLastPage ? "page" : "auto",
+              }}
+            >
+              <InvoicePrintableA4Sheet
+                invoices={chunk}
+                copyLabel={copyLabel}
+                schoolProfile={schoolProfile}
+              />
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // Dual A5 Landscape (Student + School side-by-side on 1 A5 sheet per student)
   return (
     <div className="w-full print:w-full space-y-4 print:space-y-0">
-      {invoices.map((inv, index) => (
-        <div
-          key={inv.studentId || index}
-          className={`w-full flex justify-center ${
-            index < invoices.length - 1 ? "print:break-after-page" : ""
-          }`}
-          style={{
-            pageBreakAfter: index < invoices.length - 1 ? "always" : "auto",
-            breakAfter: index < invoices.length - 1 ? "page" : "auto",
-          }}
-        >
-          <InvoicePrintableView data={inv} copyType={copyType} schoolProfile={schoolProfile} />
-        </div>
-      ))}
+      {invoices.map((inv, index) => {
+        const isLastPage = index === invoices.length - 1;
+        return (
+          <div
+            key={inv.studentId || inv.invoiceNumber || index}
+            className={`w-full flex justify-center ${
+              !isLastPage ? "print:break-after-page" : ""
+            }`}
+            style={{
+              pageBreakAfter: !isLastPage ? "always" : "auto",
+              breakAfter: !isLastPage ? "page" : "auto",
+            }}
+          >
+            <InvoicePrintableView data={inv} copyType={copyType} schoolProfile={schoolProfile} />
+          </div>
+        );
+      })}
     </div>
   );
 }

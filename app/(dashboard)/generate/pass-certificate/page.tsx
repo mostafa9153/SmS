@@ -23,13 +23,23 @@ import {
   MapPin,
   Calendar,
   Search,
-  Sparkles,
-  Award,
   CheckCircle2,
-  FileText,
   GraduationCap,
+  Eye,
+  RotateCcw,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import {
+  getDocumentSequence,
+  saveDocumentSequence,
+  formatDocumentNumber,
+} from "@/lib/utils/document-sequence";
+import { PrintHistoryModal } from "@/components/ui/print-history-modal";
+import { recordPrintBatch } from "@/lib/utils/print-history";
+import {
+  recordPrintedCertificate,
+  buildPassCertInsert,
+} from "@/lib/utils/certificate-registry";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -58,6 +68,7 @@ function PassCertificateGeneratorContent() {
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
+  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("pass-certificate", currentYear));
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -69,10 +80,10 @@ function PassCertificateGeneratorContent() {
 
   // Pass Certificate Master State (Strictly A5)
   const [cert, setCert] = useState<PassCertificateData>(() => ({
-    certificateNo: `MHS/POC/${currentYear}/0036`,
+    certificateNo: formatDocumentNumber("pass-certificate", getDocumentSequence("pass-certificate", currentYear), currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
-    studentId: "MHS-2026-0036",
+    studentId: `MHS-${currentYear}-0001`,
     studentName: "Synthia Sanam",
     gender: "Female",
     fatherName: "Md. Ruhul Amin",
@@ -94,6 +105,48 @@ function PassCertificateGeneratorContent() {
       "To the best of my knowledge, she bears an exemplary moral character and upright conduct during her academic tenure. I wish her every success and prosperity in all future academic pursuits and career endeavors.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
   }));
+
+  const handleReset = () => {
+    setSelectedStudent(null);
+    setStudentSearch("");
+    const seq = getDocumentSequence("pass-certificate", currentYear);
+    setCert({
+      certificateNo: formatDocumentNumber("pass-certificate", seq, currentYear),
+      issueDate: getLiveDate(),
+      copyType: "Original",
+      studentId: `MHS-${currentYear}-0001`,
+      studentName: "Synthia Sanam",
+      gender: "Female",
+      fatherName: "Md. Ruhul Amin",
+      village: "Marigachi",
+      postOffice: "Marigachi",
+      policeStation: "Mathurapur",
+      district: "South 24 Parganas",
+      pincode: "743349",
+      admissionYear: String(currentYear - 5),
+      admissionClass: "V",
+      passingYear: String(currentYear),
+      passedClass: "X",
+      eligibleForClass: "XI",
+      isCompletedOrPassedOut: true,
+      dateOfBirth: "2010-08-15",
+      dateOfBirthWords: "Fifteenth August, 2010",
+      conduct: "good moral character",
+      remarks:
+        "To the best of my knowledge, she bears an exemplary moral character and upright conduct during her academic tenure. I wish her every success and prosperity in all future academic pursuits and career endeavors.",
+      headmasterTitle: schoolProfile ? getEffectiveHeadTitle(schoolProfile) : "Teacher-in-Charge / Headmaster",
+    });
+  };
+
+  // Auto-sync sequence when year rolls over or on mount
+  useEffect(() => {
+    const seq = getDocumentSequence("pass-certificate", currentYear);
+    setCertSeq(seq);
+    setCert((prev) => ({
+      ...prev,
+      certificateNo: formatDocumentNumber("pass-certificate", seq, currentYear),
+    }));
+  }, [currentYear]);
 
   // Auto-fill address components from free-text student address
   function parseAddress(addr?: string) {
@@ -140,7 +193,7 @@ function PassCertificateGeneratorContent() {
       isCompletedOrPassedOut: isPassedOutStatus,
       dateOfBirth: dobVal,
       dateOfBirthWords: dobWords,
-      certificateNo: `MHS/POC/${currentYear}/${s.presentRoll ? String(s.presentRoll).padStart(4, "0") : "0001"}`,
+      certificateNo: prev.certificateNo || formatDocumentNumber("pass-certificate", certSeq, currentYear),
       remarks: `To the best of my knowledge, ${pronounSubject.toLowerCase()} bears an exemplary moral character and upright conduct during ${pronounPossessive} academic tenure. I wish ${pronounObject} every success and prosperity in all future academic pursuits and career endeavors.`,
     }));
   }
@@ -199,8 +252,29 @@ function PassCertificateGeneratorContent() {
     }));
   }
 
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
   const handlePrint = () => {
+    const nextSeq = certSeq + 1;
+    saveDocumentSequence("pass-certificate", nextSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "pass-certificate",
+        mode: "single",
+        startSerial: certSeq,
+        endSerial: certSeq,
+        formattedStart: cert.certificateNo,
+        formattedEnd: cert.certificateNo,
+        count: 1,
+        classInfo: `${cert.studentName} (Passed: ${cert.passedClass})`,
+      },
+      currentYear
+    );
+    // Persist printed certificate to database registry & local cache
+    recordPrintedCertificate(buildPassCertInsert(cert, String(currentYear)));
+
+    setCertSeq(nextSeq);
     setCert((prev) => ({
       ...prev,
       issueDate: getLiveDate(),
@@ -226,18 +300,9 @@ function PassCertificateGeneratorContent() {
             <GraduationCap className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              <span>Pass Out &amp; Completion Certificate</span>
-              <Badge
-                variant="outline"
-                className="text-[10px] bg-teal-500/10 text-teal-700 dark:text-teal-300 font-mono"
-              >
-                Class V – XII
-              </Badge>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Pass Out &amp; Completion Certificate
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Official academic completion and promotion certificate studio for passout and continuing students.
-            </p>
           </div>
         </div>
 
@@ -261,15 +326,21 @@ function PassCertificateGeneratorContent() {
             ))}
           </div>
 
-          {/* Strictly A5 Format Badge */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 text-xs font-bold shadow-2xs">
-            <FileText className="h-3.5 w-3.5 text-emerald-600" />
-            <span>Pure A5 Full-Bleed</span>
-          </div>
+          {/* Undo Last Print Button (Left of Print) */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsHistoryOpen(true)}
+            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+            title="View print history and undo certificate serials"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Undo Last Print</span>
+          </Button>
 
           <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#0f766e] hover:bg-[#0f766e]/90 text-white shadow-xs cursor-pointer"
+            className="gap-2 text-xs font-bold bg-[#0f766e] hover:bg-[#0f766e]/90 text-white shadow-xs cursor-pointer rounded-xl h-9 px-3.5"
           >
             <Printer className="h-4 w-4" />
             <span>Print Certificate (A5)</span>
@@ -566,13 +637,18 @@ function PassCertificateGeneratorContent() {
         {/* RIGHT COLUMN: Live Print-Ready Certificate Preview */}
         <div className="xl:col-span-7 space-y-4 print:w-full print:m-0 print:p-0">
           <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-teal-600" />
-              Live Pass Out Certificate Preview (A5 Portrait &bull; 148 &times; 210 mm)
-            </span>
+            <div className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <span className="text-base font-semibold tracking-tight text-foreground">
+                Preview
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+                A5 Portrait
+              </span>
+            </div>
 
             {/* Scale slider */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
               <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
               {[0.9, 1.0, 1.1].map((s) => (
                 <button
@@ -684,6 +760,20 @@ function PassCertificateGeneratorContent() {
           }
         }
       `}</style>
+
+      {/* Print Batch History & Selective Undo Modal */}
+      <PrintHistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        docType="pass-certificate"
+        onUndoBatch={(newStart) => {
+          setCertSeq(newStart);
+          setCert((prev) => ({
+            ...prev,
+            certificateNo: formatDocumentNumber("pass-certificate", newStart, currentYear),
+          }));
+        }}
+      />
     </div>
   );
 }
