@@ -682,54 +682,40 @@ function AdmissionFormGeneratorContent() {
                   </button>
                 </div>
 
-                {/* Serial Prefix & Numbering Controls */}
+                {/* Serial Numbering Controls */}
                 <div className="p-3.5 bg-muted/30 rounded-xl border border-border/70 space-y-3">
-                  {/* Serial Prefix Format (Locked) */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-bold text-foreground flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Lock className="h-3 w-3 text-muted-foreground" />
-                        <span>Serial Prefix Format</span>
-                      </span>
-                      <span className="text-[9.5px] bg-muted-foreground/10 text-muted-foreground font-mono font-bold px-1.5 py-0.5 rounded border border-border/60">
-                        System Standard (Locked)
-                      </span>
-                    </Label>
-                    <div className="relative flex items-center">
-                      <Input
-                        value={serialPrefix}
-                        disabled
-                        readOnly
-                        className="h-8 text-xs font-mono font-bold uppercase bg-muted/70 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
-                      />
-                      <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/70 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  {/* Start Serial No. (Auto Continuous Sequence - Locked with Undo Support) */}
+                  {/* Start Serial No. (Auto Continuous Sequence - Locked with Permanent Undo Button) */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <Label className="text-[11px] font-bold flex items-center gap-1.5 text-foreground">
-                        <Hash className="h-3 w-3 text-primary" />
-                        <span>Start Serial No.</span>
+                        <Hash className="h-3.5 w-3.5 text-primary" />
+                        <span>Current Start Serial No.</span>
                       </Label>
-                      <div className="flex items-center gap-2">
-                        {prevStartSerial !== null && prevStartSerial !== startSerial && (
-                          <button
-                            type="button"
-                            onClick={handleUndoLastBatch}
-                            title={`Revert back to Serial ${formatFormNumber(serialPrefix, prevStartSerial, 4)}`}
-                            className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-2xs"
-                          >
-                            <Undo2 className="h-3 w-3" />
-                            <span>Undo Print ({formatFormNumber(serialPrefix, prevStartSerial, 4)})</span>
-                          </button>
-                        )}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleUndoLastBatch}
+                          disabled={!prevStartSerial || prevStartSerial === startSerial}
+                          title={
+                            prevStartSerial
+                              ? `Revert back to Serial ${formatFormNumber(serialPrefix, prevStartSerial, 4)}`
+                              : "No previous print batch to undo"
+                          }
+                          className={cn(
+                            "text-[10.5px] px-2.5 py-1 rounded-lg font-bold transition-all flex items-center gap-1 shadow-2xs cursor-pointer",
+                            prevStartSerial && prevStartSerial !== startSerial
+                              ? "bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 dark:text-amber-300 border border-amber-500/40 active:scale-95"
+                              : "bg-muted text-muted-foreground/40 border border-border/50 cursor-not-allowed"
+                          )}
+                        >
+                          <Undo2 className="h-3 w-3" />
+                          <span>Undo Last Print</span>
+                        </button>
                         <button
                           type="button"
                           onClick={handleResetSerialToOne}
-                          title="Reset serial number sequence to 0001 for this year"
-                          className="text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer flex items-center gap-1"
+                          title="Reset sequence to 0001 for this year"
+                          className="text-[10px] px-2 py-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted border border-border/60 transition-colors cursor-pointer flex items-center gap-1"
                         >
                           <RefreshCw className="h-2.5 w-2.5" />
                           <span>Reset</span>
@@ -739,17 +725,17 @@ function AdmissionFormGeneratorContent() {
 
                     <div className="relative flex items-center">
                       <Input
-                        value={`${formatFormNumber(serialPrefix, startSerial, 4)}  (#${startSerial})`}
+                        value={formatFormNumber(serialPrefix, startSerial, 4)}
                         disabled
                         readOnly
-                        className="h-8 text-xs font-mono font-bold uppercase bg-muted/70 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
+                        className="h-9 text-xs sm:text-sm font-mono font-bold uppercase bg-muted/70 text-primary cursor-not-allowed select-none pr-8 border-dashed"
                       />
                       <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/70 pointer-events-none" />
                     </div>
 
                     <p className="text-[10px] text-muted-foreground flex items-center justify-between">
-                      <span>✓ Auto-sequenced (Locked)</span>
-                      <span>4-digit padding (0001, 0002...)</span>
+                      <span>✓ Auto-sequenced per batch (Locked)</span>
+                      <span>4-digit format ({serialPrefix}0001)</span>
                     </p>
                   </div>
 
