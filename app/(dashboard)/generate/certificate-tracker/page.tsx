@@ -8,30 +8,22 @@ import {
   CheckCircle2,
   XCircle,
   Award,
-  Calendar,
-  User,
-  Users,
-  Building,
   RefreshCw,
   Download,
-  Filter,
   Eye,
   Copy,
   Check,
   FileCheck,
-  AlertTriangle,
-  ExternalLink,
   GraduationCap,
   Sparkles,
   Layers,
-  BarChart3,
-  ChevronRight,
-  Printer,
+  ArrowRight,
+  X,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Dialog,
@@ -65,7 +57,6 @@ export default function CertificateTrackerPage() {
   const [stats, setStats] = useState<CertificateStats | null>(null);
   const [certificates, setCertificates] = useState<DBCertificateRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDbSynced, setIsDbSynced] = useState(true);
 
   // Table Filters
   const [tableSearch, setTableSearch] = useState("");
@@ -74,7 +65,7 @@ export default function CertificateTrackerPage() {
   const [sectionFilter, setSectionFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // Selected Certificate for Detail Modal
+  // Detail Modal & Copy
   const [selectedCert, setSelectedCert] = useState<DBCertificateRow | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -88,10 +79,8 @@ export default function CertificateTrackerPage() {
       const statsData = await statsRes.json();
       if (statsRes.ok && statsData.stats && statsData.stats.totalCertificates > 0) {
         setStats(statsData.stats);
-        setIsDbSynced(true);
       } else {
         setStats(getLocalCertificateStats());
-        setIsDbSynced(false);
       }
 
       // 2. Fetch Certificates from DB
@@ -100,14 +89,11 @@ export default function CertificateTrackerPage() {
       if (listRes.ok && Array.isArray(listData.data) && listData.data.length > 0) {
         setCertificates(listData.data);
       } else {
-        const localList = getLocalCachedCertificates();
-        setCertificates(localList);
+        setCertificates(getLocalCachedCertificates());
       }
-    } catch (err) {
-      console.warn("Using local cache fallback for certificates:", err);
+    } catch {
       setStats(getLocalCertificateStats());
       setCertificates(getLocalCachedCertificates());
-      setIsDbSynced(false);
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +102,6 @@ export default function CertificateTrackerPage() {
   useEffect(() => {
     loadData();
 
-    // Listen for live certificate prints in current window
     const handleCertRecorded = () => {
       loadData();
     };
@@ -163,7 +148,7 @@ export default function CertificateTrackerPage() {
               checked: true,
               valid: false,
               certificate: null,
-              message: `No certificate found matching '${term}'`,
+              message: `No record found for '${term}'`,
             });
           }
         }
@@ -172,7 +157,7 @@ export default function CertificateTrackerPage() {
           checked: true,
           valid: false,
           certificate: null,
-          message: e?.message || "Failed to verify certificate",
+          message: e?.message || "Verification request failed",
         });
       }
     });
@@ -183,19 +168,18 @@ export default function CertificateTrackerPage() {
     const newStatus = cert.status === "Valid" ? "Cancelled" : "Valid";
     const confirmMsg =
       newStatus === "Cancelled"
-        ? `Are you sure you want to CANCEL Certificate ${cert.certificate_no}? It will be flagged as invalid during verification.`
+        ? `Cancel Certificate ${cert.certificate_no}? It will be marked as invalid.`
         : `Re-validate Certificate ${cert.certificate_no}?`;
 
     if (!confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch(`/api/certificates/${cert.id}`, {
+      await fetch(`/api/certificates/${cert.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
 
-      // Update local state regardless
       setCertificates((prev) =>
         prev.map((c) => (c.id === cert.id ? { ...c, status: newStatus } : c))
       );
@@ -219,19 +203,11 @@ export default function CertificateTrackerPage() {
   // Filtered List
   const filteredCertificates = useMemo(() => {
     return certificates.filter((c) => {
-      // Type Filter
       if (typeFilter !== "ALL" && c.certificate_type !== typeFilter) return false;
-
-      // Class Filter
       if (classFilter !== "ALL" && c.student_class !== classFilter) return false;
-
-      // Section Filter
       if (sectionFilter !== "ALL" && c.section !== sectionFilter) return false;
-
-      // Status Filter
       if (statusFilter !== "ALL" && c.status !== statusFilter) return false;
 
-      // Search Filter
       if (tableSearch.trim()) {
         const q = tableSearch.toLowerCase().trim();
         const matchNo = c.certificate_no.toLowerCase().includes(q);
@@ -245,14 +221,12 @@ export default function CertificateTrackerPage() {
     });
   }, [certificates, typeFilter, classFilter, sectionFilter, statusFilter, tableSearch]);
 
-  // Copy to clipboard helper
   const handleCopyNo = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(text);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Export CSV
   const handleExportCSV = () => {
     if (!filteredCertificates.length) return;
 
@@ -267,8 +241,6 @@ export default function CertificateTrackerPage() {
       "Father Name",
       "Issue Date",
       "Status",
-      "Session",
-      "Copy Type",
     ];
 
     const rows = filteredCertificates.map((c) => [
@@ -282,8 +254,6 @@ export default function CertificateTrackerPage() {
       `"${c.father_name || ""}"`,
       `"${c.issue_date}"`,
       `"${c.status}"`,
-      `"${c.academic_session}"`,
-      `"${c.copy_type}"`,
     ]);
 
     const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -291,7 +261,7 @@ export default function CertificateTrackerPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Certificates_Registry_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Certificates_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -300,13 +270,13 @@ export default function CertificateTrackerPage() {
   function getCertTypeLabel(type: CertificateType): string {
     switch (type) {
       case "character-certificate":
-        return "Character Certificate";
+        return "Character";
       case "pass-certificate":
-        return "Pass Out Certificate";
+        return "Pass Out";
       case "transfer-certificate":
-        return "Transfer Certificate (TC)";
+        return "Transfer (TC)";
       case "kanyashree":
-        return "Kanyashree Certificate";
+        return "Kanyashree";
       default:
         return type;
     }
@@ -316,58 +286,53 @@ export default function CertificateTrackerPage() {
     switch (type) {
       case "character-certificate":
         return (
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30 text-[10.5px]">
-            Character Cert
-          </Badge>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+            Character
+          </span>
         );
       case "pass-certificate":
         return (
-          <Badge variant="outline" className="bg-sky-500/10 text-sky-800 dark:text-sky-300 border-sky-500/30 text-[10.5px]">
-            Pass Out Cert
-          </Badge>
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
+            Pass Out
+          </span>
         );
       case "transfer-certificate":
         return (
-          <Badge variant="outline" className="bg-indigo-500/10 text-indigo-800 dark:text-indigo-300 border-indigo-500/30 text-[10.5px]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
             Transfer (TC)
-          </Badge>
+          </span>
         );
       case "kanyashree":
         return (
-          <Badge variant="outline" className="bg-purple-500/10 text-purple-800 dark:text-purple-300 border-purple-500/30 text-[10.5px]">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
             Kanyashree
-          </Badge>
+          </span>
         );
     }
   }
 
-  const totalCerts = stats?.totalCertificates || 0;
+  const totalCerts = stats?.totalCertificates || certificates.length;
 
   return (
-    <div className="p-4 sm:p-6 max-w-[1700px] mx-auto space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 shadow-xs">
-              <Award className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                Certificate Tracker &amp; Verification
-                <Badge variant="secondary" className="font-mono text-xs">
-                  {totalCerts} Issued
-                </Badge>
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Centralized registry to verify validity, visualize class distributions, and track all student certificates
-              </p>
-            </div>
+    <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
+      {/* Clean Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3.5">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20">
+            <Award className="h-4 w-4" />
+          </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              Certificate Tracker
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+                {totalCerts}
+              </span>
+            </h1>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -390,71 +355,32 @@ export default function CertificateTrackerPage() {
             Export CSV
           </Button>
 
-          {/* Quick Generator Links */}
-          <div className="flex items-center gap-1.5 pl-2 border-l">
-            <Link
-              href="/generate/certificate"
-              className="inline-flex items-center justify-center rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-8 px-3 bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-xs"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Issue Certificate
-            </Link>
-          </div>
+          <Link
+            href="/generate/certificate"
+            className="inline-flex items-center justify-center rounded-md text-xs font-semibold transition-colors h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-2xs"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Issue Certificate
+          </Link>
         </div>
       </div>
 
-      {/* Database Setup Notice if empty or fallback */}
-      {!isDbSynced && (
-        <div className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 text-xs text-amber-900 dark:text-amber-200">
-          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <p className="font-semibold">Local Storage Safe Mode Active</p>
-            <p className="text-muted-foreground text-[11px]">
-              Certificates printed from your browser are safely stored in local client cache. Run the provided Supabase migration script (<code>certificates_registry</code>) to synchronize records across all admin users and devices.
-            </p>
+      {/* Clean Unified Verification Bar */}
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2 bg-card p-2 rounded-xl border border-border/70 shadow-2xs">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search Certificate No (e.g. MHS/CC/2026/0001) or Student ID to verify..."
+              value={verifyTerm}
+              onChange={(e) => setVerifyTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleVerify();
+              }}
+              className="pl-9 h-9 text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
+            />
           </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SECTION 1: INSTANT CERTIFICATE VERIFICATION                                */}
-      {/* ========================================================================= */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 pt-4">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            Instant Certificate Verification
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Verify certificate authenticity by entering the Certificate Number (e.g. MHS/CC/2026/0001) or Student ID
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Enter Certificate Number (e.g. MHS/CC/2026/0001) or Student ID..."
-                value={verifyTerm}
-                onChange={(e) => setVerifyTerm(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleVerify();
-                }}
-                className="pl-9 h-9 text-xs font-mono"
-              />
-            </div>
-            <Button
-              onClick={() => handleVerify()}
-              disabled={isVerifying || !verifyTerm.trim()}
-              className="h-9 text-xs px-5 gap-1.5 shrink-0"
-            >
-              {isVerifying ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ShieldCheck className="h-3.5 w-3.5" />
-              )}
-              Verify Now
-            </Button>
+          <div className="flex items-center gap-1.5 shrink-0">
             {verificationResult.checked && (
               <Button
                 variant="ghost"
@@ -463,609 +389,531 @@ export default function CertificateTrackerPage() {
                   setVerifyTerm("");
                   setVerificationResult({ checked: false, valid: false, certificate: null });
                 }}
-                className="h-9 text-xs"
+                className="h-8 text-xs text-muted-foreground px-2"
               >
-                Clear
+                <X className="h-3.5 w-3.5" />
               </Button>
             )}
-          </div>
-
-          {/* Verification Result Card */}
-          {verificationResult.checked && (
-            <div
-              className={cn(
-                "p-4 rounded-xl border transition-all duration-200",
-                verificationResult.valid && verificationResult.certificate
-                  ? "bg-emerald-500/5 border-emerald-500/30 text-foreground"
-                  : verificationResult.certificate && !verificationResult.valid
-                  ? "bg-rose-500/5 border-rose-500/30 text-foreground"
-                  : "bg-amber-500/5 border-amber-500/30 text-foreground"
-              )}
+            <Button
+              onClick={() => handleVerify()}
+              disabled={isVerifying || !verifyTerm.trim()}
+              size="sm"
+              className="h-8 text-xs px-4 gap-1.5"
             >
-              {verificationResult.certificate ? (
-                <div className="space-y-3">
-                  {/* Status Banner */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
-                    <div className="flex items-center gap-2">
-                      {verificationResult.valid ? (
-                        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                          <CheckCircle2 className="h-5 w-5" />
-                          <span>VERIFIED &amp; AUTHENTIC</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400 font-bold text-sm">
-                          <XCircle className="h-5 w-5" />
-                          <span>INVALIDATED / CANCELLED CERTIFICATE</span>
-                        </div>
-                      )}
-                      <span className="text-muted-foreground">•</span>
-                      <span className="font-mono font-semibold text-xs">
-                        {verificationResult.certificate.certificate_no}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {getCertTypeBadge(verificationResult.certificate.certificate_type)}
-                      <Badge variant="secondary" className="text-[10px]">
-                        Session {verificationResult.certificate.academic_session}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedCert(verificationResult.certificate);
-                          setIsDetailModalOpen(true);
-                        }}
-                        className="h-7 text-xs gap-1"
-                      >
-                        <Eye className="h-3 w-3" />
-                        Full Details
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Student Details Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-background/60 p-3 rounded-lg border border-border/70">
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Student Name</span>
-                      <span className="font-bold text-foreground">
-                        {verificationResult.certificate.student_name}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Student ID / PEN</span>
-                      <span className="font-bold font-mono text-foreground">
-                        {verificationResult.certificate.student_id || "N/A"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Class &amp; Section</span>
-                      <span className="font-bold font-mono text-foreground">
-                        Class {verificationResult.certificate.student_class}
-                        {verificationResult.certificate.section ? ` (${verificationResult.certificate.section})` : ""}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Father / Guardian</span>
-                      <span className="font-bold text-foreground">
-                        {verificationResult.certificate.father_name || "N/A"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Issue Date</span>
-                      <span className="font-mono text-foreground">
-                        {verificationResult.certificate.issue_date}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Copy Type</span>
-                      <span className="font-medium text-foreground">
-                        {verificationResult.certificate.copy_type}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Printed By</span>
-                      <span className="text-muted-foreground truncate block">
-                        {verificationResult.certificate.printed_by || "Administrator"}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Status Control</span>
-                      <button
-                        onClick={() => handleStatusToggle(verificationResult.certificate!)}
-                        className={cn(
-                          "text-[11px] font-semibold underline cursor-pointer",
-                          verificationResult.certificate.status === "Valid"
-                            ? "text-rose-600 hover:text-rose-700"
-                            : "text-emerald-600 hover:text-emerald-700"
-                        )}
-                      >
-                        {verificationResult.certificate.status === "Valid"
-                          ? "Mark as Cancelled"
-                          : "Re-validate Certificate"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              {isVerifying ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400">
-                  <XCircle className="h-5 w-5 shrink-0" />
-                  <div>
-                    <p className="font-bold text-xs">No Record Found</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {verificationResult.message ||
-                        `No certificate in the registry matches '${verifyTerm}'. Please check the certificate number and try again.`}
-                    </p>
-                  </div>
-                </div>
+                <ShieldCheck className="h-3.5 w-3.5" />
               )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ========================================================================= */}
-      {/* SECTION 2: DATA VISUALISATION & ANALYTICS                                  */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {/* Total Certificates */}
-        <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1">
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-            <span>Total Issued</span>
-            <Award className="h-4 w-4 text-primary" />
-          </span>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {stats?.totalCertificates || 0}
-          </p>
-          <div className="flex items-center gap-1.5 text-[10px]">
-            <span className="text-emerald-600 font-semibold">{stats?.validCount || 0} valid</span>
-            <span className="text-muted-foreground">•</span>
-            <span className="text-rose-600 font-semibold">{stats?.cancelledCount || 0} cancelled</span>
+              Verify
+            </Button>
           </div>
         </div>
 
-        {/* Character Certificates */}
-        <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1">
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-            <span>Character Certs</span>
-            <FileCheck className="h-4 w-4 text-amber-500" />
-          </span>
-          <p className="text-2xl font-bold font-mono text-amber-600">
+        {/* Verification Card Result (Only shown when searching) */}
+        {verificationResult.checked && (
+          <div
+            className={cn(
+              "p-3.5 rounded-xl border transition-all animate-in fade-in-50 duration-150",
+              verificationResult.valid && verificationResult.certificate
+                ? "bg-emerald-500/5 border-emerald-500/30"
+                : verificationResult.certificate && !verificationResult.valid
+                ? "bg-rose-500/5 border-rose-500/30"
+                : "bg-muted/40 border-border"
+            )}
+          >
+            {verificationResult.certificate ? (
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    {verificationResult.valid ? (
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                        <CheckCircle2 className="h-4 w-4" />
+                        VALID CERTIFICATE
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold text-xs">
+                        <XCircle className="h-4 w-4" />
+                        CANCELLED / INVALID
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">•</span>
+                    <span className="font-mono font-bold text-xs text-foreground">
+                      {verificationResult.certificate.certificate_no}
+                    </span>
+                    {getCertTypeBadge(verificationResult.certificate.certificate_type)}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleStatusToggle(verificationResult.certificate!)}
+                      className={cn(
+                        "text-[11px] font-semibold underline cursor-pointer",
+                        verificationResult.certificate.status === "Valid"
+                          ? "text-rose-600 hover:text-rose-700"
+                          : "text-emerald-600 hover:text-emerald-700"
+                      )}
+                    >
+                      {verificationResult.certificate.status === "Valid"
+                        ? "Cancel Certificate"
+                        : "Re-validate"}
+                    </button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedCert(verificationResult.certificate);
+                        setIsDetailModalOpen(true);
+                      }}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Eye className="h-3 w-3" />
+                      View Full Details
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Student Name</span>
+                    <span className="font-bold text-foreground">
+                      {verificationResult.certificate.student_name}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Student ID / PEN</span>
+                    <span className="font-mono text-foreground font-semibold">
+                      {verificationResult.certificate.student_id || "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Class &amp; Section</span>
+                    <span className="font-semibold text-foreground">
+                      Class {verificationResult.certificate.student_class}
+                      {verificationResult.certificate.section ? ` (${verificationResult.certificate.section})` : ""}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-muted-foreground block">Issue Date</span>
+                    <span className="font-mono text-foreground">
+                      {verificationResult.certificate.issue_date}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground text-xs py-1">
+                <XCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                <span>
+                  {verificationResult.message || `No certificate found matching '${verifyTerm}'`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Clean Metric Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div
+          onClick={() => setTypeFilter("ALL")}
+          className={cn(
+            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-primary/50",
+            typeFilter === "ALL" ? "border-primary/60 ring-1 ring-primary/20 shadow-2xs" : "border-border/70"
+          )}
+        >
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-[11px] font-semibold">Total Issued</span>
+            <Award className="h-3.5 w-3.5 text-primary" />
+          </div>
+          <div className="text-xl font-bold font-mono text-foreground">{totalCerts}</div>
+        </div>
+
+        <div
+          onClick={() => setTypeFilter((prev) => (prev === "character-certificate" ? "ALL" : "character-certificate"))}
+          className={cn(
+            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-amber-500/50",
+            typeFilter === "character-certificate" ? "border-amber-500 ring-1 ring-amber-500/20 shadow-2xs" : "border-border/70"
+          )}
+        >
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-[11px] font-semibold">Character</span>
+            <FileCheck className="h-3.5 w-3.5 text-amber-500" />
+          </div>
+          <div className="text-xl font-bold font-mono text-amber-600">
             {stats?.byType.character || 0}
-          </p>
-          <span className="text-[10px] text-muted-foreground">MP &amp; HS Passouts</span>
+          </div>
         </div>
 
-        {/* Pass Out Certificates */}
-        <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1">
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-            <span>Pass Out Certs</span>
-            <GraduationCap className="h-4 w-4 text-sky-500" />
-          </span>
-          <p className="text-2xl font-bold font-mono text-sky-600">
+        <div
+          onClick={() => setTypeFilter((prev) => (prev === "pass-certificate" ? "ALL" : "pass-certificate"))}
+          className={cn(
+            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-sky-500/50",
+            typeFilter === "pass-certificate" ? "border-sky-500 ring-1 ring-sky-500/20 shadow-2xs" : "border-border/70"
+          )}
+        >
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-[11px] font-semibold">Pass Out</span>
+            <GraduationCap className="h-3.5 w-3.5 text-sky-500" />
+          </div>
+          <div className="text-xl font-bold font-mono text-sky-600">
             {stats?.byType.pass || 0}
-          </p>
-          <span className="text-[10px] text-muted-foreground">Class completion / Promotion</span>
+          </div>
         </div>
 
-        {/* Transfer Certificates (TC) */}
-        <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1">
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-            <span>Transfer (TC)</span>
-            <Layers className="h-4 w-4 text-indigo-500" />
-          </span>
-          <p className="text-2xl font-bold font-mono text-indigo-600">
+        <div
+          onClick={() => setTypeFilter((prev) => (prev === "transfer-certificate" ? "ALL" : "transfer-certificate"))}
+          className={cn(
+            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-indigo-500/50",
+            typeFilter === "transfer-certificate" ? "border-indigo-500 ring-1 ring-indigo-500/20 shadow-2xs" : "border-border/70"
+          )}
+        >
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-[11px] font-semibold">Transfer (TC)</span>
+            <Layers className="h-3.5 w-3.5 text-indigo-500" />
+          </div>
+          <div className="text-xl font-bold font-mono text-indigo-600">
             {stats?.byType.transfer || 0}
-          </p>
-          <span className="text-[10px] text-muted-foreground">School leaving certificates</span>
+          </div>
         </div>
 
-        {/* Kanyashree Certificates */}
-        <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1">
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center justify-between">
-            <span>Kanyashree</span>
-            <Sparkles className="h-4 w-4 text-purple-500" />
-          </span>
-          <p className="text-2xl font-bold font-mono text-purple-600">
+        <div
+          onClick={() => setTypeFilter((prev) => (prev === "kanyashree" ? "ALL" : "kanyashree"))}
+          className={cn(
+            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-purple-500/50",
+            typeFilter === "kanyashree" ? "border-purple-500 ring-1 ring-purple-500/20 shadow-2xs" : "border-border/70"
+          )}
+        >
+          <div className="flex items-center justify-between text-muted-foreground mb-1">
+            <span className="text-[11px] font-semibold">Kanyashree</span>
+            <Sparkles className="h-3.5 w-3.5 text-purple-500" />
+          </div>
+          <div className="text-xl font-bold font-mono text-purple-600">
             {stats?.byType.kanyashree || 0}
-          </p>
-          <span className="text-[10px] text-muted-foreground">K1 &amp; K2 Scholarship</span>
+          </div>
         </div>
       </div>
 
-      {/* Class & Section Distribution Visualizer */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-2 pt-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                <BarChart3 className="h-3.5 w-3.5 text-primary" />
-                Class-Wise Certificate Distribution
-              </CardTitle>
-            </div>
-            <span className="text-xs text-muted-foreground">
-              Based on {totalCerts} total records
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-2 pb-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
-            {STANDARD_CLASSES.map((cls) => {
-              const count = stats?.byClass[cls] || 0;
-              const pct = totalCerts > 0 ? Math.round((count / totalCerts) * 100) : 0;
-              return (
-                <div
-                  key={cls}
-                  onClick={() => setClassFilter((prev) => (prev === cls ? "ALL" : cls))}
+      {/* Class Quick Filters (Clean horizontal pills) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+        <span className="text-[11px] font-semibold text-muted-foreground mr-1 shrink-0">
+          Class:
+        </span>
+        <button
+          onClick={() => setClassFilter("ALL")}
+          className={cn(
+            "px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0 select-none",
+            classFilter === "ALL"
+              ? "bg-foreground text-background font-semibold"
+              : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          All
+        </button>
+        {STANDARD_CLASSES.map((cls) => {
+          const count = stats?.byClass[cls] || 0;
+          const isActive = classFilter === cls;
+          return (
+            <button
+              key={cls}
+              onClick={() => setClassFilter(isActive ? "ALL" : cls)}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-medium transition-all shrink-0 select-none flex items-center gap-1",
+                isActive
+                  ? "bg-primary text-primary-foreground font-semibold shadow-2xs"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span>Class {cls}</span>
+              {count > 0 && (
+                <span
                   className={cn(
-                    "p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none",
-                    classFilter === cls
-                      ? "border-primary bg-primary/10 shadow-xs"
-                      : "border-border/70 hover:border-border hover:bg-muted/30"
+                    "text-[10px] px-1 rounded-full",
+                    isActive ? "bg-primary-foreground/20 text-primary-foreground" : "bg-background text-muted-foreground"
                   )}
                 >
-                  <span className="text-[10.5px] font-semibold text-muted-foreground block">
-                    Class {cls}
-                  </span>
-                  <p className="text-base font-bold font-mono text-foreground mt-0.5">
-                    {count}
-                  </p>
-                  <div className="w-full bg-muted h-1 rounded-full overflow-hidden mt-1.5">
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className="h-full bg-primary rounded-full transition-all duration-300"
-                    />
-                  </div>
-                  <span className="text-[9.5px] text-muted-foreground mt-1 block">{pct}%</span>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* ========================================================================= */}
-      {/* SECTION 3: CERTIFICATES REGISTRY TABLE & FILTERS                           */}
-      {/* ========================================================================= */}
-      <Card className="border-border/80 shadow-xs">
-        <CardHeader className="pb-3 pt-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                Certificates Registry ({filteredCertificates.length})
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Filter and track by student, certificate type, class, and section
-              </CardDescription>
-            </div>
-
-            {/* Clear Filters */}
-            {(typeFilter !== "ALL" || classFilter !== "ALL" || sectionFilter !== "ALL" || statusFilter !== "ALL" || tableSearch) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setTypeFilter("ALL");
-                  setClassFilter("ALL");
-                  setSectionFilter("ALL");
-                  setStatusFilter("ALL");
-                  setTableSearch("");
-                }}
-                className="h-7 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Reset Filters
-              </Button>
-            )}
-          </div>
-
-          {/* Filter Toolbar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 pt-2">
-            {/* Search */}
-            <div className="relative">
+      {/* Registry Data Table */}
+      <div className="rounded-xl border border-border/70 bg-card overflow-hidden shadow-2xs">
+        {/* Table Toolbar */}
+        <div className="p-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-muted/20">
+          <div className="flex items-center gap-2 flex-1">
+            <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search cert no, name, ID..."
+                placeholder="Filter by name, cert no, ID..."
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
-                className="pl-8 text-xs h-8"
+                className="pl-8 text-xs h-8 bg-background"
               />
             </div>
 
-            {/* Type Filter */}
             <CustomSelect
               value={typeFilter}
               onChange={setTypeFilter}
               options={[
-                { label: "All Certificate Types", value: "ALL" },
-                { label: "Character Certificate", value: "character-certificate" },
-                { label: "Pass Out Certificate", value: "pass-certificate" },
-                { label: "Transfer Certificate (TC)", value: "transfer-certificate" },
-                { label: "Kanyashree Certificate", value: "kanyashree" },
+                { label: "All Types", value: "ALL" },
+                { label: "Character", value: "character-certificate" },
+                { label: "Pass Out", value: "pass-certificate" },
+                { label: "Transfer (TC)", value: "transfer-certificate" },
+                { label: "Kanyashree", value: "kanyashree" },
               ]}
-              triggerClassName="h-8 text-xs"
+              triggerClassName="h-8 text-xs w-[130px] bg-background"
             />
 
-            {/* Class Filter */}
-            <CustomSelect
-              value={classFilter}
-              onChange={setClassFilter}
-              options={[
-                { label: "All Classes", value: "ALL" },
-                ...STANDARD_CLASSES.map((cls) => ({ label: `Class ${cls}`, value: cls })),
-              ]}
-              triggerClassName="h-8 text-xs"
-            />
-
-            {/* Section Filter */}
             <CustomSelect
               value={sectionFilter}
               onChange={setSectionFilter}
               options={[
-                { label: "All Sections", value: "ALL" },
-                ...STANDARD_SECTIONS.map((sec) => ({ label: `Section ${sec}`, value: sec })),
+                { label: "All Sec", value: "ALL" },
+                ...STANDARD_SECTIONS.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
               ]}
-              triggerClassName="h-8 text-xs"
+              triggerClassName="h-8 text-xs w-[100px] bg-background"
             />
 
-            {/* Status Filter */}
             <CustomSelect
               value={statusFilter}
               onChange={setStatusFilter}
               options={[
-                { label: "All Statuses", value: "ALL" },
-                { label: "Valid Only", value: "Valid" },
-                { label: "Cancelled Only", value: "Cancelled" },
+                { label: "All Status", value: "ALL" },
+                { label: "Valid", value: "Valid" },
+                { label: "Cancelled", value: "Cancelled" },
               ]}
-              triggerClassName="h-8 text-xs"
+              triggerClassName="h-8 text-xs w-[110px] bg-background"
             />
           </div>
-        </CardHeader>
 
-        <CardContent className="p-0">
-          <div className="overflow-x-auto border-t">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-muted/50 text-[11px] text-muted-foreground uppercase tracking-wider font-semibold border-b">
+          {(typeFilter !== "ALL" || classFilter !== "ALL" || sectionFilter !== "ALL" || statusFilter !== "ALL" || tableSearch) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setTypeFilter("ALL");
+                setClassFilter("ALL");
+                setSectionFilter("ALL");
+                setStatusFilter("ALL");
+                setTableSearch("");
+              }}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0"
+            >
+              Reset Filters
+            </Button>
+          )}
+        </div>
+
+        {/* Table View */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-muted/40 text-[11px] text-muted-foreground uppercase tracking-wider font-semibold border-b">
+              <tr>
+                <th className="py-2.5 px-3.5">Cert No</th>
+                <th className="py-2.5 px-3">Type</th>
+                <th className="py-2.5 px-3">Student</th>
+                <th className="py-2.5 px-3">Class</th>
+                <th className="py-2.5 px-3">Date</th>
+                <th className="py-2.5 px-3 text-center">Status</th>
+                <th className="py-2.5 px-3.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {isLoading ? (
                 <tr>
-                  <th className="py-2.5 px-3">Cert No</th>
-                  <th className="py-2.5 px-3">Type</th>
-                  <th className="py-2.5 px-3">Student Info</th>
-                  <th className="py-2.5 px-3">Class &amp; Sec</th>
-                  <th className="py-2.5 px-3">Issue Date</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
+                  <td colSpan={7} className="py-10 text-center text-muted-foreground">
+                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-1.5 text-primary" />
+                    Loading records...
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                      <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
-                      Loading certificate registry...
+              ) : filteredCertificates.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                    <Award className="h-8 w-8 mx-auto mb-2 opacity-25" />
+                    <p className="font-semibold text-xs text-foreground">No Certificates Found</p>
+                    <p className="text-[11px] mt-0.5 max-w-sm mx-auto">
+                      {certificates.length === 0
+                        ? "No certificates have been issued yet. Print a certificate to start tracking."
+                        : "No records match your selected filters."}
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                filteredCertificates.map((cert) => (
+                  <tr
+                    key={cert.id || cert.certificate_no}
+                    className="hover:bg-muted/30 transition-colors group"
+                  >
+                    {/* Cert No */}
+                    <td className="py-2.5 px-3.5 font-mono font-semibold text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span>{cert.certificate_no}</span>
+                        <button
+                          onClick={() => handleCopyNo(cert.certificate_no)}
+                          title="Copy Certificate Number"
+                          className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          {copiedId === cert.certificate_no ? (
+                            <Check className="h-3 w-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Type Badge */}
+                    <td className="py-2.5 px-3">{getCertTypeBadge(cert.certificate_type)}</td>
+
+                    {/* Student Info */}
+                    <td className="py-2.5 px-3">
+                      <div className="font-semibold text-foreground">{cert.student_name}</div>
+                      <div className="text-[10px] text-muted-foreground font-mono">
+                        {cert.student_id || cert.father_name || "—"}
+                      </div>
+                    </td>
+
+                    {/* Class & Sec */}
+                    <td className="py-2.5 px-3 font-mono">
+                      <span>Class {cert.student_class}</span>
+                      {cert.section && (
+                        <span className="text-muted-foreground ml-1">({cert.section})</span>
+                      )}
+                    </td>
+
+                    {/* Date */}
+                    <td className="py-2.5 px-3 font-mono text-muted-foreground">
+                      {cert.issue_date}
+                    </td>
+
+                    {/* Status */}
+                    <td className="py-2.5 px-3 text-center">
+                      {cert.status === "Valid" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+                          Valid
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-rose-500/10 text-rose-700 dark:text-rose-300">
+                          Cancelled
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="py-2.5 px-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedCert(cert);
+                            setIsDetailModalOpen(true);
+                          }}
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          title="View Details"
+                        >
+                          <Eye className="h-3.5 w-3.5 mr-1" />
+                          View
+                        </Button>
+
+                        <button
+                          onClick={() => handleStatusToggle(cert)}
+                          className={cn(
+                            "text-[10.5px] font-medium px-2 py-1 rounded transition-colors",
+                            cert.status === "Valid"
+                              ? "text-rose-600 hover:bg-rose-500/10"
+                              : "text-emerald-600 hover:bg-emerald-500/10"
+                          )}
+                        >
+                          {cert.status === "Valid" ? "Cancel" : "Re-validate"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : filteredCertificates.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-muted-foreground">
-                      <Award className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      <p className="font-semibold text-xs text-foreground">No Certificates Found</p>
-                      <p className="text-[11px] mt-0.5">
-                        {certificates.length === 0
-                          ? "No certificates have been issued yet. When certificates are printed, they will appear here automatically."
-                          : "No certificates match the selected filters."}
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredCertificates.map((cert) => (
-                    <tr
-                      key={cert.id || cert.certificate_no}
-                      className="hover:bg-muted/40 transition-colors group"
-                    >
-                      {/* Cert No */}
-                      <td className="py-2.5 px-3 font-mono font-bold text-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <span>{cert.certificate_no}</span>
-                          <button
-                            onClick={() => handleCopyNo(cert.certificate_no)}
-                            title="Copy Certificate Number"
-                            className="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            {copiedId === cert.certificate_no ? (
-                              <Check className="h-3 w-3 text-emerald-600" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-                      {/* Type Badge */}
-                      <td className="py-2.5 px-3">
-                        {getCertTypeBadge(cert.certificate_type)}
-                      </td>
-
-                      {/* Student Info */}
-                      <td className="py-2.5 px-3">
-                        <div className="font-bold text-foreground">{cert.student_name}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono flex items-center gap-1.5 mt-0.5">
-                          {cert.student_id && <span>ID: {cert.student_id}</span>}
-                          {cert.father_name && <span>• F: {cert.father_name}</span>}
-                        </div>
-                      </td>
-
-                      {/* Class & Section */}
-                      <td className="py-2.5 px-3 font-mono">
-                        <span className="font-bold">Class {cert.student_class}</span>
-                        {cert.section && (
-                          <span className="text-muted-foreground ml-1">({cert.section})</span>
-                        )}
-                        {cert.roll_no && (
-                          <span className="text-[10px] text-muted-foreground block">
-                            Roll: {cert.roll_no}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Issue Date */}
-                      <td className="py-2.5 px-3 font-mono text-muted-foreground">
-                        {cert.issue_date}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-2.5 px-3 text-center">
-                        {cert.status === "Valid" ? (
-                          <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
-                            Valid
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/30 text-[10px]">
-                            Cancelled
-                          </Badge>
-                        )}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-2.5 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedCert(cert);
-                              setIsDetailModalOpen(true);
-                            }}
-                            className="h-7 w-7 p-0"
-                            title="View Certificate Details"
-                          >
-                            <Eye className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleStatusToggle(cert)}
-                            className={cn(
-                              "h-7 px-2 text-[10.5px]",
-                              cert.status === "Valid"
-                                ? "text-rose-600 hover:text-rose-700 hover:bg-rose-500/10"
-                                : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                            )}
-                            title={cert.status === "Valid" ? "Cancel Certificate" : "Re-validate"}
-                          >
-                            {cert.status === "Valid" ? "Cancel" : "Re-validate"}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* ========================================================================= */}
-      {/* MODAL: CERTIFICATE FULL DETAILS PREVIEW                                    */}
-      {/* ========================================================================= */}
+      {/* Details Modal */}
       {selectedCert && (
         <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-lg">
+            <DialogHeader className="pb-2 border-b">
               <div className="flex items-center gap-2">
                 {getCertTypeBadge(selectedCert.certificate_type)}
-                <Badge
-                  variant={selectedCert.status === "Valid" ? "default" : "destructive"}
-                  className="text-[10.5px]"
+                <span
+                  className={cn(
+                    "text-[10px] font-semibold px-2 py-0.5 rounded-full",
+                    selectedCert.status === "Valid"
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                      : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                  )}
                 >
                   {selectedCert.status}
-                </Badge>
+                </span>
               </div>
               <DialogTitle className="text-base font-bold font-mono mt-1">
                 {selectedCert.certificate_no}
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                Official issued record recorded on {selectedCert.created_at ? new Date(selectedCert.created_at).toLocaleString() : selectedCert.issue_date}
+              <DialogDescription className="text-xs text-muted-foreground">
+                Issued on {selectedCert.issue_date} • {selectedCert.copy_type}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2 text-xs">
-              {/* Student Identification */}
-              <div className="p-3.5 rounded-xl border bg-muted/30 space-y-2">
-                <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5 text-primary" />
-                  Student Information
-                </h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Full Name</span>
-                    <span className="font-bold text-foreground">{selectedCert.student_name}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Student ID / Registration</span>
-                    <span className="font-mono font-semibold">{selectedCert.student_id || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Father / Guardian</span>
-                    <span>{selectedCert.father_name || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Mother</span>
-                    <span>{selectedCert.mother_name || "N/A"}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Class &amp; Section</span>
-                    <span className="font-mono font-bold">
-                      Class {selectedCert.student_class}
-                      {selectedCert.section ? ` - Sec ${selectedCert.section}` : ""}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-muted-foreground block">Roll Number</span>
-                    <span className="font-mono">{selectedCert.roll_no || "N/A"}</span>
-                  </div>
-                  {selectedCert.date_of_birth && (
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Date of Birth</span>
-                      <span className="font-mono">{selectedCert.date_of_birth}</span>
-                    </div>
-                  )}
-                  {selectedCert.gender && (
-                    <div>
-                      <span className="text-[10.5px] text-muted-foreground block">Gender</span>
-                      <span>{selectedCert.gender}</span>
-                    </div>
-                  )}
+            <div className="space-y-3 pt-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 p-3 rounded-lg bg-muted/30 border">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Student Name</span>
+                  <span className="font-bold text-foreground">{selectedCert.student_name}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Student ID</span>
+                  <span className="font-mono font-semibold">{selectedCert.student_id || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Class &amp; Section</span>
+                  <span className="font-mono font-semibold">
+                    Class {selectedCert.student_class}
+                    {selectedCert.section ? ` (${selectedCert.section})` : ""}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Roll No</span>
+                  <span className="font-mono">{selectedCert.roll_no || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Father Name</span>
+                  <span>{selectedCert.father_name || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Session</span>
+                  <span className="font-mono">{selectedCert.academic_session}</span>
                 </div>
               </div>
 
-              {/* Certificate Specific Metadata */}
+              {/* Metadata Details */}
               {selectedCert.metadata && Object.keys(selectedCert.metadata).length > 0 && (
-                <div className="p-3.5 rounded-xl border bg-muted/30 space-y-2">
-                  <h4 className="font-semibold text-foreground text-xs uppercase tracking-wider flex items-center gap-1.5">
-                    <FileCheck className="h-3.5 w-3.5 text-primary" />
-                    Certificate Specifics &amp; Annotations
-                  </h4>
+                <div className="space-y-1.5 p-3 rounded-lg bg-muted/30 border">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                    Certificate Details
+                  </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     {Object.entries(selectedCert.metadata).map(([key, value]) => {
                       if (value === null || value === undefined || value === "") return null;
                       if (typeof value === "object") return null;
                       return (
                         <div key={key} className={key === "remarks" ? "col-span-2" : ""}>
-                          <span className="text-[10.5px] text-muted-foreground capitalize block">
+                          <span className="text-[10px] text-muted-foreground capitalize block">
                             {key.replace(/([A-Z])/g, " $1")}
                           </span>
-                          <span className={cn("text-foreground", key === "remarks" && "italic")}>
-                            {String(value)}
-                          </span>
+                          <span className="text-foreground">{String(value)}</span>
                         </div>
                       );
                     })}
@@ -1073,49 +921,34 @@ export default function CertificateTrackerPage() {
                 </div>
               )}
 
-              {/* Issuance Meta */}
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground border-t pt-3">
-                <div>
-                  Issue Date: <span className="font-mono font-semibold text-foreground">{selectedCert.issue_date}</span>
-                </div>
-                <div>
-                  Printed by: <span className="font-semibold text-foreground">{selectedCert.printed_by || "Administrator"}</span>
-                </div>
-                <div>
-                  Copy: <span className="font-semibold text-foreground">{selectedCert.copy_type}</span>
-                </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
+              {/* Modal Actions */}
+              <div className="flex items-center justify-between pt-2 border-t">
+                <button
                   onClick={() => handleStatusToggle(selectedCert)}
                   className={cn(
-                    "text-xs",
+                    "text-xs font-semibold underline cursor-pointer",
                     selectedCert.status === "Valid"
                       ? "text-rose-600 hover:text-rose-700"
                       : "text-emerald-600 hover:text-emerald-700"
                   )}
                 >
-                  {selectedCert.status === "Valid" ? "Cancel / Invalidate" : "Mark as Valid"}
-                </Button>
+                  {selectedCert.status === "Valid" ? "Cancel Certificate" : "Mark as Valid"}
+                </button>
 
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => handleCopyNo(selectedCert.certificate_no)}
-                    className="text-xs gap-1"
+                    className="text-xs h-8 gap-1"
                   >
                     <Copy className="h-3 w-3" />
-                    Copy Cert No
+                    Copy No
                   </Button>
                   <Button
                     size="sm"
                     onClick={() => setIsDetailModalOpen(false)}
-                    className="text-xs"
+                    className="text-xs h-8"
                   >
                     Close
                   </Button>
