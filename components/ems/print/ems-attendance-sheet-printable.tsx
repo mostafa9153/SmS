@@ -66,7 +66,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
         const classKeys = Array.from(classMap.keys());
 
         // Prepare rows for the single table
-        type RowData = 
+        type RowData =
           | { type: "header"; title: string }
           | { type: "student"; student: StudentRowItem; index: number }
           | { type: "empty" };
@@ -86,8 +86,8 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           }
         }
 
-        // Chunk rows into pages (max ~35 rows per page to fit on A4)
-        const MAX_ROWS_PER_PAGE = 35;
+        // Chunk rows into pages (max 28 rows per page to fit strictly within 292mm A4)
+        const MAX_ROWS_PER_PAGE = 28;
         const pages: RowData[][] = [];
         for (let i = 0; i < allRows.length; i += MAX_ROWS_PER_PAGE) {
           pages.push(allRows.slice(i, i + MAX_ROWS_PER_PAGE));
@@ -101,7 +101,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           return (
             <div
               key={`attendance-room-${room.roomId}-page-${pageIdx}`}
-              className="mb-8 last:mb-0 print:mb-0 flex flex-col items-center"
+              className="ems-print-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center"
             >
               {/* Visual Page Counter in Screen Preview */}
               <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
@@ -116,18 +116,16 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               </div>
 
               <div
-                className="ems-attendance-sheet w-[210mm] h-[295mm] max-h-[295mm] mx-auto p-[4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
-                style={{
-                  pageBreakAfter,
-                  breakAfter: pageBreakAfter === "always" ? "page" : "auto",
-                }}
+                className="ems-attendance-sheet w-[210mm] h-[278mm] max-h-[278mm] mx-auto p-[2mm_4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
               >
                 {/* Subtle Large School Logo Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                   <img
                     src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
                     alt="School Logo Watermark"
-                    className="w-96 h-96 object-contain opacity-[0.06] grayscale select-none"
+                    loading="eager"
+                    decoding="async"
+                    className="w-96 h-96 object-contain opacity-[0.06] grayscale select-none print:filter-none print:opacity-[0.05]"
                   />
                 </div>
 

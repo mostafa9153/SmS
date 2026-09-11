@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Dialog,
   DialogContent,
@@ -68,6 +69,11 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
   const [roomSearch, setRoomSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Settings
   const [issueDate, setIssueDate] = useState<string>(() => {
@@ -155,8 +161,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     activeDoc === "admit"
       ? totalPagesAdmit
       : activeDoc === "slips"
-      ? totalPagesSlips
-      : totalPagesAttendance;
+        ? totalPagesSlips
+        : totalPagesAttendance;
 
   // Selected room metadata for display
   const activeRoomObj = rooms.find((r) => r.roomId === targetRoomId);
@@ -176,7 +182,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const handlePrint = () => {
     setTimeout(() => {
       window.print();
-    }, 80);
+    }, 120);
   };
 
   const handleHeaderChange = (index: number, val: string) => {
@@ -193,22 +199,24 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[99vw] xl:max-w-[1680px] w-full h-[98vh] p-0 flex flex-col bg-white/80 dark:bg-slate-950/80 backdrop-blur-3xl border border-white/60 dark:border-white/10 text-slate-900 dark:text-slate-100 overflow-hidden shadow-[0_25px_70px_rgba(0,0,0,0.25)] ring-1 ring-white/40 dark:ring-white/5 print:m-0 print:p-0 print:border-none print:w-full print:h-auto print:max-w-none print:bg-white print:text-black"
+        overlayClassName="bg-slate-950/45 backdrop-blur-xl"
+        className="max-w-[99vw] xl:max-w-[1680px] w-full h-[98vh] p-0 flex flex-col bg-white/70 dark:bg-slate-950/70 backdrop-blur-3xl border border-white/70 dark:border-white/15 text-slate-900 dark:text-slate-100 overflow-hidden shadow-[0_30px_90px_rgba(0,0,0,0.35),inset_0_1px_2px_rgba(255,255,255,0.8)] ring-1 ring-white/50 dark:ring-white/10 print:hidden"
       >
-        
+
         {/* ============================================================== */}
         {/* PRO FULL-HEIGHT STUDIO: Left (Options & Print) | Right (Preview) */}
         {/* ============================================================== */}
         <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden print:overflow-visible">
-          
+
           {/* ──────────────────────────────────────────────────────────── */}
           {/* LEFT SIDEBAR: Glossy Frosted Glass Options Panel            */}
           {/* ──────────────────────────────────────────────────────────── */}
-          <div className="w-full md:w-[430px] xl:w-[470px] bg-white/70 dark:bg-slate-900/70 backdrop-blur-3xl border-r border-white/60 dark:border-slate-800/80 flex flex-col shrink-0 overflow-y-auto p-4 sm:p-5 space-y-4 print:hidden shadow-xs relative z-10">
-            
+          <div className="w-full md:w-[430px] xl:w-[470px] bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl border-r border-white/60 dark:border-white/10 flex flex-col shrink-0 overflow-y-auto p-4 sm:p-5 space-y-4 print:hidden shadow-xs relative z-10">
+
             {/* Header: Title, Exam Badge & School Context */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800/80">
               <div className="flex items-center space-x-3 min-w-0">
@@ -441,8 +449,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                   {activeDoc === "admit"
                     ? "Admit Card Options"
                     : activeDoc === "attendance"
-                    ? "Attendance Table Headers"
-                    : "Bench Slip Layout"}
+                      ? "Attendance Table Headers"
+                      : "Bench Slip Layout"}
                 </span>
               </span>
 
@@ -657,16 +665,16 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
           {/* ──────────────────────────────────────────────────────────── */}
           {/* RIGHT VIEWPORT: Glossy Glass Document Preview Studio Canvas */}
           {/* ──────────────────────────────────────────────────────────── */}
-          <div className="flex-1 flex flex-col bg-gradient-to-br from-slate-100/90 via-indigo-50/50 to-purple-50/60 dark:from-slate-950 dark:via-indigo-950/20 dark:to-slate-950 relative overflow-hidden print:overflow-visible print:bg-white">
-            
-            {/* Ambient Glossy Glow Spheres & Frosted Blur Canvas Backing */}
-            <div className="absolute -top-28 -left-28 w-[460px] h-[460px] rounded-full bg-gradient-to-tr from-blue-400/25 via-indigo-300/20 to-purple-300/15 dark:from-blue-600/15 dark:via-indigo-600/10 dark:to-transparent blur-[100px] pointer-events-none animate-pulse" />
-            <div className="absolute -bottom-28 -right-28 w-[520px] h-[520px] rounded-full bg-gradient-to-br from-violet-400/20 via-purple-300/15 to-pink-300/20 dark:from-violet-600/10 dark:via-pink-600/10 dark:to-transparent blur-[110px] pointer-events-none" />
-            <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-indigo-300/10 dark:bg-indigo-700/5 blur-[120px] pointer-events-none" />
-            <div className="absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.035] dark:opacity-[0.06] pointer-events-none" />
+          <div className="flex-1 flex flex-col bg-white/30 dark:bg-slate-950/30 backdrop-blur-2xl relative overflow-hidden print:overflow-visible print:bg-white">
+
+            {/* Ambient Glossy Glow Spheres & Frosted Blur Canvas Backing (Hidden during print) */}
+            <div className="print:hidden absolute -top-28 -left-28 w-[500px] h-[500px] rounded-full bg-gradient-to-tr from-blue-400/20 via-indigo-300/15 to-purple-300/15 dark:from-blue-600/15 dark:via-indigo-600/10 dark:to-transparent blur-[110px] pointer-events-none animate-pulse" />
+            <div className="print:hidden absolute -bottom-28 -right-28 w-[540px] h-[540px] rounded-full bg-gradient-to-br from-violet-400/20 via-purple-300/15 to-pink-300/15 dark:from-violet-600/10 dark:via-pink-600/10 dark:to-transparent blur-[120px] pointer-events-none" />
+            <div className="print:hidden absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-indigo-300/10 dark:bg-indigo-700/5 blur-[120px] pointer-events-none" />
+            <div className="print:hidden absolute inset-0 bg-[radial-gradient(#6366f1_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.03] dark:opacity-[0.05] pointer-events-none" />
 
             {/* Slim Floating Glossy Header: Quick status, Zoom controls & Close (X) */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-2xl shrink-0 print:hidden shadow-xs relative z-10">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-2xl shrink-0 print:hidden shadow-xs relative z-10">
               <div className="flex items-center gap-2 text-xs">
                 <span className="px-2.5 py-1 rounded-lg bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-slate-800 dark:text-neutral-200 font-mono text-xs border border-white/80 dark:border-neutral-700 font-bold shadow-2xs">
                   {activeDoc === "admit" ? "Mini Admit Cards (21/Page)" : activeDoc === "slips" ? "Desk Bench Slips (30/Page)" : "Room Attendance Sheet"}
@@ -767,62 +775,50 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             </div>
           </div>
         </div>
-
-        {/* ============================================================== */}
-        {/* EMBEDDED ZERO-MARGIN PRINT STYLESHEET */}
-        {/* ============================================================== */}
-        <style jsx global>{`
-          @media print {
-            @page {
-              size: 210mm 297mm;
-              margin: 0 !important;
-            }
-
-            body,
-            html {
-              background: white !important;
-              color: black !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 210mm !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            /* Hide everything outside the canvas */
-            header,
-            aside,
-            nav,
-            button,
-            .print\\:hidden {
-              display: none !important;
-            }
-
-            /* Reset canvas zoom and positioning in native print */
-            #ems-printable-canvas {
-              transform: none !important;
-              width: 210mm !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              box-shadow: none !important;
-              border: none !important;
-            }
-
-            .ems-admit-sheet,
-            .ems-slips-sheet,
-            .ems-attendance-sheet {
-              width: 210mm !important;
-              height: 295mm !important;
-              max-height: 295mm !important;
-              margin: 0 !important;
-              box-sizing: border-box !important;
-              overflow: hidden !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-          }
-        `}</style>
       </DialogContent>
     </Dialog>
+
+    {/* ============================================================== */}
+    {/* DEDICATED DIRECT-TO-BODY PRINT PORTAL                          */}
+    {/* Completely isolated from dialog zoom, flex, and transforms     */}
+    {/* ============================================================== */}
+    {mounted && open && typeof document !== "undefined" && createPortal(
+      <div id="ems-print-isolated-portal">
+        {activeDoc === "admit" && (
+          <EmsAdmitCardPrintable
+            rooms={allocation.roomAllocations || []}
+            academicYear={allocation.academicYear}
+            examType={allocation.examType}
+            issueDate={issueDate}
+            schoolProfile={schoolProfile}
+            targetRoomId={targetRoomId}
+            showSignature={showAdmitSignature}
+          />
+        )}
+
+        {activeDoc === "slips" && (
+          <EmsBenchSlipsPrintable
+            rooms={allocation.roomAllocations || []}
+            academicYear={allocation.academicYear}
+            examType={allocation.examType}
+            schoolProfile={schoolProfile}
+            targetRoomId={targetRoomId}
+          />
+        )}
+
+        {activeDoc === "attendance" && (
+          <EmsAttendanceSheetPrintable
+            rooms={allocation.roomAllocations || []}
+            academicYear={allocation.academicYear}
+            examType={allocation.examType}
+            schoolProfile={schoolProfile}
+            targetRoomId={targetRoomId}
+            examHeaders={examHeaders}
+          />
+        )}
+      </div>,
+      document.body
+    )}
+    </>
   );
 };
