@@ -1,4 +1,5 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentFilters, PaginatedStudents, StudentStatus } from "@/lib/types";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
 
@@ -686,8 +687,11 @@ export async function dbUpdateStudent(
 
 // DELETE student
 export async function dbDeleteStudent(id: string): Promise<boolean> {
-  const supabase = await createServerClient();
-  const { error } = await supabase.from("students").delete().eq("id", id);
+  const admin = createAdminClient();
+  // Clean up any dependent child tables to prevent foreign key constraint violations
+  await admin.from("academic_history").delete().eq("student_id", id);
+  await admin.from("student_results").delete().eq("student_id", id);
+  const { error } = await admin.from("students").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return true;
 }

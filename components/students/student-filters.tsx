@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Search, X, ChevronDown, Check } from "lucide-react";
+import { Search, X, ChevronDown, Check, Users, Loader2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
@@ -18,9 +18,16 @@ const STATUSES: StudentStatus[] = [
 interface StudentFiltersBarProps {
   filters: StudentFilters;
   onChange: (filters: StudentFilters) => void;
+  totalCount?: number;
+  isLoading?: boolean;
 }
 
-export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps) {
+export function StudentFiltersBar({
+  filters,
+  onChange,
+  totalCount,
+  isLoading = false,
+}: StudentFiltersBarProps) {
   const [localQuery, setLocalQuery] = useState(filters.query ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -186,15 +193,43 @@ export function StudentFiltersBar({ filters, onChange }: StudentFiltersBarProps)
           ]}
         />
 
-        {/* Clear */}
+        {/* Filtered count and Clear button */}
         {hasFilters && (
-          <button
-            onClick={clearAll}
-            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
-          >
-            <X className="h-3.5 w-3.5" />
-            Clear filters
-          </button>
+          <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold font-mono border shadow-2xs transition-all duration-200",
+                isLoading
+                  ? "bg-muted text-muted-foreground border-border"
+                  : (totalCount ?? 0) > 0
+                  ? "bg-primary/10 text-primary border-primary/25"
+                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+              )}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                  <span>Searching...</span>
+                </>
+              ) : (
+                <>
+                  <Users className="h-3.5 w-3.5" />
+                  <span>
+                    {(totalCount ?? 0).toLocaleString()}{" "}
+                    {(totalCount ?? 0) === 1 ? "student" : "students"} found
+                  </span>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear filters
+            </button>
+          </div>
         )}
       </div>
     </div>

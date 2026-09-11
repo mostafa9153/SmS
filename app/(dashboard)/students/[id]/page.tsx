@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
-import { getStudentById, getStudentResultHistory, saveStudentResult } from "@/lib/data/students";
+import { getStudentById, getStudentResultHistory, saveStudentResult, deleteStudent } from "@/lib/data/students";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -24,6 +24,8 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import {
   ArrowLeft,
   Pencil,
+  Trash2,
+  AlertTriangle,
   User,
   BookOpen,
   Clock,
@@ -98,6 +100,37 @@ export default function StudentProfilePage() {
       setResError(err.message || "Failed to save exam result.");
     },
   });
+
+  // State for Delete Student Confirmation Modal
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  async function handleDeleteStudent() {
+    if (!student?.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteStudent(student.id);
+      showToast({
+        title: "Student Deleted",
+        description: `${student.name} has been permanently deleted.`,
+        type: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["student-filter-metadata"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      setDeleteDialogOpen(false);
+      router.push("/students");
+    } catch (err: any) {
+      showToast({
+        title: "Deletion Failed",
+        description: err.message || "Failed to delete student. Please try again.",
+        type: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -215,6 +248,15 @@ export default function StudentProfilePage() {
               <Pencil className="h-3.5 w-3.5" />
               Edit Profile
             </Link>
+            <button
+              type="button"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="flex items-center gap-1.5 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-colors shadow-2xs active:scale-95 cursor-pointer"
+              title={`Delete ${student.name}'s profile`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Delete Student</span>
+            </button>
           </div>
         </div>
 
@@ -1047,6 +1089,60 @@ export default function StudentProfilePage() {
             >
               {addResultMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               Save Result
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Student Confirmation Modal */}
+      <Dialog open={deleteDialogOpen} onOpenChange={(open) => !isDeleting && setDeleteDialogOpen(open)}>
+        <DialogContent className="max-w-md p-6 rounded-2xl border bg-card shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-lg font-bold text-foreground">
+              Delete Student Profile?
+            </DialogTitle>
+            <DialogDescription className="text-center text-sm text-muted-foreground">
+              Are you sure you want to permanently delete{" "}
+              <span className="font-semibold text-foreground">{student?.name}</span>
+              {student?.schoolId ? (
+                <> (School ID: <span className="font-mono text-foreground font-semibold">{student.schoolId}</span>)</>
+              ) : null}?
+              <br />
+              <span className="text-rose-600 dark:text-rose-400 font-medium mt-2 block">
+                This action cannot be undone. All academic records, results, and history for this student will be removed.
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 mt-4 pt-3 border-t">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => setDeleteDialogOpen(false)}
+              className="px-4 py-2 rounded-xl text-xs font-semibold border bg-background hover:bg-muted text-foreground transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleDeleteStudent}
+              className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Yes, Delete Student</span>
+                </>
+              )}
             </button>
           </DialogFooter>
         </DialogContent>

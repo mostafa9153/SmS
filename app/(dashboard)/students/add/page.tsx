@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,6 +11,8 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
+import { GuardianRelationshipSelect } from "@/components/students/guardian-relationship-select";
+import { PresetAddressButtons } from "@/components/students/preset-address-buttons";
 
 const studentSchema = z.object({
   // Identity
@@ -158,15 +160,22 @@ const MOTHER_TONGUES = [
 
 const QUALIFICATION_OPTIONS = [
   { label: "Illiterate", value: "Illiterate" },
-  { label: "Below Primary (Below Class 4)", value: "Below Primary" },
-  { label: "Primary (Class 4 Pass)", value: "Primary (Class 4 Pass)" },
-  { label: "Upper Primary (Class 8 Pass)", value: "Upper Primary (Class 8 Pass)" },
-  { label: "Secondary (M.P. Pass)", value: "Secondary (M.P. Pass)" },
-  { label: "Higher Secondary (H.S. Pass)", value: "Higher Secondary (H.S. Pass)" },
+  { label: "Below Primary", value: "Below Primary" },
+  { label: "Primary", value: "Primary" },
+  { label: "Upper Primary", value: "Upper Primary" },
+  { label: "Secondary", value: "Secondary" },
+  { label: "Higher Secondary", value: "Higher Secondary" },
   { label: "Graduate", value: "Graduate" },
   { label: "Post Graduate", value: "Post Graduate" },
   { label: "Doctorate / Professional", value: "Doctorate / Professional" },
   { label: "Other", value: "Other" },
+];
+
+const STREAM_OPTIONS = [
+  { label: "Science", value: "Science" },
+  { label: "Arts", value: "Arts" },
+  { label: "Commerce", value: "Commerce" },
+  { label: "Vocational", value: "Vocational" },
 ];
 
 export default function AddStudentPage() {
@@ -206,6 +215,18 @@ export default function AddStudentPage() {
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
   const [hasAadhaarVal, setHasAadhaarVal] = useState("Yes");
+
+  const fatherNameWatched = watch("fatherName");
+  const motherNameWatched = watch("motherName");
+  const relationshipWatched = watch("relationshipWithGuardian");
+
+  useEffect(() => {
+    if (relationshipWatched === "Father" && fatherNameWatched) {
+      setValue("guardianName", fatherNameWatched, { shouldValidate: true });
+    } else if (relationshipWatched === "Mother" && motherNameWatched) {
+      setValue("guardianName", motherNameWatched, { shouldValidate: true });
+    }
+  }, [relationshipWatched, fatherNameWatched, motherNameWatched, setValue]);
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
@@ -557,7 +578,16 @@ export default function AddStudentPage() {
               <input {...register("guardianName")} placeholder="e.g. Ramesh Mondal" />
             </FormField>
             <FormField label="Relationship with Guardian" error={errors.relationshipWithGuardian?.message}>
-              <input {...register("relationshipWithGuardian")} placeholder="e.g. Uncle" />
+              <Controller
+                control={control}
+                name="relationshipWithGuardian"
+                render={({ field }) => (
+                  <GuardianRelationshipSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Guardian's Qualification" error={errors.guardianQualification?.message}>
               <Controller
@@ -585,9 +615,25 @@ export default function AddStudentPage() {
             <FormField label="Contact Email ID" error={errors.email?.message}>
               <input {...register("email")} type="email" placeholder="e.g. guardian@mail.com" />
             </FormField>
-            <FormField label="Address" error={errors.address?.message} full>
-              <textarea {...register("address")} rows={2} placeholder="Village, PO, District, State" />
-            </FormField>
+            <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <label className="block text-xs font-medium text-muted-foreground">
+                  Address
+                </label>
+                <PresetAddressButtons
+                  currentAddress={watch("address")}
+                  currentPincode={watch("pincode")}
+                  onSelectAddress={(addr, pin) => {
+                    setValue("address", addr, { shouldValidate: true });
+                    setValue("pincode", pin, { shouldValidate: true });
+                  }}
+                />
+              </div>
+              <div className={`[&>textarea]:w-full [&>textarea]:rounded-md [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3 [&>textarea]:py-1.5 [&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none ${errors.address ? "[&>textarea]:border-destructive" : ""}`}>
+                <textarea {...register("address")} rows={2} placeholder="Village, PO, District, State" />
+              </div>
+              {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address.message}</p>}
+            </div>
             <FormField label="Pincode" error={errors.pincode?.message}>
               <input {...register("pincode")} placeholder="6-digit PIN" maxLength={6} />
             </FormField>
@@ -650,7 +696,18 @@ export default function AddStudentPage() {
               <input {...register("presentClassAdmissionDate")} type="date" />
             </FormField>
             <FormField label="Academic Stream (HS only)" error={errors.academicStream?.message}>
-              <input {...register("academicStream")} placeholder="e.g. Science, Arts" />
+              <Controller
+                control={control}
+                name="academicStream"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select stream..."
+                    options={STREAM_OPTIONS}
+                  />
+                )}
+              />
             </FormField>
           </FormGrid>
 
@@ -687,7 +744,18 @@ export default function AddStudentPage() {
               <input {...register("previousRollNo")} type="number" placeholder="e.g. 1" />
             </FormField>
             <FormField label="Previous Stream" error={errors.previousStream?.message}>
-              <input {...register("previousStream")} placeholder="e.g. General" />
+              <Controller
+                control={control}
+                name="previousStream"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select stream..."
+                    options={STREAM_OPTIONS}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Appeared for Exams?" error={errors.previousAppearedForExams?.message}>
               <Controller

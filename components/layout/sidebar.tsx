@@ -23,6 +23,7 @@ import {
   Cloud,
   Sparkles,
   ClipboardCheck,
+  MapPin,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -66,7 +67,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20 group-hover:scale-110",
   },
   {
-    label: "Students",
+    label: "Students Register",
     href: "/students",
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
@@ -154,6 +155,13 @@ const settingsNavItems = [
     icon: <School className="h-4 w-4" />,
     iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
     activeColor: "from-amber-500/15 via-amber-500/8 text-amber-700 dark:text-amber-300 border-amber-600",
+  },
+  {
+    tab: "preset-addresses",
+    label: "Predefined Addresses",
+    icon: <MapPin className="h-4 w-4" />,
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
   },
   {
     tab: "backup",

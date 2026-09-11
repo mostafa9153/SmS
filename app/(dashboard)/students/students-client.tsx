@@ -8,8 +8,9 @@ import type { StudentFilters } from "@/lib/types";
 import { StudentFiltersBar } from "@/components/students/student-filters";
 import { StudentTable } from "@/components/students/student-table";
 import { ExportDialog } from "@/components/students/export-dialog";
-import { FileSpreadsheet, Plus, ArrowLeft, FileText, Award } from "lucide-react";
+import { FileSpreadsheet, Plus, ArrowLeft, FileText, Award, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -59,9 +60,28 @@ export default function StudentsClient() {
   );
   const totalCount = data?.pages[0]?.meta.total ?? 0;
 
+  const hasFilters = useMemo(() => {
+    return (
+      !!filters.query ||
+      !!filters.class ||
+      !!filters.section ||
+      !!filters.status ||
+      !!filters.admissionYear ||
+      !!filters.gender ||
+      !!filters.socialCategory ||
+      !!filters.scheme ||
+      !!filters.hasAadhaar
+    );
+  }, [filters]);
+
   return (
     <div className="flex flex-col min-h-full">
-      <StudentFiltersBar filters={filters} onChange={handleFilterChange} />
+      <StudentFiltersBar
+        filters={filters}
+        onChange={handleFilterChange}
+        totalCount={totalCount}
+        isLoading={isLoading}
+      />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -72,7 +92,31 @@ export default function StudentsClient() {
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <h1 className="text-lg font-bold tracking-tight">Student Directory</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-lg font-bold tracking-tight">Student Directory</h1>
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
+                  hasFilters
+                    ? "bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs"
+                    : "bg-muted/80 text-muted-foreground border-border"
+                )}
+              >
+                {isLoading ? (
+                  <span className="flex items-center gap-1 text-xs">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <span>Counting...</span>
+                  </span>
+                ) : (
+                  <>
+                    <span className="font-mono text-xs">{totalCount.toLocaleString()}</span>
+                    <span className="text-[11px] font-medium opacity-85">
+                      {hasFilters ? (totalCount === 1 ? "found" : "found") : "students"}
+                    </span>
+                  </>
+                )}
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {filters.class && (

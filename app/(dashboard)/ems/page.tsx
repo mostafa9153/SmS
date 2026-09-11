@@ -121,21 +121,13 @@ const calculateSectionStudentStats = (
     return { count: 0, rollFrom: 1, rollTo: 35 };
   }
 
-  const rolls = matched
-    .map((s) => Number(s.presentRoll) || 0)
-    .filter((r) => r > 0);
-
-  if (rolls.length === 0) {
-    return { count: matched.length, rollFrom: 1, rollTo: matched.length || 35 };
-  }
-
-  const minRoll = Math.min(...rolls);
-  const maxRoll = Math.max(...rolls);
+  // Count is the exact number of active students in DB for this class & section
+  const totalEnrolled = matched.length;
 
   return {
-    count: matched.length,
-    rollFrom: minRoll,
-    rollTo: maxRoll,
+    count: totalEnrolled,
+    rollFrom: 1,
+    rollTo: totalEnrolled,
   };
 };
 

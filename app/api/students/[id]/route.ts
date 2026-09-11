@@ -125,8 +125,11 @@ export async function DELETE(
   try {
     const { id } = await params;
     const role = await getUserRole();
-    if (role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    if (role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (role !== "Admin" && role !== "Staff") {
+      return NextResponse.json({ error: "Forbidden: Admins and Staff only" }, { status: 403 });
     }
 
     const oldStudent = await dbGetStudentById(id);

@@ -38,50 +38,51 @@ export function filterAndValidateClassStudents(
 } {
   const mismatches: MismatchItem[] = [];
 
-  // Filter students by class, section, roll range
-  const classStudents = allStudents.filter(
-    (s) =>
-      s.presentClass.trim().toUpperCase() === className.trim().toUpperCase() &&
-      (!section || s.presentSection.trim().toUpperCase() === section.trim().toUpperCase()) &&
-      s.presentRoll >= rollFrom &&
-      s.presentRoll <= rollTo
-  );
+  const normClass = (className || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
+  const normSec = (section || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
 
-  // Sort by roll ascending
-  classStudents.sort((a, b) => a.presentRoll - b.presentRoll);
+  // All active continuing students in this class & section, sorted by roll
+  const allSectionStudents = allStudents
+    .filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      const sClass = (s.presentClass || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
+      const sSec = (s.presentSection || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+      return sClass === normClass && (!normSec || sSec === normSec);
+    })
+    .sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
 
-  // Check for missing rolls in the expected range
-  const foundRolls = new Set(classStudents.map((s) => s.presentRoll));
-  const missingRolls: number[] = [];
-
-  for (let r = rollFrom; r <= rollTo; r++) {
-    if (!foundRolls.has(r)) {
-      missingRolls.push(r);
-    }
-  }
-
-  if (classStudents.length === 0) {
+  if (allSectionStudents.length === 0) {
     mismatches.push({
       type: "CLASS_EMPTY",
       severity: "error",
       title: `No Active Students Found for Class ${className}-${section}`,
-      message: `No active continuing students found in Database for Class ${className} Section ${section} with Roll ${rollFrom} to ${rollTo}.`,
+      message: `No active continuing students found in Database for Class ${className} Section ${section}.`,
       class: className,
       section: section,
-      suggestedAction: "Please verify class, section, and roll range or check student directory.",
+      suggestedAction: "Please verify class, section, and student records in directory.",
     });
-  } else if (missingRolls.length > 0) {
-    mismatches.push({
-      type: "ROLL_NOT_FOUND",
-      severity: "warning",
-      title: `Missing Roll Numbers in Class ${className}-${section}`,
-      message: `Expected ${rollTo - rollFrom + 1} students (Roll ${rollFrom}–${rollTo}), but found ${classStudents.length} active students in DB.`,
-      class: className,
-      section: section,
-      rollsAffected: missingRolls,
-      details: [`Missing/Inactive Rolls: ${missingRolls.join(", ")}`],
-      suggestedAction: "EMS will automatically skip missing rolls and allocate only active students.",
-    });
+    return { students: [], mismatches };
+  }
+
+  let classStudents: Student[] = [];
+
+  // If roll range covers all students in DB (e.g. Roll 1 to 101 for 101 students):
+  if (rollFrom <= 1 && rollTo >= allSectionStudents.length) {
+    classStudents = allSectionStudents;
+  } else {
+    // If user specified a sub-range (e.g. 1 to 50):
+    // First, attempt matching by presentRoll
+    const byRoll = allSectionStudents.filter(
+      (s) => s.presentRoll >= rollFrom && s.presentRoll <= rollTo
+    );
+    if (byRoll.length > 0) {
+      classStudents = byRoll;
+    } else {
+      // Fallback to slice based on 1-based order
+      const start = Math.max(0, rollFrom - 1);
+      const end = Math.min(allSectionStudents.length, rollTo);
+      classStudents = allSectionStudents.slice(start, end);
+    }
   }
 
   return { students: classStudents, mismatches };

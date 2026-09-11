@@ -26,6 +26,7 @@ import {
   School,
   Eye,
   EyeOff,
+  MapPin,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -49,6 +50,11 @@ const AcademicSessionClient = dynamic(
 
 const SchoolDetailsTab = dynamic(
   () => import("@/components/school-details/school-details-tab").then((mod) => mod.SchoolDetailsTab),
+  { loading: () => <TabLoadingSkeleton /> }
+);
+
+const PresetAddressesTab = dynamic(
+  () => import("@/components/settings/preset-addresses-tab").then((mod) => mod.PresetAddressesTab),
   { loading: () => <TabLoadingSkeleton /> }
 );
 import { Button } from "@/components/ui/button";
@@ -422,6 +428,12 @@ export function SettingsClient() {
       subtitle: "Manage institutional school profile and comprehensive class & section configuration.",
       icon: School,
       color: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
+    },
+    "preset-addresses": {
+      title: "Predefined Addresses Management",
+      subtitle: "Configure quick-fill predefined addresses (A1 to A5) for student registration forms.",
+      icon: MapPin,
+      color: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
     },
     backup: {
       title: "Cloud & Local Database Backup Recovery",
@@ -986,6 +998,9 @@ export function SettingsClient() {
         </TabsContent>
         <TabsContent value="config" className="space-y-4 outline-none">
           <SchoolDetailsTab />
+        </TabsContent>
+        <TabsContent value="preset-addresses" className="space-y-4 outline-none">
+          <PresetAddressesTab />
         </TabsContent>
 
         {/* Tab 4: Academic Session */}
