@@ -129,6 +129,49 @@ export function cleanAddressPart(value?: string, type?: "village" | "po" | "ps" 
 }
 
 /**
+ * Constructs a standardized full address string from individual geographical address components.
+ * Format: "Village, [P.O.], P.S., District, State - PIN"
+ * Automatically omits empty fields and prevents duplicate Village/P.O. entries if identical.
+ */
+export function formatFullSchoolAddress(parts: {
+  village?: string;
+  postOffice?: string;
+  policeStation?: string;
+  district?: string;
+  state?: string;
+  pincode?: string;
+}): string {
+  const v = (parts.village || "").trim();
+  const po = (parts.postOffice || "").trim();
+  const ps = (parts.policeStation || "").trim();
+  const dist = (parts.district || "").trim();
+  const st = (parts.state || "West Bengal").trim();
+  const pin = (parts.pincode || "").trim();
+
+  const segments: string[] = [];
+
+  if (v) segments.push(v);
+  if (po && (!v || po.toLowerCase() !== v.toLowerCase())) {
+    segments.push(po);
+  }
+  if (ps) segments.push(ps);
+  if (dist) segments.push(dist);
+  if (st) segments.push(st);
+
+  let result = segments.filter(Boolean).join(", ");
+  if (pin) {
+    if (result) {
+      result += ` - ${pin}`;
+    } else {
+      result = pin;
+    }
+  }
+
+  return result;
+}
+
+
+/**
  * Robustly parses a free-form student address string into clean Village, P.O., P.S., District, and PIN,
  * correctly handling labeled tokens (Vill-, P.O.-, P.S.-, Dist.-) and preventing label duplication.
  */

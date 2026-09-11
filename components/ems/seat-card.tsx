@@ -23,50 +23,155 @@ interface SeatCardProps {
   swapModeActive?: boolean;
 }
 
-// Clean tailored color styles per class
+// Clean tailored color styles per class with distinct vibrant visual identity
 export function getClassColorStyle(className?: string) {
   if (!className) return null;
-  const c = className.trim().toUpperCase();
 
-  if (c.includes("IX") || c.includes("9")) {
-    return {
-      border: "border-emerald-500/60 dark:border-emerald-500/40",
-      bg: "bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-950/30",
-      badgeBg: "bg-emerald-600 text-white dark:bg-emerald-500",
-      textRoll: "text-emerald-700 dark:text-emerald-300",
-    };
+  // Clean string: remove "CLASS", trim, and extract core class identifier
+  let clean = className.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+  const match = clean.match(/^([IVXLCDM]+|\d+|[A-Z0-9]+)/i);
+  if (match) {
+    clean = match[1];
   }
-  if (c.includes("VIII") || c.includes("8")) {
-    return {
+
+  const romanMap: Record<string, string> = {
+    "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V",
+    "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X",
+    "11": "XI", "12": "XII",
+  };
+  const norm = romanMap[clean] || clean;
+
+  const colorMap: Record<
+    string,
+    { border: string; bg: string; badgeBg: string; textRoll: string; dotBg: string }
+  > = {
+    // Class V (5) — Azure / Royal Blue
+    V: {
+      border: "border-blue-500/60 dark:border-blue-500/40",
+      bg: "bg-blue-500/10 hover:bg-blue-500/15 dark:bg-blue-950/30",
+      badgeBg: "bg-blue-600 text-white dark:bg-blue-500",
+      textRoll: "text-blue-700 dark:text-blue-300",
+      dotBg: "bg-blue-600",
+    },
+    // Class VI (6) — Vibrant Amber / Warm Orange
+    VI: {
       border: "border-amber-500/60 dark:border-amber-500/40",
       bg: "bg-amber-500/10 hover:bg-amber-500/15 dark:bg-amber-950/30",
       badgeBg: "bg-amber-600 text-white dark:bg-amber-500",
       textRoll: "text-amber-700 dark:text-amber-300",
-    };
-  }
-  if (c.includes("X") || c.includes("10")) {
-    return {
+      dotBg: "bg-amber-600",
+    },
+    // Class VII (7) — Clean Teal / Mint
+    VII: {
+      border: "border-teal-500/60 dark:border-teal-500/40",
+      bg: "bg-teal-500/10 hover:bg-teal-500/15 dark:bg-teal-950/30",
+      badgeBg: "bg-teal-600 text-white dark:bg-teal-500",
+      textRoll: "text-teal-700 dark:text-teal-300",
+      dotBg: "bg-teal-600",
+    },
+    // Class VIII (8) — Deep Purple / Fuchsia
+    VIII: {
+      border: "border-purple-500/60 dark:border-purple-500/40",
+      bg: "bg-purple-500/10 hover:bg-purple-500/15 dark:bg-purple-950/30",
+      badgeBg: "bg-purple-600 text-white dark:bg-purple-500",
+      textRoll: "text-purple-700 dark:text-purple-300",
+      dotBg: "bg-purple-600",
+    },
+    // Class IX (9) — Fresh Emerald / Jade Green
+    IX: {
+      border: "border-emerald-500/60 dark:border-emerald-500/40",
+      bg: "bg-emerald-500/10 hover:bg-emerald-500/15 dark:bg-emerald-950/30",
+      badgeBg: "bg-emerald-600 text-white dark:bg-emerald-500",
+      textRoll: "text-emerald-700 dark:text-emerald-300",
+      dotBg: "bg-emerald-600",
+    },
+    // Class X (10) — Electric Indigo / Cobalt
+    X: {
       border: "border-indigo-500/60 dark:border-indigo-500/40",
       bg: "bg-indigo-500/10 hover:bg-indigo-500/15 dark:bg-indigo-950/30",
       badgeBg: "bg-indigo-600 text-white dark:bg-indigo-500",
       textRoll: "text-indigo-700 dark:text-indigo-300",
-    };
-  }
-  if (c.includes("VII") || c.includes("7")) {
-    return {
-      border: "border-cyan-500/60 dark:border-cyan-500/40",
-      bg: "bg-cyan-500/10 hover:bg-cyan-500/15 dark:bg-cyan-950/30",
-      badgeBg: "bg-cyan-600 text-white dark:bg-cyan-500",
-      textRoll: "text-cyan-700 dark:text-cyan-300",
-    };
+      dotBg: "bg-indigo-600",
+    },
+    // Class XI (11) — Vivid Rose / Ruby Pink
+    XI: {
+      border: "border-rose-500/60 dark:border-rose-500/40",
+      bg: "bg-rose-500/10 hover:bg-rose-500/15 dark:bg-rose-950/30",
+      badgeBg: "bg-rose-600 text-white dark:bg-rose-500",
+      textRoll: "text-rose-700 dark:text-rose-300",
+      dotBg: "bg-rose-600",
+    },
+    // Class XII (12) — Crimson Red
+    XII: {
+      border: "border-red-500/60 dark:border-red-500/40",
+      bg: "bg-red-500/10 hover:bg-red-500/15 dark:bg-red-950/30",
+      badgeBg: "bg-red-600 text-white dark:bg-red-500",
+      textRoll: "text-red-700 dark:text-red-300",
+      dotBg: "bg-red-600",
+    },
+    // Primary classes
+    I: {
+      border: "border-sky-500/60 dark:border-sky-500/40",
+      bg: "bg-sky-500/10 hover:bg-sky-500/15 dark:bg-sky-950/30",
+      badgeBg: "bg-sky-600 text-white dark:bg-sky-500",
+      textRoll: "text-sky-700 dark:text-sky-300",
+      dotBg: "bg-sky-600",
+    },
+    II: {
+      border: "border-lime-500/60 dark:border-lime-500/40",
+      bg: "bg-lime-500/10 hover:bg-lime-500/15 dark:bg-lime-950/30",
+      badgeBg: "bg-lime-600 text-white dark:bg-lime-500",
+      textRoll: "text-lime-700 dark:text-lime-300",
+      dotBg: "bg-lime-600",
+    },
+    III: {
+      border: "border-fuchsia-500/60 dark:border-fuchsia-500/40",
+      bg: "bg-fuchsia-500/10 hover:bg-fuchsia-500/15 dark:bg-fuchsia-950/30",
+      badgeBg: "bg-fuchsia-600 text-white dark:bg-fuchsia-500",
+      textRoll: "text-fuchsia-700 dark:text-fuchsia-300",
+      dotBg: "bg-fuchsia-600",
+    },
+    IV: {
+      border: "border-orange-500/60 dark:border-orange-500/40",
+      bg: "bg-orange-500/10 hover:bg-orange-500/15 dark:bg-orange-950/30",
+      badgeBg: "bg-orange-600 text-white dark:bg-orange-500",
+      textRoll: "text-orange-700 dark:text-orange-300",
+      dotBg: "bg-orange-600",
+    },
+    PP: {
+      border: "border-pink-500/60 dark:border-pink-500/40",
+      bg: "bg-pink-500/10 hover:bg-pink-500/15 dark:bg-pink-950/30",
+      badgeBg: "bg-pink-600 text-white dark:bg-pink-500",
+      textRoll: "text-pink-700 dark:text-pink-300",
+      dotBg: "bg-pink-600",
+    },
+  };
+
+  if (colorMap[norm]) {
+    return colorMap[norm];
   }
 
-  return {
-    border: "border-blue-500/60 dark:border-blue-500/40",
-    bg: "bg-blue-500/10 hover:bg-blue-500/15 dark:bg-blue-950/30",
-    badgeBg: "bg-blue-600 text-white dark:bg-blue-500",
-    textRoll: "text-blue-700 dark:text-blue-300",
-  };
+  // Fallback palette cycling deterministically based on string hash for custom classes
+  const fallbackList = [
+    colorMap.V,
+    colorMap.VI,
+    colorMap.IX,
+    colorMap.VIII,
+    colorMap.X,
+    colorMap.VII,
+    colorMap.XI,
+    colorMap.XII,
+    colorMap.III,
+    colorMap.I,
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < norm.length; i++) {
+    hash = (hash << 5) - hash + norm.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % fallbackList.length;
+  return fallbackList[index];
 }
 
 export function SeatCard({

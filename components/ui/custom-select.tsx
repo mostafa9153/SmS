@@ -113,7 +113,7 @@ export function CustomSelect({
   }
 
   return (
-    <div className={cn("relative w-full", isOpen && "z-50", className)} ref={containerRef}>
+    <div className={cn("relative w-full", isOpen && "z-[100]", className)} ref={containerRef}>
       {/* Trigger Button */}
       <button
         id={id}

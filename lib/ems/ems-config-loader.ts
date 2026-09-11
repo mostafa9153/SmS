@@ -21,6 +21,30 @@ export const FALLBACK_CLASSES: DynamicClassItem[] = [
   { name: "Class XII", code: "XII", sections: ["A", "B", "C"] },
 ];
 
+// Numeric rank helper to sort classes in standard grade sequence: V -> VI -> VII -> VIII -> IX -> X -> XI -> XII
+export function getClassNumericRank(c?: string): number {
+  if (!c) return 99;
+  const clean = c.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+  const romanMap: Record<string, number> = {
+    "PP": 0, "PRE-PRIMARY": 0,
+    "I": 1, "1": 1,
+    "II": 2, "2": 2,
+    "III": 3, "3": 3,
+    "IV": 4, "4": 4,
+    "V": 5, "5": 5,
+    "VI": 6, "6": 6,
+    "VII": 7, "7": 7,
+    "VIII": 8, "8": 8,
+    "IX": 9, "9": 9,
+    "X": 10, "10": 10,
+    "XI": 11, "11": 11,
+    "XII": 12, "12": 12,
+  };
+  if (clean in romanMap) return romanMap[clean];
+  const num = parseInt(clean.replace(/\D/g, ""), 10);
+  return !isNaN(num) ? num : 99;
+}
+
 /**
  * Retrieve active classes configured in the database / School Details.
  */
@@ -31,22 +55,23 @@ export function getDynamicClassList(): DynamicClassItem[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((c: any) => ({
+        const mapped: DynamicClassItem[] = parsed.map((c: any) => ({
           name: c.name || `Class ${c.code}`,
           code: String(c.code || c.name).trim().toUpperCase(),
           sections: Array.isArray(c.sections) && c.sections.length > 0 ? c.sections : ["A", "B"],
           stream: c.stream,
         }));
+        return mapped.sort((a, b) => getClassNumericRank(a.code) - getClassNumericRank(b.code));
       }
     }
   } catch (err) {
     console.error("Error reading dynamic classes from storage:", err);
   }
-  return FALLBACK_CLASSES;
+  return [...FALLBACK_CLASSES].sort((a, b) => getClassNumericRank(a.code) - getClassNumericRank(b.code));
 }
 
 /**
- * Get class codes array (e.g. ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]).
+ * Get class codes array sorted in standard grade order (e.g. ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]).
  */
 export function getDynamicClassCodes(): string[] {
   const classes = getDynamicClassList();

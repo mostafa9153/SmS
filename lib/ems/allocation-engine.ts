@@ -123,7 +123,7 @@ export function generateManualRoomAllocation(
   room.columns.forEach((colConfig) => {
     const colStudents = columnStudentMap[colConfig.columnIndex] || [];
     let studentPointer = 0;
-    const effectiveSeatsPerBench = config.studentsPerBench || colConfig.seatsPerBench || 2;
+    const effectiveSeatsPerBench = config.studentsPerBench || colConfig.seatsPerBench || 3;
     const colCapacity = colConfig.benchCount * effectiveSeatsPerBench;
 
     if (colStudents.length > colCapacity) {
@@ -207,18 +207,28 @@ export function generateAutoAllocation(
 } {
   const mismatchItems: MismatchItem[] = [];
 
-  // 1. Gather all class student pools
+  const normalizeCode = (c: string) => (c || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
+
+  // 1. Gather all class student pools — strictly sequencing Section A before Section B
   interface ClassGroup {
     key: string;
     class: string;
-    section: string;
     students: Student[];
   }
 
-  const classGroups: ClassGroup[] = [];
+  const classGroupsMap = new Map<string, Student[]>();
   let totalStudentsNeeded = 0;
 
-  config.classes.forEach((c) => {
+  // Sort class inputs so that within the same class, Section A comes first, then Section B, then Section C...
+  const sortedClassInputs = [...config.classes].sort((a, b) => {
+    const classComp = a.class.localeCompare(b.class);
+    if (classComp !== 0) return classComp;
+    const secA = (a.section || "").trim().toUpperCase();
+    const secB = (b.section || "").trim().toUpperCase();
+    return secA.localeCompare(secB, undefined, { numeric: true });
+  });
+
+  sortedClassInputs.forEach((c) => {
     const { students, mismatches } = filterAndValidateClassStudents(
       allStudents,
       c.class,
@@ -227,21 +237,28 @@ export function generateAutoAllocation(
       c.rollTo
     );
     mismatches.forEach((m) => mismatchItems.push(m));
-    classGroups.push({
-      key: `${c.class}-${c.section}`,
-      class: c.class,
-      section: c.section,
-      students: [...students], // clone
-    });
     totalStudentsNeeded += students.length;
+
+    const normKey = normalizeCode(c.class);
+    if (!classGroupsMap.has(normKey)) {
+      classGroupsMap.set(normKey, []);
+    }
+    // Append this section's students (already sorted by roll ascending)
+    classGroupsMap.get(normKey)!.push(...students);
   });
+
+  const classGroups: ClassGroup[] = Array.from(classGroupsMap.entries()).map(([cls, studs]) => ({
+    key: cls,
+    class: cls,
+    students: [...studs],
+  }));
 
   // Calculate total room seats available (factoring in dynamic studentsPerBench if specified)
   const totalSeatsAvailable = targetRooms.reduce((acc, r) => {
     return (
       acc +
       r.columns.reduce(
-        (colAcc, c) => colAcc + c.benchCount * (config.studentsPerBench || c.seatsPerBench || 2),
+        (colAcc, c) => colAcc + c.benchCount * (config.studentsPerBench || c.seatsPerBench || 3),
         0
       )
     );
@@ -253,7 +270,7 @@ export function generateAutoAllocation(
       type: "SEATS_DEFICIT",
       severity: "error",
       title: "Not Enough Seats in Selected Rooms!",
-      message: `Total students to seat: ${totalStudentsNeeded}, but selected rooms only have ${totalSeatsAvailable} seats with ${config.studentsPerBench || 2} student(s) per bench.`,
+      message: `Total students to seat: ${totalStudentsNeeded}, but selected rooms only have ${totalSeatsAvailable} seats with ${config.studentsPerBench || 3} student(s) per bench.`,
       details: [`Deficit of ${deficit} seat(s). Add more rooms to accommodate all students.`],
       suggestedAction: "Select additional exam rooms or reduce student roll range.",
     });
@@ -267,7 +284,7 @@ export function generateAutoAllocation(
     });
   }
 
-  // 2. Distribute students into rooms based on strategy
+  // 2. Distribute students into rooms based on strategy & roomClassMap
   const allocatedRooms: AllocatedRoom[] = [];
   let currentClassIndex = 0;
 
@@ -276,24 +293,38 @@ export function generateAutoAllocation(
     let globalSeatCounter = 1;
     const roomClassesPresent = new Set<string>();
 
+    // Determine which classes are eligible to sit in this room
+    const assignedClasses = config.roomClassMap?.[room.id];
+    const allowedClassSet =
+      assignedClasses && assignedClasses.length > 0
+        ? new Set(assignedClasses.map(normalizeCode))
+        : null;
+
+    const eligibleGroups = allowedClassSet
+      ? classGroups.filter((g) => allowedClassSet.has(normalizeCode(g.class)))
+      : classGroups;
+
     if (config.strategy === "alternate-columns") {
       // Column Block strategy:
       room.columns.forEach((colConfig) => {
         const effectiveSeatsPerBench =
-          config.studentsPerBench || colConfig.seatsPerBench || 2;
+          config.studentsPerBench || colConfig.seatsPerBench || 3;
 
         let attempts = 0;
         while (
-          classGroups.length > 0 &&
-          classGroups[currentClassIndex % classGroups.length].students.length === 0 &&
-          attempts < classGroups.length
+          eligibleGroups.length > 0 &&
+          eligibleGroups[currentClassIndex % eligibleGroups.length].students.length === 0 &&
+          attempts < eligibleGroups.length
         ) {
           currentClassIndex++;
           attempts++;
         }
 
         const activeGroup =
-          classGroups.length > 0 ? classGroups[currentClassIndex % classGroups.length] : null;
+          eligibleGroups.length > 0 &&
+          eligibleGroups[currentClassIndex % eligibleGroups.length].students.length > 0
+            ? eligibleGroups[currentClassIndex % eligibleGroups.length]
+            : null;
 
         for (let b = 1; b <= colConfig.benchCount; b++) {
           for (let s = 1; s <= effectiveSeatsPerBench; s++) {
@@ -334,16 +365,19 @@ export function generateAutoAllocation(
           for (let s = 1; s <= effectiveSeatsPerBench; s++) {
             let attempts = 0;
             while (
-              classGroups.length > 0 &&
-              classGroups[currentClassIndex % classGroups.length].students.length === 0 &&
-              attempts < classGroups.length
+              eligibleGroups.length > 0 &&
+              eligibleGroups[currentClassIndex % eligibleGroups.length].students.length === 0 &&
+              attempts < eligibleGroups.length
             ) {
               currentClassIndex++;
               attempts++;
             }
 
             const activeGroup =
-              classGroups.length > 0 ? classGroups[currentClassIndex % classGroups.length] : null;
+              eligibleGroups.length > 0 &&
+              eligibleGroups[currentClassIndex % eligibleGroups.length].students.length > 0
+                ? eligibleGroups[currentClassIndex % eligibleGroups.length]
+                : null;
             let student: Student | undefined = undefined;
 
             if (activeGroup && activeGroup.students.length > 0) {
@@ -389,6 +423,20 @@ export function generateAutoAllocation(
       classesPresent: Array.from(roomClassesPresent),
     });
   });
+
+  const unseatedCount = classGroups.reduce((sum, g) => sum + g.students.length, 0);
+  if (unseatedCount > 0) {
+    const unseatedClasses = Array.from(
+      new Set(classGroups.filter((g) => g.students.length > 0).map((g) => g.class))
+    );
+    mismatchItems.push({
+      type: "SEATS_DEFICIT",
+      severity: "warning",
+      title: "Unassigned / Unseated Students Remaining",
+      message: `${unseatedCount} student(s) from Class ${unseatedClasses.join(", ")} could not be seated in their assigned rooms due to room capacity.`,
+      suggestedAction: "Assign more rooms to these classes or increase seats per bench.",
+    });
+  }
 
   const totalOccupied = allocatedRooms.reduce((sum, r) => sum + r.occupiedSeats, 0);
   const allClasses = Array.from(new Set(allocatedRooms.flatMap((r) => r.classesPresent)));

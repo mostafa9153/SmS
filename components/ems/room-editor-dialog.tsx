@@ -36,9 +36,9 @@ export function RoomEditorDialog({
   const [building, setBuilding] = useState("");
   const [notes, setNotes] = useState("");
   const [columns, setColumns] = useState<RoomColumnConfig[]>([
-    { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 2 },
-    { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 2 },
-    { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 2 },
+    { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
+    { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 3 },
+    { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
   ]);
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export function RoomEditorDialog({
           columnIndex: idx + 1,
           columnLabel: c.columnLabel || `Column ${idx + 1}`,
           benchCount: c.benchCount || 5,
-          seatsPerBench: c.seatsPerBench || 2,
+          seatsPerBench: c.seatsPerBench || 3,
         }))
       );
     } else {
@@ -61,9 +61,9 @@ export function RoomEditorDialog({
       setBuilding("Main Building");
       setNotes("");
       setColumns([
-        { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 2 },
-        { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 2 },
-        { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 2 },
+        { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
+        { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 3 },
+        { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
       ]);
     }
   }, [initialRoom, isOpen]);
@@ -94,7 +94,7 @@ export function RoomEditorDialog({
         columnIndex: nextIdx,
         columnLabel: `Column ${nextIdx}`,
         benchCount: 6,
-        seatsPerBench: 2,
+        seatsPerBench: 3,
       },
     ]);
   };

@@ -11,6 +11,7 @@ export interface EmsAdmitCardPrintableProps {
   issueDate?: string;
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
+  showSignature?: boolean;
 }
 
 interface StudentAdmitItem {
@@ -28,6 +29,24 @@ interface StudentAdmitItem {
   globalSeatNumber: number;
 }
 
+// Helper to format exam title concisely: e.g. "3rd Summative Evaluation" -> "3rd Sum. 2026"
+function formatShortExam(examType: string, academicYear: number | string): string {
+  if (!examType) return `${academicYear}`;
+  const shortened = examType
+    .replace(/Summative\s*(Evaluation)?/i, "Sum.")
+    .replace(/Examination/i, "Exam")
+    .replace(/•.*$/, "")
+    .trim();
+  return `${shortened} ${academicYear}`;
+}
+
+// Clean room number helper
+function formatRoomName(raw: string): string {
+  if (!raw) return "Room";
+  const clean = raw.trim().replace(/^Room\s+/i, "");
+  return `Room ${clean}`;
+}
+
 export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   rooms,
   academicYear,
@@ -35,7 +54,14 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   issueDate = new Date().toLocaleDateString("en-GB"),
   schoolProfile,
   targetRoomId = "ALL",
+  showSignature = true,
 }) => {
+  // Resolve school head signature URL
+  const headSignatureSrc =
+    schoolProfile?.headSignatureUrl && schoolProfile.headSignatureUrl.trim() !== ""
+      ? schoolProfile.headSignatureUrl
+      : "/hod-signature.png";
+
   // Filter target rooms
   const activeRooms =
     targetRoomId === "ALL"
@@ -123,78 +149,90 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                 </div>
 
                 {/* Card Top: School Name & Exam Title */}
-                <div className="relative z-10 border-b border-neutral-200 pb-0.5 mb-1 flex items-center justify-between">
+                <div className="relative z-10 border-b border-neutral-200 pb-0.5 mb-0.5 flex items-center justify-between leading-none">
                   <div className="min-w-0 pr-1">
-                    <h4 className="text-[8px] font-extrabold uppercase tracking-tight text-neutral-900 truncate leading-tight">
+                    <h4 className="text-[8.5px] font-black uppercase tracking-tight text-neutral-900 truncate leading-tight">
                       {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
                     </h4>
-                    <p className="text-[6.5px] font-semibold text-neutral-600 truncate leading-none mt-0.5">
-                      {examType} • {academicYear}
+                    <p className="text-[7.5px] font-bold text-neutral-600 tracking-tight leading-none mt-0.5">
+                      {formatShortExam(examType, academicYear)}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <span className="text-[6px] font-mono font-bold bg-neutral-900 text-white px-1 py-0.5 rounded-[2px] uppercase">
-                      Admit
+                    <span className="text-[8.5px] font-black border border-neutral-900 text-neutral-950 px-1.5 py-0.5 rounded-[2px] uppercase tracking-wider bg-transparent leading-none">
+                      ADMIT
                     </span>
                   </div>
                 </div>
 
-                {/* Card Middle: Student Profile & Seating Info */}
-                <div className="relative z-10 grid grid-cols-12 gap-1 my-auto">
+                {/* Card Middle: Student Profile & Seating Info (No Box Fill!) */}
+                <div className="relative z-10 grid grid-cols-12 gap-1 my-auto items-center">
                   {/* Left Col: Student Profile (7 cols) */}
-                  <div className="col-span-7 flex flex-col justify-center space-y-0.5">
+                  <div className="col-span-7 flex flex-col justify-center space-y-0.5 min-w-0">
                     <div className="truncate">
-                      <span className="text-[9px] font-black uppercase text-neutral-950 block truncate leading-tight">
+                      <span className="text-[13px] font-black uppercase text-neutral-950 block truncate leading-tight tracking-tight">
                         {item.studentName}
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-1 text-[7px] text-neutral-700 font-medium">
+                    <div className="flex items-center space-x-1 text-[10px] text-neutral-800 font-bold leading-tight">
                       <span>
-                        Class: <strong className="font-bold text-neutral-900">{item.studentClass} - {item.studentSection}</strong>
+                        Class: <strong className="font-black text-neutral-950 text-[11.5px]">{item.studentClass} - {item.studentSection}</strong>
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-1 pt-0.5">
-                      <span className="text-[7.5px] font-extrabold bg-neutral-100 text-neutral-900 px-1 py-0.5 rounded border border-neutral-300">
+                    <div className="pt-0.5">
+                      <span className="text-[10px] font-black text-neutral-950 px-2 py-0.5 rounded border border-neutral-400 tracking-wide leading-none inline-block">
                         ROLL: {String(item.studentRoll).padStart(2, "0")}
                       </span>
-                      {item.schoolId && (
-                        <span className="text-[6px] text-neutral-500 font-mono truncate">
-                          ID: {item.schoolId}
-                        </span>
-                      )}
                     </div>
                   </div>
 
-                  {/* Right Col: Location Box (5 cols) */}
-                  <div className="col-span-5 bg-neutral-50/80 border border-neutral-200 rounded p-1 flex flex-col justify-between text-right">
+                  {/* Right Col: Location & Seat (5 cols) - NO BOX FILL, CLEAN HIGHLIGHT */}
+                  <div className="col-span-5 flex flex-col justify-between text-right pl-1 border-l border-neutral-200/80">
                     <div>
-                      <span className="text-[7.5px] font-black text-neutral-900 block leading-tight">
-                        {item.roomNumber}
+                      <span className="text-[12px] font-black text-neutral-950 block leading-tight tracking-tight">
+                        {formatRoomName(item.roomNumber)}
                       </span>
-                      <span className="text-[6px] text-neutral-500 block truncate leading-tight">
-                        {item.floor}
-                      </span>
+                      {item.floor && (
+                        <span className="text-[7.5px] font-bold text-neutral-500 block truncate leading-tight">
+                          {item.floor}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="pt-0.5 border-t border-neutral-200/60 mt-0.5">
-                      <div className="text-[6.5px] text-neutral-700 leading-tight">
-                        Col <strong className="font-bold">{item.columnIndex}</strong> • B-<strong className="font-bold">{item.benchIndex}</strong>
+                    <div className="pt-1 mt-0.5 border-t border-neutral-200/80">
+                      <div className="text-[8.5px] font-bold text-neutral-700 leading-tight">
+                        Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong>
                       </div>
-                      <div className="text-[7.5px] font-bold text-indigo-900 leading-tight">
-                        Seat: S{item.seatPosition} <span className="text-[6px] text-neutral-500 font-mono">(#{String(item.globalSeatNumber).padStart(2, "0")})</span>
+                      <div className="text-[11px] font-black text-indigo-950 leading-tight mt-0.5">
+                        Seat: <span className="text-[12px] font-black text-neutral-950">S{item.seatPosition}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Card Bottom: Issue Date & Authorized Sign */}
-                <div className="relative z-10 border-t border-neutral-200 pt-0.5 flex items-center justify-between text-[6px] text-neutral-500">
-                  <span>Issued: {issueDate}</span>
-                  <span className="font-semibold text-neutral-700 uppercase">
-                    Authorized Signatory
-                  </span>
+                <div className="relative z-10 border-t border-neutral-200/90 pt-0.5 flex items-end justify-between leading-none">
+                  <div className="text-[7px] text-neutral-500 pb-0.5">
+                    Issued: <span className="font-bold text-neutral-700">{issueDate}</span>
+                  </div>
+
+                  <div className="flex flex-col items-end justify-end">
+                    {showSignature && headSignatureSrc ? (
+                      <div className="h-[14px] flex items-end justify-end -mb-0.5">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={headSignatureSrc}
+                          alt="Signature"
+                          className="max-h-[14px] max-w-[55px] object-contain select-none mix-blend-multiply"
+                        />
+                      </div>
+                    ) : null}
+                    <span className="text-[7px] font-bold text-neutral-800 uppercase tracking-tight leading-tight">
+                      Authorized Signatory
+                    </span>
+                  </div>
                 </div>
               </div>
             ))}

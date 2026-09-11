@@ -51,6 +51,7 @@ import {
   DEFAULT_SCHOOL_PROFILE,
   HEAD_DESIGNATION_OPTIONS,
   saveSchoolProfileToDb,
+  formatFullSchoolAddress,
 } from "@/lib/utils/school-profile";
 import {
   type ClassMarksScheme,
@@ -509,12 +510,25 @@ export function SchoolDetailsTab() {
     });
   };
 
+  // Helper to dynamically auto-fill Full Address Line when sub-address fields are edited
+  const handleGeographicalAddressChange = (field: keyof SchoolProfileData, value: string) => {
+    setProfile((prev) => {
+      const updated = { ...prev, [field]: value };
+      updated.schoolAddress = formatFullSchoolAddress(updated);
+      return updated;
+    });
+  };
+
   // Save Profile Handler (Syncs to DB and LocalStorage)
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
-      localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-      const success = await saveSchoolProfileToDb(profile);
+      const finalAddress = profile.schoolAddress?.trim() || formatFullSchoolAddress(profile);
+      const profileToSave = { ...profile, schoolAddress: finalAddress };
+      setProfile(profileToSave);
+
+      localStorage.setItem("sms_school_profile", JSON.stringify(profileToSave));
+      const success = await saveSchoolProfileToDb(profileToSave);
       setIsSavingProfile(false);
       setIsCloudSynced(success);
       showToast({
@@ -1049,12 +1063,16 @@ export function SchoolDetailsTab() {
                 </CardHeader>
                 <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="schoolAddress" className="text-xs">Full Address Line *</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="schoolAddress" className="text-xs font-semibold">Full Address Line *</Label>
+                      <span className="text-[10px] text-muted-foreground italic">Auto-constructed as location details below are updated</span>
+                    </div>
                     <Input
                       id="schoolAddress"
                       value={profile.schoolAddress}
                       onChange={(e) => setProfile({ ...profile, schoolAddress: e.target.value })}
-                      className="text-xs"
+                      className="text-xs font-medium bg-muted/20"
+                      placeholder="Full constructed address line..."
                     />
                   </div>
 
@@ -1063,8 +1081,9 @@ export function SchoolDetailsTab() {
                     <Input
                       id="village"
                       value={profile.village}
-                      onChange={(e) => setProfile({ ...profile, village: e.target.value })}
+                      onChange={(e) => handleGeographicalAddressChange("village", e.target.value)}
                       className="text-xs"
+                      placeholder="e.g. Marigachi"
                     />
                   </div>
 
@@ -1073,9 +1092,9 @@ export function SchoolDetailsTab() {
                     <Input
                       id="postOffice"
                       value={profile.postOffice || ""}
-                      onChange={(e) => setProfile({ ...profile, postOffice: e.target.value })}
+                      onChange={(e) => handleGeographicalAddressChange("postOffice", e.target.value)}
                       className="text-xs"
-                      placeholder="e.g. KHARIGACHI"
+                      placeholder="e.g. Marigachi"
                     />
                   </div>
 
@@ -1084,8 +1103,9 @@ export function SchoolDetailsTab() {
                     <Input
                       id="policeStation"
                       value={profile.policeStation}
-                      onChange={(e) => setProfile({ ...profile, policeStation: e.target.value })}
+                      onChange={(e) => handleGeographicalAddressChange("policeStation", e.target.value)}
                       className="text-xs"
+                      placeholder="e.g. Mathurapur"
                     />
                   </div>
 
@@ -1094,8 +1114,20 @@ export function SchoolDetailsTab() {
                     <Input
                       id="district"
                       value={profile.district}
-                      onChange={(e) => setProfile({ ...profile, district: e.target.value })}
+                      onChange={(e) => handleGeographicalAddressChange("district", e.target.value)}
                       className="text-xs"
+                      placeholder="e.g. South 24 Parganas"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="state" className="text-xs">State</Label>
+                    <Input
+                      id="state"
+                      value={profile.state || "West Bengal"}
+                      onChange={(e) => handleGeographicalAddressChange("state", e.target.value)}
+                      className="text-xs"
+                      placeholder="e.g. West Bengal"
                     />
                   </div>
 
@@ -1104,8 +1136,9 @@ export function SchoolDetailsTab() {
                     <Input
                       id="pincode"
                       value={profile.pincode}
-                      onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
+                      onChange={(e) => handleGeographicalAddressChange("pincode", e.target.value)}
                       className="text-xs font-mono"
+                      placeholder="e.g. 743349"
                     />
                   </div>
                 </CardContent>

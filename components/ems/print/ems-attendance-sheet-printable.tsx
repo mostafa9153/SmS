@@ -65,298 +65,256 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
 
         const classKeys = Array.from(classMap.keys());
 
-        let leftClassTitle = "";
-        let leftStudents: StudentRowItem[] = [];
-        let rightClassTitle = "";
-        let rightStudents: StudentRowItem[] = [];
+        // Prepare rows for the single table
+        type RowData = 
+          | { type: "header"; title: string }
+          | { type: "student"; student: StudentRowItem; index: number }
+          | { type: "empty" };
 
-        if (classKeys.length >= 2) {
-          // 2 or more classes: Left table gets Class 1, Right table gets Class 2
-          leftClassTitle = `Class - ${classKeys[0]}`;
-          leftStudents = classMap.get(classKeys[0]) || [];
+        const allRows: RowData[] = [];
+        classKeys.forEach((key) => {
+          allRows.push({ type: "header", title: `Class: ${key}` });
+          const students = classMap.get(key) || [];
+          students.forEach((s, i) => allRows.push({ type: "student", student: s, index: i }));
+        });
 
-          rightClassTitle = `Class - ${classKeys[1]}`;
-          rightStudents = classMap.get(classKeys[1]) || [];
-        } else if (classKeys.length === 1) {
-          // 1 class: Split students between Left and Right tables
-          const allInClass = classMap.get(classKeys[0]) || [];
-          const mid = Math.ceil(allInClass.length / 2);
-          leftClassTitle = `Class - ${classKeys[0]} (Part 1)`;
-          leftStudents = allInClass.slice(0, mid);
-
-          rightClassTitle = `Class - ${classKeys[0]} (Part 2)`;
-          rightStudents = allInClass.slice(mid);
-        } else {
-          // Empty room
-          leftClassTitle = "Class - A";
-          rightClassTitle = "Class - B";
+        // Pad with empty rows if the room has very few students, just to make the table look complete
+        if (allRows.length < 25) {
+          const emptyCount = 25 - allRows.length;
+          for (let i = 0; i < emptyCount; i++) {
+            allRows.push({ type: "empty" });
+          }
         }
 
-        // Determine number of rows to render (minimum 20, max 35-40 for A4 single page fit)
-        const rowCount = Math.max(20, Math.min(35, Math.max(leftStudents.length, rightStudents.length)));
+        // Chunk rows into pages (max ~35 rows per page to fit on A4)
+        const MAX_ROWS_PER_PAGE = 35;
+        const pages: RowData[][] = [];
+        for (let i = 0; i < allRows.length; i += MAX_ROWS_PER_PAGE) {
+          pages.push(allRows.slice(i, i + MAX_ROWS_PER_PAGE));
+        }
 
-        return (
-          <div key={`attendance-room-wrap-${room.roomId}-${roomIdx}`} className="mb-8 last:mb-0 print:mb-0 flex flex-col items-center">
-            {/* Visual Page Counter in Screen Preview */}
-            <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
-              <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
-                Page {roomIdx + 1} of {activeRooms.length}
-              </span>
-              <span>•</span>
-              <span>Room {room.roomNumber} ({room.occupiedSeats} Students Allocated)</span>
-            </div>
+        return pages.map((pageRows, pageIdx) => {
+          const isLastRoom = roomIdx === activeRooms.length - 1;
+          const isLastPageOfRoom = pageIdx === pages.length - 1;
+          const pageBreakAfter = isLastRoom && isLastPageOfRoom ? "auto" : "always";
 
+          return (
             <div
-              className="ems-attendance-sheet w-[210mm] h-[295mm] max-h-[295mm] mx-auto p-[4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
-              style={{
-                pageBreakAfter: roomIdx < activeRooms.length - 1 ? "always" : "auto",
-                breakAfter: roomIdx < activeRooms.length - 1 ? "page" : "auto",
-              }}
+              key={`attendance-room-${room.roomId}-page-${pageIdx}`}
+              className="mb-8 last:mb-0 print:mb-0 flex flex-col items-center"
             >
-              {/* Subtle Large School Logo Watermark */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-                <img
-                  src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                  alt="School Logo Watermark"
-                  className="w-80 h-80 object-contain opacity-[0.06] grayscale select-none"
-                />
+              {/* Visual Page Counter in Screen Preview */}
+              <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
+                <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
+                  Room {roomIdx + 1} of {activeRooms.length}
+                  {pages.length > 1 ? ` (Page ${pageIdx + 1}/${pages.length})` : ""}
+                </span>
+                <span>•</span>
+                <span>
+                  Room {room.roomNumber} ({room.occupiedSeats} Students Allocated)
+                </span>
               </div>
 
-              {/* Outer Heavy Border matching West Bengal School Registers */}
-              <div className="relative z-10 border-[1.8px] border-black h-full flex flex-col justify-between text-neutral-950 p-[1.5mm]">
-                {/* TOP HEADER SECTION */}
-                <div className="border-b-[1.5px] border-black pb-1 mb-1">
-                  {/* School Name, Crest Logo & Room Box */}
-                  <div className="grid grid-cols-12 items-center">
-                    <div className="col-span-2 flex items-center space-x-1.5 pl-0.5">
-                      <img
-                        src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                        alt="School Crest"
-                        className="w-8 h-8 object-contain shrink-0"
-                      />
-                      <div className="leading-tight">
-                        <span className="text-[7.5px] font-black text-black uppercase tracking-wider block">
-                          EMS REG
-                        </span>
-                        <span className="text-[6.5px] font-mono font-bold text-neutral-600 block">
-                          PG {roomIdx + 1}
+              <div
+                className="ems-attendance-sheet w-[210mm] h-[295mm] max-h-[295mm] mx-auto p-[4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
+                style={{
+                  pageBreakAfter,
+                  breakAfter: pageBreakAfter === "always" ? "page" : "auto",
+                }}
+              >
+                {/* Subtle Large School Logo Watermark */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                  <img
+                    src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                    alt="School Logo Watermark"
+                    className="w-96 h-96 object-contain opacity-[0.06] grayscale select-none"
+                  />
+                </div>
+
+                {/* Outer Heavy Border matching West Bengal School Registers */}
+                <div className="relative z-10 border-[1.8px] border-black h-full flex flex-col justify-between text-neutral-950 p-[1.5mm]">
+                  {/* TOP HEADER SECTION */}
+                  <div className="border-b-[1.5px] border-black pb-1 mb-1">
+                    {/* School Name, Crest Logo & Room Box */}
+                    <div className="grid grid-cols-12 items-center">
+                      <div className="col-span-2 flex items-center space-x-1.5 pl-0.5">
+                        <img
+                          src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                          alt="School Crest"
+                          className="w-10 h-10 object-contain shrink-0"
+                        />
+                        <div className="leading-tight">
+                          <span className="text-[8.5px] font-black text-black uppercase tracking-wider block">
+                            EMS REG
+                          </span>
+                          <span className="text-[7.5px] font-mono font-bold text-neutral-600 block">
+                            PG {roomIdx + 1}
+                            {pages.length > 1 ? `-${pageIdx + 1}` : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="col-span-8 text-center">
+                        <h2 className="text-[17px] font-black uppercase tracking-wider text-black leading-tight">
+                          {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
+                        </h2>
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-neutral-800 mt-1">
+                          STUDENT EXAM ATTENDANCE & SCRIPT REGISTER
+                        </p>
+                      </div>
+                      <div className="col-span-2 text-right">
+                        <div className="inline-block border-[1.5px] border-black px-3 py-1 rounded-[1px] bg-neutral-50 text-center min-w-[80px]">
+                          <span className="text-[11px] font-black uppercase text-black block tracking-wide">
+                            {room.roomNumber}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Sub-Header Row: Center Exam Title */}
+                    <div className="grid grid-cols-12 border-t-[1.2px] border-black mt-1.5 pt-1.5 text-[10px] font-bold items-center">
+                      <div className="col-span-12 text-center truncate">
+                        <span className="text-black font-extrabold tracking-wide uppercase">
+                          {examType} - {academicYear}
                         </span>
                       </div>
                     </div>
-                    <div className="col-span-8 text-center">
-                      <h2 className="text-[14px] font-black uppercase tracking-wider text-black leading-tight">
-                        {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
-                      </h2>
-                    <p className="text-[8px] font-bold uppercase tracking-wide text-neutral-800 mt-0.5">
-                      STUDENT EXAM ATTENDANCE & SCRIPT REGISTER
-                    </p>
                   </div>
-                  <div className="col-span-2 text-right">
-                    <div className="inline-block border-[1.5px] border-black px-2 py-0.5 rounded-[1px] bg-neutral-50 text-center min-w-[70px]">
-                      <span className="text-[9px] font-black uppercase text-black block tracking-wide">
-                        {room.roomNumber}
-                      </span>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Sub-Header Row: Left Class | Center Exam Title | Right Class */}
-                <div className="grid grid-cols-12 border-t-[1.2px] border-black mt-1 pt-1 text-[8.5px] font-bold items-center">
-                  <div className="col-span-4 pl-1 truncate">
-                    <span className="text-black font-extrabold">{leftClassTitle}</span>
-                  </div>
-                  <div className="col-span-4 text-center truncate">
-                    <span className="text-black font-extrabold tracking-wide">
-                      {examType} - {academicYear}
-                    </span>
-                  </div>
-                  <div className="col-span-4 text-right pr-1 truncate">
-                    <span className="text-black font-extrabold">{rightClassTitle}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* DUAL-COLUMN SIDE-BY-SIDE REGISTER TABLES */}
-              <div className="grid grid-cols-2 gap-1.5 flex-1 min-h-0">
-                {/* LEFT TABLE */}
-                <div className="flex flex-col h-full">
-                  <table className="w-full border-collapse border-[1.2px] border-black text-[7.5px] table-fixed">
-                    <thead>
-                      <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
-                        <th className="border-r-[1.2px] border-black w-[20px] text-center font-black p-0.5 text-[7px]">
-                          Roll
-                        </th>
-                        <th className="border-r-[1.2px] border-black w-[72px] text-left font-black p-0.5 text-[7px] truncate">
-                          Student Name
-                        </th>
-                        {/* 8 Exam Columns */}
-                        {columns8.map((headerText, i) => (
+                  {/* SINGLE WIDE REGISTER TABLE */}
+                  <div className="flex flex-col h-full flex-1 min-h-0 mt-1">
+                    <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
+                      <thead>
+                        <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
                           <th
-                            key={`left-th-${i}`}
-                            className="border-r border-black font-bold text-center p-0.5 text-[6px] overflow-hidden leading-tight"
-                            style={{ width: "calc((100% - 92px) / 8)" }}
+                            rowSpan={2}
+                            className="border-r-[1.5px] border-black w-[45px] text-center font-black p-1.5 text-[9px]"
                           >
-                            <div className="truncate font-black">{i + 1}</div>
-                            <div className="text-[5.5px] font-normal truncate text-neutral-700">
-                              {headerText}
-                            </div>
+                            Roll
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from({ length: rowCount }).map((_, idx) => {
-                        const student = leftStudents[idx];
-                        return (
-                          <tr
-                            key={`left-row-${idx}`}
-                            className="border-b border-black/80 hover:bg-neutral-50/50"
-                            style={{ height: rowCount > 25 ? "5.4mm" : "6.2mm" }}
-                          >
-                            <td className="border-r-[1.2px] border-black text-center font-bold text-[7.5px] p-0">
-                              {student ? String(student.roll).padStart(2, "0") : idx + 1}
-                            </td>
-                            <td className="border-r-[1.2px] border-black px-1 font-bold text-[7.5px] uppercase truncate text-neutral-950">
-                              {student ? student.name : ""}
-                            </td>
-                            {/* 8 Signature/Script Boxes */}
-                            {columns8.map((_, colI) => (
-                              <td
-                                key={`left-cell-${idx}-${colI}`}
-                                className="border-r border-black/70 text-center p-0"
-                              />
-                            ))}
-                          </tr>
-                        );
-                      })}
-
-                      {/* Footer Row 1: Total Present */}
-                      <tr className="border-t-[1.4px] border-black bg-neutral-50 font-bold" style={{ height: "6mm" }}>
-                        <td
-                          colSpan={2}
-                          className="border-r-[1.2px] border-black px-1 text-right font-black uppercase text-[7px]"
-                        >
-                          Total Present
-                        </td>
-                        {columns8.map((_, colI) => (
-                          <td key={`left-total-${colI}`} className="border-r border-black text-center p-0" />
-                        ))}
-                      </tr>
-
-                      {/* Footer Row 2: Invigilator Signature */}
-                      <tr className="border-t border-black bg-neutral-50 font-bold" style={{ height: "7mm" }}>
-                        <td
-                          colSpan={2}
-                          className="border-r-[1.2px] border-black px-1 text-right font-black uppercase text-[6.5px]"
-                        >
-                          Invigilator Sign
-                        </td>
-                        {columns8.map((_, colI) => (
-                          <td key={`left-sign-${colI}`} className="border-r border-black text-center p-0" />
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* RIGHT TABLE */}
-                <div className="flex flex-col h-full">
-                  <table className="w-full border-collapse border-[1.2px] border-black text-[7.5px] table-fixed">
-                    <thead>
-                      <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
-                        <th className="border-r-[1.2px] border-black w-[20px] text-center font-black p-0.5 text-[7px]">
-                          Roll
-                        </th>
-                        <th className="border-r-[1.2px] border-black w-[72px] text-left font-black p-0.5 text-[7px] truncate">
-                          Student Name
-                        </th>
-                        {/* 8 Exam Columns */}
-                        {columns8.map((headerText, i) => (
                           <th
-                            key={`right-th-${i}`}
-                            className="border-r border-black font-bold text-center p-0.5 text-[6px] overflow-hidden leading-tight"
-                            style={{ width: "calc((100% - 92px) / 8)" }}
+                            rowSpan={2}
+                            className="border-r-[1.5px] border-black w-[280px] text-left font-black p-1.5 pl-3 text-[9px] truncate"
                           >
-                            <div className="truncate font-black">{i + 1}</div>
-                            <div className="text-[5.5px] font-normal truncate text-neutral-700">
-                              {headerText}
-                            </div>
+                            Student Name
                           </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Array.from({ length: rowCount }).map((_, idx) => {
-                        const student = rightStudents[idx];
-                        return (
-                          <tr
-                            key={`right-row-${idx}`}
-                            className="border-b border-black/80 hover:bg-neutral-50/50"
-                            style={{ height: rowCount > 25 ? "5.4mm" : "6.2mm" }}
+                          {/* 8 Exam Columns - Subject Names */}
+                          {columns8.map((headerText, i) => (
+                            <th
+                              key={`th-subject-${i}`}
+                              className="border-r border-black font-black text-center p-1 text-[8.5px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
+                              style={{ width: "calc((100% - 325px) / 8)" }}
+                            >
+                              {headerText}
+                            </th>
+                          ))}
+                        </tr>
+                        <tr className="bg-white border-b-[1.5px] border-black">
+                          {/* 8 Exam Columns - Date Row */}
+                          {columns8.map((_, i) => (
+                            <th
+                              key={`th-date-${i}`}
+                              className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-700 h-[6mm] select-none"
+                            >
+                              <span className="font-mono tracking-widest">&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;</span>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="flex-1">
+                        {pageRows.map((row, idx) => {
+                          if (row.type === "header") {
+                            return (
+                              <tr
+                                key={`row-${idx}`}
+                                className="border-b-[1.2px] border-black bg-neutral-200/60"
+                                style={{ height: "7mm" }}
+                              >
+                                <td
+                                  colSpan={10}
+                                  className="text-center font-black text-[10.5px] uppercase tracking-widest text-black"
+                                >
+                                  {row.title}
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          const isStudent = row.type === "student";
+
+                          return (
+                            <tr
+                              key={`row-${idx}`}
+                              className="border-b border-black/80 hover:bg-neutral-50/50"
+                              style={{ height: "6.5mm" }}
+                            >
+                              <td className="border-r-[1.5px] border-black text-center font-bold text-[10px] p-0">
+                                {isStudent ? String(row.student.roll).padStart(2, "0") : ""}
+                              </td>
+                              <td className="border-r-[1.5px] border-black px-3 font-extrabold text-[10px] uppercase truncate text-neutral-950">
+                                {isStudent ? row.student.name : ""}
+                              </td>
+                              {/* 8 Signature/Script Boxes */}
+                              {columns8.map((_, colI) => (
+                                <td
+                                  key={`cell-${idx}-${colI}`}
+                                  className="border-r border-black/70 text-center p-0"
+                                />
+                              ))}
+                            </tr>
+                          );
+                        })}
+
+                        {/* Fill remaining vertical space if needed */}
+                        <tr className="border-0">
+                          <td colSpan={10} className="border-0 p-0"></td>
+                        </tr>
+
+                        {/* Footer Row 1: Total Present */}
+                        <tr className="border-t-[1.5px] border-black bg-neutral-50 font-bold" style={{ height: "7.5mm" }}>
+                          <td
+                            colSpan={2}
+                            className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px]"
                           >
-                            <td className="border-r-[1.2px] border-black text-center font-bold text-[7.5px] p-0">
-                              {student ? String(student.roll).padStart(2, "0") : idx + 1}
-                            </td>
-                            <td className="border-r-[1.2px] border-black px-1 font-bold text-[7.5px] uppercase truncate text-neutral-950">
-                              {student ? student.name : ""}
-                            </td>
-                            {/* 8 Signature/Script Boxes */}
-                            {columns8.map((_, colI) => (
-                              <td
-                                key={`right-cell-${idx}-${colI}`}
-                                className="border-r border-black/70 text-center p-0"
-                              />
-                            ))}
-                          </tr>
-                        );
-                      })}
+                            Total Present
+                          </td>
+                          {columns8.map((_, colI) => (
+                            <td key={`total-${colI}`} className="border-r border-black text-center p-0" />
+                          ))}
+                        </tr>
 
-                      {/* Footer Row 1: Total Present */}
-                      <tr className="border-t-[1.4px] border-black bg-neutral-50 font-bold" style={{ height: "6mm" }}>
-                        <td
-                          colSpan={2}
-                          className="border-r-[1.2px] border-black px-1 text-right font-black uppercase text-[7px]"
-                        >
-                          Total Present
-                        </td>
-                        {columns8.map((_, colI) => (
-                          <td key={`right-total-${colI}`} className="border-r border-black text-center p-0" />
-                        ))}
-                      </tr>
-
-                      {/* Footer Row 2: Invigilator Signature */}
-                      <tr className="border-t border-black bg-neutral-50 font-bold" style={{ height: "7mm" }}>
-                        <td
-                          colSpan={2}
-                          className="border-r-[1.2px] border-black px-1 text-right font-black uppercase text-[6.5px]"
-                        >
-                          Invigilator Sign
-                        </td>
-                        {columns8.map((_, colI) => (
-                          <td key={`right-sign-${colI}`} className="border-r border-black text-center p-0" />
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
+                        {/* Footer Row 2: Invigilator Signature */}
+                        <tr className="border-t border-black bg-neutral-50 font-bold" style={{ height: "8.5mm" }}>
+                          <td
+                            colSpan={2}
+                            className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px]"
+                          >
+                            Invigilator Sign
+                          </td>
+                          {columns8.map((_, colI) => (
+                            <td key={`sign-${colI}`} className="border-r border-black text-center p-0" />
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
 
-              {/* REGISTER FOOTER */}
-              <div className="border-t-[1.2px] border-black pt-1 mt-1 flex items-center justify-between text-[7px] font-bold text-neutral-700">
-                <span>
-                  Room: <strong>{room.roomNumber}</strong> • Total Capacity: <strong>{room.totalSeats}</strong> • Allocated: <strong>{room.occupiedSeats}</strong>
-                </span>
-                <span className="uppercase tracking-wider">
-                  Marigachi High School Examination Control Department
-                </span>
-                <span>
-                  Headmaster / Centre In-Charge Sign: __________________
-                </span>
+                {/* REGISTER FOOTER */}
+                <div className="border-t-[1.5px] border-black pt-1.5 mt-1.5 flex items-center justify-between text-[8px] font-bold text-neutral-700">
+                  <span>
+                    Room: <strong className="text-black text-[9px]">{room.roomNumber}</strong> • Total Capacity: <strong>{room.totalSeats}</strong> • Allocated: <strong>{room.occupiedSeats}</strong>
+                  </span>
+                  <span className="uppercase tracking-wider text-black">
+                    Marigachi High School Examination Control Department
+                  </span>
+                  <span>
+                    Headmaster / Centre In-Charge Sign: __________________
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        );
+          );
+        });
       })}
     </div>
   );

@@ -6,6 +6,7 @@ import { SeatCard, getClassColorStyle } from "./seat-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   Search,
   ZoomIn,
@@ -16,6 +17,7 @@ import {
   ArrowLeftRight,
   X,
   DoorOpen,
+  Edit3,
 } from "lucide-react";
 
 interface VisualRoomBlueprintProps {
@@ -23,12 +25,16 @@ interface VisualRoomBlueprintProps {
   onSwapSeats?: (seat1: SeatAssignment, seat2: SeatAssignment) => void;
   examTitle?: string;
   examType?: string;
+  readOnly?: boolean;
+  onEditArrangement?: () => void;
 }
 
 export function VisualRoomBlueprint({
   room,
   onSwapSeats,
   examType,
+  readOnly = false,
+  onEditArrangement,
 }: VisualRoomBlueprintProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClassFilter, setSelectedClassFilter] = useState<string | null>(null);
@@ -112,12 +118,7 @@ export function VisualRoomBlueprint({
             <DoorOpen className="h-5 w-5 text-primary" />
             <span>{room.roomNumber}</span>
           </h2>
-          {examType && (
-            <Badge className="bg-primary/15 text-primary border-primary/20 text-xs font-bold">
-              {examType}
-            </Badge>
-          )}
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground font-mono">
             ({room.occupiedSeats}/{room.totalSeats} Seated)
           </span>
         </div>
@@ -180,22 +181,37 @@ export function VisualRoomBlueprint({
           >
             All
           </Button>
-          {room.classesPresent.map((cls) => (
-            <Button
-              key={cls}
-              size="sm"
-              variant={selectedClassFilter === cls ? "default" : "outline"}
-              className="h-6 text-xs rounded-md px-2 font-semibold"
-              onClick={() => setSelectedClassFilter(selectedClassFilter === cls ? null : cls)}
-            >
-              Class {cls}
-            </Button>
-          ))}
+          {room.classesPresent.map((cls) => {
+            const theme = getClassColorStyle(cls);
+            const isSelected = selectedClassFilter === cls;
+            return (
+              <Button
+                key={cls}
+                size="sm"
+                variant={isSelected ? "default" : "outline"}
+                className={cn(
+                  "h-6 text-xs rounded-md px-2.5 font-semibold gap-1.5 transition-all cursor-pointer",
+                  isSelected
+                    ? theme?.badgeBg || "bg-primary text-white"
+                    : "hover:bg-muted text-foreground"
+                )}
+                onClick={() => setSelectedClassFilter(isSelected ? null : cls)}
+              >
+                <span
+                  className={cn(
+                    "h-2 w-2 rounded-full shrink-0",
+                    isSelected ? "bg-white" : theme?.dotBg || "bg-primary"
+                  )}
+                />
+                Class {cls}
+              </Button>
+            );
+          })}
         </div>
       )}
 
       {/* Swap Mode Banner */}
-      {swapSourceSeat && (
+      {!readOnly && swapSourceSeat && (
         <div className="my-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-between text-xs text-amber-900 dark:text-amber-200">
           <span>
             Click on another seat to swap with <strong>Roll {swapSourceSeat.studentRoll}</strong>
@@ -255,10 +271,10 @@ export function VisualRoomBlueprint({
                               key={seat.seatId}
                               seat={seat}
                               isSearchMatch={isSeatMatched(seat)}
-                              isSwapSource={swapSourceSeat?.seatId === seat.seatId}
-                              swapModeActive={Boolean(swapSourceSeat)}
-                              onInitiateSwap={handleInitiateSwap}
-                              onCompleteSwap={handleCompleteSwap}
+                              isSwapSource={!readOnly && swapSourceSeat?.seatId === seat.seatId}
+                              swapModeActive={!readOnly && Boolean(swapSourceSeat)}
+                              onInitiateSwap={!readOnly ? handleInitiateSwap : undefined}
+                              onCompleteSwap={!readOnly ? handleCompleteSwap : undefined}
                             />
                           ))}
                         </div>

@@ -100,7 +100,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             {pageSlips.map((item, idx) => (
               <div
                 key={`slip-${pageIndex}-${idx}`}
-                className="relative border border-dashed border-neutral-300 rounded-[2px] p-[1.5mm] flex flex-col justify-between overflow-hidden bg-white"
+                className="relative border border-dashed border-neutral-300 rounded-[2px] p-[2mm] flex flex-col justify-between overflow-hidden bg-white"
                 style={{ height: "27.5mm", boxSizing: "border-box" }}
               >
                 {/* Micro Cut Indicator Icon */}
@@ -108,72 +108,51 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                   ✂
                 </span>
 
-                {/* Top Header: Dual Logos & School Title */}
-                <div className="flex items-center justify-between border-b border-neutral-200 pb-0.5 leading-none">
-                  {/* Left Logo */}
+                {/* School Logo Watermark in Background */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                   <img
                     src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                    alt="School Logo"
-                    className="w-3.5 h-3.5 object-contain shrink-0"
-                  />
-
-                  {/* Center Text */}
-                  <div className="text-center px-1 min-w-0 flex-1">
-                    <h5 className="text-[7.5px] font-black uppercase text-neutral-900 truncate leading-tight">
-                      {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
-                    </h5>
-                    <p className="text-[6px] font-semibold text-neutral-600 truncate leading-none mt-0.5">
-                      {examType} • {academicYear}
-                    </p>
-                  </div>
-
-                  {/* Right Secondary Emblem */}
-                  <img
-                    src="/logo.png"
-                    alt="Secondary Emblem"
-                    className="w-3.5 h-3.5 object-contain shrink-0"
+                    alt="Watermark"
+                    className="w-14 h-14 object-contain opacity-[0.08] grayscale"
                   />
                 </div>
 
-                {/* Middle Content: Big Roll, Student Name & Location */}
-                <div className="grid grid-cols-12 gap-1 my-auto items-center">
-                  {/* Left: Roll Number in High Visibility font (5 cols) */}
-                  <div className="col-span-5 flex flex-col justify-center">
-                    <span className="text-[14px] font-black text-neutral-950 tracking-tight leading-none">
+                {/* Top Mini Header: Exam Type & Room Number */}
+                <div className="relative z-10 flex items-center justify-between border-b border-neutral-200/80 pb-0.5 leading-none">
+                  <span className="text-[7.5px] font-bold text-neutral-500 uppercase tracking-wider truncate max-w-[130px]">
+                    {examType} • {academicYear}
+                  </span>
+                  <span className="text-[8px] font-black text-neutral-900 bg-neutral-100 border border-neutral-300 px-1.5 py-0.2 rounded leading-none">
+                    {item.roomNumber ? `Room ${item.roomNumber.trim().replace(/^Room\s*/i, "")}` : "Room"}
+                  </span>
+                </div>
+
+                {/* Main Body: Big Roll, Class, Student Name & Bench Coordinates */}
+                <div className="relative z-10 grid grid-cols-12 gap-1 my-auto items-center">
+                  {/* Left: Roll Number & Class Section (6 cols) */}
+                  <div className="col-span-6 flex flex-col justify-center">
+                    <div className="text-[20px] font-black text-neutral-950 tracking-tight leading-none">
                       ROLL {String(item.studentRoll).padStart(2, "0")}
-                    </span>
-                    <span className="text-[7.5px] font-bold text-neutral-800 leading-tight mt-0.5">
-                      Class: {item.studentClass}-{item.studentSection}
-                    </span>
+                    </div>
+                    <div className="text-[12px] font-bold text-neutral-800 leading-tight mt-1">
+                      Class: <span className="font-black text-neutral-950 text-[14px] tracking-tight">{item.studentClass} - {item.studentSection}</span>
+                    </div>
                   </div>
 
-                  {/* Right: Student Name & Exact Desk Coordinates (7 cols) */}
-                  <div className="col-span-7 bg-neutral-50 border border-neutral-200/80 rounded px-1 py-0.5 text-right">
-                    <span className="text-[8.5px] font-extrabold uppercase text-neutral-950 block truncate leading-tight">
+                  {/* Right: Student Name & Bench Coordinates (6 cols) */}
+                  <div className="col-span-6 flex flex-col justify-center text-right">
+                    <div className="text-[13.5px] font-black uppercase text-neutral-950 block truncate leading-tight tracking-tight">
                       {item.studentName}
-                    </span>
-                    <div className="flex items-center justify-end space-x-1 text-[7px] text-neutral-700 font-semibold pt-0.5">
-                      <span className="bg-neutral-200/80 px-1 rounded text-neutral-900 font-bold">
-                        {item.roomNumber}
+                    </div>
+                    <div className="flex items-center justify-end space-x-1 text-[9px] font-bold text-neutral-800 pt-1">
+                      <span className="text-neutral-600">
+                        Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
                       </span>
-                      <span>
-                        C{item.columnIndex} • B{item.benchIndex}
-                      </span>
-                      <span className="font-extrabold text-indigo-900">
-                        S{item.seatPosition}
+                      <span className="bg-indigo-600 text-white font-black px-1.5 py-0.5 rounded text-[9.5px] leading-none">
+                        Seat S{item.seatPosition}
                       </span>
                     </div>
                   </div>
-                </div>
-
-                {/* Bottom Bar: Seat No & Desk Sticker Footer */}
-                <div className="border-t border-neutral-200 pt-0.5 flex items-center justify-between text-[6px] text-neutral-500 font-medium">
-                  <span className="uppercase tracking-wider font-semibold text-neutral-600">
-                    Desk Seating Slip
-                  </span>
-                  <span className="font-mono font-bold text-neutral-800">
-                    Seat #{String(item.globalSeatNumber).padStart(2, "0")}
-                  </span>
                 </div>
               </div>
             ))}

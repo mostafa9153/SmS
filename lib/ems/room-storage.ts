@@ -11,13 +11,13 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     roomNumber: "Room 101",
     floor: "Ground Floor",
     building: "Main Academic Block",
-    defaultSeatsPerBench: 2,
+    defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Window Side)", benchCount: 6, seatsPerBench: 2 },
-      { columnIndex: 2, columnLabel: "Column 2 (Middle Aisle)", benchCount: 5, seatsPerBench: 2 }, // 1 less bench for door space
-      { columnIndex: 3, columnLabel: "Column 3 (Door Side)", benchCount: 6, seatsPerBench: 2 },
+      { columnIndex: 1, columnLabel: "Column 1 (Window Side)", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2 (Middle Aisle)", benchCount: 5, seatsPerBench: 3 }, // 1 less bench for door space
+      { columnIndex: 3, columnLabel: "Column 3 (Door Side)", benchCount: 6, seatsPerBench: 3 },
     ],
-    totalCapacity: 34, // (6*2) + (5*2) + (6*2) = 12 + 10 + 12 = 34
+    totalCapacity: 51, // (6*3) + (5*3) + (6*3) = 18 + 15 + 18 = 51
     notes: "Column 2 has 5 benches due to rear exit walkway",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -27,13 +27,13 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     roomNumber: "Room 102",
     floor: "1st Floor",
     building: "Main Academic Block",
-    defaultSeatsPerBench: 2,
+    defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Left)", benchCount: 6, seatsPerBench: 2 },
-      { columnIndex: 2, columnLabel: "Column 2 (Middle)", benchCount: 6, seatsPerBench: 2 },
-      { columnIndex: 3, columnLabel: "Column 3 (Right)", benchCount: 6, seatsPerBench: 2 },
+      { columnIndex: 1, columnLabel: "Column 1 (Left)", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2 (Middle)", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 3, columnLabel: "Column 3 (Right)", benchCount: 6, seatsPerBench: 3 },
     ],
-    totalCapacity: 36, // (6*2) + (6*2) + (6*2) = 36
+    totalCapacity: 54, // (6*3) + (6*3) + (6*3) = 54
     notes: "Standard rectangular classroom with 3 equal columns",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -43,14 +43,14 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     roomNumber: "Hall A (Auditorium)",
     floor: "2nd Floor",
     building: "Centenary Hall",
-    defaultSeatsPerBench: 2,
+    defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Left Wall)", benchCount: 7, seatsPerBench: 2 },
-      { columnIndex: 2, columnLabel: "Column 2 (Center-Left)", benchCount: 8, seatsPerBench: 2 },
-      { columnIndex: 3, columnLabel: "Column 3 (Center-Right)", benchCount: 8, seatsPerBench: 2 },
-      { columnIndex: 4, columnLabel: "Column 4 (Right Wall)", benchCount: 7, seatsPerBench: 2 },
+      { columnIndex: 1, columnLabel: "Column 1 (Left Wall)", benchCount: 7, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2 (Center-Left)", benchCount: 8, seatsPerBench: 3 },
+      { columnIndex: 3, columnLabel: "Column 3 (Center-Right)", benchCount: 8, seatsPerBench: 3 },
+      { columnIndex: 4, columnLabel: "Column 4 (Right Wall)", benchCount: 7, seatsPerBench: 3 },
     ],
-    totalCapacity: 60, // (7*2) + (8*2) + (8*2) + (7*2) = 14 + 16 + 16 + 14 = 60
+    totalCapacity: 90, // (7*3) + (8*3) + (8*3) + (7*3) = 21 + 24 + 24 + 21 = 90
     notes: "Large exam hall suitable for combined board tests",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -59,7 +59,7 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
 
 // Helper to calculate total capacity from columns
 export function calculateRoomCapacity(columns: EmsRoom["columns"]): number {
-  return columns.reduce((total, col) => total + col.benchCount * (col.seatsPerBench || 2), 0);
+  return columns.reduce((total, col) => total + col.benchCount * (col.seatsPerBench || 3), 0);
 }
 
 // Retrieve all rooms (with fallback to default rooms)

@@ -66,7 +66,7 @@ export function EmsStepperMap({
               </div>
               {idx < steps.length - 1 && (
                 <div
-                  className={cn("flex-1 h-px mx-3", isDone ? "bg-primary" : "bg-border")}
+                  className={cn("flex-1 h-px mx-1.5 sm:mx-2.5", isDone ? "bg-primary" : "bg-border")}
                 />
               )}
             </div>

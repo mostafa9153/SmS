@@ -435,56 +435,6 @@ export default function EmsAutoAllocationPage() {
           </div>
         </div>
 
-        {/* Step 4: Anti-Copying Seating Strategy */}
-        <div className="space-y-3 pb-5 border-b border-border/60">
-          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
-            <span>Step 4: Anti-Copying Allocation Strategy</span>
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Option A: Alternate Columns */}
-            <div
-              onClick={() => setStrategy("alternate-columns")}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${strategy === "alternate-columns"
-                  ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                  : "border-border/80 bg-card hover:bg-muted/20"
-                }`}
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-foreground">
-                  Alternate Columns (WB School Standard)
-                </h4>
-                {strategy === "alternate-columns" && (
-                  <Badge className="bg-primary text-white text-[9px] uppercase">Selected</Badge>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                Col 1 = Class VIII, Col 2 = Class IX, Col 3 = Class VIII. Students in adjacent columns across aisles are always from different classes.
-              </p>
-            </div>
-
-            {/* Option B: Interleaved Seats */}
-            <div
-              onClick={() => setStrategy("interleaved-seats")}
-              className={`p-4 rounded-xl border cursor-pointer transition-all ${strategy === "interleaved-seats"
-                  ? "border-primary bg-primary/10 ring-2 ring-primary/30"
-                  : "border-border/80 bg-card hover:bg-muted/20"
-                }`}
-            >
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-foreground">Interleaved Seats per Bench</h4>
-                {strategy === "interleaved-seats" && (
-                  <Badge className="bg-primary text-white text-[9px] uppercase">Selected</Badge>
-                )}
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">
-                Seat 1 = Class VIII, Seat 2 = Class IX on the same bench desk.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* Generate Button */}
         <div className="pt-2 flex items-center justify-end">
           <Button

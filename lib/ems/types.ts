@@ -125,8 +125,9 @@ export interface AutoAllocationConfig {
   examType: ExamType;
   classes: AutoAllocationClassInput[];
   selectedRoomIds: string[];
-  strategy: "alternate-columns" | "interleaved-seats";
+  strategy?: "alternate-columns" | "interleaved-seats";
   studentsPerBench?: number; // Direct user input for students per bench!
+  roomClassMap?: Record<string, string[]>; // Map roomId -> allowed class codes (e.g. ["VIII", "IX"])
 }
 
 // Manual Column Allocation configuration
