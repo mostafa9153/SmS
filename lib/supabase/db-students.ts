@@ -8,6 +8,7 @@ export interface DBStudent {
   id: string;
   school_id: string;
   name: string;
+  photo_url?: string | null;
   pen: string | null;
   aadhaar: string | null;
   mobile: string | null;
@@ -109,12 +110,19 @@ export interface DBAcademicHistory {
   created_at: string;
 }
 
+// Generate deterministic public photo URL from Supabase Storage
+export function getStudentPhotoUrl(id: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${supabaseUrl}/storage/v1/object/public/student-photos/${id}.webp`;
+}
+
 // Convert DB Student row to Frontend Student interface
 export function mapDBStudentToStudent(db: DBStudent): Student {
   return {
     id: db.id,
     schoolId: db.school_id,
     name: db.name,
+    photoUrl: db.photo_url || getStudentPhotoUrl(db.id),
     pen: db.pen || undefined,
     hasAadhaar: db.aadhaar && db.aadhaar !== "PENDING_RECORD" ? "Yes" : "No",
     aadhaar: db.aadhaar || undefined,
@@ -222,6 +230,7 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
   return {
     school_id: student.schoolId,
     name: student.name,
+    photo_url: toNullableString(student.photoUrl),
     pen: toNullableString(student.pen),
     aadhaar: toNullableString(student.aadhaar),
     mobile: toNullableString(student.studentContact),
@@ -563,6 +572,7 @@ export async function dbUpdateStudent(
     dbUpdates.school_id = updates.schoolId.trim();
   }
   if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
+  if (updates.photoUrl !== undefined) dbUpdates.photo_url = toNullableString(updates.photoUrl);
   if (updates.pen !== undefined) dbUpdates.pen = toNullableString(updates.pen);
   if (updates.aadhaar !== undefined) dbUpdates.aadhaar = toNullableString(updates.aadhaar);
   if (updates.dob !== undefined) dbUpdates.dob = updates.dob;

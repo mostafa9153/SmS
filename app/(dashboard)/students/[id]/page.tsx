@@ -6,6 +6,7 @@ import { getStudentById, getStudentResultHistory, saveStudentResult, deleteStude
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/students/status-badge";
+import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { HistoryTimeline } from "@/components/students/history-timeline";
 import { MaskedAadhaar } from "@/components/students/masked-aadhaar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -169,41 +170,55 @@ export default function StudentProfilePage() {
 
       {/* Header Card */}
       <div className="rounded-2xl border bg-card shadow-xs p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold">{student.name}</h1>
-              <CopyButton text={student.name} label="Student Name" iconClassName="h-3.5 w-3.5" />
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2 items-center">
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
-                <span className="text-muted-foreground font-sans text-[11px] font-medium">School ID:</span>
-                <span className="font-semibold">{student.schoolId}</span>
-                <CopyButton text={student.schoolId} label="School ID" />
-              </span>
-              {student.studentUniqueCode && (
+        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
+          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-xl font-bold">{student.name}</h1>
+                <CopyButton text={student.name} label="Student Name" iconClassName="h-3.5 w-3.5" />
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2 items-center">
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
-                  <span className="text-muted-foreground font-sans text-[11px] font-medium">BSP ID:</span>
-                  <span className="font-semibold">{student.studentUniqueCode}</span>
-                  <CopyButton text={student.studentUniqueCode} label="BSP ID" />
+                  <span className="text-muted-foreground font-sans text-[11px] font-medium">School ID:</span>
+                  <span className="font-semibold">{student.schoolId}</span>
+                  <CopyButton text={student.schoolId} label="School ID" />
                 </span>
-              )}
-              {student.pen ? (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
-                  <span className="text-muted-foreground font-sans text-[11px] font-medium">PEN:</span>
-                  <span className="font-semibold">{student.pen}</span>
-                  <CopyButton text={student.pen} label="PEN" />
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 border border-dashed px-2 py-0.5 text-xs font-mono text-muted-foreground">
-                  <span className="font-sans text-[11px]">PEN:</span>
-                  <span>Not Assigned</span>
-                </span>
-              )}
+                {student.studentUniqueCode && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
+                    <span className="text-muted-foreground font-sans text-[11px] font-medium">BSP ID:</span>
+                    <span className="font-semibold">{student.studentUniqueCode}</span>
+                    <CopyButton text={student.studentUniqueCode} label="BSP ID" />
+                  </span>
+                )}
+                {student.pen ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
+                    <span className="text-muted-foreground font-sans text-[11px] font-medium">PEN:</span>
+                    <span className="font-semibold">{student.pen}</span>
+                    <CopyButton text={student.pen} label="PEN" />
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/40 border border-dashed px-2 py-0.5 text-xs font-mono text-muted-foreground">
+                    <span className="font-sans text-[11px]">PEN:</span>
+                    <span>Not Assigned</span>
+                  </span>
+                )}
+              </div>
+              <div className="mt-2.5">
+                <StatusBadge status={student.currentStatus} />
+              </div>
             </div>
-            <div className="mt-2.5">
-              <StatusBadge status={student.currentStatus} />
-            </div>
+
+            {/* 3:4 Student Passport Photo Frame (Placed right next to Name & ID) */}
+            <StudentPhotoAvatar
+              studentId={student.id}
+              studentName={student.name}
+              photoUrl={student.photoUrl}
+              gender={student.gender}
+              onPhotoUpdated={() => {
+                queryClient.invalidateQueries({ queryKey: ["student", id] });
+                queryClient.invalidateQueries({ queryKey: ["students"] });
+              }}
+            />
           </div>
           <div className="flex items-center gap-2">
             <Link

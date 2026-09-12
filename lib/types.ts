@@ -26,6 +26,7 @@ export interface Student {
   id: string;                    // Internal UUID / unique key
   schoolId: string;              // Permanent school-issued ID — format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)
   name: string;
+  photoUrl?: string;             // 3:4 Passport photo public URL (WebP)
   pen?: string;                  // Permanent Education Number (govt)
   hasAadhaar?: boolean | string; // Aadhaar availability: Yes / No
   aadhaar?: string;              // 12-digit Aadhaar — SENSITIVE: masked in UI by default

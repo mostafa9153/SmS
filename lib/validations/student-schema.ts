@@ -3,6 +3,7 @@ import { z } from "zod";
 export const studentCreateSchema = z.object({
   // Identity
   name: z.string().min(1, "Name is required").trim(),
+  photoUrl: z.string().optional().nullable(),
   schoolId: z
     .string()
     .min(1, "School ID is required")
