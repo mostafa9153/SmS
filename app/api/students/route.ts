@@ -53,12 +53,13 @@ export async function GET(req: Request) {
     const socialCategory = (searchParams.get("socialCategory") as any) || undefined;
     const scheme = (searchParams.get("scheme") as any) || undefined;
     const hasAadhaar = (searchParams.get("hasAadhaar") as any) || undefined;
+    const ageSlab = searchParams.get("ageSlab") || undefined;
 
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
 
     const result = await dbSearchStudents(
-      { query, class: studentClass, section, status, admissionYear, gender, socialCategory, scheme, hasAadhaar },
+      { query, class: studentClass, section, status, admissionYear, gender, socialCategory, scheme, hasAadhaar, ageSlab },
       page,
       pageSize,
       role

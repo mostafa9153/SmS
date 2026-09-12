@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   useReactTable,
@@ -11,6 +11,7 @@ import {
 import {
   Inbox,
   Loader2,
+  ChevronRight,
 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -18,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
+import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
 
 interface StudentTableProps {
   data: Student[];
@@ -39,6 +41,7 @@ export function StudentTable({
   const router = useRouter();
   const currentYear = new Date().getFullYear();
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [navigatingId, setNavigatingId] = useState<string | null>(null);
 
   // Infinite scroll trigger
   useEffect(() => {
@@ -84,8 +87,20 @@ export function StudentTable({
                 </p>
                 <CopyButton text={s.name} label="Student Name" iconClassName="h-2.5 w-2.5" />
                 {s.dob && (
-                  <span className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/80 text-foreground px-1.5 py-0.5 rounded-md border border-border/50">
-                    <span>DOB: {s.dob}</span>
+                  <span
+                    className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/80 text-foreground px-1.5 py-0.5 rounded-md border border-border/50"
+                    title={(() => {
+                      const dAge = calculateDetailedAge(s.dob);
+                      return dAge ? `Exact Age: ${dAge.formattedLong}` : undefined;
+                    })()}
+                  >
+                    <span>
+                      DOB: {s.dob}
+                      {(() => {
+                        const dAge = calculateDetailedAge(s.dob);
+                        return dAge ? ` (${dAge.formattedShort})` : "";
+                      })()}
+                    </span>
                     <CopyButton text={s.dob} label="Date of Birth" iconClassName="h-2.5 w-2.5" />
                   </span>
                 )}
@@ -117,11 +132,6 @@ export function StudentTable({
                 {eligibleSchemes.length > 4 && (
                   <span className="inline-flex items-center border bg-muted/60 text-muted-foreground text-[10px] px-1.5 py-0 rounded-md font-mono">
                     +{eligibleSchemes.length - 4} more
-                  </span>
-                )}
-                {s.isBpl && (
-                  <span className="inline-flex items-center border bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 text-[10px] px-1.5 py-0 rounded-md font-semibold">
-                    BPL
                   </span>
                 )}
               </div>
@@ -198,8 +208,32 @@ export function StudentTable({
           <StatusBadge status={getValue() as Student["currentStatus"]} />
         ),
       },
+      {
+        id: "action",
+        header: "",
+        cell: ({ row }) => {
+          const isNavigating = navigatingId === row.original.id;
+          return (
+            <div className="flex items-center justify-end pr-1">
+              {isNavigating ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold animate-pulse">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Opening...</span>
+                </span>
+              ) : (
+                <div className="flex items-center gap-1 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all duration-200">
+                  <span className="text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">
+                    View
+                  </span>
+                  <ChevronRight className="h-4 w-4" />
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
     ],
-    [currentYear]
+    [currentYear, navigatingId]
   );
 
   const table = useReactTable({
@@ -250,19 +284,37 @@ export function StudentTable({
             ))}
           </thead>
           <tbody className="divide-y divide-border/50">
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                onClick={() => router.push(`/students/${row.original.id}`)}
-                className="hover:bg-primary/[0.04] cursor-pointer transition-all duration-150 group"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="px-4 py-3 align-middle">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {table.getRowModel().rows.map((row) => {
+              const isNavigating = navigatingId === row.original.id;
+              return (
+                <tr
+                  key={row.id}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest("button") || target.closest("a") || target.closest("[data-prevent-row-click]")) {
+                      return;
+                    }
+                    setNavigatingId(row.original.id);
+                    router.push(`/students/${row.original.id}`);
+                  }}
+                  className={cn(
+                    "relative cursor-pointer transition-all duration-150 group select-none",
+                    "hover:bg-primary/[0.06] dark:hover:bg-primary/10",
+                    "active:scale-[0.996] active:bg-primary/15",
+                    isNavigating
+                      ? "bg-primary/10 border-l-4 border-l-primary shadow-xs font-medium"
+                      : "border-l-4 border-l-transparent"
+                  )}
+                  title={`Click to open ${row.original.name}'s full profile`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className="px-4 py-3 align-middle">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

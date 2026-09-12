@@ -196,7 +196,6 @@ export async function dbProcessBulkUpload(
     applyIfPresent("dise_code", inc.diseCode?.trim(), existing.dise_code, "DISE Code");
     applyIfPresent("minority_group", inc.minorityGroup?.trim(), existing.minority_group, "Minority Group");
     applyIfPresent("mother_tongue", inc.motherTongue?.trim(), existing.mother_tongue, "Mother Tongue");
-    if (inc.isBpl !== undefined) applyIfPresent("is_bpl", inc.isBpl, existing.is_bpl, "BPL");
     if (inc.isCwsn !== undefined) applyIfPresent("is_cwsn", inc.isCwsn, existing.is_cwsn, "CWSN");
     applyIfPresent("impairment_type", inc.impairmentType?.trim(), existing.impairment_type, "Disability Type");
     if (inc.annualFamilyIncome != null) applyIfPresent("annual_family_income", Number(inc.annualFamilyIncome), existing.annual_family_income, "Annual Income");
@@ -306,7 +305,6 @@ export async function dbProcessBulkUpload(
       bank_account_no: inc.bankAccountNo?.trim() || null,
       is_cwsn: inc.isCwsn || false,
       impairment_type: inc.impairmentType?.trim() || null,
-      is_bpl: inc.isBpl || false,
       is_aay: inc.isAay || false,
       is_ews: inc.isEws || false,
       indian_nationality: inc.indianNationality ?? true,

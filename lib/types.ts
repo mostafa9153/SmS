@@ -33,6 +33,7 @@ export interface Student {
   dob: string;                   // ISO date string, e.g. "2012-04-15"
   gender: Gender;
   socialCategory?: string;       // e.g. "General", "OBC", "SC", "ST"
+  casteCertificateNo?: string;   // Social category / Caste certificate number
   religion?: string;
   fatherName: string;
   motherName: string;
@@ -56,7 +57,6 @@ export interface Student {
   email?: string;
   motherTongue?: string;
   minorityGroup?: string;
-  isBpl?: boolean;
   isAay?: boolean;
   isEws?: boolean;
   isCwsn?: boolean;
@@ -131,20 +131,20 @@ export interface StudentFilters {
     | "kanyashree"
     | "kanyashree_k1"
     | "kanyashree_k2"
-    | "aikyashree"
     | "sikshashree"
     | "shikshashree"
-    | "medhashree"
     | "oasis"
     | "oasis_pre"
     | "oasis_post"
     | "svmcm"
-    | "taruner_swapno"
+    | "nsp"
+    | "nsp_pre"
+    | "nsp_post"
     | "sabooj_sathi"
     | "sabooj_sarathi"
-    | "cwsn"
-    | "bpl";
+    | "cwsn";
   hasAadhaar?: "yes" | "no";
+  ageSlab?: string;
 }
 
 // Pagination meta returned alongside list results

@@ -85,6 +85,24 @@ const CLASS_ORDER_MAP: Record<string, number> = {
   "XII": 12, "12": 12,
 };
 
+const CLASS_CANONICAL_MAP: Record<string, string> = {
+  "5": "V", "V": "V",
+  "6": "VI", "VI": "VI",
+  "7": "VII", "VII": "VII",
+  "8": "VIII", "VIII": "VIII",
+  "9": "IX", "IX": "IX",
+  "10": "X", "X": "X",
+  "11": "XI", "XI": "XI",
+  "12": "XII", "XII": "XII",
+};
+
+/** Normalizes any class string (e.g. "9", "Class 9", "class ix", "IX") into canonical Roman numeral ("IX") */
+export function normalizeClassName(className?: string | null): string {
+  if (!className || typeof className !== "string" || className.trim() === "") return "Unknown";
+  const cleaned = className.trim().toUpperCase().replace(/^CLASS\s+/i, "");
+  return CLASS_CANONICAL_MAP[cleaned] || cleaned;
+}
+
 /** Returns numeric sequence rank for any class string */
 export function getClassRank(className?: string | null): number {
   if (!className) return 999;
@@ -145,6 +163,49 @@ export function calculateExactAge(dobIso?: string | null): number | null {
     age--;
   }
   return age;
+}
+
+export interface DetailedAge {
+  years: number;
+  months: number;
+  days: number;
+  formattedShort: string;
+  formattedLong: string;
+}
+
+/**
+ * Calculates exact age down to Years, Months, and Days from DOB string (YYYY-MM-DD).
+ */
+export function calculateDetailedAge(dobIso?: string | null): DetailedAge | null {
+  if (!dobIso) return null;
+  const birth = new Date(dobIso);
+  if (isNaN(birth.getTime())) return null;
+
+  const today = new Date();
+  let years = today.getFullYear() - birth.getFullYear();
+  let months = today.getMonth() - birth.getMonth();
+  let days = today.getDate() - birth.getDate();
+
+  if (days < 0) {
+    months -= 1;
+    const prevMonthLastDay = new Date(today.getFullYear(), today.getMonth(), 0).getDate();
+    days += prevMonthLastDay;
+  }
+
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+
+  if (years < 0) return null;
+
+  const formattedShort = `${years}y ${months}m ${days}d`;
+  const yStr = `${years} ${years === 1 ? "yr" : "yrs"}`;
+  const mStr = `${months} ${months === 1 ? "mo" : "mos"}`;
+  const dStr = `${days} ${days === 1 ? "day" : "days"}`;
+  const formattedLong = `${yStr}, ${mStr}, ${dStr}`;
+
+  return { years, months, days, formattedShort, formattedLong };
 }
 
 /**

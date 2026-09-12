@@ -24,6 +24,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { searchStudents } from "@/lib/data/students";
 import { getKanyashreeCategory } from "@/lib/utils";
+import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -91,9 +92,17 @@ const ALL_EXPORT_COLUMNS: ExportColumn[] = [
       return "N/A";
     },
   },
-  { id: "isBpl", label: "BPL Beneficiary", category: "Welfare", getValue: (s) => s.isBpl ? "Yes" : "No" },
   { id: "isCwsn", label: "CWSN Beneficiary", category: "Welfare", getValue: (s) => s.isCwsn ? "Yes" : "No" },
   { id: "isEws", label: "EWS / Disadvantaged", category: "Welfare", getValue: (s) => s.isEws ? "Yes" : "No" },
+  {
+    id: "eligibleScholarships",
+    label: "Eligible Welfare Schemes",
+    category: "Welfare",
+    getValue: (s) => {
+      const { eligibleSchemes } = evaluateStudentScholarships(s);
+      return eligibleSchemes.map((sc) => sc.shortCode).join(", ") || "None";
+    },
+  },
 ];
 
 const PRESETS = {
@@ -119,7 +128,7 @@ const PRESETS = {
     id: "kanyashree",
     name: "Kanyashree / Schemes",
     badge: "Welfare",
-    cols: ["schoolId", "name", "gender", "dob", "presentClass", "presentSection", "presentRoll", "aadhaar", "bankIfsc", "bankAccountNo", "kanyashreeStatus", "isBpl"],
+    cols: ["schoolId", "name", "gender", "dob", "presentClass", "presentSection", "presentRoll", "aadhaar", "bankIfsc", "bankAccountNo", "kanyashreeStatus", "eligibleScholarships"],
   },
   contact: {
     id: "contact",
@@ -143,7 +152,7 @@ const PRESETS = {
     id: "category",
     name: "Caste & Census",
     badge: "Demographic",
-    cols: ["schoolId", "name", "gender", "presentClass", "presentSection", "socialCategory", "religion", "isBpl", "isCwsn", "isEws"],
+    cols: ["schoolId", "name", "gender", "presentClass", "presentSection", "socialCategory", "religion", "isCwsn", "isEws"],
   },
 };
 

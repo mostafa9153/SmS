@@ -15,6 +15,7 @@ export interface DBStudent {
   dob: string;
   gender: "Male" | "Female" | "Other";
   social_category: string | null;
+  caste_certificate_no?: string | null;
   religion: string | null;
   father_name: string;
   mother_name: string;
@@ -39,7 +40,6 @@ export interface DBStudent {
   email: string | null;
   mother_tongue: string | null;
   minority_group: string | null;
-  is_bpl: boolean;
   is_aay: boolean;
   is_ews: boolean;
   is_cwsn: boolean;
@@ -129,6 +129,7 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     dob: db.dob,
     gender: db.gender,
     socialCategory: db.social_category || undefined,
+    casteCertificateNo: db.caste_certificate_no || undefined,
     religion: db.religion || undefined,
     fatherName: db.father_name,
     motherName: db.mother_name,
@@ -160,7 +161,6 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     email: db.email || undefined,
     motherTongue: db.mother_tongue || undefined,
     minorityGroup: db.minority_group || undefined,
-    isBpl: db.is_bpl,
     isAay: db.is_aay,
     isEws: db.is_ews,
     isCwsn: db.is_cwsn,
@@ -237,6 +237,7 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     dob: student.dob,
     gender: student.gender,
     social_category: toNullableString(student.socialCategory),
+    caste_certificate_no: toNullableString(student.casteCertificateNo),
     religion: toNullableString(student.religion),
     father_name: student.fatherName,
     mother_name: student.motherName,
@@ -258,7 +259,6 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     email: toNullableString(student.email),
     mother_tongue: toNullableString(student.motherTongue),
     minority_group: toNullableString(student.minorityGroup),
-    is_bpl: !!student.isBpl,
     is_aay: !!student.isAay,
     is_ews: !!student.isEws,
     is_cwsn: !!student.isCwsn,
@@ -408,25 +408,44 @@ export async function dbSearchStudents(
 
   // 2. Dropdown filters
   if (filters.class) {
-    query = query.eq("present_class", filters.class);
+    const cls = filters.class.trim();
+    if (cls === "IX" || cls === "9") {
+      query = query.in("present_class", ["IX", "9", "Class IX", "Class 9"]);
+    } else if (cls === "XI" || cls === "11") {
+      query = query.in("present_class", ["XI", "11", "Class XI", "Class 11"]);
+    } else if (cls === "V" || cls === "5") {
+      query = query.in("present_class", ["V", "5", "Class V", "Class 5"]);
+    } else if (cls === "VI" || cls === "6") {
+      query = query.in("present_class", ["VI", "6", "Class VI", "Class 6"]);
+    } else if (cls === "VII" || cls === "7") {
+      query = query.in("present_class", ["VII", "7", "Class VII", "Class 7"]);
+    } else if (cls === "VIII" || cls === "8") {
+      query = query.in("present_class", ["VIII", "8", "Class VIII", "Class 8"]);
+    } else if (cls === "X" || cls === "10") {
+      query = query.in("present_class", ["X", "10", "Class X", "Class 10"]);
+    } else if (cls === "XII" || cls === "12") {
+      query = query.in("present_class", ["XII", "12", "Class XII", "Class 12"]);
+    } else {
+      query = query.ilike("present_class", cls);
+    }
   }
   if (filters.section) {
-    query = query.eq("present_section", filters.section);
+    query = query.ilike("present_section", filters.section);
   }
   if (filters.status) {
-    query = query.eq("current_status", filters.status);
+    query = query.ilike("current_status", filters.status);
   }
   if (filters.admissionYear) {
     query = query.eq("admission_year", filters.admissionYear);
   }
   if (filters.gender) {
-    query = query.eq("gender", filters.gender);
+    query = query.ilike("gender", filters.gender);
   }
   if (filters.socialCategory) {
     if (filters.socialCategory === "OBC") {
       query = query.or("social_category.eq.OBC,social_category.ilike.%OBC%");
     } else {
-      query = query.eq("social_category", filters.socialCategory);
+      query = query.ilike("social_category", filters.socialCategory);
     }
   }
   if (filters.scheme) {
@@ -447,30 +466,26 @@ export async function dbSearchStudents(
         const date13YearsAgo = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate()).toISOString().split("T")[0];
         query = query.lte("dob", date13YearsAgo);
       }
-    } else if (filters.scheme === "aikyashree") {
-      query = query.or(
-        "religion.ilike.%muslim%,religion.ilike.%islam%,religion.ilike.%christian%,religion.ilike.%buddhist%,religion.ilike.%sikh%,religion.ilike.%jain%,religion.ilike.%parsi%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%,minority_group.ilike.%christian%,minority_group.ilike.%buddhist%,minority_group.ilike.%sikh%,minority_group.ilike.%jain%,minority_group.ilike.%parsi%"
-      );
     } else if (filters.scheme === "sikshashree" || filters.scheme === "shikshashree") {
       query = query.in("social_category", ["SC", "ST"]).in("present_class", ["V", "VI", "VII", "VIII", "5", "6", "7", "8"]);
-    } else if (filters.scheme === "medhashree") {
-      query = query.or("social_category.eq.OBC,social_category.ilike.%OBC%").in("present_class", ["V", "VI", "VII", "VIII", "5", "6", "7", "8"]);
     } else if (filters.scheme === "oasis_pre") {
-      query = query.in("social_category", ["SC", "ST"]).in("present_class", ["IX", "X", "9", "10"]);
+      query = query.or("social_category.in.(SC,ST),social_category.ilike.%OBC%").in("present_class", ["IX", "X", "9", "10"]);
     } else if (filters.scheme === "oasis_post") {
       query = query.or("social_category.in.(SC,ST),social_category.ilike.%OBC%").in("present_class", ["XI", "XII", "11", "12"]);
     } else if (filters.scheme === "oasis") {
       query = query.or("social_category.in.(SC,ST),social_category.ilike.%OBC%").in("present_class", ["IX", "X", "XI", "XII", "9", "10", "11", "12"]);
+    } else if (filters.scheme === "nsp_pre") {
+      query = query.or("religion.ilike.%muslim%,religion.ilike.%islam%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%").in("present_class", ["IX", "X", "9", "10"]);
+    } else if (filters.scheme === "nsp_post") {
+      query = query.or("religion.ilike.%muslim%,religion.ilike.%islam%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%").in("present_class", ["XI", "XII", "11", "12"]);
+    } else if (filters.scheme === "nsp") {
+      query = query.or("religion.ilike.%muslim%,religion.ilike.%islam%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%").in("present_class", ["IX", "X", "XI", "XII", "9", "10", "11", "12"]);
     } else if (filters.scheme === "svmcm") {
-      query = query.in("present_class", ["XI", "XII", "11", "12"]);
-    } else if (filters.scheme === "taruner_swapno") {
-      query = query.in("present_class", ["XI", "XII", "11", "12"]);
+      query = query.or("religion.ilike.%muslim%,religion.ilike.%islam%,minority_group.ilike.%muslim%,minority_group.ilike.%islam%").in("present_class", ["XI", "XII", "11", "12"]);
     } else if (filters.scheme === "sabooj_sathi" || filters.scheme === "sabooj_sarathi" as any) {
       query = query.in("present_class", ["IX", "X", "XI", "XII", "9", "10", "11", "12"]);
     } else if (filters.scheme === "cwsn") {
       query = query.eq("is_cwsn", true);
-    } else if (filters.scheme === "bpl") {
-      query = query.eq("is_bpl", true);
     }
   }
 
@@ -480,6 +495,29 @@ export async function dbSearchStudents(
       query = query.not("aadhaar", "is", null).neq("aadhaar", "");
     } else if (filters.hasAadhaar === "no") {
       query = query.or("aadhaar.is.null,aadhaar.eq.");
+    }
+  }
+
+  // 4. Age Slab filter
+  if (filters.ageSlab) {
+    const today = new Date();
+    const getDateYrsAgo = (yrs: number) => {
+      const d = new Date(today.getFullYear() - yrs, today.getMonth(), today.getDate());
+      return d.toISOString().split("T")[0];
+    };
+
+    const slab = filters.ageSlab.trim().toLowerCase();
+    if (slab === "below_10") {
+      query = query.gt("dob", getDateYrsAgo(10));
+    } else if (slab === "20_above") {
+      query = query.lte("dob", getDateYrsAgo(20));
+    } else {
+      const parts = slab.split("_").map(Number);
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        const minAge = Math.min(parts[0], parts[1]);
+        const maxAge = Math.max(parts[0], parts[1]);
+        query = query.lte("dob", getDateYrsAgo(minAge)).gt("dob", getDateYrsAgo(maxAge));
+      }
     }
   }
 
@@ -599,7 +637,6 @@ export async function dbUpdateStudent(
   if (updates.email !== undefined) dbUpdates.email = toNullableString(updates.email);
   if (updates.motherTongue !== undefined) dbUpdates.mother_tongue = toNullableString(updates.motherTongue);
   if (updates.minorityGroup !== undefined) dbUpdates.minority_group = toNullableString(updates.minorityGroup);
-  if (updates.isBpl !== undefined) dbUpdates.is_bpl = !!updates.isBpl;
   if (updates.isAay !== undefined) dbUpdates.is_aay = !!updates.isAay;
   if (updates.isEws !== undefined) dbUpdates.is_ews = !!updates.isEws;
   if (updates.isCwsn !== undefined) dbUpdates.is_cwsn = !!updates.isCwsn;

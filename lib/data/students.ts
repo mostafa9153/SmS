@@ -52,6 +52,7 @@ export async function searchStudents(
   if (filters.socialCategory) params.append("socialCategory", filters.socialCategory);
   if (filters.scheme) params.append("scheme", filters.scheme);
   if (filters.hasAadhaar) params.append("hasAadhaar", filters.hasAadhaar);
+  if (filters.ageSlab) params.append("ageSlab", filters.ageSlab);
   params.append("page", String(page));
   params.append("pageSize", String(pageSize));
 

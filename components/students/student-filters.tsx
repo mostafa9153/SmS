@@ -72,7 +72,8 @@ export function StudentFiltersBar({
     !!filters.gender ||
     !!filters.socialCategory ||
     !!filters.scheme ||
-    !!filters.hasAadhaar;
+    !!filters.hasAadhaar ||
+    !!filters.ageSlab;
 
   const sortedClasses = sortClasses(classes);
 
@@ -116,16 +117,15 @@ export function StudentFiltersBar({
             { label: "🎀 Kanyashree (All)", value: "kanyashree" },
             { label: "🎀 Kanyashree K1 (Class 8-11)", value: "kanyashree_k1" },
             { label: "🎓 Kanyashree K2 (Class 12 / 18+)", value: "kanyashree_k2" },
-            { label: "📗 Aikyashree (Minority)", value: "aikyashree" },
             { label: "📘 Sikshashree (SC/ST V-VIII)", value: "sikshashree" },
-            { label: "📙 Medhashree (OBC V-VIII)", value: "medhashree" },
-            { label: "🏛️ OASIS Pre-Matric (SC/ST IX-X)", value: "oasis_pre" },
-            { label: "🏛️ OASIS Post-Matric (XI-XII)", value: "oasis_post" },
-            { label: "⭐ SVMCM (Bikash Bhavan XI-XII)", value: "svmcm" },
-            { label: "📱 Taruner Swapno (Tab Grant XI-XII)", value: "taruner_swapno" },
+            { label: "🏛️ OASIS Pre-Matric (SC/ST/OBC IX-X)", value: "oasis_pre" },
+            { label: "🏛️ OASIS Post-Matric (SC/ST/OBC XI-XII)", value: "oasis_post" },
+            { label: "📗 Pre-Matric NSP (Muslim IX-X)", value: "nsp_pre" },
+            { label: "📗 Post-Matric NSP (Muslim XI-XII)", value: "nsp_post" },
+            { label: "📗 NSP (Minority 9-12)", value: "nsp" },
+            { label: "⭐ SVMCM (Muslim XI-XII, 60%+)", value: "svmcm" },
             { label: "🚲 Sarathi (Bicycle IX)", value: "sabooj_sathi" },
             { label: "♿ CWSN / Divyangjan", value: "cwsn" },
-            { label: "🏷️ BPL Beneficiary", value: "bpl" },
           ]}
         />
 
@@ -193,43 +193,42 @@ export function StudentFiltersBar({
           ]}
         />
 
-        {/* Filtered count and Clear button */}
-        {hasFilters && (
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-semibold font-mono border shadow-2xs transition-all duration-200",
-                isLoading
-                  ? "bg-muted text-muted-foreground border-border"
-                  : (totalCount ?? 0) > 0
-                  ? "bg-primary/10 text-primary border-primary/25"
-                  : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
-              )}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-                  <span>Searching...</span>
-                </>
-              ) : (
-                <>
-                  <Users className="h-3.5 w-3.5" />
-                  <span>
-                    {(totalCount ?? 0).toLocaleString()}{" "}
-                    {(totalCount ?? 0) === 1 ? "student" : "students"} found
-                  </span>
-                </>
-              )}
-            </div>
+        {/* Age Group / Slab filter */}
+        <FilterSelect
+          value={filters.ageSlab ?? ""}
+          onChange={(v) =>
+            onChange({
+              ...filters,
+              ageSlab: v || undefined,
+            })
+          }
+          placeholder="Age Group"
+          options={[
+            { label: "🎂 Below 10 yrs", value: "below_10" },
+            { label: "🎂 10 - 11 yrs", value: "10_11" },
+            { label: "🎂 11 - 12 yrs", value: "11_12" },
+            { label: "🎂 12 - 13 yrs", value: "12_13" },
+            { label: "🎂 13 - 14 yrs", value: "13_14" },
+            { label: "🎂 14 - 15 yrs", value: "14_15" },
+            { label: "🎂 15 - 16 yrs", value: "15_16" },
+            { label: "🎂 16 - 17 yrs", value: "16_17" },
+            { label: "🎂 17 - 18 yrs", value: "17_18" },
+            { label: "🎂 18 - 19 yrs", value: "18_19" },
+            { label: "🎂 19 - 20 yrs", value: "19_20" },
+            { label: "🎂 20+ yrs (Above 20)", value: "20_above" },
+          ]}
+        />
 
-            <button
-              onClick={clearAll}
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
-            >
-              <X className="h-3.5 w-3.5" />
-              Clear filters
-            </button>
-          </div>
+        {/* Clear filters button */}
+        {hasFilters && (
+          <button
+            onClick={clearAll}
+            className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Clear all active filters"
+          >
+            <X className="h-3.5 w-3.5" />
+            <span>Clear filters</span>
+          </button>
         )}
       </div>
     </div>
@@ -267,6 +266,8 @@ function FilterSelect({
     };
   }, [isOpen]);
 
+  const isAgeGroup = placeholder === "Age Group";
+
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Trigger button */}
@@ -281,7 +282,7 @@ function FilterSelect({
           isOpen && "ring-2 ring-primary/25 border-primary shadow-xs"
         )}
       >
-        <span className="truncate max-w-[130px]">
+        <span className="truncate max-w-[140px]">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
@@ -292,11 +293,14 @@ function FilterSelect({
         />
       </button>
 
-      {/* Floating Animated Menu */}
+      {/* Floating Animated Menu — Solid opaque background to prevent background bleed-through */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 min-w-[220px] max-w-[320px] max-h-[380px] overflow-y-auto rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-xl p-1.5 shadow-xl shadow-black/10 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
-          <div className="px-2 py-1 mb-1 border-b border-border/50 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            <span>{placeholder}</span>
+        <div className="absolute left-0 top-full mt-1.5 w-[240px] sm:w-[270px] rounded-2xl border border-border/90 bg-card dark:bg-slate-900 bg-white p-2 shadow-2xl z-[100] animate-in fade-in-0 zoom-in-95 duration-150">
+          <div className="px-2.5 py-1.5 mb-1.5 border-b border-border/60 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 rounded-xl">
+            <span className="flex items-center gap-1.5">
+              {isAgeGroup && <span>🎂</span>}
+              <span>{placeholder}</span>
+            </span>
             {value && (
               <button
                 type="button"
@@ -305,14 +309,14 @@ function FilterSelect({
                   onChange("");
                   setIsOpen(false);
                 }}
-                className="text-rose-500 hover:underline capitalize"
+                className="text-rose-500 hover:text-rose-600 font-semibold hover:underline capitalize text-[11px] cursor-pointer"
               >
                 Reset
               </button>
             )}
           </div>
 
-          <div className="space-y-0.5">
+          <div className="max-h-[300px] overflow-y-auto pr-1 space-y-1 [::-webkit-scrollbar]:w-1.5 [::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [::-webkit-scrollbar-thumb]:rounded-full [::-webkit-scrollbar-track]:bg-transparent">
             {/* All / Default option */}
             <button
               type="button"
@@ -321,9 +325,9 @@ function FilterSelect({
                 setIsOpen(false);
               }}
               className={cn(
-                "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
+                "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
                 !value
-                  ? "bg-primary/15 text-primary font-bold"
+                  ? "bg-primary/15 text-primary font-bold shadow-2xs"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
@@ -342,14 +346,14 @@ function FilterSelect({
                     setIsOpen(false);
                   }}
                   className={cn(
-                    "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
+                    "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
                     isSelected
-                      ? "bg-primary/15 text-primary font-bold shadow-2xs"
+                      ? "bg-primary text-primary-foreground font-semibold shadow-xs"
                       : "text-foreground hover:bg-primary/10 hover:text-primary"
                   )}
                 >
                   <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
+                  {isSelected && <Check className="h-3.5 w-3.5 text-primary-foreground flex-shrink-0" />}
                 </button>
               );
             })}

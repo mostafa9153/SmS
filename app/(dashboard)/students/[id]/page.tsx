@@ -20,8 +20,16 @@ import {
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { CopyButton } from "@/components/ui/copy-button";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, calculateDetailedAge } from "@/lib/utils";
 import { CustomSelect } from "@/components/ui/custom-select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft,
   Pencil,
@@ -43,6 +51,7 @@ import {
   GraduationCap,
   FileSpreadsheet,
   HeartHandshake,
+  ChevronDown,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -209,54 +218,98 @@ export default function StudentProfilePage() {
               </div>
             </div>
 
-            {/* Action Buttons (Certificates, Edit, Delete) */}
+            {/* Action Buttons (Generators Dropdown, Edit, Delete) */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              <Link
-                href={`/generate/certificate?studentId=${student.id}`}
-                className="flex items-center gap-1.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-sm font-medium hover:bg-blue-500/20 transition-colors shadow-2xs"
-              >
-                <Award className="h-3.5 w-3.5" />
-                <span>Character Cert</span>
-              </Link>
-              <Link
-                href={`/generate/pass-certificate?studentId=${student.id}`}
-                className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500/20 transition-colors shadow-2xs"
-              >
-                <GraduationCap className="h-3.5 w-3.5" />
-                <span>Pass Out Cert</span>
-              </Link>
-              <Link
-                href={`/generate/transfer-certificate?studentId=${student.id}`}
-                className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500/20 transition-colors shadow-2xs"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-                <span>Transfer Cert</span>
-              </Link>
-              <Link
-                href={`/generate/kanyashree?studentId=${student.id}`}
-                className="flex items-center gap-1.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-3 py-1.5 text-sm font-medium hover:bg-purple-500/20 transition-colors shadow-2xs"
-              >
-                <HeartHandshake className="h-3.5 w-3.5" />
-                <span>Kanyashree Cert</span>
-              </Link>
-              <Link
-                href={`/generate/invoice?studentId=${student.id}`}
-                className="flex items-center gap-1.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-sm font-medium hover:bg-teal-500/20 transition-colors shadow-2xs"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                <span>Fee Invoice</span>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 px-3.5 py-1.5 text-sm font-medium shadow-2xs transition-all cursor-pointer active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <Sparkles className="h-4 w-4" />
+                  <span>Generators</span>
+                  <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-60 p-1.5 rounded-xl border shadow-xl bg-card">
+                  <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Document Generators
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="my-1" />
+
+                  <DropdownMenuItem
+                    className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors flex items-start gap-2.5"
+                    onClick={() => router.push(`/generate/certificate?studentId=${student.id}`)}
+                  >
+                    <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5">
+                      <Award className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs sm:text-sm text-foreground">Character Cert</span>
+                      <span className="text-[10px] text-muted-foreground">Standard conduct & character certificate</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors flex items-start gap-2.5"
+                    onClick={() => router.push(`/generate/pass-certificate?studentId=${student.id}`)}
+                  >
+                    <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5">
+                      <GraduationCap className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs sm:text-sm text-foreground">Pass Out Cert</span>
+                      <span className="text-[10px] text-muted-foreground">Course completion & pass out certificate</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors flex items-start gap-2.5"
+                    onClick={() => router.push(`/generate/transfer-certificate?studentId=${student.id}`)}
+                  >
+                    <div className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5">
+                      <FileSpreadsheet className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs sm:text-sm text-foreground">Transfer Cert (TC)</span>
+                      <span className="text-[10px] text-muted-foreground">Official school leaving certificate</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors flex items-start gap-2.5"
+                    onClick={() => router.push(`/generate/kanyashree?studentId=${student.id}`)}
+                  >
+                    <div className="p-1.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5">
+                      <HeartHandshake className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs sm:text-sm text-foreground">Kanyashree Cert</span>
+                      <span className="text-[10px] text-muted-foreground">Scheme eligibility document</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    className="cursor-pointer p-2 rounded-lg hover:bg-muted transition-colors flex items-start gap-2.5"
+                    onClick={() => router.push(`/generate/invoice?studentId=${student.id}`)}
+                  >
+                    <div className="p-1.5 rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400 shrink-0 mt-0.5">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-medium text-xs sm:text-sm text-foreground">Fee Invoice</span>
+                      <span className="text-[10px] text-muted-foreground">Printable fee receipt & invoice</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               <Link
                 href={`/students/${student.id}/edit`}
-                className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
+                className="flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-sm font-medium hover:bg-muted transition-colors shadow-2xs"
               >
                 <Pencil className="h-3.5 w-3.5" />
-                Edit Profile
+                <span>Edit Profile</span>
               </Link>
               <button
                 type="button"
                 onClick={() => setDeleteDialogOpen(true)}
-                className="flex items-center gap-1.5 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-colors shadow-2xs active:scale-95 cursor-pointer"
+                className="flex items-center gap-1.5 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-3.5 py-1.5 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-colors shadow-2xs active:scale-95 cursor-pointer"
                 title={`Delete ${student.name}'s profile`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -293,9 +346,15 @@ export default function StudentProfilePage() {
             <p className="font-medium">{student.gender}</p>
           </div>
           <div>
-            <p className="text-xs text-muted-foreground mb-0.5">DOB</p>
-            <div className="font-medium flex items-center gap-1">
-              <span>{formatDate(student.dob)}</span>
+            <p className="text-xs text-muted-foreground mb-0.5">DOB & Age</p>
+            <div className="font-medium flex items-center gap-1 text-xs sm:text-sm">
+              <span>
+                {formatDate(student.dob)}
+                {(() => {
+                  const dAge = calculateDetailedAge(student.dob);
+                  return dAge ? ` (${dAge.formattedShort})` : "";
+                })()}
+              </span>
               {student.dob && (
                 <CopyButton text={student.dob} label="Date of Birth" iconClassName="h-3 w-3" />
               )}
@@ -358,6 +417,13 @@ export default function StudentProfilePage() {
               <InfoGrid>
                 <InfoField label="Full Name" value={student.name} copyable />
                 <InfoField label="Date of Birth" value={formatDate(student.dob)} copyable />
+                <InfoField
+                  label="Exact Age (Y / M / D)"
+                  value={(() => {
+                    const dAge = calculateDetailedAge(student.dob);
+                    return dAge ? dAge.formattedLong : undefined;
+                  })()}
+                />
                 <InfoField label="Gender" value={student.gender} />
                 <InfoField label="Mother Tongue" value={student.motherTongue} />
                 <InfoField label="Religion" value={student.religion} />
@@ -374,8 +440,10 @@ export default function StudentProfilePage() {
               <SectionTitle>Social & Eligibility Categories</SectionTitle>
               <InfoGrid>
                 <InfoField label="Social Category" value={student.socialCategory} />
+                {student.casteCertificateNo && (
+                  <InfoField label="Category / Caste Cert. No." value={student.casteCertificateNo} copyable />
+                )}
                 <InfoField label="Minority Group" value={student.minorityGroup} />
-                <InfoField label="BPL Beneficiary" value={student.isBpl ? "Yes" : "No"} />
                 <InfoField label="AAY Beneficiary" value={student.isAay ? "Yes" : "No"} />
                 <InfoField label="EWS / Disadvantaged Group" value={student.isEws ? "Yes" : "No"} />
                 <InfoField label="Out-of-School Child" value={student.isOutOfSchool ? "Yes" : "No"} />

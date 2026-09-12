@@ -158,7 +158,7 @@ const settingsNavItems = [
   },
   {
     tab: "preset-addresses",
-    label: "Predefined Addresses",
+    label: "Presets",
     icon: <MapPin className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",

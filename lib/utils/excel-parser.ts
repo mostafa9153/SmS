@@ -635,27 +635,6 @@ export const TARGET_FIELDS: FieldDefinition[] = [
 
   // 5. Special Categories & Welfare
   {
-    key: "isBpl",
-    label: "BPL Beneficiary (Yes/No)",
-    category: "Welfare",
-    icon: "🎫",
-    aliases: [
-      "bpl beneficiary",
-      "bpl",
-      "is bpl",
-      "bpl status",
-      "bpl y/n",
-      "bpl y n",
-      "bpl card holder",
-      "bpl beneficiary (yes/no)",
-      "bpl (y/n)",
-      "bpl yes/no",
-      "bpl beneficiary y/n",
-      "bpl category",
-      "below poverty line",
-    ],
-  },
-  {
     key: "isCwsn",
     label: "CWSN / Disability (Yes/No)",
     category: "Welfare",
@@ -849,7 +828,6 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "DISE Code": "diseCode",
       "Minority Group": "minorityGroup",
       "Mother Tongue": "motherTongue",
-      "BPL Beneficiary": "isBpl",
       "Annual Family Income": "annualFamilyIncome",
       "CWSN / Disability": "isCwsn",
       "Disability Type": "impairmentType",
@@ -902,7 +880,6 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "DISE Code": "diseCode",
       "Minority Group": "minorityGroup",
       "Mother Tongue": "motherTongue",
-      "BPL Beneficiary": "isBpl",
       "Annual Family Income": "annualFamilyIncome",
       "CWSN / Disability": "isCwsn",
       "Disability Type": "impairmentType",
@@ -1039,8 +1016,6 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
     "tongue",
     "minority",
     "minority group",
-    "bpl",
-    "bpl beneficiary",
     "income",
     "annual income",
     "annual family income",
@@ -1353,7 +1328,6 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "religion",
     "motherTongue",
     "minorityGroup",
-    "isBpl",
     "annualFamilyIncome",
     "isCwsn",
     "impairmentType",
@@ -1747,7 +1721,6 @@ export function applyMapping(
           student.guardianName = str;
         }
       } else if (
-        fieldKey === "isBpl" ||
         fieldKey === "isCwsn" ||
         fieldKey === "isAay" ||
         fieldKey === "isEws" ||

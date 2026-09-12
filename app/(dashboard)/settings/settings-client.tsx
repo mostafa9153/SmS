@@ -430,8 +430,14 @@ export function SettingsClient() {
       color: "text-amber-600 dark:text-amber-400 bg-amber-500/10",
     },
     "preset-addresses": {
-      title: "Predefined Addresses Management",
-      subtitle: "Configure quick-fill predefined addresses (A1 to A5) for student registration forms.",
+      title: "System Presets & Quick-Fill Hub",
+      subtitle: "Configure reusable preset templates for student registration, feeder schools, local banks, and quick addresses.",
+      icon: MapPin,
+      color: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
+    },
+    presets: {
+      title: "System Presets & Quick-Fill Hub",
+      subtitle: "Configure reusable preset templates for student registration, feeder schools, local banks, and quick addresses.",
       icon: MapPin,
       color: "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10",
     },
@@ -1000,6 +1006,9 @@ export function SettingsClient() {
           <SchoolDetailsTab />
         </TabsContent>
         <TabsContent value="preset-addresses" className="space-y-4 outline-none">
+          <PresetAddressesTab />
+        </TabsContent>
+        <TabsContent value="presets" className="space-y-4 outline-none">
           <PresetAddressesTab />
         </TabsContent>
 

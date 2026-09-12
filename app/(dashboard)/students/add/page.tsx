@@ -12,7 +12,9 @@ import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
 import { GuardianRelationshipSelect } from "@/components/students/guardian-relationship-select";
-import { PresetAddressButtons } from "@/components/students/preset-address-buttons";
+import { SmartAddressInput } from "@/components/students/smart-address-input";
+import { SmartBankInput } from "@/components/students/smart-bank-input";
+import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 
 const studentSchema = z.object({
   // Identity
@@ -40,8 +42,8 @@ const studentSchema = z.object({
 
   // Social & Categories
   socialCategory: z.string().optional(),
+  casteCertificateNo: z.string().optional(),
   minorityGroup: z.string().optional(),
-  isBpl: z.coerce.boolean().optional(),
   isAay: z.coerce.boolean().optional(),
   isEws: z.coerce.boolean().optional(),
   isOutOfSchool: z.coerce.boolean().optional(),
@@ -61,7 +63,7 @@ const studentSchema = z.object({
   relationshipWithGuardian: z.string().optional(),
   guardianQualification: z.string().optional(),
   annualFamilyIncome: z.coerce.number().optional(),
-  
+
   // Contact
   studentContact: z.string().optional().refine((v) => !v || /^\d{10}$/.test(v), "Contact must be 10 digits"),
   altMobile: z.string().optional().refine((v) => !v || /^\d{10}$/.test(v), "Contact must be 10 digits"),
@@ -89,6 +91,7 @@ const studentSchema = z.object({
   coCurricularSubjectsInput: z.string().optional(),
 
   // Previous Academic Year Info
+  previousSchool: z.string().optional(),
   previousStatus: z.string().optional(),
   previousClass: z.string().optional(),
   previousSection: z.string().optional(),
@@ -195,7 +198,6 @@ export default function AddStudentPage() {
       gender: "Male",
       motherTongue: "Bengali",
       indianNationality: true,
-      isBpl: false,
       isAay: false,
       isEws: false,
       isOutOfSchool: false,
@@ -211,6 +213,7 @@ export default function AddStudentPage() {
   });
 
   const isOutOfSchoolChecked = watch("isOutOfSchool");
+  const watchSocialCategory = watch("socialCategory");
   const isCwsnChecked = watch("isCwsn");
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
@@ -235,7 +238,7 @@ export default function AddStudentPage() {
       const mandatorySubjects = data.mandatorySubjectsInput ? data.mandatorySubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const additionalSubjects = data.additionalSubjectsInput ? data.additionalSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const coCurricularSubjects = data.coCurricularSubjectsInput ? data.coCurricularSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      
+
       const facilitiesProvided = data.facilitiesProvidedInput ? data.facilitiesProvidedInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const cwsnFacilities = data.cwsnFacilitiesInput ? data.cwsnFacilitiesInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const competitionsOlympiads = data.competitionsOlympiadsInput ? data.competitionsOlympiadsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -301,7 +304,7 @@ export default function AddStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        
+
         {/* Section 1: Demographics */}
         <FormSection title="A. Student Demographics">
           <FormGrid>
@@ -432,29 +435,22 @@ export default function AddStudentPage() {
                       { label: "OBC", value: "OBC" },
                       { label: "SC", value: "SC" },
                       { label: "ST", value: "ST" },
+                      { label: "Other", value: "Other" },
                     ]}
                   />
                 )}
               />
             </FormField>
+            {watchSocialCategory && watchSocialCategory.trim() !== "" && (
+              <FormField label="Category / Caste Certificate Number" error={errors.casteCertificateNo?.message}>
+                <input
+                  {...register("casteCertificateNo")}
+                  placeholder="Enter certificate number (e.g. WB/SC/2024/...)"
+                />
+              </FormField>
+            )}
             <FormField label="Minority Group" error={errors.minorityGroup?.message}>
               <input {...register("minorityGroup")} placeholder="e.g. Muslim, Christian, None" />
-            </FormField>
-            <FormField label="BPL Beneficiary?" error={errors.isBpl?.message}>
-              <Controller
-                control={control}
-                name="isBpl"
-                render={({ field }) => (
-                  <CustomSelect
-                    value={String(field.value ?? false)}
-                    onChange={(val) => field.onChange(val === "true" || val === true)}
-                    options={[
-                      { label: "No", value: "false" },
-                      { label: "Yes", value: "true" },
-                    ]}
-                  />
-                )}
-              />
             </FormField>
             <FormField label="AAY (Antyodaya Anna Yojana)?" error={errors.isAay?.message}>
               <Controller
@@ -615,28 +611,16 @@ export default function AddStudentPage() {
             <FormField label="Contact Email ID" error={errors.email?.message}>
               <input {...register("email")} type="email" placeholder="e.g. guardian@mail.com" />
             </FormField>
-            <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Address
-                </label>
-                <PresetAddressButtons
-                  currentAddress={watch("address")}
-                  currentPincode={watch("pincode")}
-                  onSelectAddress={(addr, pin) => {
-                    setValue("address", addr, { shouldValidate: true });
-                    setValue("pincode", pin, { shouldValidate: true });
-                  }}
-                />
-              </div>
-              <div className={`[&>textarea]:w-full [&>textarea]:rounded-md [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3 [&>textarea]:py-1.5 [&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none ${errors.address ? "[&>textarea]:border-destructive" : ""}`}>
-                <textarea {...register("address")} rows={2} placeholder="Village, PO, District, State" />
-              </div>
-              {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address.message}</p>}
+            <div className="sm:col-span-2 md:col-span-3">
+              <SmartAddressInput
+                value={watch("address") || ""}
+                onChange={(addr) => setValue("address", addr, { shouldValidate: true })}
+                pincodeValue={watch("pincode") || ""}
+                onPincodeChange={(pin) => setValue("pincode", pin, { shouldValidate: true })}
+                error={errors.address?.message}
+                pincodeError={errors.pincode?.message}
+              />
             </div>
-            <FormField label="Pincode" error={errors.pincode?.message}>
-              <input {...register("pincode")} placeholder="6-digit PIN" maxLength={6} />
-            </FormField>
           </FormGrid>
         </FormSection>
 
@@ -731,6 +715,13 @@ export default function AddStudentPage() {
         {/* Section 6: Previous Schooling & RTE */}
         <FormSection title="F. Previous Schooling & RTE">
           <FormGrid>
+            <div className="sm:col-span-2 md:col-span-3">
+              <SmartPreviousSchoolInput
+                value={watch("previousSchool") || ""}
+                onChange={(val) => setValue("previousSchool", val, { shouldValidate: true })}
+                error={errors.previousSchool?.message}
+              />
+            </div>
             <FormField label="Schooling Status" error={errors.previousStatus?.message}>
               <input {...register("previousStatus")} placeholder="e.g. Studied in same school" />
             </FormField>
@@ -875,16 +866,16 @@ export default function AddStudentPage() {
           </FormGrid>
         </FormSection>
 
-        {/* Section 8: Bank Account Details */}
+        {/* Section 8: Bank Details */}
         <FormSection title="H. Bank Details">
-          <FormGrid>
-            <FormField label="Bank Account Number" error={errors.bankAccountNo?.message}>
-              <input {...register("bankAccountNo")} placeholder="A/C Number" />
-            </FormField>
-            <FormField label="Bank IFSC Code" error={errors.bankIfsc?.message}>
-              <input {...register("bankIfsc")} placeholder="e.g. SBIN0001234" maxLength={11} style={{ textTransform: "uppercase" }} />
-            </FormField>
-          </FormGrid>
+          <SmartBankInput
+            accountNumberValue={watch("bankAccountNo") || ""}
+            onAccountNumberChange={(val) => setValue("bankAccountNo", val, { shouldValidate: true })}
+            ifscValue={watch("bankIfsc") || ""}
+            onIfscChange={(val) => setValue("bankIfsc", val, { shouldValidate: true })}
+            accountNumberError={errors.bankAccountNo?.message}
+            ifscError={errors.bankIfsc?.message}
+          />
         </FormSection>
 
         {/* Section 9: Government Identifiers */}

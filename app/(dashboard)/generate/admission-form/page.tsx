@@ -238,7 +238,7 @@ function AdmissionFormGeneratorContent() {
     };
 
     const commonOther = {
-      bplStatus: (student.isBpl ? "YES" : "NO") as "YES" | "NO",
+      bplStatus: "NO" as "YES" | "NO",
       bplNo: "",
       cwsnStatus: (student.isCwsn ? "YES" : "NO") as "YES" | "NO",
       disabilityType: student.impairmentType || "",

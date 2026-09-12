@@ -169,7 +169,7 @@ export function PhotoStudioModal({
   }, [isOpen, processImageFile]);
 
   // Capture snapshot from live camera feed
-  const captureCameraSnapshot = () => {
+  const captureCameraSnapshot = useCallback(() => {
     if (!videoRef.current) return;
     const video = videoRef.current;
     const canvas = document.createElement("canvas");
@@ -186,7 +186,32 @@ export function PhotoStudioModal({
     setRotation(0);
     setPanOffset({ x: 0, y: 0 });
     stopCamera();
-  };
+  }, [stopCamera]);
+
+  // Keyboard shortcut: Press Spacebar to trigger camera capture
+  useEffect(() => {
+    if (!isOpen || activeTab !== "camera" || imageSource || !cameraActive) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Trigger snapshot on Space key press
+      if (e.code === "Space" || e.key === " ") {
+        // Don't trigger if user is typing in an input or textarea
+        if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
+          return;
+        }
+        e.preventDefault();
+        captureCameraSnapshot();
+        showToast({
+          type: "success",
+          title: "Photo Captured",
+          description: "Captured photo using Spacebar shortcut!",
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, activeTab, imageSource, cameraActive, captureCameraSnapshot]);
 
   // -------------------------------------------------------------
   // HTML5 Canvas 3:4 Passport Crop & < 40KB Auto-Compression
@@ -503,10 +528,12 @@ export function PhotoStudioModal({
                       <button
                         type="button"
                         onClick={captureCameraSnapshot}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-xs sm:text-sm hover:bg-primary/90 shadow-md active:scale-95 transition-all"
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-xs sm:text-sm hover:bg-primary/90 shadow-md active:scale-95 transition-all cursor-pointer"
+                        title="Click or press Spacebar on keyboard to capture"
                       >
                         <Camera className="h-4 w-4" />
-                        Capture Photo
+                        <span>Capture Photo</span>
+                        <kbd className="hidden sm:inline-block px-1.5 py-0.5 ml-1 text-[10px] font-mono bg-primary-foreground/20 rounded text-primary-foreground font-bold">Space</kbd>
                       </button>
                     </div>
                   )}

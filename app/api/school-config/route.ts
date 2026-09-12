@@ -10,6 +10,9 @@ const VALID_KEYS = [
   "promotion_policy",
   "ems_rooms",
   "ems_allocations",
+  "address_presets_config",
+  "bank_presets",
+  "school_presets",
 ];
 
 const DEFAULT_SYSTEM_USER = "2e7e7a69-5c50-4dba-86ae-25614b3fc8bd";

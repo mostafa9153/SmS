@@ -70,7 +70,8 @@ export default function StudentsClient() {
       !!filters.gender ||
       !!filters.socialCategory ||
       !!filters.scheme ||
-      !!filters.hasAadhaar
+      !!filters.hasAadhaar ||
+      !!filters.ageSlab
     );
   }, [filters]);
 
@@ -111,7 +112,7 @@ export default function StudentsClient() {
                   <>
                     <span className="font-mono text-xs">{totalCount.toLocaleString()}</span>
                     <span className="text-[11px] font-medium opacity-85">
-                      {hasFilters ? (totalCount === 1 ? "found" : "found") : "students"}
+                      {hasFilters ? "students found" : "total students"}
                     </span>
                   </>
                 )}

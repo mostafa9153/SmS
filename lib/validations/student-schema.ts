@@ -28,8 +28,8 @@ export const studentCreateSchema = z.object({
 
   // Social & Categories
   socialCategory: z.string().optional().nullable(),
+  casteCertificateNo: z.string().optional().nullable(),
   minorityGroup: z.string().optional().nullable(),
-  isBpl: z.coerce.boolean().optional().default(false),
   isAay: z.coerce.boolean().optional().default(false),
   isEws: z.coerce.boolean().optional().default(false),
   isOutOfSchool: z.coerce.boolean().optional().default(false),

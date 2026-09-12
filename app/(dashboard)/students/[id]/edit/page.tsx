@@ -13,7 +13,9 @@ import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
 import { GuardianRelationshipSelect } from "@/components/students/guardian-relationship-select";
-import { PresetAddressButtons } from "@/components/students/preset-address-buttons";
+import { SmartAddressInput } from "@/components/students/smart-address-input";
+import { SmartBankInput } from "@/components/students/smart-bank-input";
+import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
 
 const studentSchema = z.object({
@@ -43,8 +45,8 @@ const studentSchema = z.object({
 
   // Social & Categories
   socialCategory: z.string().optional(),
+  casteCertificateNo: z.string().optional(),
   minorityGroup: z.string().optional(),
-  isBpl: z.coerce.boolean().optional(),
   isAay: z.coerce.boolean().optional(),
   isEws: z.coerce.boolean().optional(),
   isOutOfSchool: z.coerce.boolean().optional(),
@@ -64,7 +66,7 @@ const studentSchema = z.object({
   relationshipWithGuardian: z.string().optional(),
   guardianQualification: z.string().optional(),
   annualFamilyIncome: z.coerce.number().optional().nullable(),
-  
+
   // Contact
   studentContact: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
   altMobile: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
@@ -92,6 +94,7 @@ const studentSchema = z.object({
   coCurricularSubjectsInput: z.string().optional(),
 
   // Previous Academic Year Info
+  previousSchool: z.string().optional().nullable(),
   previousStatus: z.string().optional(),
   previousClass: z.string().optional(),
   previousSection: z.string().optional(),
@@ -206,99 +209,100 @@ export default function EditStudentPage() {
     resolver: zodResolver(studentSchema),
     values: student
       ? {
-          name: student.name,
-          schoolId: student.schoolId,
-          dob: student.dob,
-          gender: student.gender,
-          motherTongue: student.motherTongue || "Bengali",
-          religion: student.religion ?? "",
-          indianNationality: student.indianNationality !== false,
-          bloodGroup: student.bloodGroup ?? "",
-          heightCm: student.heightCm,
-          weightKg: student.weightKg,
-          birthRegistrationNo: student.birthRegistrationNo ?? "",
-          identificationMark: student.identificationMark ?? "",
+        name: student.name,
+        schoolId: student.schoolId,
+        dob: student.dob,
+        gender: student.gender,
+        motherTongue: student.motherTongue || "Bengali",
+        religion: student.religion ?? "",
+        indianNationality: student.indianNationality !== false,
+        bloodGroup: student.bloodGroup ?? "",
+        heightCm: student.heightCm,
+        weightKg: student.weightKg,
+        birthRegistrationNo: student.birthRegistrationNo ?? "",
+        identificationMark: student.identificationMark ?? "",
 
-          socialCategory: student.socialCategory ?? "",
-          minorityGroup: student.minorityGroup ?? "",
-          isBpl: !!student.isBpl,
-          isAay: !!student.isAay,
-          isEws: !!student.isEws,
-          isOutOfSchool: !!student.isOutOfSchool,
-          mainstreamedDate: student.mainstreamedDate ?? "",
+        socialCategory: student.socialCategory ?? "",
+        casteCertificateNo: student.casteCertificateNo ?? "",
+        minorityGroup: student.minorityGroup ?? "",
+        isAay: !!student.isAay,
+        isEws: !!student.isEws,
+        isOutOfSchool: !!student.isOutOfSchool,
+        mainstreamedDate: student.mainstreamedDate ?? "",
 
-          isCwsn: !!student.isCwsn,
-          impairmentType: student.impairmentType ?? "",
-          hasDisabilityCertificate: !!student.hasDisabilityCertificate,
-          disabilityPercentage: student.disabilityPercentage,
-          sldType: student.sldType ?? "",
+        isCwsn: !!student.isCwsn,
+        impairmentType: student.impairmentType ?? "",
+        hasDisabilityCertificate: !!student.hasDisabilityCertificate,
+        disabilityPercentage: student.disabilityPercentage,
+        sldType: student.sldType ?? "",
 
-          fatherName: student.fatherName,
-          motherName: student.motherName,
-          guardianName: student.guardianName ?? "",
-          relationshipWithGuardian: student.relationshipWithGuardian ?? "",
-          guardianQualification: student.guardianQualification ?? "",
-          annualFamilyIncome: student.annualFamilyIncome,
+        fatherName: student.fatherName,
+        motherName: student.motherName,
+        guardianName: student.guardianName ?? "",
+        relationshipWithGuardian: student.relationshipWithGuardian ?? "",
+        guardianQualification: student.guardianQualification ?? "",
+        annualFamilyIncome: student.annualFamilyIncome,
 
-          studentContact: student.studentContact ?? "",
-          altMobile: student.altMobile ?? "",
-          email: student.email ?? "",
-          address: student.address ?? "",
-          pincode: student.pincode ?? "",
+        studentContact: student.studentContact ?? "",
+        altMobile: student.altMobile ?? "",
+        email: student.email ?? "",
+        address: student.address ?? "",
+        pincode: student.pincode ?? "",
 
-          presentClass: student.presentClass,
-          presentSection: student.presentSection,
-          presentRoll: student.presentRoll,
-          admissionNo: student.admissionNo ?? "",
-          admissionDate: student.admissionDate ?? "",
-          admissionType: student.admissionType ?? "",
-          academicYear: student.academicYear ?? "",
-          mediumOfInstruction: student.mediumOfInstruction ?? "",
-          presentClassAdmissionDate: student.presentClassAdmissionDate ?? "",
-          admissionYear: student.admissionYear,
-          academicStream: student.academicStream ?? "",
+        presentClass: student.presentClass,
+        presentSection: student.presentSection,
+        presentRoll: student.presentRoll,
+        admissionNo: student.admissionNo ?? "",
+        admissionDate: student.admissionDate ?? "",
+        admissionType: student.admissionType ?? "",
+        academicYear: student.academicYear ?? "",
+        mediumOfInstruction: student.mediumOfInstruction ?? "",
+        presentClassAdmissionDate: student.presentClassAdmissionDate ?? "",
+        admissionYear: student.admissionYear,
+        academicStream: student.academicStream ?? "",
 
-          languageGroupInput: student.languageGroup ? student.languageGroup.join(", ") : "",
-          mandatorySubjectsInput: student.mandatorySubjects ? student.mandatorySubjects.join(", ") : "",
-          additionalSubjectsInput: student.additionalSubjects ? student.additionalSubjects.join(", ") : "",
-          coCurricularSubjectsInput: student.coCurricularSubjects ? student.coCurricularSubjects.join(", ") : "",
+        languageGroupInput: student.languageGroup ? student.languageGroup.join(", ") : "",
+        mandatorySubjectsInput: student.mandatorySubjects ? student.mandatorySubjects.join(", ") : "",
+        additionalSubjectsInput: student.additionalSubjects ? student.additionalSubjects.join(", ") : "",
+        coCurricularSubjectsInput: student.coCurricularSubjects ? student.coCurricularSubjects.join(", ") : "",
 
-          previousStatus: student.previousStatus ?? "",
-          previousClass: student.previousClass ?? "",
-          previousSection: student.previousSection ?? "",
-          previousStream: student.previousStream ?? "",
-          previousRollNo: student.previousRollNo,
-          previousAppearedForExams: !!student.previousAppearedForExams,
-          previousResult: student.previousResult ?? "",
-          previousMarksPercent: student.previousMarksPercent,
-          previousDaysAttended: student.previousDaysAttended,
+        previousStatus: student.previousStatus ?? "",
+        previousClass: student.previousClass ?? "",
+        previousSection: student.previousSection ?? "",
+        previousStream: student.previousStream ?? "",
+        previousRollNo: student.previousRollNo,
+        previousAppearedForExams: !!student.previousAppearedForExams,
+        previousResult: student.previousResult ?? "",
+        previousMarksPercent: student.previousMarksPercent,
+        previousDaysAttended: student.previousDaysAttended,
 
-          rteSection12C: !!student.rteSection12C,
-          rteAmountClaimed: student.rteAmountClaimed,
+        rteSection12C: !!student.rteSection12C,
+        rteAmountClaimed: student.rteAmountClaimed,
 
-          facilitiesProvidedInput: student.facilitiesProvided ? student.facilitiesProvided.join(", ") : "",
-          cwsnFacilitiesInput: student.cwsnFacilities ? student.cwsnFacilities.join(", ") : "",
-          competitionsOlympiadsInput: student.competitionsOlympiads ? student.competitionsOlympiads.join(", ") : "",
-          ncc: !!student.ncc,
-          nss: !!student.nss,
-          scoutsGuides: !!student.scoutsGuides,
-          distanceToSchool: student.distanceToSchool,
-          highestEducationParents: student.highestEducationParents ?? "",
+        facilitiesProvidedInput: student.facilitiesProvided ? student.facilitiesProvided.join(", ") : "",
+        cwsnFacilitiesInput: student.cwsnFacilities ? student.cwsnFacilities.join(", ") : "",
+        competitionsOlympiadsInput: student.competitionsOlympiads ? student.competitionsOlympiads.join(", ") : "",
+        ncc: !!student.ncc,
+        nss: !!student.nss,
+        scoutsGuides: !!student.scoutsGuides,
+        distanceToSchool: student.distanceToSchool,
+        highestEducationParents: student.highestEducationParents ?? "",
 
-          bankIfsc: student.bankIfsc ?? "",
-          bankAccountNo: student.bankAccountNo ?? "",
+        bankIfsc: student.bankIfsc ?? "",
+        bankAccountNo: student.bankAccountNo ?? "",
 
-          pen: student.pen ?? "",
-          diseCode: student.diseCode ?? "",
-          healthId: student.healthId ?? "",
-          studentUniqueCode: student.studentUniqueCode ?? "",
-          aadhaar: student.aadhaar ?? "",
-          nameAsPerAadhaar: student.nameAsPerAadhaar ?? "",
-        }
+        pen: student.pen ?? "",
+        diseCode: student.diseCode ?? "",
+        healthId: student.healthId ?? "",
+        studentUniqueCode: student.studentUniqueCode ?? "",
+        aadhaar: student.aadhaar ?? "",
+        nameAsPerAadhaar: student.nameAsPerAadhaar ?? "",
+      }
       : undefined,
   });
 
   const isOutOfSchoolChecked = watch("isOutOfSchool");
+  const watchSocialCategory = watch("socialCategory");
   const isCwsnChecked = watch("isCwsn");
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
@@ -323,7 +327,7 @@ export default function EditStudentPage() {
       const mandatorySubjects = data.mandatorySubjectsInput ? data.mandatorySubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const additionalSubjects = data.additionalSubjectsInput ? data.additionalSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const coCurricularSubjects = data.coCurricularSubjectsInput ? data.coCurricularSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      
+
       const facilitiesProvided = data.facilitiesProvidedInput ? data.facilitiesProvidedInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const cwsnFacilities = data.cwsnFacilitiesInput ? data.cwsnFacilitiesInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const competitionsOlympiads = data.competitionsOlympiadsInput ? data.competitionsOlympiadsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -417,7 +421,7 @@ export default function EditStudentPage() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
-        
+
         {/* Section 1: Demographics */}
         <FormSection title="A. Student Demographics">
           <FormGrid>
@@ -548,29 +552,22 @@ export default function EditStudentPage() {
                       { label: "OBC", value: "OBC" },
                       { label: "SC", value: "SC" },
                       { label: "ST", value: "ST" },
+                      { label: "Other", value: "Other" },
                     ]}
                   />
                 )}
               />
             </FormField>
+            {watchSocialCategory && watchSocialCategory.trim() !== "" && (
+              <FormField label="Category / Caste Certificate Number" error={errors.casteCertificateNo?.message}>
+                <input
+                  {...register("casteCertificateNo")}
+                  placeholder="Enter certificate number (e.g. WB/SC/2024/...)"
+                />
+              </FormField>
+            )}
             <FormField label="Minority Group" error={errors.minorityGroup?.message}>
               <input {...register("minorityGroup")} />
-            </FormField>
-            <FormField label="BPL Beneficiary?" error={errors.isBpl?.message}>
-              <Controller
-                control={control}
-                name="isBpl"
-                render={({ field }) => (
-                  <CustomSelect
-                    value={String(field.value ?? false)}
-                    onChange={(val) => field.onChange(val === "true" || val === true)}
-                    options={[
-                      { label: "No", value: "false" },
-                      { label: "Yes", value: "true" },
-                    ]}
-                  />
-                )}
-              />
             </FormField>
             <FormField label="AAY (Antyodaya Anna Yojana)?" error={errors.isAay?.message}>
               <Controller
@@ -742,28 +739,16 @@ export default function EditStudentPage() {
             <FormField label="Contact Email ID" error={errors.email?.message}>
               <input {...register("email")} type="email" />
             </FormField>
-            <div className="sm:col-span-2 md:col-span-3 space-y-1.5">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  Address
-                </label>
-                <PresetAddressButtons
-                  currentAddress={watch("address")}
-                  currentPincode={watch("pincode")}
-                  onSelectAddress={(addr, pin) => {
-                    setValue("address", addr, { shouldValidate: true });
-                    setValue("pincode", pin, { shouldValidate: true });
-                  }}
-                />
-              </div>
-              <div className={`[&>textarea]:w-full [&>textarea]:rounded-md [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3 [&>textarea]:py-1.5 [&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none ${errors.address ? "[&>textarea]:border-destructive" : ""}`}>
-                <textarea {...register("address")} rows={2} />
-              </div>
-              {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address.message}</p>}
+            <div className="sm:col-span-2 md:col-span-3">
+              <SmartAddressInput
+                value={watch("address") || ""}
+                onChange={(addr) => setValue("address", addr, { shouldValidate: true })}
+                pincodeValue={watch("pincode") || ""}
+                onPincodeChange={(pin) => setValue("pincode", pin, { shouldValidate: true })}
+                error={errors.address?.message}
+                pincodeError={errors.pincode?.message}
+              />
             </div>
-            <FormField label="Pincode" error={errors.pincode?.message}>
-              <input {...register("pincode")} maxLength={6} />
-            </FormField>
           </FormGrid>
         </FormSection>
 
@@ -863,6 +848,13 @@ export default function EditStudentPage() {
         {/* Section 6: Previous Schooling & RTE */}
         <FormSection title="F. Previous Schooling & RTE">
           <FormGrid>
+            <div className="sm:col-span-2 md:col-span-3">
+              <SmartPreviousSchoolInput
+                value={watch("previousSchool") || ""}
+                onChange={(val) => setValue("previousSchool", val, { shouldValidate: true })}
+                error={errors.previousSchool?.message}
+              />
+            </div>
             <FormField label="Schooling Status" error={errors.previousStatus?.message}>
               <input {...register("previousStatus")} />
             </FormField>
@@ -1012,16 +1004,16 @@ export default function EditStudentPage() {
           </FormGrid>
         </FormSection>
 
-        {/* Section 8: Bank Account Details */}
+        {/* Section 8: Bank Details */}
         <FormSection title="H. Bank Details">
-          <FormGrid>
-            <FormField label="Bank Account Number" error={errors.bankAccountNo?.message}>
-              <input {...register("bankAccountNo")} />
-            </FormField>
-            <FormField label="Bank IFSC Code" error={errors.bankIfsc?.message}>
-              <input {...register("bankIfsc")} placeholder="e.g. SBIN0001234" maxLength={11} style={{ textTransform: "uppercase" }} />
-            </FormField>
-          </FormGrid>
+          <SmartBankInput
+            accountNumberValue={watch("bankAccountNo") || ""}
+            onAccountNumberChange={(val) => setValue("bankAccountNo", val, { shouldValidate: true })}
+            ifscValue={watch("bankIfsc") || ""}
+            onIfscChange={(val) => setValue("bankIfsc", val, { shouldValidate: true })}
+            accountNumberError={errors.bankAccountNo?.message}
+            ifscError={errors.bankIfsc?.message}
+          />
         </FormSection>
 
         {/* Section 9: Government Identifiers */}
