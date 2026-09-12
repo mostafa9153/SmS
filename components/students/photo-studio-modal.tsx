@@ -115,11 +115,8 @@ export function PhotoStudioModal({
     }
   }, [isOpen, activeTab, imageSource, facingMode, startCamera, stopCamera]);
 
-  // Handle file select (from PC file system, scanner folder, or mobile camera picker)
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Process image file or blob helper
+  const processImageFile = useCallback((file: File | Blob) => {
     if (!file.type.startsWith("image/")) {
       showToast({ type: "error", title: "Invalid File", description: "Please select an image file (JPG, PNG, WebP)." });
       return;
@@ -134,7 +131,42 @@ export function PhotoStudioModal({
       stopCamera();
     };
     reader.readAsDataURL(file);
+  }, [stopCamera]);
+
+  // Handle file select (from PC file system, scanner folder, or mobile camera picker)
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file);
   };
+
+  // Clipboard Paste (Ctrl+V) listener for printer/scanner copies & screenshots
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            processImageFile(file);
+            showToast({
+              type: "success",
+              title: "Photo Pasted",
+              description: "Loaded scanned photo from clipboard!",
+            });
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [isOpen, processImageFile]);
 
   // Capture snapshot from live camera feed
   const captureCameraSnapshot = () => {
@@ -381,15 +413,27 @@ export function PhotoStudioModal({
               {activeTab === "upload" && (
                 <div
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      processImageFile(file);
+                    }
+                  }}
                   className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-xl p-8 text-center cursor-pointer transition-all bg-muted/10 hover:bg-primary/5 flex flex-col items-center justify-center space-y-3 group"
                 >
                   <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
                     <ImageIcon className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Click to select photo or scan</p>
+                    <p className="text-sm font-semibold text-foreground">Click to select scanned photo or document</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Choose scanned passport photo from scanner or phone gallery
+                      Select file, drag & drop, or press <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-foreground font-semibold">Ctrl + V</kbd> to paste
                     </p>
                     <p className="text-[11px] text-muted-foreground/80 mt-1 font-mono">
                       Auto-compressed to WebP (&lt; 40 KB)
