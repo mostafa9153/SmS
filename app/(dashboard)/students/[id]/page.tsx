@@ -170,8 +170,9 @@ export default function StudentProfilePage() {
 
       {/* Header Card */}
       <div className="rounded-2xl border bg-card shadow-xs p-4 sm:p-5">
-        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-5">
-          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-5">
+        <div className="flex flex-col md:flex-row items-start justify-between gap-5">
+          {/* Left / Center: Student Details & Actions */}
+          <div className="flex-1 min-w-0 space-y-3.5">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">{student.name}</h1>
@@ -208,7 +209,64 @@ export default function StudentProfilePage() {
               </div>
             </div>
 
-            {/* 3:4 Student Passport Photo Frame (Placed right next to Name & ID) */}
+            {/* Action Buttons (Certificates, Edit, Delete) */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Link
+                href={`/generate/certificate?studentId=${student.id}`}
+                className="flex items-center gap-1.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-sm font-medium hover:bg-blue-500/20 transition-colors shadow-2xs"
+              >
+                <Award className="h-3.5 w-3.5" />
+                <span>Character Cert</span>
+              </Link>
+              <Link
+                href={`/generate/pass-certificate?studentId=${student.id}`}
+                className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500/20 transition-colors shadow-2xs"
+              >
+                <GraduationCap className="h-3.5 w-3.5" />
+                <span>Pass Out Cert</span>
+              </Link>
+              <Link
+                href={`/generate/transfer-certificate?studentId=${student.id}`}
+                className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500/20 transition-colors shadow-2xs"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                <span>Transfer Cert</span>
+              </Link>
+              <Link
+                href={`/generate/kanyashree?studentId=${student.id}`}
+                className="flex items-center gap-1.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-3 py-1.5 text-sm font-medium hover:bg-purple-500/20 transition-colors shadow-2xs"
+              >
+                <HeartHandshake className="h-3.5 w-3.5" />
+                <span>Kanyashree Cert</span>
+              </Link>
+              <Link
+                href={`/generate/invoice?studentId=${student.id}`}
+                className="flex items-center gap-1.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-sm font-medium hover:bg-teal-500/20 transition-colors shadow-2xs"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Fee Invoice</span>
+              </Link>
+              <Link
+                href={`/students/${student.id}/edit`}
+                className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+                Edit Profile
+              </Link>
+              <button
+                type="button"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="flex items-center gap-1.5 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-colors shadow-2xs active:scale-95 cursor-pointer"
+                title={`Delete ${student.name}'s profile`}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Delete Student</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Extreme Right: 3:4 Student Passport Photo Frame */}
+          <div className="shrink-0 self-center sm:self-start">
             <StudentPhotoAvatar
               studentId={student.id}
               studentName={student.name}
@@ -219,59 +277,6 @@ export default function StudentProfilePage() {
                 queryClient.invalidateQueries({ queryKey: ["students"] });
               }}
             />
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/generate/certificate?studentId=${student.id}`}
-              className="flex items-center gap-1.5 rounded-md bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-sm font-medium hover:bg-blue-500/20 transition-colors shadow-2xs"
-            >
-              <Award className="h-3.5 w-3.5" />
-              <span>Character Cert</span>
-            </Link>
-            <Link
-              href={`/generate/pass-certificate?studentId=${student.id}`}
-              className="flex items-center gap-1.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500/20 transition-colors shadow-2xs"
-            >
-              <GraduationCap className="h-3.5 w-3.5" />
-              <span>Pass Out Cert</span>
-            </Link>
-            <Link
-              href={`/generate/transfer-certificate?studentId=${student.id}`}
-              className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-3 py-1.5 text-sm font-medium hover:bg-indigo-500/20 transition-colors shadow-2xs"
-            >
-              <FileSpreadsheet className="h-3.5 w-3.5" />
-              <span>Transfer Cert</span>
-            </Link>
-            <Link
-              href={`/generate/kanyashree?studentId=${student.id}`}
-              className="flex items-center gap-1.5 rounded-md bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-3 py-1.5 text-sm font-medium hover:bg-purple-500/20 transition-colors shadow-2xs"
-            >
-              <HeartHandshake className="h-3.5 w-3.5" />
-              <span>Kanyashree Cert</span>
-            </Link>
-            <Link
-              href={`/generate/invoice?studentId=${student.id}`}
-              className="flex items-center gap-1.5 rounded-md bg-teal-500/10 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-sm font-medium hover:bg-teal-500/20 transition-colors shadow-2xs"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              <span>Fee Invoice</span>
-            </Link>
-            <Link
-              href={`/students/${student.id}/edit`}
-              className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-muted transition-colors"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Edit Profile
-            </Link>
-            <button
-              type="button"
-              onClick={() => setDeleteDialogOpen(true)}
-              className="flex items-center gap-1.5 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 px-3 py-1.5 text-sm font-medium hover:bg-rose-100 dark:hover:bg-rose-900/60 hover:border-rose-300 transition-colors shadow-2xs active:scale-95 cursor-pointer"
-              title={`Delete ${student.name}'s profile`}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete Student</span>
-            </button>
           </div>
         </div>
 
