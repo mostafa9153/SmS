@@ -222,6 +222,7 @@ function TransferCertificateGeneratorContent() {
 
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
   const handlePrint = () => {
+    const currentCertificateNo = cert.certificateNo;
     const nextSeq = certSeq + 1;
     saveDocumentSequence("transfer-certificate", nextSeq, currentYear);
     recordPrintBatch(
@@ -230,20 +231,34 @@ function TransferCertificateGeneratorContent() {
         mode: "single",
         startSerial: certSeq,
         endSerial: certSeq,
-        formattedStart: cert.certificateNo,
-        formattedEnd: cert.certificateNo,
+        formattedStart: currentCertificateNo,
+        formattedEnd: currentCertificateNo,
         count: 1,
         classInfo: `${cert.studentName} (Class: ${cert.readingClass} → ${cert.promotedClass})`,
       },
       currentYear
     );
-    setCertSeq(nextSeq);
-    setCert((prev) => ({
-      ...prev,
-      issueDate: getLiveDate(),
-    }));
+
+    const nextFormattedNo = formatDocumentNumber("transfer-certificate", nextSeq, currentYear);
+
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setCertSeq(nextSeq);
+      setCert((prev) => ({
+        ...prev,
+        certificateNo: nextFormattedNo,
+        issueDate: getLiveDate(),
+      }));
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
     setTimeout(() => {
       window.print();
+      advanceToNext();
     }, 60);
   };
 

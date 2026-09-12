@@ -220,6 +220,7 @@ function KanyashreeCertificateGeneratorContent() {
 
   // Native Direct Print Trigger
   const handlePrint = () => {
+    const currentCertificateNo = cert.certificateNo;
     const nextSeq = certSeq + 1;
     saveDocumentSequence("kanyashree", nextSeq, currentYear);
     recordPrintBatch(
@@ -228,8 +229,8 @@ function KanyashreeCertificateGeneratorContent() {
         mode: "single",
         startSerial: certSeq,
         endSerial: certSeq,
-        formattedStart: cert.certificateNo,
-        formattedEnd: cert.certificateNo,
+        formattedStart: currentCertificateNo,
+        formattedEnd: currentCertificateNo,
         count: 1,
         classInfo: `${cert.studentName} (${cert.schemeType})`,
       },
@@ -238,13 +239,26 @@ function KanyashreeCertificateGeneratorContent() {
     // Persist printed certificate to database registry & local cache
     recordPrintedCertificate(buildKanyashreeCertInsert(cert, String(currentYear)));
 
-    setCertSeq(nextSeq);
-    setCert((prev) => ({
-      ...prev,
-      issueDate: getLiveDate(),
-    }));
+    const nextFormattedNo = formatDocumentNumber("kanyashree", nextSeq, currentYear);
+
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setCertSeq(nextSeq);
+      setCert((prev) => ({
+        ...prev,
+        certificateNo: nextFormattedNo,
+        issueDate: getLiveDate(),
+      }));
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
     setTimeout(() => {
       window.print();
+      advanceToNext();
     }, 60);
   };
 

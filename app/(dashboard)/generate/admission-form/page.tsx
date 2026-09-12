@@ -578,8 +578,21 @@ function AdmissionFormGeneratorContent() {
       },
       currentYear
     );
+
+    const nextStart = startSerial + 1;
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setStartSerial(nextStart);
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
     setTimeout(() => {
       window.print();
+      advanceToNext();
     }, 150);
   };
 
@@ -607,11 +620,24 @@ function AdmissionFormGeneratorContent() {
       },
       currentYear
     );
+
+    const nextStart = endSerial + 1;
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setStartSerial(nextStart);
+      setIsBulkPrinting(false);
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
     setTimeout(() => {
       window.print();
       setTimeout(() => {
-        setIsBulkPrinting(false);
-      }, 1000);
+        advanceToNext();
+      }, 500);
     }, 250);
   };
 

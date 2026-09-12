@@ -598,8 +598,6 @@ function InvoiceGeneratorContent() {
         },
         currentYear
       );
-      setInvoiceSeq(nextSeq);
-      setBulkStartingNo(nextSeq);
     } else {
       const count =
         bulkFillMode === "blank"
@@ -632,8 +630,6 @@ function InvoiceGeneratorContent() {
         },
         currentYear
       );
-      setBulkStartingNo(nextSeq);
-      setInvoiceSeq(nextSeq);
     }
 
     // Auto-record printed invoices to Supabase database & local cache
@@ -663,8 +659,30 @@ function InvoiceGeneratorContent() {
         .catch((e) => console.error(e));
     }
 
+    const nextSeqTarget = generatorMode === "single" 
+      ? invoiceSeq + 1 
+      : bulkStartingNo + (bulkFillMode === "blank" ? Math.max(1, bulkBlankCount || 1) : (selectedStudentIds.length || classRoster.length || 1));
+
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setInvoiceSeq(nextSeqTarget);
+      setBulkStartingNo(nextSeqTarget);
+      if (generatorMode === "single") {
+        setInvoice((prev) => ({
+          ...prev,
+          invoiceNumber: generateInvoiceNumber(nextSeqTarget),
+        }));
+      }
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
     setTimeout(() => {
       window.print();
+      advanceToNext();
     }, 80);
   }
 
