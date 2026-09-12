@@ -367,14 +367,14 @@ export function PhotoStudioModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden rounded-2xl bg-card border shadow-xl">
         {/* Header */}
-        <DialogHeader className="p-4 sm:p-5 border-b bg-muted/20">
+        <DialogHeader className="p-4 sm:p-5 pr-12 border-b bg-muted/20">
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Camera className="h-5 w-5 text-primary" />
                 Passport Photo Studio
               </DialogTitle>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="text-xs text-muted-foreground mt-1">
                 Student: <span className="font-semibold text-foreground">{studentName}</span> (3:4 Ratio, Max 40 KB)
               </p>
             </div>
@@ -619,14 +619,14 @@ export function PhotoStudioModal({
         </div>
 
         {/* Footer Actions */}
-        <DialogFooter className="p-4 border-t bg-muted/10 flex flex-row items-center justify-between sm:justify-between gap-2">
+        <div className="p-4 sm:px-6 sm:py-4 border-t bg-muted/20 flex flex-wrap items-center justify-between gap-3">
           <div>
             {currentPhotoUrl && !imageSource && (
               <button
                 type="button"
                 onClick={handleRemovePhoto}
                 disabled={isDeleting || isSaving}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {isDeleting ? (
                   <>
@@ -643,12 +643,12 @@ export function PhotoStudioModal({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5 ml-auto">
             <button
               type="button"
               onClick={onClose}
               disabled={isSaving || isDeleting}
-              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer"
+              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border bg-background hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
             >
               Cancel
             </button>
@@ -674,7 +674,7 @@ export function PhotoStudioModal({
               </button>
             )}
           </div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
