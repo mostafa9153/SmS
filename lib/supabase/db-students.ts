@@ -213,86 +213,90 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
   };
 }
 
+const toNullableDate = (val: any) => (val && typeof val === "string" && val.trim() !== "" ? val.trim() : null);
+const toNullableString = (val: any) => (val && typeof val === "string" && val.trim() !== "" ? val.trim() : null);
+const toNullableNumber = (val: any) => (val !== undefined && val !== null && val !== "" && !Number.isNaN(Number(val)) ? Number(val) : null);
+
 // Map Frontend input properties to Database snake_case columns
 export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHistory">): Omit<DBStudent, "id" | "created_at" | "updated_at"> {
   return {
     school_id: student.schoolId,
     name: student.name,
-    pen: student.pen || null,
-    aadhaar: student.aadhaar || null,
-    mobile: student.studentContact || null,
+    pen: toNullableString(student.pen),
+    aadhaar: toNullableString(student.aadhaar),
+    mobile: toNullableString(student.studentContact),
     dob: student.dob,
     gender: student.gender,
-    social_category: student.socialCategory || null,
-    religion: student.religion || null,
+    social_category: toNullableString(student.socialCategory),
+    religion: toNullableString(student.religion),
     father_name: student.fatherName,
     mother_name: student.motherName,
-    address: student.address || null,
+    address: toNullableString(student.address),
     present_class: student.presentClass,
     present_section: student.presentSection,
     present_roll: student.presentRoll,
     current_status: student.currentStatus,
     admission_year: student.admissionYear,
-    admission_date: student.admissionDate || null,
-    previous_school: student.previousSchool || null,
+    admission_date: toNullableDate(student.admissionDate),
+    previous_school: toNullableString(student.previousSchool),
 
     // --- NEW FIELDS ---
     // A. General / Personal Info
-    guardian_name: student.guardianName || null,
-    name_as_per_aadhaar: student.nameAsPerAadhaar || null,
-    pincode: student.pincode || null,
-    alt_mobile: student.altMobile || null,
-    email: student.email || null,
-    mother_tongue: student.motherTongue || null,
-    minority_group: student.minorityGroup || null,
+    guardian_name: toNullableString(student.guardianName),
+    name_as_per_aadhaar: toNullableString(student.nameAsPerAadhaar),
+    pincode: toNullableString(student.pincode),
+    alt_mobile: toNullableString(student.altMobile),
+    email: toNullableString(student.email),
+    mother_tongue: toNullableString(student.motherTongue),
+    minority_group: toNullableString(student.minorityGroup),
     is_bpl: !!student.isBpl,
     is_aay: !!student.isAay,
     is_ews: !!student.isEws,
     is_cwsn: !!student.isCwsn,
-    impairment_type: student.impairmentType || null,
+    impairment_type: toNullableString(student.impairmentType),
     has_disability_certificate: !!student.hasDisabilityCertificate,
-    disability_percentage: student.disabilityPercentage ?? null,
-    sld_type: student.sldType || null,
+    disability_percentage: toNullableNumber(student.disabilityPercentage),
+    sld_type: toNullableString(student.sldType),
     indian_nationality: student.indianNationality !== false, // default true
     is_out_of_school: !!student.isOutOfSchool,
-    mainstreamed_date: student.mainstreamedDate || null,
-    blood_group: student.bloodGroup || null,
-    weight_kg: student.weightKg ?? null,
-    height_cm: student.heightCm ?? null,
-    student_unique_code: student.studentUniqueCode || null,
-    dise_code: student.diseCode || null,
-    health_id: student.healthId || null,
-    annual_family_income: student.annualFamilyIncome ?? null,
-    birth_registration_no: student.birthRegistrationNo || null,
-    identification_mark: student.identificationMark || null,
-    relationship_with_guardian: student.relationshipWithGuardian || null,
-    guardian_qualification: student.guardianQualification || null,
-    bank_ifsc: student.bankIfsc || null,
-    bank_account_no: student.bankAccountNo || null,
+    mainstreamed_date: toNullableDate(student.mainstreamedDate),
+    blood_group: toNullableString(student.bloodGroup),
+    weight_kg: toNullableNumber(student.weightKg),
+    height_cm: toNullableNumber(student.heightCm),
+    student_unique_code: toNullableString(student.studentUniqueCode),
+    dise_code: toNullableString(student.diseCode),
+    health_id: toNullableString(student.healthId),
+    annual_family_income: toNullableNumber(student.annualFamilyIncome),
+    birth_registration_no: toNullableString(student.birthRegistrationNo),
+    identification_mark: toNullableString(student.identificationMark),
+    relationship_with_guardian: toNullableString(student.relationshipWithGuardian),
+    guardian_qualification: toNullableString(student.guardianQualification),
+    bank_ifsc: toNullableString(student.bankIfsc),
+    bank_account_no: toNullableString(student.bankAccountNo),
 
     // B. Enrolment Info
-    admission_no: student.admissionNo || null,
-    admission_type: student.admissionType || null,
-    academic_year: student.academicYear || null,
-    medium_of_instruction: student.mediumOfInstruction || null,
-    present_class_admission_date: student.presentClassAdmissionDate || null,
+    admission_no: toNullableString(student.admissionNo),
+    admission_type: toNullableString(student.admissionType),
+    academic_year: toNullableString(student.academicYear),
+    medium_of_instruction: toNullableString(student.mediumOfInstruction),
+    present_class_admission_date: toNullableDate(student.presentClassAdmissionDate),
     language_group: student.languageGroup || [],
-    foreign_language: student.foreignLanguage || null,
+    foreign_language: toNullableString(student.foreignLanguage),
     mandatory_subjects: student.mandatorySubjects || [],
     additional_subjects: student.additionalSubjects || [],
     co_curricular_subjects: student.coCurricularSubjects || [],
-    academic_stream: student.academicStream || null,
-    previous_status: student.previousStatus || null,
-    previous_class: student.previousClass || null,
-    previous_section: student.previousSection || null,
-    previous_stream: student.previousStream || null,
-    previous_roll_no: student.previousRollNo ?? null,
+    academic_stream: toNullableString(student.academicStream),
+    previous_status: toNullableString(student.previousStatus),
+    previous_class: toNullableString(student.previousClass),
+    previous_section: toNullableString(student.previousSection),
+    previous_stream: toNullableString(student.previousStream),
+    previous_roll_no: toNullableNumber(student.previousRollNo),
     previous_appeared_for_exams: !!student.previousAppearedForExams,
-    previous_result: student.previousResult || null,
-    previous_marks_percent: student.previousMarksPercent ?? null,
-    previous_days_attended: student.previousDaysAttended ?? null,
+    previous_result: toNullableString(student.previousResult),
+    previous_marks_percent: toNullableNumber(student.previousMarksPercent),
+    previous_days_attended: toNullableNumber(student.previousDaysAttended),
     rte_section_12c: !!student.rteSection12C,
-    rte_amount_claimed: student.rteAmountClaimed ?? null,
+    rte_amount_claimed: toNullableNumber(student.rteAmountClaimed),
 
     // C. Facility Profile
     facilities_provided: student.facilitiesProvided || [],
@@ -301,8 +305,8 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     ncc: !!student.ncc,
     nss: !!student.nss,
     scouts_guides: !!student.scoutsGuides,
-    distance_to_school: student.distanceToSchool ?? null,
-    highest_education_parents: student.highestEducationParents || null,
+    distance_to_school: toNullableNumber(student.distanceToSchool),
+    highest_education_parents: toNullableString(student.highestEducationParents),
   };
 }
 
@@ -504,7 +508,7 @@ import { generateSchoolId } from "@/lib/supabase/school-id-generator";
 
 // CREATE student
 export async function dbCreateStudent(input: Omit<Student, "id" | "academicHistory">): Promise<Student> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   const dbInput = mapStudentToDBInput(input);
 
   // If school_id is missing, generate it
@@ -550,96 +554,97 @@ export async function dbUpdateStudent(
   id: string,
   updates: Partial<Omit<Student, "id">>
 ): Promise<Student | null> {
-  const supabase = await createServerClient();
+  const supabase = createAdminClient();
   
   // Map frontend update fields to database fields
   const dbUpdates: any = {};
+  dbUpdates.updated_at = new Date().toISOString();
   if (updates.schoolId !== undefined && typeof updates.schoolId === "string" && updates.schoolId.trim() !== "") {
     dbUpdates.school_id = updates.schoolId.trim();
   }
-  if (updates.name !== undefined) dbUpdates.name = updates.name;
-  if (updates.pen !== undefined) dbUpdates.pen = updates.pen;
-  if (updates.aadhaar !== undefined) dbUpdates.aadhaar = updates.aadhaar;
+  if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
+  if (updates.pen !== undefined) dbUpdates.pen = toNullableString(updates.pen);
+  if (updates.aadhaar !== undefined) dbUpdates.aadhaar = toNullableString(updates.aadhaar);
   if (updates.dob !== undefined) dbUpdates.dob = updates.dob;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
-  if (updates.socialCategory !== undefined) dbUpdates.social_category = updates.socialCategory;
-  if (updates.religion !== undefined) dbUpdates.religion = updates.religion;
+  if (updates.socialCategory !== undefined) dbUpdates.social_category = toNullableString(updates.socialCategory);
+  if (updates.religion !== undefined) dbUpdates.religion = toNullableString(updates.religion);
   if (updates.fatherName !== undefined) dbUpdates.father_name = updates.fatherName;
   if (updates.motherName !== undefined) dbUpdates.mother_name = updates.motherName;
-  if (updates.studentContact !== undefined) dbUpdates.mobile = updates.studentContact;
-  if (updates.address !== undefined) dbUpdates.address = updates.address;
+  if (updates.studentContact !== undefined) dbUpdates.mobile = toNullableString(updates.studentContact);
+  if (updates.address !== undefined) dbUpdates.address = toNullableString(updates.address);
   if (updates.presentClass !== undefined) dbUpdates.present_class = updates.presentClass;
   if (updates.presentSection !== undefined) dbUpdates.present_section = updates.presentSection;
-  if (updates.presentRoll !== undefined) dbUpdates.present_roll = updates.presentRoll;
+  if (updates.presentRoll !== undefined) dbUpdates.present_roll = Number(updates.presentRoll);
   if (updates.currentStatus !== undefined) dbUpdates.current_status = updates.currentStatus;
-  if (updates.admissionYear !== undefined) dbUpdates.admission_year = updates.admissionYear;
-  if (updates.admissionDate !== undefined) dbUpdates.admission_date = updates.admissionDate;
-  if (updates.previousSchool !== undefined) dbUpdates.previous_school = updates.previousSchool;
+  if (updates.admissionYear !== undefined) dbUpdates.admission_year = updates.admissionYear ? Number(updates.admissionYear) : null;
+  if (updates.admissionDate !== undefined) dbUpdates.admission_date = toNullableDate(updates.admissionDate);
+  if (updates.previousSchool !== undefined) dbUpdates.previous_school = toNullableString(updates.previousSchool);
 
   // --- NEW FIELDS ---
-  if (updates.guardianName !== undefined) dbUpdates.guardian_name = updates.guardianName;
-  if (updates.nameAsPerAadhaar !== undefined) dbUpdates.name_as_per_aadhaar = updates.nameAsPerAadhaar;
-  if (updates.pincode !== undefined) dbUpdates.pincode = updates.pincode;
-  if (updates.altMobile !== undefined) dbUpdates.alt_mobile = updates.altMobile;
-  if (updates.email !== undefined) dbUpdates.email = updates.email;
-  if (updates.motherTongue !== undefined) dbUpdates.mother_tongue = updates.motherTongue;
-  if (updates.minorityGroup !== undefined) dbUpdates.minority_group = updates.minorityGroup;
-  if (updates.isBpl !== undefined) dbUpdates.is_bpl = updates.isBpl;
-  if (updates.isAay !== undefined) dbUpdates.is_aay = updates.isAay;
-  if (updates.isEws !== undefined) dbUpdates.is_ews = updates.isEws;
-  if (updates.isCwsn !== undefined) dbUpdates.is_cwsn = updates.isCwsn;
-  if (updates.impairmentType !== undefined) dbUpdates.impairment_type = updates.impairmentType;
-  if (updates.hasDisabilityCertificate !== undefined) dbUpdates.has_disability_certificate = updates.hasDisabilityCertificate;
-  if (updates.disabilityPercentage !== undefined) dbUpdates.disability_percentage = updates.disabilityPercentage;
-  if (updates.sldType !== undefined) dbUpdates.sld_type = updates.sldType;
-  if (updates.indianNationality !== undefined) dbUpdates.indian_nationality = updates.indianNationality;
-  if (updates.isOutOfSchool !== undefined) dbUpdates.is_out_of_school = updates.isOutOfSchool;
-  if (updates.mainstreamedDate !== undefined) dbUpdates.mainstreamed_date = updates.mainstreamedDate;
-  if (updates.bloodGroup !== undefined) dbUpdates.blood_group = updates.bloodGroup;
-  if (updates.weightKg !== undefined) dbUpdates.weight_kg = updates.weightKg;
-  if (updates.heightCm !== undefined) dbUpdates.height_cm = updates.heightCm;
-  if (updates.studentUniqueCode !== undefined) dbUpdates.student_unique_code = updates.studentUniqueCode;
-  if (updates.diseCode !== undefined) dbUpdates.dise_code = updates.diseCode;
-  if (updates.healthId !== undefined) dbUpdates.health_id = updates.healthId;
-  if (updates.annualFamilyIncome !== undefined) dbUpdates.annual_family_income = updates.annualFamilyIncome;
-  if (updates.birthRegistrationNo !== undefined) dbUpdates.birth_registration_no = updates.birthRegistrationNo;
-  if (updates.identificationMark !== undefined) dbUpdates.identification_mark = updates.identificationMark;
-  if (updates.relationshipWithGuardian !== undefined) dbUpdates.relationship_with_guardian = updates.relationshipWithGuardian;
-  if (updates.guardianQualification !== undefined) dbUpdates.guardian_qualification = updates.guardianQualification;
-  if (updates.bankIfsc !== undefined) dbUpdates.bank_ifsc = updates.bankIfsc;
-  if (updates.bankAccountNo !== undefined) dbUpdates.bank_account_no = updates.bankAccountNo;
+  if (updates.guardianName !== undefined) dbUpdates.guardian_name = toNullableString(updates.guardianName);
+  if (updates.nameAsPerAadhaar !== undefined) dbUpdates.name_as_per_aadhaar = toNullableString(updates.nameAsPerAadhaar);
+  if (updates.pincode !== undefined) dbUpdates.pincode = toNullableString(updates.pincode);
+  if (updates.altMobile !== undefined) dbUpdates.alt_mobile = toNullableString(updates.altMobile);
+  if (updates.email !== undefined) dbUpdates.email = toNullableString(updates.email);
+  if (updates.motherTongue !== undefined) dbUpdates.mother_tongue = toNullableString(updates.motherTongue);
+  if (updates.minorityGroup !== undefined) dbUpdates.minority_group = toNullableString(updates.minorityGroup);
+  if (updates.isBpl !== undefined) dbUpdates.is_bpl = !!updates.isBpl;
+  if (updates.isAay !== undefined) dbUpdates.is_aay = !!updates.isAay;
+  if (updates.isEws !== undefined) dbUpdates.is_ews = !!updates.isEws;
+  if (updates.isCwsn !== undefined) dbUpdates.is_cwsn = !!updates.isCwsn;
+  if (updates.impairmentType !== undefined) dbUpdates.impairment_type = toNullableString(updates.impairmentType);
+  if (updates.hasDisabilityCertificate !== undefined) dbUpdates.has_disability_certificate = !!updates.hasDisabilityCertificate;
+  if (updates.disabilityPercentage !== undefined) dbUpdates.disability_percentage = toNullableNumber(updates.disabilityPercentage);
+  if (updates.sldType !== undefined) dbUpdates.sld_type = toNullableString(updates.sldType);
+  if (updates.indianNationality !== undefined) dbUpdates.indian_nationality = updates.indianNationality !== false;
+  if (updates.isOutOfSchool !== undefined) dbUpdates.is_out_of_school = !!updates.isOutOfSchool;
+  if (updates.mainstreamedDate !== undefined) dbUpdates.mainstreamed_date = toNullableDate(updates.mainstreamedDate);
+  if (updates.bloodGroup !== undefined) dbUpdates.blood_group = toNullableString(updates.bloodGroup);
+  if (updates.weightKg !== undefined) dbUpdates.weight_kg = toNullableNumber(updates.weightKg);
+  if (updates.heightCm !== undefined) dbUpdates.height_cm = toNullableNumber(updates.heightCm);
+  if (updates.studentUniqueCode !== undefined) dbUpdates.student_unique_code = toNullableString(updates.studentUniqueCode);
+  if (updates.diseCode !== undefined) dbUpdates.dise_code = toNullableString(updates.diseCode);
+  if (updates.healthId !== undefined) dbUpdates.health_id = toNullableString(updates.healthId);
+  if (updates.annualFamilyIncome !== undefined) dbUpdates.annual_family_income = toNullableNumber(updates.annualFamilyIncome);
+  if (updates.birthRegistrationNo !== undefined) dbUpdates.birth_registration_no = toNullableString(updates.birthRegistrationNo);
+  if (updates.identificationMark !== undefined) dbUpdates.identification_mark = toNullableString(updates.identificationMark);
+  if (updates.relationshipWithGuardian !== undefined) dbUpdates.relationship_with_guardian = toNullableString(updates.relationshipWithGuardian);
+  if (updates.guardianQualification !== undefined) dbUpdates.guardian_qualification = toNullableString(updates.guardianQualification);
+  if (updates.bankIfsc !== undefined) dbUpdates.bank_ifsc = toNullableString(updates.bankIfsc);
+  if (updates.bankAccountNo !== undefined) dbUpdates.bank_account_no = toNullableString(updates.bankAccountNo);
 
-  if (updates.admissionNo !== undefined) dbUpdates.admission_no = updates.admissionNo;
-  if (updates.admissionType !== undefined) dbUpdates.admission_type = updates.admissionType;
-  if (updates.academicYear !== undefined) dbUpdates.academic_year = updates.academicYear;
-  if (updates.mediumOfInstruction !== undefined) dbUpdates.medium_of_instruction = updates.mediumOfInstruction;
-  if (updates.presentClassAdmissionDate !== undefined) dbUpdates.present_class_admission_date = updates.presentClassAdmissionDate;
-  if (updates.languageGroup !== undefined) dbUpdates.language_group = updates.languageGroup;
-  if (updates.foreignLanguage !== undefined) dbUpdates.foreign_language = updates.foreignLanguage;
-  if (updates.mandatorySubjects !== undefined) dbUpdates.mandatory_subjects = updates.mandatorySubjects;
-  if (updates.additionalSubjects !== undefined) dbUpdates.additional_subjects = updates.additionalSubjects;
-  if (updates.coCurricularSubjects !== undefined) dbUpdates.co_curricular_subjects = updates.coCurricularSubjects;
-  if (updates.academicStream !== undefined) dbUpdates.academic_stream = updates.academicStream;
-  if (updates.previousStatus !== undefined) dbUpdates.previous_status = updates.previousStatus;
-  if (updates.previousClass !== undefined) dbUpdates.previous_class = updates.previousClass;
-  if (updates.previousSection !== undefined) dbUpdates.previous_section = updates.previousSection;
-  if (updates.previousStream !== undefined) dbUpdates.previous_stream = updates.previousStream;
-  if (updates.previousRollNo !== undefined) dbUpdates.previous_roll_no = updates.previousRollNo;
-  if (updates.previousAppearedForExams !== undefined) dbUpdates.previous_appeared_for_exams = updates.previousAppearedForExams;
-  if (updates.previousResult !== undefined) dbUpdates.previous_result = updates.previousResult;
-  if (updates.previousMarksPercent !== undefined) dbUpdates.previous_marks_percent = updates.previousMarksPercent;
-  if (updates.previousDaysAttended !== undefined) dbUpdates.previous_days_attended = updates.previousDaysAttended;
-  if (updates.rteSection12C !== undefined) dbUpdates.rte_section_12c = updates.rteSection12C;
-  if (updates.rteAmountClaimed !== undefined) dbUpdates.rte_amount_claimed = updates.rteAmountClaimed;
+  if (updates.admissionNo !== undefined) dbUpdates.admission_no = toNullableString(updates.admissionNo);
+  if (updates.admissionType !== undefined) dbUpdates.admission_type = toNullableString(updates.admissionType);
+  if (updates.academicYear !== undefined) dbUpdates.academic_year = toNullableString(updates.academicYear);
+  if (updates.mediumOfInstruction !== undefined) dbUpdates.medium_of_instruction = toNullableString(updates.mediumOfInstruction);
+  if (updates.presentClassAdmissionDate !== undefined) dbUpdates.present_class_admission_date = toNullableDate(updates.presentClassAdmissionDate);
+  if (updates.languageGroup !== undefined) dbUpdates.language_group = updates.languageGroup || [];
+  if (updates.foreignLanguage !== undefined) dbUpdates.foreign_language = toNullableString(updates.foreignLanguage);
+  if (updates.mandatorySubjects !== undefined) dbUpdates.mandatory_subjects = updates.mandatorySubjects || [];
+  if (updates.additionalSubjects !== undefined) dbUpdates.additional_subjects = updates.additionalSubjects || [];
+  if (updates.coCurricularSubjects !== undefined) dbUpdates.co_curricular_subjects = updates.coCurricularSubjects || [];
+  if (updates.academicStream !== undefined) dbUpdates.academic_stream = toNullableString(updates.academicStream);
+  if (updates.previousStatus !== undefined) dbUpdates.previous_status = toNullableString(updates.previousStatus);
+  if (updates.previousClass !== undefined) dbUpdates.previous_class = toNullableString(updates.previousClass);
+  if (updates.previousSection !== undefined) dbUpdates.previous_section = toNullableString(updates.previousSection);
+  if (updates.previousStream !== undefined) dbUpdates.previous_stream = toNullableString(updates.previousStream);
+  if (updates.previousRollNo !== undefined) dbUpdates.previous_roll_no = toNullableNumber(updates.previousRollNo);
+  if (updates.previousAppearedForExams !== undefined) dbUpdates.previous_appeared_for_exams = !!updates.previousAppearedForExams;
+  if (updates.previousResult !== undefined) dbUpdates.previous_result = toNullableString(updates.previousResult);
+  if (updates.previousMarksPercent !== undefined) dbUpdates.previous_marks_percent = toNullableNumber(updates.previousMarksPercent);
+  if (updates.previousDaysAttended !== undefined) dbUpdates.previous_days_attended = toNullableNumber(updates.previousDaysAttended);
+  if (updates.rteSection12C !== undefined) dbUpdates.rte_section_12c = !!updates.rteSection12C;
+  if (updates.rteAmountClaimed !== undefined) dbUpdates.rte_amount_claimed = toNullableNumber(updates.rteAmountClaimed);
 
-  if (updates.facilitiesProvided !== undefined) dbUpdates.facilities_provided = updates.facilitiesProvided;
-  if (updates.cwsnFacilities !== undefined) dbUpdates.cwsn_facilities = updates.cwsnFacilities;
-  if (updates.competitionsOlympiads !== undefined) dbUpdates.competitions_olympiads = updates.competitionsOlympiads;
-  if (updates.ncc !== undefined) dbUpdates.ncc = updates.ncc;
-  if (updates.nss !== undefined) dbUpdates.nss = updates.nss;
-  if (updates.scoutsGuides !== undefined) dbUpdates.scouts_guides = updates.scoutsGuides;
-  if (updates.distanceToSchool !== undefined) dbUpdates.distance_to_school = updates.distanceToSchool;
-  if (updates.highestEducationParents !== undefined) dbUpdates.highest_education_parents = updates.highestEducationParents;
+  if (updates.facilitiesProvided !== undefined) dbUpdates.facilities_provided = updates.facilitiesProvided || [];
+  if (updates.cwsnFacilities !== undefined) dbUpdates.cwsn_facilities = updates.cwsnFacilities || [];
+  if (updates.competitionsOlympiads !== undefined) dbUpdates.competitions_olympiads = updates.competitionsOlympiads || [];
+  if (updates.ncc !== undefined) dbUpdates.ncc = !!updates.ncc;
+  if (updates.nss !== undefined) dbUpdates.nss = !!updates.nss;
+  if (updates.scoutsGuides !== undefined) dbUpdates.scouts_guides = !!updates.scoutsGuides;
+  if (updates.distanceToSchool !== undefined) dbUpdates.distance_to_school = toNullableNumber(updates.distanceToSchool);
+  if (updates.highestEducationParents !== undefined) dbUpdates.highest_education_parents = toNullableString(updates.highestEducationParents);
 
   // Persist Academic History entries if supplied
   if (updates.academicHistory && Array.isArray(updates.academicHistory)) {
@@ -679,9 +684,12 @@ export async function dbUpdateStudent(
     .update(dbUpdates)
     .eq("id", id)
     .select("*, academic_history(*)")
-    .single();
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("dbUpdateStudent database error:", error);
+    throw new Error(error.message);
+  }
   return data ? mapDBStudentToStudent(data as DBStudent) : null;
 }
 

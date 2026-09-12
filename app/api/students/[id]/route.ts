@@ -88,28 +88,44 @@ export async function PATCH(
       );
     }
 
-    // Staff cannot update Aadhaar (only Admin can update Aadhaar)
-    if (role !== "Admin" && parseResult.data.aadhaar !== undefined) {
-      return NextResponse.json({ error: "Forbidden: Only Administrators can update Aadhaar numbers" }, { status: 403 });
-    }
-
-    // Get previous state for audit log
+    // Get previous state for audit log & Aadhaar validation
     const oldStudent = await dbGetStudentById(id);
     if (!oldStudent) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
 
+    // Staff cannot update Aadhaar (only Admin can update Aadhaar)
+    if (role !== "Admin") {
+      if (
+        parseResult.data.aadhaar !== undefined &&
+        parseResult.data.aadhaar !== null &&
+        parseResult.data.aadhaar !== "" &&
+        parseResult.data.aadhaar !== oldStudent.aadhaar &&
+        !parseResult.data.aadhaar.includes("•") &&
+        parseResult.data.aadhaar !== "PENDING_RECORD"
+      ) {
+        return NextResponse.json({ error: "Forbidden: Only Administrators can update Aadhaar numbers" }, { status: 403 });
+      }
+      // If Staff user, delete aadhaar from payload so existing Aadhaar remains untouched
+      delete parseResult.data.aadhaar;
+    }
+
     const updatedStudent = await dbUpdateStudent(id, parseResult.data as any);
 
-    // Create audit log entry for update
-    await supabase.from("audit_log").insert({
-      performed_by: user.id,
-      action: "UPDATE",
-      table_name: "students",
-      record_id: id,
-      old_values: oldStudent,
-      new_values: updatedStudent,
-    });
+    // Create audit log entry for update (non-blocking)
+    try {
+      const supabase = await createClient();
+      await supabase.from("audit_log").insert({
+        performed_by: user.id,
+        action: "UPDATE",
+        table_name: "students",
+        record_id: id,
+        old_values: oldStudent,
+        new_values: updatedStudent,
+      });
+    } catch (auditErr) {
+      console.warn("Audit log entry failed:", auditErr);
+    }
 
     return NextResponse.json({ success: true, student: updatedStudent });
   } catch (error: any) {

@@ -54,23 +54,23 @@ export const studentCreateSchema = z.object({
     .string()
     .optional()
     .nullable()
-    .refine((v) => !v || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
+    .refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
   altMobile: z
     .string()
     .optional()
     .nullable()
-    .refine((v) => !v || /^\d{10}$/.test(v.trim()), "Alt mobile must be 10 digits"),
+    .refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Alt mobile must be 10 digits"),
   email: z
     .string()
     .optional()
     .nullable()
-    .refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email format"),
+    .refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email format"),
   address: z.string().optional().nullable(),
   pincode: z
     .string()
     .optional()
     .nullable()
-    .refine((v) => !v || /^\d{6}$/.test(v.trim()), "Pincode must be 6 digits"),
+    .refine((v) => !v || v.trim() === "" || /^\d{6}$/.test(v.trim()), "Pincode must be 6 digits"),
 
   // Academic Enrolment
   presentClass: z.string().min(1, "Class is required").trim(),
@@ -82,7 +82,7 @@ export const studentCreateSchema = z.object({
   academicYear: z.string().optional().nullable(),
   mediumOfInstruction: z.string().optional().nullable(),
   presentClassAdmissionDate: z.string().optional().nullable(),
-  admissionYear: z.coerce.number().int().min(2000).max(new Date().getFullYear() + 1),
+  admissionYear: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
   academicStream: z.string().optional().nullable(),
   currentStatus: z.enum(["Continuing", "Drop Out", "Passed Out", "Sent Up M.P.", "C.C.H.S."]).optional().default("Continuing"),
   previousSchool: z.string().optional().nullable(),
@@ -147,7 +147,16 @@ export const studentCreateSchema = z.object({
     .string()
     .optional()
     .nullable()
-    .refine((v) => !v || /^\d{12}$/.test(v.trim()), "Aadhaar must be 12 digits"),
+    .refine(
+      (v) =>
+        !v ||
+        v.trim() === "" ||
+        v.includes("•") ||
+        v === "PENDING_RECORD" ||
+        v === "Not Available" ||
+        /^\d{12}$/.test(v.trim()),
+      "Aadhaar must be 12 digits"
+    ),
   nameAsPerAadhaar: z.string().optional().nullable(),
 });
 

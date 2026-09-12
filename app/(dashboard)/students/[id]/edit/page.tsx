@@ -14,6 +14,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
 import { GuardianRelationshipSelect } from "@/components/students/guardian-relationship-select";
 import { PresetAddressButtons } from "@/components/students/preset-address-buttons";
+import { showToast } from "@/components/ui/toast-banner";
 
 const studentSchema = z.object({
   // Identity
@@ -22,10 +23,11 @@ const studentSchema = z.object({
     .string()
     .min(1, "School ID is required")
     .regex(
-      /^[A-Z0-9_-]+\/\d{4}\/\d{2,}\/[A-Z0-9_-]+\/[A-Z0-9_-]+\/\d{2,}$/i,
-      "School ID format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)"
+      /^[A-Z0-9/_-]+$/i,
+      "School ID contains invalid characters"
     ),
   dob: z.string().refine((v) => {
+    if (!v) return false;
     const d = new Date(v);
     return !isNaN(d.getTime()) && d < new Date();
   }, "Date of birth must be a valid past date"),
@@ -34,8 +36,8 @@ const studentSchema = z.object({
   religion: z.string().optional(),
   indianNationality: z.coerce.boolean().optional(),
   bloodGroup: z.string().optional(),
-  heightCm: z.coerce.number().optional(),
-  weightKg: z.coerce.number().optional(),
+  heightCm: z.coerce.number().optional().nullable(),
+  weightKg: z.coerce.number().optional().nullable(),
   birthRegistrationNo: z.string().optional(),
   identificationMark: z.string().optional(),
 
@@ -52,7 +54,7 @@ const studentSchema = z.object({
   isCwsn: z.coerce.boolean().optional(),
   impairmentType: z.string().optional(),
   hasDisabilityCertificate: z.coerce.boolean().optional(),
-  disabilityPercentage: z.coerce.number().optional(),
+  disabilityPercentage: z.coerce.number().optional().nullable(),
   sldType: z.string().optional(),
 
   // Family Info
@@ -61,14 +63,14 @@ const studentSchema = z.object({
   guardianName: z.string().optional(),
   relationshipWithGuardian: z.string().optional(),
   guardianQualification: z.string().optional(),
-  annualFamilyIncome: z.coerce.number().optional(),
+  annualFamilyIncome: z.coerce.number().optional().nullable(),
   
   // Contact
-  studentContact: z.string().optional().refine((v) => !v || /^\d{10}$/.test(v), "Contact must be 10 digits"),
-  altMobile: z.string().optional().refine((v) => !v || /^\d{10}$/.test(v), "Contact must be 10 digits"),
-  email: z.string().optional().refine((v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "Invalid email"),
+  studentContact: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
+  altMobile: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
+  email: z.string().optional().refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email"),
   address: z.string().optional(),
-  pincode: z.string().optional().refine((v) => !v || /^\d{6}$/.test(v), "Pincode must be 6 digits"),
+  pincode: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{6}$/.test(v.trim()), "Pincode must be 6 digits"),
 
   // Academic Enrolment
   presentClass: z.string().min(1, "Class is required"),
@@ -80,7 +82,7 @@ const studentSchema = z.object({
   academicYear: z.string().optional(),
   mediumOfInstruction: z.string().optional(),
   presentClassAdmissionDate: z.string().optional(),
-  admissionYear: z.coerce.number().int().min(2000).max(new Date().getFullYear()),
+  admissionYear: z.coerce.number().int().min(1900).max(2100),
   academicStream: z.string().optional(),
 
   // Language studied (comma separated)
@@ -94,15 +96,15 @@ const studentSchema = z.object({
   previousClass: z.string().optional(),
   previousSection: z.string().optional(),
   previousStream: z.string().optional(),
-  previousRollNo: z.coerce.number().optional(),
+  previousRollNo: z.coerce.number().optional().nullable(),
   previousAppearedForExams: z.coerce.boolean().optional(),
   previousResult: z.string().optional(),
-  previousMarksPercent: z.coerce.number().optional(),
-  previousDaysAttended: z.coerce.number().optional(),
+  previousMarksPercent: z.coerce.number().optional().nullable(),
+  previousDaysAttended: z.coerce.number().optional().nullable(),
 
   // RTE
   rteSection12C: z.coerce.boolean().optional(),
-  rteAmountClaimed: z.coerce.number().optional(),
+  rteAmountClaimed: z.coerce.number().optional().nullable(),
 
   // Facilities & Co-curricular
   facilitiesProvidedInput: z.string().optional(),
@@ -111,7 +113,7 @@ const studentSchema = z.object({
   ncc: z.coerce.boolean().optional(),
   nss: z.coerce.boolean().optional(),
   scoutsGuides: z.coerce.boolean().optional(),
-  distanceToSchool: z.coerce.number().optional(),
+  distanceToSchool: z.coerce.number().optional().nullable(),
   highestEducationParents: z.string().optional(),
 
   // Bank
@@ -123,7 +125,19 @@ const studentSchema = z.object({
   diseCode: z.string().optional(),
   healthId: z.string().optional(),
   studentUniqueCode: z.string().optional(),
-  aadhaar: z.string().optional().refine((v) => !v || /^\d{12}$/.test(v), "Aadhaar must be 12 digits"),
+  aadhaar: z
+    .string()
+    .optional()
+    .refine(
+      (v) =>
+        !v ||
+        v.trim() === "" ||
+        v.includes("•") ||
+        v === "PENDING_RECORD" ||
+        v === "Not Available" ||
+        /^\d{12}$/.test(v.trim()),
+      "Aadhaar must be 12 digits"
+    ),
   nameAsPerAadhaar: z.string().optional(),
 });
 
@@ -339,7 +353,15 @@ export default function EditStudentPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["student", id] });
       queryClient.invalidateQueries({ queryKey: ["students"] });
+      showToast({ type: "success", title: "Student profile updated successfully" });
       router.push(`/students/${id}`);
+    },
+    onError: (err: any) => {
+      showToast({
+        type: "error",
+        title: "Failed to update student",
+        description: err.message || "Please check your inputs and try again.",
+      });
     },
   });
 
@@ -364,6 +386,19 @@ export default function EditStudentPage() {
     mutation.mutate(data);
   }
 
+  function onFormError(formErrors: any) {
+    const errorKeys = Object.keys(formErrors);
+    if (errorKeys.length > 0) {
+      const firstKey = errorKeys[0];
+      const errMsg = formErrors[firstKey]?.message || "Validation failed";
+      showToast({
+        type: "error",
+        title: "Validation Error",
+        description: `Field '${firstKey}': ${errMsg}`,
+      });
+    }
+  }
+
   return (
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
       <button
@@ -381,7 +416,7 @@ export default function EditStudentPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
         
         {/* Section 1: Demographics */}
         <FormSection title="A. Student Demographics">
