@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Camera, User, RefreshCw, Sparkles, ImagePlus } from "lucide-react";
+import { Camera, User, RefreshCw, Sparkles, ImagePlus, Trash2 } from "lucide-react";
 import { PhotoStudioModal } from "./photo-studio-modal";
+import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 
 interface StudentPhotoAvatarProps {
@@ -44,6 +45,42 @@ export function StudentPhotoAvatar({
     }
   };
 
+  const handlePhotoRemoved = () => {
+    setCurrentUrl(undefined);
+    setImageError(false);
+    if (onPhotoUpdated) {
+      onPhotoUpdated("");
+    }
+  };
+
+  const handleQuickDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm(`Are you sure you want to remove the photo for ${studentName}?`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/students/${studentId}/photo`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to remove photo");
+      }
+      showToast({
+        type: "success",
+        title: "Photo Removed",
+        description: `Passport photo removed for ${studentName}.`,
+      });
+      handlePhotoRemoved();
+    } catch (err: any) {
+      showToast({
+        type: "error",
+        title: "Remove Failed",
+        description: err.message || "Failed to remove photo.",
+      });
+    }
+  };
+
   // Dimensions based on 3:4 aspect ratio
   const sizeClasses = {
     sm: "w-18 h-24 text-xs",
@@ -67,6 +104,18 @@ export function StudentPhotoAvatar({
   return (
     <>
       <div className={cn("relative group select-none shrink-0", className)}>
+        {/* Quick remove button on top-right corner when photo exists */}
+        {effectivePhotoSrc && !imageError && (
+          <button
+            type="button"
+            onClick={handleQuickDelete}
+            title="Remove photo"
+            className="absolute -top-2 -right-2 p-1.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white shadow-md z-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer active:scale-90"
+          >
+            <Trash2 className="w-3 h-3" />
+          </button>
+        )}
+
         {/* Main 3:4 container */}
         <button
           type="button"
@@ -126,6 +175,7 @@ export function StudentPhotoAvatar({
         studentName={studentName}
         currentPhotoUrl={effectivePhotoSrc || undefined}
         onPhotoSaved={handlePhotoSaved}
+        onPhotoRemoved={handlePhotoRemoved}
       />
     </>
   );

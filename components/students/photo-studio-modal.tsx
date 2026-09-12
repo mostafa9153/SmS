@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Loader2, Image as ImageIcon } from "lucide-react";
+import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Loader2, Trash2, Image as ImageIcon } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
 
 interface PhotoStudioModalProps {
@@ -12,6 +12,7 @@ interface PhotoStudioModalProps {
   studentName: string;
   currentPhotoUrl?: string;
   onPhotoSaved: (newUrl: string) => void;
+  onPhotoRemoved?: () => void;
 }
 
 export function PhotoStudioModal({
@@ -21,6 +22,7 @@ export function PhotoStudioModal({
   studentName,
   currentPhotoUrl,
   onPhotoSaved,
+  onPhotoRemoved,
 }: PhotoStudioModalProps) {
   // Navigation tabs: 'upload' | 'camera' | 'crop'
   const [activeTab, setActiveTab] = useState<"upload" | "camera">("upload");
@@ -45,6 +47,7 @@ export function PhotoStudioModal({
   const [optimizedSizeKb, setOptimizedSizeKb] = useState<number | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Hidden file input ref
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -294,6 +297,40 @@ export function PhotoStudioModal({
     }
   };
 
+  // Remove photo handler
+  const handleRemovePhoto = async () => {
+    if (!window.confirm(`Are you sure you want to remove the photo for ${studentName}?`)) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/students/${studentId}/photo`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to remove photo");
+      }
+      showToast({
+        type: "success",
+        title: "Photo Removed",
+        description: `Passport photo for ${studentName} was removed.`,
+      });
+      if (onPhotoRemoved) {
+        onPhotoRemoved();
+      }
+      onClose();
+    } catch (err: any) {
+      showToast({
+        type: "error",
+        title: "Remove Failed",
+        description: err.message || "Failed to remove photo.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden rounded-2xl bg-card border shadow-xl">
@@ -538,36 +575,61 @@ export function PhotoStudioModal({
         </div>
 
         {/* Footer Actions */}
-        <DialogFooter className="p-4 border-t bg-muted/10 flex flex-row items-center justify-between sm:justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isSaving}
-            className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border hover:bg-muted transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
+        <DialogFooter className="p-4 border-t bg-muted/10 flex flex-row items-center justify-between sm:justify-between gap-2">
+          <div>
+            {currentPhotoUrl && !imageSource && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                disabled={isDeleting || isSaving}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Remove Photo</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
 
-          {imageSource && (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleSavePhoto}
-              disabled={isSaving || isProcessing || !optimizedBlob}
-              className="flex items-center gap-2 px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-all shadow-md active:scale-95"
+              onClick={onClose}
+              disabled={isSaving || isDeleting}
+              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer"
             >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading (&lt;40KB)...
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4" />
-                  Save Photo
-                </>
-              )}
+              Cancel
             </button>
-          )}
+
+            {imageSource && (
+              <button
+                type="button"
+                onClick={handleSavePhoto}
+                disabled={isSaving || isProcessing || !optimizedBlob}
+                className="flex items-center gap-2 px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading (&lt;40KB)...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Save Photo
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
