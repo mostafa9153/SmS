@@ -42,7 +42,7 @@ export function StudentFiltersBar({
     staleTime: 60000,
   });
 
-  const classes = metadata?.classes || [];
+  const classes = metadata?.classes?.length ? metadata.classes : ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
   const sections = metadata?.sections || [];
   const years = metadata?.admissionYears || [];
 
@@ -331,7 +331,7 @@ function FilterSelect({
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              <span>All {placeholder}s</span>
+              <span>{placeholder === "Class" ? "All Classes" : `All ${placeholder}s`}</span>
               {!value && <Check className="h-3.5 w-3.5 text-primary" />}
             </button>
 
