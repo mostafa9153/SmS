@@ -355,12 +355,14 @@ export async function getStudentResultHistory(studentId: string) {
 export async function getSessionReadiness(
   year?: number,
   examName = "Annual Examination",
-  minPassPercentage = 30
+  minPassPercentage = 30,
+  section: "secondary" | "higher_secondary" = "secondary"
 ) {
   const params = new URLSearchParams();
   if (year) params.append("year", String(year));
   params.append("examName", examName);
   params.append("minPassPercentage", String(minPassPercentage));
+  params.append("section", section);
 
   const res = await fetch(`/api/academic-session/readiness?${params.toString()}`);
   if (!res.ok) {
@@ -381,6 +383,7 @@ export async function executeSessionTransition(params: {
   examName?: string;
   minPassPercentage?: number;
   overriddenStudentIds?: string[];
+  section?: "secondary" | "higher_secondary";
 }) {
   const res = await fetch("/api/academic-session/transition", {
     method: "POST",

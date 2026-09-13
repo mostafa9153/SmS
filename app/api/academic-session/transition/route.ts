@@ -25,23 +25,28 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { fromYear, toYear, rollStrategy, examName, minPassPercentage, overriddenStudentIds } = body;
+    const { fromYear, toYear, rollStrategy, examName, minPassPercentage, overriddenStudentIds, section } = body;
 
     if (!fromYear || !toYear || !rollStrategy) {
       return NextResponse.json({ error: "Missing required parameters (fromYear, toYear, rollStrategy)" }, { status: 400 });
     }
 
-    const result = await dbExecuteSessionTransition(
-      {
-        fromYear: Number(fromYear),
-        toYear: Number(toYear),
-        rollStrategy,
-        examName,
-        minPassPercentage: minPassPercentage !== undefined ? Number(minPassPercentage) : 30,
-        overriddenStudentIds: Array.isArray(overriddenStudentIds) ? overriddenStudentIds : [],
-      },
-      user.id
-    );
+    const params = {
+      fromYear: Number(fromYear),
+      toYear: Number(toYear),
+      rollStrategy,
+      examName,
+      minPassPercentage: minPassPercentage !== undefined ? Number(minPassPercentage) : 30,
+      overriddenStudentIds: Array.isArray(overriddenStudentIds) ? overriddenStudentIds : [],
+    };
+
+    let result;
+    if (section === "higher_secondary") {
+      const { dbExecuteSessionTransitionHS } = await import("@/lib/supabase/db-academic-session");
+      result = await dbExecuteSessionTransitionHS(params, user.id);
+    } else {
+      result = await dbExecuteSessionTransition(params, user.id);
+    }
 
     return NextResponse.json({ success: true, result });
   } catch (error: any) {

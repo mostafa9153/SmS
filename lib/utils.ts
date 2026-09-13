@@ -46,6 +46,30 @@ export const STATUS_STYLES: Record<
     chart: "#a855f7",
     label: "C.C.H.S.",
   },
+  "10th test fail": {
+    badge: "bg-rose-100 text-rose-800 border border-rose-300",
+    dot: "bg-rose-600",
+    chart: "#e11d48",
+    label: "10th test fail",
+  },
+  "exam fail - C.C": {
+    badge: "bg-orange-50 text-orange-700 border border-orange-200",
+    dot: "bg-orange-500",
+    chart: "#f97316",
+    label: "Board Exam Fail (C.C)",
+  },
+  "Sent Up H.S.": {
+    badge: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+    dot: "bg-indigo-500",
+    chart: "#6366f1",
+    label: "Sent Up H.S.",
+  },
+  "12th test fail": {
+    badge: "bg-red-50 text-red-700 border border-red-200",
+    dot: "bg-red-500",
+    chart: "#ef4444",
+    label: "12th test fail",
+  },
 };
 
 /** Formats an ISO date string to a human-readable locale string */

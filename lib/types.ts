@@ -10,6 +10,10 @@ export type StudentStatus =
   | "Drop Out"
   | "Passed Out"
   | "Sent Up M.P."
+  | "10th test fail"
+  | "exam fail - C.C"
+  | "Sent Up H.S."
+  | "12th test fail"
   | "C.C.H.S.";
 
 export type Gender = "Male" | "Female" | "Other";
