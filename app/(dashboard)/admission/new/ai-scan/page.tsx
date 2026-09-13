@@ -27,7 +27,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function AiScanContent({ hideBackLink }: { hideBackLink?: boolean }) {
+export function AiScanContent({
+  hideBackLink,
+  embedded = false,
+}: {
+  hideBackLink?: boolean;
+  embedded?: boolean;
+} = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -266,39 +272,58 @@ export function AiScanContent({ hideBackLink }: { hideBackLink?: boolean }) {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
+    <div className={cn("space-y-6", !embedded && "p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto")}>
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admission"
-            className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Camera className="h-5 w-5 text-pink-500" />
-              <span>AI Form Scanner &amp; Camera</span>
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Snap a physical admission form with your camera or upload an image. AI extracts the fields automatically.
-            </p>
+      {!embedded ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
+          <div className="flex items-center gap-3">
+            {!hideBackLink && (
+              <Link
+                href="/admission"
+                className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            )}
+            <div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
+                <Camera className="h-5 w-5 text-pink-500" />
+                <span>AI Form Scanner &amp; Camera</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                Snap a physical admission form with your camera or upload an image. AI extracts the fields automatically.
+              </p>
+            </div>
+          </div>
+
+          {/* API Key Configure Button */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowKeyInput(!showKeyInput)}
+              className="text-xs font-semibold rounded-xl border-border flex items-center gap-1.5 cursor-pointer"
+            >
+              <Key className="h-3.5 w-3.5 text-amber-500" />
+              <span>{settings?.aiApiKey ? "Change API Key" : "Set API Key"}</span>
+            </Button>
           </div>
         </div>
-
-        {/* API Key Configure Button */}
-        <div className="flex items-center gap-2">
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border p-3.5 rounded-2xl shadow-2xs">
+          <p className="text-xs text-muted-foreground">
+            Snap physical admission forms with your device camera or upload image files to auto-fill applicant info using Gemini AI.
+          </p>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setShowKeyInput(!showKeyInput)}
-            className="text-xs font-semibold rounded-xl border-border flex items-center gap-1.5 cursor-pointer"
+            className="text-xs font-semibold rounded-xl border-border flex items-center gap-1.5 cursor-pointer shrink-0"
           >
             <Key className="h-3.5 w-3.5 text-amber-500" />
             <span>{settings?.aiApiKey ? "Change API Key" : "Set API Key"}</span>
           </Button>
         </div>
-      </div>
+      )}
 
       {/* Inline API Key Setting Banner */}
       {showKeyInput && (

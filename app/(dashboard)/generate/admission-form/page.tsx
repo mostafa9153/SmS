@@ -56,7 +56,7 @@ import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 
-export function AdmissionFormGeneratorContent() {
+export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { profile: schoolProfile } = useSchoolProfile();
   const schoolInfo = useMemo(() => schoolProfileToSchoolInfo(schoolProfile), [schoolProfile]);
   const router = useRouter();
@@ -837,34 +837,43 @@ export function AdmissionFormGeneratorContent() {
         )}
       </div>
 
-      <div className="p-4 md:p-6 max-w-[1700px] mx-auto space-y-6 print:hidden">
+      <div className={cn("space-y-6 print:hidden", !embedded && "p-4 md:p-6 max-w-[1700px] mx-auto")}>
         {/* ========================================================= */}
-        {/* STUDIO HEADER */}
+        {/* STUDIO HEADER / CONTROLS */}
         {/* ========================================================= */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5 print:hidden">
+        <div
+          className={cn(
+            "flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-5 print:hidden",
+            embedded && "bg-card border p-3.5 rounded-2xl shadow-2xs pb-3.5 mb-2"
+          )}
+        >
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => router.back()}
-              className="h-10 w-10 rounded-xl"
-              title="Go Back"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
+            {!embedded && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.back()}
+                className="h-10 w-10 rounded-xl"
+                title="Go Back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            )}
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                  Admission Form Generator
-                </h1>
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-[11px] text-muted-foreground font-semibold mr-1">Header Label:</span>
+              {!embedded && (
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                    Admission Form Generator
+                  </h1>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs text-muted-foreground font-semibold mr-1">Header Stamp:</span>
                 <button
                   type="button"
                   onClick={() => setAdmissionCategory("new")}
                   className={cn(
-                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
                     admissionCategory === "new"
                       ? "bg-emerald-600 text-white shadow-2xs"
                       : "bg-muted text-muted-foreground hover:text-foreground"
@@ -876,7 +885,7 @@ export function AdmissionFormGeneratorContent() {
                   type="button"
                   onClick={() => setAdmissionCategory("re")}
                   className={cn(
-                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
                     admissionCategory === "re"
                       ? "bg-orange-600 text-white shadow-2xs"
                       : "bg-muted text-muted-foreground hover:text-foreground"
@@ -888,7 +897,7 @@ export function AdmissionFormGeneratorContent() {
                   type="button"
                   onClick={() => setAdmissionCategory("regular")}
                   className={cn(
-                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
                     admissionCategory === "regular"
                       ? "bg-primary text-primary-foreground shadow-2xs"
                       : "bg-muted text-muted-foreground hover:text-foreground"
