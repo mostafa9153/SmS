@@ -129,6 +129,7 @@ const navItems: NavItem[] = [
 
 const settingsNavItems = [
   {
+    href: "/settings/users",
     tab: "users",
     label: "User Management",
     icon: <Users className="h-4 w-4" />,
@@ -136,13 +137,15 @@ const settingsNavItems = [
     activeColor: "from-blue-500/15 via-blue-500/8 text-blue-700 dark:text-blue-300 border-blue-600",
   },
   {
-    tab: "session",
+    href: "/settings/academic-session",
+    tab: "academic-session",
     label: "Academic Session",
     icon: <CalendarClock className="h-4 w-4" />,
     iconBg: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
     activeColor: "from-cyan-500/15 via-cyan-500/8 text-cyan-700 dark:text-cyan-300 border-cyan-600",
   },
   {
+    href: "/settings/audit",
     tab: "audit",
     label: "Audit Logs",
     icon: <Activity className="h-4 w-4" />,
@@ -150,6 +153,7 @@ const settingsNavItems = [
     activeColor: "from-violet-500/15 via-violet-500/8 text-violet-700 dark:text-violet-300 border-violet-600",
   },
   {
+    href: "/settings/school-details",
     tab: "school-details",
     label: "School Details",
     icon: <School className="h-4 w-4" />,
@@ -157,20 +161,23 @@ const settingsNavItems = [
     activeColor: "from-amber-500/15 via-amber-500/8 text-amber-700 dark:text-amber-300 border-amber-600",
   },
   {
-    tab: "preset-addresses",
+    href: "/settings/presets",
+    tab: "presets",
     label: "Presets",
     icon: <MapPin className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
   },
   {
+    href: "/settings/backup",
     tab: "backup",
     label: "Backup & Cloud",
     icon: <Cloud className="h-4 w-4" />,
-    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-    activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
+    iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
+    activeColor: "from-blue-500/15 via-blue-500/8 text-blue-700 dark:text-blue-300 border-blue-600",
   },
   {
+    href: "/settings/danger",
     tab: "danger",
     label: "Danger Zone",
     icon: <ShieldAlert className="h-4 w-4" />,
@@ -470,9 +477,10 @@ export function Sidebar({
         {mobile && (
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+            aria-label="Close navigation menu"
+            className="flex items-center justify-center min-h-[38px] min-w-[38px] rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer active:scale-95"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         )}
       </div>
@@ -500,11 +508,17 @@ export function Sidebar({
 
             <div className="space-y-1">
               {settingsNavItems.map((item) => {
-                const isActive = activeSettingTab === item.tab || (item.tab === "school-details" && activeSettingTab === "config");
+                const isActive =
+                  pathname === item.href ||
+                  (item.tab === "users" && (pathname === "/settings" || pathname === "/settings/users")) ||
+                  (item.tab === "school-details" && pathname === "/settings/config") ||
+                  (item.tab === "presets" && pathname === "/settings/preset-addresses") ||
+                  activeSettingTab === item.tab;
                 return (
                   <Link
-                    key={item.tab}
-                    href={`/settings?tab=${item.tab}`}
+                    key={item.href}
+                    href={item.href}
+                    prefetch={true}
                     onClick={onClose}
                     className={cn(
                       "group flex items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-200 relative border border-transparent",

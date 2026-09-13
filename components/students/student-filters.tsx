@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Search, X, ChevronDown, Check, Users, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { Search, X, ChevronDown, Check, Users, Loader2, SlidersHorizontal } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
@@ -77,12 +78,281 @@ export function StudentFiltersBar({
 
   const sortedClasses = sortClasses(classes);
 
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.class) count++;
+    if (filters.section) count++;
+    if (filters.scheme) count++;
+    if (filters.socialCategory) count++;
+    if (filters.gender) count++;
+    if (filters.status) count++;
+    if (filters.admissionYear) count++;
+    if (filters.hasAadhaar) count++;
+    if (filters.ageSlab) count++;
+    return count;
+  }, [filters]);
+
   return (
-    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2.5 sm:py-3 shadow-2xs">
-      <div className="flex flex-wrap gap-2 items-center">
+    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2 sm:py-3 shadow-2xs space-y-2">
+      {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
+      <div className="flex sm:hidden items-center gap-2">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
+          <input
+            type="text"
+            value={localQuery}
+            onChange={(e) => setLocalQuery(e.target.value)}
+            placeholder="Search students..."
+            className="w-full rounded-xl border border-border/90 bg-card hover:bg-background pl-9 pr-3 py-2 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
+          />
+          {localQuery && (
+            <button
+              onClick={() => setLocalQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileFilterOpen(true)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shrink-0 transition-all active:scale-95 cursor-pointer min-h-[40px]",
+            activeFilterCount > 0
+              ? "bg-primary text-primary-foreground border-primary shadow-xs"
+              : "bg-card hover:bg-muted text-foreground border-border"
+          )}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-background text-primary text-[10px] font-bold">
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Active Filter Badges */}
+      {hasFilters && (
+        <div className="flex sm:hidden items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs">
+          {filters.class && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+              Class {filters.class}
+              <button onClick={() => onChange({ ...filters, class: undefined, section: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {filters.section && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+              Sec {filters.section}
+              <button onClick={() => onChange({ ...filters, section: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {filters.status && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+              {filters.status}
+              <button onClick={() => onChange({ ...filters, status: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {filters.scheme && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+              Scheme: {filters.scheme}
+              <button onClick={() => onChange({ ...filters, scheme: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          {filters.gender && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+              {filters.gender}
+              <button onClick={() => onChange({ ...filters, gender: undefined })}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={clearAll}
+            className="text-[11px] font-bold text-rose-500 hover:underline shrink-0 px-1"
+          >
+            Clear all
+          </button>
+        </div>
+      )}
+
+      {/* Mobile Filter Sheet Drawer */}
+      <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl p-5 overflow-y-auto space-y-4 border-t border-border shadow-2xl">
+          <SheetHeader className="p-0 flex flex-row items-center justify-between border-b pb-3">
+            <SheetTitle className="text-base font-bold">Filter Students</SheetTitle>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearAll}
+                className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
+              >
+                Reset all
+              </button>
+            )}
+          </SheetHeader>
+
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Class</label>
+              <FilterSelect
+                value={filters.class ?? ""}
+                onChange={(v) => onChange({ ...filters, class: v || undefined, section: undefined })}
+                placeholder="Class"
+                options={sortedClasses.map((c) => ({ label: `Class ${c}`, value: c }))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Section</label>
+              <FilterSelect
+                value={filters.section ?? ""}
+                onChange={(v) => onChange({ ...filters, section: v || undefined })}
+                placeholder="Section"
+                options={sections.map((s) => ({ label: `Section ${s}`, value: s }))}
+              />
+            </div>
+
+            <div className="space-y-1 col-span-2">
+              <label className="text-xs font-semibold text-muted-foreground">Welfare Scheme</label>
+              <FilterSelect
+                value={filters.scheme ?? ""}
+                onChange={(v) => onChange({ ...filters, scheme: (v as any) || undefined })}
+                placeholder="Welfare Scheme"
+                options={[
+                  { label: "🎀 Kanyashree (All)", value: "kanyashree" },
+                  { label: "🎀 Kanyashree K1 (Class 8-11)", value: "kanyashree_k1" },
+                  { label: "🎓 Kanyashree K2 (Class 12 / 18+)", value: "kanyashree_k2" },
+                  { label: "📘 Sikshashree (SC/ST V-VIII)", value: "sikshashree" },
+                  { label: "🏛️ OASIS Pre-Matric (SC/ST/OBC IX-X)", value: "oasis_pre" },
+                  { label: "🏛️ OASIS Post-Matric (SC/ST/OBC XI-XII)", value: "oasis_post" },
+                  { label: "📗 Pre-Matric NSP (Muslim IX-X)", value: "nsp_pre" },
+                  { label: "📗 Post-Matric NSP (Muslim XI-XII)", value: "nsp_post" },
+                  { label: "📗 NSP (Minority 9-12)", value: "nsp" },
+                  { label: "⭐ SVMCM (Muslim XI-XII, 60%+)", value: "svmcm" },
+                  { label: "🚲 Sarathi (Bicycle IX)", value: "sabooj_sathi" },
+                  { label: "♿ CWSN / Divyangjan", value: "cwsn" },
+                ]}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Category</label>
+              <FilterSelect
+                value={filters.socialCategory ?? ""}
+                onChange={(v) => onChange({ ...filters, socialCategory: (v as any) || undefined })}
+                placeholder="Category"
+                options={[
+                  { label: "General", value: "General" },
+                  { label: "OBC", value: "OBC" },
+                  { label: "SC", value: "SC" },
+                  { label: "ST", value: "ST" },
+                ]}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Gender</label>
+              <FilterSelect
+                value={filters.gender ?? ""}
+                onChange={(v) => onChange({ ...filters, gender: (v as any) || undefined })}
+                placeholder="Gender"
+                options={[
+                  { label: "Female", value: "Female" },
+                  { label: "Male", value: "Male" },
+                  { label: "Other", value: "Other" },
+                ]}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Status</label>
+              <FilterSelect
+                value={filters.status ?? ""}
+                onChange={(v) => onChange({ ...filters, status: (v as StudentStatus) || undefined })}
+                placeholder="Status"
+                options={STATUSES.map((s) => ({ label: s, value: s }))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Adm. Year</label>
+              <FilterSelect
+                value={filters.admissionYear ? String(filters.admissionYear) : ""}
+                onChange={(v) => onChange({ ...filters, admissionYear: v ? Number(v) : undefined })}
+                placeholder="Adm. Year"
+                options={years.map((y) => ({ label: String(y), value: String(y) }))}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Aadhaar</label>
+              <FilterSelect
+                value={filters.hasAadhaar ?? ""}
+                onChange={(v) => onChange({ ...filters, hasAadhaar: (v as "yes" | "no") || undefined })}
+                placeholder="Aadhaar"
+                options={[
+                  { label: "Aadhaar: Yes", value: "yes" },
+                  { label: "Aadhaar: No", value: "no" },
+                ]}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Age Group</label>
+              <FilterSelect
+                value={filters.ageSlab ?? ""}
+                onChange={(v) => onChange({ ...filters, ageSlab: v || undefined })}
+                placeholder="Age Group"
+                options={[
+                  { label: "🎂 Below 10", value: "below_10" },
+                  { label: "🎂 10 - 11", value: "10_11" },
+                  { label: "🎂 11 - 12", value: "11_12" },
+                  { label: "🎂 12 - 13", value: "12_13" },
+                  { label: "🎂 13 - 14", value: "13_14" },
+                  { label: "🎂 14 - 15", value: "14_15" },
+                  { label: "🎂 15 - 16", value: "15_16" },
+                  { label: "🎂 16 - 17", value: "16_17" },
+                  { label: "🎂 17 - 18", value: "17_18" },
+                  { label: "🎂 18 - 19", value: "18_19" },
+                  { label: "🎂 19 - 20", value: "19_20" },
+                  { label: "🎂 20+ yrs", value: "20_above" },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setMobileFilterOpen(false)}
+              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>Apply Filters</span>
+              {totalCount !== undefined && <span className="opacity-80 font-normal">({totalCount} students)</span>}
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Filter Bar (hidden on mobile, visible sm+) */}
+      <div className="hidden sm:flex flex-wrap gap-2 items-center">
         {/* Smart search */}
         <div className="relative min-w-[170px] flex-1 max-w-xs group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
           <input
             type="text"
             value={localQuery}

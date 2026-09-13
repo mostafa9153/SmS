@@ -89,7 +89,7 @@ export default function StudentProfilePage() {
   const { data: resultHistory = [] } = useQuery<StudentResult[]>({
     queryKey: ["student-results-history", id],
     queryFn: () => getStudentResultHistory(id),
-    enabled: !!student,
+    enabled: !!id,
   });
 
   const addResultMutation = useMutation({
@@ -378,34 +378,34 @@ export default function StudentProfilePage() {
 
       {/* Tabs */}
       <Tabs defaultValue="personal">
-        <TabsList className="w-full justify-start overflow-x-auto h-auto flex-wrap gap-1 bg-muted/50">
-          <TabsTrigger value="personal" className="flex items-center gap-1.5 text-xs">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1.5 gap-1.5 bg-muted/60 rounded-2xl custom-scrollbar select-none">
+          <TabsTrigger value="personal" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <User className="h-3.5 w-3.5" />
             Personal
           </TabsTrigger>
-          <TabsTrigger value="academic" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger value="academic" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <BookOpen className="h-3.5 w-3.5" />
-            Enrolment & Academic
+            Academic
           </TabsTrigger>
-          <TabsTrigger value="facilities" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger value="facilities" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <Award className="h-3.5 w-3.5" />
-            Facilities & Profile
+            Facilities
           </TabsTrigger>
-          <TabsTrigger value="bank" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger value="bank" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <CreditCard className="h-3.5 w-3.5" />
             Bank Details
           </TabsTrigger>
-          <TabsTrigger value="identification" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger value="identification" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <ShieldCheck className="h-3.5 w-3.5" />
             Identification
           </TabsTrigger>
-          <TabsTrigger value="history" className="flex items-center gap-1.5 text-xs">
+          <TabsTrigger value="history" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <Clock className="h-3.5 w-3.5" />
             History
           </TabsTrigger>
-          <TabsTrigger value="results" className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+          <TabsTrigger value="results" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0 font-semibold text-amber-700 dark:text-amber-400">
             <Trophy className="h-3.5 w-3.5" />
-            Result History
+            Results
           </TabsTrigger>
         </TabsList>
 
@@ -1001,8 +1001,8 @@ export default function StudentProfilePage() {
                   </p>
                 </div>
               ) : (
-                <div className="rounded-lg border overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="rounded-xl border overflow-x-auto shadow-2xs">
+                  <table className="w-full text-sm min-w-[640px]">
                     <thead className="bg-muted/70 border-b">
                       <tr>
                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Year</th>

@@ -189,7 +189,7 @@ export default function EmsManualAllocationPage() {
                 type="number"
                 value={academicYear}
                 onChange={(e) => setAcademicYear(parseInt(e.target.value) || 2026)}
-                className="h-9 text-xs"
+                className="h-10 sm:h-9 text-base sm:text-xs"
               />
             </div>
 
@@ -198,7 +198,7 @@ export default function EmsManualAllocationPage() {
               <select
                 value={examType}
                 onChange={(e) => setExamType(e.target.value as ExamType)}
-                className="w-full h-9 px-3 text-xs rounded-md border border-input bg-background font-semibold"
+                className="w-full h-10 sm:h-9 px-3 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
               >
                 {EXAM_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -213,7 +213,7 @@ export default function EmsManualAllocationPage() {
               <select
                 value={selectedRoomId}
                 onChange={(e) => setSelectedRoomId(e.target.value)}
-                className="w-full h-9 px-3 text-xs rounded-md border border-input bg-background font-semibold"
+                className="w-full h-10 sm:h-9 px-3 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
               >
                 {rooms.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -295,7 +295,7 @@ export default function EmsManualAllocationPage() {
                               updateColumn(idx, "section", validSecs[0] || "A");
                             }
                           }}
-                          className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
+                          className="w-full h-9 sm:h-8 px-2 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
                         >
                           {availableClasses.map((c) => (
                             <option key={c} value={c}>
@@ -310,7 +310,7 @@ export default function EmsManualAllocationPage() {
                         <select
                           value={colInput.section}
                           onChange={(e) => updateColumn(idx, "section", e.target.value)}
-                          className="w-full h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
+                          className="w-full h-9 sm:h-8 px-2 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
                         >
                           {getDynamicSectionsForClass(colInput.class).map((s) => (
                             <option key={s} value={s}>
@@ -331,7 +331,7 @@ export default function EmsManualAllocationPage() {
                           onChange={(e) =>
                             updateColumn(idx, "rollFrom", parseInt(e.target.value) || 1)
                           }
-                          className="h-8 text-xs font-mono"
+                          className="h-9 sm:h-8 text-base sm:text-xs font-mono"
                         />
                       </div>
 
@@ -344,7 +344,7 @@ export default function EmsManualAllocationPage() {
                           onChange={(e) =>
                             updateColumn(idx, "rollTo", parseInt(e.target.value) || 1)
                           }
-                          className="h-8 text-xs font-mono"
+                          className="h-9 sm:h-8 text-base sm:text-xs font-mono"
                         />
                       </div>
                     </div>
@@ -368,7 +368,7 @@ export default function EmsManualAllocationPage() {
           <Button
             onClick={handleGenerate}
             disabled={loading || !selectedRoom}
-            className="h-10 text-xs font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5"
+            className="w-full sm:w-auto h-11 sm:h-10 text-xs font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-md px-5 justify-center"
           >
             {loading ? (
               <>

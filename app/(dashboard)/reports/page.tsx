@@ -30,8 +30,9 @@ export default function ReportsPage() {
   );
 
   const { data: allStudents = [], isLoading } = useQuery({
-    queryKey: ["students-all"],
+    queryKey: ["students"],
     queryFn: () => getStudents(),
+    staleTime: 5 * 60 * 1000,
   });
 
   const reportData = useMemo(() => {
@@ -72,85 +73,91 @@ export default function ReportsPage() {
       ` }} />
 
       {/* Action Bar - Hidden in Print */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+      <div className="flex flex-col gap-4 print:hidden">
         <div className="flex items-center gap-2">
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-lg p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <h1 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <span>Students Strength Tabulation</span>
-            <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+              Students Strength Tabulation
+            </h1>
+            <span className="text-[11px] sm:text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
               Official Format
             </span>
-          </h1>
+          </div>
         </div>
 
-        {/* Action Buttons: Excel, Word, CSV, Print */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="w-32">
-            <CustomSelect
-              value={sessionYear}
-              onChange={(val) => setSessionYear(val)}
-              options={[
-                { label: "2026 Session", value: "2026" },
-                { label: "2025 Session", value: "2025" },
-                { label: "2024 Session", value: "2024" },
-              ]}
-            />
+        {/* Action Buttons & Selectors: Responsive grid on mobile, flex on desktop */}
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            <div className="w-full sm:w-36">
+              <CustomSelect
+                value={sessionYear}
+                onChange={(val) => setSessionYear(val)}
+                options={[
+                  { label: "2026 Session", value: "2026" },
+                  { label: "2025 Session", value: "2025" },
+                  { label: "2024 Session", value: "2024" },
+                ]}
+              />
+            </div>
+
+            <div className="w-full sm:w-44">
+              <CustomSelect
+                value={printOrientation}
+                onChange={(val) => setPrintOrientation(val as "landscape" | "portrait")}
+                options={[
+                  { label: "Landscape (1-Page)", value: "landscape" },
+                  { label: "Portrait (1-Page)", value: "portrait" },
+                ]}
+              />
+            </div>
           </div>
 
-          <div className="w-36">
-            <CustomSelect
-              value={printOrientation}
-              onChange={(val) => setPrintOrientation(val as "landscape" | "portrait")}
-              options={[
-                { label: "Landscape (1-Page)", value: "landscape" },
-                { label: "Portrait (1-Page)", value: "portrait" },
-              ]}
-            />
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+            {/* Excel Export */}
+            <Button
+              onClick={handleExportExcel}
+              className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-10 px-3.5 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              <FileSpreadsheet className="h-4 w-4 shrink-0" />
+              <span>Excel (.xlsx)</span>
+            </Button>
+
+            {/* Word Export */}
+            <Button
+              onClick={handleExportWord}
+              className="flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs h-10 px-3.5 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
+            >
+              <FileText className="h-4 w-4 shrink-0" />
+              <span>Word (.docx)</span>
+            </Button>
+
+            {/* CSV Export */}
+            <Button
+              onClick={handleExportCsv}
+              variant="outline"
+              className="flex items-center justify-center gap-1.5 text-xs font-semibold h-10 px-3 rounded-xl shadow-2xs hover:bg-muted cursor-pointer active:scale-95 transition-all"
+            >
+              <Download className="h-3.5 w-3.5 shrink-0" />
+              <span>CSV</span>
+            </Button>
+
+            {/* Print / PDF */}
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              className="flex items-center justify-center gap-1.5 border-border/80 font-semibold text-xs h-10 px-3.5 rounded-xl shadow-2xs hover:bg-muted cursor-pointer active:scale-95 transition-all"
+            >
+              <Printer className="h-4 w-4 text-primary shrink-0" />
+              <span>Print (1 Page)</span>
+            </Button>
           </div>
-
-          {/* Excel Export */}
-          <Button
-            onClick={handleExportExcel}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Excel (.xlsx)
-          </Button>
-
-          {/* Word Export */}
-          <Button
-            onClick={handleExportWord}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
-          >
-            <FileText className="h-4 w-4" />
-            Word (.docx)
-          </Button>
-
-          {/* CSV Export */}
-          <Button
-            onClick={handleExportCsv}
-            variant="outline"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl shadow-2xs hover:bg-muted cursor-pointer active:scale-95 transition-all"
-          >
-            <Download className="h-3.5 w-3.5" />
-            CSV
-          </Button>
-
-          {/* Print / PDF */}
-          <Button
-            onClick={handlePrint}
-            variant="outline"
-            className="flex items-center gap-1.5 border-border/80 font-semibold text-xs px-3.5 py-2 rounded-xl shadow-2xs hover:bg-muted cursor-pointer active:scale-95 transition-all"
-          >
-            <Printer className="h-4 w-4 text-primary" />
-            Print (1 Page)
-          </Button>
         </div>
       </div>
 
@@ -185,8 +192,11 @@ export default function ReportsPage() {
           {/* ──────────────────────────────────────────────────────────── */}
           {/* TABLE 1: SECTION-WISE BREAKDOWN MATRIX                       */}
           {/* ──────────────────────────────────────────────────────────── */}
-          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-2 print:mt-1 print:border-black">
-            <table className="w-full text-xs text-center border-collapse border border-black print:text-[9.5px] print:leading-tight">
+          <p className="text-[11px] text-muted-foreground sm:hidden mt-2 font-medium print:hidden">
+            👉 ডানে-বামে স্ক্রোল করে সম্পূর্ণ রিপোর্ট দেখুন
+          </p>
+          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-1 print:border-black">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs text-center border-collapse border border-black print:text-[9.5px] print:leading-tight">
               <thead>
                 {/* Header Row 1 */}
                 <tr className="font-bold border-b border-black text-black print:h-4">
@@ -394,7 +404,7 @@ export default function ReportsPage() {
           {/* TABLE 2: SIDE-BY-SIDE CLASS SUMMARY & DEFERENTIALS          */}
           {/* ──────────────────────────────────────────────────────────── */}
           <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-3 print:mt-1 print:border-black">
-            <table className="w-full text-xs text-center border-collapse border border-black print:text-[9.5px] print:leading-tight">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs text-center border-collapse border border-black print:text-[9.5px] print:leading-tight">
               <thead>
                 <tr className="font-bold border-b border-black text-black text-xs print:text-[8.5px] print:h-4">
                   {/* Left Table Headers */}

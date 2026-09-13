@@ -85,7 +85,7 @@ export function SmartPreviousSchoolInput({
           Previous School Name
         </Label>
         <a
-          href="/settings?tab=presets"
+          href="/settings/presets"
           target="_blank"
           rel="noopener noreferrer"
           title="Configure School Presets in Settings"

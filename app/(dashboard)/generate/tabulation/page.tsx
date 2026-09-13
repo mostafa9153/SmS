@@ -85,11 +85,11 @@ export default function TabulationGeneratorPage() {
     });
   }, []);
 
-  // Fetch all students from DB (with caching and reactive refetch)
+  // Fetch all students from DB (shared cache)
   const { data: allStudents = [], isLoading: isStudentsLoading, refetch } = useQuery({
-    queryKey: ["students", "all"],
+    queryKey: ["students"],
     queryFn: getStudents,
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Compute available sections for the selected class
@@ -246,11 +246,11 @@ export default function TabulationGeneratorPage() {
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
             <FileSpreadsheet className="h-5 w-5" />
           </div>
           <div>
@@ -261,7 +261,7 @@ export default function TabulationGeneratorPage() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto justify-end">
           {/* Live Status Pill */}
           <div className="hidden sm:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border bg-muted/40 text-muted-foreground">
             <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -276,7 +276,7 @@ export default function TabulationGeneratorPage() {
 
           <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer rounded-xl h-9 px-3.5"
+            className="w-full sm:w-auto gap-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white shadow-xs cursor-pointer rounded-xl h-10 sm:h-9 px-3.5"
           >
             <Printer className="h-4 w-4" />
             <span>Print Tabulation Sheet</span>
@@ -560,7 +560,7 @@ export default function TabulationGeneratorPage() {
           {/* Canvas Wrapper */}
           <div
             id="tabulation-printable-canvas"
-            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 sm:p-6 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
+            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-6 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
           >
             <div
               style={{

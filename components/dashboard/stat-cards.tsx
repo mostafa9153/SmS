@@ -5,7 +5,7 @@ import { getDashboardStats } from "@/lib/data/students";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, UserRound, TrendingDown, TrendingUp, GraduationCap } from "lucide-react";
-import { STATUS_STYLES } from "@/lib/utils";
+import { STATUS_STYLES, cn } from "@/lib/utils";
 
 export function StatCards() {
   const { data: stats, isLoading } = useQuery({
@@ -15,9 +15,9 @@ export function StatCards() {
 
   if (isLoading || !stats) {
     return (
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Card key={i} className="p-4 space-y-2 rounded-2xl">
+          <Card key={i} className={cn("p-4 space-y-2 rounded-2xl", i === 0 && "col-span-2 sm:col-span-1")}>
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-7 w-12" />
           </Card>
@@ -65,17 +65,21 @@ export function StatCards() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
-      {cards.map((card) => (
+    <div className="grid grid-cols-2 gap-3 sm:gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
+      {cards.map((card, idx) => (
         <Card
           key={card.label}
-          className={`p-4 rounded-2xl border bg-card/90 backdrop-blur-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer ${card.borderHover}`}
+          className={cn(
+            "p-3.5 sm:p-4 rounded-2xl border bg-card/90 backdrop-blur-xs transition-all duration-300 hover:-translate-y-1 hover:shadow-md cursor-pointer",
+            card.borderHover,
+            idx === 0 && "col-span-2 sm:col-span-1 bg-gradient-to-br from-primary/5 via-card to-card"
+          )}
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
             <p className="text-xs font-semibold text-muted-foreground tracking-tight">
               {card.label}
             </p>
-            <span className={`rounded-xl p-2 transition-transform duration-300 group-hover:scale-110 ${card.color}`}>
+            <span className={cn("rounded-xl p-2 transition-transform duration-300 group-hover:scale-110", card.color)}>
               {card.icon}
             </span>
           </div>

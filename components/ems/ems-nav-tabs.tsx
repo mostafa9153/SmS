@@ -59,14 +59,14 @@ export function EmsNavTabs({ activeTab }: EmsNavTabsProps) {
   ];
 
   return (
-    <div className="w-full flex items-center gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/60 overflow-x-auto shadow-xs backdrop-blur-xs mb-6">
+    <div className="w-full flex items-center gap-1.5 p-1.5 rounded-2xl bg-muted/40 border border-border/60 overflow-x-auto flex-nowrap custom-scrollbar scroll-smooth shadow-xs backdrop-blur-xs mb-6">
       {navLinks.map((link) => {
         const isActive = link.active;
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-200 ${
+            className={`flex items-center gap-2.5 px-3.5 py-2 min-h-[44px] rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all duration-200 cursor-pointer ${
               isActive
                 ? "bg-card text-foreground shadow-sm border border-border/80 font-bold"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60"

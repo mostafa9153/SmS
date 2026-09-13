@@ -1,6 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Short-lived in-memory cache for user role checks in middleware (60s TTL)
+interface MiddlewareRoleCache {
+  role: string;
+  cachedAt: number;
+}
+const middlewareRoleCache = new Map<string, MiddlewareRoleCache>();
+const ROLE_CACHE_TTL = 60 * 1000;
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -27,15 +35,32 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh user token - essential for auth checks
+  const pathname = request.nextUrl.pathname;
+  const isLoginPage = pathname.startsWith("/login");
+  const isApiRoute = pathname.startsWith("/api");
+  const isAuthCallback = pathname.startsWith("/auth");
+  const isStaticAsset =
+    pathname === "/manifest.json" ||
+    pathname === "/favicon.ico" ||
+    pathname === "/robots.txt" ||
+    pathname === "/sitemap.xml" ||
+    pathname.endsWith(".webmanifest") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".woff2") ||
+    pathname.endsWith(".woff");
+
+  // For API routes and static assets, bypass authentication redirects
+  if (isApiRoute || isStaticAsset) {
+    return supabaseResponse;
+  }
+
+  // Refresh user token - essential for UI page auth checks and redirects
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isLoginPage = request.nextUrl.pathname.startsWith("/login");
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
-  const isAuthCallback = request.nextUrl.pathname.startsWith("/auth");
-
   // 1. If not logged in & trying to access protected UI routes, redirect to /login
-  if (!user && !isLoginPage && !isApiRoute && !isAuthCallback) {
+  if (!user && !isLoginPage && !isAuthCallback) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -50,14 +75,24 @@ export async function updateSession(request: NextRequest) {
 
   // 3. Admin-only route protection for /settings
   if (user && request.nextUrl.pathname.startsWith("/settings")) {
-    // Check role in user_roles table
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    let userRole: string | null = null;
+    const cached = middlewareRoleCache.get(user.id);
+    if (cached && Date.now() - cached.cachedAt < ROLE_CACHE_TTL) {
+      userRole = cached.role;
+    } else {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (!roleData || roleData.role !== "Admin") {
+      userRole = roleData?.role || null;
+      if (userRole) {
+        middlewareRoleCache.set(user.id, { role: userRole, cachedAt: Date.now() });
+      }
+    }
+
+    if (userRole !== "Admin") {
       // Redirect staff to dashboard if they try to access settings
       const url = request.nextUrl.clone();
       url.pathname = "/";

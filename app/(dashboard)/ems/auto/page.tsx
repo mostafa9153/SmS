@@ -204,14 +204,14 @@ export default function EmsAutoAllocationPage() {
             <span>Step 1: Examination Session & Type</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Academic Year</Label>
               <Input
                 type="number"
                 value={academicYear}
                 onChange={(e) => setAcademicYear(parseInt(e.target.value) || 2026)}
-                className="h-9 text-xs font-mono"
+                className="h-10 sm:h-9 text-base sm:text-xs font-mono"
               />
             </div>
 
@@ -220,7 +220,7 @@ export default function EmsAutoAllocationPage() {
               <select
                 value={examType}
                 onChange={(e) => setExamType(e.target.value as ExamType)}
-                className="w-full h-9 px-3 text-xs rounded-md border border-input bg-background font-semibold"
+                className="w-full h-10 sm:h-9 px-3 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
               >
                 {EXAM_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -234,7 +234,7 @@ export default function EmsAutoAllocationPage() {
 
         {/* Step 2: Participating Classes & Roll Ranges */}
         <div className="space-y-3 pb-5 border-b border-border/60">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
               <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-purple-500" />
@@ -250,7 +250,7 @@ export default function EmsAutoAllocationPage() {
               size="sm"
               variant="outline"
               onClick={handleAddClass}
-              className="h-7 text-xs font-semibold gap-1"
+              className="h-8 sm:h-7 text-xs font-semibold gap-1 px-3"
             >
               <Plus className="h-3.5 w-3.5" /> Add Another Class
             </Button>
@@ -272,7 +272,7 @@ export default function EmsAutoAllocationPage() {
                     <span className="font-bold text-xs text-foreground">Class Group</span>
                   </div>
 
-                  <div className="flex items-center gap-3 flex-wrap flex-1 max-w-lg">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap flex-1 max-w-lg">
                     <div className="flex items-center gap-1.5">
                       <Label className="text-[11px] text-muted-foreground">Class:</Label>
                       <select
@@ -285,7 +285,7 @@ export default function EmsAutoAllocationPage() {
                             updateClassRow(idx, "section", validSecs[0] || "A");
                           }
                         }}
-                        className="h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
+                        className="h-9 sm:h-8 px-2 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
                       >
                         {availableClasses.map((opt) => (
                           <option key={opt} value={opt}>
@@ -300,7 +300,7 @@ export default function EmsAutoAllocationPage() {
                       <select
                         value={c.section}
                         onChange={(e) => updateClassRow(idx, "section", e.target.value)}
-                        className="h-8 px-2 text-xs rounded-md border border-input bg-background font-semibold"
+                        className="h-9 sm:h-8 px-2 text-base sm:text-xs rounded-md border border-input bg-background font-semibold"
                       >
                         {getDynamicSectionsForClass(c.class).map((opt) => (
                           <option key={opt} value={opt}>
@@ -319,7 +319,7 @@ export default function EmsAutoAllocationPage() {
                         onChange={(e) =>
                           updateClassRow(idx, "rollFrom", parseInt(e.target.value) || 1)
                         }
-                        className="h-8 w-16 text-center text-xs font-mono"
+                        className="h-9 sm:h-8 w-16 text-center text-base sm:text-xs font-mono"
                       />
                       <span className="text-muted-foreground text-xs">to</span>
                       <Input
@@ -329,7 +329,7 @@ export default function EmsAutoAllocationPage() {
                         onChange={(e) =>
                           updateClassRow(idx, "rollTo", parseInt(e.target.value) || 1)
                         }
-                        className="h-8 w-16 text-center text-xs font-mono"
+                        className="h-9 sm:h-8 w-16 text-center text-base sm:text-xs font-mono"
                       />
                     </div>
                   </div>
@@ -343,10 +343,10 @@ export default function EmsAutoAllocationPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                        className="h-8 w-8 sm:h-7 sm:w-7 text-muted-foreground hover:text-destructive"
                         onClick={() => handleRemoveClass(idx)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                       </Button>
                     )}
                   </div>
@@ -440,7 +440,7 @@ export default function EmsAutoAllocationPage() {
           <Button
             onClick={handleRunAutoAllocation}
             disabled={loading || selectedRoomIds.length === 0}
-            className="h-11 text-xs font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-6"
+            className="w-full sm:w-auto h-11 text-xs font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg px-6 justify-center"
           >
             {loading ? (
               <>

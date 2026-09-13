@@ -35,9 +35,10 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const paginated = searchParams.get("paginated") !== "false";
+    const projection = (searchParams.get("projection") as "summary" | "full") || "summary";
     
     if (!paginated) {
-      const students = await dbGetStudents();
+      const students = await dbGetStudents(projection);
       const masked = applyAadhaarMasking(students, role);
       return NextResponse.json({ data: masked });
     }
@@ -62,7 +63,8 @@ export async function GET(req: Request) {
       { query, class: studentClass, section, status, admissionYear, gender, socialCategory, scheme, hasAadhaar, ageSlab },
       page,
       pageSize,
-      role
+      role,
+      projection
     );
 
     result.data = applyAadhaarMasking(result.data, role);

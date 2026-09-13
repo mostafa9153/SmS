@@ -103,7 +103,7 @@ export function SmartBankInput({
         </div>
 
         <a
-          href="/settings?tab=presets"
+          href="/settings/presets"
           target="_blank"
           rel="noopener noreferrer"
           title="Configure Bank Presets in Settings"

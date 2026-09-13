@@ -240,27 +240,8 @@ export async function syncAllEmsConfigsFromDb(): Promise<{
   classes: DynamicClassItem[];
 }> {
   try {
-    const res = await fetch("/api/school-config", { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json?.data) {
-        if (json.data.school_profile && typeof window !== "undefined") {
-          localStorage.setItem("sms_school_profile", JSON.stringify(json.data.school_profile));
-        }
-        if (json.data.class_management && Array.isArray(json.data.class_management) && typeof window !== "undefined") {
-          localStorage.setItem("sms_class_management", JSON.stringify(json.data.class_management));
-        }
-        if (json.data.marks_schemes && Array.isArray(json.data.marks_schemes) && typeof window !== "undefined") {
-          localStorage.setItem("sms_marks_distribution_schemes", JSON.stringify(json.data.marks_schemes));
-        }
-        if (json.data.ems_rooms && Array.isArray(json.data.ems_rooms) && typeof window !== "undefined") {
-          localStorage.setItem("sms_ems_saved_rooms_v1", JSON.stringify(json.data.ems_rooms));
-        }
-        if (json.data.ems_allocations && Array.isArray(json.data.ems_allocations) && typeof window !== "undefined") {
-          localStorage.setItem("sms_ems_saved_allocations_v1", JSON.stringify(json.data.ems_allocations));
-        }
-      }
-    }
+    const { fetchSchoolConfigClient } = await import("@/lib/utils/school-config-client");
+    await fetchSchoolConfigClient();
   } catch (err) {
     console.error("Failed to sync EMS configs from DB:", err);
   }

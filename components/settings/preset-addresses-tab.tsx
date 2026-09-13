@@ -291,13 +291,13 @@ export function PresetAddressesTab() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={handleResetDefaults}
-            className="flex items-center gap-1.5 text-xs font-semibold rounded-xl border-border hover:bg-muted cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs font-semibold rounded-xl border-border hover:bg-muted cursor-pointer h-10 sm:h-9"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Reset Defaults
@@ -308,7 +308,7 @@ export function PresetAddressesTab() {
             size="sm"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs px-4 shadow-xs cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs px-4 shadow-xs cursor-pointer h-10 sm:h-9"
           >
             {isSaving ? (
               <>
@@ -326,12 +326,12 @@ export function PresetAddressesTab() {
       </div>
 
       {/* Sub-Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2">
+      <div className="flex items-center gap-2 border-b border-border/60 pb-2 overflow-x-auto flex-nowrap custom-scrollbar scrollbar-none">
         <button
           type="button"
           onClick={() => setActiveSection("address")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
             activeSection === "address"
               ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shadow-2xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -345,7 +345,7 @@ export function PresetAddressesTab() {
           type="button"
           onClick={() => setActiveSection("bank")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
             activeSection === "bank"
               ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 shadow-2xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
@@ -359,7 +359,7 @@ export function PresetAddressesTab() {
           type="button"
           onClick={() => setActiveSection("school")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer",
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
             activeSection === "school"
               ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/30 shadow-2xs"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/50"

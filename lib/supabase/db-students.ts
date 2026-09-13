@@ -327,24 +327,67 @@ export function maskAadhaar(aadhaar?: string): string | undefined {
   return `••••-••••-${cleaned.slice(8)}`;
 }
 
+export const STUDENT_SUMMARY_COLUMNS = [
+  "id",
+  "school_id",
+  "name",
+  "dob",
+  "gender",
+  "social_category",
+  "religion",
+  "father_name",
+  "mother_name",
+  "guardian_name",
+  "mobile",
+  "alt_mobile",
+  "address",
+  "pincode",
+  "present_class",
+  "present_section",
+  "present_roll",
+  "current_status",
+  "admission_year",
+  "admission_date",
+  "admission_no",
+  "pen",
+  "aadhaar",
+  "student_unique_code",
+  "photo_url",
+  "is_cwsn",
+  "is_aay",
+  "is_ews",
+  "minority_group",
+  "has_disability_certificate",
+  "previous_marks_percent",
+  "previous_school",
+  "caste_certificate_no",
+  "bank_account_no",
+  "bank_ifsc",
+  "academic_stream",
+  "blood_group",
+  "created_at",
+  "updated_at",
+].join(",");
+
 // GET all students (with auto-pagination to handle full dataset)
-export async function dbGetStudents(): Promise<Student[]> {
+export async function dbGetStudents(projection: "summary" | "full" = "summary"): Promise<Student[]> {
   const supabase = await createServerClient();
   const PAGE_SIZE = 1000;
   let allRows: DBStudent[] = [];
   let from = 0;
   let hasMore = true;
+  const selectQuery = projection === "full" ? "*, academic_history(*)" : STUDENT_SUMMARY_COLUMNS;
 
   while (hasMore) {
     const { data, error } = await supabase
       .from("students")
-      .select("*, academic_history(*)")
+      .select(selectQuery as any)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(error.message);
 
     if (data && data.length > 0) {
-      allRows = allRows.concat(data as DBStudent[]);
+      allRows = allRows.concat(data as unknown as DBStudent[]);
       if (data.length < PAGE_SIZE) {
         hasMore = false;
       } else {
@@ -382,10 +425,12 @@ export async function dbSearchStudents(
   filters: StudentFilters = {},
   page = 1,
   pageSize = 20,
-  userRole?: string
+  userRole?: string,
+  projection: "summary" | "full" = "summary"
 ): Promise<PaginatedStudents> {
   const supabase = await createServerClient();
-  let query = supabase.from("students").select("*, academic_history(*)", { count: "exact" });
+  const selectQuery = projection === "full" ? "*, academic_history(*)" : STUDENT_SUMMARY_COLUMNS;
+  let query = supabase.from("students").select(selectQuery as any, { count: "exact" });
 
   // 1. Text Search
   if (filters.query && filters.query.trim() !== "") {
@@ -534,7 +579,7 @@ export async function dbSearchStudents(
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);
 
-  const students = ((data as DBStudent[]) || []).map(mapDBStudentToStudent);
+  const students = (((data as unknown as DBStudent[])) || []).map(mapDBStudentToStudent);
   students.sort(compareStudentsByClassAndRoll);
 
   const total = count ?? students.length;

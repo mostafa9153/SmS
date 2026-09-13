@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbUpdateInvoiceStatuses, type InvoiceStatusUpdate } from "@/lib/supabase/db-invoices";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 /**
  * POST /api/invoices/settle
@@ -13,6 +14,11 @@ import { dbUpdateInvoiceStatuses, type InvoiceStatusUpdate } from "@/lib/supabas
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const updates: InvoiceStatusUpdate[] = body?.updates;
 

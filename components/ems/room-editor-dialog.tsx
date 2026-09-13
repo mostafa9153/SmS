@@ -248,13 +248,12 @@ export function RoomEditorDialog({
                       <div className="relative">
                         <select
                           value={col.seatsPerBench}
-                          onChange={(e) => updateColumnSeatsPerBench(idx, parseInt(e.target.value))}
+                          onChange={(e) => updateColumnSeatsPerBench(idx, Math.min(3, Math.max(1, parseInt(e.target.value) || 2)))}
                           className="h-8 pl-2.5 pr-7 text-xs font-semibold rounded-lg border border-input bg-background hover:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer transition-all shadow-2xs"
                         >
                           <option value={1}>1 Seat / Bench</option>
                           <option value={2}>2 Seats / Bench</option>
                           <option value={3}>3 Seats / Bench</option>
-                          <option value={4}>4 Seats / Bench</option>
                         </select>
                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground absolute right-2 top-2.5 pointer-events-none" />
                       </div>
@@ -315,7 +314,7 @@ export function RoomEditorDialog({
                         <div
                           key={bIdx}
                           className="h-2.5 px-2 rounded-xs bg-amber-700/70 dark:bg-amber-800/80 flex items-center justify-center gap-1 shadow-2xs"
-                          style={{ width: c.seatsPerBench === 3 ? "40px" : c.seatsPerBench === 4 ? "48px" : "32px" }}
+                          style={{ width: c.seatsPerBench === 3 ? "40px" : "32px" }}
                         >
                           {Array.from({ length: c.seatsPerBench }).map((_, sIdx) => (
                             <div key={sIdx} className="h-1.5 w-1.5 rounded-full bg-white/90" />

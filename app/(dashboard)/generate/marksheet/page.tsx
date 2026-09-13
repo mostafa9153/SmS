@@ -123,10 +123,11 @@ function MarksheetGeneratorContent() {
     return t1 + t2 + t3 || 200;
   }, [activeClassScheme]);
 
-  // Fetch all students for search dropdown and bulk rosters
+  // Fetch all students for search dropdown and bulk rosters (shared cache)
   const { data: students = [] } = useQuery<Student[]>({
-    queryKey: ["all-students-for-marksheet"],
+    queryKey: ["students"],
     queryFn: getStudents,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Handle URL studentId query param auto-selection
@@ -588,12 +589,12 @@ function MarksheetGeneratorContent() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="rounded-xl border p-2 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+            className="rounded-xl border p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
             title="Go back"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center ring-1 ring-amber-500/20">
+          <div className="h-10 w-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center ring-1 ring-amber-500/20 shrink-0">
             <Award className="h-5 w-5" />
           </div>
           <div>
@@ -603,14 +604,14 @@ function MarksheetGeneratorContent() {
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Action Controls: Wrapped & touch friendly on mobile */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 flex-wrap">
           {/* Mode Switcher */}
-          <div className="flex items-center bg-muted/70 p-1 rounded-xl border text-xs font-semibold">
+          <div className="flex items-center justify-between bg-muted/70 p-1 rounded-xl border text-xs font-semibold">
             <button
               type="button"
               onClick={() => setGeneratorMode("single")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg transition-all cursor-pointer ${
                 generatorMode === "single"
                   ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
@@ -622,7 +623,7 @@ function MarksheetGeneratorContent() {
             <button
               type="button"
               onClick={() => setGeneratorMode("bulk")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg transition-all cursor-pointer ${
                 generatorMode === "bulk"
                   ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
@@ -638,46 +639,48 @@ function MarksheetGeneratorContent() {
             </button>
           </div>
 
-          {/* Quick Actions (Single Mode) */}
-          {generatorMode === "single" && (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleFillSampleData}
-                className="gap-1.5 text-xs h-9 cursor-pointer"
-                title="Load standard high scores for this class"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                <span className="hidden md:inline">Load Sample Marks</span>
-              </Button>
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+            {/* Quick Actions (Single Mode) */}
+            {generatorMode === "single" && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleFillSampleData}
+                  className="gap-1.5 text-xs h-10 sm:h-9 cursor-pointer"
+                  title="Load standard high scores for this class"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  <span>Sample Marks</span>
+                </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearMarks}
-                className="gap-1.5 text-xs h-9 cursor-pointer"
-                title="Reset all subject marks to blank"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                <span className="hidden md:inline">Clear Scores</span>
-              </Button>
-            </>
-          )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearMarks}
+                  className="gap-1.5 text-xs h-10 sm:h-9 cursor-pointer"
+                  title="Reset all subject marks to blank"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Clear Scores</span>
+                </Button>
+              </>
+            )}
 
-          {/* Print Trigger */}
-          <Button
-            size="sm"
-            onClick={handlePrint}
-            className="gap-1.5 text-xs h-9 bg-[#14206b] hover:bg-[#14206b]/90 text-white font-bold shadow-md cursor-pointer"
-          >
-            <Printer className="h-4 w-4" />
-            <span>
-              {generatorMode === "single"
-                ? "Print Marksheet"
-                : `Print All (${selectedStudentIds.length}) Marksheets`}
-            </span>
-          </Button>
+            {/* Print Trigger */}
+            <Button
+              size="sm"
+              onClick={handlePrint}
+              className="col-span-2 sm:col-span-1 gap-1.5 text-xs h-10 sm:h-9 bg-[#14206b] hover:bg-[#14206b]/90 text-white font-bold shadow-md cursor-pointer justify-center"
+            >
+              <Printer className="h-4 w-4" />
+              <span>
+                {generatorMode === "single"
+                  ? "Print Marksheet"
+                  : `Print All (${selectedStudentIds.length})`}
+              </span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -687,7 +690,7 @@ function MarksheetGeneratorContent() {
       {generatorMode === "single" && (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           {/* LEFT COLUMN: Data Entry Studio Forms */}
-          <div className="xl:col-span-4 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2">
+          <div className="xl:col-span-4 space-y-4 print:hidden xl:overflow-y-auto xl:max-h-[calc(100vh-140px)] xl:pr-2 pb-16 xl:pb-36">
             {/* Card 1: Student Particulars with Database Search */}
             <Card className="border shadow-2xs">
               <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
@@ -968,9 +971,9 @@ function MarksheetGeneratorContent() {
               </div>
 
               {/* Zoom Scale Controls */}
-              <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
+              <div className="flex items-center gap-1.5 bg-background border border-border/80 px-2 py-1 rounded-xl shadow-2xs">
                 <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-                {[0.75, 0.85, 1.0].map((s) => (
+                {[0.55, 0.75, 0.85, 1.0].map((s) => (
                   <button
                     key={s}
                     type="button"
@@ -990,7 +993,7 @@ function MarksheetGeneratorContent() {
             {/* Scrollable Canvas for Single Preview */}
             <div
               id="printable-marksheet-canvas"
-              className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent"
+              className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent min-h-[460px] sm:min-h-[580px]"
             >
               <div
                 style={{

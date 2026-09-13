@@ -363,11 +363,15 @@ export function arrangeRoomInterleaved(
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
-    } else {
+    } else if (seatsPerBench === 1) {
       // 1-seat bench:
       for (let b = 1; b <= benchCount; b++) {
         colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
       }
+    } else {
+      throw new Error(
+        `Unsupported seats-per-bench value: ${seatsPerBench}. Only 1, 2, or 3 are supported.`
+      );
     }
 
     // Now flatten into SeatAssignment records ordered by benchIndex then seatPosition
@@ -591,11 +595,15 @@ export function arrangeRoomFixedU(
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
-    } else {
+    } else if (seatsPerBench === 1) {
       // 1-seat bench:
       for (let b = 1; b <= benchCount; b++) {
         colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
       }
+    } else {
+      throw new Error(
+        `Unsupported seats-per-bench value: ${seatsPerBench}. Only 1, 2, or 3 are supported.`
+      );
     }
 
     // Flatten into SeatAssignment records ordered by benchIndex then seatPosition
@@ -787,6 +795,11 @@ export function arrangeRoomUu(
     const colConfig = room.columns[cIdx];
     const benchCount = colConfig.benchCount;
     const seatsPerBench = colConfig.seatsPerBench || 2;
+    if (seatsPerBench < 1 || seatsPerBench > 3) {
+      throw new Error(
+        `Unsupported seats-per-bench value: ${seatsPerBench}. Only 1, 2, or 3 are supported.`
+      );
+    }
 
     // Determine bench order based on current column direction
     // If top-to-bottom: B1 -> Bn

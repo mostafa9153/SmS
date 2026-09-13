@@ -74,6 +74,7 @@ export function BackupRestoreTab() {
         dbSummary: { totalStudents: number; totalResults: number };
       }>;
     },
+    staleTime: 60 * 1000,
   });
 
   const status = data?.status;
@@ -797,7 +798,7 @@ export function BackupRestoreTab() {
                 placeholder="Enter your admin login password"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
-                className="text-xs font-medium"
+                className="h-10 sm:h-9 text-base sm:text-xs font-medium"
               />
               <p className="text-[11px] text-muted-foreground">
                 For security, your login password is required before writing restored records to the database.

@@ -42,16 +42,14 @@ export function saveSchoolPresets(items: string[]): void {
 
 export async function fetchSchoolPresetsFromDb(): Promise<string[]> {
   try {
-    const res = await fetch("/api/school-config?key=school_presets", { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(json.data));
-          window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: json.data }));
-        }
-        return json.data;
+    const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
+    const data = await getSchoolConfigKey<string[]>("school_presets");
+    if (data && Array.isArray(data) && data.length > 0) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: data }));
       }
+      return data;
     }
   } catch (err) {
     console.error("Error fetching school presets from DB:", err);
@@ -74,6 +72,10 @@ export async function saveSchoolPresetsToDb(items: string[]): Promise<boolean> {
         value: items,
       }),
     });
+    if (res.ok) {
+      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
+      invalidateSchoolConfigClientCache();
+    }
     return res.ok;
   } catch (err) {
     console.error("Failed to post school presets to DB:", err);

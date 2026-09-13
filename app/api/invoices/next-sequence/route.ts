@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbGetNextInvoiceSequence } from "@/lib/supabase/db-invoices";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const yearParam = searchParams.get("year");
     const year = yearParam ? parseInt(yearParam, 10) : undefined;

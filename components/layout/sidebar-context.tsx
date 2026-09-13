@@ -10,6 +10,9 @@ interface SidebarContextType {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  isMobileOpen: boolean;
+  setIsMobileOpen: (open: boolean) => void;
+  toggleMobileSidebar: () => void;
   width: number;
   setWidth: (width: number) => void;
   resetWidth: () => void;
@@ -19,6 +22,7 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState<boolean>(true);
+  const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
   const [width, setWidthState] = useState<number>(DEFAULT_SIDEBAR_WIDTH);
 
   // Read saved preferences from localStorage
@@ -71,6 +75,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const toggleMobileSidebar = () => {
+    setIsMobileOpen((prev) => !prev);
+  };
+
   const handleResetWidth = () => {
     setWidthState(DEFAULT_SIDEBAR_WIDTH);
     try {
@@ -86,6 +94,9 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
         isOpen,
         setIsOpen: handleSetIsOpen,
         toggleSidebar,
+        isMobileOpen,
+        setIsMobileOpen,
+        toggleMobileSidebar,
         width,
         setWidth: handleSetWidth,
         resetWidth: handleResetWidth,

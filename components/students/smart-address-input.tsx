@@ -203,7 +203,7 @@ export function SmartAddressInput({
         <div className="flex items-center gap-1.5">
           {/* Settings Icon: Directly navigates to Presets Settings tab */}
           <a
-            href="/settings?tab=presets"
+            href="/settings/presets"
             target="_blank"
             rel="noopener noreferrer"
             title="Configure Address Presets in Settings"

@@ -149,15 +149,10 @@ export default function CertificateTrackerPage() {
 
       // 3. Fetch School Config for live Class Management & Sections from School Profile
       try {
-        const configRes = await fetch("/api/school-config", { cache: "no-store" });
-        if (configRes.ok) {
-          const configJson = await configRes.json();
-          if (configJson?.data?.class_management && Array.isArray(configJson.data.class_management)) {
-            setSchoolClasses(configJson.data.class_management);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("sms_class_management", JSON.stringify(configJson.data.class_management));
-            }
-          }
+        const { fetchSchoolConfigClient } = await import("@/lib/utils/school-config-client");
+        const configData = await fetchSchoolConfigClient();
+        if (configData?.class_management && Array.isArray(configData.class_management)) {
+          setSchoolClasses(configData.class_management);
         }
       } catch {
         // use local cache
@@ -413,13 +408,13 @@ export default function CertificateTrackerPage() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={loadData}
             disabled={isLoading}
-            className="h-8 text-xs gap-1.5"
+            className="h-9 sm:h-8 text-xs gap-1.5"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", isLoading && "animate-spin")} />
             Refresh
@@ -430,7 +425,7 @@ export default function CertificateTrackerPage() {
             size="sm"
             onClick={handleExportCSV}
             disabled={!filteredCertificates.length}
-            className="h-8 text-xs gap-1.5"
+            className="h-9 sm:h-8 text-xs gap-1.5"
           >
             <Download className="h-3.5 w-3.5" />
             Export CSV
@@ -438,7 +433,7 @@ export default function CertificateTrackerPage() {
 
           <Link
             href="/generate/certificate"
-            className="inline-flex items-center justify-center rounded-md text-xs font-semibold transition-colors h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-2xs"
+            className="inline-flex items-center justify-center rounded-md text-xs font-semibold transition-colors h-9 sm:h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-2xs"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Issue Certificate
@@ -450,7 +445,7 @@ export default function CertificateTrackerPage() {
       <div className="space-y-2">
         <div className="flex flex-col sm:flex-row gap-2 bg-card p-2 rounded-xl border border-border/70 shadow-2xs">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 sm:top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search Certificate No (e.g. MHS/CC/2026/0001) or Student ID to verify..."
               value={verifyTerm}
@@ -458,10 +453,10 @@ export default function CertificateTrackerPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleVerify();
               }}
-              className="pl-9 h-9 text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
+              className="pl-9 h-10 sm:h-9 text-base sm:text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground/70"
             />
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0 justify-end">
             {verificationResult.checked && (
               <Button
                 variant="ghost"
@@ -470,7 +465,7 @@ export default function CertificateTrackerPage() {
                   setVerifyTerm("");
                   setVerificationResult({ checked: false, valid: false, certificate: null });
                 }}
-                className="h-8 text-xs text-muted-foreground px-2"
+                className="h-9 sm:h-8 text-xs text-muted-foreground px-2"
               >
                 <X className="h-3.5 w-3.5" />
               </Button>
@@ -479,7 +474,7 @@ export default function CertificateTrackerPage() {
               onClick={() => handleVerify()}
               disabled={isVerifying || !verifyTerm.trim()}
               size="sm"
-              className="h-8 text-xs px-4 gap-1.5"
+              className="h-9 sm:h-8 text-xs px-4 gap-1.5 w-full sm:w-auto"
             >
               {isVerifying ? (
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -725,53 +720,55 @@ export default function CertificateTrackerPage() {
       <div className="rounded-xl border border-border/70 bg-card overflow-hidden shadow-2xs">
         {/* Table Toolbar */}
         <div className="p-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-muted/20">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-2 flex-1">
+            <div className="relative w-full sm:flex-1 sm:max-w-sm">
+              <Search className="absolute left-2.5 top-3 sm:top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder="Filter by name, cert no, ID..."
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
-                className="pl-8 text-xs h-8 bg-background"
+                className="pl-8 text-base sm:text-xs h-10 sm:h-8 bg-background"
               />
             </div>
 
-            <CustomSelect
-              value={typeFilter}
-              onChange={setTypeFilter}
-              options={[
-                { label: "All Types", value: "ALL" },
-                { label: "Character", value: "character-certificate" },
-                { label: "Pass Out", value: "pass-certificate" },
-                { label: "Transfer (TC)", value: "transfer-certificate" },
-                { label: "Kanyashree", value: "kanyashree" },
-              ]}
-              className="w-[145px] shrink-0"
-              triggerClassName="h-8 text-xs bg-background px-3"
-            />
+            <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto">
+              <CustomSelect
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={[
+                  { label: "All Types", value: "ALL" },
+                  { label: "Character", value: "character-certificate" },
+                  { label: "Pass Out", value: "pass-certificate" },
+                  { label: "Transfer (TC)", value: "transfer-certificate" },
+                  { label: "Kanyashree", value: "kanyashree" },
+                ]}
+                className="w-full sm:w-[145px]"
+                triggerClassName="h-9 sm:h-8 text-xs bg-background px-3"
+              />
 
-            <CustomSelect
-              value={sectionFilter}
-              onChange={setSectionFilter}
-              options={[
-                { label: "All Sec", value: "ALL" },
-                ...availableSections.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
-              ]}
-              className="w-[110px] shrink-0"
-              triggerClassName="h-8 text-xs bg-background px-3"
-            />
+              <CustomSelect
+                value={sectionFilter}
+                onChange={setSectionFilter}
+                options={[
+                  { label: "All Sec", value: "ALL" },
+                  ...availableSections.map((sec) => ({ label: `Sec ${sec}`, value: sec })),
+                ]}
+                className="w-full sm:w-[110px]"
+                triggerClassName="h-9 sm:h-8 text-xs bg-background px-3"
+              />
 
-            <CustomSelect
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { label: "All Status", value: "ALL" },
-                { label: "Valid", value: "Valid" },
-                { label: "Cancelled", value: "Cancelled" },
-              ]}
-              className="w-[135px] shrink-0"
-              triggerClassName="h-8 text-xs bg-background px-3"
-            />
+              <CustomSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: "All Status", value: "ALL" },
+                  { label: "Valid", value: "Valid" },
+                  { label: "Cancelled", value: "Cancelled" },
+                ]}
+                className="w-full sm:w-[135px]"
+                triggerClassName="h-9 sm:h-8 text-xs bg-background px-3"
+              />
+            </div>
           </div>
 
           {(typeFilter !== "ALL" || classFilter !== "ALL" || sectionFilter !== "ALL" || statusFilter !== "ALL" || tableSearch) && (
@@ -785,7 +782,7 @@ export default function CertificateTrackerPage() {
                 setStatusFilter("ALL");
                 setTableSearch("");
               }}
-              className="h-8 text-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="h-8 text-xs text-muted-foreground self-start md:self-auto"
             >
               Reset Filters
             </Button>
@@ -794,7 +791,7 @@ export default function CertificateTrackerPage() {
 
         {/* Table View */}
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full min-w-[700px] text-xs text-left">
             <thead className="bg-muted/40 text-[11px] text-muted-foreground uppercase tracking-wider font-semibold border-b">
               <tr>
                 <th className="py-2.5 px-3.5">Cert No</th>

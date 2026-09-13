@@ -54,14 +54,14 @@ export function NotificationPanel() {
         title="System & Activity Notifications"
         aria-label="System notifications"
         className={cn(
-          "relative flex items-center justify-center rounded-lg p-1.5 text-muted-foreground transition-all duration-150 outline-none cursor-pointer",
+          "relative flex items-center justify-center min-h-[38px] min-w-[38px] rounded-lg p-2 text-muted-foreground transition-all duration-150 outline-none cursor-pointer",
           "hover:bg-accent/80 hover:text-foreground active:scale-95",
           isOpen && "bg-accent text-foreground ring-1 ring-primary/20"
         )}
       >
-        <Bell className="h-4 w-4" />
+        <Bell className="h-4.5 w-4.5" />
         {hasUnread && (
-          <span className="absolute top-1 right-1 flex h-2 w-2">
+          <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 ring-1.5 ring-background" />
           </span>
@@ -72,7 +72,7 @@ export function NotificationPanel() {
       {isOpen && (
         <div
           className={cn(
-            "absolute right-0 mt-2 w-[340px] sm:w-[380px] rounded-2xl border border-border/80 bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-xl z-50 overflow-hidden outline-none animate-in fade-in-0 zoom-in-95 duration-150 origin-top-right"
+            "fixed sm:absolute inset-x-2 sm:inset-x-auto sm:right-0 top-14 sm:top-full mt-0 sm:mt-2 w-auto sm:w-[380px] max-w-[calc(100vw-1rem)] sm:max-w-none rounded-2xl border border-border/80 bg-popover/95 text-popover-foreground shadow-2xl backdrop-blur-xl z-50 overflow-hidden outline-none animate-in fade-in-0 zoom-in-95 duration-150 origin-top-right"
           )}
         >
           {/* Header */}

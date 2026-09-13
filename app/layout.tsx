@@ -40,7 +40,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${manrope.variable} notranslate`} translate="no">
+    <html
+      lang="en"
+      className={`${manrope.variable} notranslate`}
+      translate="no"
+      data-scroll-behavior="smooth"
+    >
       <head>
         <meta name="google" content="notranslate" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />

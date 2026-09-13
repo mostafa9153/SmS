@@ -34,8 +34,9 @@ export default function PromotionPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const { data: allStudents = [], isLoading } = useQuery({
-    queryKey: ["students-all"],
+    queryKey: ["students"],
     queryFn: getStudents,
+    staleTime: 5 * 60 * 1000,
   });
   const { data: classes = [] } = useQuery({
     queryKey: ["distinct-classes"],
@@ -170,17 +171,17 @@ export default function PromotionPage() {
         <button
           onClick={() => router.back()}
           title="Back"
-          className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+          className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <h1 className="text-lg sm:text-xl font-bold">Promotion & Transfer</h1>
+        <h1 className="text-lg sm:text-xl font-bold">Promotion &amp; Transfer</h1>
       </div>
 
       {/* Controls */}
-      <div className="rounded-xl border bg-card p-4 flex flex-wrap gap-4 items-center">
+      <div className="rounded-xl border bg-card p-3 sm:p-4 flex flex-col sm:flex-row flex-wrap gap-2.5 sm:gap-4 items-stretch sm:items-center">
         {/* Class */}
-        <div className="min-w-[150px]">
+        <div className="w-full sm:w-[160px]">
           <CustomSelect
             value={selectedClass}
             onChange={(val) => {
@@ -196,7 +197,7 @@ export default function PromotionPage() {
         </div>
 
         {/* Section */}
-        <div className="min-w-[150px]">
+        <div className="w-full sm:w-[160px]">
           <CustomSelect
             value={selectedSection}
             onChange={(val) => {
@@ -212,12 +213,12 @@ export default function PromotionPage() {
         </div>
 
         {/* Mode toggle */}
-        <div className="flex rounded-md border overflow-hidden ml-auto">
+        <div className="flex rounded-xl border overflow-hidden self-stretch sm:self-auto sm:ml-auto">
           <button
             onClick={() => setMode("result")}
             className={cn(
-              "px-3 py-1.5 text-xs font-medium transition-colors",
-              mode === "result" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              "flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer",
+              mode === "result" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "hover:bg-muted"
             )}
           >
             Result Based
@@ -225,8 +226,8 @@ export default function PromotionPage() {
           <button
             onClick={() => setMode("manual")}
             className={cn(
-              "px-3 py-1.5 text-xs font-medium transition-colors border-l",
-              mode === "manual" ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              "flex-1 sm:flex-initial px-3.5 py-2 text-xs font-semibold transition-colors border-l cursor-pointer",
+              mode === "manual" ? "bg-primary text-primary-foreground font-bold shadow-xs" : "hover:bg-muted"
             )}
           >
             Manual
@@ -236,28 +237,28 @@ export default function PromotionPage() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="rounded-xl bg-primary/5 border border-primary/20 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+        <div className="rounded-xl bg-primary/5 border border-primary/20 p-3 sm:px-4 sm:py-2.5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-2xs">
           <p className="text-sm font-semibold text-primary">
             {selectedIds.size} student{selectedIds.size > 1 ? "s" : ""} selected
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap items-center gap-2">
             <button
               onClick={() => { setAction("promote"); setConfirmOpen(true); }}
-              className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs active:scale-95"
+              className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs active:scale-95 text-center min-h-[38px] cursor-pointer"
             >
-              Promote Selected
+              Promote
             </button>
             <button
               onClick={() => { setAction("detain"); setConfirmOpen(true); }}
-              className="rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs active:scale-95"
+              className="rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700 transition-colors shadow-2xs active:scale-95 text-center min-h-[38px] cursor-pointer"
             >
-              Detain Selected
+              Detain
             </button>
             <button
               onClick={() => { setAction("transfer"); setConfirmOpen(true); }}
-              className="rounded-xl bg-slate-700 dark:bg-slate-800 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors shadow-2xs active:scale-95"
+              className="rounded-xl bg-slate-700 dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-colors shadow-2xs active:scale-95 text-center min-h-[38px] cursor-pointer"
             >
-              Transfer Out (TC)
+              Transfer (TC)
             </button>
           </div>
         </div>
@@ -271,8 +272,8 @@ export default function PromotionPage() {
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
             <thead className="bg-muted/50 border-b">
               <tr>
                 <th className="pl-4 pr-2 py-3 w-8">

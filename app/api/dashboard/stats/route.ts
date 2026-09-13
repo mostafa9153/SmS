@@ -4,6 +4,17 @@ import type { StudentStatus } from "@/lib/types";
 import { normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { calculateExactAge, normalizeClassName } from "@/lib/utils";
 
+interface CachedStats {
+  data: any;
+  cachedAt: number;
+}
+let cachedDashboardStats: CachedStats | null = null;
+const STATS_CACHE_TTL_MS = 30 * 1000; // 30 seconds
+
+export function invalidateDashboardStatsCache() {
+  cachedDashboardStats = null;
+}
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -12,6 +23,15 @@ export async function GET() {
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Serve from cache if fresh
+    if (cachedDashboardStats && Date.now() - cachedDashboardStats.cachedAt < STATS_CACHE_TTL_MS) {
+      return NextResponse.json(cachedDashboardStats.data, {
+        headers: {
+          "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+        },
+      });
     }
 
     // Run parallel aggregation counts in database
@@ -172,7 +192,7 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({
+    const payload = {
       total: total || 0,
       boys: boys || 0,
       girls: girls || 0,
@@ -191,6 +211,17 @@ export async function GET() {
         cwsn,
         withAadhaar,
         withoutAadhaar,
+      },
+    };
+
+    cachedDashboardStats = {
+      data: payload,
+      cachedAt: Date.now(),
+    };
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
       },
     });
   } catch (error: any) {

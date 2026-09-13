@@ -328,22 +328,27 @@ export async function dbCalculateAndAssignRanks(
     }
   }
 
-  // 4. Batch update ranks in database
-  const updatePromises = allResults.map((r) => {
-    const rInClass = classRankMap.get(r.id) || null;
-    const rInSec = sectionRankMap.get(r.id) || null;
+  // 4. Batch update ranks in database in chunks of 15 to protect connection pool
+  const BATCH_SIZE = 15;
+  for (let i = 0; i < allResults.length; i += BATCH_SIZE) {
+    const chunk = allResults.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      chunk.map((r) => {
+        const rInClass = classRankMap.get(r.id) || null;
+        const rInSec = sectionRankMap.get(r.id) || null;
 
-    return supabase
-      .from("student_results")
-      .update({
-        rank_in_class: rInClass,
-        rank_in_section: rInSec,
-        updated_at: new Date().toISOString(),
+        return supabase
+          .from("student_results")
+          .update({
+            rank_in_class: rInClass,
+            rank_in_section: rInSec,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", r.id);
       })
-      .eq("id", r.id);
-  });
+    );
+  }
 
-  await Promise.all(updatePromises);
   return { classUpdated: allResults.length };
 }
 

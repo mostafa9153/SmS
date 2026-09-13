@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect, useCallback } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { MobileBottomBar } from "@/components/layout/mobile-bottom-bar";
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context";
 import { cn } from "@/lib/utils";
 
@@ -78,9 +79,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <div className="print:hidden">
           <Topbar />
         </div>
-        <main className="flex-1 overflow-y-auto min-w-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
+        <main className="flex-1 overflow-y-auto min-w-0 pb-16 md:pb-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
           {children}
         </main>
+        <MobileBottomBar />
       </div>
     </div>
   );

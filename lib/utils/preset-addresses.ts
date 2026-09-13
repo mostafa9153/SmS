@@ -162,22 +162,20 @@ export function saveAddressPresetsConfig(config: AddressPresetsConfig): void {
 
 export async function fetchAddressPresetsConfigFromDb(): Promise<AddressPresetsConfig> {
   try {
-    const res = await fetch("/api/school-config?key=address_presets_config", { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data && typeof json.data === "object") {
-        const merged: AddressPresetsConfig = {
-          villages: Array.isArray(json.data.villages) && json.data.villages.length > 0 ? json.data.villages : DEFAULT_VILLAGES,
-          postOffices: Array.isArray(json.data.postOffices) && json.data.postOffices.length > 0 ? json.data.postOffices : DEFAULT_POST_OFFICES,
-          policeStations: Array.isArray(json.data.policeStations) && json.data.policeStations.length > 0 ? json.data.policeStations : DEFAULT_POLICE_STATIONS,
-          districts: Array.isArray(json.data.districts) && json.data.districts.length > 0 ? json.data.districts : DEFAULT_DISTRICTS,
-        };
-        if (typeof window !== "undefined") {
-          localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(merged));
-          window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: merged }));
-        }
-        return merged;
+    const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
+    const data = await getSchoolConfigKey<any>("address_presets_config");
+    if (data && typeof data === "object") {
+      const merged: AddressPresetsConfig = {
+        villages: Array.isArray(data.villages) && data.villages.length > 0 ? data.villages : DEFAULT_VILLAGES,
+        postOffices: Array.isArray(data.postOffices) && data.postOffices.length > 0 ? data.postOffices : DEFAULT_POST_OFFICES,
+        policeStations: Array.isArray(data.policeStations) && data.policeStations.length > 0 ? data.policeStations : DEFAULT_POLICE_STATIONS,
+        districts: Array.isArray(data.districts) && data.districts.length > 0 ? data.districts : DEFAULT_DISTRICTS,
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: merged }));
       }
+      return merged;
     }
   } catch (err) {
     console.error("Error fetching address presets config from DB:", err);
@@ -200,6 +198,10 @@ export async function saveAddressPresetsConfigToDb(config: AddressPresetsConfig)
         value: config,
       }),
     });
+    if (res.ok) {
+      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
+      invalidateSchoolConfigClientCache();
+    }
     return res.ok;
   } catch (err) {
     console.error("Failed to post address presets config to DB:", err);

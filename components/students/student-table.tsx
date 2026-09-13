@@ -262,7 +262,103 @@ export function StudentTable({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-2xl border border-border/80 bg-card/90 overflow-x-auto shadow-xs">
+      {/* Mobile Stacked Cards View (<md) */}
+      <div className="flex flex-col gap-2.5 md:hidden">
+        {data.map((student) => {
+          const isNavigating = navigatingId === student.id;
+          const { eligibleSchemes } = evaluateStudentScholarships(student);
+          const hasAadhaar = !!student.aadhaar && student.aadhaar.trim() !== "";
+          const dAge = student.dob ? calculateDetailedAge(student.dob) : null;
+
+          return (
+            <div
+              key={student.id}
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (target.closest("button") || target.closest("a") || target.closest("[data-prevent-row-click]")) {
+                  return;
+                }
+                setNavigatingId(student.id);
+                router.push(`/students/${student.id}`);
+              }}
+              className={cn(
+                "rounded-2xl border border-border/80 bg-card p-3.5 shadow-2xs transition-all active:scale-[0.99] cursor-pointer space-y-2.5 select-none",
+                isNavigating ? "bg-primary/10 border-primary ring-1 ring-primary/30" : "hover:border-primary/40"
+              )}
+            >
+              {/* Top Row: Name + Status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-bold text-sm text-foreground truncate">
+                      {student.name}
+                    </p>
+                    <CopyButton text={student.name} label="Name" iconClassName="h-2.5 w-2.5" />
+                  </div>
+                  <p className="text-xs font-semibold text-primary mt-0.5">
+                    Class {student.presentClass} · Sec {student.presentSection} · Roll {student.presentRoll}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <StatusBadge status={student.currentStatus} />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Middle Row: ID, Aadhaar, DOB */}
+              <div className="grid grid-cols-2 gap-2 text-[11px] font-mono bg-muted/40 p-2 rounded-xl border border-border/40">
+                <div className="flex items-center gap-1 truncate">
+                  <span className="text-muted-foreground font-sans">ID:</span>
+                  <span className="font-bold text-foreground truncate">{student.schoolId}</span>
+                  <CopyButton text={student.schoolId} label="ID" iconClassName="h-2.5 w-2.5" />
+                </div>
+                <div className="flex items-center gap-1 justify-end font-sans">
+                  <span className="text-muted-foreground">Aadhaar:</span>
+                  {hasAadhaar ? (
+                    <span className="text-emerald-700 dark:text-emerald-400 font-bold">Yes</span>
+                  ) : (
+                    <span className="text-rose-600 dark:text-rose-400 font-bold">No</span>
+                  )}
+                </div>
+                {student.dob && (
+                  <div className="flex items-center gap-1 col-span-2 text-muted-foreground font-sans text-[11px]">
+                    <span>DOB: {student.dob}</span>
+                    {dAge && <span className="text-foreground/80 font-medium">({dAge.formattedShort})</span>}
+                  </div>
+                )}
+                {(student.altMobile || student.studentContact) && (
+                  <div className="flex items-center gap-1 col-span-2 text-[11px] font-sans text-muted-foreground">
+                    <span>Phone: {student.altMobile || student.studentContact}</span>
+                    <CopyButton text={student.altMobile || student.studentContact || ""} label="Phone" iconClassName="h-2.5 w-2.5" />
+                  </div>
+                )}
+              </div>
+
+              {/* Welfare Schemes Badges */}
+              {eligibleSchemes.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {eligibleSchemes.slice(0, 3).map((scheme) => (
+                    <span
+                      key={scheme.id}
+                      className={cn("inline-flex items-center border text-[9px] px-1.5 py-0.5 rounded-md font-semibold font-mono", scheme.colorBadge)}
+                    >
+                      {scheme.shortCode}
+                    </span>
+                  ))}
+                  {eligibleSchemes.length > 3 && (
+                    <span className="inline-flex items-center border bg-muted/60 text-muted-foreground text-[9px] px-1.5 py-0.5 rounded-md font-mono">
+                      +{eligibleSchemes.length - 3} more
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Data Table (hidden on mobile, visible md+) */}
+      <div className="hidden md:block rounded-2xl border border-border/80 bg-card/90 overflow-x-auto shadow-xs">
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((hg) => (

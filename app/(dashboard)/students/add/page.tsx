@@ -996,9 +996,9 @@ function FormField({
         {label}
       </label>
       <div
-        className={`[&>input]:w-full [&>input]:rounded-md [&>input]:border [&>input]:bg-background [&>input]:px-3 [&>input]:py-1.5 [&>input]:text-sm [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-ring
-          [&>select]:w-full [&>select]:rounded-md [&>select]:border [&>select]:bg-background [&>select]:px-3 [&>select]:py-1.5 [&>select]:text-sm [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-ring
-          [&>textarea]:w-full [&>textarea]:rounded-md [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3 [&>textarea]:py-1.5 [&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none
+        className={`[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-base sm:[&>input]:text-sm [&>input]:h-11 sm:[&>input]:h-9 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-ring
+          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-base sm:[&>select]:text-sm [&>select]:h-11 sm:[&>select]:h-9 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-ring
+          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-base sm:[&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none
           ${error ? "[&>input]:border-destructive [&>select]:border-destructive [&>textarea]:border-destructive" : ""}`}
       >
         {children}

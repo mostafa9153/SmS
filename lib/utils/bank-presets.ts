@@ -79,16 +79,14 @@ export function saveBankPresets(items: BankPresetItem[]): void {
 
 export async function fetchBankPresetsFromDb(): Promise<BankPresetItem[]> {
   try {
-    const res = await fetch("/api/school-config?key=bank_presets", { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-        if (typeof window !== "undefined") {
-          localStorage.setItem(BANK_PRESETS_STORAGE_KEY, JSON.stringify(json.data));
-          window.dispatchEvent(new CustomEvent(BANK_PRESETS_EVENT, { detail: json.data }));
-        }
-        return json.data;
+    const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
+    const data = await getSchoolConfigKey<BankPresetItem[]>("bank_presets");
+    if (data && Array.isArray(data) && data.length > 0) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(BANK_PRESETS_STORAGE_KEY, JSON.stringify(data));
+        window.dispatchEvent(new CustomEvent(BANK_PRESETS_EVENT, { detail: data }));
       }
+      return data;
     }
   } catch (err) {
     console.error("Error fetching bank presets from DB:", err);
@@ -111,6 +109,10 @@ export async function saveBankPresetsToDb(items: BankPresetItem[]): Promise<bool
         value: items,
       }),
     });
+    if (res.ok) {
+      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
+      invalidateSchoolConfigClientCache();
+    }
     return res.ok;
   } catch (err) {
     console.error("Failed to post bank presets to DB:", err);

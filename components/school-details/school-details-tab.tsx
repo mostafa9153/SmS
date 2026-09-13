@@ -307,7 +307,15 @@ export function SchoolDetailsTab() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "class_management", value: updated }),
-    }).catch((err) => console.warn("Background DB sync for classes failed:", err));
+    })
+      .then((res) => {
+        if (res.ok) {
+          import("@/lib/utils/school-config-client").then(({ invalidateSchoolConfigClientCache }) =>
+            invalidateSchoolConfigClientCache()
+          );
+        }
+      })
+      .catch((err) => console.warn("Background DB sync for classes failed:", err));
   };
 
   // Load saved state from localStorage if present, then fetch latest from Database
@@ -336,30 +344,31 @@ export function SchoolDetailsTab() {
     }
 
     // Seamlessly fetch and synchronize all 4 school configs from Supabase database
-    fetch("/api/school-config", { cache: "no-store" })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        if (json?.data) {
-          if (json.data.school_profile) {
-            setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...json.data.school_profile });
-            localStorage.setItem("sms_school_profile", JSON.stringify(json.data.school_profile));
+    import("@/lib/utils/school-config-client").then(({ fetchSchoolConfigClient }) => {
+      fetchSchoolConfigClient()
+        .then((data) => {
+          if (data) {
+            if (data.school_profile) {
+              setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...data.school_profile });
+              localStorage.setItem("sms_school_profile", JSON.stringify(data.school_profile));
+            }
+            if (data.class_management && Array.isArray(data.class_management) && data.class_management.length > 0) {
+              setClasses(data.class_management);
+              localStorage.setItem("sms_class_management", JSON.stringify(data.class_management));
+            }
+            if (data.marks_schemes && Array.isArray(data.marks_schemes) && data.marks_schemes.length > 0) {
+              setMarksSchemes(data.marks_schemes);
+              localStorage.setItem("sms_marks_distribution_schemes", JSON.stringify(data.marks_schemes));
+            }
+            if (data.promotion_policy) {
+              setPromotionPolicy(data.promotion_policy);
+              localStorage.setItem("sms_promotion_pass_policy", JSON.stringify(data.promotion_policy));
+            }
+            setIsCloudSynced(true);
           }
-          if (json.data.class_management && Array.isArray(json.data.class_management) && json.data.class_management.length > 0) {
-            setClasses(json.data.class_management);
-            localStorage.setItem("sms_class_management", JSON.stringify(json.data.class_management));
-          }
-          if (json.data.marks_schemes && Array.isArray(json.data.marks_schemes) && json.data.marks_schemes.length > 0) {
-            setMarksSchemes(json.data.marks_schemes);
-            localStorage.setItem("sms_marks_distribution_schemes", JSON.stringify(json.data.marks_schemes));
-          }
-          if (json.data.promotion_policy) {
-            setPromotionPolicy(json.data.promotion_policy);
-            localStorage.setItem("sms_promotion_pass_policy", JSON.stringify(json.data.promotion_policy));
-          }
-          setIsCloudSynced(true);
-        }
-      })
-      .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
+        })
+        .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
+    });
   }, []);
 
   const handleSavePromotionPolicy = () => {
@@ -756,12 +765,12 @@ export function SchoolDetailsTab() {
     <div className="space-y-6">
       {/* Sub-option Switcher / Top Navigation Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border rounded-2xl p-2.5 shadow-2xs">
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl">
+        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl overflow-x-auto custom-scrollbar flex-nowrap scrollbar-none">
           <button
             type="button"
             onClick={() => setSubOption("profile")}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer",
+              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
               subOption === "profile"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
@@ -775,7 +784,7 @@ export function SchoolDetailsTab() {
             type="button"
             onClick={() => setSubOption("classes")}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer",
+              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
               subOption === "classes"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
@@ -792,7 +801,7 @@ export function SchoolDetailsTab() {
             type="button"
             onClick={() => setSubOption("marks_scheme")}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer",
+              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
               subOption === "marks_scheme"
                 ? "bg-background text-foreground shadow-xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-background/50"
@@ -807,21 +816,18 @@ export function SchoolDetailsTab() {
         </div>
 
         {/* Top Action Buttons for different tabs */}
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center gap-2 px-1 sm:px-2">
           {subOption === "profile" && (
             <Button
               size="sm"
               onClick={handleSaveProfile}
               disabled={isSavingProfile}
-              className="bg-primary text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs"
+              className="w-full sm:w-auto bg-primary text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs h-9 justify-center"
             >
               <Save className="h-4 w-4" />
               {isSavingProfile ? "Saving..." : "Save Profile"}
             </Button>
           )}
-
-
-
         </div>
       </div>
 
@@ -1871,7 +1877,7 @@ export function SchoolDetailsTab() {
                     value={newClassName}
                     onChange={(e) => setNewClassName(e.target.value)}
                     placeholder="e.g. Class IX"
-                    className="text-xs"
+                    className="h-10 sm:h-9 text-base sm:text-xs"
                     required
                   />
                 </div>
@@ -1882,7 +1888,7 @@ export function SchoolDetailsTab() {
                     value={newClassCode}
                     onChange={(e) => setNewClassCode(e.target.value)}
                     placeholder="e.g. IX or XI"
-                    className="text-xs font-mono"
+                    className="h-10 sm:h-9 text-base sm:text-xs font-mono"
                     required
                   />
                 </div>
@@ -1986,7 +1992,7 @@ export function SchoolDetailsTab() {
                     value={newTeacher}
                     onChange={(e) => setNewTeacher(e.target.value)}
                     placeholder="Teacher Name"
-                    className="text-xs"
+                    className="h-10 sm:h-9 text-base sm:text-xs"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1996,7 +2002,7 @@ export function SchoolDetailsTab() {
                     value={newRoom}
                     onChange={(e) => setNewRoom(e.target.value)}
                     placeholder="e.g. Room 204"
-                    className="text-xs"
+                    className="h-10 sm:h-9 text-base sm:text-xs"
                   />
                 </div>
               </div>
@@ -2010,7 +2016,7 @@ export function SchoolDetailsTab() {
                     value={newCapacity}
                     onChange={(e) => setNewCapacity(e.target.value)}
                     placeholder="120"
-                    className="text-xs font-mono"
+                    className="h-10 sm:h-9 text-base sm:text-xs font-mono"
                   />
                 </div>
                 <div className="space-y-1">

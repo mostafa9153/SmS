@@ -7,9 +7,27 @@ export interface AuthContext {
   fullName: string;
 }
 
+// In-memory cache for user role lookups to eliminate repeated user_roles queries
+interface CachedRole {
+  role: "Admin" | "Staff" | "Guest";
+  fullName: string;
+  cachedAt: number;
+}
+
+const roleCache = new Map<string, CachedRole>();
+const ROLE_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export function clearUserRoleCache(userId?: string) {
+  if (userId) {
+    roleCache.delete(userId);
+  } else {
+    roleCache.clear();
+  }
+}
+
 /**
  * Robust server-side authentication and role resolver.
- * Ensures any authenticated user has a verified role and auto-heals missing role records.
+ * Ensures any authenticated user has a verified role.
  */
 export async function getAuthenticatedUserRole(): Promise<AuthContext> {
   try {
@@ -20,6 +38,16 @@ export async function getAuthenticatedUserRole(): Promise<AuthContext> {
       return { user: null, role: "Guest", fullName: "" };
     }
 
+    // Check in-memory role cache
+    const cached = roleCache.get(user.id);
+    if (cached && Date.now() - cached.cachedAt < ROLE_CACHE_TTL_MS) {
+      return {
+        user,
+        role: cached.role,
+        fullName: cached.fullName,
+      };
+    }
+
     const admin = createAdminClient();
     const { data: roleData, error: roleQueryError } = await admin
       .from("user_roles")
@@ -28,10 +56,19 @@ export async function getAuthenticatedUserRole(): Promise<AuthContext> {
       .maybeSingle();
 
     if (roleData && roleData.role) {
+      const resolvedRole = roleData.role as "Admin" | "Staff";
+      const resolvedName = roleData.full_name || user.email?.split("@")[0] || "User";
+
+      roleCache.set(user.id, {
+        role: resolvedRole,
+        fullName: resolvedName,
+        cachedAt: Date.now(),
+      });
+
       return {
         user,
-        role: roleData.role as "Admin" | "Staff",
-        fullName: roleData.full_name || user.email?.split("@")[0] || "User",
+        role: resolvedRole,
+        fullName: resolvedName,
       };
     }
 

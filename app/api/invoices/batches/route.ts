@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbGetInvoiceBatches, dbUndoInvoiceBatch } from "@/lib/supabase/db-invoices";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function GET(req: NextRequest) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const limit = parseInt(searchParams.get("limit") || "30", 10);
 
@@ -20,6 +26,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (auth.role !== "Admin") {
+      return NextResponse.json({ error: "Forbidden: Only Admins can undo invoice batches" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { batchId, startSerial, endSerial, year } = body;
 

@@ -110,6 +110,10 @@ export default function BulkUploadPage() {
   const [parsedData, setParsedData] = useState<ParsedExcelResult | null>(null);
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({});
 
+  const handleMappingChange = (header: string, targetKey: string) => {
+    setColumnMapping((prev) => ({ ...prev, [header]: targetKey }));
+  };
+
   // Validated data for Students
   const [mappedRows, setMappedRows] = useState<Array<Partial<Student>>>([]);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
@@ -576,7 +580,7 @@ export default function BulkUploadPage() {
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -587,10 +591,10 @@ export default function BulkUploadPage() {
             setShowHistoryModal(true);
             refetchBatches();
           }}
-          className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
+          className="flex items-center gap-1.5 self-start sm:self-auto rounded-xl border bg-card px-3.5 py-2.5 min-h-[40px] text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95 cursor-pointer"
         >
-          <History className="h-4 w-4 text-primary" />
-          Batch History & Delete/Rollback
+          <History className="h-4 w-4 text-primary shrink-0" />
+          <span>Batch History &amp; Rollback</span>
         </button>
       </div>
 
@@ -885,7 +889,7 @@ export default function BulkUploadPage() {
               }}
               onDragLeave={() => setIsDragging(false)}
               className={cn(
-                "rounded-xl border-2 border-dashed p-10 text-center transition-all cursor-pointer",
+                "rounded-xl border-2 border-dashed p-6 sm:p-10 text-center transition-all cursor-pointer",
                 isDragging
                   ? "border-primary bg-primary/5 scale-[1.01]"
                   : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/30"
@@ -1016,9 +1020,10 @@ export default function BulkUploadPage() {
               <button
                 onClick={() => setStep(2)}
                 disabled={!parsedData || parsedData.rawRows.length === 0}
-                className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm"
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-sm w-full sm:w-auto min-h-[44px]"
               >
-                Configure Column Mapping <ArrowRight className="h-4 w-4" />
+                <span>Configure Column Mapping</span>
+                <ArrowRight className="h-4 w-4 shrink-0" />
               </button>
             </div>
           </div>
@@ -1090,8 +1095,8 @@ export default function BulkUploadPage() {
 
           {/* Mapping Table */}
           <div className="rounded-lg border overflow-hidden">
-            <div className="max-h-[420px] overflow-y-auto">
-              <table className="w-full text-sm">
+            <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+              <table className="w-full min-w-[620px] text-sm">
                 <thead className="bg-muted/70 sticky top-0 border-b">
                   <tr>
                     <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Excel Column</th>
@@ -1119,26 +1124,18 @@ export default function BulkUploadPage() {
                         <td className="px-4 py-2.5 min-w-[280px]">
                           <CustomSelect
                             value={currentMapping}
-                            onChange={(val) =>
-                              setColumnMapping((prev) => ({
-                                ...prev,
-                                [header]: val as any,
-                              }))
-                            }
+                            onChange={(val) => handleMappingChange(header, String(val))}
                             options={[
-                              { label: "— Ignore this column —", value: "ignore", icon: "🚫" },
+                              { label: "Ignore this column", value: "ignore" },
                               ...(isResultsMode
                                 ? RESULT_TARGET_FIELDS.map((f) => ({
                                     label: `${f.label}${f.required ? " *" : ""}`,
                                     value: f.key,
-                                    icon: f.icon,
-                                    category: f.category,
                                   }))
                                 : TARGET_FIELDS.map((f) => ({
                                     label: `${f.label}${f.required ? " *" : ""}`,
                                     value: f.key,
                                     icon: f.icon,
-                                    category: f.category,
                                   }))),
                             ]}
                           />
@@ -1152,18 +1149,19 @@ export default function BulkUploadPage() {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
             <button
               onClick={() => setStep(1)}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+              className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground hover:text-foreground py-2 min-h-[40px] cursor-pointer"
             >
               <ArrowLeft className="h-4 w-4" /> Back to Upload
             </button>
             <button
               onClick={handleProceedToPreview}
-              className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+              className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm min-h-[44px] cursor-pointer"
             >
-              Validate & Preview Rows <ArrowRight className="h-4 w-4" />
+              <span>Validate &amp; Preview Rows</span>
+              <ArrowRight className="h-4 w-4 shrink-0" />
             </button>
           </div>
         </div>
@@ -1206,15 +1204,15 @@ export default function BulkUploadPage() {
             {/* Tab 1: Preview Table */}
             <TabsContent value="preview" className="mt-3">
               <div className="rounded-lg border overflow-hidden">
-                <div className="max-h-[350px] overflow-y-auto">
+                <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
                   {isResultsMode ? (
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[700px] text-sm">
                       <thead className="bg-muted/70 sticky top-0 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Student Name / ID</th>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Class / Sec / Roll</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Session & Exam</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Session &amp; Exam</th>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Marks Obtained</th>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Percentage</th>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Status</th>
@@ -1226,7 +1224,7 @@ export default function BulkUploadPage() {
                             <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{row.rowNumber}</td>
                             <td className="px-3 py-2 text-xs font-semibold">{row.name || row.schoolId || row.studentUniqueCode}</td>
                             <td className="px-3 py-2 text-xs">{row.class ? `${row.class}-${row.section || "A"} (${row.roll || 1})` : "—"}</td>
-                            <td className="px-3 py-2 text-xs font-mono">{row.academicYear} · {row.examName}</td>
+                            <td className="px-3 py-2 text-xs font-mono">{row.academicYear} &middot; {row.examName}</td>
                             <td className="px-3 py-2 text-xs font-bold text-primary">{row.marksObtained} {row.fullMarks ? `/ ${row.fullMarks}` : ""}</td>
                             <td className="px-3 py-2 text-xs">{row.percentage !== undefined ? `${row.percentage}%` : "—"}</td>
                             <td className="px-3 py-2">
@@ -1241,7 +1239,7 @@ export default function BulkUploadPage() {
                       </tbody>
                     </table>
                   ) : (
-                    <table className="w-full text-sm">
+                    <table className="w-full min-w-[650px] text-sm">
                       <thead className="bg-muted/70 sticky top-0 border-b">
                         <tr>
                           <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>

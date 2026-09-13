@@ -4,6 +4,7 @@ import {
   dbGetTeacherSettlements,
   dbGetAssignedTeachers,
 } from "@/lib/supabase/db-invoices";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 /**
  * GET /api/invoices/teacher-assignments
@@ -13,6 +14,11 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const teacher = searchParams.get("teacher");
 

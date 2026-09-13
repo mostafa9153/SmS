@@ -1,4 +1,3 @@
-import * as XLSX from "xlsx";
 import type { Student, StudentStatus, ColumnMapping, ValidationIssue, BulkPreviewRow, BulkResultRow } from "@/lib/types";
 
 export interface DetectedFileMetadata {
@@ -1221,6 +1220,7 @@ export async function parseExcelFile(
   options?: { forcedHeaderRow?: number; sheetIndex?: number }
 ): Promise<ParsedExcelResult> {
   const data = await file.arrayBuffer();
+  const XLSX = await import("xlsx");
   const workbook = XLSX.read(data, { type: "array", cellDates: true });
 
   const sheetNames = workbook.SheetNames;

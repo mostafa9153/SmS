@@ -8,10 +8,11 @@ import { sortClasses } from "@/lib/utils";
 
 /**
  * Returns all students (unfiltered, unpaginated).
- * Used for dashboard calculations and unique list extractions.
+ * Defaults to lean summary projection (no heavy joins) for document generation and tables.
  */
-export async function getStudents(): Promise<Student[]> {
-  const res = await fetch("/api/students?paginated=false");
+export async function getStudents(options?: "summary" | "full" | unknown): Promise<Student[]> {
+  const projection = typeof options === "string" && (options === "summary" || options === "full") ? options : "summary";
+  const res = await fetch(`/api/students?paginated=false&projection=${projection}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch students");
@@ -40,7 +41,8 @@ export async function getStudentById(id: string): Promise<Student | null> {
 export async function searchStudents(
   filters: StudentFilters = {},
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  projection: "summary" | "full" = "summary"
 ): Promise<PaginatedStudents> {
   const params = new URLSearchParams();
   if (filters.query) params.append("q", filters.query);
@@ -55,6 +57,7 @@ export async function searchStudents(
   if (filters.ageSlab) params.append("ageSlab", filters.ageSlab);
   params.append("page", String(page));
   params.append("pageSize", String(pageSize));
+  params.append("projection", projection);
 
   const res = await fetch(`/api/students?${params.toString()}`);
   if (!res.ok) {

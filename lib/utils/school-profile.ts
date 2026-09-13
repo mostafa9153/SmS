@@ -277,21 +277,19 @@ export function saveSchoolProfile(profile: SchoolProfileData): void {
 
 /**
  * Asynchronously fetches the latest school profile from Supabase system_config
- * and synchronizes it into local storage.
+ * and synchronizes it into local storage with in-flight deduplication and caching.
  */
 export async function fetchSchoolProfileFromDb(): Promise<SchoolProfileData> {
   try {
-    const res = await fetch("/api/school-config?key=school_profile", { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      if (json.data) {
-        const merged: SchoolProfileData = { ...DEFAULT_SCHOOL_PROFILE, ...json.data };
-        if (typeof window !== "undefined") {
-          localStorage.setItem("sms_school_profile", JSON.stringify(merged));
-          window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: merged }));
-        }
-        return merged;
+    const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
+    const data = await getSchoolConfigKey<SchoolProfileData>("school_profile");
+    if (data) {
+      const merged: SchoolProfileData = { ...DEFAULT_SCHOOL_PROFILE, ...data };
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sms_school_profile", JSON.stringify(merged));
+        window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: merged }));
       }
+      return merged;
     }
   } catch (err) {
     console.error("Error fetching school profile from DB:", err);
@@ -317,6 +315,10 @@ export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise
         value: profile,
       }),
     });
+    if (res.ok) {
+      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
+      invalidateSchoolConfigClientCache();
+    }
     return res.ok;
   } catch (err) {
     console.error("Failed to save school profile to DB:", err);

@@ -197,7 +197,7 @@ export default function AcademicSessionClient() {
           </div>
         </div>
         <Link
-          href="/settings?tab=school-details"
+          href="/settings/school-details"
           className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 shrink-0 self-start sm:self-auto bg-primary/5 border border-primary/20 rounded-lg px-3 py-1.5 transition-colors hover:bg-primary/10"
         >
           <span>Configure in School Details</span>
@@ -215,7 +215,7 @@ export default function AcademicSessionClient() {
               type="number"
               value={fromYear}
               onChange={(e) => setFromYear(Number(e.target.value))}
-              className="font-mono text-2xl font-bold rounded-lg border bg-background px-2 py-1 w-28 text-foreground"
+              className="font-mono text-xl sm:text-2xl font-bold rounded-lg border bg-background px-2.5 py-1.5 w-28 text-foreground h-11 sm:h-auto"
             />
             <span className="text-xs text-muted-foreground font-medium">Session Year</span>
           </div>
@@ -229,7 +229,7 @@ export default function AcademicSessionClient() {
               type="number"
               value={toYear}
               onChange={(e) => setToYear(Number(e.target.value))}
-              className="font-mono text-2xl font-bold rounded-lg border border-primary/40 bg-background px-2 py-1 w-28 text-primary"
+              className="font-mono text-xl sm:text-2xl font-bold rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 w-28 text-primary h-11 sm:h-auto"
             />
             <span className="text-xs text-primary font-medium">Upcoming Year</span>
           </div>
@@ -348,7 +348,7 @@ export default function AcademicSessionClient() {
           </div>
 
           <div className="overflow-x-auto rounded-xl border bg-card">
-            <table className="w-full text-left text-xs">
+            <table className="w-full min-w-[620px] text-left text-xs">
               <thead className="bg-muted/50 border-b text-[11px] font-semibold text-muted-foreground uppercase">
                 <tr>
                   <th className="p-2.5">Student Name</th>
@@ -500,7 +500,7 @@ export default function AcademicSessionClient() {
         <button
           onClick={() => setConfirmModalOpen(true)}
           disabled={transitionMutation.isPending}
-          className="flex-shrink-0 flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer"
+          className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm hover:shadow-md cursor-pointer min-h-[44px] sm:min-h-0"
         >
           <Sparkles className="h-4 w-4" />
           Execute Session Transition →

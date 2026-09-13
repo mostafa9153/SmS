@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
+import { useSchoolConfigQuery } from "@/lib/utils/school-config-client";
 import type { Student } from "@/lib/types";
 import {
   type FeeItem,
@@ -308,22 +309,15 @@ function InvoiceGeneratorContent() {
     return () => clearInterval(timer);
   }, [autoDateTime]);
 
-  // Fetch all students
+  // Fetch all students (unified queryKey across document generators)
   const { data: students = [], isLoading: isLoadingStudents } = useQuery({
-    queryKey: ["all-students-for-invoice"],
+    queryKey: ["students"],
     queryFn: getStudents,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch school configuration (including class management) from database
-  const { data: schoolConfig } = useQuery({
-    queryKey: ["school-config-invoice"],
-    queryFn: async () => {
-      const res = await fetch("/api/school-config", { cache: "no-store" });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json?.data || null;
-    },
-  });
+  const { data: schoolConfig } = useSchoolConfigQuery();
 
   // Dynamic Class Management List from DB / Settings
   const dynamicClasses = useMemo<DynamicClassItem[]>(() => {
@@ -808,15 +802,15 @@ function InvoiceGeneratorContent() {
         </div>
 
         {/* Print, Track & Undo Action Header Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsTrackerOpen(true)}
             title="Verify invoice validity and track generated registry"
-            className="gap-1.5 text-xs font-semibold h-9.5 px-3 rounded-xl border-teal-300 dark:border-teal-700 bg-teal-500/10 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold h-10 px-3 rounded-xl border-teal-300 dark:border-teal-700 bg-teal-500/10 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+            <ShieldCheck className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
             <span>Track &amp; Verify</span>
           </Button>
 
@@ -825,25 +819,25 @@ function InvoiceGeneratorContent() {
             size="sm"
             onClick={() => setIsHistoryOpen(true)}
             title="View print history and undo any printed batch"
-            className="gap-1.5 text-xs font-semibold h-9.5 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold h-10 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span>Undo Last Print</span>
+            <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+            <span>Undo Print</span>
           </Button>
 
           <Button
             onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-9.5 px-4 rounded-xl cursor-pointer"
+            className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 text-xs font-bold bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 h-10 px-4 rounded-xl cursor-pointer"
           >
-            <Printer className="h-4 w-4" />
-            <span>
+            <Printer className="h-4 w-4 shrink-0" />
+            <span className="truncate">
               {generatorMode === "bulk"
                 ? isA4FourUp
-                  ? `Print Batch (${bulkInvoices.length} ${copyType === "school" ? "School" : "Student"} Slips • ${totalA4Pages} A4 ${totalA4Pages > 1 ? "Pages" : "Page"})`
+                  ? `Print Batch (${bulkInvoices.length} Slips)`
                   : bulkFillMode === "blank"
-                  ? `Print Batch (${bulkBlankCount} Dual Slips on A5)`
-                  : `Print Batch (${selectedStudentIds.length} Dual Slips on A5)`
-                : "Print Invoice (A5 Landscape)"}
+                  ? `Print Batch (${bulkBlankCount} Dual Slips)`
+                  : `Print Batch (${selectedStudentIds.length} Dual Slips)`
+                : "Print Invoice (A5)"}
             </span>
           </Button>
         </div>

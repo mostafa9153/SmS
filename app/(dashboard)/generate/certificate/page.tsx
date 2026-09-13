@@ -264,11 +264,11 @@ function CertificateGeneratorContent() {
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-xl p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
+            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs shrink-0">
             <FileCheck className="h-5 w-5" />
           </div>
           <div>
@@ -278,16 +278,16 @@ function CertificateGeneratorContent() {
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        {/* Action Controls: Wrapped and touch friendly on mobile */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
           {/* Copy Type Selector */}
-          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
+          <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
             {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setCert({ ...cert, copyType: type })}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial text-center px-3 py-2 sm:py-1.5 rounded-lg transition-all cursor-pointer ${
                   cert.copyType === type
                     ? "bg-background text-foreground shadow-xs font-bold"
                     : "text-muted-foreground hover:text-foreground"
@@ -298,31 +298,33 @@ function CertificateGeneratorContent() {
             ))}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsHistoryOpen(true)}
-            title="View print history and undo certificate serials"
-            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span>Undo Last Print</span>
-          </Button>
+          <div className="grid grid-cols-2 sm:flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryOpen(true)}
+              title="View print history and undo certificate serials"
+              className="gap-1.5 text-xs font-semibold h-10 sm:h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span>Undo Print</span>
+            </Button>
 
-          <Button
-            onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-xs cursor-pointer h-9 px-4 rounded-xl"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Print Certificate (A5)</span>
-          </Button>
+            <Button
+              onClick={handlePrint}
+              className="gap-2 text-xs font-bold bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
+            >
+              <Printer className="h-4 w-4 shrink-0" />
+              <span>Print (A5)</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Main Grid: Left Inputs + Right Certificate Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
-        <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
+        <div className="xl:col-span-5 space-y-4 print:hidden xl:overflow-y-auto xl:max-h-[calc(100vh-140px)] xl:pr-2 pb-16 xl:pb-48">
           {/* MP vs HS Toggle */}
           <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold shadow-2xs">
             <button
@@ -657,7 +659,7 @@ function CertificateGeneratorContent() {
           {/* Certificate Canvas */}
           <div
             id="printable-certificate-canvas"
-            className="w-full overflow-x-auto rounded-2xl border bg-slate-100/80 dark:bg-slate-900/50 p-6 flex justify-center items-start shadow-xs print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[620px]"
+            className="w-full overflow-x-auto rounded-2xl border bg-slate-100/80 dark:bg-slate-900/50 p-2 sm:p-6 flex justify-center items-start shadow-xs print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[460px] sm:min-h-[620px]"
           >
             <div
               style={{

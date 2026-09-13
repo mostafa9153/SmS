@@ -149,6 +149,15 @@ export async function dbProcessBulkUpload(
   );
 
   // 5. Execute Updates (Non-destructive: blank cells DO NOT overwrite existing values)
+  interface PreparedUpdate {
+    item: (typeof updatesToProcess)[0];
+    existing: any;
+    dbPatch: Record<string, any>;
+    changedFieldNames: string[];
+  }
+
+  const preparedUpdates: PreparedUpdate[] = [];
+
   for (const item of updatesToProcess) {
     const existing = item.existingStudent;
     const inc = item.incomingData;
@@ -223,149 +232,229 @@ export async function dbProcessBulkUpload(
     }
 
     dbPatch.updated_at = new Date().toISOString();
-
-    const { data: updatedRecord, error: updateError } = await supabase
-      .from("students")
-      .update(dbPatch)
-      .eq("id", existing.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      errorCount++;
-      errorsList.push({
-        rowNumber: item.rowNumber,
-        name: existing.name,
-        message: `Update failed: ${updateError.message}`,
-      });
-      continue;
-    }
-
-    // Record in audit log tagged with batch_id
-    await supabase.from("audit_log").insert({
-      performed_by: userId,
-      action: "UPDATE",
-      table_name: "students",
-      record_id: existing.id,
-      old_values: existing,
-      new_values: updatedRecord,
-      metadata: {
-        batch_id: batchId,
-        source: "BULK_UPLOAD",
-        matched_by: item.matchedBy,
-        changed_fields: changedFieldNames,
-      },
-    });
-
-    updatedList.push({
-      name: existing.name,
-      schoolId: existing.school_id,
-      changedFields: changedFieldNames,
-    });
+    preparedUpdates.push({ item, existing, dbPatch, changedFieldNames });
   }
 
-  // 6. Execute Creates (New Admissions)
-  for (let i = 0; i < createsToProcess.length; i++) {
-    const item = createsToProcess[i];
-    const inc = item.incomingData;
-    const generatedSchoolId = inc.schoolId?.trim() || newSchoolIds[i];
+  // Execute updates in concurrent batches of 10
+  const updateAuditEntries: any[] = [];
+  const UPDATE_CONCURRENCY = 10;
+  for (let i = 0; i < preparedUpdates.length; i += UPDATE_CONCURRENCY) {
+    const batch = preparedUpdates.slice(i, i + UPDATE_CONCURRENCY);
+    await Promise.all(
+      batch.map(async ({ item, existing, dbPatch, changedFieldNames }) => {
+        const { data: updatedRecord, error: updateError } = await supabase
+          .from("students")
+          .update(dbPatch)
+          .eq("id", existing.id)
+          .select()
+          .single();
 
-    const insertPayload: Partial<DBStudent> = {
-      school_id: generatedSchoolId,
-      name: inc.name?.trim() || "Unknown",
-      dob: inc.dob?.trim() || "2015-01-01",
-      gender: normalizeGender(inc.gender),
-      father_name: inc.fatherName?.trim() || "N/A",
-      mother_name: inc.motherName?.trim() || "N/A",
-      guardian_name: inc.guardianName?.trim() || null,
-      address: inc.address?.trim() || null,
-      pincode: inc.pincode?.trim() || null,
-      mobile: inc.studentContact?.trim() || null,
-      alt_mobile: inc.altMobile?.trim() || null,
-      email: inc.email?.trim() || null,
-      present_class: inc.presentClass?.trim() || "V",
-      present_section: inc.presentSection?.trim() || "A",
-      present_roll: inc.presentRoll != null ? Number(inc.presentRoll) : 1,
-      current_status: (inc.currentStatus || (uploadType === "old_students" ? "Passed Out" : "Continuing")) as StudentStatus,
-      admission_year: inc.admissionYear != null ? Number(inc.admissionYear) : currentYear,
-      admission_date: inc.admissionDate?.trim() || null,
-      admission_no: inc.admissionNo?.trim() || null,
-      academic_stream: inc.academicStream?.trim() || null,
-      medium_of_instruction: inc.mediumOfInstruction?.trim() || null,
-      birth_registration_no: inc.birthRegistrationNo?.trim() || null,
-      dise_code: inc.diseCode?.trim() || null,
-      minority_group: inc.minorityGroup?.trim() || null,
-      mother_tongue: inc.motherTongue?.trim() || null,
-      pen: inc.pen?.trim() || null,
-      aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
-      student_unique_code: inc.studentUniqueCode?.trim() || null,
-      social_category: normalizeSocialCategory(inc.socialCategory?.trim()) || "General",
-      religion: inc.religion?.trim() || null,
-      bank_ifsc: inc.bankIfsc?.trim() || null,
-      bank_account_no: inc.bankAccountNo?.trim() || null,
-      is_cwsn: inc.isCwsn || false,
-      impairment_type: inc.impairmentType?.trim() || null,
-      is_aay: inc.isAay || false,
-      is_ews: inc.isEws || false,
-      indian_nationality: inc.indianNationality ?? true,
-      annual_family_income: inc.annualFamilyIncome != null ? Number(inc.annualFamilyIncome) : null,
-      blood_group: inc.bloodGroup?.trim() || null,
-      height_cm: inc.heightCm != null ? Number(inc.heightCm) : null,
-      weight_kg: inc.weightKg != null ? Number(inc.weightKg) : null,
-      previous_school: inc.previousSchool?.trim() || null,
-      previous_class: inc.previousClass?.trim() || null,
-      previous_roll_no: inc.previousRollNo != null ? Number(inc.previousRollNo) : null,
-      previous_marks_percent: inc.previousMarksPercent != null ? Number(inc.previousMarksPercent) : null,
-      relationship_with_guardian: inc.relationshipWithGuardian?.trim() || null,
-      guardian_qualification: inc.guardianQualification?.trim() || null,
-      identification_mark: inc.identificationMark?.trim() || null,
-      health_id: inc.healthId?.trim() || null,
-    };
+        if (updateError) {
+          errorCount++;
+          errorsList.push({
+            rowNumber: item.rowNumber,
+            name: existing.name,
+            message: `Update failed: ${updateError.message}`,
+          });
+        } else {
+          updateAuditEntries.push({
+            performed_by: userId,
+            action: "UPDATE",
+            table_name: "students",
+            record_id: existing.id,
+            old_values: existing,
+            new_values: updatedRecord,
+            metadata: {
+              batch_id: batchId,
+              source: "BULK_UPLOAD",
+              matched_by: item.matchedBy,
+              changed_fields: changedFieldNames,
+            },
+          });
 
-    const { data: newRecord, error: insertError } = await supabase
-      .from("students")
-      .insert(insertPayload)
-      .select()
-      .single();
+          updatedList.push({
+            name: existing.name,
+            schoolId: existing.school_id,
+            changedFields: changedFieldNames,
+          });
+        }
+      })
+    );
+  }
 
-    if (insertError) {
-      errorCount++;
-      errorsList.push({
-        rowNumber: item.rowNumber,
-        name: inc.name,
-        message: `Insert failed: ${insertError.message}`,
+  // Batch insert update audit logs in chunks of 100
+  for (let i = 0; i < updateAuditEntries.length; i += 100) {
+    const auditChunk = updateAuditEntries.slice(i, i + 100);
+    const { error: auditErr } = await supabase.from("audit_log").insert(auditChunk);
+    if (auditErr) {
+      console.warn("Update audit log batch insert warning:", auditErr);
+    }
+  }
+
+  // 6. Execute Creates (New Admissions) in Batches of 50
+  const CREATE_BATCH_SIZE = 50;
+  const createAuditEntries: any[] = [];
+
+  for (let cIdx = 0; cIdx < createsToProcess.length; cIdx += CREATE_BATCH_SIZE) {
+    const chunk = createsToProcess.slice(cIdx, cIdx + CREATE_BATCH_SIZE);
+    const chunkPayloads: Partial<DBStudent>[] = [];
+
+    for (let i = 0; i < chunk.length; i++) {
+      const globalIndex = cIdx + i;
+      const item = chunk[i];
+      const inc = item.incomingData;
+      const generatedSchoolId = inc.schoolId?.trim() || newSchoolIds[globalIndex];
+
+      chunkPayloads.push({
+        school_id: generatedSchoolId,
+        name: inc.name?.trim() || "Unknown",
+        dob: inc.dob?.trim() || "2015-01-01",
+        gender: normalizeGender(inc.gender),
+        father_name: inc.fatherName?.trim() || "N/A",
+        mother_name: inc.motherName?.trim() || "N/A",
+        guardian_name: inc.guardianName?.trim() || null,
+        address: inc.address?.trim() || null,
+        pincode: inc.pincode?.trim() || null,
+        mobile: inc.studentContact?.trim() || null,
+        alt_mobile: inc.altMobile?.trim() || null,
+        email: inc.email?.trim() || null,
+        present_class: inc.presentClass?.trim() || "V",
+        present_section: inc.presentSection?.trim() || "A",
+        present_roll: inc.presentRoll != null ? Number(inc.presentRoll) : 1,
+        current_status: (inc.currentStatus || (uploadType === "old_students" ? "Passed Out" : "Continuing")) as StudentStatus,
+        admission_year: inc.admissionYear != null ? Number(inc.admissionYear) : currentYear,
+        admission_date: inc.admissionDate?.trim() || null,
+        admission_no: inc.admissionNo?.trim() || null,
+        academic_stream: inc.academicStream?.trim() || null,
+        medium_of_instruction: inc.mediumOfInstruction?.trim() || null,
+        birth_registration_no: inc.birthRegistrationNo?.trim() || null,
+        dise_code: inc.diseCode?.trim() || null,
+        minority_group: inc.minorityGroup?.trim() || null,
+        mother_tongue: inc.motherTongue?.trim() || null,
+        pen: inc.pen?.trim() || null,
+        aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
+        student_unique_code: inc.studentUniqueCode?.trim() || null,
+        social_category: normalizeSocialCategory(inc.socialCategory?.trim()) || "General",
+        religion: inc.religion?.trim() || null,
+        bank_ifsc: inc.bankIfsc?.trim() || null,
+        bank_account_no: inc.bankAccountNo?.trim() || null,
+        is_cwsn: inc.isCwsn || false,
+        impairment_type: inc.impairmentType?.trim() || null,
+        is_aay: inc.isAay || false,
+        is_ews: inc.isEws || false,
+        indian_nationality: inc.indianNationality ?? true,
+        annual_family_income: inc.annualFamilyIncome != null ? Number(inc.annualFamilyIncome) : null,
+        blood_group: inc.bloodGroup?.trim() || null,
+        height_cm: inc.heightCm != null ? Number(inc.heightCm) : null,
+        weight_kg: inc.weightKg != null ? Number(inc.weightKg) : null,
+        previous_school: inc.previousSchool?.trim() || null,
+        previous_class: inc.previousClass?.trim() || null,
+        previous_roll_no: inc.previousRollNo != null ? Number(inc.previousRollNo) : null,
+        previous_marks_percent: inc.previousMarksPercent != null ? Number(inc.previousMarksPercent) : null,
+        relationship_with_guardian: inc.relationshipWithGuardian?.trim() || null,
+        guardian_qualification: inc.guardianQualification?.trim() || null,
+        identification_mark: inc.identificationMark?.trim() || null,
+        health_id: inc.healthId?.trim() || null,
       });
-      continue;
     }
 
-    // Also insert initial academic history row
-    await supabase.from("academic_history").insert({
-      student_id: newRecord.id,
-      year: newRecord.admission_year,
-      class: newRecord.present_class,
-      section: newRecord.present_section,
-      roll: newRecord.present_roll,
-      status: newRecord.current_status,
-    });
+    const { data: newRecords, error: batchInsertError } = await supabase
+      .from("students")
+      .insert(chunkPayloads)
+      .select();
 
-    // Record in audit log tagged with batch_id
-    await supabase.from("audit_log").insert({
-      performed_by: userId,
-      action: "CREATE",
-      table_name: "students",
-      record_id: newRecord.id,
-      new_values: newRecord,
-      metadata: {
-        batch_id: batchId,
-        source: "BULK_UPLOAD",
-        is_new_admission: true,
-      },
-    });
+    if (batchInsertError || !newRecords || newRecords.length === 0) {
+      // Fallback to row-by-row insertion for this chunk to capture individual errors
+      for (let j = 0; j < chunk.length; j++) {
+        const item = chunk[j];
+        const payload = chunkPayloads[j];
+        const { data: singleRec, error: singleErr } = await supabase
+          .from("students")
+          .insert(payload)
+          .select()
+          .single();
 
-    createdList.push({
-      name: newRecord.name,
-      schoolId: newRecord.school_id,
-    });
+        if (singleErr || !singleRec) {
+          errorCount++;
+          errorsList.push({
+            rowNumber: item.rowNumber,
+            name: item.incomingData.name,
+            message: `Insert failed: ${singleErr?.message || "Unknown error"}`,
+          });
+        } else {
+          await supabase.from("academic_history").insert({
+            student_id: singleRec.id,
+            year: singleRec.admission_year,
+            class: singleRec.present_class,
+            section: singleRec.present_section,
+            roll: singleRec.present_roll,
+            status: singleRec.current_status,
+          });
+
+          createAuditEntries.push({
+            performed_by: userId,
+            action: "CREATE",
+            table_name: "students",
+            record_id: singleRec.id,
+            new_values: singleRec,
+            metadata: {
+              batch_id: batchId,
+              source: "BULK_UPLOAD",
+              is_new_admission: true,
+            },
+          });
+
+          createdList.push({
+            name: singleRec.name,
+            schoolId: singleRec.school_id,
+          });
+        }
+      }
+    } else {
+      // Batch insert academic history
+      const historyPayloads = newRecords.map((r) => ({
+        student_id: r.id,
+        year: r.admission_year,
+        class: r.present_class,
+        section: r.present_section,
+        roll: r.present_roll,
+        status: r.current_status,
+      }));
+
+      const { error: histError } = await supabase.from("academic_history").insert(historyPayloads);
+      if (histError) {
+        console.warn("Batch academic history insert warning:", histError);
+      }
+
+      for (const newRecord of newRecords) {
+        createAuditEntries.push({
+          performed_by: userId,
+          action: "CREATE",
+          table_name: "students",
+          record_id: newRecord.id,
+          new_values: newRecord,
+          metadata: {
+            batch_id: batchId,
+            source: "BULK_UPLOAD",
+            is_new_admission: true,
+          },
+        });
+
+        createdList.push({
+          name: newRecord.name,
+          schoolId: newRecord.school_id,
+        });
+      }
+    }
+  }
+
+  // Batch insert all create audit log entries in chunks of 100
+  for (let i = 0; i < createAuditEntries.length; i += 100) {
+    const auditChunk = createAuditEntries.slice(i, i + 100);
+    const { error: auditErr } = await supabase.from("audit_log").insert(auditChunk);
+    if (auditErr) {
+      console.warn("Create audit log batch insert warning:", auditErr);
+    }
   }
 
   // Insert master batch entry in audit log to ensure the batch is permanently tracked in history
@@ -488,6 +577,43 @@ export async function dbProcessResultsBulkUpload(
   let errorCount = 0;
   let warningCount = 0;
 
+  // Pre-fetch all existing results for matched students in one query
+  const allCandidateStudentIds: string[] = [];
+  for (const s of schoolIdMap.values()) if (s?.id) allCandidateStudentIds.push(s.id);
+  for (const s of uniqueCodeMap.values()) if (s?.id) allCandidateStudentIds.push(s.id);
+  for (const s of penMap.values()) if (s?.id) allCandidateStudentIds.push(s.id);
+  for (const s of classSecRollMap.values()) if (s?.id) allCandidateStudentIds.push(s.id);
+  const uniqueCandidateStudentIds = Array.from(new Set(allCandidateStudentIds));
+
+  const existingResultsMap = new Map<string, any>();
+  if (uniqueCandidateStudentIds.length > 0) {
+    for (let i = 0; i < uniqueCandidateStudentIds.length; i += 200) {
+      const idChunk = uniqueCandidateStudentIds.slice(i, i + 200);
+      const { data: existingData } = await supabase
+        .from("student_results")
+        .select("*")
+        .in("student_id", idChunk);
+
+      for (const item of (existingData || [])) {
+        const key = `${item.student_id}-${item.academic_year}-${item.exam_name}`;
+        existingResultsMap.set(key, item);
+      }
+    }
+  }
+
+  interface PreparedResultItem {
+    rowNumber: number;
+    matchedStudent: any;
+    payload: any;
+    existingResult?: any;
+    examName: string;
+    academicYear: number;
+    marksObtained: number;
+  }
+
+  const resultsToUpdate: PreparedResultItem[] = [];
+  const resultsToInsert: PreparedResultItem[] = [];
+
   for (let idx = 0; idx < rows.length; idx++) {
     const r = rows[idx];
     const rowNumber = idx + 2;
@@ -528,14 +654,8 @@ export async function dbProcessResultsBulkUpload(
     const percentage = r.percentage !== undefined ? r.percentage : Number(((marksObtained / fullMarks) * 100).toFixed(2));
     const grade = r.grade || calculateGrade(percentage);
 
-    // Check if result already exists for this student, year & exam
-    const { data: existingResult } = await supabase
-      .from("student_results")
-      .select("*")
-      .eq("student_id", matchedStudent.id)
-      .eq("academic_year", academicYear)
-      .eq("exam_name", examName)
-      .maybeSingle();
+    const existingKey = `${matchedStudent.id}-${academicYear}-${examName}`;
+    const existingResult = existingResultsMap.get(existingKey);
 
     const payload = {
       student_id: matchedStudent.id,
@@ -554,75 +674,150 @@ export async function dbProcessResultsBulkUpload(
     };
 
     if (existingResult) {
-      // Update existing result
-      const { data: updated, error: updateErr } = await supabase
-        .from("student_results")
-        .update(payload)
-        .eq("id", existingResult.id)
-        .select()
-        .single();
+      resultsToUpdate.push({
+        rowNumber,
+        matchedStudent,
+        existingResult,
+        payload,
+        examName,
+        academicYear,
+        marksObtained,
+      });
+    } else {
+      resultsToInsert.push({
+        rowNumber,
+        matchedStudent,
+        payload,
+        examName,
+        academicYear,
+        marksObtained,
+      });
+    }
+  }
 
-      if (updateErr) {
-        errorCount++;
-        errorsList.push({ rowNumber, name: matchedStudent.name, message: updateErr.message });
-      } else {
-        // Audit log
-        await supabase.from("audit_log").insert({
-          performed_by: userId,
-          action: "UPDATE",
-          table_name: "student_results",
-          record_id: existingResult.id,
-          old_values: existingResult,
-          new_values: updated,
-          metadata: {
-            batch_id: batchId,
-            upload_type: "EXAM_RESULTS",
-            academic_year: academicYear,
-            exam_name: examName,
-          },
-        });
+  const resultAuditEntries: any[] = [];
 
-        updatedList.push({
-          name: matchedStudent.name,
-          examName,
-          academicYear,
-          marks: marksObtained,
-        });
+  // Execute updates in concurrent batches of 10
+  const UPDATE_CONCURRENCY = 10;
+  for (let i = 0; i < resultsToUpdate.length; i += UPDATE_CONCURRENCY) {
+    const batch = resultsToUpdate.slice(i, i + UPDATE_CONCURRENCY);
+    await Promise.all(
+      batch.map(async ({ rowNumber, matchedStudent, existingResult, payload, examName, academicYear, marksObtained }) => {
+        const { data: updated, error: updateErr } = await supabase
+          .from("student_results")
+          .update(payload)
+          .eq("id", existingResult.id)
+          .select()
+          .single();
+
+        if (updateErr) {
+          errorCount++;
+          errorsList.push({ rowNumber, name: matchedStudent.name, message: updateErr.message });
+        } else {
+          resultAuditEntries.push({
+            performed_by: userId,
+            action: "UPDATE",
+            table_name: "student_results",
+            record_id: existingResult.id,
+            old_values: existingResult,
+            new_values: updated,
+            metadata: {
+              batch_id: batchId,
+              upload_type: "EXAM_RESULTS",
+              academic_year: academicYear,
+              exam_name: examName,
+            },
+          });
+
+          updatedList.push({
+            name: matchedStudent.name,
+            examName,
+            academicYear,
+            marks: marksObtained,
+          });
+        }
+      })
+    );
+  }
+
+  // Execute inserts in batches of 50
+  const INSERT_CHUNK_SIZE = 50;
+  for (let i = 0; i < resultsToInsert.length; i += INSERT_CHUNK_SIZE) {
+    const chunk = resultsToInsert.slice(i, i + INSERT_CHUNK_SIZE);
+    const payloads = chunk.map((c) => c.payload);
+
+    const { data: insertedList, error: insertErr } = await supabase
+      .from("student_results")
+      .insert(payloads)
+      .select();
+
+    if (insertErr || !insertedList) {
+      // Fallback row-by-row for error isolation
+      for (const item of chunk) {
+        const { data: singleInserted, error: singleErr } = await supabase
+          .from("student_results")
+          .insert(item.payload)
+          .select()
+          .single();
+
+        if (singleErr || !singleInserted) {
+          errorCount++;
+          errorsList.push({ rowNumber: item.rowNumber, name: item.matchedStudent.name, message: singleErr?.message || "Insert failed" });
+        } else {
+          resultAuditEntries.push({
+            performed_by: userId,
+            action: "CREATE",
+            table_name: "student_results",
+            record_id: singleInserted.id,
+            new_values: singleInserted,
+            metadata: {
+              batch_id: batchId,
+              upload_type: "EXAM_RESULTS",
+              academic_year: item.academicYear,
+              exam_name: item.examName,
+            },
+          });
+          createdList.push({
+            name: item.matchedStudent.name,
+            examName: item.examName,
+            academicYear: item.academicYear,
+            marks: item.marksObtained,
+          });
+        }
       }
     } else {
-      // Insert new result
-      const { data: inserted, error: insertErr } = await supabase
-        .from("student_results")
-        .insert(payload)
-        .select()
-        .single();
-
-      if (insertErr) {
-        errorCount++;
-        errorsList.push({ rowNumber, name: matchedStudent.name, message: insertErr.message });
-      } else {
-        // Audit log
-        await supabase.from("audit_log").insert({
+      for (let j = 0; j < insertedList.length; j++) {
+        const ins = insertedList[j];
+        const item = chunk[j];
+        resultAuditEntries.push({
           performed_by: userId,
           action: "CREATE",
           table_name: "student_results",
-          record_id: inserted.id,
-          new_values: inserted,
+          record_id: ins.id,
+          new_values: ins,
           metadata: {
             batch_id: batchId,
             upload_type: "EXAM_RESULTS",
-            academic_year: academicYear,
-            exam_name: examName,
+            academic_year: item.academicYear,
+            exam_name: item.examName,
           },
         });
-
         createdList.push({
-          name: matchedStudent.name,
-          examName,
-          academicYear,
-          marks: marksObtained,
+          name: item.matchedStudent.name,
+          examName: item.examName,
+          academicYear: item.academicYear,
+          marks: item.marksObtained,
         });
       }
+    }
+  }
+
+  // Batch insert all result audit logs in chunks of 100
+  for (let i = 0; i < resultAuditEntries.length; i += 100) {
+    const auditChunk = resultAuditEntries.slice(i, i + 100);
+    const { error: auditErr } = await supabase.from("audit_log").insert(auditChunk);
+    if (auditErr) {
+      console.warn("Result audit log batch insert warning:", auditErr);
     }
   }
 

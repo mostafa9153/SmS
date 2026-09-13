@@ -1,19 +1,35 @@
-import { Suspense } from "react";
-import { SettingsClient } from "./settings-client";
-import { Skeleton } from "@/components/ui/skeleton";
+import { redirect } from "next/navigation";
 
-export default function SettingsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-6 max-w-7xl mx-auto space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-72" />
-          <Skeleton className="h-[400px] w-full rounded-xl" />
-        </div>
-      }
-    >
-      <SettingsClient />
-    </Suspense>
-  );
+interface SettingsPageProps {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function SettingsRootPage({ searchParams }: SettingsPageProps) {
+  const { tab } = await searchParams;
+
+  if (tab) {
+    switch (tab) {
+      case "backup":
+        redirect("/settings/backup");
+      case "academic-session":
+      case "session":
+        redirect("/settings/academic-session");
+      case "audit":
+        redirect("/settings/audit");
+      case "school-details":
+      case "config":
+        redirect("/settings/school-details");
+      case "presets":
+      case "preset-addresses":
+        redirect("/settings/presets");
+      case "danger":
+        redirect("/settings/danger");
+      case "users":
+      default:
+        redirect("/settings/users");
+    }
+  }
+
+  // Default landing sub-route
+  redirect("/settings/users");
 }

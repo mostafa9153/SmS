@@ -402,13 +402,13 @@ export default function ResultsClient() {
 
           {/* Search in List */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               placeholder="Search student, roll, ID…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background pl-8 pr-3 py-2 text-xs text-foreground shadow-2xs outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 h-[38px]"
+              className="w-full rounded-xl border border-input bg-background pl-8 pr-3 py-2 text-base sm:text-xs text-foreground shadow-2xs outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 h-10 sm:h-[38px]"
             />
           </div>
         </div>
@@ -448,52 +448,58 @@ export default function ResultsClient() {
           <div>
             <p className="text-xs font-medium text-muted-foreground">Highest Marks</p>
             <p className="text-xl font-bold text-sky-700 mt-0.5">
-              {summary?.highestMarks ? `${summary.highestMarks} / ${summary.fullMarks}` : "—"}
+              {summary?.highestMarks || 0} <span className="text-xs text-muted-foreground font-normal">/ {currentFullMarks}</span>
             </p>
           </div>
         </div>
 
-        {/* Class Average */}
+        {/* Average Class Marks */}
         <div className="rounded-xl border bg-card p-4 flex items-center gap-3">
-          <div className="rounded-lg bg-violet-50 p-2.5 text-violet-600">
+          <div className="rounded-lg bg-indigo-50 p-2.5 text-indigo-600">
             <BarChart2 className="h-5 w-5" />
           </div>
           <div>
             <p className="text-xs font-medium text-muted-foreground">Class Average</p>
-            <p className="text-xl font-bold text-violet-700 mt-0.5">
-              {summary?.averageMarks ? `${summary.averageMarks} Marks` : "—"}
+            <p className="text-xl font-bold text-indigo-700 mt-0.5">
+              {summary?.averageMarks ? summary.averageMarks.toFixed(1) : "0.0"} <span className="text-xs text-muted-foreground font-normal">Avg</span>
             </p>
           </div>
         </div>
       </div>
 
-      {/* Main Results Table Card */}
-      <div className="rounded-xl border bg-card shadow-sm space-y-4 p-5">
-        {/* Table View Mode Controls */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3.5">
+      {/* Main Results Table Section */}
+      <div className="rounded-2xl border bg-card p-4 space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-foreground">
-              Class {selectedClass} {selectedSection !== "ALL" ? `Section ${selectedSection}` : ""} — {selectedExam}
-            </h2>
-            <span className="text-xs text-muted-foreground">({filteredResults.length} students)</span>
+            <h3 className="font-bold text-sm tracking-tight text-foreground">
+              Class {selectedClass} Merit &amp; Marks Register
+            </h3>
+            <span className="text-xs text-muted-foreground font-mono">
+              ({filteredResults.length} records)
+            </span>
           </div>
 
-          {/* Center: Batch Marks Entry Button */}
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isBatchMode ? (
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleSaveBatchMarks}
                   disabled={isSavingBatch}
-                  className="flex items-center gap-1.5 rounded-xl bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs active:scale-95 animate-pulse"
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 text-white px-3.5 py-1.5 text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-2xs active:scale-95 disabled:opacity-50"
                 >
-                  <Check className="h-3.5 w-3.5" />
-                  {isSavingBatch ? "Saving All…" : "Save All Entered Marks"}
+                  {isSavingBatch ? (
+                    <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  )}
+                  Save All Marks
                 </button>
                 <button
                   onClick={() => setIsBatchMode(false)}
-                  className="rounded-xl border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted active:scale-95"
+                  disabled={isSavingBatch}
+                  className="flex items-center gap-1 rounded-xl border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors active:scale-95"
                 >
+                  <X className="h-3.5 w-3.5" />
                   Cancel
                 </button>
               </div>
@@ -507,7 +513,7 @@ export default function ResultsClient() {
                   setBatchMarks(initial);
                   setIsBatchMode(true);
                 }}
-                className="flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary px-4 py-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all shadow-2xs active:scale-95"
+                className="flex items-center gap-1.5 rounded-xl bg-primary/10 border border-primary/20 text-primary px-4 py-1.5 text-xs font-semibold hover:bg-primary hover:text-primary-foreground transition-all shadow-2xs active:scale-95 cursor-pointer"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Batch Marks Entry
@@ -548,8 +554,8 @@ export default function ResultsClient() {
         </div>
 
         {/* Table */}
-        <div className="rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="rounded-xl border overflow-x-auto shadow-2xs">
+          <table className="w-full text-sm min-w-[700px]">
             <thead className="bg-muted/70 border-b">
               <tr>
                 <th className="px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">Roll</th>

@@ -167,24 +167,24 @@ export default function EmsSeatingMapPage() {
             </div>
 
             {/* Room Selector Pills & Print Button */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-1.5 overflow-x-auto flex-nowrap custom-scrollbar py-1">
                 {currentAllocation.roomAllocations.map((room) => {
                   const isSelected = room.roomId === selectedRoomId;
                   return (
                     <button
                       key={room.roomId}
                       onClick={() => setSelectedRoomId(room.roomId)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                      className={`px-3.5 py-2 min-h-[40px] rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 cursor-pointer ${
                         isSelected
-                          ? "bg-primary text-primary-foreground shadow-md scale-105"
+                          ? "bg-primary text-primary-foreground shadow-md scale-[1.02]"
                           : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border border-border/60"
                       }`}
                     >
                       <DoorOpen className="h-3.5 w-3.5" />
                       <span>{room.roomNumber}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                        className={`text-[10px] px-1.5 py-0.5 rounded-md ${
                           isSelected
                             ? "bg-primary-foreground/20 text-white"
                             : "bg-background text-muted-foreground"
@@ -200,10 +200,10 @@ export default function EmsSeatingMapPage() {
               <Button
                 size="sm"
                 onClick={() => setPrintDialogOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-md ml-auto cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-md w-full sm:w-auto h-10 sm:h-9 cursor-pointer justify-center"
               >
-                <Printer className="h-3.5 w-3.5" />
-                Print Exam Suite
+                <Printer className="h-3.5 w-3.5 shrink-0" />
+                <span>Print Exam Suite</span>
               </Button>
             </div>
           </div>

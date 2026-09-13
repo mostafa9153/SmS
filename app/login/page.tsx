@@ -76,17 +76,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4 md:p-8 relative overflow-hidden font-sans">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-slate-950 p-3 sm:p-6 md:p-8 relative overflow-hidden font-sans">
       {/* Premium ambient glows */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
 
       {/* Main Container Card */}
-      <div className="w-full max-w-4xl bg-slate-900/40 border border-slate-800/80 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl grid md:grid-cols-2 min-h-[540px] z-10">
+      <div className="w-full max-w-4xl bg-slate-900/40 border border-slate-800/80 rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl grid md:grid-cols-2 min-h-[480px] sm:min-h-[540px] z-10">
         
         {/* Left Side: Branding / Showcase Panel */}
-        <div className="hidden md:flex flex-col justify-between p-12 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40 border-r border-slate-850/50 relative overflow-hidden">
+        <div className="hidden md:flex flex-col justify-between p-8 lg:p-12 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40 border-r border-slate-850/50 relative overflow-hidden">
           {/* Subtle background grids */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
@@ -138,18 +138,18 @@ export default function LoginPage() {
         </div>
 
         {/* Right Side: Form Panel */}
-        <div className="p-8 sm:p-12 flex flex-col justify-center bg-slate-900/20">
+        <div className="p-5 sm:p-8 md:p-10 lg:p-12 flex flex-col justify-center bg-slate-900/20">
           {/* Logo only for Mobile */}
-          <div className="flex md:hidden flex-col items-center mb-8 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 mb-3 shadow-xl shadow-blue-950/30 p-1 shrink-0">
+          <div className="flex md:hidden flex-col items-center mb-6 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 mb-2.5 shadow-xl shadow-blue-950/30 p-1 shrink-0">
               <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
             </div>
-            <h1 className="text-lg font-bold text-white">Marigachi High School</h1>
+            <h1 className="text-base sm:text-lg font-bold text-white">Marigachi High School</h1>
             <p className="text-xs text-slate-400">Student Management System</p>
           </div>
 
-          <div className="mb-6">
-            <h2 className="text-xl font-bold tracking-tight text-white">Sign In</h2>
+          <div className="mb-5 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">Sign In</h2>
             <p className="text-xs text-slate-400 mt-1">
               Enter your administration details below to access your account.
             </p>
@@ -167,12 +167,12 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-medium text-slate-355">
+              <Label htmlFor="email" className="text-xs font-medium text-slate-300">
                 Email Address
               </Label>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors duration-200">
-                  <Mail className="h-3.5 w-3.5" />
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors duration-200 pointer-events-none">
+                  <Mail className="h-4 w-4" />
                 </div>
                 <Input
                   id="email"
@@ -181,18 +181,19 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
-                  className="pl-9 bg-slate-950/65 border-slate-800/80 text-slate-100 placeholder:text-slate-600 focus-visible:ring-primary focus-visible:ring-offset-slate-900 focus-visible:border-slate-700 rounded-xl"
+                  autoComplete="email"
+                  className="h-11 pl-10 bg-slate-950/65 border-slate-800/80 text-slate-100 placeholder:text-slate-600 focus-visible:ring-primary focus-visible:ring-offset-slate-900 focus-visible:border-slate-700 rounded-xl text-base md:text-sm"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-xs font-medium text-slate-355">
+              <Label htmlFor="password" className="text-xs font-medium text-slate-300">
                 Password
               </Label>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors duration-200">
-                  <Lock className="h-3.5 w-3.5" />
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors duration-200 pointer-events-none">
+                  <Lock className="h-4 w-4" />
                 </div>
                 <Input
                   id="password"
@@ -201,31 +202,33 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="pl-9 pr-9 bg-slate-950/65 border-slate-800/80 text-slate-100 placeholder:text-slate-600 focus-visible:ring-primary focus-visible:ring-offset-slate-900 focus-visible:border-slate-700 rounded-xl"
+                  autoComplete="current-password"
+                  className="h-11 pl-10 pr-11 bg-slate-950/65 border-slate-800/80 text-slate-100 placeholder:text-slate-600 focus-visible:ring-primary focus-visible:ring-offset-slate-900 focus-visible:border-slate-700 rounded-xl text-base md:text-sm"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center h-8 w-8 rounded-lg text-slate-500 hover:text-slate-200 transition-colors cursor-pointer active:scale-95"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-3.5 w-3.5" />
+                    <EyeOff className="h-4 w-4" />
                   ) : (
-                    <Eye className="h-3.5 w-3.5" />
+                    <Eye className="h-4 w-4" />
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="pt-1.5">
+            <div className="pt-2">
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-550 text-white font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] shadow-lg shadow-primary/10 hover:shadow-primary/20 py-2.5"
+                className="w-full h-11 bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/95 hover:to-indigo-500 text-white font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] shadow-lg shadow-primary/10 hover:shadow-primary/20 text-sm cursor-pointer"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                     Checking credentials...
                   </span>
                 ) : (

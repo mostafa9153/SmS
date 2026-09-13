@@ -15,6 +15,7 @@ import {
   schoolProfileToSchoolInfo,
 } from "@/components/admission-form/types";
 import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolConfigQuery } from "@/lib/utils/school-config-client";
 import { AdmissionFormVIxPrintableView } from "@/components/admission-form/admission-form-v-ix-printable";
 import { AdmissionFormXIPrintableView } from "@/components/admission-form/admission-form-xi-printable";
 import { Button } from "@/components/ui/button";
@@ -393,15 +394,7 @@ function AdmissionFormGeneratorContent() {
   }, [students, bulkClass, bulkSection]);
 
   // Fetch dynamic class configuration from Database / Settings (/settings?tab=school-details)
-  const { data: schoolConfig } = useQuery({
-    queryKey: ["school-config"],
-    queryFn: async () => {
-      const res = await fetch("/api/school-config", { cache: "no-store" });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json?.data || null;
-    },
-  });
+  const { data: schoolConfig } = useSchoolConfigQuery();
 
   // Dynamic Class Management List from Settings
   const dynamicClasses = useMemo(() => {
@@ -855,16 +848,16 @@ function AdmissionFormGeneratorContent() {
           </div>
 
           {/* Quick Actions Header Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setIsHistoryOpen(true)}
               title="View print history and undo any printed batch"
-              className="gap-1.5 text-xs font-semibold h-9.5 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+              className="gap-1.5 text-xs font-semibold h-10 sm:h-9.5 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 cursor-pointer shadow-2xs justify-center"
             >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Undo Last Print</span>
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span>Undo Print</span>
             </Button>
 
             {generationMode === "bulk" ? (
@@ -872,12 +865,14 @@ function AdmissionFormGeneratorContent() {
                 size="sm"
                 onClick={handlePrintBulk}
                 disabled={formMode === "prefilled" && classRoster.length === 0}
-                className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2 h-9.5 cursor-pointer"
+                className="col-span-2 sm:col-span-1 gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-5 py-2 h-10 sm:h-9.5 cursor-pointer justify-center"
               >
-                <Printer className="h-4 w-4" />
-                {formMode === "prefilled"
-                  ? `Print ${classRoster.length} Pre-filled Forms (${classRoster.length * 2} Pages)`
-                  : `Print ${bulkCount} Forms (${bulkCount * 2} Pages)`}
+                <Printer className="h-4 w-4 shrink-0" />
+                <span>
+                  {formMode === "prefilled"
+                    ? `Print ${classRoster.length} Forms`
+                    : `Print ${bulkCount} Forms`}
+                </span>
               </Button>
             ) : (
               <>
@@ -885,29 +880,29 @@ function AdmissionFormGeneratorContent() {
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrintSingle("page1")}
-                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80 cursor-pointer"
+                  className="gap-1.5 text-xs font-semibold h-10 sm:h-9.5 rounded-xl border-border/80 cursor-pointer justify-center"
                   title="Print Page 1 only"
                 >
-                  <FileText className="h-3.5 w-3.5 text-blue-500" />
-                  Page 1 Only
+                  <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                  <span>Page 1</span>
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handlePrintSingle("page2")}
-                  className="gap-1.5 text-xs font-semibold rounded-xl border-border/80 cursor-pointer"
+                  className="gap-1.5 text-xs font-semibold h-10 sm:h-9.5 rounded-xl border-border/80 cursor-pointer justify-center"
                   title="Print Page 2 only"
                 >
-                  <FileText className="h-3.5 w-3.5 text-emerald-500" />
-                  Page 2 Only
+                  <FileText className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                  <span>Page 2</span>
                 </Button>
                 <Button
                   size="sm"
                   onClick={() => handlePrintSingle("all")}
-                  className="gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-9.5 cursor-pointer"
+                  className="col-span-2 sm:col-span-1 gap-2 text-xs font-bold rounded-xl shadow-md bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 h-10 sm:h-9.5 cursor-pointer justify-center"
                 >
-                  <Printer className="h-4 w-4" />
-                  Print Single Form
+                  <Printer className="h-4 w-4 shrink-0" />
+                  <span>Print Full Form</span>
                 </Button>
               </>
             )}
@@ -1516,7 +1511,7 @@ function AdmissionFormGeneratorContent() {
             </div>
 
             {/* Screen Preview Viewport */}
-            <div className="relative overflow-auto bg-muted/40 p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden min-h-[500px]">
+            <div className="relative overflow-auto bg-muted/40 p-2 sm:p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden min-h-[460px] sm:min-h-[500px]">
               {/* Floating Quick Page Flip Button */}
               <div className="absolute top-4 right-4 z-10">
                 <button

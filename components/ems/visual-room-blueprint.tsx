@@ -124,20 +124,20 @@ export function VisualRoomBlueprint({
         </div>
 
         {/* Search & Zoom Controls */}
-        <div className="flex items-center gap-2">
-          <div className="relative w-44 sm:w-52">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-52">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search Roll / Name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 text-xs h-8 bg-background/80 rounded-xl"
+              className="pl-8 text-base sm:text-xs h-9 sm:h-8 bg-background/80 rounded-xl"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -223,7 +223,7 @@ export function VisualRoomBlueprint({
       )}
 
       {/* Canvas / 2D Seating Floor Plan */}
-      <div className="relative overflow-x-auto overflow-y-auto p-4 sm:p-6 bg-slate-950/5 dark:bg-slate-950/40 rounded-2xl border border-border/50 min-h-[440px] flex justify-center">
+      <div className="relative overflow-x-auto overflow-y-auto p-2.5 sm:p-6 bg-slate-950/5 dark:bg-slate-950/40 rounded-2xl border border-border/50 min-h-[380px] sm:min-h-[440px] flex justify-center custom-scrollbar touch-pan-x touch-pan-y">
         <div
           style={{ transform: `scale(${zoomLevel})`, transformOrigin: "top center" }}
           className="transition-transform duration-150 flex flex-col items-center min-w-max px-4 py-2"

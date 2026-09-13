@@ -270,11 +270,11 @@ function TransferCertificateGeneratorContent() {
           <button
             onClick={() => router.back()}
             title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
             <FileSpreadsheet className="h-5 w-5" />
           </div>
           <div>
@@ -285,15 +285,15 @@ function TransferCertificateGeneratorContent() {
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
           {/* Copy Type Selector */}
-          <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
+          <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
             {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => setCert({ ...cert, copyType: type })}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial text-center px-3 py-2 sm:py-1.5 rounded-lg transition-all cursor-pointer ${
                   cert.copyType === type
                     ? "bg-background text-foreground shadow-xs font-bold"
                     : "text-muted-foreground hover:text-foreground"
@@ -304,31 +304,33 @@ function TransferCertificateGeneratorContent() {
             ))}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsHistoryOpen(true)}
-            title="View print history and undo certificate serials"
-            className="gap-1.5 text-xs font-semibold h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            <span>Undo Last Print</span>
-          </Button>
+          <div className="grid grid-cols-2 sm:flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsHistoryOpen(true)}
+              title="View print history and undo certificate serials"
+              className="gap-1.5 text-xs font-semibold h-10 sm:h-9 px-3 rounded-xl border-amber-300 dark:border-amber-700 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer shadow-2xs"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span>Undo Print</span>
+            </Button>
 
-          <Button
-            onClick={handlePrint}
-            className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-9 px-4 rounded-xl"
-          >
-            <Printer className="h-4 w-4" />
-            <span>Print TC (A5)</span>
-          </Button>
+            <Button
+              onClick={handlePrint}
+              className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
+            >
+              <Printer className="h-4 w-4 shrink-0" />
+              <span>Print TC (A5)</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Main Grid: Left Inputs + Right Certificate Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
-        <div className="xl:col-span-5 space-y-4 print:hidden overflow-y-auto max-h-[calc(100vh-140px)] pr-2 pb-48">
+        <div className="xl:col-span-5 space-y-4 print:hidden xl:overflow-y-auto xl:max-h-[calc(100vh-140px)] xl:pr-2 pb-16 xl:pb-48">
           {/* Card 1: Student Search & Core Details */}
           <Card className="border shadow-2xs overflow-visible">
             <CardHeader className="p-4 border-b bg-muted/20">
@@ -724,9 +726,9 @@ function TransferCertificateGeneratorContent() {
             </div>
 
             {/* Scale slider */}
-            <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
+            <div className="flex items-center gap-1.5 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
               <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-              {[0.9, 1.0, 1.1].map((s) => (
+              {[0.6, 0.75, 0.9, 1.0, 1.1].map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -746,7 +748,7 @@ function TransferCertificateGeneratorContent() {
           {/* Certificate Canvas */}
           <div
             id="printable-tc-canvas"
-            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
+            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[460px] sm:min-h-[580px]"
           >
             <div
               style={{

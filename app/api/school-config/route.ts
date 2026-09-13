@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export const dynamic = "force-dynamic";
 
@@ -109,8 +110,20 @@ async function saveConfigToStorage(
   return saved;
 }
 
+interface CachedConfig {
+  data: any;
+  cachedAt: number;
+}
+let memoryConfigCache: CachedConfig | null = null;
+const CACHE_TTL_MS = 60 * 1000;
+
 export async function GET(request: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
 
@@ -121,34 +134,102 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Invalid configuration key" }, { status: 400 });
       }
 
+      // Serve from memory cache if available
+      if (memoryConfigCache && Date.now() - memoryConfigCache.cachedAt < CACHE_TTL_MS) {
+        const cachedMap = memoryConfigCache.data?.data;
+        if (cachedMap && cachedMap[key] !== undefined) {
+          return NextResponse.json(
+            {
+              success: true,
+              key,
+              data: cachedMap[key],
+              updatedAt: null,
+            },
+            {
+              headers: {
+                "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+              },
+            }
+          );
+        }
+      }
+
       const result = await getConfigFromStorage(supabase, key);
 
-      return NextResponse.json({
-        success: true,
-        key,
-        data: result ? result.value : null,
-        updatedAt: result?.updatedAt || null,
+      return NextResponse.json(
+        {
+          success: true,
+          key,
+          data: result ? result.value : null,
+          updatedAt: result?.updatedAt || null,
+        },
+        {
+          headers: {
+            "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+          },
+        }
+      );
+    }
+
+    // Check memory cache for full config
+    if (memoryConfigCache && Date.now() - memoryConfigCache.cachedAt < CACHE_TTL_MS) {
+      return NextResponse.json(memoryConfigCache.data, {
+        headers: {
+          "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
+        },
       });
     }
 
-    // Fetch all configurations in parallel
+    // Fetch all configurations via single batch query with fallback
     const configMap: Record<string, any> = {};
-    const fetchPromises = ["school_profile", "class_management", "marks_schemes", "promotion_policy"].map(
-      async (k) => {
-        const item = await getConfigFromStorage(supabase, k);
-        configMap[k] = item?.value || null;
+    const ALL_KEYS = ["school_profile", "class_management", "marks_schemes", "promotion_policy"];
+
+    try {
+      const { data: batchData, error: batchError } = await supabase
+        .from("system_config")
+        .select("key, value")
+        .in("key", ALL_KEYS);
+
+      if (!batchError && batchData && batchData.length > 0) {
+        for (const item of batchData) {
+          if (item.value !== undefined && item.value !== null) {
+            configMap[item.key] = item.value;
+          }
+        }
       }
-    );
+    } catch {
+      // Fallback
+    }
 
-    await Promise.all(fetchPromises);
+    // For any key still missing, check fallback
+    const missingKeys = ALL_KEYS.filter((k) => configMap[k] === undefined);
+    if (missingKeys.length > 0) {
+      await Promise.all(
+        missingKeys.map(async (k) => {
+          const item = await getConfigFromStorage(supabase, k);
+          configMap[k] = item?.value || null;
+        })
+      );
+    }
 
-    return NextResponse.json({
+    const responsePayload = {
       success: true,
       data: {
         school_profile: configMap.school_profile || null,
         class_management: configMap.class_management || null,
         marks_schemes: configMap.marks_schemes || null,
         promotion_policy: configMap.promotion_policy || null,
+      },
+    };
+
+    memoryConfigCache = {
+      data: responsePayload,
+      cachedAt: Date.now(),
+    };
+
+    return NextResponse.json(responsePayload, {
+      headers: {
+        "Cache-Control": "private, max-age=60, stale-while-revalidate=120",
       },
     });
   } catch (err: any) {
@@ -159,6 +240,17 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (auth.role !== "Admin") {
+      return NextResponse.json(
+        { error: "Forbidden: Only Admins can change school configuration" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { key, value } = body;
 
@@ -185,6 +277,9 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    // Invalidate cache
+    memoryConfigCache = null;
 
     return NextResponse.json({
       success: true,
