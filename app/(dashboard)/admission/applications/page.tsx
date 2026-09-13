@@ -389,11 +389,14 @@ export default function ApplicationsDeskPage() {
                     value={assignedSection}
                     onChange={setAssignedSection}
                     options={[
-                      { value: "A", label: "Section A" },
-                      { value: "B", label: "Section B" },
-                      { value: "C", label: "Section C" },
-                      { value: "D", label: "Section D" },
+                      { value: "A", label: "A" },
+                      { value: "B", label: "B" },
+                      { value: "C", label: "C" },
+                      { value: "D", label: "D" },
                     ]}
+                    searchable={false}
+                    placeholder="Sec"
+                    triggerClassName="h-9 text-xs font-bold px-3"
                   />
                 </div>
 

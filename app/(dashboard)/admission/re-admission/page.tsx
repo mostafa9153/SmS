@@ -554,9 +554,11 @@ export default function ReAdmissionPage() {
                         onChange={setNewSection}
                         options={(sections.length ? sections : ["A", "B", "C", "D"]).map((sec) => ({
                           value: sec,
-                          label: `Sec ${sec}`,
+                          label: sec,
                         }))}
+                        searchable={false}
                         placeholder="Sec"
+                        triggerClassName="h-8 text-xs font-bold px-2.5"
                       />
                     </div>
                     <div>
