@@ -57,8 +57,8 @@ export function ClassMultiSelectDropdown({
   selectedClasses = [],
   onChange,
   availableClasses = DEFAULT_SCHOOL_CLASSES,
-  label = "Assigned Classes (কোন কোন ক্লাসের ক্লাস নেন)",
-  placeholder = "Select classes from dropdown...",
+  label = "Assigned Classes",
+  placeholder = "Select assigned classes (Class V to XII)...",
 }: ClassMultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);

@@ -1,4 +1,5 @@
 import { CalendarClock } from "lucide-react";
+import Link from "next/link";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import AcademicSessionClient from "@/app/(dashboard)/academic-session/academic-session-client";
 
@@ -15,7 +16,14 @@ export default function AcademicSessionSettingsPage() {
         subtitle="Manage RTE promotion rules, calculate merit ranks, and roll the school into a new session."
         icon={CalendarClock}
         iconColor="text-cyan-600 dark:text-cyan-400 bg-cyan-500/10"
-      />
+      >
+        <Link
+          href="/students/promotion"
+          className="text-xs text-muted-foreground hover:text-foreground font-medium underline inline-flex items-center gap-1"
+        >
+          Individual Class Promotion →
+        </Link>
+      </SettingsPageHeader>
       <AcademicSessionClient />
     </div>
   );

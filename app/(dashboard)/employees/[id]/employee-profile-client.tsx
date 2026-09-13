@@ -55,6 +55,12 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
   const subject1 = profMeta.subject_1 || primaryMeta.appointed_subject || "";
   const additionalSubjects = profMeta.additional_subjects || "";
 
+  const teachingSubjects: string[] = Array.isArray(profMeta.teaching_subjects) && profMeta.teaching_subjects.length > 0
+    ? profMeta.teaching_subjects
+    : Array.isArray(primaryMeta.teaching_subjects) && primaryMeta.teaching_subjects.length > 0
+    ? primaryMeta.teaching_subjects
+    : [subject1, ...(additionalSubjects ? additionalSubjects.split(",").map((s: string) => s.trim()) : [])].filter(Boolean);
+
   return (
     <div className="p-3.5 sm:p-6 space-y-5 max-w-7xl mx-auto w-full animate-fade-in-up">
       {/* 1. Header Navigation & Action Bar */}
@@ -533,45 +539,73 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
               />
             </div>
 
-            {/* Academic & Teaching Assignments (Classes & Subject 1) */}
+            {/* Academic & Teaching Assignments (Classes & Teaching Subjects) */}
             <Card className="lg:col-span-3 rounded-2xl border border-border/80 shadow-xs bg-card/90">
               <CardHeader className="pb-3 flex flex-row items-center justify-between">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  Academic & Teaching Assignments (পাঠদান ও শ্রেণী দায়িত্ব)
+                  Academic & Teaching Assignments
                 </CardTitle>
-                {assignedClasses.length > 0 && (
-                  <Badge
-                    variant="outline"
-                    className="text-[11px] font-mono font-semibold bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300"
-                  >
-                    {assignedClasses.length} Classes Assigned
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {teachingSubjects.length > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-mono font-semibold bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300"
+                    >
+                      {teachingSubjects.length} {teachingSubjects.length === 1 ? "Subject" : "Subjects"}
+                    </Badge>
+                  )}
+                  {assignedClasses.length > 0 && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-mono font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300"
+                    >
+                      {assignedClasses.length} {assignedClasses.length === 1 ? "Class" : "Classes"}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4 text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Subject 1 */}
-                  <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50 space-y-1">
+                {/* Teaching Subjects */}
+                <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50 space-y-2">
+                  <div className="flex items-center justify-between">
                     <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                      <span>Subject 1 (Primary Subject)</span>
-                      <span className="text-[10px] text-muted-foreground">• মূল বিষয়</span>
+                      <BookOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Teaching Subjects</span>
                     </span>
-                    <p className="font-extrabold text-foreground text-base">
-                      {subject1 || <span className="text-muted-foreground font-normal italic">Not assigned yet</span>}
-                    </p>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {teachingSubjects.length > 0
+                        ? `${teachingSubjects.length} subjects assigned`
+                        : "No subjects assigned"}
+                    </span>
                   </div>
 
-                  {/* Additional Subjects */}
-                  <div className="p-3.5 rounded-xl bg-muted/50 border border-border/50 space-y-1">
-                    <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                      <span>Additional Subjects</span>
-                      <span className="text-[10px] text-muted-foreground">• অতিরিক্ত বিষয়</span>
-                    </span>
-                    <p className="font-semibold text-foreground text-sm">
-                      {additionalSubjects || <span className="text-muted-foreground font-normal italic">None</span>}
+                  {teachingSubjects.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {teachingSubjects.map((sub, idx) => (
+                        <div
+                          key={sub}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-medium border shadow-2xs",
+                            idx === 0
+                              ? "bg-indigo-50 border-indigo-200 text-indigo-900 dark:bg-indigo-950/50 dark:border-indigo-800 dark:text-indigo-200 ring-1 ring-indigo-500/20 font-semibold"
+                              : "bg-card border-border text-foreground"
+                          )}
+                        >
+                          <span>{sub}</span>
+                          {idx === 0 && (
+                            <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-indigo-200/60 dark:bg-indigo-800/60 text-indigo-800 dark:text-indigo-200">
+                              Primary
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground italic text-xs py-1">
+                      No subjects have been assigned yet. Click "Edit Profile" to add teaching subjects.
                     </p>
-                  </div>
+                  )}
                 </div>
 
                 {/* Assigned Classes */}
@@ -579,7 +613,7 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground font-medium flex items-center gap-1.5">
                       <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span>Assigned Classes (কোন কোন ক্লাসের ক্লাস নেন)</span>
+                      <span>Assigned Classes</span>
                     </span>
                     <span className="text-[11px] font-medium text-muted-foreground">
                       {assignedClasses.length > 0

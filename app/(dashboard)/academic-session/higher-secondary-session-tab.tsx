@@ -121,26 +121,6 @@ export function HigherSecondarySessionTab() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 border-b pb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Higher Secondary Section (Classes XI–XII) Session Transition</h1>
-        </div>
-        <Link
-          href="/students/promotion"
-          className="text-xs text-muted-foreground hover:text-foreground font-medium underline"
-        >
-          Individual Class Promotion →
-        </Link>
-      </div>
 
       {/* Success banner if just completed */}
       {transitionResult && (
@@ -326,7 +306,7 @@ export function HigherSecondarySessionTab() {
                   </div>
                   {c.className === "XII" ? (
                     <div className="flex justify-between">
-                      <span>Sent to MP:</span>{" "}
+                      <span>Sent Up H.S.:</span>{" "}
                       <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">
                         {c.sentToMpCount ?? c.promotedCount}
                       </span>
@@ -523,7 +503,7 @@ export function HigherSecondarySessionTab() {
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
           <ShieldAlert className="h-4 w-4 text-primary" />
-          Ready to advance Secondary Section to Session {toYear} ({effectivePromotedCount} Promoted / Sent to MP, {effectiveDetainedCount} Detained)
+          Ready to advance Higher Secondary Section to Session {toYear} ({effectivePromotedCount} Promoted / Sent Up H.S., {effectiveDetainedCount} Detained)
         </p>
         <button
           onClick={() => setConfirmModalOpen(true)}
@@ -545,7 +525,7 @@ export function HigherSecondarySessionTab() {
             </div>
             <DialogDescription className="pt-2 text-xs space-y-2">
               <p>
-                You are about to advance Secondary Section students (Classes XI–XII) from <strong>Session {fromYear}</strong> to <strong>Session {toYear}</strong>.
+                You are about to advance Higher Secondary Section students (Classes XI–XII) from <strong>Session {fromYear}</strong> to <strong>Session {toYear}</strong>.
               </p>
               <ul className="list-disc pl-4 space-y-1.5 text-foreground">
                 <li><strong>Class XI (Pass Required):</strong> ১১ থেকে ১২-এ প্রমোট হতে হলে ন্যূনতম <strong>{minPassPercentage}%</strong> নম্বর পেতে হবে (কম পেলে Class XI-এ Detained)।</li>

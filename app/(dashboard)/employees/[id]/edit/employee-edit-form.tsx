@@ -24,6 +24,7 @@ import {
   ClassMultiSelectDropdown,
   STANDARD_SCHOOL_SUBJECTS,
 } from "@/components/employees/class-multi-select-dropdown";
+import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -47,8 +48,28 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
     academic_section: staff.primary_meta?.academic_section || "Secondary",
 
     // Teaching Assignments & Professional
-    subject_1: staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject || "",
-    additional_subjects: staff.professional_meta?.additional_subjects || "",
+    teaching_subjects: (() => {
+      if (
+        Array.isArray(staff.professional_meta?.teaching_subjects) &&
+        staff.professional_meta.teaching_subjects.length > 0
+      ) {
+        return staff.professional_meta.teaching_subjects;
+      }
+      const list: string[] = [];
+      const primarySub =
+        staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject;
+      if (primarySub) list.push(primarySub);
+      if (staff.professional_meta?.additional_subjects) {
+        const adds = String(staff.professional_meta.additional_subjects)
+          .split(",")
+          .map((s: string) => s.trim())
+          .filter(Boolean);
+        adds.forEach((a: string) => {
+          if (!list.includes(a)) list.push(a);
+        });
+      }
+      return list;
+    })(),
     assigned_classes: Array.isArray(staff.professional_meta?.assigned_classes)
       ? staff.professional_meta.assigned_classes
       : Array.isArray(staff.primary_meta?.assigned_classes)
@@ -115,9 +136,10 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
         // Primary meta
         primary_meta: {
           ...(staff.primary_meta || {}),
-          appointed_subject: formData.subject_1.trim(),
+          appointed_subject: formData.teaching_subjects[0] || "",
           academic_section: formData.academic_section,
           assigned_classes: formData.assigned_classes,
+          teaching_subjects: formData.teaching_subjects,
         },
 
         // Professional meta & appointment
@@ -127,8 +149,9 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
           ...(staff.professional_meta || {}),
           professional_qualification: formData.professional_qualification.trim(),
           post_status: formData.post_status.trim(),
-          subject_1: formData.subject_1.trim(),
-          additional_subjects: formData.additional_subjects.trim(),
+          subject_1: formData.teaching_subjects[0] || "",
+          additional_subjects: formData.teaching_subjects.slice(1).join(", "),
+          teaching_subjects: formData.teaching_subjects,
           assigned_classes: formData.assigned_classes,
         },
 
@@ -363,66 +386,13 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
           </FormGrid>
         </FormSection>
 
-        {/* SECTION B: Academic & Teaching Assignments */}
+        {/* SECTION B: Service Records & Teaching Assignments */}
         <FormSection
-          title="B. Teaching Assignments & Service Record (পাঠদান ও শ্রেণী দায়িত্ব)"
-          icon={<BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
+          title="B. Service Records & Teaching Assignments"
+          icon={<Briefcase className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />}
         >
+          {/* Top Grid: Service & Appointment Info */}
           <FormGrid>
-            {/* Subject 1 Dropdown */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1.5 flex items-center justify-between">
-                <span>Subject 1 (Primary Subject) *</span>
-                <span className="text-[10px] text-muted-foreground font-normal">মূল পাঠদান বিষয়</span>
-              </label>
-              <div className="space-y-2">
-                <select
-                  value={
-                    STANDARD_SCHOOL_SUBJECTS.includes(formData.subject_1)
-                      ? formData.subject_1
-                      : formData.subject_1
-                      ? "CUSTOM"
-                      : ""
-                  }
-                  onChange={(e) => {
-                    if (e.target.value === "CUSTOM") {
-                      setFormData({ ...formData, subject_1: "" });
-                    } else {
-                      setFormData({ ...formData, subject_1: e.target.value });
-                    }
-                  }}
-                  className="w-full rounded-xl border border-input bg-background px-3.5 py-2 text-sm h-10 outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">Select Primary Subject (Subject 1)...</option>
-                  {STANDARD_SCHOOL_SUBJECTS.map((sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
-                    </option>
-                  ))}
-                  <option value="CUSTOM">+ Other Subject (Type below)</option>
-                </select>
-
-                {(!STANDARD_SCHOOL_SUBJECTS.includes(formData.subject_1) || formData.subject_1 === "") && (
-                  <input
-                    value={formData.subject_1}
-                    onChange={(e) => setFormData({ ...formData, subject_1: e.target.value })}
-                    placeholder="Enter Subject 1 name (e.g. Environmental Science)"
-                    className="w-full rounded-xl border border-input bg-background px-3.5 py-2 text-sm h-10 outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Additional Subjects */}
-            <FormField label="Additional Subjects (অতিরিক্ত বিষয়)">
-              <input
-                value={formData.additional_subjects}
-                onChange={(e) => setFormData({ ...formData, additional_subjects: e.target.value })}
-                placeholder="e.g. Work Education, Physical Education"
-              />
-            </FormField>
-
-            {/* Service Type */}
             <FormField label="Service Type">
               <input
                 value={formData.service_type}
@@ -431,7 +401,6 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
               />
             </FormField>
 
-            {/* Appointment Memo */}
             <FormField label="Appointment Memo No.">
               <input
                 value={formData.appointment_memo}
@@ -441,7 +410,6 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
               />
             </FormField>
 
-            {/* Professional Qualification */}
             <FormField label="Professional Qualification">
               <input
                 value={formData.professional_qualification}
@@ -452,7 +420,6 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
               />
             </FormField>
 
-            {/* Post Status */}
             <FormField label="Post Status">
               <input
                 value={formData.post_status}
@@ -462,14 +429,24 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
             </FormField>
           </FormGrid>
 
-          {/* Assigned Classes Dropdown Multi-Select (Full width) */}
-          <div className="pt-3 border-t border-border/60">
-            <ClassMultiSelectDropdown
-              selectedClasses={formData.assigned_classes}
-              onChange={(classes) => setFormData({ ...formData, assigned_classes: classes })}
-              label="Assigned Classes (কোন কোন ক্লাসের ক্লাস নেন — ড্রপ ডাউন সিলেক্টর)"
-              placeholder="Click to select classes (Class V, Class VI, Class VII, Class VIII, Class IX, Class X, Class XI, Class XII)..."
+          {/* Bottom Sub-sections: Teaching Subjects & Classes */}
+          <div className="pt-4 border-t border-border/70 space-y-5">
+            {/* 1. Teaching Subjects with Add Button */}
+            <SubjectMultiSelect
+              subjects={formData.teaching_subjects}
+              onChange={(newSubs) => setFormData({ ...formData, teaching_subjects: newSubs })}
+              label="Teaching Subjects"
             />
+
+            {/* 2. Assigned Classes Multi-Select Dropdown */}
+            <div className="pt-3 border-t border-border/50">
+              <ClassMultiSelectDropdown
+                selectedClasses={formData.assigned_classes}
+                onChange={(classes) => setFormData({ ...formData, assigned_classes: classes })}
+                label="Assigned Classes"
+                placeholder="Select classes taught (Class V to XII)..."
+              />
+            </div>
           </div>
         </FormSection>
 

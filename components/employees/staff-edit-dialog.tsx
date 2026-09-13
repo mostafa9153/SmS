@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
 import { Loader2, Save, Briefcase, User, MapPin, GraduationCap, BookOpen, Layers } from "lucide-react";
 import { ClassMultiSelectDropdown, DEFAULT_SCHOOL_CLASSES } from "@/components/employees/class-multi-select-dropdown";
+import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 
 export const STANDARD_SCHOOL_SUBJECTS = [
   "Bengali (1st Language)",
@@ -104,6 +105,14 @@ export function StaffEditDialog({
     post_status: staff.professional_meta?.post_status || "Sanctioned Post",
     subject_1: staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject || "",
     additional_subjects: staff.professional_meta?.additional_subjects || "",
+    teaching_subjects: Array.isArray(staff.professional_meta?.teaching_subjects) && staff.professional_meta.teaching_subjects.length > 0
+      ? staff.professional_meta.teaching_subjects
+      : Array.isArray(staff.primary_meta?.teaching_subjects) && staff.primary_meta.teaching_subjects.length > 0
+      ? staff.primary_meta.teaching_subjects
+      : [
+          staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject || "",
+          ...(staff.professional_meta?.additional_subjects ? staff.professional_meta.additional_subjects.split(",").map((s: string) => s.trim()) : [])
+        ].filter(Boolean),
     assigned_classes: Array.isArray(staff.professional_meta?.assigned_classes)
       ? staff.professional_meta.assigned_classes
       : Array.isArray(staff.primary_meta?.assigned_classes)
@@ -115,6 +124,15 @@ export function StaffEditDialog({
 
   // Sync state whenever staff changes
   useEffect(() => {
+    const subjectsList: string[] = Array.isArray(staff.professional_meta?.teaching_subjects) && staff.professional_meta.teaching_subjects.length > 0
+      ? staff.professional_meta.teaching_subjects
+      : Array.isArray(staff.primary_meta?.teaching_subjects) && staff.primary_meta.teaching_subjects.length > 0
+      ? staff.primary_meta.teaching_subjects
+      : [
+          staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject || "",
+          ...(staff.professional_meta?.additional_subjects ? staff.professional_meta.additional_subjects.split(",").map((s: string) => s.trim()) : [])
+        ].filter(Boolean);
+
     setFormData({
       full_name: staff.full_name || "",
       unique_id: staff.unique_id || "",
@@ -156,6 +174,7 @@ export function StaffEditDialog({
       post_status: staff.professional_meta?.post_status || "Sanctioned Post",
       subject_1: staff.professional_meta?.subject_1 || staff.primary_meta?.appointed_subject || "",
       additional_subjects: staff.professional_meta?.additional_subjects || "",
+      teaching_subjects: subjectsList,
       assigned_classes: Array.isArray(staff.professional_meta?.assigned_classes)
         ? staff.professional_meta.assigned_classes
         : Array.isArray(staff.primary_meta?.assigned_classes)
@@ -190,9 +209,10 @@ export function StaffEditDialog({
         
         primary_meta: {
           ...(staff.primary_meta || {}),
-          appointed_subject: formData.subject_1 || formData.appointed_subject,
+          appointed_subject: formData.teaching_subjects[0] || formData.subject_1 || formData.appointed_subject || "",
           academic_section: formData.academic_section,
           assigned_classes: formData.assigned_classes,
+          teaching_subjects: formData.teaching_subjects,
         },
 
         bank_details: {
@@ -236,8 +256,9 @@ export function StaffEditDialog({
           ...(staff.professional_meta || {}),
           professional_qualification: formData.professional_qualification,
           post_status: formData.post_status,
-          subject_1: formData.subject_1,
-          additional_subjects: formData.additional_subjects,
+          subject_1: formData.teaching_subjects[0] || formData.subject_1 || "",
+          additional_subjects: formData.teaching_subjects.slice(1).join(", "),
+          teaching_subjects: formData.teaching_subjects,
           assigned_classes: formData.assigned_classes,
         },
       };
@@ -632,82 +653,28 @@ export function StaffEditDialog({
                 </div>
               </div>
 
-              {/* Teaching Assignment Section: Subject 1 & Assigned Classes */}
-              <div className="pt-3.5 border-t border-border/70 space-y-3.5">
+              {/* Teaching Assignment Section: Teaching Subjects & Assigned Classes */}
+              <div className="pt-3.5 border-t border-border/70 space-y-4">
                 <div className="flex items-center gap-2">
                   <BookOpen className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                    Teaching Assignment & Classes (পাঠদান ও শ্রেণী দায়িত্ব)
+                    Teaching Assignments & Classes
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Subject 1 (Primary Subject) */}
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center justify-between">
-                      <span>Subject 1 (Primary Subject) *</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">মূল পাঠদান বিষয়</span>
-                    </Label>
-                    <div className="space-y-1.5">
-                      <select
-                        value={
-                          STANDARD_SCHOOL_SUBJECTS.includes(formData.subject_1)
-                            ? formData.subject_1
-                            : formData.subject_1
-                            ? "CUSTOM"
-                            : ""
-                        }
-                        onChange={(e) => {
-                          if (e.target.value === "CUSTOM") {
-                            setFormData({ ...formData, subject_1: "" });
-                          } else {
-                            setFormData({ ...formData, subject_1: e.target.value });
-                          }
-                        }}
-                        className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs focus:ring-2 focus:ring-primary/20"
-                      >
-                        <option value="">Select Subject 1 (Primary)...</option>
-                        {STANDARD_SCHOOL_SUBJECTS.map((sub) => (
-                          <option key={sub} value={sub}>
-                            {sub}
-                          </option>
-                        ))}
-                        <option value="CUSTOM">+ Other Subject (Type below)</option>
-                      </select>
+                {/* 1. Teaching Subjects with Add Button */}
+                <SubjectMultiSelect
+                  subjects={formData.teaching_subjects}
+                  onChange={(newSubs) => setFormData({ ...formData, teaching_subjects: newSubs })}
+                  label="Teaching Subjects"
+                />
 
-                      {(!STANDARD_SCHOOL_SUBJECTS.includes(formData.subject_1) || formData.subject_1 === "") && (
-                        <Input
-                          value={formData.subject_1}
-                          onChange={(e) => setFormData({ ...formData, subject_1: e.target.value })}
-                          placeholder="Enter Subject 1 name (e.g. Mathematics, Bengali)"
-                          className="h-9 text-xs rounded-xl font-medium"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Additional Subjects */}
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium flex items-center justify-between">
-                      <span>Additional Subjects</span>
-                      <span className="text-[10px] text-muted-foreground font-normal">অতিরিক্ত বিষয়</span>
-                    </Label>
-                    <Input
-                      value={formData.additional_subjects}
-                      onChange={(e) => setFormData({ ...formData, additional_subjects: e.target.value })}
-                      placeholder="e.g. Work Education, Physical Education"
-                      className="h-9 text-xs rounded-xl"
-                    />
-                    <p className="text-[10px] text-muted-foreground">Optional other subjects taken by the teacher.</p>
-                  </div>
-                </div>
-
-                {/* Assigned Classes Multi-Select Dropdown */}
-                <div className="pt-1">
+                {/* 2. Assigned Classes Multi-Select Dropdown */}
+                <div className="pt-2 border-t border-border/50">
                   <ClassMultiSelectDropdown
                     selectedClasses={formData.assigned_classes}
                     onChange={(classes) => setFormData({ ...formData, assigned_classes: classes })}
-                    label="Assigned Classes (কোন কোন ক্লাসের ক্লাস নেন)"
+                    label="Assigned Classes"
                     placeholder="Click to choose classes (Class V to XII)..."
                   />
                 </div>
