@@ -218,6 +218,12 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     scoutsGuides: db.scouts_guides,
     distanceToSchool: db.distance_to_school != null ? Number(db.distance_to_school) : undefined,
     highestEducationParents: db.highest_education_parents || undefined,
+
+    // D. Re-admission & Invoice Queue
+    reAdmissionStatus: (db as any).re_admission_status || undefined,
+    reAdmittedAt: (db as any).re_admitted_at || undefined,
+    isInvoiceQueued: (db as any).is_invoice_queued !== undefined ? Boolean((db as any).is_invoice_queued) : undefined,
+    invoicePrintedAt: (db as any).invoice_printed_at || undefined,
   };
 }
 
@@ -365,6 +371,10 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "bank_ifsc",
   "academic_stream",
   "blood_group",
+  "re_admission_status",
+  "is_invoice_queued",
+  "re_admitted_at",
+  "invoice_printed_at",
   "created_at",
   "updated_at",
 ].join(",");

@@ -51,6 +51,7 @@ export interface Student {
   reAdmittedAt?: string;
   reAdmittedSession?: string;
   isInvoiceQueued?: boolean;
+  invoicePrintedAt?: string;
   admissionYear: number;         // Year of first admission
   admissionDate?: string;        // ISO date of admission
   previousSchool?: string;       // Name of school before joining

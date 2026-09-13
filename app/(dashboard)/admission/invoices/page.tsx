@@ -66,13 +66,13 @@ export default function BulkInvoicesPage() {
   });
 
   // Filter students who are ready for invoice printing
-  // Admitted either via re-admission or new admission or flagged with isInvoiceQueued
+  // Admitted students currently pending in the invoice queue
   const queuedStudents = useMemo(() => {
     return allStudents.filter((s) => {
       if (s.currentStatus !== "Continuing") return false;
       return (
         s.isInvoiceQueued === true ||
-        s.reAdmissionStatus === "admitted"
+        (s.reAdmissionStatus === "admitted" && s.isInvoiceQueued !== false && !s.invoicePrintedAt)
       );
     });
   }, [allStudents]);
@@ -155,15 +155,21 @@ export default function BulkInvoicesPage() {
   // Mutation to clear invoice queue for a group
   const clearQueueMutation = useMutation({
     mutationFn: async (students: Student[]) => {
-      const updates = students.map((s) => ({
-        id: s.id,
-        changes: { isInvoiceQueued: false, invoice_printed_at: new Date().toISOString() },
-      }));
-      return bulkUpdateStudents(updates as any);
+      const studentIds = students.map((s) => s.id);
+      const res = await fetch("/api/admission/invoices/mark-printed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentIds }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update queue");
+      }
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
-      showToast("Invoices marked as printed & archived!", "success");
+      showToast(`${data.clearedCount || "Invoices"} printed & removed from queue!`, "success");
       setPrintModalOpen(false);
     },
     onError: (err: any) => {
@@ -355,11 +361,19 @@ export default function BulkInvoicesPage() {
                 </div>
 
                 <Button
-                  onClick={executeBrowserPrint}
+                  onClick={() => {
+                    executeBrowserPrint();
+                    if (activePrintGroup) {
+                      setTimeout(() => {
+                        clearQueueMutation.mutate(activePrintGroup.students);
+                      }, 1000);
+                    }
+                  }}
+                  disabled={clearQueueMutation.isPending}
                   className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <Printer className="h-4 w-4" />
-                  <span>Print Now</span>
+                  <span>Print &amp; Clear Queue</span>
                 </Button>
 
                 {activePrintGroup && (
@@ -367,9 +381,9 @@ export default function BulkInvoicesPage() {
                     variant="outline"
                     onClick={() => clearQueueMutation.mutate(activePrintGroup.students)}
                     disabled={clearQueueMutation.isPending}
-                    className="text-xs font-semibold h-9 rounded-xl border-border"
+                    className="text-xs font-semibold h-9 rounded-xl border-border cursor-pointer hover:bg-muted"
                   >
-                    Mark as Printed
+                    <span>Clear from Queue</span>
                   </Button>
                 )}
               </div>
