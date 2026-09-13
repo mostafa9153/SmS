@@ -17,6 +17,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { cn, calculateDetailedAge } from "@/lib/utils";
+import { StaffRoundAvatar } from "@/components/employees/staff-round-avatar";
+import { StaffPhotoPreviewDialog } from "@/components/employees/staff-photo-preview-dialog";
 
 export interface StaffProfile {
   id: string;
@@ -27,6 +29,7 @@ export interface StaffProfile {
   caste?: string;
   mobile?: string;
   dob?: string;
+  profile_picture_url?: string | null;
   status: "ACTIVE" | "INACTIVE" | "RETIRED" | "SUSPENDED";
 }
 
@@ -38,6 +41,7 @@ interface StaffTableProps {
 export function StaffTable({ data, isLoading = false }: StaffTableProps) {
   const router = useRouter();
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [previewStaff, setPreviewStaff] = useState<StaffProfile | null>(null);
 
   const handleRowClick = (id: string) => {
     setNavigatingId(id);
@@ -103,10 +107,24 @@ export function StaffTable({ data, isLoading = false }: StaffTableProps) {
             >
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-center gap-2.5">
-                  {/* Avatar Initial */}
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-xs shrink-0">
-                    {staff.full_name?.charAt(0) || "U"}
-                  </div>
+                  {/* Staff Round Avatar */}
+                  <button
+                    type="button"
+                    data-prevent-row-click="true"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewStaff(staff);
+                    }}
+                    className="group/avatar relative rounded-full p-0.5 transition-all cursor-pointer hover:ring-2 hover:ring-blue-500/40 active:scale-95 shrink-0"
+                    title={`Click to view enlarged photo of ${staff.full_name}`}
+                  >
+                    <StaffRoundAvatar
+                      name={staff.full_name}
+                      photoUrl={staff.profile_picture_url}
+                      size="lg"
+                      className="transition-transform duration-200 group-hover/avatar:scale-105 shadow-xs"
+                    />
+                  </button>
                   <div>
                     <h3 className="font-bold text-sm text-foreground hover:text-primary transition-colors">
                       {staff.full_name}
@@ -252,11 +270,25 @@ export function StaffTable({ data, isLoading = false }: StaffTableProps) {
                   </td>
 
                   {/* Staff Member */}
-                  <td className="px-4 py-3.5 align-middle">
+                  <td className="px-4 py-3 align-middle">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs shrink-0">
-                        {staff.full_name?.charAt(0) || "U"}
-                      </div>
+                      <button
+                        type="button"
+                        data-prevent-row-click="true"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewStaff(staff);
+                        }}
+                        className="group/avatar relative rounded-full p-0.5 transition-all cursor-pointer hover:ring-3 hover:ring-blue-500/40 active:scale-95 shrink-0"
+                        title={`Click to view enlarged photo of ${staff.full_name}`}
+                      >
+                        <StaffRoundAvatar
+                          name={staff.full_name}
+                          photoUrl={staff.profile_picture_url}
+                          size="xl"
+                          className="transition-transform duration-200 group-hover/avatar:scale-105 shadow-md"
+                        />
+                      </button>
                       <div className="space-y-0.5">
                         <p className="font-bold text-sm text-foreground group-hover:text-primary transition-colors">
                           {staff.full_name}
@@ -375,6 +407,13 @@ export function StaffTable({ data, isLoading = false }: StaffTableProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Staff Photo Preview Pop-up Dialog */}
+      <StaffPhotoPreviewDialog
+        staff={previewStaff}
+        isOpen={!!previewStaff}
+        onClose={() => setPreviewStaff(null)}
+      />
     </div>
   );
 }

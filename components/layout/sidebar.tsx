@@ -73,9 +73,12 @@ const navItems: NavItem[] = [
   },
   {
     label: "Students Register",
-    href: "/students",
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
+    children: [
+      { label: "Active Students", href: "/active-students" },
+      { label: "Old Students", href: "/old-students" },
+    ],
   },
   {
     label: "Employee Registered",
@@ -299,14 +302,18 @@ function NavGroup({
         );
         return pathname === childPath && allMatch;
       }
-      if (c.href === "/students") {
+      if (c.href === "/active-students" || c.href === "/students") {
         return (
+          pathname === "/active-students" ||
           pathname === "/students" ||
           (pathname.startsWith("/students/") &&
             !["/students/add", "/students/bulk-upload", "/students/promotion"].some((route) =>
               pathname.startsWith(route)
             ))
         );
+      }
+      if (c.href === "/old-students") {
+        return pathname === "/old-students" || pathname.startsWith("/old-students/");
       }
       return pathname === c.href || pathname.startsWith(c.href + "/");
     }

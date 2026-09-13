@@ -242,10 +242,10 @@ export default function ReAdmissionPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <Link
             href="/admission/invoices"
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs sm:text-sm font-bold transition-all"
+            className="w-full sm:w-auto justify-center inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs sm:text-sm font-bold transition-all"
           >
             <Printer className="h-4 w-4" />
             <span>Class Invoice Queue</span>
@@ -284,7 +284,7 @@ export default function ReAdmissionPage() {
 
       {/* Filter Toolbar */}
       <div className="bg-card border rounded-2xl p-3.5 sm:p-4 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
           {/* Class Filter */}
           <div>
             <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
@@ -340,7 +340,7 @@ export default function ReAdmissionPage() {
           </div>
 
           {/* Search Query */}
-          <div>
+          <div className="col-span-2 md:col-span-1">
             <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">
               Search Student
             </label>
@@ -357,7 +357,7 @@ export default function ReAdmissionPage() {
         </div>
       </div>
 
-      {/* Students Table */}
+      {/* Students List */}
       <div className="bg-card border rounded-2xl overflow-hidden shadow-xs">
         <div className="px-4 py-3 border-b bg-muted/20 flex items-center justify-between">
           <span className="text-xs font-bold text-foreground">
@@ -381,104 +381,208 @@ export default function ReAdmissionPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                  <th className="py-3 px-4">Roll</th>
-                  <th className="py-3 px-4">Student Name</th>
-                  <th className="py-3 px-4">Current Class</th>
-                  <th className="py-3 px-4">Next Target</th>
-                  <th className="py-3 px-4">Re-admission Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredStudents.map((s) => {
-                  const targetNextClass = CLASS_NEXT_MAP[s.presentClass] || s.presentClass;
-                  const isAdmitted = s.reAdmissionStatus === "admitted";
-                  const isNotAdmitted = s.reAdmissionStatus === "not_admitted";
+          <div>
+            {/* Mobile Card List (Visible on mobile, hidden on md+) */}
+            <div className="md:hidden divide-y divide-border/60">
+              {filteredStudents.map((s) => {
+                const targetNextClass = CLASS_NEXT_MAP[s.presentClass] || s.presentClass;
+                const isAdmitted = s.reAdmissionStatus === "admitted";
+                const isNotAdmitted = s.reAdmissionStatus === "not_admitted";
 
-                  return (
-                    <tr
-                      key={s.id}
-                      className={cn(
-                        "hover:bg-muted/30 transition-colors",
-                        isAdmitted && "bg-emerald-500/5",
-                        isNotAdmitted && "bg-rose-500/5"
-                      )}
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-foreground">
-                        {s.presentRoll}
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                            {s.photoUrl ? (
-                              <img
-                                src={s.photoUrl}
-                                alt={s.name}
-                                className="h-full w-full object-cover rounded-full"
-                              />
-                            ) : (
-                              s.name.charAt(0).toUpperCase()
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-bold text-foreground leading-tight">{s.name}</p>
-                            <p className="text-[10px] text-muted-foreground font-mono">
-                              {s.schoolId || "ID Pending"} • Guardian: {s.fatherName || s.guardianName || "N/A"}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 font-semibold">
-                        Class {s.presentClass} ({s.presentSection || "A"})
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-flex items-center gap-1 font-bold text-primary">
-                          <span>Class {targetNextClass}</span>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                return (
+                  <div
+                    key={s.id}
+                    className={cn(
+                      "p-3.5 space-y-2.5 transition-colors",
+                      isAdmitted && "bg-emerald-500/[0.03]",
+                      isNotAdmitted && "bg-rose-500/[0.03]"
+                    )}
+                  >
+                    {/* Header: Roll & Status */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-foreground font-mono font-bold text-xs border">
+                        Roll #{s.presentRoll}
+                      </span>
+
+                      {isAdmitted ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Admitted (2026)</span>
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {isAdmitted ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Admitted (2026)</span>
-                          </span>
-                        ) : isNotAdmitted ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-                            <XCircle className="h-3 w-3" />
-                            <span>Not Admitted</span>
-                          </span>
+                      ) : isNotAdmitted ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                          <XCircle className="h-3 w-3" />
+                          <span>Not Admitted</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                          <Clock className="h-3 w-3" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Candidate Info */}
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden border">
+                        {s.photoUrl ? (
+                          <img
+                            src={s.photoUrl}
+                            alt={s.name}
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                            <Clock className="h-3 w-3" />
-                            <span>Pending</span>
-                          </span>
+                          s.name.charAt(0).toUpperCase()
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          size="sm"
-                          variant={isAdmitted ? "outline" : "default"}
-                          onClick={() => openConfirmModal(s)}
-                          className={cn(
-                            "h-8 text-xs font-bold rounded-xl cursor-pointer",
-                            isAdmitted
-                              ? "border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
-                              : "bg-orange-500 hover:bg-orange-600 text-white shadow-xs"
-                          )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-foreground leading-tight truncate">
+                          {s.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground font-mono mt-0.5 truncate">
+                          {s.schoolId || "ID Pending"} • Guardian: {s.fatherName || s.guardianName || "N/A"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Class Progression & Contact */}
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-dashed border-border/60 text-xs">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <span className="text-muted-foreground">Class {s.presentClass} ({s.presentSection || "A"})</span>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-bold text-primary">Class {targetNextClass}</span>
+                      </div>
+                      {s.studentContact && (
+                        <a
+                          href={`tel:${s.studentContact}`}
+                          className="text-[11px] font-mono text-primary hover:underline"
                         >
-                          {isAdmitted ? "Edit / Re-confirm" : "Take Re-admission"}
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          📞 {s.studentContact}
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-1.5 flex justify-end">
+                      <Button
+                        size="sm"
+                        variant={isAdmitted ? "outline" : "default"}
+                        onClick={() => openConfirmModal(s)}
+                        className={cn(
+                          "h-8 w-full sm:w-auto text-xs font-bold rounded-xl cursor-pointer",
+                          isAdmitted
+                            ? "border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
+                            : "bg-orange-500 hover:bg-orange-600 text-white shadow-xs"
+                        )}
+                      >
+                        {isAdmitted ? "Edit / Re-confirm" : "Take Re-admission"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (Hidden on mobile, visible md+) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                    <th className="py-3 px-4">Roll</th>
+                    <th className="py-3 px-4">Student Name</th>
+                    <th className="py-3 px-4">Current Class</th>
+                    <th className="py-3 px-4">Next Target</th>
+                    <th className="py-3 px-4">Re-admission Status</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {filteredStudents.map((s) => {
+                    const targetNextClass = CLASS_NEXT_MAP[s.presentClass] || s.presentClass;
+                    const isAdmitted = s.reAdmissionStatus === "admitted";
+                    const isNotAdmitted = s.reAdmissionStatus === "not_admitted";
+
+                    return (
+                      <tr
+                        key={s.id}
+                        className={cn(
+                          "hover:bg-muted/30 transition-colors",
+                          isAdmitted && "bg-emerald-500/5",
+                          isNotAdmitted && "bg-rose-500/5"
+                        )}
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-foreground">
+                          {s.presentRoll}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                              {s.photoUrl ? (
+                                <img
+                                  src={s.photoUrl}
+                                  alt={s.name}
+                                  className="h-full w-full object-cover rounded-full"
+                                />
+                              ) : (
+                                s.name.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-bold text-foreground leading-tight">{s.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-mono">
+                                {s.schoolId || "ID Pending"} • Guardian: {s.fatherName || s.guardianName || "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-semibold">
+                          Class {s.presentClass} ({s.presentSection || "A"})
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center gap-1 font-bold text-primary">
+                            <span>Class {targetNextClass}</span>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {isAdmitted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Admitted (2026)</span>
+                            </span>
+                          ) : isNotAdmitted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
+                              <XCircle className="h-3 w-3" />
+                              <span>Not Admitted</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                              <Clock className="h-3 w-3" />
+                              <span>Pending</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <Button
+                            size="sm"
+                            variant={isAdmitted ? "outline" : "default"}
+                            onClick={() => openConfirmModal(s)}
+                            className={cn(
+                              "h-8 text-xs font-bold rounded-xl cursor-pointer",
+                              isAdmitted
+                                ? "border-emerald-500/30 text-emerald-700 hover:bg-emerald-500/10"
+                                : "bg-orange-500 hover:bg-orange-600 text-white shadow-xs"
+                            )}
+                          >
+                            {isAdmitted ? "Edit / Re-confirm" : "Take Re-admission"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

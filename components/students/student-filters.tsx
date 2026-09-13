@@ -21,6 +21,7 @@ interface StudentFiltersBarProps {
   onChange: (filters: StudentFilters) => void;
   totalCount?: number;
   isLoading?: boolean;
+  hideStatusFilter?: boolean;
 }
 
 export function StudentFiltersBar({
@@ -28,6 +29,7 @@ export function StudentFiltersBar({
   onChange,
   totalCount,
   isLoading = false,
+  hideStatusFilter = false,
 }: StudentFiltersBarProps) {
   const [localQuery, setLocalQuery] = useState(filters.query ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -278,15 +280,17 @@ export function StudentFiltersBar({
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Status</label>
-              <FilterSelect
-                value={filters.status ?? ""}
-                onChange={(v) => onChange({ ...filters, status: (v as StudentStatus) || undefined })}
-                placeholder="Status"
-                options={STATUSES.map((s) => ({ label: s, value: s }))}
-              />
-            </div>
+            {!hideStatusFilter && (
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Status</label>
+                <FilterSelect
+                  value={filters.status ?? ""}
+                  onChange={(v) => onChange({ ...filters, status: (v as StudentStatus) || undefined })}
+                  placeholder="Status"
+                  options={STATUSES.map((s) => ({ label: s, value: s }))}
+                />
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground">Adm. Year</label>
@@ -425,14 +429,16 @@ export function StudentFiltersBar({
         />
 
         {/* Status filter */}
-        <FilterSelect
-          value={filters.status ?? ""}
-          onChange={(v) =>
-            onChange({ ...filters, status: (v as StudentStatus) || undefined })
-          }
-          placeholder="Status"
-          options={STATUSES.map((s) => ({ label: s, value: s }))}
-        />
+        {!hideStatusFilter && (
+          <FilterSelect
+            value={filters.status ?? ""}
+            onChange={(v) =>
+              onChange({ ...filters, status: (v as StudentStatus) || undefined })
+            }
+            placeholder="Status"
+            options={STATUSES.map((s) => ({ label: s, value: s }))}
+          />
+        )}
 
         {/* Admission year filter */}
         <FilterSelect

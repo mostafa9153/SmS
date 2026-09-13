@@ -12,7 +12,9 @@ export function MobileBottomBar() {
 
   const isHomeActive = pathname === "/";
   const isStudentsActive =
+    pathname === "/active-students" ||
     pathname === "/students" ||
+    pathname.startsWith("/old-students") ||
     (pathname.startsWith("/students/") &&
       !["/students/add", "/students/bulk-upload", "/students/promotion"].some((r) =>
         pathname.startsWith(r)
@@ -40,7 +42,7 @@ export function MobileBottomBar() {
 
         {/* Students */}
         <Link
-          href="/students"
+          href="/active-students"
           className={cn(
             "flex flex-col items-center justify-center h-full gap-0.5 transition-colors touch-manipulation active:scale-95",
             isStudentsActive ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"

@@ -55,6 +55,7 @@ export async function searchStudents(
   if (filters.scheme) params.append("scheme", filters.scheme);
   if (filters.hasAadhaar) params.append("hasAadhaar", filters.hasAadhaar);
   if (filters.ageSlab) params.append("ageSlab", filters.ageSlab);
+  if (filters.studentType) params.append("type", filters.studentType);
   params.append("page", String(page));
   params.append("pageSize", String(pageSize));
   params.append("projection", projection);
@@ -413,6 +414,63 @@ export async function getCurrentUserRole(): Promise<{
   }
   return res.json();
 }
+
+export interface OldStudentItem {
+  id: string;
+  name: string;
+  schoolId?: string;
+  pen?: string;
+  studentClass: string;
+  section: string;
+  roll: number;
+  gender: string;
+  exitYear: number;
+  status: string;
+  fatherName?: string;
+  motherName?: string;
+  guardianName?: string;
+  contact?: string;
+  dob?: string;
+}
+
+export async function getOldStudentYears(): Promise<number[]> {
+  try {
+    const res = await fetch("/api/students/old-students?meta=years");
+    if (!res.ok) {
+      const cur = new Date().getFullYear();
+      return [cur - 1, cur - 2, cur - 3, cur - 4];
+    }
+    const data = await res.json();
+    return data.years || [];
+  } catch {
+    const cur = new Date().getFullYear();
+    return [cur - 1, cur - 2, cur - 3, cur - 4];
+  }
+}
+
+export async function getOldStudents(params: {
+  year: number;
+  query?: string;
+  studentClass?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{ data: OldStudentItem[]; total: number }> {
+  try {
+    const q = new URLSearchParams();
+    q.append("year", String(params.year));
+    if (params.query) q.append("q", params.query);
+    if (params.studentClass && params.studentClass !== "ALL") q.append("class", params.studentClass);
+    if (params.page) q.append("page", String(params.page));
+    if (params.pageSize) q.append("pageSize", String(params.pageSize));
+
+    const res = await fetch(`/api/students/old-students?${q.toString()}`);
+    if (!res.ok) return { data: [], total: 0 };
+    return res.json();
+  } catch {
+    return { data: [], total: 0 };
+  }
+}
+
 
 
 

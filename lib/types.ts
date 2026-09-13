@@ -154,6 +154,7 @@ export interface StudentFilters {
     | "cwsn";
   hasAadhaar?: "yes" | "no";
   ageSlab?: string;
+  studentType?: "active" | "old";
 }
 
 // Pagination meta returned alongside list results

@@ -14,13 +14,18 @@ import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
-export default function StudentsClient() {
+interface StudentsClientProps {
+  mode?: "active" | "all";
+}
+
+export default function StudentsClient({ mode = "active" }: StudentsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") ?? undefined;
 
   const [filters, setFilters] = useState<StudentFilters>({
     query: initialQuery,
+    studentType: mode === "active" ? "active" : undefined,
   });
   const [exportOpen, setExportOpen] = useState(false);
 
@@ -82,8 +87,10 @@ export default function StudentsClient() {
         onChange={handleFilterChange}
         totalCount={totalCount}
         isLoading={isLoading}
+        hideStatusFilter={mode === "active"}
       />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <button
@@ -94,7 +101,9 @@ export default function StudentsClient() {
               <ArrowLeft className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-bold tracking-tight">Student Directory</h1>
+              <h1 className="text-lg font-bold tracking-tight">
+                {mode === "active" ? "Active Students Register" : "Student Directory"}
+              </h1>
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
@@ -112,7 +121,7 @@ export default function StudentsClient() {
                   <>
                     <span className="font-mono text-xs">{totalCount.toLocaleString()}</span>
                     <span className="text-[11px] font-medium opacity-85">
-                      {hasFilters ? "students found" : "total students"}
+                      {hasFilters ? "students found" : mode === "active" ? "active students" : "total students"}
                     </span>
                   </>
                 )}

@@ -14,12 +14,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import type { Student } from "@/lib/types";
-import { StatusBadge } from "@/components/students/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
+import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
+import { StudentPhotoPreviewDialog } from "@/components/students/student-photo-preview-dialog";
 
 interface StudentTableProps {
   data: Student[];
@@ -42,6 +43,7 @@ export function StudentTable({
   const currentYear = new Date().getFullYear();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const [navigatingId, setNavigatingId] = useState<string | null>(null);
+  const [previewStudent, setPreviewStudent] = useState<Student | null>(null);
 
   // Infinite scroll trigger
   useEffect(() => {
@@ -71,6 +73,41 @@ export function StudentTable({
             {row.index + 1}
           </span>
         ),
+      },
+      {
+        id: "photo",
+        header: "Photo",
+        cell: ({ row }) => {
+          const s = row.original;
+          return (
+            <div
+              data-prevent-row-click="true"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewStudent(s);
+              }}
+              className="flex items-center justify-center py-0.5"
+            >
+              <button
+                type="button"
+                data-prevent-row-click="true"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewStudent(s);
+                }}
+                className="group/avatar relative rounded-full p-0.5 transition-all cursor-pointer hover:ring-3 hover:ring-primary/40 active:scale-95"
+                title={`Click to view enlarged photo of ${s.name}`}
+              >
+                <StudentRoundAvatar
+                  name={s.name}
+                  photoUrl={s.photoUrl}
+                  size="xl"
+                  className="transition-transform duration-200 group-hover/avatar:scale-105 shadow-md"
+                />
+              </button>
+            </div>
+          );
+        },
       },
       {
         accessorKey: "name",
@@ -201,13 +238,7 @@ export function StudentTable({
           );
         },
       },
-      {
-        accessorKey: "currentStatus",
-        header: "Status",
-        cell: ({ getValue }) => (
-          <StatusBadge status={getValue() as Student["currentStatus"]} />
-        ),
-      },
+
       {
         id: "action",
         header: "",
@@ -286,8 +317,25 @@ export function StudentTable({
                 isNavigating ? "bg-primary/10 border-primary ring-1 ring-primary/30" : "hover:border-primary/40"
               )}
             >
-              {/* Top Row: Name + Status */}
-              <div className="flex items-start justify-between gap-2">
+              {/* Top Row: Avatar + Name + Chevron */}
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  data-prevent-row-click="true"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPreviewStudent(student);
+                  }}
+                  className="group/avatar relative rounded-full p-0.5 border border-transparent hover:border-primary/50 hover:ring-2 hover:ring-primary/20 transition-all cursor-pointer shrink-0"
+                  title={`Click to view enlarged photo of ${student.name}`}
+                >
+                  <StudentRoundAvatar
+                    name={student.name}
+                    photoUrl={student.photoUrl}
+                    size="lg"
+                    className="transition-transform group-hover/avatar:scale-105"
+                  />
+                </button>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="font-bold text-sm text-foreground truncate">
@@ -299,8 +347,7 @@ export function StudentTable({
                     Class {student.presentClass} · Sec {student.presentSection} · Roll {student.presentRoll}
                   </p>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <StatusBadge status={student.currentStatus} />
+                <div className="flex items-center shrink-0">
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
@@ -437,6 +484,19 @@ export function StudentTable({
           </p>
         )}
       </div>
+
+      {/* Student Photo Preview Pop-up Dialog */}
+      <StudentPhotoPreviewDialog
+        student={previewStudent}
+        isOpen={!!previewStudent}
+        onClose={() => setPreviewStudent(null)}
+        onPhotoUpdated={(studentId, newUrl) => {
+          const s = data.find((st) => st.id === studentId);
+          if (s) {
+            s.photoUrl = newUrl;
+          }
+        }}
+      />
     </div>
   );
 }
@@ -445,21 +505,20 @@ function TableSkeleton() {
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className="bg-muted/50 border-b px-4 py-2.5 flex gap-8">
-        {["Sl.", "Name", "School ID", "Class/Sec/Roll", "Status", "Adm. Year"].map(
+        {["Sl.", "Photo", "Name", "School ID", "Class/Sec/Roll"].map(
           (h) => <Skeleton key={h} className="h-3 w-14" />
         )}
       </div>
       {Array.from({ length: 8 }).map((_, i) => (
-        <div key={i} className="border-b last:border-0 px-4 py-3 flex items-center gap-8">
+        <div key={i} className="border-b last:border-0 px-4 py-3 flex items-center gap-6">
           <Skeleton className="h-3 w-6" />
+          <Skeleton className="h-9 w-9 rounded-full shrink-0" />
           <div className="flex flex-col gap-1.5 flex-1">
             <Skeleton className="h-3 w-32" />
             <Skeleton className="h-2.5 w-24" />
           </div>
           <Skeleton className="h-5 w-36 rounded" />
           <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-5 w-20 rounded-full" />
-          <Skeleton className="h-3 w-10" />
         </div>
       ))}
     </div>

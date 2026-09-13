@@ -261,90 +261,184 @@ export default function ApplicationsDeskPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
-                  <th className="py-3 px-4">App No</th>
-                  <th className="py-3 px-4">Candidate Name</th>
-                  <th className="py-3 px-4">Target Class</th>
-                  <th className="py-3 px-4">Contact / Address</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {filteredApps.map((app) => {
-                  const isAdmitted = app.status === "admitted";
+          <div>
+            {/* Mobile Card List (Visible on mobile, hidden on md+) */}
+            <div className="md:hidden divide-y divide-border/60">
+              {filteredApps.map((app) => {
+                const isAdmitted = app.status === "admitted";
 
-                  return (
-                    <tr
-                      key={app.id}
-                      className={cn(
-                        "hover:bg-muted/30 transition-colors",
-                        isAdmitted && "bg-emerald-500/5"
-                      )}
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-primary">
+                return (
+                  <div
+                    key={app.id}
+                    className={cn(
+                      "p-3.5 space-y-2.5 transition-colors",
+                      isAdmitted && "bg-emerald-500/[0.03]"
+                    )}
+                  >
+                    {/* Card Header: App No & Status Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono font-bold text-primary text-xs">
                         {app.applicationNo}
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-foreground">{app.studentName}</p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Guardian: {app.guardianName || app.fatherName || "N/A"} • DOB:{" "}
-                          {app.dob || "N/A"}
-                        </p>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2.5 py-0.5 rounded-md bg-muted text-foreground font-bold text-xs border">
-                          Class {app.targetClass}
+                      </span>
+                      {isAdmitted ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Admitted (Sec {app.admittedSection} #{app.admittedRoll})</span>
                         </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="font-mono text-foreground">{app.studentContact || "N/A"}</p>
-                        <p className="text-[10px] text-muted-foreground truncate max-w-xs">
-                          {app.village || app.address || "N/A"}
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                          <Clock className="h-3 w-3" />
+                          <span>Pending Verification</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Candidate Name & Target Class */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-foreground leading-tight">
+                          {app.studentName}
+                        </h4>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Guardian: {app.guardianName || app.fatherName || "N/A"}
+                          {app.dob ? ` • DOB: ${app.dob}` : ""}
                         </p>
-                      </td>
-                      <td className="py-3 px-4">
-                        {isAdmitted ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Admitted (Sec {app.admittedSection} #{app.admittedRoll})</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                            <Clock className="h-3 w-3" />
-                            <span>Pending Verification</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md bg-muted text-foreground font-bold text-xs border shrink-0">
+                        Class {app.targetClass}
+                      </span>
+                    </div>
+
+                    {/* Address & Contact */}
+                    {(app.studentContact || app.village || app.address) && (
+                      <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 border-t border-dashed border-border/60">
+                        {app.studentContact && (
+                          <a
+                            href={`tel:${app.studentContact}`}
+                            className="inline-flex items-center gap-1 text-primary font-mono hover:underline"
+                          >
+                            <span>📞 {app.studentContact}</span>
+                          </a>
+                        )}
+                        {(app.village || app.address) && (
+                          <span className="truncate max-w-[220px]">
+                            📍 {app.village || app.address}
                           </span>
                         )}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Link
-                            href={`/admission/receipt/${app.id}`}
-                            className="p-1.5 rounded-lg border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                            title="Print / View Receipt"
-                          >
-                            <Printer className="h-3.5 w-3.5" />
-                          </Link>
+                      </div>
+                    )}
 
-                          {!isAdmitted && (
-                            <Button
-                              size="sm"
-                              onClick={() => openVerifyModal(app)}
-                              className="h-7 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
-                            >
-                              Verify &amp; Admit
-                            </Button>
+                    {/* Card Actions */}
+                    <div className="pt-2 flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admission/receipt/${app.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors"
+                      >
+                        <Printer className="h-3.5 w-3.5" />
+                        <span>Receipt</span>
+                      </Link>
+
+                      {!isAdmitted && (
+                        <Button
+                          size="sm"
+                          onClick={() => openVerifyModal(app)}
+                          className="h-8 px-3 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
+                        >
+                          Verify &amp; Admit
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (Hidden on mobile, visible md+) */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                    <th className="py-3 px-4">App No</th>
+                    <th className="py-3 px-4">Candidate Name</th>
+                    <th className="py-3 px-4">Target Class</th>
+                    <th className="py-3 px-4">Contact / Address</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {filteredApps.map((app) => {
+                    const isAdmitted = app.status === "admitted";
+
+                    return (
+                      <tr
+                        key={app.id}
+                        className={cn(
+                          "hover:bg-muted/30 transition-colors",
+                          isAdmitted && "bg-emerald-500/5"
+                        )}
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-primary">
+                          {app.applicationNo}
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-foreground">{app.studentName}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Guardian: {app.guardianName || app.fatherName || "N/A"} • DOB:{" "}
+                            {app.dob || "N/A"}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2.5 py-0.5 rounded-md bg-muted text-foreground font-bold text-xs border">
+                            Class {app.targetClass}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-mono text-foreground">{app.studentContact || "N/A"}</p>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-xs">
+                            {app.village || app.address || "N/A"}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          {isAdmitted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Admitted (Sec {app.admittedSection} #{app.admittedRoll})</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                              <Clock className="h-3 w-3" />
+                              <span>Pending Verification</span>
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/admission/receipt/${app.id}`}
+                              className="p-1.5 rounded-lg border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Print / View Receipt"
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                            </Link>
+
+                            {!isAdmitted && (
+                              <Button
+                                size="sm"
+                                onClick={() => openVerifyModal(app)}
+                                className="h-7 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer"
+                              >
+                                Verify &amp; Admit
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
