@@ -21,7 +21,7 @@ import {
   BookOpen,
   Layers,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -60,16 +60,15 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
       {/* 1. Header Navigation & Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="icon"
-            asChild
-            className="rounded-xl h-9 w-9 bg-card hover:bg-muted shadow-2xs border-border"
+          <Link
+            href="/employees"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon" }),
+              "rounded-xl h-9 w-9 bg-card hover:bg-muted shadow-2xs border-border flex items-center justify-center"
+            )}
           >
-            <Link href="/employees">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
@@ -111,17 +110,16 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
             Print Profile
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-            className="rounded-xl h-9 text-xs font-semibold shadow-2xs cursor-pointer border-border hover:bg-muted"
+          <Link
+            href={`/employees/${currentStaff.id}/edit`}
+            className={cn(
+              buttonVariants({ variant: "outline", size: "sm" }),
+              "rounded-xl h-9 text-xs font-semibold shadow-2xs cursor-pointer border-border hover:bg-muted flex items-center gap-1.5"
+            )}
           >
-            <Link href={`/employees/${currentStaff.id}/edit`}>
-              <Pencil className="mr-1.5 h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-              Edit Profile
-            </Link>
-          </Button>
+            <Pencil className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <span>Edit Profile</span>
+          </Link>
 
           <Button
             variant="outline"
