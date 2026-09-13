@@ -5,7 +5,16 @@ import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { studentId, action, newClass, newSection, newRoll } = body;
+    const {
+      studentId,
+      action,
+      newClass,
+      newSection,
+      newRoll,
+      feePaid = true,
+      feeAmount,
+      paymentReceiptNo,
+    } = body;
 
     if (!studentId) {
       return NextResponse.json({ error: "studentId is required" }, { status: 400 });
@@ -133,6 +142,41 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Record invoice in admission_invoices table if an invoice number was provided
+    if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
+      try {
+        const invTotal = Number(feeAmount) || 0;
+        await supabase.from("admission_invoices").upsert(
+          {
+            invoice_number: paymentReceiptNo.trim(),
+            academic_session: `${currentYear} – ${currentYear + 1}`,
+            issue_date: new Date().toISOString().split("T")[0],
+            issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+            student_id: student.school_id || student.id,
+            student_name: student.name,
+            student_class: targetClass,
+            section: targetSection,
+            roll_no: String(targetRoll),
+            guardian_name: student.father_name || student.guardian_name || null,
+            contact_number: student.student_contact || student.alt_mobile || null,
+            pen_number: student.pen || null,
+            total_amount: invTotal,
+            payment_mode: "Cash",
+            payment_status: feePaid ? "Paid" : "Due",
+            remarks: `Re-admission Fee (${currentYear})`,
+            generator_mode: "single",
+            copy_type: "both",
+            is_blank: false,
+            invoice_status: "active",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "invoice_number" }
+        );
+      } catch (invErr) {
+        console.warn("Could not upsert into admission_invoices:", invErr);
+      }
     }
 
     return NextResponse.json({

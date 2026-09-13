@@ -103,6 +103,39 @@ export async function POST(
       })
       .eq("id", id);
 
+    // 5. Record invoice in admission_invoices table
+    if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
+      try {
+        await supabase.from("admission_invoices").upsert(
+          {
+            invoice_number: paymentReceiptNo.trim(),
+            academic_session: `${currentYear} – ${currentYear + 1}`,
+            issue_date: new Date().toISOString().split("T")[0],
+            issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+            student_id: createdStudent.schoolId || createdStudent.id,
+            student_name: app.student_name,
+            student_class: assignedClass,
+            section: assignedSection,
+            roll_no: String(assignedRoll),
+            guardian_name: app.guardian_name || app.father_name || null,
+            contact_number: app.student_contact || app.alt_mobile || null,
+            total_amount: Number(feeAmount) || 0,
+            payment_mode: "Cash",
+            payment_status: feePaid ? "Paid" : "Due",
+            remarks: `New Admission Fee (${currentYear})`,
+            generator_mode: "single",
+            copy_type: "both",
+            is_blank: false,
+            invoice_status: "active",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "invoice_number" }
+        );
+      } catch (invErr) {
+        console.warn("Could not record admission invoice:", invErr);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       studentId: createdStudent.id,

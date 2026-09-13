@@ -28,6 +28,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn, sortClasses } from "@/lib/utils";
+import {
+  getSavedFeeStructure,
+  calculateFeeTotal,
+  generateInvoiceNumber,
+} from "@/lib/utils/fee-config";
 
 const CLASS_NEXT_MAP: Record<string, string> = {
   V: "VI",
@@ -112,17 +117,45 @@ export default function ReAdmissionPage() {
     return { total: classOnly.length, admitted, notAdmitted, pending };
   }, [allStudents, selectedClass]);
 
+  const currentYear = new Date().getFullYear();
+  const [isFetchingInvoiceNo, setIsFetchingInvoiceNo] = useState(false);
+
+  // Fetch next sequential invoice number from DB
+  const fetchNextInvoiceNumber = async () => {
+    try {
+      setIsFetchingInvoiceNo(true);
+      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
+      const data = await res.json();
+      if (res.ok && typeof data.nextSequence === "number") {
+        return generateInvoiceNumber(data.nextSequence, currentYear);
+      }
+    } catch (e) {
+      console.warn("Could not fetch next sequence:", e);
+    } finally {
+      setIsFetchingInvoiceNo(false);
+    }
+    return generateInvoiceNumber(1, currentYear);
+  };
+
   // Open modal
-  function openConfirmModal(student: Student) {
+  async function openConfirmModal(student: Student) {
     setActiveStudent(student);
     const defaultNext = CLASS_NEXT_MAP[student.presentClass] || student.presentClass;
     setNewClass(defaultNext);
     setNewSection(student.presentSection || "A");
     setNewRoll(String(student.presentRoll || 1));
     setFeePaid(true);
-    setFeeAmount("250");
-    setReceiptNo(`REC-${Date.now().toString().slice(-6)}`);
+
+    // 1. Take amount dynamically from invoice fee structure configuration
+    const feeItems = getSavedFeeStructure();
+    const invoiceTotal = calculateFeeTotal(feeItems);
+    setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
+
+    // 2. Fetch the real upcoming invoice number
+    setReceiptNo("Syncing...");
     setModalOpen(true);
+    const nextInvoiceNo = await fetchNextInvoiceNumber();
+    setReceiptNo(nextInvoiceNo);
   }
 
   // Mutation
@@ -542,26 +575,48 @@ export default function ReAdmissionPage() {
               </div>
 
               {/* Fee Receipt Details */}
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-muted/20 border">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-2xl bg-muted/30 border">
                 <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Admission Fee (₹)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Invoice Amount (₹)
+                    </label>
+                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md">
+                      From Invoice
+                    </span>
+                  </div>
                   <Input
                     type="number"
                     value={feeAmount}
                     onChange={(e) => setFeeAmount(e.target.value)}
-                    className="h-8 text-xs font-bold rounded-lg"
+                    className="h-8.5 text-xs font-bold rounded-xl bg-background"
+                    placeholder="Fee Amount"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-muted-foreground uppercase block mb-1">
-                    Receipt Slip No
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Invoice Number
+                    </label>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const num = await fetchNextInvoiceNumber();
+                        setReceiptNo(num);
+                      }}
+                      title="Sync next invoice sequence from DB"
+                      disabled={isFetchingInvoiceNo}
+                      className="text-[9px] font-semibold text-primary hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn("h-2.5 w-2.5", isFetchingInvoiceNo && "animate-spin")} />
+                      <span>Sync</span>
+                    </button>
+                  </div>
                   <Input
                     value={receiptNo}
                     onChange={(e) => setReceiptNo(e.target.value)}
-                    className="h-8 text-xs font-mono rounded-lg"
+                    className="h-8.5 text-xs font-mono font-bold rounded-xl bg-background text-primary"
+                    placeholder="e.g. MHS/2026/ADM-0001"
                   />
                 </div>
               </div>
@@ -570,7 +625,7 @@ export default function ReAdmissionPage() {
               <div className="pt-2 flex flex-col gap-2">
                 <Button
                   onClick={handleAdmit}
-                  disabled={mutation.isPending}
+                  disabled={mutation.isPending || isFetchingInvoiceNo}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-10 rounded-xl shadow-xs cursor-pointer"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
