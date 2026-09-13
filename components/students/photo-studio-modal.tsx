@@ -13,6 +13,7 @@ interface PhotoStudioModalProps {
   currentPhotoUrl?: string;
   onPhotoSaved: (newUrl: string) => void;
   onPhotoRemoved?: () => void;
+  uploadEndpoint?: string;
 }
 
 export function PhotoStudioModal({
@@ -23,6 +24,7 @@ export function PhotoStudioModal({
   currentPhotoUrl,
   onPhotoSaved,
   onPhotoRemoved,
+  uploadEndpoint,
 }: PhotoStudioModalProps) {
   // Navigation tabs: 'upload' | 'camera' | 'crop'
   const [activeTab, setActiveTab] = useState<"upload" | "camera">("upload");
@@ -325,7 +327,8 @@ export function PhotoStudioModal({
       const formData = new FormData();
       formData.append("photo", optimizedBlob, `${studentId}.webp`);
 
-      const res = await fetch(`/api/students/${studentId}/photo`, {
+      const endpoint = uploadEndpoint || `/api/students/${studentId}/photo`;
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -361,7 +364,8 @@ export function PhotoStudioModal({
     }
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/students/${studentId}/photo`, {
+      const endpoint = uploadEndpoint || `/api/students/${studentId}/photo`;
+      const res = await fetch(endpoint, {
         method: "DELETE",
       });
       const data = await res.json();

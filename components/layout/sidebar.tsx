@@ -73,6 +73,15 @@ const navItems: NavItem[] = [
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
   },
   {
+    label: "Employee Registered",
+    icon: <UserPlus className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
+    children: [
+      { label: "Teaching Staff", href: "/employees?type=teaching" },
+      { label: "Non-Teaching Staff", href: "/employees?type=non-teaching" },
+    ],
+  },
+  {
     label: "Bulk Upload",
     href: "/students/bulk-upload",
     icon: <Upload className="h-4 w-4" />,
@@ -267,9 +276,18 @@ function NavGroup({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const isChildItemActive = (c: NavChildItem) => {
     if (c.href) {
+      const [childPath, childQuery] = c.href.split("?");
+      if (childQuery) {
+        const queryParams = new URLSearchParams(childQuery);
+        const allMatch = Array.from(queryParams.entries()).every(
+          ([key, value]) => searchParams.get(key) === value
+        );
+        return pathname === childPath && allMatch;
+      }
       if (c.href === "/students") {
         return (
           pathname === "/students" ||

@@ -20,7 +20,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const CLASS_NEXT: Record<string, string> = {
   V: "VI", VI: "VII", VII: "VIII", VIII: "IX",
-  IX: "X", X: "XI", XI: "XII", XII: "XII",
+  IX: "X", X: "Sent Up M.P.", XI: "XII", XII: "XII",
 };
 
 export default function PromotionPage() {
@@ -93,6 +93,28 @@ export default function PromotionPage() {
       .filter((s) => selectedIds.has(s.id))
       .map((s) => {
         if (action === "promote") {
+          // Class X does not promote to Class XI; status transitions to 'Sent Up M.P.'
+          if (s.presentClass === "X") {
+            const mpHistory = {
+              year: currentYear,
+              class: "X",
+              section: s.presentSection,
+              roll: s.presentRoll,
+              status: "Sent Up M.P." as StudentStatus,
+            };
+
+            return {
+              id: s.id,
+              changes: {
+                currentStatus: "Sent Up M.P." as StudentStatus,
+                previousClass: s.presentClass,
+                previousSection: s.presentSection,
+                previousRollNo: s.presentRoll,
+                academicHistory: [...(s.academicHistory || []), mpHistory],
+              },
+            };
+          }
+
           const nextClass = CLASS_NEXT[s.presentClass] ?? s.presentClass;
           
           // 1. Historical record of the class just completed
@@ -246,7 +268,7 @@ export default function PromotionPage() {
               onClick={() => { setAction("promote"); setConfirmOpen(true); }}
               className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow-2xs active:scale-95 text-center min-h-[38px] cursor-pointer"
             >
-              Promote
+              {selectedClass === "X" ? "Send to M.P." : "Promote"}
             </button>
             <button
               onClick={() => { setAction("detain"); setConfirmOpen(true); }}
@@ -325,8 +347,15 @@ export default function PromotionPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="text-muted-foreground/60">{s.presentClass}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                          Class {CLASS_NEXT[s.presentClass] ?? s.presentClass}
+                        <span
+                          className={cn(
+                            "font-semibold",
+                            s.presentClass === "X"
+                              ? "text-amber-700 dark:text-amber-400"
+                              : "text-emerald-700 dark:text-emerald-400"
+                          )}
+                        >
+                          {s.presentClass === "X" ? "Sent Up M.P." : `Class ${CLASS_NEXT[s.presentClass] ?? s.presentClass}`}
                         </span>
                       </div>
                     </td>
@@ -344,7 +373,9 @@ export default function PromotionPage() {
           <DialogHeader>
             <DialogTitle>
               {action === "promote"
-                ? "Confirm Promotion"
+                ? selectedClass === "X"
+                  ? "Confirm Send to M.P."
+                  : "Confirm Promotion"
                 : action === "transfer"
                 ? "Confirm Transfer (TC Out)"
                 : "Confirm Class Detention"}
@@ -355,7 +386,9 @@ export default function PromotionPage() {
               The following {selectedStudents.length} student(s) will be{" "}
               <strong>
                 {action === "promote"
-                  ? "promoted to the next academic grade"
+                  ? selectedClass === "X"
+                    ? "transitioned to 'Sent Up M.P.' status for Madhyamik Examination"
+                    : "promoted to the next academic grade"
                   : action === "transfer"
                   ? "transferred out (TC issued)"
                   : "detained to repeat the same grade"}
@@ -372,10 +405,12 @@ export default function PromotionPage() {
                   </div>
                   <div className="flex items-center gap-2 text-xs">
                     {action === "promote" ? (
-                      <div className="flex items-center gap-1 font-semibold text-emerald-600">
+                      <div className="flex items-center gap-1 font-semibold">
                         <span>{s.presentClass}</span>
                         <ArrowRight className="h-3 w-3" />
-                        <span>{CLASS_NEXT[s.presentClass] ?? s.presentClass}</span>
+                        <span className={s.presentClass === "X" ? "text-amber-600" : "text-emerald-600"}>
+                          {s.presentClass === "X" ? "Sent Up M.P." : (CLASS_NEXT[s.presentClass] ?? s.presentClass)}
+                        </span>
                       </div>
                     ) : action === "transfer" ? (
                       <StatusBadge status="Drop Out" size="sm" />

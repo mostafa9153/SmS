@@ -14,6 +14,7 @@ interface StudentPhotoAvatarProps {
   onPhotoUpdated?: (newUrl: string) => void;
   className?: string;
   size?: "sm" | "md" | "lg";
+  uploadEndpoint?: string;
 }
 
 export function StudentPhotoAvatar({
@@ -24,6 +25,7 @@ export function StudentPhotoAvatar({
   onPhotoUpdated,
   className,
   size = "md",
+  uploadEndpoint,
 }: StudentPhotoAvatarProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(photoUrl || undefined);
@@ -59,7 +61,8 @@ export function StudentPhotoAvatar({
       return;
     }
     try {
-      const res = await fetch(`/api/students/${studentId}/photo`, {
+      const endpoint = uploadEndpoint || `/api/students/${studentId}/photo`;
+      const res = await fetch(endpoint, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -176,6 +179,7 @@ export function StudentPhotoAvatar({
         currentPhotoUrl={effectivePhotoSrc || undefined}
         onPhotoSaved={handlePhotoSaved}
         onPhotoRemoved={handlePhotoRemoved}
+        uploadEndpoint={uploadEndpoint}
       />
     </>
   );

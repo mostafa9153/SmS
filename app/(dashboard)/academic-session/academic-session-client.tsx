@@ -132,7 +132,7 @@ export default function AcademicSessionClient() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <CalendarClock className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Academic Session Transition</h1>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Secondary Section (Classes V–X) Session Transition</h1>
         </div>
         <Link
           href="/students/promotion"
@@ -147,20 +147,20 @@ export default function AcademicSessionClient() {
         <div className="rounded-2xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 p-5 space-y-3 shadow-sm">
           <div className="flex items-center gap-2.5 text-emerald-800 dark:text-emerald-300 font-semibold text-sm">
             <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-            Academic Session {toYear} Successfully Initiated!
+            Academic Session {toYear} Successfully Initiated for Classes V–X!
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 text-center">
             <div className="bg-white/80 dark:bg-black/20 rounded-xl p-2.5 border border-emerald-200">
-              <p className="text-[11px] text-muted-foreground">Promoted</p>
+              <p className="text-[11px] text-muted-foreground">Promoted (V–IX)</p>
               <p className="text-lg font-bold text-emerald-700">{transitionResult.promotedCount}</p>
             </div>
             <div className="bg-white/80 dark:bg-black/20 rounded-xl p-2.5 border border-amber-200">
-              <p className="text-[11px] text-muted-foreground">Detained</p>
-              <p className="text-lg font-bold text-amber-700">{transitionResult.detainedCount}</p>
+              <p className="text-[11px] text-muted-foreground">Sent to M.P. (Cl X)</p>
+              <p className="text-lg font-bold text-amber-700">{transitionResult.sentToMpCount || 0}</p>
             </div>
-            <div className="bg-white/80 dark:bg-black/20 rounded-xl p-2.5 border border-blue-200">
-              <p className="text-[11px] text-muted-foreground">Passed Out (Cl XII)</p>
-              <p className="text-lg font-bold text-blue-700">{transitionResult.passedOutCount}</p>
+            <div className="bg-white/80 dark:bg-black/20 rounded-xl p-2.5 border border-rose-200">
+              <p className="text-[11px] text-muted-foreground">Detained</p>
+              <p className="text-lg font-bold text-rose-700">{transitionResult.detainedCount}</p>
             </div>
             <div className="bg-white/80 dark:bg-black/20 rounded-xl p-2.5 border border-purple-200">
               <p className="text-[11px] text-muted-foreground">History Archived</p>
@@ -185,13 +185,16 @@ export default function AcademicSessionClient() {
             <Sliders className="h-4 w-4" />
           </div>
           <div>
-            <span className="font-bold text-foreground">Active Promotion & Pass Policy</span>
+            <span className="font-bold text-foreground">Secondary Section (Classes V–X) Promotion Policy</span>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200">
-                Classes V–VIII: 100% RTE Auto-Pass
+                Classes V ➜ IX: 100% RTE Auto-Pass (5➜6, 6➜7, 7➜8, 8➜9)
               </Badge>
               <Badge variant="outline" className="text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 font-mono font-bold">
-                Classes IX–XII Cutoff: {minPassPercentage}%
+                Class IX ➜ X: Pass Required (≥ {minPassPercentage}%)
+              </Badge>
+              <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 font-medium">
+                Class X ➜ Sent Up M.P.: Pass Required (≥ {minPassPercentage}%)
               </Badge>
             </div>
           </div>
@@ -205,8 +208,8 @@ export default function AcademicSessionClient() {
         </Link>
       </div>
 
-      {/* SECTION 3: Session Selection & KPI Meter */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* SECTION 3: Session Selection, Pass Cutoff & KPI Meter */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Current Session */}
         <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-2xs">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Current Active Session</p>
@@ -232,6 +235,22 @@ export default function AcademicSessionClient() {
               className="font-mono text-xl sm:text-2xl font-bold rounded-lg border border-primary/40 bg-background px-2.5 py-1.5 w-28 text-primary h-11 sm:h-auto"
             />
             <span className="text-xs text-primary font-medium">Upcoming Year</span>
+          </div>
+        </div>
+
+        {/* Pass Cutoff for Classes IX & X */}
+        <div className="rounded-2xl border bg-card p-4 space-y-2 shadow-2xs">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pass Cutoff (Class IX & X)</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={minPassPercentage}
+              onChange={(e) => setMinPassPercentage(Math.max(0, Math.min(100, Number(e.target.value))))}
+              className="font-mono text-xl sm:text-2xl font-bold rounded-lg border bg-background px-2.5 py-1.5 w-24 text-foreground h-11 sm:h-auto"
+            />
+            <span className="text-xs font-bold text-muted-foreground">% Min Marks</span>
           </div>
         </div>
 
@@ -295,6 +314,10 @@ export default function AcademicSessionClient() {
                     <Badge className="bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 border-0 text-[9px] px-1.5 py-0">
                       Auto-Pass
                     </Badge>
+                  ) : c.className === "X" ? (
+                    <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-0 text-[9px] px-1.5 py-0 font-semibold">
+                      Sent Up M.P.
+                    </Badge>
                   ) : c.isReady ? (
                     <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
                   ) : (
@@ -305,12 +328,21 @@ export default function AcademicSessionClient() {
                   <div className="flex justify-between">
                     <span>Enrolled:</span> <span className="font-mono font-semibold text-foreground">{c.totalStudents}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Promoting:</span>{" "}
-                    <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
-                      {c.promotedCount}
-                    </span>
-                  </div>
+                  {c.className === "X" ? (
+                    <div className="flex justify-between">
+                      <span>Sent to MP:</span>{" "}
+                      <span className="font-mono font-semibold text-amber-600 dark:text-amber-400">
+                        {c.sentToMpCount ?? c.promotedCount}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span>Promoting:</span>{" "}
+                      <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+                        {c.promotedCount}
+                      </span>
+                    </div>
+                  )}
                   {c.detainedCount > 0 && (
                     <div className="flex justify-between text-rose-600 dark:text-rose-400 font-semibold">
                       <span>Detained:</span> <span className="font-mono">{c.detainedCount}</span>
@@ -495,7 +527,7 @@ export default function AcademicSessionClient() {
       <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <p className="font-bold text-sm text-foreground flex items-center gap-1.5">
           <ShieldAlert className="h-4 w-4 text-primary" />
-          Ready to advance session to {toYear} ({effectivePromotedCount} Promoted, {effectiveDetainedCount} Detained)
+          Ready to advance Secondary Section to Session {toYear} ({effectivePromotedCount} Promoted / Sent to MP, {effectiveDetainedCount} Detained)
         </p>
         <button
           onClick={() => setConfirmModalOpen(true)}
@@ -513,17 +545,19 @@ export default function AcademicSessionClient() {
           <DialogHeader>
             <div className="flex items-center gap-2 text-rose-600">
               <ShieldAlert className="h-5 w-5" />
-              <DialogTitle>Confirm Whole-School Session Transition</DialogTitle>
+              <DialogTitle>Confirm Secondary Section (Classes V–X) Transition</DialogTitle>
             </div>
             <DialogDescription className="pt-2 text-xs space-y-2">
               <p>
-                You are about to advance the entire school from <strong>Session {fromYear}</strong> to <strong>Session {toYear}</strong>.
+                You are about to advance Secondary Section students (Classes V–X) from <strong>Session {fromYear}</strong> to <strong>Session {toYear}</strong>.
               </p>
-              <ul className="list-disc pl-4 space-y-1 text-foreground">
-                <li>Classes V–VIII: 100% Auto-Promoted (RTE).</li>
-                <li>Classes IX–XII: Promoted if score ≥ {minPassPercentage}% or manually overridden.</li>
-                <li>Detained students: {effectiveDetainedCount} will repeat their current class.</li>
-                <li>Roll numbers will be re-assigned based on <strong>{rollStrategy.toUpperCase()}</strong>.</li>
+              <ul className="list-disc pl-4 space-y-1.5 text-foreground">
+                <li><strong>Classes V–VIII (Auto-Pass):</strong> ১০০% অটো প্রমোশন — Class 5➜6, 6➜7, 7➜8, এবং 8➜9 (RTE নিয়ম অনুযায়ী)।</li>
+                <li><strong>Class IX (Pass Required):</strong> ৯ থেকে ১০-এ প্রমোট হতে হলে ন্যূনতম <strong>{minPassPercentage}%</strong> নম্বর পেতে হবে (কম পেলে Class IX-এ Detained)।</li>
+                <li><strong>Class X (Pass Required):</strong> টেস্ট পরীক্ষায় ন্যূনতম <strong>{minPassPercentage}%</strong> পেয়ে পাস করলে তবেই <strong>Sent Up M.P.</strong> হবে (কম পেলে Class X-এ Detained)।</li>
+                <li><strong>Detained ছাত্র-ছাত্রী:</strong> মোট {effectiveDetainedCount} জন শিক্ষার্থী বর্তমান ক্লাসে থেকে যাবে।</li>
+                <li><strong>রোল নম্বর নির্ধারণ:</strong> <strong>{rollStrategy.toUpperCase()}</strong> কৌশল অনুযায়ী নতুন রোল ধার্য হবে।</li>
+                <li><em>ক্লাস XI ও XII এই ট্রানজিশন থেকে সম্পূর্ণ বাদ রাখা হয়েছে।</em></li>
               </ul>
             </DialogDescription>
           </DialogHeader>

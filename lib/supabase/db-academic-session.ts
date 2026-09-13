@@ -2,9 +2,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentStatus } from "@/lib/types";
 
+export const SECONDARY_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X"];
+
+export const SECONDARY_CLASS_NEXT: Record<string, string> = {
+  V: "VI", VI: "VII", VII: "VIII", VIII: "IX", IX: "X",
+};
+
 export const CLASS_NEXT: Record<string, string> = {
   V: "VI", VI: "VII", VII: "VIII", VIII: "IX",
-  IX: "X", X: "XI", XI: "XII", XII: "XII",
+  IX: "X", X: "X", XI: "XII", XII: "XII",
 };
 
 export const AUTO_PASS_CLASSES = new Set(["V", "VI", "VII", "VIII"]);
@@ -27,6 +33,7 @@ export interface ClassReadinessStat {
   passedCount: number;
   pendingCount: number;
   promotedCount: number;
+  sentToMpCount?: number;
   detainedCount: number;
   isAutoPass: boolean;
   isReady: boolean;
@@ -39,6 +46,7 @@ export interface SessionReadinessReport {
   totalStudents: number;
   totalEvaluated: number;
   totalPromoted: number;
+  totalSentToMp?: number;
   totalDetained: number;
   readinessPercentage: number;
   classes: ClassReadinessStat[];
@@ -57,6 +65,7 @@ export interface SessionTransitionParams {
 export interface SessionTransitionResult {
   success: boolean;
   promotedCount: number;
+  sentToMpCount: number;
   detainedCount: number;
   passedOutCount: number;
   archivedHistoryCount: number;
@@ -93,8 +102,8 @@ export async function dbGetSessionReadiness(
     resultsMap.set(r.student_id, r);
   }
 
-  // Group by class
-  const classOrder = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+  // Group by secondary classes V to X
+  const classOrder = SECONDARY_CLASSES;
   const classMap = new Map<
     string,
     {
@@ -102,12 +111,13 @@ export async function dbGetSessionReadiness(
       evaluated: number;
       passed: number;
       promoted: number;
+      sentToMp: number;
       detained: number;
     }
   >();
 
   for (const c of classOrder) {
-    classMap.set(c, { total: 0, evaluated: 0, passed: 0, promoted: 0, detained: 0 });
+    classMap.set(c, { total: 0, evaluated: 0, passed: 0, promoted: 0, sentToMp: 0, detained: 0 });
   }
 
   const detainedStudents: DetainedStudentInfo[] = [];
@@ -115,7 +125,8 @@ export async function dbGetSessionReadiness(
   for (const s of students || []) {
     const c = (s.present_class || "").toUpperCase().trim();
     if (!classMap.has(c)) {
-      classMap.set(c, { total: 0, evaluated: 0, passed: 0, promoted: 0, detained: 0 });
+      // Exclude classes outside V-X (e.g. XI, XII) from Secondary session transition
+      continue;
     }
     const stat = classMap.get(c)!;
     stat.total += 1;
@@ -130,8 +141,29 @@ export async function dbGetSessionReadiness(
       // Classes 5 to 8: RTE Government Policy 100% Auto-Promotion
       stat.passed += 1;
       stat.promoted += 1;
+    } else if (c === "X") {
+      // Class 10: Test Exam check -> Sent to MP
+      const studentPct = res ? Number(res.percentage) : null;
+      if (studentPct !== null && studentPct >= minPassPercentage) {
+        stat.passed += 1;
+        stat.sentToMp += 1;
+      } else {
+        stat.detained += 1;
+        detainedStudents.push({
+          id: s.id,
+          name: s.name,
+          presentClass: s.present_class,
+          presentSection: s.present_section,
+          presentRoll: s.present_roll,
+          percentage: studentPct,
+          marksObtained: res ? Number(res.marks_obtained) : null,
+          reason: !res
+            ? "No exam marks recorded"
+            : `Scored ${studentPct}% (Cutoff: ${minPassPercentage}%)`,
+        });
+      }
     } else {
-      // Classes 9, 10, 11, 12: Passing percentage check
+      // Class 9: Passing percentage check -> Promoted to Class X
       const studentPct = res ? Number(res.percentage) : null;
       if (studentPct !== null && studentPct >= minPassPercentage) {
         stat.passed += 1;
@@ -165,15 +197,20 @@ export async function dbGetSessionReadiness(
         passedCount: stat.passed,
         pendingCount: Math.max(0, stat.total - stat.evaluated),
         promotedCount: stat.promoted,
+        sentToMpCount: stat.sentToMp,
         detainedCount: stat.detained,
         isAutoPass,
         isReady: isAutoPass ? true : stat.evaluated >= stat.total && stat.total > 0,
       };
     });
 
-  const totalStudents = students?.length || 0;
-  const totalEvaluated = resultsMap.size;
+  const secondaryStudents = (students || []).filter((s) =>
+    classMap.has((s.present_class || "").toUpperCase().trim())
+  );
+  const totalStudents = secondaryStudents.length;
+  const totalEvaluated = classes.reduce((sum, c) => sum + c.resultsEntered, 0);
   const totalPromoted = classes.reduce((sum, c) => sum + c.promotedCount, 0);
+  const totalSentToMp = classes.reduce((sum, c) => sum + (c.sentToMpCount || 0), 0);
   const totalDetained = classes.reduce((sum, c) => sum + c.detainedCount, 0);
   const readinessPercentage =
     totalStudents > 0 ? Math.round((totalEvaluated / totalStudents) * 100) : 0;
@@ -185,6 +222,7 @@ export async function dbGetSessionReadiness(
     totalStudents,
     totalEvaluated,
     totalPromoted,
+    totalSentToMp,
     totalDetained,
     readinessPercentage,
     classes,
@@ -244,6 +282,7 @@ export async function dbExecuteSessionTransition(
 
   // 3. Process students cohort by cohort
   let promotedCount = 0;
+  let sentToMpCount = 0;
   let detainedCount = 0;
   let passedOutCount = 0;
   const historyInserts: any[] = [];
@@ -256,38 +295,44 @@ export async function dbExecuteSessionTransition(
   for (const s of students) {
     const currClass = (s.present_class || "").toUpperCase().trim();
     const currSection = s.present_section || "A";
+
+    // Only process Secondary Classes (V to X). XI & XII are handled in their own separate cycle.
+    if (!SECONDARY_CLASSES.includes(currClass)) {
+      continue;
+    }
+
     const res = resultsMap.get(s.id);
     const pct = res ? res.percentage : 0;
     const isOverridden = overrideSet.has(s.id);
 
-    if (currClass === "XII") {
-      // Class XII: Passes out or detained
+    if (currClass === "X") {
+      // Class X: Passes test exam -> Sent Up M.P., or Detained in Class X
       const isEligible = pct >= minPassPercentage || isOverridden;
       if (isEligible) {
-        passedOutCount++;
+        sentToMpCount++;
         historyInserts.push({
           student_id: s.id,
           year: fromYear,
           class: s.present_class,
           section: s.present_section,
           roll: s.present_roll,
-          status: "Passed Out",
+          status: "Sent Up M.P.",
         });
 
         studentUpdates.push({
           id: s.id,
           dbUpdates: {
-            current_status: "Passed Out",
+            current_status: "Sent Up M.P.",
             previous_class: s.present_class,
             previous_section: s.present_section,
             previous_roll_no: s.present_roll,
-            academic_year: toYear,
+            academic_year: fromYear,
           },
         });
       } else {
-        // Detained in Class XII
+        // Detained in Class X
         detainedCount++;
-        const targetGroupKey = `XII_${currSection}`;
+        const targetGroupKey = `X_${currSection}`;
         if (!targetCohortGroups.has(targetGroupKey)) {
           targetCohortGroups.set(targetGroupKey, []);
         }
@@ -298,13 +343,14 @@ export async function dbExecuteSessionTransition(
         });
       }
     } else {
+      // Classes V, VI, VII, VIII, IX
       const isAutoPass = AUTO_PASS_CLASSES.has(currClass);
       const isEligible = isAutoPass || pct >= minPassPercentage || isOverridden;
 
       if (isEligible) {
         // Promoted to next class
         promotedCount++;
-        const nextClass = CLASS_NEXT[currClass] || currClass;
+        const nextClass = SECONDARY_CLASS_NEXT[currClass] || currClass;
         const targetGroupKey = `${nextClass}_${currSection}`;
         if (!targetCohortGroups.has(targetGroupKey)) {
           targetCohortGroups.set(targetGroupKey, []);
@@ -417,6 +463,7 @@ export async function dbExecuteSessionTransition(
       minPassPercentage,
       overriddenCount: overriddenStudentIds.length,
       promotedCount,
+      sentToMpCount,
       detainedCount,
       passedOutCount,
       totalProcessed: studentUpdates.length,
@@ -426,9 +473,10 @@ export async function dbExecuteSessionTransition(
   return {
     success: true,
     promotedCount,
+    sentToMpCount,
     detainedCount,
     passedOutCount,
     archivedHistoryCount: historyInserts.length,
-    classesProcessed: Object.keys(CLASS_NEXT),
+    classesProcessed: SECONDARY_CLASSES,
   };
 }
