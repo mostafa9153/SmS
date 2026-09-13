@@ -24,6 +24,11 @@ import {
   Sparkles,
   ClipboardCheck,
   MapPin,
+  GraduationCap,
+  FileCheck,
+  ReceiptText,
+  RefreshCw,
+  FileText,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -80,6 +85,12 @@ const navItems: NavItem[] = [
       { label: "Teaching Staff", href: "/employees?type=teaching" },
       { label: "Non-Teaching Staff", href: "/employees?type=non-teaching" },
     ],
+  },
+  {
+    label: "Admission",
+    href: "/admission",
+    icon: <GraduationCap className="h-4 w-4" />,
+    iconBg: "bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover:bg-orange-500/20 group-hover:scale-110",
   },
   {
     label: "Bulk Upload",
@@ -431,7 +442,6 @@ export function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeSettingTab = searchParams.get("tab") || "users";
   const isSettingsMode = pathname.startsWith("/settings");
   const supabase = createClient();
   const { toggleSidebar } = useSidebar();
@@ -528,10 +538,9 @@ export function Sidebar({
               {settingsNavItems.map((item) => {
                 const isActive =
                   pathname === item.href ||
-                  (item.tab === "users" && (pathname === "/settings" || pathname === "/settings/users")) ||
+                  (pathname === "/settings" && (searchParams.get("tab") || "users") === item.tab) ||
                   (item.tab === "school-details" && pathname === "/settings/config") ||
-                  (item.tab === "presets" && pathname === "/settings/preset-addresses") ||
-                  activeSettingTab === item.tab;
+                  (item.tab === "presets" && pathname === "/settings/preset-addresses");
                 return (
                   <Link
                     key={item.href}

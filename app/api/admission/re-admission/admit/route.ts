@@ -1,0 +1,148 @@
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const { studentId, action, newClass, newSection, newRoll } = body;
+
+    if (!studentId) {
+      return NextResponse.json({ error: "studentId is required" }, { status: 400 });
+    }
+
+    const supabase = createAdminClient();
+
+    // 1. Fetch current student
+    const { data: student, error: fetchErr } = await supabase
+      .from("students")
+      .select("*")
+      .eq("id", studentId)
+      .single();
+
+    if (fetchErr || !student) {
+      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    }
+
+    const currentYear = new Date().getFullYear();
+
+    if (action === "not_admitted") {
+      const { data: updated, error } = await supabase
+        .from("students")
+        .update({
+          re_admission_status: "not_admitted",
+          is_invoice_queued: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", studentId)
+        .select()
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        action: "not_admitted",
+        message: `${student.name} marked as Not Admitted`,
+        student: updated,
+      });
+    }
+
+    if (action === "reset") {
+      const { data: updated, error } = await supabase
+        .from("students")
+        .update({
+          re_admission_status: "pending",
+          is_invoice_queued: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", studentId)
+        .select()
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        action: "reset",
+        message: `Status reset for ${student.name}`,
+        student: updated,
+      });
+    }
+
+    // Default action is 'admit'
+    const targetClass = newClass || student.present_class;
+    const targetSection = newSection || student.present_section;
+    const targetRoll = newRoll ? parseInt(newRoll) : (student.present_roll || 1);
+
+    // Existing academic history
+    const existingHistory: AcademicHistoryEntry[] = Array.isArray(student.academic_history)
+      ? student.academic_history
+      : [];
+
+    // Add entry for previous class completed if class is progressing
+    const historyEntries: AcademicHistoryEntry[] = [...existingHistory];
+    if (targetClass !== student.present_class) {
+      historyEntries.push({
+        year: currentYear - 1,
+        class: student.present_class,
+        section: student.present_section,
+        roll: student.present_roll,
+        status: "Continuing" as StudentStatus,
+      });
+    }
+
+    // Add new entry for current admitted session
+    historyEntries.push({
+      year: currentYear,
+      class: targetClass,
+      section: targetSection,
+      roll: targetRoll,
+      status: "Continuing" as StudentStatus,
+    });
+
+    const updatePayload: Record<string, any> = {
+      present_class: targetClass,
+      present_section: targetSection,
+      present_roll: targetRoll,
+      current_status: "Continuing",
+      re_admission_status: "admitted",
+      re_admitted_at: new Date().toISOString(),
+      re_admitted_session: String(currentYear),
+      is_invoice_queued: true,
+      academic_history: historyEntries,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (targetClass !== student.present_class) {
+      updatePayload.previous_class = student.present_class;
+      updatePayload.previous_section = student.present_section;
+      updatePayload.previous_roll_no = student.present_roll;
+    }
+
+    const { data: updated, error } = await supabase
+      .from("students")
+      .update(updatePayload)
+      .eq("id", studentId)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      action: "admit",
+      message: `${student.name} successfully Re-Admitted to Class ${targetClass} (${targetSection})!`,
+      student: updated,
+    });
+  } catch (err: any) {
+    console.error("Error in re-admission admit:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

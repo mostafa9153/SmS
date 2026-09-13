@@ -130,7 +130,11 @@ export function AdmissionFormXIPrintableView({
                   Academic Year: {data.academicYear || "2026"}
                 </h2>
                 <h3 className="text-[18px] font-black uppercase tracking-wider text-black mt-2 underline decoration-2 underline-offset-4">
-                  Admission Application Form - XI
+                  {data.customHeaderTitle
+                    ? data.customHeaderTitle
+                    : data.admissionType === "re"
+                    ? "Re-admission Application Form - XI"
+                    : "Admission Application Form - XI"}
                 </h3>
               </div>
 

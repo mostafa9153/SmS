@@ -56,12 +56,18 @@ import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 
-function AdmissionFormGeneratorContent() {
+export function AdmissionFormGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
   const schoolInfo = useMemo(() => schoolProfileToSchoolInfo(schoolProfile), [schoolProfile]);
   const router = useRouter();
   const searchParams = useSearchParams();
   const formTypeParam = searchParams.get("type"); // 'v-ix' or 'xi'
+  const categoryParam = searchParams.get("category"); // 'new' or 're'
+
+  // Admission category: regular (standard) vs new admission vs re-admission
+  const [admissionCategory, setAdmissionCategory] = useState<"regular" | "new" | "re">(
+    categoryParam === "re" ? "re" : categoryParam === "new" ? "new" : "regular"
+  );
 
   // Form tab selection: Class V-IX vs Class XI
   const [activeTab, setActiveTab] = useState<"v-ix" | "xi">(
@@ -248,6 +254,7 @@ function AdmissionFormGeneratorContent() {
     const vIx: AdmissionFormVIxData = {
       ...BLANK_FORM_V_IX,
       academicYear: String(currentYear),
+      admissionType: admissionCategory,
       formNo: serialNo,
       officeUse: {
         slNo: "",
@@ -297,6 +304,7 @@ function AdmissionFormGeneratorContent() {
     const xi: AdmissionFormXIData = {
       ...BLANK_FORM_XI,
       academicYear: String(currentYear),
+      admissionType: admissionCategory,
       formNo: serialNo,
       officeUse: {
         slNo: "",
@@ -644,14 +652,16 @@ function AdmissionFormGeneratorContent() {
     return {
       formVIx: {
         ...formVIx,
+        admissionType: admissionCategory,
         formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formVIx.formNo) : formVIx.formNo,
       },
       formXI: {
         ...formXI,
+        admissionType: admissionCategory,
         formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formXI.formNo) : formXI.formNo,
       },
     };
-  }, [generationMode, formMode, classRoster, previewBulkIndex, serialPrefix, startSerial, paddingDigits, formVIx, formXI, bulkSerialList]);
+  }, [generationMode, formMode, classRoster, previewBulkIndex, serialPrefix, startSerial, paddingDigits, formVIx, formXI, bulkSerialList, admissionCategory]);
 
   return (
     <>
@@ -783,6 +793,7 @@ function AdmissionFormGeneratorContent() {
                     <AdmissionFormVIxPrintableView
                       data={{
                         ...formVIx,
+                        admissionType: admissionCategory,
                         formNo: serial,
                       }}
                       school={schoolInfo}
@@ -793,6 +804,7 @@ function AdmissionFormGeneratorContent() {
                     <AdmissionFormXIPrintableView
                       data={{
                         ...formXI,
+                        admissionType: admissionCategory,
                         formNo: serial,
                       }}
                       school={schoolInfo}
@@ -841,9 +853,50 @@ function AdmissionFormGeneratorContent() {
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                Admission Form Generator
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                  Admission Form Generator
+                </h1>
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-[11px] text-muted-foreground font-semibold mr-1">Header Label:</span>
+                <button
+                  type="button"
+                  onClick={() => setAdmissionCategory("new")}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    admissionCategory === "new"
+                      ? "bg-emerald-600 text-white shadow-2xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  NEW ADMISSION
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdmissionCategory("re")}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    admissionCategory === "re"
+                      ? "bg-orange-600 text-white shadow-2xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  RE-ADMISSION
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdmissionCategory("regular")}
+                  className={cn(
+                    "px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer",
+                    admissionCategory === "regular"
+                      ? "bg-primary text-primary-foreground shadow-2xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  STANDARD
+                </button>
+              </div>
             </div>
           </div>
 

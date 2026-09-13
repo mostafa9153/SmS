@@ -12,8 +12,15 @@ export interface ToastMessage {
 
 let toastListeners: ((toast: ToastMessage) => void)[] = [];
 
-export function showToast(toast: Omit<ToastMessage, "id">) {
-  const newToast: ToastMessage = { ...toast, id: Math.random().toString() };
+export function showToast(
+  toastOrTitle: Omit<ToastMessage, "id"> | string,
+  type: "success" | "error" | "info" = "info"
+) {
+  const toastObj: Omit<ToastMessage, "id"> =
+    typeof toastOrTitle === "string"
+      ? { title: toastOrTitle, type }
+      : toastOrTitle;
+  const newToast: ToastMessage = { ...toastObj, id: Math.random().toString() };
   toastListeners.forEach((listener) => listener(newToast));
 }
 

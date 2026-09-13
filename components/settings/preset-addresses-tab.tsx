@@ -39,9 +39,13 @@ import {
   Compass,
   Landmark,
   School,
+  Sparkles,
+  Key,
 } from "lucide-react";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 
-type PresetSection = "address" | "bank" | "school";
+type PresetSection = "address" | "bank" | "school" | "ai";
 
 export function PresetAddressesTab() {
   const [activeSection, setActiveSection] = useState<PresetSection>("address");
@@ -64,6 +68,11 @@ export function PresetAddressesTab() {
   const [schoolPresets, setSchoolPresets] = useState<string[]>(DEFAULT_SCHOOL_PRESETS);
   const [newSchoolName, setNewSchoolName] = useState("");
 
+  // 4. AI OCR Configuration State
+  const [aiProvider, setAiProvider] = useState<"gemini" | "openai">("gemini");
+  const [aiApiKey, setAiApiKey] = useState("");
+  const [aiModel, setAiModel] = useState("gemini-1.5-flash");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -79,6 +88,13 @@ export function PresetAddressesTab() {
       fetchAddressPresetsConfigFromDb().then(setAddressConfig),
       fetchBankPresetsFromDb().then(setBankPresets),
       fetchSchoolPresetsFromDb().then(setSchoolPresets),
+      getAdmissionSettings().then((s) => {
+        if (s) {
+          if (s.aiProvider) setAiProvider(s.aiProvider);
+          if (s.aiApiKey) setAiApiKey(s.aiApiKey);
+          if (s.aiModel) setAiModel(s.aiModel);
+        }
+      }),
     ]).catch((err) => {
       console.warn("Could not load presets from DB:", err);
     });
@@ -92,10 +108,16 @@ export function PresetAddressesTab() {
         saveAddressPresetsConfigToDb(addressConfig),
         saveBankPresetsToDb(bankPresets),
         saveSchoolPresetsToDb(schoolPresets),
+        saveAdmissionSettings({
+          schoolId: "default",
+          aiProvider,
+          aiApiKey: aiApiKey.trim(),
+          aiModel,
+        }),
       ]);
 
       if (addrOk && bankOk && schoolOk) {
-        showToast({ title: "All system presets saved successfully!", type: "success" });
+        showToast({ title: "All system presets & AI settings saved successfully!", type: "success" });
       } else {
         showToast({ title: "Saved locally. DB sync partially completed.", type: "info" });
       }
@@ -125,6 +147,19 @@ export function PresetAddressesTab() {
         setSchoolPresets(DEFAULT_SCHOOL_PRESETS);
         saveSchoolPresetsToDb(DEFAULT_SCHOOL_PRESETS);
         showToast({ title: "Reset school presets to defaults", type: "info" });
+      }
+    } else if (activeSection === "ai") {
+      if (confirm("Reset AI configuration to defaults (Google Gemini 1.5 Flash)?")) {
+        setAiProvider("gemini");
+        setAiModel("gemini-1.5-flash");
+        setAiApiKey("");
+        saveAdmissionSettings({
+          schoolId: "default",
+          aiProvider: "gemini",
+          aiModel: "gemini-1.5-flash",
+          aiApiKey: "",
+        });
+        showToast({ title: "Reset AI settings to defaults", type: "info" });
       }
     }
   };
@@ -367,6 +402,20 @@ export function PresetAddressesTab() {
         >
           <School className="h-3.5 w-3.5" />
           🏫 Previous / Feeder Schools
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveSection("ai")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
+            activeSection === "ai"
+              ? "bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/30 shadow-2xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <Sparkles className="h-3.5 w-3.5 text-pink-500" />
+          ✨ AI &amp; OCR Vision Key
         </button>
       </div>
 
@@ -753,6 +802,78 @@ export function PresetAddressesTab() {
                   </button>
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* SECTION 4: AI Model & Vision OCR Configuration */}
+      {activeSection === "ai" && (
+        <Card className="rounded-2xl border border-border/80 shadow-xs animate-in fade-in-50 duration-200">
+          <CardHeader className="pb-3 border-b bg-muted/20">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm font-bold">1. AI Model &amp; Vision OCR Configuration</CardTitle>
+                <CardDescription className="text-xs">
+                  The AI OCR scanner runs automatically on your camera captures and physical admission form images.
+                  You can use Google Gemini (Recommended &amp; Free Tier) or OpenAI.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-5 space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">
+                  AI Service Provider
+                </Label>
+                <CustomSelect
+                  value={aiProvider}
+                  onChange={(val) => {
+                    setAiProvider(val as "gemini" | "openai");
+                    if (val === "gemini") setAiModel("gemini-1.5-flash");
+                    if (val === "openai") setAiModel("gpt-4o-mini");
+                  }}
+                  options={[
+                    { value: "gemini", label: "Google Gemini (Recommended - Fast & Free)" },
+                    { value: "openai", label: "OpenAI (GPT-4o Vision)" },
+                  ]}
+                />
+              </div>
+
+              <div>
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">
+                  OCR Model
+                </Label>
+                <Input
+                  value={aiModel}
+                  onChange={(e) => setAiModel(e.target.value)}
+                  placeholder="gemini-1.5-flash or gpt-4o-mini"
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase mb-1.5 block">
+                  API Key *
+                </Label>
+                <div className="relative">
+                  <Key className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="password"
+                    value={aiApiKey}
+                    onChange={(e) => setAiApiKey(e.target.value)}
+                    placeholder="Paste your Gemini API Key (starts with AIzaSy...)"
+                    className="pl-9 h-9 text-xs rounded-xl font-mono"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Your API Key is stored securely in your database and is only invoked for OCR extractions.
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

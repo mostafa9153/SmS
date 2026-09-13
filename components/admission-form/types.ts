@@ -129,6 +129,8 @@ export interface OtherInfoData {
 
 export interface AdmissionFormVIxData {
   formNo?: string;
+  admissionType?: "new" | "re" | "regular";
+  customHeaderTitle?: string;
   academicYear: string;
   officeUse: OfficeUseData;
   basicInfo: BasicInfoData;
@@ -142,6 +144,8 @@ export interface AdmissionFormVIxData {
 
 export interface AdmissionFormXIData {
   formNo?: string;
+  admissionType?: "new" | "re" | "regular";
+  customHeaderTitle?: string;
   academicYear: string;
   officeUse: OfficeUseData;
   basicInfo: BasicInfoData;

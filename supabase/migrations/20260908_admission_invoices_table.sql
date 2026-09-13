@@ -43,6 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_admission_invoices_created_at ON admission_invoic
 ALTER TABLE admission_invoices ENABLE ROW LEVEL SECURITY;
 
 -- Allow authenticated users to perform all operations
+DROP POLICY IF EXISTS "allow_authenticated_all_admission_invoices" ON admission_invoices;
 CREATE POLICY "allow_authenticated_all_admission_invoices" ON admission_invoices
   FOR ALL
   TO authenticated
@@ -50,12 +51,14 @@ CREATE POLICY "allow_authenticated_all_admission_invoices" ON admission_invoices
   WITH CHECK (true);
 
 -- Allow anonymous users to verify invoices by invoice_number
+DROP POLICY IF EXISTS "allow_anon_verify_admission_invoices" ON admission_invoices;
 CREATE POLICY "allow_anon_verify_admission_invoices" ON admission_invoices
   FOR SELECT
   TO anon
   USING (true);
 
 -- Allow service_role unrestricted access
+DROP POLICY IF EXISTS "service_role_all_admission_invoices" ON admission_invoices;
 CREATE POLICY "service_role_all_admission_invoices" ON admission_invoices
   FOR ALL
   TO service_role

@@ -4,7 +4,7 @@ import { PresetAddressesTab } from "@/components/settings/preset-addresses-tab";
 
 export const metadata = {
   title: "Presets & Quick-Fill Hub | Settings | SMS",
-  description: "Configure reusable presets for student addresses, banks, and feeder schools.",
+  description: "Configure reusable presets for student addresses, banks, feeder schools, and AI OCR keys.",
 };
 
 export default function PresetsSettingsPage() {
@@ -12,7 +12,7 @@ export default function PresetsSettingsPage() {
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
       <SettingsPageHeader
         title="System Presets & Quick-Fill Hub"
-        subtitle="Configure reusable preset templates for student registration, feeder schools, local banks, and quick addresses."
+        subtitle="Configure reusable preset templates for student registration, feeder schools, local banks, quick addresses, and AI OCR vision keys."
         icon={MapPin}
         iconColor="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
       />

@@ -47,6 +47,10 @@ export interface Student {
   presentSection: string;        // Current section
   presentRoll: number;           // Current roll number
   currentStatus: StudentStatus;
+  reAdmissionStatus?: ReAdmissionStatus;
+  reAdmittedAt?: string;
+  reAdmittedSession?: string;
+  isInvoiceQueued?: boolean;
   admissionYear: number;         // Year of first admission
   admissionDate?: string;        // ISO date of admission
   previousSchool?: string;       // Name of school before joining
@@ -297,4 +301,90 @@ export interface ClassResultsSummary {
   averageMarks: number;
   results: StudentResult[];
 }
+
+// ============================================================
+// Admission Module Types
+// ============================================================
+
+export type AdmissionApplicationStatus = "pending" | "admitted" | "rejected";
+export type AdmissionFormMethod = "offline" | "online" | "ai_scan";
+export type ReAdmissionStatus = "pending" | "admitted" | "not_admitted";
+
+export interface AdmissionApplication {
+  id: string;
+  applicationNo: string;
+  academicYear: string;
+  admissionType: "new" | "re";
+  formMethod: AdmissionFormMethod;
+  targetClass: string;
+  targetSection?: string;
+  targetRoll?: number;
+  status: AdmissionApplicationStatus;
+
+  // Student Personal Details
+  studentName: string;
+  photoUrl?: string;
+  gender: Gender;
+  dob?: string;
+  fatherName?: string;
+  motherName?: string;
+  guardianName?: string;
+  studentContact?: string;
+  altMobile?: string;
+  email?: string;
+
+  // Address Details
+  address?: string;
+  village?: string;
+  postOffice?: string;
+  policeStation?: string;
+  district?: string;
+  pincode?: string;
+
+  // Demographics
+  religion?: string;
+  socialCategory?: string;
+  casteCertificateNo?: string;
+  aadhaar?: string;
+  bloodGroup?: string;
+
+  // Previous Academic Records
+  previousSchool?: string;
+  previousClass?: string;
+  previousRoll?: string;
+  previousMarks?: string;
+
+  // Payment
+  feePaid: boolean;
+  feeAmount: number;
+  paymentReceiptNo?: string;
+  paymentMode?: string;
+
+  // Linkage upon admission
+  admittedStudentId?: string;
+  admittedClass?: string;
+  admittedSection?: string;
+  admittedRoll?: number;
+  admittedAt?: string;
+  admittedBy?: string;
+
+  aiExtractedData?: Record<string, any>;
+  scannedImageUrl?: string;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdmissionSettings {
+  id?: string;
+  schoolId: string;
+  aiProvider: "gemini" | "openai";
+  aiApiKey?: string;
+  aiModel: string;
+  currentAcademicYear: string;
+  newAdmissionActive: boolean;
+  readmissionActive: boolean;
+  feeStructure?: Record<string, number>;
+}
+
 
