@@ -17,6 +17,34 @@ export const DEFAULT_SCHOOL_CLASSES = [
   "Class XII",
 ];
 
+export const STANDARD_SCHOOL_SUBJECTS = [
+  "Bengali (1st Language)",
+  "English (2nd Language)",
+  "Mathematics",
+  "Physical Science",
+  "Life Science",
+  "History",
+  "Geography",
+  "Sanskrit",
+  "Arabic",
+  "Work Education",
+  "Physical Education",
+  "Computer Application / IT",
+  "Pure Science",
+  "Bio Science",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "Political Science",
+  "Philosophy",
+  "Economics",
+  "Education",
+  "Sociology",
+  "Nutrition",
+  "Music",
+  "Visual Arts",
+];
+
 interface ClassMultiSelectDropdownProps {
   selectedClasses: string[];
   onChange: (classes: string[]) => void;

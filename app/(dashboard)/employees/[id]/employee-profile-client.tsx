@@ -28,7 +28,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CopyButton } from "@/components/ui/copy-button";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { StaffSignatureCard } from "@/components/employees/staff-signature-card";
-import { StaffEditDialog } from "@/components/employees/staff-edit-dialog";
 import { StaffDeleteDialog } from "@/components/employees/staff-delete-dialog";
 import { cn, calculateDetailedAge } from "@/lib/utils";
 
@@ -38,7 +37,6 @@ interface EmployeeProfileClientProps {
 
 export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileClientProps) {
   const [currentStaff, setCurrentStaff] = useState(initialStaff);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const dAge = currentStaff.dob ? calculateDetailedAge(currentStaff.dob) : null;
@@ -116,11 +114,13 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsEditDialogOpen(true)}
+            asChild
             className="rounded-xl h-9 text-xs font-semibold shadow-2xs cursor-pointer border-border hover:bg-muted"
           >
-            <Pencil className="mr-1.5 h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-            Edit Profile
+            <Link href={`/employees/${currentStaff.id}/edit`}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              Edit Profile
+            </Link>
           </Button>
 
           <Button
@@ -612,14 +612,6 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Edit Dialog Modal */}
-      <StaffEditDialog
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-        staff={currentStaff}
-        onStaffUpdated={(updated) => setCurrentStaff(updated)}
-      />
 
       {/* Delete Confirmation Modal */}
       <StaffDeleteDialog
