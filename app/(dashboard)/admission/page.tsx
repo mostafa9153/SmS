@@ -73,9 +73,6 @@ export default function AdmissionHubPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
             Admission &amp; Re-admission Portal
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Two distinct portals: Enroll new applicants via isolated staging, or promote continuing students with 1-click batch invoices.
-          </p>
         </div>
 
         {/* Header Action Shortcuts */}
@@ -214,10 +211,6 @@ export default function AdmissionHubPage() {
             </span>
           </button>
         </div>
-
-        <span className="text-[11px] text-muted-foreground font-medium hidden md:block pr-2">
-          Select portal to focus your workflow
-        </span>
       </div>
 
       {/* ========================================================================= */}
@@ -240,9 +233,6 @@ export default function AdmissionHubPage() {
                     External Applicants • Isolated Staging
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Applications remain in staging and do not touch the main Student Directory until officially verified &amp; admitted.
-                </p>
               </div>
             </div>
 
@@ -372,9 +362,6 @@ export default function AdmissionHubPage() {
                     Continuing Students • Session 2026 Rollover
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  For existing enrolled students. Verify promoted candidates, update rolls &amp; sections, and bulk print admission receipts.
-                </p>
               </div>
             </div>
 
