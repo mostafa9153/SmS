@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
@@ -94,6 +94,7 @@ function InvoiceGeneratorContent() {
   const [currentA4PageIndex, setCurrentA4PageIndex] = useState(0);
   const [bulkFillMode, setBulkFillMode] = useState<"fill" | "blank">("fill");
   const [bulkBlankCount, setBulkBlankCount] = useState<number>(10);
+  const [bulkAssignedTeacher, setBulkAssignedTeacher] = useState<string>("");
 
   const currentYear = new Date().getFullYear();
   const currentSession = `${currentYear} – ${currentYear + 1}`;
@@ -136,16 +137,75 @@ function InvoiceGeneratorContent() {
   const [isBulkStartingNoLocked, setIsBulkStartingNoLocked] = useState(true);
   const [isSingleReceiptLocked, setIsSingleReceiptLocked] = useState(true);
 
-  useEffect(() => {
-    const seq = getStoredInvoiceSeq();
-    setInvoiceSeq(seq);
-    setBulkStartingNo(seq);
-    setPrevSeq(getStoredPrevSeq());
-  }, []);
+  // Sync starting sequence live from database
+  const syncSequenceFromDatabase = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
+      const data = await res.json();
+      if (res.ok && typeof data.nextSequence === "number" && data.nextSequence >= 1) {
+        const seq = data.nextSequence;
+        setInvoiceSeq(seq);
+        setBulkStartingNo(seq);
+        setInvoice((prev) => ({
+          ...prev,
+          invoiceNumber: generateInvoiceNumber(seq, currentYear),
+        }));
+        try {
+          localStorage.setItem(INVOICE_STORAGE_KEY, String(seq));
+        } catch {}
+        return seq;
+      }
+    } catch (e) {
+      console.warn("Could not sync next sequence from DB:", e);
+    }
+    const fallback = getStoredInvoiceSeq();
+    setInvoiceSeq(fallback);
+    setBulkStartingNo(fallback);
+    return fallback;
+  }, [currentYear, INVOICE_STORAGE_KEY]);
 
-  // Undo / Revert back to previous starting serial
-  function handleUndoLastPrint() {
+  useEffect(() => {
+    syncSequenceFromDatabase();
+    setPrevSeq(getStoredPrevSeq());
+  }, [syncSequenceFromDatabase]);
+
+  // Undo / Revert back to previous starting serial directly in database
+  async function handleUndoLastPrint() {
     if (prevSeq === null || prevSeq <= 0) return;
+    try {
+      const res = await fetch("/api/invoices/batches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startSerial: prevSeq,
+          endSerial: invoiceSeq - 1,
+          year: currentYear,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && typeof data.newSequence === "number") {
+        setInvoiceSeq(data.newSequence);
+        setBulkStartingNo(data.newSequence);
+        setInvoice((prev) => ({
+          ...prev,
+          invoiceNumber: generateInvoiceNumber(data.newSequence, currentYear),
+        }));
+        setPrevSeq(null);
+        try {
+          localStorage.setItem(INVOICE_STORAGE_KEY, String(data.newSequence));
+          localStorage.removeItem(PREV_INVOICE_STORAGE_KEY);
+        } catch {}
+        showToast({
+          type: "info",
+          title: "Serial Reverted (Database Undo)",
+          description: `Reverted back to Starting Serial #${String(data.newSequence).padStart(4, "0")}`,
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("Database batch undo failed, reverting locally:", e);
+    }
+
     const reverted = prevSeq;
     try {
       localStorage.setItem(INVOICE_STORAGE_KEY, String(reverted));
@@ -603,6 +663,16 @@ function InvoiceGeneratorContent() {
         bulkFillMode === "blank"
           ? Math.max(1, bulkBlankCount || 1)
           : (selectedStudentIds.length || classRoster.length || 1);
+
+      // Validate: blank slips must have a teacher assigned
+      if (bulkFillMode === "blank" && !bulkAssignedTeacher.trim()) {
+        showToast({
+          type: "error",
+          title: "Teacher Name Required",
+          description: "Please enter the teacher's name before printing blank slips.",
+        });
+        return;
+      }
       try {
         localStorage.setItem(PREV_INVOICE_STORAGE_KEY, String(bulkStartingNo));
       } catch (e) {
@@ -646,7 +716,8 @@ function InvoiceGeneratorContent() {
         })
         .catch((e) => console.error(e));
     } else {
-      recordPrintedInvoices(bulkInvoices, "bulk", copyType)
+      const teacher = bulkFillMode === "blank" ? bulkAssignedTeacher.trim() : null;
+      recordPrintedInvoices(bulkInvoices, "bulk", copyType, teacher)
         .then((res) => {
           if (res.success) {
             showToast({
@@ -676,6 +747,9 @@ function InvoiceGeneratorContent() {
           invoiceNumber: generateInvoiceNumber(nextSeqTarget),
         }));
       }
+      setTimeout(() => {
+        syncSequenceFromDatabase();
+      }, 1000);
     };
 
     window.addEventListener("afterprint", advanceToNext, { once: true });
@@ -1528,27 +1602,55 @@ function InvoiceGeneratorContent() {
                   </div>
 
                   {bulkFillMode === "blank" && (
-                    <div className="mt-2 flex items-center justify-between gap-2 p-2 rounded-xl bg-teal-500/10 border border-teal-500/20">
-                      <div>
-                        <p className="text-xs font-bold text-teal-800 dark:text-teal-300">
-                          Number of Blank Slips
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          Name, Guardian, ID &amp; Roll will be blank lines
-                        </p>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between gap-2 p-2 rounded-xl bg-teal-500/10 border border-teal-500/20">
+                        <div>
+                          <p className="text-xs font-bold text-teal-800 dark:text-teal-300">
+                            Number of Blank Slips
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            Name, Guardian, ID &amp; Roll will be blank lines
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            type="number"
+                            min="1"
+                            max="500"
+                            value={bulkBlankCount}
+                            onChange={(e) =>
+                              setBulkBlankCount(Math.max(1, parseInt(e.target.value, 10) || 1))
+                            }
+                            className="w-18 h-7 text-xs font-mono font-bold text-center bg-background"
+                          />
+                          <span className="text-[11px] font-semibold text-muted-foreground">slips</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
+
+                      {/* Teacher Assignment — MANDATORY for blank slips */}
+                      <div className="p-3 rounded-xl border border-amber-400/30 bg-amber-500/5 space-y-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <UserCheck className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                          <Label className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                            Assign to Teacher
+                            <span className="text-rose-500 ml-0.5">*</span>
+                          </Label>
+                        </div>
                         <Input
-                          type="number"
-                          min="1"
-                          max="500"
-                          value={bulkBlankCount}
-                          onChange={(e) =>
-                            setBulkBlankCount(Math.max(1, parseInt(e.target.value, 10) || 1))
-                          }
-                          className="w-18 h-7 text-xs font-mono font-bold text-center bg-background"
+                          id="blank-assigned-teacher"
+                          value={bulkAssignedTeacher}
+                          onChange={(e) => setBulkAssignedTeacher(e.target.value)}
+                          placeholder="Enter teacher's full name..."
+                          className={cn(
+                            "h-8 text-xs font-semibold",
+                            !bulkAssignedTeacher.trim()
+                              ? "border-amber-400/50 focus:border-amber-500 focus:ring-amber-500/30"
+                              : "border-emerald-400/50 bg-emerald-500/5"
+                          )}
                         />
-                        <span className="text-[11px] font-semibold text-muted-foreground">slips</span>
+                        <p className="text-[10px] text-muted-foreground">
+                          Slips will be tracked under this teacher's name in Track &amp; Verify.
+                        </p>
                       </div>
                     </div>
                   )}

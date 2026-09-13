@@ -52,6 +52,9 @@ export function saveLocalCachedInvoices(invoices: DBInvoiceInsert[]) {
         generator_mode: inv.generator_mode || "single",
         copy_type: inv.copy_type || "both",
         is_blank: Boolean(inv.is_blank),
+        invoice_status: (inv.invoice_status as any) || (inv.is_blank ? "blank_assigned" : "active"),
+        assigned_to: inv.assigned_to || null,
+        batch_id: inv.batch_id || null,
         printed_by: inv.printed_by || null,
         created_at: now,
         updated_at: now,
@@ -76,13 +79,27 @@ export function saveLocalCachedInvoices(invoices: DBInvoiceInsert[]) {
 export function convertInvoicesToInsertPayload(
   invoices: InvoiceData[],
   generatorMode: "single" | "bulk",
-  copyType: "both" | "student" | "school"
+  copyType: "both" | "student" | "school",
+  assignedTo?: string | null
 ): DBInvoiceInsert[] {
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+
   return invoices.map((inv) => {
     const total = inv.feeItems.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     const isBlank = Boolean(
       inv.isBlankTemplate || (!inv.studentName?.trim() && !inv.studentId?.trim())
     );
+
+    // Generate batch_id only for blank slips with a teacher assigned
+    const batchId =
+      isBlank && assignedTo
+        ? `${dateStr}-${assignedTo
+            .trim()
+            .split(" ")
+            .map((w) => w[0]?.toUpperCase() || "")
+            .join("")}`
+        : null;
 
     return {
       invoice_number: inv.invoiceNumber,
@@ -105,6 +122,9 @@ export function convertInvoicesToInsertPayload(
       generator_mode: generatorMode,
       copy_type: copyType,
       is_blank: isBlank,
+      invoice_status: isBlank ? "blank_assigned" : "active",
+      assigned_to: isBlank && assignedTo ? assignedTo.trim() : null,
+      batch_id: batchId,
     };
   });
 }
@@ -115,11 +135,12 @@ export function convertInvoicesToInsertPayload(
 export async function recordPrintedInvoices(
   invoices: InvoiceData[],
   generatorMode: "single" | "bulk",
-  copyType: "both" | "student" | "school"
+  copyType: "both" | "student" | "school",
+  assignedTo?: string | null
 ): Promise<{ success: boolean; count: number; error?: string }> {
   if (!invoices.length) return { success: true, count: 0 };
 
-  const payload = convertInvoicesToInsertPayload(invoices, generatorMode, copyType);
+  const payload = convertInvoicesToInsertPayload(invoices, generatorMode, copyType, assignedTo);
 
   // 1. Immediately cache locally
   saveLocalCachedInvoices(payload);
@@ -154,6 +175,8 @@ export function getLocalStats(): InvoiceStats {
     totalInvoices: local.length,
     totalFilled: 0,
     totalBlank: 0,
+    totalActive: 0,
+    totalCancelled: 0,
     totalBulk: 0,
     totalSingle: 0,
     totalAmount: 0,
@@ -161,14 +184,22 @@ export function getLocalStats(): InvoiceStats {
   };
 
   local.forEach((row) => {
+    const status = (row as any).invoice_status || (row.is_blank ? "blank_assigned" : "active");
+
     if (row.is_blank) stats.totalBlank += 1;
     else stats.totalFilled += 1;
+
+    if (status === "active") stats.totalActive += 1;
+    if (status === "cancelled") stats.totalCancelled += 1;
 
     if (row.generator_mode === "bulk") stats.totalBulk += 1;
     else stats.totalSingle += 1;
 
-    stats.totalAmount += Number(row.total_amount) || 0;
-    if (row.student_class) {
+    // Exclude cancelled from net amount
+    if (status !== "cancelled") {
+      stats.totalAmount += Number(row.total_amount) || 0;
+    }
+    if (row.student_class && status !== "cancelled") {
       stats.byClass[row.student_class] = (stats.byClass[row.student_class] || 0) + 1;
     }
   });

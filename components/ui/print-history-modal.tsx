@@ -42,14 +42,84 @@ export function PrintHistoryModal({
   onUndoBatch,
 }: PrintHistoryModalProps) {
   const [history, setHistory] = useState<PrintBatchRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadHistory = async () => {
+    if (docType === "invoice") {
+      setIsLoading(true);
+      try {
+        const res = await fetch("/api/invoices/batches");
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.batches) && data.batches.length > 0) {
+          const mapped: PrintBatchRecord[] = data.batches.map((b: any) => ({
+            id: b.batchId,
+            timestamp:
+              new Date(b.createdAt).toLocaleDateString("en-GB") +
+              " • " +
+              new Date(b.createdAt).toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            createdAt: new Date(b.createdAt).getTime(),
+            docType: "invoice",
+            mode: "bulk",
+            fillMode: b.isBlank ? "blank" : "fill",
+            classInfo: b.assignedTo
+              ? `Assigned to: ${b.assignedTo}`
+              : b.isBlank
+              ? "Blank Slips Batch"
+              : "Invoice Batch",
+            startSerial: b.startSerial,
+            endSerial: b.endSerial,
+            formattedStart: b.formattedStart,
+            formattedEnd: b.formattedEnd,
+            count: b.count,
+          }));
+          setHistory(mapped);
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not load DB batches:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    setHistory(getPrintHistory(docType));
+  };
 
   useEffect(() => {
     if (isOpen) {
-      setHistory(getPrintHistory(docType));
+      loadHistory();
     }
   }, [isOpen, docType]);
 
-  const handleUndo = (batchId: string) => {
+  const handleUndo = async (batchId: string) => {
+    const target = history.find((h) => h.id === batchId);
+    if (docType === "invoice") {
+      try {
+        const res = await fetch("/api/invoices/batches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            batchId,
+            startSerial: target?.startSerial,
+            endSerial: target?.endSerial,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          await loadHistory();
+          if (onUndoBatch && typeof data.newSequence === "number") {
+            onUndoBatch(data.newSequence);
+          }
+          return;
+        }
+      } catch (e) {
+        console.warn("DB undo error, falling back:", e);
+      }
+    }
+
     const { updatedHistory, newStartSerial } = undoPrintBatch(docType, batchId);
     setHistory(updatedHistory);
     if (onUndoBatch) {
