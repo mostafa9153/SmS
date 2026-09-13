@@ -20,10 +20,96 @@ import {
   FileText,
   BadgeCheck,
   TrendingUp,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type PortalFilter = "all" | "new" | "re";
+
+function CardInfoHint({ text, align = "left" }: { text: string; align?: "left" | "right" }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setIsOpen(true)}
+      onMouseLeave={() => setIsOpen(false)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="More information"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsOpen((prev) => !prev);
+          }
+        }}
+        className={cn(
+          "h-5 w-5 rounded-full inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted transition-all cursor-pointer",
+          isOpen && "text-foreground bg-muted ring-1 ring-border"
+        )}
+        title="More information"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </span>
+
+      {isOpen && (
+        <div
+          role="tooltip"
+          className={cn(
+            "absolute top-full mt-2 z-50 w-64 sm:w-72 p-3 rounded-xl bg-popover/95 backdrop-blur-md text-popover-foreground text-xs leading-relaxed shadow-xl border border-border animate-in fade-in zoom-in-95 duration-150 pointer-events-auto font-normal",
+            align === "right" ? "right-0" : "left-0"
+          )}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        >
+          <div className="flex items-start gap-2">
+            <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+            <p className="text-muted-foreground leading-normal">{text}</p>
+          </div>
+          <div
+            className={cn(
+              "absolute -top-1.5 border-4 border-transparent border-b-border",
+              align === "right" ? "right-2" : "left-2"
+            )}
+          />
+          <div
+            className={cn(
+              "absolute -top-1 border-4 border-transparent border-b-popover",
+              align === "right" ? "right-2" : "left-2"
+            )}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdmissionHubPage() {
   const [activeFilter, setActiveFilter] = useState<PortalFilter>("all");
@@ -109,7 +195,6 @@ export default function AdmissionHubPage() {
           <p className="text-2xl font-black mt-2 text-foreground">
             {loadingApps ? "..." : pendingApps.length}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Awaiting desk verification</p>
         </div>
 
         {/* Metric 2: New Admission Admitted */}
@@ -125,7 +210,6 @@ export default function AdmissionHubPage() {
           <p className="text-2xl font-black mt-2 text-foreground">
             {loadingApps ? "..." : admittedApps.length}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Enrolled into Student Register</p>
         </div>
 
         {/* Metric 3: Re-admission Continuing */}
@@ -140,9 +224,6 @@ export default function AdmissionHubPage() {
           </div>
           <p className="text-2xl font-black mt-2 text-foreground">
             {loadingStudents ? "..." : reAdmittedStudents.length}
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-1">
-            {pendingReAdmitStudents.length} awaiting re-admission
           </p>
         </div>
 
@@ -159,7 +240,6 @@ export default function AdmissionHubPage() {
           <p className="text-2xl font-black mt-2 text-foreground">
             {loadingStudents ? "..." : queuedForInvoice.length}
           </p>
-          <p className="text-[11px] text-muted-foreground mt-1">Ready for 1-click batch print</p>
         </div>
       </div>
 
@@ -268,12 +348,15 @@ export default function AdmissionHubPage() {
                     Step 1A • Digital Apply
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  Online Admission Form
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Direct online candidate registration. Submit student details online to instantly generate an official Application Receipt slip.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    Online Admission Form
+                  </h3>
+                  <CardInfoHint
+                    text="Direct online candidate registration. Submit student details online to instantly generate an official Application Receipt slip."
+                    align="left"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
@@ -297,12 +380,15 @@ export default function AdmissionHubPage() {
                     <span>Step 1B • Print &amp; OCR</span>
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  Offline Form &amp; AI Scanner
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Generate blank printable forms with auto-serial numbers (Class V–IX &amp; XI), or scan physically filled forms with Gemini AI.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    Offline Form &amp; AI Scanner
+                  </h3>
+                  <CardInfoHint
+                    text="Generate blank printable forms with auto-serial numbers (Class V–IX & XI), or scan physically filled forms with Gemini AI."
+                    align="left"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
@@ -325,12 +411,15 @@ export default function AdmissionHubPage() {
                     Step 2 • Verify &amp; Enroll
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  Application Verification Desk
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Verify receipt copies when parents submit fees at school. Assign Section &amp; Roll to confirm and officially enroll into the Student Register.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    Application Verification Desk
+                  </h3>
+                  <CardInfoHint
+                    text="Verify receipt copies when parents submit fees at school. Assign Section & Roll to confirm and officially enroll into the Student Register."
+                    align="right"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400">
@@ -398,12 +487,15 @@ export default function AdmissionHubPage() {
                     Step 1 • Class Roster
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                  Class Re-admission Desk
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Review promoted students class-by-class (Class V–XI). Mark candidates as &quot;Admitted&quot; when they pay fees, or flag as &quot;Not Admitted&quot;.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                    Class Re-admission Desk
+                  </h3>
+                  <CardInfoHint
+                    text="Review promoted students class-by-class (Class V–XI). Mark candidates as &quot;Admitted&quot; when they pay fees, or flag as &quot;Not Admitted&quot;."
+                    align="left"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-orange-600 dark:text-orange-400">
@@ -426,12 +518,15 @@ export default function AdmissionHubPage() {
                     Step 2 • 1-Click Print
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                  Bulk Invoices Queue
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
-                  Invoices automatically queued by Class &amp; Section (e.g. Class VI-A, VI-B). Print all student receipts with a single click.
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                    Bulk Invoices Queue
+                  </h3>
+                  <CardInfoHint
+                    text="Invoices automatically queued by Class & Section (e.g. Class VI-A, VI-B). Print all student receipts with a single click."
+                    align="left"
+                  />
+                </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
@@ -451,9 +546,15 @@ export default function AdmissionHubPage() {
                     Session 2026
                   </span>
                 </div>
-                <h3 className="text-sm sm:text-base font-bold text-foreground">
-                  Session Rollover Progress
-                </h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                    Session Rollover Progress
+                  </h3>
+                  <CardInfoHint
+                    text="Track progress of continuing students transitioning into Session 2026. Monitors fee confirmation and roster completion."
+                    align="right"
+                  />
+                </div>
                 <div className="space-y-2 mt-2">
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Completion Rate</span>
