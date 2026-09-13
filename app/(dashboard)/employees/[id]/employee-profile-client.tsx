@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CopyButton } from "@/components/ui/copy-button";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
+import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";
 import { StaffSignatureCard } from "@/components/employees/staff-signature-card";
 import { StaffDeleteDialog } from "@/components/employees/staff-delete-dialog";
 import { cn, calculateDetailedAge } from "@/lib/utils";
@@ -215,17 +216,39 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
             </div>
           </div>
 
-          {/* Extreme Right: 3:4 Passport Photo Frame (Studio Modal) */}
-          <div className="shrink-0 self-center sm:self-auto">
-            <StudentPhotoAvatar
-              studentId={currentStaff.id}
-              studentName={currentStaff.full_name}
-              photoUrl={currentStaff.profile_picture_url}
-              uploadEndpoint={`/api/employees/${currentStaff.id}/photo`}
-              onPhotoUpdated={(newUrl) =>
-                setCurrentStaff((prev: any) => ({ ...prev, profile_picture_url: newUrl }))
-              }
-            />
+          {/* Extreme Right: 3:4 Passport Photo Frame & Official Digital Signature */}
+          <div className="shrink-0 flex flex-row sm:flex-col items-center justify-center gap-3 self-center sm:self-auto pt-2 sm:pt-0">
+            <div className="flex flex-col items-center gap-1">
+              <StudentPhotoAvatar
+                studentId={currentStaff.id}
+                studentName={currentStaff.full_name}
+                photoUrl={currentStaff.profile_picture_url}
+                uploadEndpoint={`/api/employees/${currentStaff.id}/photo`}
+                onPhotoUpdated={(newUrl) =>
+                  setCurrentStaff((prev: any) => ({ ...prev, profile_picture_url: newUrl }))
+                }
+              />
+            </div>
+
+            <div className="flex flex-col items-center gap-1">
+              <StaffSignatureAvatar
+                staffId={currentStaff.id}
+                staffName={currentStaff.full_name}
+                signatureUrl={profMeta.signature_url}
+                onSignatureUpdated={(newUrl) =>
+                  setCurrentStaff((prev: any) => ({
+                    ...prev,
+                    professional_meta: {
+                      ...(prev.professional_meta || {}),
+                      signature_url: newUrl,
+                    },
+                  }))
+                }
+              />
+              <span className="text-[10px] font-medium text-muted-foreground">
+                Official Signature
+              </span>
+            </div>
           </div>
         </div>
       </div>

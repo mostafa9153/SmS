@@ -14,6 +14,7 @@ import {
   Building2,
   BookOpen,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ import {
   STANDARD_SCHOOL_SUBJECTS,
 } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
+import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
+import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -282,6 +285,42 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
 
       {/* 2. Main Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Credentials & Media: Photo & Digital Signature */}
+        <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-blue-600/5 via-indigo-600/5 to-purple-600/5 p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="space-y-1 text-center sm:text-left">
+            <h2 className="text-sm sm:text-base font-bold text-foreground flex items-center justify-center sm:justify-start gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Teacher Credentials & Media
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Official passport photo (3:4) and digital signature used on marksheets, admit cards, and transfer certificates.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-4 shrink-0">
+            {/* Passport Photo */}
+            <div className="flex flex-col items-center gap-1">
+              <StudentPhotoAvatar
+                studentId={staff.id}
+                studentName={staff.full_name}
+                photoUrl={staff.profile_picture_url}
+                uploadEndpoint={`/api/employees/${staff.id}/photo`}
+              />
+              <span className="text-[10px] font-medium text-muted-foreground">Passport Photo</span>
+            </div>
+
+            {/* Digital Signature */}
+            <div className="flex flex-col items-center gap-1">
+              <StaffSignatureAvatar
+                staffId={staff.id}
+                staffName={staff.full_name}
+                signatureUrl={staff.professional_meta?.signature_url}
+              />
+              <span className="text-[10px] font-medium text-muted-foreground">Official Signature</span>
+            </div>
+          </div>
+        </div>
+
         {/* SECTION A: Institutional & Primary Details */}
         <FormSection
           title="A. Institutional & Primary Details"
