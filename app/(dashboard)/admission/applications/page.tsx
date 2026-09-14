@@ -155,8 +155,9 @@ export default function ApplicationsDeskPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
         <div className="flex items-center gap-3">
           <Link
-            href="/admission"
-            className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            href="/admission/new"
+            className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            title="Back to New Admission Tracker"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
@@ -165,9 +166,6 @@ export default function ApplicationsDeskPage() {
               <FileCheck2 className="h-5 w-5 text-blue-600" />
               <span>Applications &amp; Verification Desk</span>
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Verify receipt copies presented by parents at school, confirm fee payment, and admit students into the register.
-            </p>
           </div>
         </div>
 

@@ -147,7 +147,7 @@ export function AdmissionFormVIxPrintableView({
                   For Office Use
                 </div>
                 <div className="flex justify-between px-1">
-                  <span className="font-bold">SL No –</span>
+                  <span className="font-bold">Add Sl No. –</span>
                   <span className="font-bold font-mono">{data.officeUse.slNo || ""}</span>
                 </div>
                 <div className="flex justify-between px-1">

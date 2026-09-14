@@ -33,8 +33,8 @@ export default function ApplicationReceiptPage({
     return (
       <div className="p-12 text-center space-y-3">
         <p className="text-sm font-bold text-destructive">Application not found</p>
-        <Link href="/admission" className="text-xs text-primary underline">
-          Return to Admission Hub
+        <Link href="/admission/new/apply" className="text-xs text-primary underline">
+          Return to Admission Form
         </Link>
       </div>
     );
@@ -47,22 +47,21 @@ export default function ApplicationReceiptPage({
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
       {/* Top Action Bar (Hidden in Print) */}
-      <div className="flex items-center justify-between border-b pb-4 print:hidden">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 print:hidden">
+        <div className="flex items-center gap-3">
           <Link
-            href="/admission"
-            className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            href="/admission/new/apply"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border hover:bg-muted text-xs font-bold text-foreground transition-colors cursor-pointer"
+            title="Submit another application"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Apply Another</span>
           </Link>
           <div>
             <h1 className="text-lg font-black text-foreground flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
               <span>Application Submitted Successfully</span>
             </h1>
-            <p className="text-xs text-muted-foreground">
-              Print this official receipt slip for the student to present at the school counter.
-            </p>
           </div>
         </div>
 

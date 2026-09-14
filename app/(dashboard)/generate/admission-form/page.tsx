@@ -591,6 +591,20 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
 
     window.addEventListener("afterprint", advanceToNext, { once: true });
 
+    // Save blank form entry to DB
+    if (formMode === "blank" && !selectedStudent) {
+      fetch("/api/admission/applications/bulk-blank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serials: [currentSingleFormNo],
+          academicYear: String(currentYear),
+          admissionType: admissionCategory,
+          targetClass: activeTab === "xi" ? "XI" : "V",
+        })
+      }).catch(err => console.error("Failed to log blank form", err));
+    }
+
     setTimeout(() => {
       window.print();
       advanceToNext();
@@ -633,6 +647,20 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
     };
 
     window.addEventListener("afterprint", advanceToNext, { once: true });
+
+    // Save blank form entries to DB
+    if (formMode === "blank") {
+      fetch("/api/admission/applications/bulk-blank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serials: bulkSerialList,
+          academicYear: String(currentYear),
+          admissionType: admissionCategory,
+          targetClass: activeTab === "xi" ? "XI" : "V",
+        })
+      }).catch(err => console.error("Failed to log bulk blank forms", err));
+    }
 
     setTimeout(() => {
       window.print();

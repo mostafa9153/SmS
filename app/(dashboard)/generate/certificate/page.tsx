@@ -602,24 +602,6 @@ function CertificateGeneratorContent() {
                     className="w-full text-xs h-8.5"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Board Roll No (Optional)</Label>
-                  <Input
-                    value={cert.boardRollNo || ""}
-                    onChange={(e) => setCert({ ...cert, boardRollNo: e.target.value })}
-                    className="text-xs h-8.5 font-mono"
-                    placeholder="e.g. 123456N 0012"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Board Reg. No (Optional)</Label>
-                  <Input
-                    value={cert.boardRegistrationNo || ""}
-                    onChange={(e) => setCert({ ...cert, boardRegistrationNo: e.target.value })}
-                    className="text-xs h-8.5 font-mono"
-                    placeholder="e.g. 19180201004/2024"
-                  />
-                </div>
               </div>
             </CardContent>
           </Card>

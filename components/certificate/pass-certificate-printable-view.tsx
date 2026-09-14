@@ -248,7 +248,7 @@ export function PassCertificatePrintableView({ data, schoolProfile }: PassCertif
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPO}</span>, P.S.:{" "}
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPS}</span>, District:{" "}
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayDist}</span>, PIN:{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{displayPin}</span>, was a bona fide regular student of this institution.
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{displayPin}</span>, was a bonafide regular student of this institution.
           </p>
 
           <p>

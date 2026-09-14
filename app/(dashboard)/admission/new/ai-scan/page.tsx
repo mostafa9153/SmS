@@ -294,8 +294,9 @@ export function AiScanContent({
           <div className="flex items-center gap-3">
             {!hideBackLink && (
               <Link
-                href="/admission"
+                href="/admission/new"
                 className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Back to New Admission Tracker"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Link>

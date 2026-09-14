@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
@@ -9,103 +9,13 @@ import {
   GraduationCap,
   UserPlus,
   RefreshCw,
-  FileCheck2,
   Printer,
-  Sparkles,
   ArrowRight,
   CheckCircle2,
   Clock,
-  Users,
-  Layers,
-  FileText,
-  BadgeCheck,
-  TrendingUp,
-  Info,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-type PortalFilter = "all" | "new" | "re";
-
-function CardInfoHint({ text, align = "left" }: { text: string; align?: "left" | "right" }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-    >
-      <button
-        type="button"
-        aria-label="More information"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsOpen((prev) => !prev);
-        }}
-        className={cn(
-          "h-6 w-6 rounded-full inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-muted active:scale-95 transition-all cursor-pointer",
-          isOpen && "text-foreground bg-muted ring-1 ring-border"
-        )}
-        title="More information"
-      >
-        <Info className="h-3.5 w-3.5" />
-      </button>
-
-      {isOpen && (
-        <div
-          role="tooltip"
-          className={cn(
-            "absolute top-full mt-2 z-50 w-64 sm:w-72 p-3 rounded-xl bg-popover/95 backdrop-blur-md text-popover-foreground text-xs leading-relaxed shadow-xl border border-border animate-in fade-in zoom-in-95 duration-150 pointer-events-auto font-normal",
-            align === "right" ? "right-0" : "left-0"
-          )}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          <div className="flex items-start gap-2">
-            <Info className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-            <p className="text-muted-foreground leading-normal">{text}</p>
-          </div>
-          <div
-            className={cn(
-              "absolute -top-1.5 border-4 border-transparent border-b-border",
-              align === "right" ? "right-2" : "left-2"
-            )}
-          />
-          <div
-            className={cn(
-              "absolute -top-1 border-4 border-transparent border-b-popover",
-              align === "right" ? "right-2" : "left-2"
-            )}
-          />
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function AdmissionHubPage() {
-  const [activeFilter, setActiveFilter] = useState<PortalFilter>("all");
-
   const { data: students = [], isLoading: loadingStudents } = useQuery({
     queryKey: ["students"],
     queryFn: () => getStudents("summary"),
@@ -129,70 +39,55 @@ export default function AdmissionHubPage() {
   });
 
   // Calculate statistics
-  const pendingApps = applications.filter((a) => a.status === "pending");
-  const admittedApps = applications.filter((a) => a.status === "admitted");
+  const newApps = applications.filter((a) => a.admissionType === "new");
+  const pendingApps = newApps.filter((a) => a.status === "pending");
+  const admittedApps = newApps.filter((a) => a.status === "admitted");
 
   const continuingStudents = students.filter((s) => s.currentStatus === "Continuing");
   const reAdmittedStudents = continuingStudents.filter(
     (s) => s.reAdmissionStatus === "admitted"
   );
-  const notAdmittedStudents = continuingStudents.filter(
-    (s) => s.reAdmissionStatus === "not_admitted"
-  );
-  const pendingReAdmitStudents = continuingStudents.filter(
-    (s) => !s.reAdmissionStatus || s.reAdmissionStatus === "pending"
-  );
-
-  const reAdmissionVasul = statsData?.reAdmissionVasul ?? (reAdmittedStudents.length > 0 ? reAdmittedStudents.length * 600 : 0);
+  const reAdmissionVasul =
+    statsData?.reAdmissionVasul ??
+    (reAdmittedStudents.length > 0 ? reAdmittedStudents.length * 600 : 0);
 
   const queuedForInvoice = continuingStudents.filter((s) => s.isInvoiceQueued);
-  const admissionRate =
-    continuingStudents.length > 0
-      ? Math.round((reAdmittedStudents.length / continuingStudents.length) * 100)
-      : 0;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-        <div>
-          <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider mb-1">
-            <GraduationCap className="h-4 w-4 text-orange-500" />
-            <span>Student Lifecycle &amp; Enrollment Hub</span>
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-2xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold shrink-0">
+            <GraduationCap className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-            Admission &amp; Re-admission Portal
-          </h1>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+              Admission &amp; Re-admission Portal
+            </h1>
+          </div>
         </div>
 
-        {/* Header Action Shortcuts */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+        <div className="flex items-center gap-2">
           <Link
-            href="/admission/new"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+            href="/admission/invoices"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs sm:text-sm font-bold transition-all shadow-xs"
           >
-            <UserPlus className="h-4 w-4" />
-            <span>New Admission</span>
-          </Link>
-          <Link
-            href="/admission/re-admission"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Re-admission</span>
+            <Printer className="h-4 w-4" />
+            <span>Invoice Queue ({queuedForInvoice.length})</span>
           </Link>
         </div>
       </div>
 
-      {/* Overview Metrics: Color-coded to pair with New Admission (Emerald) vs Re-admission (Orange/Purple) */}
+      {/* Visual Overview Metrics (NEW: Pending, Confirmed, Re-Admitted, Invoice Print Queue) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         {/* Metric 1: New Admission Pending */}
-        <div className="group bg-card border border-emerald-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 relative overflow-hidden">
+        <div className="bg-card border border-emerald-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               New: Pending Apps
             </span>
-            <span className="p-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:scale-105 transition-transform">
+            <span className="p-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
               <Clock className="h-4 w-4" />
             </span>
           </div>
@@ -202,12 +97,12 @@ export default function AdmissionHubPage() {
         </div>
 
         {/* Metric 2: New Admission Admitted */}
-        <div className="group bg-card border border-emerald-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 relative overflow-hidden">
+        <div className="bg-card border border-emerald-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
               New: Confirmed 2026
             </span>
-            <span className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition-transform">
+            <span className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
             </span>
           </div>
@@ -217,12 +112,12 @@ export default function AdmissionHubPage() {
         </div>
 
         {/* Metric 3: Re-admission Continuing */}
-        <div className="group bg-card border border-orange-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 relative overflow-hidden">
+        <div className="bg-card border border-orange-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">
               Re-admitted 2026
             </span>
-            <span className="p-1.5 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 group-hover:scale-105 transition-transform">
+            <span className="p-1.5 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400">
               <RefreshCw className="h-4 w-4" />
             </span>
           </div>
@@ -237,12 +132,12 @@ export default function AdmissionHubPage() {
         </div>
 
         {/* Metric 4: Re-admission Invoices */}
-        <div className="group bg-card border border-purple-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 relative overflow-hidden">
+        <div className="bg-card border border-purple-500/20 rounded-2xl p-4 shadow-2xs hover:shadow-md transition-all duration-200 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">
               Invoice Print Queue
             </span>
-            <span className="p-1.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:scale-105 transition-transform">
+            <span className="p-1.5 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
               <Printer className="h-4 w-4" />
             </span>
           </div>
@@ -252,339 +147,98 @@ export default function AdmissionHubPage() {
         </div>
       </div>
 
-      {/* Practical Quick-Filter Toggle Bar */}
-      <div className="flex items-center justify-between gap-3 bg-muted/40 p-1.5 rounded-2xl border overflow-x-auto no-scrollbar scroll-smooth">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveFilter("all")}
-            className={cn(
-              "px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeFilter === "all"
-                ? "bg-card text-foreground shadow-xs border"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+      {/* TWO CLEAN SECTIONS: NEW ADMISSION & RE-ADMISSION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+        {/* SECTION 1: NEW ADMISSION */}
+        <div className="rounded-3xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.04] via-card to-card p-6 sm:p-7 shadow-xs flex flex-col justify-between relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-12 w-12 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                <UserPlus className="h-6 w-6" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-black text-foreground mb-4">
+              New Admission
+            </h2>
+
+            {/* Quick Summary Info */}
+            <div className="grid grid-cols-2 gap-3 mb-6 p-3 rounded-2xl bg-muted/40 border">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Pending Applications
+                </span>
+                <span className="text-lg font-black text-foreground">
+                  {loadingApps ? "..." : pendingApps.length}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                  Confirmed Admitted
+                </span>
+                <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">
+                  {loadingApps ? "..." : admittedApps.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/admission/new"
+            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
           >
-            All Portals
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveFilter("new")}
-            className={cn(
-              "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeFilter === "new"
-                ? "bg-emerald-600 text-white shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            <span>Open New Admission</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        {/* SECTION 2: RE-ADMISSION */}
+        <div className="rounded-3xl border-2 border-orange-500/20 bg-gradient-to-br from-orange-500/[0.04] via-card to-card p-6 sm:p-7 shadow-xs flex flex-col justify-between relative overflow-hidden group hover:border-orange-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-orange-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-12 w-12 rounded-2xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold">
+                <RefreshCw className="h-6 w-6" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-black text-foreground mb-4">
+              Re-Admission
+            </h2>
+
+            {/* Quick Summary Info */}
+            <div className="grid grid-cols-2 gap-3 mb-6 p-3 rounded-2xl bg-muted/40 border">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+                  Re-Admitted Students
+                </span>
+                <span className="text-lg font-black text-foreground">
+                  {loadingStudents ? "..." : reAdmittedStudents.length}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 block">
+                  In Invoice Queue
+                </span>
+                <span className="text-lg font-black text-purple-700 dark:text-purple-400">
+                  {loadingStudents ? "..." : queuedForInvoice.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/admission/re"
+            className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all active:scale-[0.98] cursor-pointer"
           >
-            <span className="h-2 w-2 rounded-full bg-emerald-400 inline-block" />
-            <span>New Admission Hub</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-emerald-700/50 text-white font-mono">
-              3
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveFilter("re")}
-            className={cn(
-              "flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
-              activeFilter === "re"
-                ? "bg-orange-500 text-white shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span className="h-2 w-2 rounded-full bg-orange-300 inline-block" />
-            <span>Re-admission Hub</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-orange-700/50 text-white font-mono">
-              3
-            </span>
-          </button>
+            <span>Open Re-Admission</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
-
-      {/* ========================================================================= */}
-      {/* PORTAL 1: NEW ADMISSION HUB (EMERALD THEME • ISOLATED STAGING PLATFORM)  */}
-      {/* ========================================================================= */}
-      {(activeFilter === "all" || activeFilter === "new") && (
-        <div className="rounded-3xl border-2 border-emerald-500/20 bg-gradient-to-br from-emerald-500/[0.03] via-card to-card p-5 sm:p-6 shadow-xs space-y-4">
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-500/15 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold shrink-0">
-                <UserPlus className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-foreground">
-                  New Admission Portal
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                href="/admission/new"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <span>+ Online Application</span>
-              </Link>
-              <Link
-                href="/admission/applications"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-card border border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-              >
-                <span>Verify Desk ({pendingApps.length})</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Cards Grid: 3 Practical Workflow Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Online Form */}
-            <Link
-              href="/admission/new"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-emerald-500/50 hover:shadow-emerald-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <UserPlus className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
-                    Step 1A • Digital Apply
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    Online Admission Form
-                  </h3>
-                  <CardInfoHint
-                    text="Direct online candidate registration. Submit student details online to instantly generate an official Application Receipt slip."
-                    align="left"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                <span>Open Online Form</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-
-            {/* Card 2: Offline Form Hub & AI Scanner */}
-            <Link
-              href="/admission/new/offline"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-purple-500/50 hover:shadow-purple-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <Printer className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20 flex items-center gap-1">
-                    <Sparkles className="h-2.5 w-2.5" />
-                    <span>Step 1B • Print &amp; OCR</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                    Offline Form &amp; AI Scanner
-                  </h3>
-                  <CardInfoHint
-                    text="Generate blank printable forms with auto-serial numbers (Class V–IX & XI), or scan physically filled forms with Gemini AI."
-                    align="left"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
-                <span>Open Offline Center</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-
-            {/* Card 3: Application Verification Desk */}
-            <Link
-              href="/admission/applications"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-blue-500/50 hover:shadow-blue-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <FileCheck2 className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20">
-                    Step 2 • Verify &amp; Enroll
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    Application Verification Desk
-                  </h3>
-                  <CardInfoHint
-                    text="Verify receipt copies when parents submit fees at school. Assign Section & Roll to confirm and officially enroll into the Student Register."
-                    align="right"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-blue-600 dark:text-blue-400">
-                <span>Review Pending ({pendingApps.length})</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* PORTAL 2: RE-ADMISSION HUB (ORANGE THEME • CONTINUING STUDENT ROLLOVER)   */}
-      {/* ========================================================================= */}
-      {(activeFilter === "all" || activeFilter === "re") && (
-        <div className="rounded-3xl border-2 border-orange-500/20 bg-gradient-to-br from-orange-500/[0.03] via-card to-card p-5 sm:p-6 shadow-xs space-y-4">
-          {/* Section Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-orange-500/15 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-orange-500/15 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold shrink-0">
-                <RefreshCw className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-foreground">
-                  Student Re-admission Portal
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Link
-                href="/admission/re-admission"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <span>Class Roster Desk</span>
-              </Link>
-              <Link
-                href="/admission/invoices"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-card border border-purple-500/30 hover:bg-purple-500/10 text-purple-700 dark:text-purple-300 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                <span>Batch Invoices ({queuedForInvoice.length})</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Cards Grid: 3 Practical Operations */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Re-admission Desk */}
-            <Link
-              href="/admission/re-admission"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-orange-500/50 hover:shadow-orange-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-orange-500/10 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <RefreshCw className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-700 dark:text-orange-400 border border-orange-500/20">
-                    Step 1 • Class Roster
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                    Class Re-admission Desk
-                  </h3>
-                  <CardInfoHint
-                    text="Review promoted students class-by-class (Class V–XI). Mark candidates as &quot;Admitted&quot; when they pay fees, or flag as &quot;Not Admitted&quot;."
-                    align="left"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-orange-600 dark:text-orange-400">
-                <span>Manage Class Roster</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-
-            {/* Card 2: Bulk Invoices Queue */}
-            <Link
-              href="/admission/invoices"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-purple-500/50 hover:shadow-purple-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <Printer className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20">
-                    Step 2 • 1-Click Print
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
-                    Bulk Invoices Queue
-                  </h3>
-                  <CardInfoHint
-                    text="Invoices automatically queued by Class & Section (e.g. Class VI-A, VI-B). Print all student receipts with a single click."
-                    align="left"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-purple-600 dark:text-purple-400">
-                <span>Print Ready Batches ({queuedForInvoice.length})</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-
-            {/* Card 3: Session Promotion Progress */}
-            <Link
-              href="/admission/re-admission"
-              className="group relative rounded-2xl border bg-card/90 p-5 flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-indigo-500/50 hover:shadow-indigo-500/10 overflow-hidden cursor-pointer"
-            >
-              {/* Glow Accent */}
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-              <div>
-                <div className="flex items-center justify-between mb-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold group-hover:scale-110 group-hover:rotate-1 transition-all duration-300">
-                    <TrendingUp className="h-5 w-5" />
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
-                    Step 3 • Session 2026
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                    Session Rollover Progress
-                  </h3>
-                  <CardInfoHint
-                    text={`Completion: ${admissionRate}% (${reAdmittedStudents.length} Confirmed, ${pendingReAdmitStudents.length} Pending). Session 2026–2027 tracking.`}
-                    align="right"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                <span>View Rollover Details ({admissionRate}%)</span>
-                <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1.5" />
-              </div>
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

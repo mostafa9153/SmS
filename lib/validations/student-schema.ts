@@ -87,6 +87,8 @@ export const studentCreateSchema = z.object({
   presentClassAdmissionDate: z.string().optional().nullable(),
   admissionYear: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
   academicStream: z.string().optional().nullable(),
+  boardRegistrationNo: z.string().optional().nullable(),
+  boardRollNo: z.string().optional().nullable(),
   currentStatus: z.enum(["Continuing", "Drop Out", "Passed Out", "Sent Up M.P.", "C.C.H.S."]).optional().default("Continuing"),
   previousSchool: z.string().optional().nullable(),
 

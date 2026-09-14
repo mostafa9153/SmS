@@ -25,9 +25,9 @@ function OfflineAdmissionCenterContent() {
         {/* Left: Back Link & Page Title */}
         <div className="flex items-center gap-3">
           <Link
-            href="/admission"
+            href="/admission/new"
             className="p-2.5 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Back to Admission Hub"
+            title="Back to New Admission Tracker"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>

@@ -207,7 +207,7 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPO}</span>, P.S. &ndash;{" "}
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayPS}</span>, District &ndash;{" "}
             <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5">{displayDist}</span>, PIN &ndash;{" "}
-            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{displayPin}</span>, was a bona fide student of this institution.
+            <span className="font-medium text-slate-900 border-b border-dotted border-slate-700 px-0.5 font-mono">{displayPin}</span>, was a bonafide student of this institution.
           </p>
 
           <p>
@@ -217,20 +217,6 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
             <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">
               {data.passingYear || "2026"}
             </span>
-            {data.boardRollNo ? (
-              <>
-                , bearing Roll No.{" "}
-                <span className="font-mono font-bold text-slate-900">{data.boardRollNo}</span>
-              </>
-            ) : null}
-            {data.boardRegistrationNo ? (
-              <>
-                {" "}and Registration No.{" "}
-                <span className="font-mono font-bold text-slate-900">
-                  {data.boardRegistrationNo}
-                </span>
-              </>
-            ) : null}
             .
           </p>
 

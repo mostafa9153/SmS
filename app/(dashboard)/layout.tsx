@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { MobileBottomBar } from "@/components/layout/mobile-bottom-bar";
@@ -8,8 +9,24 @@ import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context
 import { cn } from "@/lib/utils";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const { isOpen, width, setWidth, resetWidth } = useSidebar();
   const [isResizing, setIsResizing] = useState(false);
+
+  // Secure public portal isolation: hide admin shell for student/parent routes
+  const isPublicPortal =
+    pathname?.startsWith("/admission/new/apply") ||
+    pathname?.startsWith("/admission/receipt");
+
+  if (isPublicPortal) {
+    return (
+      <div className="min-h-screen bg-muted/20 text-foreground">
+        <main className="min-h-screen">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

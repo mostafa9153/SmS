@@ -507,6 +507,12 @@ export default function StudentProfilePage() {
                 <InfoField label="Medium of Instruction" value={student.mediumOfInstruction} />
                 <InfoField label="Present Class Admission Date" value={student.presentClassAdmissionDate ? formatDate(student.presentClassAdmissionDate) : undefined} />
                 {student.academicStream && <InfoField label="Academic Stream (HS)" value={student.academicStream} />}
+                {student.boardRegistrationNo && (
+                  <InfoField label="Board Registration No" value={student.boardRegistrationNo} copyable />
+                )}
+                {student.boardRollNo && (
+                  <InfoField label="Board Roll No" value={student.boardRollNo} copyable />
+                )}
               </InfoGrid>
             </div>
 

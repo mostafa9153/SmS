@@ -169,12 +169,27 @@ function StudentIDCardStudioContent() {
     );
   };
 
-  // Direct Print Trigger
-  const handlePrint = () => {
+  // Single student printing state (null means bulk mode)
+  const [printingSingleStudent, setPrintingSingleStudent] = useState<Student | null>(null);
+
+  // Direct Print Trigger for Bulk
+  const handlePrintBulk = () => {
     if (studentsToPrint.length === 0) return;
+    setPrintingSingleStudent(null);
     setTimeout(() => {
       window.print();
-    }, 80);
+    }, 100);
+  };
+
+  // Direct Print Trigger for Single Card
+  const handlePrintSingle = (student: Student) => {
+    setPrintingSingleStudent(student);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setPrintingSingleStudent(null);
+      }, 1000);
+    }, 100);
   };
 
   return (
@@ -205,10 +220,10 @@ function StudentIDCardStudioContent() {
           {/* Print Action Button */}
           <div className="flex items-center gap-2.5">
             <Button
-              onClick={handlePrint}
+              onClick={handlePrintBulk}
               disabled={studentsToPrint.length === 0}
               size="lg"
-              className="rounded-xl px-5 gap-2 font-bold shadow-md bg-blue-600 hover:bg-blue-700 text-white active:scale-95 transition-all"
+              className="rounded-xl px-5 gap-2 font-bold shadow-md bg-blue-600 hover:bg-blue-700 text-white active:scale-95 transition-all cursor-pointer"
             >
               <Printer className="h-4 w-4" />
               <span>Print {studentsToPrint.length} ID Cards</span>
@@ -395,10 +410,21 @@ function StudentIDCardStudioContent() {
                           </div>
                         </div>
 
-                        <div className="text-right shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0">
                           <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-muted text-muted-foreground">
                             {s.presentClass}-{s.presentSection || "A"}
                           </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePrintSingle(s);
+                            }}
+                            className="h-7 w-7 rounded-lg border border-transparent hover:border-slate-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center justify-center text-muted-foreground hover:text-blue-600 transition-colors cursor-pointer"
+                            title={`Print single card for ${s.name}`}
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
                     );
@@ -414,7 +440,7 @@ function StudentIDCardStudioContent() {
           <div className="lg:col-span-6 xl:col-span-7 flex flex-col items-center justify-start space-y-4">
             
             {/* Preview Control Bar */}
-            <div className="w-full max-w-[420px] bg-card border rounded-2xl p-2.5 px-4 flex items-center justify-between gap-3 shadow-xs">
+            <div className="w-full max-w-[440px] bg-card border rounded-2xl p-2.5 px-4 flex items-center justify-between gap-3 shadow-xs">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -436,6 +462,20 @@ function StudentIDCardStudioContent() {
                   <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* Print current card only */}
+              {currentPreviewStudent && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handlePrintSingle(currentPreviewStudent)}
+                  className="h-7 text-xs px-2.5 gap-1.5 font-bold rounded-lg border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-950/40 cursor-pointer"
+                  title="Print only this student's CR80 card"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Single</span>
+                </Button>
+              )}
 
               {/* Zoom controls */}
               <div className="flex items-center gap-1">
@@ -502,41 +542,100 @@ function StudentIDCardStudioContent() {
       {/* PRINT ENGINE OUTPUT (Visible ONLY in @media print)                   */}
       {/* Renders every selected card on its own 54mm x 85.6mm page            */}
       {/* ==================================================================== */}
-      <div className="hidden print:block w-full m-0 p-0">
+      <div id="cr80-print-container" className="hidden print:block w-[54mm] m-0 p-0">
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            @page {
-              size: 54mm 85.6mm;
-              margin: 0mm !important;
-            }
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: white !important;
+            /* 1. Global Print Color Exactness */
+            *, *::before, *::after {
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
+
+            /* 2. Hide all screen UI, headers, sidebars, buttons */
+            header,
+            aside,
+            nav,
+            .print\\:hidden,
+            button,
+            input,
+            select {
+              display: none !important;
+            }
+
+            /* 3. Strict Physical CR80 PVC (54mm × 85.6mm) - Zero Margins (NO !important inside @page) */
+            @page {
+              size: 54mm 85.6mm;
+              margin: 0;
+            }
+
+            /* 4. Base Page Document Reset */
+            html,
+            body {
+              background: white !important;
+              color: #003366 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 54mm !important;
+              height: auto !important;
+              overflow: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            /* 5. Print Container */
+            #cr80-print-container {
+              display: block !important;
+              width: 54mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            /* 6. Isolated Single Card Page per Student */
             .cr80-page-isolated {
               width: 54mm !important;
               height: 85.6mm !important;
               max-width: 54mm !important;
               max-height: 85.6mm !important;
+              page-break-before: auto !important;
+              break-before: auto !important;
               page-break-after: always !important;
               break-after: page !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
               margin: 0 !important;
-              padding: 3.2mm !important;
+              padding: 0 !important;
               box-sizing: border-box !important;
               overflow: hidden !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
+              position: relative !important;
+              display: block !important;
+              background: white !important;
+            }
+
+            /* Prevent trailing blank card after the last card */
+            .cr80-page-isolated:last-child {
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+            }
+
+            /* Root card strictly constrained to exact 54mm x 85.6mm box */
+            .cr80-card-root {
+              width: 54mm !important;
+              height: 85.6mm !important;
+              max-width: 54mm !important;
+              max-height: 85.6mm !important;
+              padding: 3mm !important;
+              box-sizing: border-box !important;
+              overflow: hidden !important;
+              border-radius: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
             }
           }
         `}} />
 
-        {studentsToPrint.map((student) => (
+        {(printingSingleStudent ? [printingSingleStudent] : studentsToPrint).map((student) => (
           <div key={student.id} className="cr80-page-isolated">
             <StudentIDCardPrintableView
               student={student}
@@ -545,7 +644,7 @@ function StudentIDCardStudioContent() {
               validUpto={validUptoString}
               cardTitle={cardTitle}
               isPrintingMode={true}
-              className="w-full h-full shadow-none border-none rounded-none p-0"
+              className="shadow-none border-none rounded-none"
             />
           </div>
         ))}

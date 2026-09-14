@@ -73,6 +73,8 @@ export interface DBStudent {
   academic_year: string | null;
   medium_of_instruction: string | null;
   present_class_admission_date: string | null;
+  board_registration_no?: string | null;
+  board_roll_no?: string | null;
   language_group: string[] | null;
   foreign_language: string | null;
   mandatory_subjects: string[] | null;
@@ -100,6 +102,13 @@ export interface DBStudent {
   scouts_guides: boolean;
   distance_to_school: number | null;
   highest_education_parents: string | null;
+
+  // D. Re-admission & Invoice Queue
+  re_admission_status?: string | null;
+  re_admitted_at?: string | null;
+  re_admitted_session?: string | null;
+  is_invoice_queued?: boolean | null;
+  invoice_printed_at?: string | null;
 }
 
 export interface DBAcademicHistory {
@@ -196,6 +205,8 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     academicYear: db.academic_year || undefined,
     mediumOfInstruction: db.medium_of_instruction || undefined,
     presentClassAdmissionDate: db.present_class_admission_date || undefined,
+    boardRegistrationNo: db.board_registration_no || (db as any).board_reg_no || undefined,
+    boardRollNo: db.board_roll_no || undefined,
     languageGroup: db.language_group || [],
     foreignLanguage: db.foreign_language || undefined,
     mandatorySubjects: db.mandatory_subjects || [],
@@ -302,6 +313,8 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     academic_year: toNullableString(student.academicYear),
     medium_of_instruction: toNullableString(student.mediumOfInstruction),
     present_class_admission_date: toNullableDate(student.presentClassAdmissionDate),
+    board_registration_no: toNullableString(student.boardRegistrationNo),
+    board_roll_no: toNullableString(student.boardRollNo),
     language_group: student.languageGroup || [],
     foreign_language: toNullableString(student.foreignLanguage),
     mandatory_subjects: student.mandatorySubjects || [],
@@ -329,6 +342,13 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     scouts_guides: !!student.scoutsGuides,
     distance_to_school: toNullableNumber(student.distanceToSchool),
     highest_education_parents: toNullableString(student.highestEducationParents),
+
+    // D. Re-admission & Invoice Queue Status
+    re_admission_status: toNullableString((student as any).reAdmissionStatus),
+    re_admitted_at: toNullableString((student as any).reAdmittedAt),
+    re_admitted_session: toNullableString((student as any).reAdmittedSession),
+    is_invoice_queued: (student as any).isInvoiceQueued !== undefined ? !!(student as any).isInvoiceQueued : undefined,
+    invoice_printed_at: toNullableString((student as any).invoicePrintedAt),
   };
 }
 
@@ -648,10 +668,17 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
     }
 
     lastError = error;
-    // If schema cache indicates occupation columns are not yet in remote DB, strip and retry
-    if (error && (error.message.includes("father_occupation") || error.message.includes("mother_occupation"))) {
+    // If schema cache indicates optional columns are not yet in remote DB, strip and retry
+    if (error && (
+      error.message.includes("father_occupation") ||
+      error.message.includes("mother_occupation") ||
+      error.message.includes("board_registration_no") ||
+      error.message.includes("board_roll_no")
+    )) {
       delete (dbInput as any).father_occupation;
       delete (dbInput as any).mother_occupation;
+      delete (dbInput as any).board_registration_no;
+      delete (dbInput as any).board_roll_no;
       continue;
     }
     // If unique constraint violation on school_id (code 23505), regenerate and retry
@@ -741,6 +768,8 @@ export async function dbUpdateStudent(
   if (updates.academicYear !== undefined) dbUpdates.academic_year = toNullableString(updates.academicYear);
   if (updates.mediumOfInstruction !== undefined) dbUpdates.medium_of_instruction = toNullableString(updates.mediumOfInstruction);
   if (updates.presentClassAdmissionDate !== undefined) dbUpdates.present_class_admission_date = toNullableDate(updates.presentClassAdmissionDate);
+  if (updates.boardRegistrationNo !== undefined) dbUpdates.board_registration_no = toNullableString(updates.boardRegistrationNo);
+  if (updates.boardRollNo !== undefined) dbUpdates.board_roll_no = toNullableString(updates.boardRollNo);
   if (updates.languageGroup !== undefined) dbUpdates.language_group = updates.languageGroup || [];
   if (updates.foreignLanguage !== undefined) dbUpdates.foreign_language = toNullableString(updates.foreignLanguage);
   if (updates.mandatorySubjects !== undefined) dbUpdates.mandatory_subjects = updates.mandatorySubjects || [];
@@ -808,10 +837,17 @@ export async function dbUpdateStudent(
     .select("*, academic_history(*)")
     .maybeSingle();
 
-  // Gracefully fallback if father_occupation or mother_occupation column not yet added to remote database
-  if (error && (error.message.includes("father_occupation") || error.message.includes("mother_occupation"))) {
+  // Gracefully fallback if optional columns are not yet added to remote database
+  if (error && (
+    error.message.includes("father_occupation") ||
+    error.message.includes("mother_occupation") ||
+    error.message.includes("board_registration_no") ||
+    error.message.includes("board_roll_no")
+  )) {
     delete dbUpdates.father_occupation;
     delete dbUpdates.mother_occupation;
+    delete dbUpdates.board_registration_no;
+    delete dbUpdates.board_roll_no;
     const retry = await supabase
       .from("students")
       .update(dbUpdates)

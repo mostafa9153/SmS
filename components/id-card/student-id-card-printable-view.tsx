@@ -168,6 +168,8 @@ export function StudentIDCardPrintableView({
       style={{
         width: "54mm",
         height: "85.6mm",
+        maxWidth: "54mm",
+        maxHeight: "85.6mm",
         boxSizing: "border-box",
         pageBreakInside: "avoid",
         breakInside: "avoid",
@@ -276,9 +278,9 @@ export function StudentIDCardPrintableView({
       </div>
 
       {/* ======================================================== */}
-      {/* STUDENT DATA FIELDS (Compact, Cohesive, Not Scattered)   */}
+      {/* STUDENT DATA FIELDS (Comfortable, Cohesive, Breathable)  */}
       {/* ======================================================== */}
-      <div className="relative z-10 px-0.5 flex-1 flex flex-col justify-center gap-[2.2px] my-0.5">
+      <div className="relative z-10 px-0.5 flex-1 flex flex-col justify-center gap-[3.2px] my-0.5">
         {/* 1. Student Name (Prominent Identifier) */}
         <div className="flex items-baseline gap-1 leading-tight">
           <span className="text-[7.0px] font-bold text-[#003366] shrink-0">NAME:</span>

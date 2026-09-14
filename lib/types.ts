@@ -98,6 +98,8 @@ export interface Student {
   academicYear?: string;
   mediumOfInstruction?: string;
   presentClassAdmissionDate?: string;
+  boardRegistrationNo?: string; // WBBSE / WBCHSE Board Registration No (Classes 10, 11, 12)
+  boardRollNo?: string;         // Board Exam Roll Number
   languageGroup?: string[];
   foreignLanguage?: string;
   mandatorySubjects?: string[];

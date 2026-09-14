@@ -91,6 +91,8 @@ const studentSchema = z.object({
   presentClassAdmissionDate: z.string().optional(),
   admissionYear: z.coerce.number().int().min(2000).max(new Date().getFullYear()),
   academicStream: z.string().optional(),
+  boardRegistrationNo: z.string().optional().nullable(),
+  boardRollNo: z.string().optional().nullable(),
 
   // Language studied (comma separated)
   languageGroupInput: z.string().optional(),
@@ -228,6 +230,7 @@ export default function AddStudentPage() {
   const isCwsnChecked = watch("isCwsn");
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
+  const watchPresentClass = watch("presentClass");
   const [hasAadhaarVal, setHasAadhaarVal] = useState("Yes");
 
   const fatherNameWatched = watch("fatherName");
@@ -757,6 +760,36 @@ export default function AddStudentPage() {
                 )}
               />
             </FormField>
+            {(() => {
+              const normalizedClass = (watchPresentClass || "").toUpperCase().replace(/^CLASS\s*/i, "").trim();
+              const isBoardClass = ["X", "10", "XI", "11", "XII", "12"].includes(normalizedClass);
+              const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
+              if (!isBoardClass) return null;
+              return (
+                <>
+                  <FormField
+                    label={isHs ? "WBCHSE Board Registration No" : "WBBSE Board Registration No"}
+                    error={errors.boardRegistrationNo?.message}
+                  >
+                    <input
+                      {...register("boardRegistrationNo")}
+                      placeholder="e.g. 19180201004/2024"
+                      className="font-mono uppercase"
+                    />
+                  </FormField>
+                  <FormField
+                    label={isHs ? "WBCHSE Board Roll Number" : "WBBSE Board Roll Number"}
+                    error={errors.boardRollNo?.message}
+                  >
+                    <input
+                      {...register("boardRollNo")}
+                      placeholder="e.g. 123456N 0012"
+                      className="font-mono uppercase"
+                    />
+                  </FormField>
+                </>
+              );
+            })()}
           </FormGrid>
 
           <p className="text-xs font-semibold text-muted-foreground pt-3 border-t">Languages & Subjects (Comma Separated)</p>
