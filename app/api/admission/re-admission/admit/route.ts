@@ -88,32 +88,6 @@ export async function POST(req: Request) {
     const targetSection = newSection || student.present_section;
     const targetRoll = newRoll ? parseInt(newRoll) : (student.present_roll || 1);
 
-    // Existing academic history
-    const existingHistory: AcademicHistoryEntry[] = Array.isArray(student.academic_history)
-      ? student.academic_history
-      : [];
-
-    // Add entry for previous class completed if class is progressing
-    const historyEntries: AcademicHistoryEntry[] = [...existingHistory];
-    if (targetClass !== student.present_class) {
-      historyEntries.push({
-        year: currentYear - 1,
-        class: student.present_class,
-        section: student.present_section,
-        roll: student.present_roll,
-        status: "Continuing" as StudentStatus,
-      });
-    }
-
-    // Add new entry for current admitted session
-    historyEntries.push({
-      year: currentYear,
-      class: targetClass,
-      section: targetSection,
-      roll: targetRoll,
-      status: "Continuing" as StudentStatus,
-    });
-
     const updatePayload: Record<string, any> = {
       present_class: targetClass,
       present_section: targetSection,
@@ -123,7 +97,6 @@ export async function POST(req: Request) {
       re_admitted_at: new Date().toISOString(),
       re_admitted_session: String(currentYear),
       is_invoice_queued: true,
-      academic_history: historyEntries,
       updated_at: new Date().toISOString(),
     };
 
@@ -142,6 +115,61 @@ export async function POST(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    // Persist history entries in the separate public.academic_history table
+    try {
+      // 1. If student progressed to a new class, ensure previous class is recorded
+      if (targetClass !== student.present_class) {
+        const { data: prevRecord } = await supabase
+          .from("academic_history")
+          .select("id")
+          .eq("student_id", studentId)
+          .eq("year", currentYear - 1)
+          .maybeSingle();
+
+        if (!prevRecord) {
+          await supabase.from("academic_history").insert({
+            student_id: studentId,
+            year: currentYear - 1,
+            class: student.present_class,
+            section: student.present_section,
+            roll: student.present_roll,
+            status: "Continuing",
+          });
+        }
+      }
+
+      // 2. Ensure current session's entry is inserted or updated
+      const { data: currRecord } = await supabase
+        .from("academic_history")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("year", currentYear)
+        .maybeSingle();
+
+      if (currRecord) {
+        await supabase
+          .from("academic_history")
+          .update({
+            class: targetClass,
+            section: targetSection,
+            roll: targetRoll,
+            status: "Continuing",
+          })
+          .eq("id", currRecord.id);
+      } else {
+        await supabase.from("academic_history").insert({
+          student_id: studentId,
+          year: currentYear,
+          class: targetClass,
+          section: targetSection,
+          roll: targetRoll,
+          status: "Continuing",
+        });
+      }
+    } catch (histErr) {
+      console.warn("Could not record academic_history record:", histErr);
     }
 
     // Record invoice in admission_invoices table if an invoice number was provided
