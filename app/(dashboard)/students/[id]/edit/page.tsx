@@ -17,6 +17,7 @@ import { SmartAddressInput } from "@/components/students/smart-address-input";
 import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
+import { OCCUPATION_OPTIONS } from "@/lib/constants/student-options";
 
 const studentSchema = z.object({
   // Identity
@@ -61,7 +62,9 @@ const studentSchema = z.object({
 
   // Family Info
   fatherName: z.string().min(2, "Father's name is required"),
+  fatherOccupation: z.string().optional(),
   motherName: z.string().min(2, "Mother's name is required"),
+  motherOccupation: z.string().optional(),
   guardianName: z.string().optional(),
   relationshipWithGuardian: z.string().optional(),
   guardianQualification: z.string().optional(),
@@ -237,7 +240,9 @@ export default function EditStudentPage() {
         sldType: student.sldType ?? "",
 
         fatherName: student.fatherName,
+        fatherOccupation: student.fatherOccupation ?? "",
         motherName: student.motherName,
+        motherOccupation: student.motherOccupation ?? "",
         guardianName: student.guardianName ?? "",
         relationshipWithGuardian: student.relationshipWithGuardian ?? "",
         guardianQualification: student.guardianQualification ?? "",
@@ -684,8 +689,52 @@ export default function EditStudentPage() {
             <FormField label="Father's Name *" error={errors.fatherName?.message}>
               <input {...register("fatherName")} />
             </FormField>
+            <FormField label="Father's Occupation" error={errors.fatherOccupation?.message}>
+              <Controller
+                control={control}
+                name="fatherOccupation"
+                render={({ field }) => {
+                  const matched = OCCUPATION_OPTIONS.find(
+                    (o) => o.value.toLowerCase() === (field.value || "").toLowerCase()
+                  );
+                  const options = field.value && !matched
+                    ? [{ label: field.value, value: field.value }, ...OCCUPATION_OPTIONS]
+                    : OCCUPATION_OPTIONS;
+                  return (
+                    <CustomSelect
+                      value={matched ? matched.value : (field.value ?? "")}
+                      onChange={field.onChange}
+                      placeholder="Select father's occupation..."
+                      options={options}
+                    />
+                  );
+                }}
+              />
+            </FormField>
             <FormField label="Mother's Name *" error={errors.motherName?.message}>
               <input {...register("motherName")} />
+            </FormField>
+            <FormField label="Mother's Occupation" error={errors.motherOccupation?.message}>
+              <Controller
+                control={control}
+                name="motherOccupation"
+                render={({ field }) => {
+                  const matched = OCCUPATION_OPTIONS.find(
+                    (o) => o.value.toLowerCase() === (field.value || "").toLowerCase()
+                  );
+                  const options = field.value && !matched
+                    ? [{ label: field.value, value: field.value }, ...OCCUPATION_OPTIONS]
+                    : OCCUPATION_OPTIONS;
+                  return (
+                    <CustomSelect
+                      value={matched ? matched.value : (field.value ?? "")}
+                      onChange={field.onChange}
+                      placeholder="Select mother's occupation..."
+                      options={options}
+                    />
+                  );
+                }}
+              />
             </FormField>
             <FormField label="Guardian's Name" error={errors.guardianName?.message}>
               <input {...register("guardianName")} />

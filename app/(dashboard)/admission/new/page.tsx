@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
 import {
+  getSavedStudentEntryPresets,
+  fetchStudentEntryPresetsFromDb,
+} from "@/lib/utils/student-entry-presets";
+import {
   UserPlus,
   Camera,
   FileText,
@@ -55,11 +59,22 @@ export default function NewAdmissionPage() {
   const [pincode, setPincode] = useState<string>("");
 
   // Demographics
-  const [religion, setReligion] = useState<string>("Islam");
+  const [religion, setReligion] = useState<string>(() => {
+    const p = getSavedStudentEntryPresets();
+    return p.defaultReligion && p.defaultReligion !== "None" ? p.defaultReligion : "Islam";
+  });
   const [socialCategory, setSocialCategory] = useState<string>("General");
   const [casteCertificateNo, setCasteCertificateNo] = useState<string>("");
   const [aadhaar, setAadhaar] = useState<string>("");
   const [bloodGroup, setBloodGroup] = useState<string>("");
+
+  React.useEffect(() => {
+    fetchStudentEntryPresetsFromDb().then((p) => {
+      if (p.defaultReligion && p.defaultReligion !== "None") {
+        setReligion(p.defaultReligion);
+      }
+    });
+  }, []);
 
   // Previous Academic Records
   const [previousSchool, setPreviousSchool] = useState<string>("");

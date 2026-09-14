@@ -3,11 +3,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { CustomSelect } from "@/components/ui/custom-select";
 
-const RELATIONSHIP_OPTIONS = [
-  { label: "Father", value: "Father" },
-  { label: "Mother", value: "Mother" },
-  { label: "Custom", value: "Custom" },
-];
+import { GUARDIAN_RELATIONSHIP_OPTIONS } from "@/lib/constants/student-options";
+
+const PREDEFINED_RELATIONSHIPS = ["Father", "Mother", "Uncle", "Grandfather", "Grandmother"];
 
 interface GuardianRelationshipSelectProps {
   value?: string;
@@ -20,17 +18,23 @@ export function GuardianRelationshipSelect({
   onChange,
   disabled = false,
 }: GuardianRelationshipSelectProps) {
-  // Determine initial mode: Father, Mother, Custom, or empty
+  // Determine initial mode: Predefined option, Custom, or empty
   const getInitialMode = (val?: string) => {
     if (!val) return "";
-    if (val === "Father") return "Father";
-    if (val === "Mother") return "Mother";
+    const matched = PREDEFINED_RELATIONSHIPS.find(
+      (r) => r.toLowerCase() === val.toLowerCase()
+    );
+    if (matched) return matched;
     return "Custom";
   };
 
   const [selectedMode, setSelectedMode] = useState<string>(() => getInitialMode(value));
   const [customText, setCustomText] = useState<string>(() => {
-    if (!value || value === "Father" || value === "Mother") return "";
+    if (!value) return "";
+    const isPredefined = PREDEFINED_RELATIONSHIPS.some(
+      (r) => r.toLowerCase() === value.toLowerCase()
+    );
+    if (isPredefined) return "";
     return value === "Custom" ? "" : value;
   });
 
@@ -45,10 +49,12 @@ export function GuardianRelationshipSelect({
       return;
     }
 
-    if (value === "Father") {
-      setSelectedMode("Father");
-    } else if (value === "Mother") {
-      setSelectedMode("Mother");
+    const matched = PREDEFINED_RELATIONSHIPS.find(
+      (r) => r.toLowerCase() === value.toLowerCase()
+    );
+
+    if (matched) {
+      setSelectedMode(matched);
     } else {
       setSelectedMode("Custom");
       if (value !== "Custom") {
@@ -60,10 +66,8 @@ export function GuardianRelationshipSelect({
   const handleSelectChange = (newMode: string) => {
     setSelectedMode(newMode);
 
-    if (newMode === "Father") {
-      onChange("Father");
-    } else if (newMode === "Mother") {
-      onChange("Mother");
+    if (PREDEFINED_RELATIONSHIPS.includes(newMode)) {
+      onChange(newMode);
     } else if (newMode === "Custom") {
       const textToUse = customText.trim() || "Custom";
       onChange(textToUse);
@@ -86,7 +90,7 @@ export function GuardianRelationshipSelect({
       <CustomSelect
         value={selectedMode}
         onChange={handleSelectChange}
-        options={RELATIONSHIP_OPTIONS}
+        options={GUARDIAN_RELATIONSHIP_OPTIONS}
         placeholder="Select relationship..."
         disabled={disabled}
         searchable={false}

@@ -11,6 +11,10 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
 import {
+  getSavedStudentEntryPresets,
+  fetchStudentEntryPresetsFromDb,
+} from "@/lib/utils/student-entry-presets";
+import {
   Camera,
   Upload,
   Sparkles,
@@ -81,9 +85,20 @@ export function AiScanContent({
   const [policeStation, setPoliceStation] = useState("");
   const [district, setDistrict] = useState("North 24 Parganas");
   const [pincode, setPincode] = useState("");
-  const [religion, setReligion] = useState("Islam");
+  const [religion, setReligion] = useState(() => {
+    const p = getSavedStudentEntryPresets();
+    return p.defaultReligion && p.defaultReligion !== "None" ? p.defaultReligion : "Islam";
+  });
   const [socialCategory, setSocialCategory] = useState("General");
   const [previousSchool, setPreviousSchool] = useState("");
+
+  useEffect(() => {
+    fetchStudentEntryPresetsFromDb().then((p) => {
+      if (p.defaultReligion && p.defaultReligion !== "None") {
+        setReligion(p.defaultReligion);
+      }
+    });
+  }, []);
 
   // Start Camera
   const startCamera = async () => {

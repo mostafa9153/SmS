@@ -115,9 +115,11 @@ const navItems: NavItem[] = [
   },
   {
     label: "Generators",
+    href: "/generate",
     icon: <Sparkles className="h-4 w-4" />,
     iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20 group-hover:scale-110",
     children: [
+      { label: "All Generators (Hub)", href: "/generate" },
       { label: "Admission Form", href: "/generate/admission-form" },
       { label: "Admission Invoice", href: "/generate/invoice" },
       { label: "CCE Marksheet", href: "/generate/marksheet" },
@@ -323,9 +325,16 @@ function NavGroup({
     return false;
   };
 
-  const isGroupActive = item.children ? item.children.some(isChildItemActive) : false;
+  const router = useRouter();
+
+  const isGroupActive =
+    (item.href && (pathname === item.href || pathname.startsWith(item.href + "/"))) ||
+    (item.children ? item.children.some(isChildItemActive) : false);
 
   const [open, setOpen] = useState(() => {
+    if (item.href && (pathname === item.href || pathname.startsWith(item.href + "/"))) {
+      return true;
+    }
     if (item.children) {
       return item.children.some(isChildItemActive);
     }
@@ -341,10 +350,30 @@ function NavGroup({
   if (item.children) {
     return (
       <div className="space-y-0.5">
-        <button
-          onClick={() => setOpen((o) => !o)}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => {
+            setOpen(true);
+            if (item.href) {
+              if (pathname !== item.href) {
+                router.push(item.href);
+              }
+            } else {
+              setOpen((o) => !o);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setOpen(true);
+              if (item.href && pathname !== item.href) {
+                router.push(item.href);
+              }
+            }
+          }}
           className={cn(
-            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer",
+            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none",
             isGroupActive
               ? "bg-primary/10 text-primary font-semibold shadow-2xs"
               : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
@@ -354,13 +383,23 @@ function NavGroup({
             {item.icon}
           </div>
           <span className="flex-1 text-left text-xs font-semibold tracking-tight">{item.label}</span>
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 text-muted-foreground/70 transition-transform duration-200",
-              open && "rotate-180 text-foreground"
-            )}
-          />
-        </button>
+          <button
+            type="button"
+            aria-label="Toggle submenu"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen((o) => !o);
+            }}
+            className="p-1 rounded-md hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ChevronDown
+              className={cn(
+                "h-3.5 w-3.5 text-muted-foreground/70 transition-transform duration-200",
+                open && "rotate-180 text-foreground"
+              )}
+            />
+          </button>
+        </div>
 
         {open && (
           <div className="ml-5 pl-4 border-l-2 border-primary/20 flex flex-col gap-1 py-1 transition-all duration-300">

@@ -2,6 +2,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentFilters, PaginatedStudents, StudentStatus } from "@/lib/types";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
+import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 
 // DB Row shape (snake_case)
 export interface DBStudent {
@@ -61,6 +62,8 @@ export interface DBStudent {
   identification_mark: string | null;
   relationship_with_guardian: string | null;
   guardian_qualification: string | null;
+  father_occupation?: string | null;
+  mother_occupation?: string | null;
   bank_ifsc: string | null;
   bank_account_no: string | null;
 
@@ -132,7 +135,9 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     casteCertificateNo: db.caste_certificate_no || undefined,
     religion: db.religion || undefined,
     fatherName: db.father_name,
+    fatherOccupation: (db as any).father_occupation || undefined,
     motherName: db.mother_name,
+    motherOccupation: (db as any).mother_occupation || undefined,
     studentContact: db.mobile || undefined,
     address: db.address || undefined,
     presentClass: db.present_class,
@@ -246,7 +251,9 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     caste_certificate_no: toNullableString(student.casteCertificateNo),
     religion: toNullableString(student.religion),
     father_name: student.fatherName,
+    father_occupation: toNullableString(student.fatherOccupation),
     mother_name: student.motherName,
+    mother_occupation: toNullableString(student.motherOccupation),
     address: toNullableString(student.address),
     present_class: student.presentClass,
     present_section: student.presentSection,
@@ -615,7 +622,8 @@ import { generateSchoolId } from "@/lib/supabase/school-id-generator";
 // CREATE student
 export async function dbCreateStudent(input: Omit<Student, "id" | "academicHistory">): Promise<Student> {
   const supabase = createAdminClient();
-  const dbInput = mapStudentToDBInput(input);
+  const defaultedInput = applyStudentEntryDefaults(input);
+  const dbInput = mapStudentToDBInput(defaultedInput);
 
   // If school_id is missing, generate it
   if (!dbInput.school_id || dbInput.school_id.trim() === "") {
@@ -640,6 +648,12 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
     }
 
     lastError = error;
+    // If schema cache indicates occupation columns are not yet in remote DB, strip and retry
+    if (error && (error.message.includes("father_occupation") || error.message.includes("mother_occupation"))) {
+      delete (dbInput as any).father_occupation;
+      delete (dbInput as any).mother_occupation;
+      continue;
+    }
     // If unique constraint violation on school_id (code 23505), regenerate and retry
     if (error && (error.code === "23505" || error.message.includes("school_id"))) {
       dbInput.school_id = await generateSchoolId(
@@ -677,7 +691,9 @@ export async function dbUpdateStudent(
   if (updates.socialCategory !== undefined) dbUpdates.social_category = toNullableString(updates.socialCategory);
   if (updates.religion !== undefined) dbUpdates.religion = toNullableString(updates.religion);
   if (updates.fatherName !== undefined) dbUpdates.father_name = updates.fatherName;
+  if (updates.fatherOccupation !== undefined) dbUpdates.father_occupation = toNullableString(updates.fatherOccupation);
   if (updates.motherName !== undefined) dbUpdates.mother_name = updates.motherName;
+  if (updates.motherOccupation !== undefined) dbUpdates.mother_occupation = toNullableString(updates.motherOccupation);
   if (updates.studentContact !== undefined) dbUpdates.mobile = toNullableString(updates.studentContact);
   if (updates.address !== undefined) dbUpdates.address = toNullableString(updates.address);
   if (updates.presentClass !== undefined) dbUpdates.present_class = updates.presentClass;
@@ -785,12 +801,26 @@ export async function dbUpdateStudent(
     }
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("students")
     .update(dbUpdates)
     .eq("id", id)
     .select("*, academic_history(*)")
     .maybeSingle();
+
+  // Gracefully fallback if father_occupation or mother_occupation column not yet added to remote database
+  if (error && (error.message.includes("father_occupation") || error.message.includes("mother_occupation"))) {
+    delete dbUpdates.father_occupation;
+    delete dbUpdates.mother_occupation;
+    const retry = await supabase
+      .from("students")
+      .update(dbUpdates)
+      .eq("id", id)
+      .select("*, academic_history(*)")
+      .maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error("dbUpdateStudent database error:", error);

@@ -38,9 +38,10 @@ export interface Student {
   gender: Gender;
   socialCategory?: string;       // e.g. "General", "OBC", "SC", "ST"
   casteCertificateNo?: string;   // Social category / Caste certificate number
-  religion?: string;
   fatherName: string;
+  fatherOccupation?: string;     // e.g. "Cultivator / Farmer", "Daily Wage Labourer", etc.
   motherName: string;
+  motherOccupation?: string;     // e.g. "Homemaker / Housewife", "Teacher", etc.
   studentContact?: string;       // 10-digit mobile
   address?: string;
   presentClass: string;          // Current enrolled class
@@ -65,6 +66,7 @@ export interface Student {
   altMobile?: string;
   email?: string;
   motherTongue?: string;
+  religion?: string;
   minorityGroup?: string;
   isAay?: boolean;
   isEws?: boolean;

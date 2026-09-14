@@ -14,6 +14,7 @@ const VALID_KEYS = [
   "address_presets_config",
   "bank_presets",
   "school_presets",
+  "student_entry_presets",
 ];
 
 const DEFAULT_SYSTEM_USER = "2e7e7a69-5c50-4dba-86ae-25614b3fc8bd";
@@ -180,18 +181,29 @@ export async function GET(request: Request) {
       });
     }
 
-    // Fetch all configurations via single batch query with fallback
+    // Fetch all configurations from system_config table (with fallback)
     const configMap: Record<string, any> = {};
-    const ALL_KEYS = ["school_profile", "class_management", "marks_schemes", "promotion_policy"];
+    const CORE_FALLBACK_KEYS = [
+      "school_profile",
+      "class_management",
+      "marks_schemes",
+      "promotion_policy",
+      "ems_rooms",
+      "ems_allocations",
+      "address_presets_config",
+      "bank_presets",
+      "school_presets",
+      "student_entry_presets",
+    ];
 
     try {
-      const { data: batchData, error: batchError } = await supabase
+      // Fetch all persisted configuration entries from system_config
+      const { data: allData, error: batchError } = await supabase
         .from("system_config")
-        .select("key, value")
-        .in("key", ALL_KEYS);
+        .select("key, value");
 
-      if (!batchError && batchData && batchData.length > 0) {
-        for (const item of batchData) {
+      if (!batchError && allData && allData.length > 0) {
+        for (const item of allData) {
           if (item.value !== undefined && item.value !== null) {
             configMap[item.key] = item.value;
           }
@@ -201,25 +213,22 @@ export async function GET(request: Request) {
       // Fallback
     }
 
-    // For any key still missing, check fallback
-    const missingKeys = ALL_KEYS.filter((k) => configMap[k] === undefined);
+    // For any core key not yet present in system_config, check audit_log fallback
+    const missingKeys = CORE_FALLBACK_KEYS.filter((k) => configMap[k] === undefined);
     if (missingKeys.length > 0) {
       await Promise.all(
         missingKeys.map(async (k) => {
           const item = await getConfigFromStorage(supabase, k);
-          configMap[k] = item?.value || null;
+          if (item && item.value !== undefined && item.value !== null) {
+            configMap[k] = item.value;
+          }
         })
       );
     }
 
     const responsePayload = {
       success: true,
-      data: {
-        school_profile: configMap.school_profile || null,
-        class_management: configMap.class_management || null,
-        marks_schemes: configMap.marks_schemes || null,
-        promotion_policy: configMap.promotion_policy || null,
-      },
+      data: configMap,
     };
 
     memoryConfigCache = {
@@ -244,9 +253,10 @@ export async function POST(request: Request) {
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (auth.role !== "Admin") {
+    // Allow Admins and Staff to update presets and configuration
+    if (auth.role !== "Admin" && auth.role !== "Staff") {
       return NextResponse.json(
-        { error: "Forbidden: Only Admins can change school configuration" },
+        { error: "Forbidden: Only staff and admins can change school configuration" },
         { status: 403 }
       );
     }
@@ -261,9 +271,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!VALID_KEYS.includes(key)) {
+    const isKeyValid = VALID_KEYS.includes(key) || /^[a-z0-9_-]{2,100}$/i.test(key);
+    if (!isKeyValid) {
       return NextResponse.json(
-        { error: `Invalid key. Allowed keys: ${VALID_KEYS.join(", ")}` },
+        { error: `Invalid key format: ${key}` },
         { status: 400 }
       );
     }

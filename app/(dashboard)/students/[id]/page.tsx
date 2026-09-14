@@ -474,7 +474,9 @@ export default function StudentProfilePage() {
               <SectionTitle>Family & Contact Information</SectionTitle>
               <InfoGrid>
                 <InfoField label="Father's Name" value={student.fatherName} />
+                <InfoField label="Father's Occupation" value={student.fatherOccupation} />
                 <InfoField label="Mother's Name" value={student.motherName} />
+                <InfoField label="Mother's Occupation" value={student.motherOccupation} />
                 <InfoField label="Guardian's Name" value={student.guardianName} />
                 <InfoField label="Relationship with Guardian" value={student.relationshipWithGuardian} />
                 <InfoField label="Guardian's Qualification" value={student.guardianQualification} />

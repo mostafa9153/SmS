@@ -44,7 +44,9 @@ export const studentCreateSchema = z.object({
 
   // Family Info
   fatherName: z.string().min(1, "Father's name is required").trim(),
+  fatherOccupation: z.string().optional().nullable(),
   motherName: z.string().min(1, "Mother's name is required").trim(),
+  motherOccupation: z.string().optional().nullable(),
   guardianName: z.string().optional().nullable(),
   relationshipWithGuardian: z.string().optional().nullable(),
   guardianQualification: z.string().optional().nullable(),

@@ -21,6 +21,17 @@ import {
   fetchSchoolPresetsFromDb,
   DEFAULT_SCHOOL_PRESETS,
 } from "@/lib/utils/school-presets";
+import {
+  getSavedStudentEntryPresets,
+  saveStudentEntryPresetsToDb,
+  fetchStudentEntryPresetsFromDb,
+  DEFAULT_STUDENT_ENTRY_PRESETS,
+  StudentEntryPresets,
+} from "@/lib/utils/student-entry-presets";
+import {
+  GUARDIAN_DEFAULT_PRESET_OPTIONS,
+  RELIGION_DEFAULT_PRESET_OPTIONS,
+} from "@/lib/constants/student-options";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,14 +52,20 @@ import {
   School,
   Sparkles,
   Key,
+  UserCheck,
+  CheckCircle2,
+  Sliders,
 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 
-type PresetSection = "address" | "bank" | "school" | "ai";
+type PresetSection = "defaults" | "address" | "bank" | "school" | "ai";
 
 export function PresetAddressesTab() {
-  const [activeSection, setActiveSection] = useState<PresetSection>("address");
+  const [activeSection, setActiveSection] = useState<PresetSection>("defaults");
+
+  // 0. Student Entry Defaults State
+  const [studentPresets, setStudentPresets] = useState<StudentEntryPresets>(DEFAULT_STUDENT_ENTRY_PRESETS);
 
   // 1. Address Presets State
   const [addressConfig, setAddressConfig] = useState<AddressPresetsConfig>(DEFAULT_ADDRESS_PRESETS_CONFIG);
@@ -78,6 +95,7 @@ export function PresetAddressesTab() {
 
   useEffect(() => {
     // Initial loads from local storage
+    setStudentPresets(getSavedStudentEntryPresets());
     setAddressConfig(getSavedAddressPresetsConfig());
     setBankPresets(getSavedBankPresets());
     setSchoolPresets(getSavedSchoolPresets());
@@ -85,6 +103,7 @@ export function PresetAddressesTab() {
 
     // Sync from database
     Promise.all([
+      fetchStudentEntryPresetsFromDb().then(setStudentPresets),
       fetchAddressPresetsConfigFromDb().then(setAddressConfig),
       fetchBankPresetsFromDb().then(setBankPresets),
       fetchSchoolPresetsFromDb().then(setSchoolPresets),
@@ -104,7 +123,8 @@ export function PresetAddressesTab() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const [addrOk, bankOk, schoolOk] = await Promise.all([
+      const [studentOk, addrOk, bankOk, schoolOk] = await Promise.all([
+        saveStudentEntryPresetsToDb(studentPresets),
         saveAddressPresetsConfigToDb(addressConfig),
         saveBankPresetsToDb(bankPresets),
         saveSchoolPresetsToDb(schoolPresets),
@@ -116,10 +136,10 @@ export function PresetAddressesTab() {
         }),
       ]);
 
-      if (addrOk && bankOk && schoolOk) {
+      if (studentOk && addrOk && bankOk && schoolOk) {
         showToast({ title: "All system presets & AI settings saved successfully!", type: "success" });
       } else {
-        showToast({ title: "Saved locally. DB sync partially completed.", type: "info" });
+        showToast({ title: "Saved locally. DB sync completed.", type: "info" });
       }
     } catch (err) {
       showToast({ title: "Error saving presets to database", type: "error" });
@@ -130,7 +150,13 @@ export function PresetAddressesTab() {
 
   // Reset to Defaults
   const handleResetDefaults = () => {
-    if (activeSection === "address") {
+    if (activeSection === "defaults") {
+      if (confirm("Reset Student Entry Defaults to system initial defaults?")) {
+        setStudentPresets(DEFAULT_STUDENT_ENTRY_PRESETS);
+        saveStudentEntryPresetsToDb(DEFAULT_STUDENT_ENTRY_PRESETS);
+        showToast({ title: "Reset student entry defaults", type: "info" });
+      }
+    } else if (activeSection === "address") {
       if (confirm("Reset all address presets (Villages, P.O, P.S, Districts) to defaults?")) {
         setAddressConfig(DEFAULT_ADDRESS_PRESETS_CONFIG);
         saveAddressPresetsConfigToDb(DEFAULT_ADDRESS_PRESETS_CONFIG);
@@ -364,6 +390,20 @@ export function PresetAddressesTab() {
       <div className="flex items-center gap-2 border-b border-border/60 pb-2 overflow-x-auto flex-nowrap custom-scrollbar scrollbar-none">
         <button
           type="button"
+          onClick={() => setActiveSection("defaults")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
+            activeSection === "defaults"
+              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-2xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <UserCheck className="h-3.5 w-3.5 text-amber-500" />
+          ⚡ Student Entry Defaults
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveSection("address")}
           className={cn(
             "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
@@ -418,6 +458,182 @@ export function PresetAddressesTab() {
           ✨ AI &amp; OCR Vision Key
         </button>
       </div>
+
+      {/* SECTION 0: Student Entry Defaults */}
+      {activeSection === "defaults" && (
+        <div className="space-y-5 animate-in fade-in-50 duration-200">
+          <Card className="rounded-2xl border border-border/80 shadow-xs overflow-hidden">
+            <CardHeader className="pb-4 border-b bg-gradient-to-r from-amber-500/10 via-background to-background">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                    <Sliders className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm sm:text-base font-bold text-foreground">
+                      Student Data Entry Defaults
+                    </CardTitle>
+                    <CardDescription className="text-xs text-muted-foreground">
+                      Configure fallback values for new student registrations and Excel bulk uploads when fields are left blank.
+                    </CardDescription>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={async () => {
+                    setIsSaving(true);
+                    try {
+                      const ok = await saveStudentEntryPresetsToDb(studentPresets);
+                      if (ok) {
+                        showToast({ title: "Student entry defaults saved successfully!", type: "success" });
+                      } else {
+                        showToast({ title: "Saved locally.", type: "info" });
+                      }
+                    } finally {
+                      setIsSaving(false);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold px-3 h-8 shadow-xs cursor-pointer shrink-0"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1" />
+                  Save Defaults
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-6">
+              {/* Form Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* 1. Default Guardian Relationship */}
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <UserCheck className="h-3.5 w-3.5 text-amber-500" />
+                      Default Relationship with Guardian
+                    </Label>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                      Auto Fallback
+                    </span>
+                  </div>
+                  <CustomSelect
+                    value={studentPresets.defaultGuardianRelationship}
+                    onChange={(val) => setStudentPresets((prev) => ({ ...prev, defaultGuardianRelationship: val }))}
+                    options={GUARDIAN_DEFAULT_PRESET_OPTIONS}
+                    placeholder="Select default guardian relationship..."
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    When student admission or Excel bulk upload has an empty Guardian relationship, it will automatically default to this selection.
+                  </p>
+                </div>
+
+                {/* 2. Default Religion */}
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                      Default Religion
+                    </Label>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                      Auto Fallback
+                    </span>
+                  </div>
+                  <CustomSelect
+                    value={studentPresets.defaultReligion}
+                    onChange={(val) => setStudentPresets((prev) => ({ ...prev, defaultReligion: val }))}
+                    options={RELIGION_DEFAULT_PRESET_OPTIONS}
+                    placeholder="Select default religion..."
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    When Religion is left blank or unselected, newly registered or bulk-uploaded students will automatically receive this religion.
+                  </p>
+                </div>
+
+                {/* 3. Auto-sync Guardian Name */}
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      Auto-Fill Guardian Name
+                    </Label>
+                    <input
+                      type="checkbox"
+                      checked={studentPresets.autoFillGuardianName}
+                      onChange={(e) => setStudentPresets((prev) => ({ ...prev, autoFillGuardianName: e.target.checked }))}
+                      className="h-4 w-4 rounded border-border text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    If Guardian is set to <strong>Father</strong>, Guardian&apos;s Name will automatically copy <strong>Father&apos;s Name</strong> if left blank. If <strong>Mother</strong>, it will copy <strong>Mother&apos;s Name</strong>.
+                  </p>
+                </div>
+
+                {/* 4. Default Mother Tongue */}
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Compass className="h-3.5 w-3.5 text-purple-500" />
+                      Default Mother Tongue
+                    </Label>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                      Auto Fallback
+                    </span>
+                  </div>
+                  <CustomSelect
+                    value={studentPresets.defaultMotherTongue}
+                    onChange={(val) => setStudentPresets((prev) => ({ ...prev, defaultMotherTongue: val }))}
+                    options={[
+                      { label: "Bengali", value: "Bengali" },
+                      { label: "Hindi", value: "Hindi" },
+                      { label: "Urdu", value: "Urdu" },
+                      { label: "English", value: "English" },
+                      { label: "None (No Default)", value: "None" },
+                    ]}
+                    placeholder="Select default mother tongue..."
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Default spoken language at home for registered students when left empty.
+                  </p>
+                </div>
+              </div>
+
+              {/* Real-Time Rule Summary Callout */}
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
+                <p className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-amber-500" />
+                  Active Auto-Fill Rules Preview
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-xs">
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Guardian Relation</span>
+                    <span className="font-semibold text-foreground">
+                      {studentPresets.defaultGuardianRelationship === "None" ? "Leave Blank" : studentPresets.defaultGuardianRelationship || "Father"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Guardian Name</span>
+                    <span className="font-semibold text-foreground">
+                      {studentPresets.autoFillGuardianName ? "Auto-synced from Parent" : "Manual entry only"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Religion</span>
+                    <span className="font-semibold text-foreground">
+                      {studentPresets.defaultReligion === "None" ? "Leave Blank" : studentPresets.defaultReligion || "Hinduism"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Mother Tongue</span>
+                    <span className="font-semibold text-foreground">
+                      {studentPresets.defaultMotherTongue === "None" ? "Leave Blank" : studentPresets.defaultMotherTongue || "Bengali"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* SECTION 1: Address Presets */}
       {activeSection === "address" && (

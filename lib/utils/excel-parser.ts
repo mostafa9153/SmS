@@ -1,4 +1,5 @@
 import type { Student, StudentStatus, ColumnMapping, ValidationIssue, BulkPreviewRow, BulkResultRow } from "@/lib/types";
+import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 
 export interface DetectedFileMetadata {
   schoolName?: string;
@@ -401,6 +402,21 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     ],
   },
   {
+    key: "fatherOccupation",
+    label: "Father's Occupation",
+    category: "Family",
+    icon: "💼",
+    aliases: [
+      "father occupation",
+      "father's occupation",
+      "father profession",
+      "father's profession",
+      "father job",
+      "fathers occupation",
+      "father_occupation",
+    ],
+  },
+  {
     key: "motherName",
     label: "Mother Name",
     category: "Family",
@@ -412,6 +428,21 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "mother_name",
       "mother full name",
       "mothers name",
+    ],
+  },
+  {
+    key: "motherOccupation",
+    label: "Mother's Occupation",
+    category: "Family",
+    icon: "💼",
+    aliases: [
+      "mother occupation",
+      "mother's occupation",
+      "mother profession",
+      "mother's profession",
+      "mother job",
+      "mothers occupation",
+      "mother_occupation",
     ],
   },
   {
@@ -1750,7 +1781,7 @@ export function applyMapping(
       }
     }
 
-    return student;
+    return applyStudentEntryDefaults(student);
   });
 }
 

@@ -56,6 +56,9 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
         if (data.ems_allocations && Array.isArray(data.ems_allocations)) {
           localStorage.setItem("sms_ems_saved_allocations_v1", JSON.stringify(data.ems_allocations));
         }
+        if (data.student_entry_presets && typeof data.student_entry_presets === "object") {
+          localStorage.setItem("sms_student_entry_presets", JSON.stringify(data.student_entry_presets));
+        }
       }
 
       return data;
@@ -76,8 +79,21 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
  */
 export async function getSchoolConfigKey<T = any>(key: string, forceRefresh = false): Promise<T | null> {
   const allConfigs = await fetchSchoolConfigClient(forceRefresh);
-  if (!allConfigs) return null;
-  return (allConfigs[key] as T) ?? null;
+  if (allConfigs && allConfigs[key] !== undefined && allConfigs[key] !== null) {
+    return allConfigs[key] as T;
+  }
+  try {
+    const res = await fetch(`/api/school-config?key=${encodeURIComponent(key)}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.data !== undefined && json.data !== null) {
+        return json.data as T;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return (allConfigs?.[key] as T) ?? null;
 }
 
 /**

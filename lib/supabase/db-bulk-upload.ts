@@ -5,6 +5,7 @@ import type { Student, ImportBatchSummary, ImportBatchRecord, StudentStatus, Gen
 import { mapDBStudentToStudent, type DBStudent } from "./db-students";
 import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "./db-results";
 import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
+import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 
 interface ProcessResult {
   summary: ImportBatchSummary;
@@ -302,7 +303,7 @@ export async function dbProcessBulkUpload(
     for (let i = 0; i < chunk.length; i++) {
       const globalIndex = cIdx + i;
       const item = chunk[i];
-      const inc = item.incomingData;
+      const inc = applyStudentEntryDefaults(item.incomingData);
       const generatedSchoolId = inc.schoolId?.trim() || newSchoolIds[globalIndex];
 
       chunkPayloads.push({

@@ -15,6 +15,12 @@ import { GuardianRelationshipSelect } from "@/components/students/guardian-relat
 import { SmartAddressInput } from "@/components/students/smart-address-input";
 import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
+import { OCCUPATION_OPTIONS } from "@/lib/constants/student-options";
+import {
+  getSavedStudentEntryPresets,
+  fetchStudentEntryPresetsFromDb,
+  applyStudentEntryDefaults,
+} from "@/lib/utils/student-entry-presets";
 
 const studentSchema = z.object({
   // Identity
@@ -58,7 +64,9 @@ const studentSchema = z.object({
 
   // Family Info
   fatherName: z.string().min(2, "Father's name is required"),
+  fatherOccupation: z.string().optional(),
   motherName: z.string().min(2, "Mother's name is required"),
+  motherOccupation: z.string().optional(),
   guardianName: z.string().optional(),
   relationshipWithGuardian: z.string().optional(),
   guardianQualification: z.string().optional(),
@@ -189,6 +197,7 @@ export default function AddStudentPage() {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     control,
     formState: { errors },
@@ -209,6 +218,8 @@ export default function AddStudentPage() {
       nss: false,
       scoutsGuides: false,
       admissionYear: new Date().getFullYear(),
+      fatherOccupation: "",
+      motherOccupation: "",
     },
   });
 
@@ -231,8 +242,33 @@ export default function AddStudentPage() {
     }
   }, [relationshipWatched, fatherNameWatched, motherNameWatched, setValue]);
 
+  useEffect(() => {
+    const presets = getSavedStudentEntryPresets();
+    if (presets.defaultGuardianRelationship && presets.defaultGuardianRelationship !== "None") {
+      setValue("relationshipWithGuardian", presets.defaultGuardianRelationship);
+    }
+    if (presets.defaultReligion && presets.defaultReligion !== "None") {
+      setValue("religion", presets.defaultReligion);
+    }
+    if (presets.defaultMotherTongue && presets.defaultMotherTongue !== "None") {
+      setValue("motherTongue", presets.defaultMotherTongue);
+    }
+
+    fetchStudentEntryPresetsFromDb().then((p) => {
+      if (p.defaultGuardianRelationship && p.defaultGuardianRelationship !== "None" && !getValues("relationshipWithGuardian")) {
+        setValue("relationshipWithGuardian", p.defaultGuardianRelationship);
+      }
+      if (p.defaultReligion && p.defaultReligion !== "None" && !getValues("religion")) {
+        setValue("religion", p.defaultReligion);
+      }
+    });
+  }, [setValue, getValues]);
+
   const mutation = useMutation({
-    mutationFn: (data: FormData) => {
+    mutationFn: (formData: FormData) => {
+      // Auto-apply preset defaults if any fields were left blank
+      const data = applyStudentEntryDefaults(formData);
+
       // Map inputs to lists for array columns
       const languageGroup = data.languageGroupInput ? data.languageGroupInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const mandatorySubjects = data.mandatorySubjectsInput ? data.mandatorySubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -567,8 +603,36 @@ export default function AddStudentPage() {
             <FormField label="Father's Name *" error={errors.fatherName?.message}>
               <input {...register("fatherName")} placeholder="e.g. Ratan Mondal" />
             </FormField>
+            <FormField label="Father's Occupation" error={errors.fatherOccupation?.message}>
+              <Controller
+                control={control}
+                name="fatherOccupation"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select father's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
+              />
+            </FormField>
             <FormField label="Mother's Name *" error={errors.motherName?.message}>
               <input {...register("motherName")} placeholder="e.g. Sujata Mondal" />
+            </FormField>
+            <FormField label="Mother's Occupation" error={errors.motherOccupation?.message}>
+              <Controller
+                control={control}
+                name="motherOccupation"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select mother's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Guardian's Name" error={errors.guardianName?.message}>
               <input {...register("guardianName")} placeholder="e.g. Ramesh Mondal" />

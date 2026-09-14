@@ -1,6 +1,6 @@
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { UserPlus, Upload, Search, ShieldCheck, Award, CalendarClock, ArrowRight, Sparkles } from "lucide-react";
+import { GraduationCap, Sparkles, ShieldCheck, Award, Upload, ArrowRight, UserPlus } from "lucide-react";
 import { StatCards } from "@/components/dashboard/stat-cards";
 import { WelfareSchemesVisual } from "@/components/dashboard/welfare-schemes-visual";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,18 +43,18 @@ export default function DashboardPage() {
 
           <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
             <Link
-              href="/students/bulk-upload"
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border border-primary/20 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-all duration-150 active:scale-95 shadow-2xs"
+              href="/generate"
+              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border border-purple-500/25 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-purple-500/10 hover:border-purple-500/40 text-foreground transition-all duration-150 active:scale-95 shadow-2xs"
             >
-              <Upload className="h-4 w-4 text-primary" />
-              Bulk Upload
+              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              Generate
             </Link>
             <Link
-              href="/students/add"
+              href="/admission"
               className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-150 active:scale-95 shadow-xs"
             >
-              <UserPlus className="h-4 w-4" />
-              Add Student
+              <GraduationCap className="h-4 w-4" />
+              Admission
             </Link>
           </div>
         </div>
@@ -85,15 +85,15 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-4">
           <Link
-            href="/students/add"
+            href="/admission"
             className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-emerald-500/40 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
           >
             <div className="rounded-xl bg-emerald-500/10 p-2 sm:p-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-emerald-500/20 shrink-0">
-              <UserPlus className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              <GraduationCap className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
             </div>
             <div>
               <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 transition-colors">
-                Add Student
+                Admission Portal
               </p>
             </div>
           </Link>
@@ -113,15 +113,15 @@ export default function DashboardPage() {
           </Link>
 
           <Link
-            href="/students/bulk-upload"
-            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-blue-500/40 hover:bg-blue-50/20 dark:hover:bg-blue-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+            href="/generate"
+            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-purple-500/40 hover:bg-purple-50/20 dark:hover:bg-purple-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
           >
-            <div className="rounded-xl bg-blue-500/10 p-2 sm:p-2.5 text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-blue-500/20 shrink-0">
-              <Upload className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-xl bg-purple-500/10 p-2 sm:p-2.5 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-purple-500/20 shrink-0">
+              <Sparkles className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-blue-600 transition-colors">
-                Bulk Upload
+              <p className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
+                Generate Hub
               </p>
             </div>
           </Link>

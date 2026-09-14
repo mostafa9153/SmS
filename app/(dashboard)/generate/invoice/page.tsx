@@ -98,7 +98,7 @@ function InvoiceGeneratorContent() {
   const [bulkAssignedTeacher, setBulkAssignedTeacher] = useState<string>("");
 
   const currentYear = new Date().getFullYear();
-  const currentSession = `${currentYear} – ${currentYear + 1}`;
+  const currentSession = String(currentYear);
   const INVOICE_STORAGE_KEY = `sms_admission_invoice_last_seq_${currentYear}`;
   const PREV_INVOICE_STORAGE_KEY = `sms_admission_invoice_prev_seq_${currentYear}`;
 
@@ -137,6 +137,14 @@ function InvoiceGeneratorContent() {
   const [isBulkPrefixLocked, setIsBulkPrefixLocked] = useState(true);
   const [isBulkStartingNoLocked, setIsBulkStartingNoLocked] = useState(true);
   const [isSingleReceiptLocked, setIsSingleReceiptLocked] = useState(true);
+
+  // Dynamic Academic Session options: strictly current year & 1 year advance (no extra text)
+  const academicSessionOptions = useMemo(() => {
+    return [
+      { label: String(currentYear), value: String(currentYear) },
+      { label: String(currentYear + 1), value: String(currentYear + 1) },
+    ];
+  }, [currentYear]);
 
   // Sync starting sequence live from database
   const syncSequenceFromDatabase = useCallback(async () => {
@@ -284,12 +292,12 @@ function InvoiceGeneratorContent() {
     };
   });
 
-  // Sync locked fields: invoiceNumber & session whenever invoiceSeq changes
+  // Sync invoiceNumber whenever invoiceSeq changes (preserving selected academicSession)
   useEffect(() => {
     setInvoice((prev) => ({
       ...prev,
       invoiceNumber: generateInvoiceNumber(invoiceSeq),
-      academicSession: currentSession,
+      academicSession: prev.academicSession || currentSession,
     }));
   }, [invoiceSeq, currentSession]);
 
@@ -1065,23 +1073,16 @@ function InvoiceGeneratorContent() {
                     </div>
                   </div>
 
-                  {/* Academic Session - Locked & Auto-Updated */}
+                  {/* Academic Session */}
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[11px] font-semibold text-muted-foreground">Academic Session</Label>
-                      <span className="text-[9.5px] text-muted-foreground font-semibold flex items-center gap-0.5">
-                        <Lock className="h-2.5 w-2.5" /> Auto
-                      </span>
-                    </div>
-                    <div className="relative flex items-center">
-                      <Input
-                        value={invoice.academicSession}
-                        disabled
-                        readOnly
-                        className="text-xs font-semibold h-8 bg-muted/60 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
-                      />
-                      <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
-                    </div>
+                    <Label className="text-[11px] font-semibold text-muted-foreground">Academic Session</Label>
+                    <CustomSelect
+                      value={invoice.academicSession}
+                      onChange={(val) => setInvoice({ ...invoice, academicSession: String(val) })}
+                      options={academicSessionOptions}
+                      searchable={false}
+                      triggerClassName="h-8 text-xs font-semibold bg-background"
+                    />
                   </div>
 
                   {/* Date - Locked & Auto Live */}
@@ -1766,23 +1767,16 @@ function InvoiceGeneratorContent() {
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-[11px] font-semibold text-muted-foreground">
-                        Academic Session
-                      </Label>
-                      <span className="text-[9px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded">
-                        Auto
-                      </span>
-                    </div>
-                    <div className="relative flex items-center">
-                      <Input
-                        value={bulkSession}
-                        disabled
-                        readOnly
-                        className="text-xs font-semibold h-8 bg-muted/60 text-foreground cursor-not-allowed select-none pr-8 border-dashed"
-                      />
-                      <Lock className="absolute right-2.5 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
-                    </div>
+                    <Label className="text-[11px] font-semibold text-muted-foreground">
+                      Academic Session
+                    </Label>
+                    <CustomSelect
+                      value={bulkSession}
+                      onChange={(val) => setBulkSession(String(val))}
+                      options={academicSessionOptions}
+                      searchable={false}
+                      triggerClassName="h-8 text-xs font-semibold bg-background"
+                    />
                   </div>
 
                   <div className="space-y-1">
