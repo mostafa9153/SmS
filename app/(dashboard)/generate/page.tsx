@@ -27,6 +27,7 @@ import {
   FileBadge2,
   Info,
   SlidersHorizontal,
+  Contact,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,22 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     accentBorder: "hover:border-amber-500/50 hover:shadow-amber-500/10",
     gradientGlow: "from-amber-500/10 via-transparent to-transparent",
     highlights: ["Auto-fill from Student DB", "Custom Conduct Remarks", "Embedded Verification QR", "Strict 1-Page A5 Layout"],
+  },
+  {
+    id: "student-id-cards",
+    title: "Student ID Card Studio",
+    category: "certificates",
+    categoryLabel: "Certificates & IDs",
+    formatBadge: "CR80 PVC Single",
+    formatVariant: "sky",
+    description:
+      "Bulk student identity card generator with photo, Code 128 barcode, father name, and direct single CR80 PVC printing.",
+    href: "/generate/id-card",
+    icon: Contact,
+    iconBg: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+    accentBorder: "hover:border-blue-500/50 hover:shadow-blue-500/10",
+    gradientGlow: "from-blue-500/10 via-transparent to-transparent",
+    highlights: ["Single-Sided CR80 PVC", "Class & Section Batching", "Code 128 Barcode Engine", "Database Auto-Fill"],
   },
   {
     id: "transfer-certificate",
