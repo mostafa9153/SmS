@@ -4,7 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback, Suspense } from "reac
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents } from "@/lib/data/students";
+import { getStudents, searchStudents, getStudentById } from "@/lib/data/students";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { useSchoolConfigQuery } from "@/lib/utils/school-config-client";
 import type { Student } from "@/lib/types";
 import {
@@ -320,24 +321,42 @@ function InvoiceGeneratorContent() {
     return () => clearInterval(timer);
   }, [autoDateTime]);
 
-  // Fetch all students (unified queryKey across document generators)
-  const { data: students = [], isLoading: isLoadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
+  const debouncedSearch = useDebounce(studentSearch, 300);
+
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["students", "search", debouncedSearch],
+    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
+    enabled: debouncedSearch.length > 0 && generatorMode === "single",
     staleTime: 5 * 60 * 1000,
   });
 
-  // Queued admission invoices count ready for bulk printing in /admission/invoices
-  const queuedAdmissionCount = useMemo(() => {
-    return students.filter((s) => {
-      if (s.currentStatus !== "Continuing") return false;
-      const queued = Boolean(s.isInvoiceQueued);
-      const admittedPending =
-        s.reAdmissionStatus === "admitted" && s.isInvoiceQueued !== false && !s.invoicePrintedAt;
-      const newAdmitQueued = s.admissionYear === currentYear && queued && !s.invoicePrintedAt;
-      return queued || admittedPending || newAdmitQueued;
-    }).length;
-  }, [students, currentYear]);
+  const { data: directStudentData, isLoading: isDirectStudentLoading } = useQuery({
+    queryKey: ["students", "direct", studentIdParam],
+    queryFn: () => getStudentById(studentIdParam!),
+    enabled: !!studentIdParam && generatorMode === "single",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: bulkStudents = [], isLoading: isBulkLoading } = useQuery({
+    queryKey: ["students", "class", bulkClass, bulkSection],
+    queryFn: () => getStudents("summary", bulkClass, bulkSection),
+    enabled: generatorMode === "bulk" && !!bulkClass,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoadingStudents = isSearchLoading || isDirectStudentLoading || isBulkLoading;
+
+  // Queued admission invoices count fetched directly via lightweight API
+  const { data: queuedData } = useQuery({
+    queryKey: ["admission", "invoices", "count"],
+    queryFn: async () => {
+      const res = await fetch("/api/admission/invoices/count");
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+  const queuedAdmissionCount = queuedData?.count || 0;
 
   // Fetch school configuration (including class management) from database
   const { data: schoolConfig } = useSchoolConfigQuery();
@@ -400,13 +419,10 @@ function InvoiceGeneratorContent() {
 
   // Load student by query param if provided
   useEffect(() => {
-    if (studentIdParam && students.length > 0) {
-      const match = students.find((s) => s.id === studentIdParam);
-      if (match) {
-        handleSelectStudent(match);
-      }
+    if (directStudentData) {
+      handleSelectStudent(directStudentData);
     }
-  }, [studentIdParam, students]);
+  }, [directStudentData]);
 
   // Handle choosing a student in Single Mode
   function handleSelectStudent(student: Student) {
@@ -461,39 +477,21 @@ function InvoiceGeneratorContent() {
 
   // Filter students based on search (Single Mode)
   const filteredStudents = useMemo(() => {
-    if (!studentSearch.trim()) return [];
-    const q = studentSearch.toLowerCase().trim();
-    return students
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          (s.schoolId && s.schoolId.toLowerCase().includes(q)) ||
-          (s.pen && s.pen.toLowerCase().includes(q)) ||
-          (s.presentClass && s.presentClass.toLowerCase().includes(q))
-      )
-      .slice(0, 6);
-  }, [studentSearch, students]);
+    if (directStudentData && !studentSearch) {
+      return [directStudentData];
+    }
+    return searchResults?.data || [];
+  }, [directStudentData, searchResults, studentSearch]);
 
   // Bulk Mode: Filter class roster & sort by Roll No ascending
   const classRoster = useMemo(() => {
-    const normClass = bulkClass.toUpperCase().trim();
-    const normSec = bulkSection.toUpperCase().trim();
-
-    return students
-      .filter((s) => {
-        const cMatch = String(s.presentClass || "").toUpperCase().trim() === normClass;
-        if (!cMatch) return false;
-        if (normSec !== "ALL") {
-          return String(s.presentSection || "A").toUpperCase().trim() === normSec;
-        }
-        return true;
-      })
+    return [...bulkStudents]
       .sort((a, b) => {
-        const rollA = parseInt(String(a.presentRoll || "9999"), 10) || 9999;
-        const rollB = parseInt(String(b.presentRoll || "9999"), 10) || 9999;
-        return rollA - rollB;
+        const rA = parseInt(String(a.presentRoll)) || 9999;
+        const rB = parseInt(String(b.presentRoll)) || 9999;
+        return rA - rB;
       });
-  }, [students, bulkClass, bulkSection]);
+  }, [bulkStudents]);
 
   // Automatically select all students when class or section changes
   useEffect(() => {

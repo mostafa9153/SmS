@@ -1,4 +1,4 @@
-"use client";
+          "use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -337,19 +337,15 @@ function NavGroup({
           role="button"
           tabIndex={0}
           onClick={() => {
-            setOpen(true);
-            if (item.href) {
-              if (pathname !== item.href) {
-                router.push(item.href);
-              }
-            } else {
-              setOpen((o) => !o);
+            setOpen((o) => !o);
+            if (item.href && pathname !== item.href) {
+              router.push(item.href);
             }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setOpen(true);
+              setOpen((o) => !o);
               if (item.href && pathname !== item.href) {
                 router.push(item.href);
               }

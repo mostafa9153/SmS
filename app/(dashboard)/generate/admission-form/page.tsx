@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents } from "@/lib/data/students";
+import { getStudents, searchStudents, getStudentById } from "@/lib/data/students";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Student } from "@/lib/types";
 import {
   AdmissionFormVIxData,
@@ -68,6 +69,8 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
   const [admissionCategory, setAdmissionCategory] = useState<"regular" | "new" | "re">(
     categoryParam === "re" ? "re" : categoryParam === "new" ? "new" : "regular"
   );
+
+  const studentIdParam = searchParams.get("studentId");
 
   // Form tab selection: Class V-IX vs Class XI
   const [activeTab, setActiveTab] = useState<"v-ix" | "xi">(
@@ -154,14 +157,33 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
     formNo: formatFormNumber(serialPrefix, 1, 4),
   }));
 
-  // Database students query
-  const { data: students = [] } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
-  });
-
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  const debouncedSearch = useDebounce(studentSearch, 300);
+
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["students", "search", debouncedSearch],
+    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
+    enabled: debouncedSearch.length > 0 && generationMode === "single",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: directStudentData, isLoading: isDirectStudentLoading } = useQuery({
+    queryKey: ["students", "direct", studentIdParam],
+    queryFn: () => getStudentById(studentIdParam!),
+    enabled: !!studentIdParam && generationMode === "single",
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: bulkStudents = [], isLoading: isBulkLoading } = useQuery({
+    queryKey: ["students", "class", bulkClass, bulkSection],
+    queryFn: () => getStudents("summary", bulkClass, bulkSection),
+    enabled: generationMode === "bulk" && !!bulkClass,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoadingStudents = isSearchLoading || isDirectStudentLoading || isBulkLoading;
 
   // Auto-fill student address components
   function parseAddress(addr?: string) {
@@ -367,39 +389,21 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
 
   // Filter student list for autocomplete search
   const filteredStudents = useMemo(() => {
-    const q = studentSearch.trim().toLowerCase();
-    if (!q) {
-      return students.slice(0, 10);
+    if (directStudentData && !studentSearch) {
+      return [directStudentData];
     }
-    return students
-      .filter(
-        (s) =>
-          (s.name && s.name.toLowerCase().includes(q)) ||
-          (s.id && s.id.toLowerCase().includes(q)) ||
-          (s.schoolId && s.schoolId.toLowerCase().includes(q)) ||
-          (s.pen && s.pen.toLowerCase().includes(q)) ||
-          (s.presentClass && s.presentClass.toLowerCase().includes(q)) ||
-          (s.presentSection && s.presentSection.toLowerCase().includes(q)) ||
-          (s.presentRoll && String(s.presentRoll).includes(q)) ||
-          (s.studentContact && s.studentContact.includes(q)) ||
-          (s.aadhaar && s.aadhaar.includes(q)) ||
-          (s.fatherName && s.fatherName.toLowerCase().includes(q))
-      )
-      .slice(0, 15);
-  }, [students, studentSearch]);
+    return searchResults?.data || [];
+  }, [directStudentData, searchResults, studentSearch]);
 
   // Bulk Class Roster: Filter students by Class & Section
   const classRoster = useMemo(() => {
-    return students
-      .filter((s) => {
-        const sClass = (s.presentClass || "").toUpperCase().trim();
-        const sSec = (s.presentSection || "").toUpperCase().trim();
-        const matchesClass = !bulkClass || bulkClass === "ALL" || sClass === bulkClass.toUpperCase().trim();
-        const matchesSection = !bulkSection || bulkSection === "ALL" || sSec === bulkSection.toUpperCase().trim();
-        return matchesClass && matchesSection;
-      })
-      .sort((a, b) => (Number(a.presentRoll) || 9999) - (Number(b.presentRoll) || 9999));
-  }, [students, bulkClass, bulkSection]);
+    return [...bulkStudents]
+      .sort((a, b) => {
+        const rollA = parseInt(String(a.presentRoll || "9999"), 10) || 9999;
+        const rollB = parseInt(String(b.presentRoll || "9999"), 10) || 9999;
+        return rollA - rollB;
+      });
+  }, [bulkStudents]);
 
   // Fetch dynamic class configuration from Database / Settings (/settings?tab=school-details)
   const { data: schoolConfig } = useSchoolConfigQuery();
@@ -439,8 +443,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
       : [];
 
     const studentSecsSet = new Set<string>();
-    students
-      .filter((s) => (s.presentClass || "").toUpperCase().trim() === bulkClass.toUpperCase().trim())
+    bulkStudents
       .forEach((s) => {
         if (s.presentSection) studentSecsSet.add(s.presentSection.toUpperCase().trim());
       });
@@ -458,7 +461,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
 
     // If multiple sections exist, prepend "ALL"
     return ["ALL", ...secList];
-  }, [dynamicClasses, students, bulkClass]);
+  }, [dynamicClasses, bulkStudents, bulkClass]);
 
   // Computed current single form number
   const currentSingleFormNo = useMemo(() => {

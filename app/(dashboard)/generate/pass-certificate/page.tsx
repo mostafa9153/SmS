@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents } from "@/lib/data/students";
+import { searchStudents, getStudentById } from "@/lib/data/students";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Student } from "@/lib/types";
 import {
   PassCertificatePrintableView,
@@ -57,14 +58,26 @@ function PassCertificateGeneratorContent() {
   const studentIdParam = searchParams.get("studentId");
   const { profile: schoolProfile } = useSchoolProfile();
 
-  // Fetch all students for search & auto-fill
-  const { data: students = [], isLoading: isLoadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
-  });
-
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  const debouncedSearch = useDebounce(studentSearch, 300);
+
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["students", "search", debouncedSearch],
+    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
+    enabled: debouncedSearch.length > 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: directStudentData, isLoading: isDirectStudentLoading } = useQuery({
+    queryKey: ["students", "direct", studentIdParam],
+    queryFn: () => getStudentById(studentIdParam!),
+    enabled: !!studentIdParam,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoadingStudents = isSearchLoading || isDirectStudentLoading;
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
@@ -219,28 +232,18 @@ function PassCertificateGeneratorContent() {
 
   // Pre-load student from query param
   useEffect(() => {
-    if (studentIdParam && students.length > 0) {
-      const match = students.find((s) => s.id === studentIdParam);
-      if (match) {
-        applyStudentToCertificate(match);
-      }
+    if (directStudentData) {
+      applyStudentToCertificate(directStudentData);
     }
-  }, [studentIdParam, students]);
+  }, [directStudentData]);
 
   // Filter students for search dropdown
   const filteredStudents = useMemo(() => {
-    if (!studentSearch.trim()) return [];
-    const q = studentSearch.toLowerCase();
-    return students
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q) ||
-          (s.presentRoll && String(s.presentRoll).includes(q)) ||
-          (s.pen && s.pen.toLowerCase().includes(q))
-      )
-      .slice(0, 6);
-  }, [students, studentSearch]);
+    if (directStudentData && !studentSearch) {
+      return [directStudentData];
+    }
+    return searchResults?.data || [];
+  }, [directStudentData, searchResults, studentSearch]);
 
   // Handle DOB change with automatic word generation
   function handleDobChange(val: string) {
