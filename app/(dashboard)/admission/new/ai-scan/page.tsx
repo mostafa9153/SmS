@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   AlertCircle,
   IdCard,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ApplyPageContent } from "../apply/page";
@@ -66,6 +67,7 @@ export function AiScanContent({
 
   // Form Fields extracted by AI
   const [extractedData, setExtractedData] = useState<Record<string, any>>({});
+  const [showExtractedData, setShowExtractedData] = useState(true);
 
   // Start Camera
   const startCamera = async () => {
@@ -425,11 +427,43 @@ export function AiScanContent({
 
       {/* Extracted Data rendered inside the Standard Application Form */}
       {Object.keys(extractedData).length > 0 && (
-        <div className="mt-8 border-t border-border pt-6">
-          <ApplyPageContent
-            aiExtractedData={extractedData}
-            scannedImageUrl={capturedImage || undefined}
-          />
+        <div className="mt-8 space-y-6">
+          <div className="border rounded-2xl bg-card shadow-xs overflow-hidden">
+            <button
+              onClick={() => setShowExtractedData(!showExtractedData)}
+              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-500" />
+                <span className="font-bold text-sm">AI Extracted Data (Raw)</span>
+              </div>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", showExtractedData && "rotate-180")} />
+            </button>
+            
+            {showExtractedData && (
+              <div className="p-4 border-t text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(extractedData).map(([key, value]) => (
+                    <div key={key} className="bg-muted p-2 rounded-lg border border-border/50 shadow-xs">
+                      <div className="text-muted-foreground mb-1 capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </div>
+                      <div className="font-medium truncate" title={String(value)}>
+                        {value ? String(value) : <span className="text-muted-foreground/50 italic">Empty</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <ApplyPageContent
+              aiExtractedData={extractedData}
+              scannedImageUrl={capturedImage || undefined}
+            />
+          </div>
         </div>
       )}
     </div>
