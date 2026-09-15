@@ -23,6 +23,7 @@ import {
   AlertCircle,
   IdCard,
   ChevronDown,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ApplyPageContent } from "../apply/page";
@@ -67,7 +68,6 @@ export function AiScanContent({
 
   // Form Fields extracted by AI
   const [extractedData, setExtractedData] = useState<Record<string, any>>({});
-  const [showExtractedData, setShowExtractedData] = useState(true);
 
   // Start Camera
   const startCamera = async () => {
@@ -427,43 +427,28 @@ export function AiScanContent({
 
       {/* Extracted Data rendered inside the Standard Application Form */}
       {Object.keys(extractedData).length > 0 && (
-        <div className="mt-8 space-y-6">
-          <div className="border rounded-2xl bg-card shadow-xs overflow-hidden">
-            <button
-              onClick={() => setShowExtractedData(!showExtractedData)}
-              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors cursor-pointer"
-            >
+        <div className="mt-8 border-t border-border pt-6 space-y-6">
+          
+          {/* Collapsible Raw Extracted Data Box */}
+          <details className="bg-card border rounded-xl overflow-hidden shadow-sm group [&_summary::-webkit-details-marker]:hidden">
+            <summary className="px-4 py-3 bg-muted/30 cursor-pointer flex items-center justify-between font-semibold text-sm text-foreground hover:bg-muted/50 transition-colors list-none">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-emerald-500" />
-                <span className="font-bold text-sm">AI Extracted Data (Raw)</span>
+                <Database className="h-4 w-4 text-emerald-500" />
+                <span>View Raw AI Extracted Data</span>
               </div>
-              <ChevronDown className={cn("h-4 w-4 transition-transform", showExtractedData && "rotate-180")} />
-            </button>
-            
-            {showExtractedData && (
-              <div className="p-4 border-t text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                  {Object.entries(extractedData).map(([key, value]) => (
-                    <div key={key} className="bg-muted p-2 rounded-lg border border-border/50 shadow-xs">
-                      <div className="text-muted-foreground mb-1 capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </div>
-                      <div className="font-medium truncate" title={String(value)}>
-                        {value ? String(value) : <span className="text-muted-foreground/50 italic">Empty</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform duration-200" />
+            </summary>
+            <div className="p-4 bg-black/5 dark:bg-black/20 overflow-auto max-h-96 border-t">
+              <pre className="text-[11px] font-mono text-slate-800 dark:text-slate-300 whitespace-pre-wrap">
+                {JSON.stringify(extractedData, null, 2)}
+              </pre>
+            </div>
+          </details>
 
-          <div className="border-t border-border pt-6">
-            <ApplyPageContent
-              aiExtractedData={extractedData}
-              scannedImageUrl={capturedImage || undefined}
-            />
-          </div>
+          <ApplyPageContent
+            aiExtractedData={extractedData}
+            scannedImageUrl={capturedImage || undefined}
+          />
         </div>
       )}
     </div>
