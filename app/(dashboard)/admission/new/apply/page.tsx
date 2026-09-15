@@ -14,6 +14,7 @@ import {
   fetchStudentEntryPresetsFromDb,
 } from "@/lib/utils/student-entry-presets";
 import {
+  Camera,
   BookOpen,
   Sparkles,
   CheckCircle2,
@@ -92,7 +93,13 @@ const STREAM_ELECTIVES: Record<"Arts" | "Science" | "Commerce", string[]> = {
   ],
 };
 
-function ApplyPageContent() {
+export function ApplyPageContent({
+  aiExtractedData,
+  scannedImageUrl,
+}: {
+  aiExtractedData?: Record<string, any>;
+  scannedImageUrl?: string;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialType = searchParams.get("type"); // 'v-ix' or 'xi'
@@ -247,6 +254,53 @@ function ApplyPageContent() {
   const [bplNo, setBplNo] = useState<string>("");
   const [cwsnStatus, setCwsnStatus] = useState<"YES" | "NO">("NO");
   const [disabilityType, setDisabilityType] = useState<string>("");
+
+  // Populate from AI Extracted Data
+  useEffect(() => {
+    if (!aiExtractedData || Object.keys(aiExtractedData).length === 0) return;
+    const ext = aiExtractedData;
+    if (ext.studentName) setNameEng(ext.studentName);
+    if (ext.gender) {
+      if (ext.gender.toUpperCase() === "MALE" || ext.gender === "Male") setGender("MALE");
+      if (ext.gender.toUpperCase() === "FEMALE" || ext.gender === "Female") setGender("FEMALE");
+    }
+    if (ext.dob) setDob(ext.dob);
+    if (ext.targetClass) {
+      if (ext.targetClass === "XI") {
+        setSelectedCategory("xi");
+        setPresentClass("XI");
+      } else {
+        setSelectedCategory("v-ix");
+        handlePresentClassChange(ext.targetClass);
+      }
+    }
+    if (ext.fatherName) {
+      setFatherNameEng(ext.fatherName);
+      if (relationship === "Father") setGuardianNameEng(ext.fatherName);
+    }
+    if (ext.motherName) {
+      setMotherNameEng(ext.motherName);
+      if (relationship === "Mother") setGuardianNameEng(ext.motherName);
+    }
+    if (ext.guardianName) setGuardianNameEng(ext.guardianName);
+    if (ext.studentContact) setContactNo(ext.studentContact);
+    if (ext.altMobile) setGContactNo(ext.altMobile);
+    if (ext.aadhaar) handleAadhaarChange(ext.aadhaar);
+    if (ext.village) setVillage(ext.village);
+    if (ext.postOffice) setPostOffice(ext.postOffice);
+    if (ext.policeStation) setPoliceStation(ext.policeStation);
+    if (ext.district) setDistrict(ext.district);
+    if (ext.pincode) setPinCode(ext.pincode);
+    if (ext.religion) setReligion(ext.religion);
+    if (ext.socialCategory) setSocialCategory(ext.socialCategory);
+    if (ext.bloodGroup) setBloodGroup(ext.bloodGroup);
+    if (ext.previousSchool) {
+      setPreviousSchoolNameXI(ext.previousSchool);
+      // In V-IX, there's no state for previous school name right now? Wait, V-IX has previous school in API but maybe not state?
+    }
+    if (ext.previousClass) setPreviousClass(ext.previousClass);
+    if (ext.previousRoll) setPreviousRoll(ext.previousRoll);
+  }, [aiExtractedData]);
 
   // Sync profile defaults when loaded
   useEffect(() => {
@@ -606,6 +660,7 @@ function ApplyPageContent() {
       admissionType: "new",
       formMethod: "online",
       aiExtractedData: structuredData,
+      scannedImageUrl,
     });
   }
 
@@ -644,6 +699,19 @@ function ApplyPageContent() {
           </div>
         </div>
       </div>
+
+      {scannedImageUrl && (
+        <div className="bg-card border-2 border-emerald-500/20 rounded-3xl p-5 shadow-xs flex flex-col items-center">
+          <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 dark:text-emerald-400 mb-3 uppercase tracking-wider">
+            <Camera className="w-4 h-4" />
+            <span>AI Scanned Document Preview</span>
+          </div>
+          <img src={scannedImageUrl} alt="Scanned Form" className="w-full max-w-lg h-auto max-h-80 object-contain rounded-xl border shadow-inner" />
+          <p className="text-[11px] text-muted-foreground mt-2 text-center max-w-md">
+            Review the extracted information against the original document below. Please correct any AI misinterpretations manually.
+          </p>
+        </div>
+      )}
 
       {/* TWO SELECTION BOXES (CLASS 5 TO 9 & CLASS 11) */}
       <div className="space-y-3">
@@ -813,7 +881,6 @@ function ApplyPageContent() {
                 1. Name / নাম (in English Capital Letters) *
               </label>
               <Input
-                required
                 placeholder="e.g. RAHUL MONDAL"
                 value={nameEng}
                 onChange={(e) => setNameEng(e.target.value.toUpperCase())}
@@ -840,7 +907,6 @@ function ApplyPageContent() {
                 3. Date of Birth (DOB) / জন্মতারিখ *
               </label>
               <Input
-                required
                 type="date"
                 value={dob}
                 onChange={(e) => setDob(e.target.value)}
@@ -1214,7 +1280,6 @@ function ApplyPageContent() {
                 1. School Name : (যে স্কুল থেকে মাধ্যমিক পাস করেছেন) *
               </label>
               <Input
-                required
                 placeholder="Name of last school attended for Madhyamik"
                 value={previousSchoolNameXI}
                 onChange={(e) => setPreviousSchoolNameXI(e.target.value)}
@@ -1475,7 +1540,6 @@ function ApplyPageContent() {
                 1. Village / গ্রাম *
               </label>
               <Input
-                required
                 placeholder="e.g. Marigachi"
                 value={village}
                 onChange={(e) => setVillage(e.target.value)}
@@ -1502,7 +1566,6 @@ function ApplyPageContent() {
                 3. District / জেলা *
               </label>
               <Input
-                required
                 value={district}
                 onChange={(e) => setDistrict(e.target.value)}
                 className="h-9 text-xs rounded-xl"
@@ -1515,7 +1578,6 @@ function ApplyPageContent() {
                 4. Block / Municipality (ব্লক/পৌরসভা) *
               </label>
               <Input
-                required
                 placeholder="e.g. Mathurapur-I"
                 value={blockMunicipality}
                 onChange={(e) => setBlockMunicipality(e.target.value)}
@@ -1542,7 +1604,6 @@ function ApplyPageContent() {
                 6. Post Office (P.O.) / ডাকঘর *
               </label>
               <Input
-                required
                 placeholder="পোস্ট অফিস"
                 value={postOffice}
                 onChange={(e) => setPostOffice(e.target.value)}
@@ -1556,7 +1617,6 @@ function ApplyPageContent() {
                 7. Police Station (P.S.) / থানা *
               </label>
               <Input
-                required
                 placeholder="থানা"
                 value={policeStation}
                 onChange={(e) => setPoliceStation(e.target.value)}
@@ -1570,7 +1630,6 @@ function ApplyPageContent() {
                 8. Pin Code / পিন কোড *
               </label>
               <Input
-                required
                 placeholder="6-digit PIN"
                 value={pinCode}
                 onChange={(e) => setPinCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -1589,7 +1648,6 @@ function ApplyPageContent() {
                   +91
                 </span>
                 <Input
-                  required
                   placeholder="10-digit mobile"
                   value={contactNo}
                   onChange={(e) => setContactNo(e.target.value.replace(/\D/g, "").slice(0, 10))}
@@ -1709,7 +1767,6 @@ function ApplyPageContent() {
                 1. Father&apos;s Name (English) *
               </label>
               <Input
-                required
                 placeholder="Father's Full Name"
                 value={fatherNameEng}
                 onChange={(e) => handleFatherNameChange(e.target.value)}
@@ -1736,7 +1793,6 @@ function ApplyPageContent() {
                 3. Mother&apos;s Name (English) *
               </label>
               <Input
-                required
                 placeholder="Mother's Full Name"
                 value={motherNameEng}
                 onChange={(e) => handleMotherNameChange(e.target.value)}
@@ -1799,7 +1855,6 @@ function ApplyPageContent() {
                 5. Guardian&apos;s Name* (English) *
               </label>
               <Input
-                required
                 placeholder="Guardian's Name"
                 value={guardianNameEng}
                 onChange={(e) => setGuardianNameEng(toTitleCase(e.target.value))}

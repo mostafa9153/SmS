@@ -240,6 +240,8 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     reAdmittedAt: (db as any).re_admitted_at || undefined,
     isInvoiceQueued: (db as any).is_invoice_queued !== undefined ? Boolean((db as any).is_invoice_queued) : undefined,
     invoicePrintedAt: (db as any).invoice_printed_at || undefined,
+    createdAt: db.created_at || undefined,
+    updatedAt: db.updated_at || undefined,
   };
 }
 

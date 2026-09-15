@@ -127,6 +127,8 @@ export interface Student {
   scoutsGuides?: boolean;
   distanceToSchool?: number;
   highestEducationParents?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // ---------------------------------------------------------------

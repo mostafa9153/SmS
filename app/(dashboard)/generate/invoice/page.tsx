@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
@@ -9,11 +10,13 @@ import type { Student } from "@/lib/types";
 import {
   type FeeItem,
   type InvoiceData,
+  type FeeCategory,
   DEFAULT_FEE_ITEMS,
   getSavedFeeStructure,
   saveFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
 } from "@/lib/utils/fee-config";
 import {
   InvoicePrintableView,
@@ -278,14 +281,14 @@ function InvoiceGeneratorContent() {
       issueTime: timeStr,
       academicSession: currentSession,
       studentName: "Synthia Sanam",
-      studentClass: "IX",
+      studentClass: classParam?.toUpperCase() || "IX",
       section: "A",
       rollNo: "01",
       studentId: `MHS-${currentYear}-0001`,
       penNumber: "",
       guardianName: "Md. Ruhul Amin",
       contactNumber: "9876543210",
-      feeItems: getSavedFeeStructure(),
+      feeItems: getSavedFeeStructure(getFeeCategoryForClass(classParam?.toUpperCase() || "IX")),
       paymentMode: "Cash",
       paymentStatus: "Paid",
       remarks: "Annual admission fee collected with thanks.",
@@ -323,6 +326,18 @@ function InvoiceGeneratorContent() {
     queryFn: getStudents,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Queued admission invoices count ready for bulk printing in /admission/invoices
+  const queuedAdmissionCount = useMemo(() => {
+    return students.filter((s) => {
+      if (s.currentStatus !== "Continuing") return false;
+      const queued = Boolean(s.isInvoiceQueued);
+      const admittedPending =
+        s.reAdmissionStatus === "admitted" && s.isInvoiceQueued !== false && !s.invoicePrintedAt;
+      const newAdmitQueued = s.admissionYear === currentYear && queued && !s.invoicePrintedAt;
+      return queued || admittedPending || newAdmitQueued;
+    }).length;
+  }, [students, currentYear]);
 
   // Fetch school configuration (including class management) from database
   const { data: schoolConfig } = useSchoolConfigQuery();
@@ -396,6 +411,7 @@ function InvoiceGeneratorContent() {
   // Handle choosing a student in Single Mode
   function handleSelectStudent(student: Student) {
     setSelectedStudent(student);
+    const category = getFeeCategoryForClass(student.presentClass);
     setInvoice((prev) => ({
       ...prev,
       studentId: student.schoolId || student.id,
@@ -406,12 +422,41 @@ function InvoiceGeneratorContent() {
       guardianName: student.guardianName || student.fatherName || "",
       contactNumber: student.studentContact || student.altMobile || "",
       penNumber: student.pen || "",
+      feeItems: getSavedFeeStructure(category),
     }));
     showToast({
       type: "success",
       title: "Student Loaded",
       description: `Loaded ${student.name} (${student.presentClass}-${student.presentSection || "A"})`,
     });
+  }
+
+  function updateInvoiceClass(newClass: string) {
+    const category = getFeeCategoryForClass(newClass);
+    setInvoice((prev) => ({
+      ...prev,
+      studentClass: newClass,
+      feeItems: getSavedFeeStructure(category),
+    }));
+  }
+
+  function handleBulkClassChange(newClass: string) {
+    setBulkClass(newClass);
+    const category = getFeeCategoryForClass(newClass);
+    setInvoice((prev) => ({
+      ...prev,
+      feeItems: getSavedFeeStructure(category),
+    }));
+  }
+
+  function handleModeChange(mode: "single" | "bulk") {
+    setGeneratorMode(mode);
+    const targetClass = mode === "bulk" ? bulkClass : invoice.studentClass;
+    const category = getFeeCategoryForClass(targetClass);
+    setInvoice((prev) => ({
+      ...prev,
+      feeItems: getSavedFeeStructure(category),
+    }));
   }
 
   // Filter students based on search (Single Mode)
@@ -601,16 +646,20 @@ function InvoiceGeneratorContent() {
   }
 
   function handleSaveAsDefaultFeeStructure() {
-    saveFeeStructure(invoice.feeItems);
+    const targetClass = generatorMode === "bulk" ? bulkClass : invoice.studentClass;
+    const category = getFeeCategoryForClass(targetClass);
+    saveFeeStructure(category, invoice.feeItems);
     showToast({
       type: "success",
       title: "Saved as Default",
-      description: "Current fee breakdown saved as the school's global default.",
+      description: `Current fee breakdown saved for ${category} category.`,
     });
   }
 
   function handleResetDefaultFees() {
-    saveFeeStructure(DEFAULT_FEE_ITEMS);
+    const targetClass = generatorMode === "bulk" ? bulkClass : invoice.studentClass;
+    const category = getFeeCategoryForClass(targetClass);
+    saveFeeStructure(category, DEFAULT_FEE_ITEMS);
     setInvoice((prev) => ({
       ...prev,
       feeItems: DEFAULT_FEE_ITEMS,
@@ -618,7 +667,7 @@ function InvoiceGeneratorContent() {
     showToast({
       type: "info",
       title: "Defaults Restored",
-      description: "Fee structure reset to official school standards (8 heads, ₹600 total).",
+      description: `Fee structure reset to official standards for ${category}.`,
     });
   }
 
@@ -809,8 +858,22 @@ function InvoiceGeneratorContent() {
           </div>
         </div>
 
-        {/* Print, Track & Undo Action Header Buttons */}
+        {/* Print, Track, Queue & Undo Action Header Buttons */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+          <Link
+            href="/admission/invoices"
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold h-10 px-3 rounded-xl border border-purple-300 dark:border-purple-700 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 transition-colors shadow-2xs"
+            title="Go to Bulk Admission Invoices Queue"
+          >
+            <Users className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span>Admission Queue</span>
+            {queuedAdmissionCount > 0 && (
+              <span className="h-5 min-w-[20px] px-1.5 flex items-center justify-center rounded-full text-[10px] font-black bg-purple-600 text-white leading-none">
+                {queuedAdmissionCount}
+              </span>
+            )}
+          </Link>
+
           <Button
             variant="outline"
             size="sm"
@@ -862,7 +925,7 @@ function InvoiceGeneratorContent() {
             <div className="flex items-center w-full rounded-2xl border border-border/80 bg-muted/40 p-1.5 text-xs font-semibold shadow-xs">
               <button
                 type="button"
-                onClick={() => setGeneratorMode("single")}
+                onClick={() => handleModeChange("single")}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all cursor-pointer font-bold bg-background text-foreground shadow-xs"
               >
                 <User className="h-4 w-4 text-teal-600" />
@@ -870,7 +933,7 @@ function InvoiceGeneratorContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setGeneratorMode("bulk")}
+                onClick={() => handleModeChange("bulk")}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all cursor-pointer font-bold text-muted-foreground hover:text-foreground"
               >
                 <Users className="h-4 w-4 text-primary" />
@@ -956,7 +1019,7 @@ function InvoiceGeneratorContent() {
                     <Label className="text-[11px] font-semibold text-muted-foreground">Class</Label>
                     <Input
                       value={invoice.studentClass}
-                      onChange={(e) => setInvoice({ ...invoice, studentClass: e.target.value })}
+                      onChange={(e) => updateInvoiceClass(e.target.value)}
                       className="text-xs font-bold h-8"
                     />
                   </div>
@@ -1382,7 +1445,7 @@ function InvoiceGeneratorContent() {
             <div className="flex items-center w-full rounded-2xl border border-border/80 bg-muted/40 p-1.5 text-xs font-semibold shadow-xs">
               <button
                 type="button"
-                onClick={() => setGeneratorMode("single")}
+                onClick={() => handleModeChange("single")}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all cursor-pointer font-bold text-muted-foreground hover:text-foreground"
               >
                 <User className="h-4 w-4 text-teal-600" />
@@ -1390,7 +1453,7 @@ function InvoiceGeneratorContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setGeneratorMode("bulk")}
+                onClick={() => handleModeChange("bulk")}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-xl transition-all cursor-pointer font-bold bg-background text-foreground shadow-xs"
               >
                 <Users className="h-4 w-4 text-primary" />
@@ -1425,7 +1488,7 @@ function InvoiceGeneratorContent() {
                     <Label className="text-[11px] font-semibold text-muted-foreground">Select Class</Label>
                     <CustomSelect
                       value={bulkClass}
-                      onChange={(val) => setBulkClass(val)}
+                      onChange={handleBulkClassChange}
                       options={classOptions}
                       searchable={false}
                       triggerClassName="h-8 text-xs font-bold"

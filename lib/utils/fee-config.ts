@@ -50,13 +50,23 @@ export const DEFAULT_FEE_ITEMS: FeeItem[] = [
 
 const FEE_STORAGE_KEY = "sms_admission_fee_structure";
 
+export type FeeCategory = "V-VIII" | "IX-X" | "XI-XII";
+
+export function getFeeCategoryForClass(className: string): FeeCategory {
+  const upper = className?.toUpperCase() || "";
+  if (["V", "VI", "VII", "VIII"].includes(upper)) return "V-VIII";
+  if (["IX", "X"].includes(upper)) return "IX-X";
+  return "XI-XII"; // default to XI-XII for anything else like XI, XII
+}
+
 /**
  * Load saved fee structure from localStorage with fallback to default
  */
-export function getSavedFeeStructure(): FeeItem[] {
+export function getSavedFeeStructure(category: FeeCategory = "V-VIII"): FeeItem[] {
   if (typeof window === "undefined") return DEFAULT_FEE_ITEMS;
   try {
-    const raw = localStorage.getItem(FEE_STORAGE_KEY);
+    const key = `${FEE_STORAGE_KEY}_${category}`;
+    const raw = localStorage.getItem(key) || localStorage.getItem(FEE_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -72,10 +82,11 @@ export function getSavedFeeStructure(): FeeItem[] {
 /**
  * Save customized fee structure
  */
-export function saveFeeStructure(items: FeeItem[]): void {
+export function saveFeeStructure(category: FeeCategory, items: FeeItem[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(FEE_STORAGE_KEY, JSON.stringify(items));
+    const key = `${FEE_STORAGE_KEY}_${category}`;
+    localStorage.setItem(key, JSON.stringify(items));
     window.dispatchEvent(new Event("sms_fee_structure_updated"));
   } catch (e) {
     console.error("Failed to save fee structure:", e);

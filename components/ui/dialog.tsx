@@ -31,7 +31,7 @@ function DialogOverlay({
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
       className={cn(
-        "fixed inset-0 isolate z-50 bg-black/40 backdrop-blur-xs transition-all duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 isolate z-50 bg-black/40 backdrop-blur-xs transition-all duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 print:hidden",
         className
       )}
       {...props}
@@ -49,13 +49,16 @@ function DialogContent({
   showCloseButton?: boolean;
   overlayClassName?: string;
 }) {
+  const hasCustomMaxWidth = typeof className === "string" && /(^|\s)(sm:|md:|lg:|xl:|2xl:)?max-w-/.test(className);
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-popover p-5 text-sm text-popover-foreground shadow-2xl border border-border/80 duration-200 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-top-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-popover p-5 text-sm text-popover-foreground shadow-2xl border border-border/80 duration-200 outline-none",
+          !hasCustomMaxWidth && "sm:max-w-md",
+          "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-open:slide-in-from-top-2 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -67,7 +70,7 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-2.5 right-2.5 h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
+                className="absolute top-2.5 right-2.5 h-8 w-8 rounded-lg p-0 text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer print:hidden"
                 size="icon"
                 aria-label="Close"
               />

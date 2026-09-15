@@ -118,24 +118,6 @@ const navItems: NavItem[] = [
     href: "/generate",
     icon: <Sparkles className="h-4 w-4" />,
     iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20 group-hover:scale-110",
-    children: [
-      { label: "All Generators (Hub)", href: "/generate" },
-      { label: "Admission Form", href: "/generate/admission-form" },
-      { label: "Admission Invoice", href: "/generate/invoice" },
-      { label: "CCE Marksheet", href: "/generate/marksheet" },
-      { label: "Tabulation Sheet", href: "/generate/tabulation" },
-      {
-        label: "Certificates",
-        icon: <Award className="h-3.5 w-3.5 text-amber-500" />,
-        children: [
-          { label: "Certificate Tracker", href: "/generate/certificate-tracker" },
-          { label: "Character Certificate", href: "/generate/certificate" },
-          { label: "Pass Out Certificate", href: "/generate/pass-certificate" },
-          { label: "Transfer Certificate (TC)", href: "/generate/transfer-certificate" },
-          { label: "Kanyashree Certificate", href: "/generate/kanyashree" },
-        ],
-      },
-    ],
   },
   {
     label: "EMS (Exam Manager)",

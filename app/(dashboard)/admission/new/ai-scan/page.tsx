@@ -4,16 +4,10 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAdmissionSettings, saveAdmissionSettings, createAdmissionApplication } from "@/lib/data/admission";
-import type { Gender } from "@/lib/types";
+import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  getSavedStudentEntryPresets,
-  fetchStudentEntryPresetsFromDb,
-} from "@/lib/utils/student-entry-presets";
 import {
   Camera,
   Upload,
@@ -30,6 +24,7 @@ import {
   IdCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ApplyPageContent } from "../apply/page";
 
 export function AiScanContent({
   hideBackLink,
@@ -71,34 +66,6 @@ export function AiScanContent({
 
   // Form Fields extracted by AI
   const [extractedData, setExtractedData] = useState<Record<string, any>>({});
-  const [studentName, setStudentName] = useState("");
-  const [gender, setGender] = useState<Gender>("Male");
-  const [targetClass, setTargetClass] = useState("V");
-  const [dob, setDob] = useState("");
-  const [fatherName, setFatherName] = useState("");
-  const [motherName, setMotherName] = useState("");
-  const [guardianName, setGuardianName] = useState("");
-  const [studentContact, setStudentContact] = useState("");
-  const [address, setAddress] = useState("");
-  const [village, setVillage] = useState("");
-  const [postOffice, setPostOffice] = useState("");
-  const [policeStation, setPoliceStation] = useState("");
-  const [district, setDistrict] = useState("North 24 Parganas");
-  const [pincode, setPincode] = useState("");
-  const [religion, setReligion] = useState(() => {
-    const p = getSavedStudentEntryPresets();
-    return p.defaultReligion && p.defaultReligion !== "None" ? p.defaultReligion : "Islam";
-  });
-  const [socialCategory, setSocialCategory] = useState("General");
-  const [previousSchool, setPreviousSchool] = useState("");
-
-  useEffect(() => {
-    fetchStudentEntryPresetsFromDb().then((p) => {
-      if (p.defaultReligion && p.defaultReligion !== "None") {
-        setReligion(p.defaultReligion);
-      }
-    });
-  }, []);
 
   // Start Camera
   const startCamera = async () => {
@@ -214,76 +181,12 @@ export function AiScanContent({
       const ext = data.extracted || {};
       setExtractedData(ext);
 
-      // Populate form fields with extracted data
-      if (ext.studentName) setStudentName(ext.studentName);
-      if (ext.gender) setGender(ext.gender === "Female" ? "Female" : "Male");
-      if (ext.targetClass) setTargetClass(ext.targetClass);
-      if (ext.dob) setDob(ext.dob);
-      if (ext.fatherName) setFatherName(ext.fatherName);
-      if (ext.motherName) setMotherName(ext.motherName);
-      if (ext.guardianName) setGuardianName(ext.guardianName);
-      if (ext.studentContact) setStudentContact(ext.studentContact);
-      if (ext.address) setAddress(ext.address);
-      if (ext.village) setVillage(ext.village);
-      if (ext.postOffice) setPostOffice(ext.postOffice);
-      if (ext.policeStation) setPoliceStation(ext.policeStation);
-      if (ext.district) setDistrict(ext.district);
-      if (ext.pincode) setPincode(ext.pincode);
-      if (ext.religion) setReligion(ext.religion);
-      if (ext.socialCategory) setSocialCategory(ext.socialCategory);
-      if (ext.previousSchool) setPreviousSchool(ext.previousSchool);
-
       showToast("Form details extracted successfully! Please review below.", "success");
     } catch (err: any) {
       showToast(err.message || "Error running AI extraction", "error");
     } finally {
       setIsScanning(false);
     }
-  };
-
-  // Submit Application
-  const submitMutation = useMutation({
-    mutationFn: createAdmissionApplication,
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
-      showToast("Application submitted from AI Scan! Opening receipt...", "success");
-      router.push(`/admission/receipt/${data.id}`);
-    },
-    onError: (err: any) => {
-      showToast(err.message || "Failed to submit application", "error");
-    },
-  });
-
-  const handleFinalSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentName.trim()) {
-      showToast("Student Name is required", "error");
-      return;
-    }
-
-    submitMutation.mutate({
-      studentName: studentName.trim(),
-      targetClass,
-      gender,
-      dob,
-      fatherName,
-      motherName,
-      guardianName: guardianName || fatherName,
-      studentContact,
-      address,
-      village,
-      postOffice,
-      policeStation,
-      district,
-      pincode,
-      religion,
-      socialCategory,
-      previousSchool,
-      admissionType: "new",
-      formMethod: "ai_scan",
-      scannedImageUrl: capturedImage || undefined,
-      aiExtractedData: extractedData,
-    });
   };
 
   return (
@@ -520,191 +423,15 @@ export function AiScanContent({
         </div>
       </div>
 
-      {/* Review & Edit Extracted Data Form */}
-      <form onSubmit={handleFinalSubmit} className="space-y-6">
-        <div className="bg-card border rounded-3xl p-5 sm:p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
-            <div className="flex items-center gap-2 text-foreground font-bold text-sm">
-              <IdCard className="h-4 w-4 text-primary" />
-              <span>Review Extracted Candidate Details</span>
-            </div>
-            <span className="text-[11px] text-muted-foreground">
-              Edit any fields before saving to application desk
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Student Full Name *
-              </label>
-              <Input
-                required
-                value={studentName}
-                onChange={(e) => setStudentName(e.target.value)}
-                placeholder="Student Name"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Target Class *
-              </label>
-              <CustomSelect
-                value={targetClass}
-                onChange={setTargetClass}
-                options={[
-                  { value: "V", label: "Class V" },
-                  { value: "VI", label: "Class VI" },
-                  { value: "VII", label: "Class VII" },
-                  { value: "VIII", label: "Class VIII" },
-                  { value: "IX", label: "Class IX" },
-                  { value: "XI", label: "Class XI" },
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Gender
-              </label>
-              <CustomSelect
-                value={gender}
-                onChange={(val) => setGender(val as Gender)}
-                options={[
-                  { value: "Male", label: "Male" },
-                  { value: "Female", label: "Female" },
-                  { value: "Other", label: "Other" },
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Date of Birth
-              </label>
-              <Input
-                type="date"
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Father&apos;s Name
-              </label>
-              <Input
-                value={fatherName}
-                onChange={(e) => setFatherName(e.target.value)}
-                placeholder="Father's Name"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Mother&apos;s Name
-              </label>
-              <Input
-                value={motherName}
-                onChange={(e) => setMotherName(e.target.value)}
-                placeholder="Mother's Name"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Contact Mobile
-              </label>
-              <Input
-                value={studentContact}
-                onChange={(e) => setStudentContact(e.target.value)}
-                placeholder="Mobile number"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Village / Para
-              </label>
-              <Input
-                value={village}
-                onChange={(e) => setVillage(e.target.value)}
-                placeholder="Village"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Post Office
-              </label>
-              <Input
-                value={postOffice}
-                onChange={(e) => setPostOffice(e.target.value)}
-                placeholder="Post Office"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Police Station
-              </label>
-              <Input
-                value={policeStation}
-                onChange={(e) => setPoliceStation(e.target.value)}
-                placeholder="Police Station"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                District
-              </label>
-              <Input
-                value={district}
-                onChange={(e) => setDistrict(e.target.value)}
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase mb-1 block">
-                Previous School
-              </label>
-              <Input
-                value={previousSchool}
-                onChange={(e) => setPreviousSchool(e.target.value)}
-                placeholder="Last school attended"
-                className="h-9 text-xs rounded-xl"
-              />
-            </div>
-          </div>
+      {/* Extracted Data rendered inside the Standard Application Form */}
+      {Object.keys(extractedData).length > 0 && (
+        <div className="mt-8 border-t border-border pt-6">
+          <ApplyPageContent
+            aiExtractedData={extractedData}
+            scannedImageUrl={capturedImage || undefined}
+          />
         </div>
-
-        {/* Submit Action */}
-        <div className="flex items-center justify-end gap-3">
-          <Button
-            type="submit"
-            disabled={submitMutation.isPending}
-            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md cursor-pointer flex items-center gap-2"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-            <span>
-              {submitMutation.isPending
-                ? "Saving Application..."
-                : "Confirm & Generate Application Receipt"}
-            </span>
-          </Button>
-        </div>
-      </form>
+      )}
     </div>
   );
 }
