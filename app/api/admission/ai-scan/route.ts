@@ -31,7 +31,11 @@ export async function POST(req: Request) {
       if (settings?.ai_api_key) {
         apiKey = settings.ai_api_key;
         provider = settings.ai_provider || "gemini";
-        model = settings.ai_model || "gemini-1.5-flash";
+        model = settings.ai_model || "gemini-1.5-flash-latest";
+        // Override deprecated model names
+        if (model === "gemini-1.5-flash") {
+          model = "gemini-1.5-flash-latest";
+        }
       }
     } catch {
       // Fallback to env
