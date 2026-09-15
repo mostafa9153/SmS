@@ -66,9 +66,8 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      console.warn("admission_settings upsert error:", error.message);
-      // Even if table doesn't exist, return success with body so UI functions seamlessly
-      return NextResponse.json({ success: true, settings: body });
+      console.error("admission_settings upsert error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
