@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents } from "@/lib/data/students";
+import { searchStudents, getStudentById } from "@/lib/data/students";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Student } from "@/lib/types";
 import {
   TransferCertificatePrintableView,
@@ -55,13 +56,18 @@ function TransferCertificateGeneratorContent() {
   const studentIdParam = searchParams.get("studentId");
   const { profile: schoolProfile } = useSchoolProfile();
 
-  // Fetch all students for search & auto-fill
-  const { data: students = [], isLoading: isLoadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
+  const [studentSearch, setStudentSearch] = useState("");
+  const debouncedSearch = useDebounce(studentSearch, 300);
+
+  // Fetch students based on search query (debounced)
+  const { data: searchResults, isLoading: isLoadingStudents } = useQuery({
+    queryKey: ["students", "search", debouncedSearch],
+    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
+    enabled: debouncedSearch.trim().length > 0,
   });
 
-  const [studentSearch, setStudentSearch] = useState("");
+  const filteredStudents = searchResults?.data || [];
+
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
@@ -181,30 +187,16 @@ function TransferCertificateGeneratorContent() {
     }
   }, [schoolProfile, selectedStudent]);
 
-  // Pre-load student from query param
+  // Pre-load student from query param directly from API
   useEffect(() => {
-    if (studentIdParam && students.length > 0) {
-      const match = students.find((s) => s.id === studentIdParam);
-      if (match) {
-        applyStudentToCertificate(match);
-      }
+    if (studentIdParam) {
+      getStudentById(studentIdParam).then((match) => {
+        if (match) {
+          applyStudentToCertificate(match);
+        }
+      }).catch((err) => console.error("Failed to fetch initial student", err));
     }
-  }, [studentIdParam, students]);
-
-  // Filter students for search dropdown
-  const filteredStudents = useMemo(() => {
-    if (!studentSearch.trim()) return [];
-    const q = studentSearch.toLowerCase();
-    return students
-      .filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.id.toLowerCase().includes(q) ||
-          (s.presentRoll && String(s.presentRoll).includes(q)) ||
-          (s.pen && s.pen.toLowerCase().includes(q))
-      )
-      .slice(0, 6);
-  }, [students, studentSearch]);
+  }, [studentIdParam]);
 
   // Handle DOB change with automatic word parsing
   function handleDobChange(val: string) {

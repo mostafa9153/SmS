@@ -10,9 +10,22 @@ import { sortClasses } from "@/lib/utils";
  * Returns all students (unfiltered, unpaginated).
  * Defaults to lean summary projection (no heavy joins) for document generation and tables.
  */
-export async function getStudents(options?: "summary" | "full" | unknown): Promise<Student[]> {
+export async function getStudents(
+  options?: "summary" | "full" | unknown,
+  studentClass?: string,
+  section?: string
+): Promise<Student[]> {
   const projection = typeof options === "string" && (options === "summary" || options === "full") ? options : "summary";
-  const res = await fetch(`/api/students?paginated=false&projection=${projection}`);
+  
+  let url = `/api/students?paginated=false&projection=${projection}`;
+  if (studentClass && studentClass !== "all") {
+    url += `&class=${encodeURIComponent(studentClass)}`;
+  }
+  if (section && section !== "all") {
+    url += `&section=${encodeURIComponent(section)}`;
+  }
+
+  const res = await fetch(url);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to fetch students");

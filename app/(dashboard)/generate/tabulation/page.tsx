@@ -61,8 +61,8 @@ export default function TabulationGeneratorPage() {
 
   // Class, Section, Subject state
   const [availableClasses, setAvailableClasses] = useState<string[]>(["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]);
-  const [selectedClass, setSelectedClass] = useState<string>("VII");
-  const [selectedSection, setSelectedSection] = useState<string>("B");
+  const [selectedClass, setSelectedClass] = useState<string>("V");
+  const [selectedSection, setSelectedSection] = useState<string>("A");
   const [selectedSubject, setSelectedSubject] = useState<string>("Bengali");
   const [isAllSubjectsMode, setIsAllSubjectsMode] = useState<boolean>(false);
   const [customSubjectText, setCustomSubjectText] = useState<string>("");
@@ -87,8 +87,8 @@ export default function TabulationGeneratorPage() {
 
   // Fetch all students from DB (shared cache)
   const { data: allStudents = [], isLoading: isStudentsLoading, refetch } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
+    queryKey: ["students", selectedClass, selectedSection],
+    queryFn: () => getStudents("summary", selectedClass, selectedSection),
     staleTime: 5 * 60 * 1000,
   });
 

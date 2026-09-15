@@ -8,7 +8,6 @@ import { StaffStatsCards } from "@/components/employees/staff-stats-cards";
 import { StaffTable, StaffProfile } from "@/components/employees/staff-table";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
 
 interface EmployeesClientProps {
   initialStaff: StaffProfile[];
@@ -115,8 +114,10 @@ export default function EmployeesClient({
   }, [initialStaff]);
 
   // Export to Excel handler
-  const handleExport = () => {
+  const handleExport = async () => {
     if (filteredStaff.length === 0) return;
+
+    const XLSX = await import("xlsx");
 
     const exportRows = filteredStaff.map((s, idx) => ({
       "Sl. No.": idx + 1,

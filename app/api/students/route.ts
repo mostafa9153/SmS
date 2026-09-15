@@ -10,11 +10,7 @@ import type { Student } from "@/lib/types";
 
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
-// Helper to determine user role
-async function getUserRole(): Promise<string> {
-  const auth = await getAuthenticatedUserRole();
-  return auth.role;
-}
+// Removed getUserRole helper, use getAuthenticatedUserRole directly
 
 // Helper to mask aadhaar for students list if not admin
 function applyAadhaarMasking(students: Student[], role: string): Student[] {
@@ -28,7 +24,8 @@ function applyAadhaarMasking(students: Student[], role: string): Student[] {
 // GET /api/students - List/Search students
 export async function GET(req: Request) {
   try {
-    const role = await getUserRole();
+    const auth = await getAuthenticatedUserRole();
+    const role = auth.role;
     if (role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -37,15 +34,15 @@ export async function GET(req: Request) {
     const paginated = searchParams.get("paginated") !== "false";
     const projection = (searchParams.get("projection") as "summary" | "full") || "summary";
     
-    if (!paginated) {
-      const students = await dbGetStudents(projection);
-      const masked = applyAadhaarMasking(students, role);
-      return NextResponse.json({ data: masked });
-    }
-
     const query = searchParams.get("q") || undefined;
     const studentClass = searchParams.get("class") || undefined;
     const section = searchParams.get("section") || undefined;
+
+    if (!paginated) {
+      const students = await dbGetStudents(projection, studentClass, section);
+      const masked = applyAadhaarMasking(students, role);
+      return NextResponse.json({ data: masked });
+    }
     const status = (searchParams.get("status") as any) || undefined;
     const admissionYear = searchParams.get("admissionYear") 
       ? parseInt(searchParams.get("admissionYear")!) 
@@ -80,7 +77,8 @@ import { studentCreateSchema } from "@/lib/validations/student-schema";
 // POST /api/students - Create a student
 export async function POST(req: Request) {
   try {
-    const role = await getUserRole();
+    const auth = await getAuthenticatedUserRole();
+    const role = auth.role;
     if (role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -98,12 +96,11 @@ export async function POST(req: Request) {
 
     const student = await dbCreateStudent(parseResult.data as any);
 
-    // Create audit log for student creation
+    // Create audit log for student creation using existing user object
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
+    if (auth.user) {
       await supabase.from("audit_log").insert({
-        performed_by: user.id,
+        performed_by: auth.user.id,
         action: "CREATE",
         table_name: "students",
         record_id: student.id,

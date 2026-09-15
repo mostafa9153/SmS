@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { getStudents, getStudentResultHistory, getClassResults } from "@/lib/data/students";
+import { getStudents, searchStudents, getStudentById, getStudentResultHistory, getClassResults } from "@/lib/data/students";
 import type { Student, StudentResult } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
@@ -19,6 +19,7 @@ import {
   MarksheetPrintableBatchView,
 } from "@/components/marksheet/marksheet-printable-view";
 import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,27 +124,34 @@ function MarksheetGeneratorContent() {
     return t1 + t2 + t3 || 200;
   }, [activeClassScheme]);
 
-  // Fetch all students for search dropdown and bulk rosters (shared cache)
-  const { data: students = [] } = useQuery<Student[]>({
-    queryKey: ["students"],
-    queryFn: getStudents,
+  // Single Mode: Debounced Search Query
+  const debouncedSearch = useDebounce(studentSearch, 300);
+  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
+    queryKey: ["students", "search", debouncedSearch],
+    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
+    enabled: generatorMode === "single" && debouncedSearch.trim().length > 0,
+  });
+
+  const filteredStudents = searchResults?.data || [];
+
+  // Bulk Mode: Class Roster Query
+  const { data: bulkStudents = [], isLoading: isBulkLoading } = useQuery<Student[]>({
+    queryKey: ["students", "class", bulkClass],
+    queryFn: () => getStudents("summary", bulkClass, "all"),
+    enabled: generatorMode === "bulk",
     staleTime: 5 * 60 * 1000,
   });
 
-  // Handle URL studentId query param auto-selection
+  // Handle URL studentId query param auto-selection directly from API
   useEffect(() => {
-    if (studentIdParam && students.length > 0) {
-      const match = students.find(
-        (s) =>
-          s.id === studentIdParam ||
-          s.schoolId === studentIdParam ||
-          s.pen === studentIdParam
-      );
-      if (match) {
-        handleSelectStudent(match);
-      }
+    if (studentIdParam) {
+      getStudentById(studentIdParam).then((match) => {
+        if (match) {
+          handleSelectStudent(match);
+        }
+      }).catch((err) => console.error("Failed to fetch initial student", err));
     }
-  }, [studentIdParam, students]);
+  }, [studentIdParam]);
 
   // Fetch student examination results from database
   async function fetchStudentResultsFromDB(student: Student) {
@@ -251,31 +259,18 @@ function MarksheetGeneratorContent() {
     fetchStudentResultsFromDB(student);
   }
 
-  // Filter students for searchable dropdown (Single Mode)
-  const filteredStudents = studentSearch.trim()
-    ? students
-        .filter(
-          (s) =>
-            s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
-            s.schoolId?.toLowerCase().includes(studentSearch.toLowerCase()) ||
-            s.presentClass?.toLowerCase().includes(studentSearch.toLowerCase()) ||
-            String(s.presentRoll).includes(studentSearch)
-        )
-        .slice(0, 6)
-    : [];
-
   // Bulk Mode: Filter students by class, sorted by Roll No ascending
   const classRoster = useMemo(() => {
     const normClass = bulkClass.toUpperCase().trim();
 
-    return students
+    return bulkStudents
       .filter((s) => String(s.presentClass || "").toUpperCase().trim() === normClass)
       .sort((a, b) => {
         const rollA = parseInt(String(a.presentRoll || "9999"), 10) || 9999;
         const rollB = parseInt(String(b.presentRoll || "9999"), 10) || 9999;
         return rollA - rollB;
       });
-  }, [students, bulkClass]);
+  }, [bulkStudents, bulkClass]);
 
   // Automatically select all students when class changes in bulk mode
   useEffect(() => {

@@ -3,6 +3,22 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+      },
+      {
+        protocol: "https",
+        hostname: "vrlidgczwwhbswsrltdy.supabase.co", // Replace with exact project hostname if needed
+      },
+      {
+        protocol: "https",
+        hostname: "*.googleusercontent.com",
+      }
+    ],
+  },
   // Tree-shake heavy packages to reduce bundle size and speed up compilation
   experimental: {
     optimizePackageImports: [

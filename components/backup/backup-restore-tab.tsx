@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Cloud,
@@ -464,7 +465,7 @@ export function BackupRestoreTab() {
                   <span className="text-xs font-medium text-muted-foreground">Linked Google Account</span>
                   <div className="flex items-center gap-3">
                     {status.picture ? (
-                      <img src={status.picture} alt="Profile" className="h-9 w-9 rounded-full border shadow-2xs" />
+                      <Image src={status.picture} alt="Profile" width={36} height={36} className="h-9 w-9 rounded-full border shadow-2xs" />
                     ) : (
                       <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
                         {status.email?.charAt(0).toUpperCase() || "G"}

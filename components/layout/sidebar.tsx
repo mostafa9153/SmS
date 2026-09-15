@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import {
@@ -518,7 +519,7 @@ export function Sidebar({
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden shadow-sm border border-primary/20 bg-background/80 transition-transform duration-300 hover:scale-105 shrink-0">
-            <img src="/logo.png" alt="Logo" className="h-full w-full object-contain p-0.5" />
+            <Image src="/logo.png" alt="Logo" width={40} height={40} className="h-full w-full object-contain p-0.5" />
           </div>
           <div className="flex flex-col min-w-0">
             <p className="text-sm font-bold tracking-tight text-foreground leading-tight truncate">

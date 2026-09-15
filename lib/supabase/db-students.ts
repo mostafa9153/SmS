@@ -409,7 +409,11 @@ export const STUDENT_SUMMARY_COLUMNS = [
 ].join(",");
 
 // GET all students (with auto-pagination to handle full dataset)
-export async function dbGetStudents(projection: "summary" | "full" = "summary"): Promise<Student[]> {
+export async function dbGetStudents(
+  projection: "summary" | "full" = "summary",
+  studentClass?: string,
+  section?: string
+): Promise<Student[]> {
   const supabase = await createServerClient();
   const PAGE_SIZE = 1000;
   let allRows: DBStudent[] = [];
@@ -418,10 +422,19 @@ export async function dbGetStudents(projection: "summary" | "full" = "summary"):
   const selectQuery = projection === "full" ? "*, academic_history(*)" : STUDENT_SUMMARY_COLUMNS;
 
   while (hasMore) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("students")
       .select(selectQuery as any)
       .range(from, from + PAGE_SIZE - 1);
+
+    if (studentClass && studentClass !== "all") {
+      query = query.eq("present_class", studentClass);
+    }
+    if (section && section !== "all") {
+      query = query.eq("present_section", section);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw new Error(error.message);
 

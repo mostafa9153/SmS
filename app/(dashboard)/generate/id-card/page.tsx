@@ -58,16 +58,16 @@ function StudentIDCardStudioContent() {
   const { profile: schoolProfile } = useSchoolProfile();
   const currentYear = new Date().getFullYear();
 
-  // Load all students
-  const { data: students = [], isLoading: loadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: getStudents,
-  });
-
   // Filter States
-  const [selectedClass, setSelectedClass] = useState<string>("IX");
-  const [selectedSection, setSelectedSection] = useState<string>("all");
+  const [selectedClass, setSelectedClass] = useState<string>("V");
+  const [selectedSection, setSelectedSection] = useState<string>("A");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Load students by class and section
+  const { data: students = [], isLoading: loadingStudents } = useQuery({
+    queryKey: ["students", selectedClass, selectedSection],
+    queryFn: () => getStudents("summary", selectedClass, selectedSection),
+  });
 
   // Selected student IDs for batch printing
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);

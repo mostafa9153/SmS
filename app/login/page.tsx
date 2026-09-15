@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { School, Eye, EyeOff, RefreshCw, AlertCircle, Mail, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { School, Eye, EyeOff, RefreshCw, AlertCircle, Loader2, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +100,7 @@ export default function LoginPage() {
             
             <div className="flex items-center gap-3">
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 shadow-xl shadow-blue-950/30 p-1 shrink-0">
-                <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
+                <Image src="/logo.png" alt="Logo" width={64} height={64} className="h-full w-full object-contain" />
               </div>
               <div>
                 <h1 className="text-lg font-bold tracking-tight text-white leading-tight">Marigachi High School</h1>
@@ -142,7 +143,7 @@ export default function LoginPage() {
           {/* Logo only for Mobile */}
           <div className="flex md:hidden flex-col items-center mb-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 overflow-hidden border border-white/20 mb-2.5 shadow-xl shadow-blue-950/30 p-1 shrink-0">
-              <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
+              <Image src="/logo.png" alt="Logo" width={56} height={56} className="h-full w-full object-contain" />
             </div>
             <h1 className="text-base sm:text-lg font-bold text-white">Marigachi High School</h1>
             <p className="text-xs text-slate-400">Student Management System</p>

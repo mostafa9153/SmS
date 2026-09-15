@@ -31,7 +31,6 @@ import {
   Copy,
   ExternalLink,
 } from "lucide-react";
-import QRCode from "qrcode";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -50,7 +49,7 @@ export default function NewAdmissionDashboard() {
   // Filters state
   const [sourceFilter, setSourceFilter] = useState<"all" | "offline" | "online" | "blank">("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [classFilter, setClassFilter] = useState<string>("all");
+  const [classFilter, setClassFilter] = useState<string>("V");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Admit Verification Modal State
@@ -73,22 +72,27 @@ export default function NewAdmissionDashboard() {
     if (typeof window !== "undefined") {
       const fullUrl = `${window.location.origin}/admission/new/apply`;
       setOnlineUrl(fullUrl);
-      QRCode.toDataURL(fullUrl, {
-        width: 450,
-        margin: 2,
-        color: {
-          dark: "#0f172a",
-          light: "#ffffff",
-        },
-      })
-        .then((url) => {
-          setQrCodeDataUrl(url);
-          setIsGeneratingQr(false);
+      
+      // Dynamically import QRCode
+      import("qrcode").then((QRCodeModule) => {
+        const QRCode = QRCodeModule.default || QRCodeModule;
+        QRCode.toDataURL(fullUrl, {
+          width: 450,
+          margin: 2,
+          color: {
+            dark: "#0f172a",
+            light: "#ffffff",
+          },
         })
-        .catch((err) => {
-          console.error("Failed to generate QR code:", err);
-          setIsGeneratingQr(false);
-        });
+          .then((url) => {
+            setQrCodeDataUrl(url);
+            setIsGeneratingQr(false);
+          })
+          .catch((err) => {
+            console.error("Failed to generate QR code:", err);
+            setIsGeneratingQr(false);
+          });
+      });
     }
   }, []);
 
@@ -118,8 +122,8 @@ export default function NewAdmissionDashboard() {
   const currentYear = new Date().getFullYear();
 
   const { data: applications = [], isLoading } = useQuery({
-    queryKey: ["admission-applications"],
-    queryFn: () => getAdmissionApplications(),
+    queryKey: ["admission-applications", classFilter],
+    queryFn: () => getAdmissionApplications({ targetClass: classFilter === "all" ? undefined : classFilter }),
     staleTime: 30 * 1000,
   });
 
