@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Sparkles,
   Award,
@@ -350,6 +351,7 @@ function CardInfoPopover({
 }
 
 export default function GenerateHubPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [stats, setStats] = useState<CertificateStats | null>(null);
@@ -793,8 +795,9 @@ export default function GenerateHubPage() {
             return (
               <div
                 key={mod.id}
+                onClick={() => router.push(mod.href)}
                 className={cn(
-                  "group relative rounded-2xl border bg-card/90 p-3.5 sm:p-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md overflow-visible",
+                  "group relative rounded-2xl border bg-card/90 p-3.5 sm:p-4 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md overflow-visible cursor-pointer",
                   mod.accentBorder,
                   mod.isFeatured && "ring-1 ring-emerald-500/25"
                 )}
@@ -819,7 +822,7 @@ export default function GenerateHubPage() {
                       <IconComponent className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
                     </div>
 
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <Badge variant={mod.formatVariant || "outline"} className="text-[10px] px-2 py-0.5">
                         {mod.formatBadge}
                       </Badge>
@@ -850,6 +853,7 @@ export default function GenerateHubPage() {
                   {mod.trackerHref ? (
                     <Link
                       href={mod.trackerHref}
+                      onClick={(e) => e.stopPropagation()}
                       className="text-[11px] font-semibold text-muted-foreground hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1 py-1 px-1.5 rounded-lg active:scale-95"
                     >
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
@@ -861,13 +865,12 @@ export default function GenerateHubPage() {
                     </span>
                   )}
 
-                  <Link
-                    href={mod.href}
-                    className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shadow-2xs"
+                  <span
+                    className="inline-flex items-center gap-1 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 shadow-2xs group-hover:shadow-xs group-hover:translate-x-0.5"
                   >
                     Generate Now
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
+                  </span>
                 </div>
               </div>
             );
