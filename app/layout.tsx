@@ -5,6 +5,7 @@ import { QueryProvider } from "@/lib/query-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastContainer } from "@/components/ui/toast-banner";
 import { NotificationProvider } from "@/lib/stores/notification-store";
+import { TopProgressBar } from "@/components/ui/top-progress-bar";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -56,6 +57,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`${manrope.className} font-sans antialiased notranslate`}>
+        <TopProgressBar />
         <NotificationProvider>
           <QueryProvider>
             <TooltipProvider>

@@ -35,6 +35,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import { SoundToggle } from "@/components/ui/sound-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -527,15 +528,18 @@ export function Sidebar({
           </div>
         </div>
 
-        {mobile && (
-          <button
-            onClick={onClose}
-            aria-label="Close navigation menu"
-            className="flex items-center justify-center min-h-[38px] min-w-[38px] rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer active:scale-95"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <SoundToggle />
+          {mobile && (
+            <button
+              onClick={onClose}
+              aria-label="Close navigation menu"
+              className="flex items-center justify-center min-h-[38px] min-w-[38px] rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer active:scale-95"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Navigation List */}

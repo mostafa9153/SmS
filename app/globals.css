@@ -407,3 +407,21 @@
     break-inside: avoid !important;
   }
 }
+
+/* Shimmer Animation & Micro-Interactions */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.6s infinite;
+}
+
+/* Tactile micro-press feedback for interactive elements */
+button:not(:disabled):active,
+a:not([aria-disabled="true"]):active {
+  transform: scale(0.98);
+  transition: transform 100ms ease-out;
+}
