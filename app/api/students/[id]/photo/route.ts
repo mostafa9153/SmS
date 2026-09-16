@@ -4,8 +4,11 @@ import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 const BUCKET_NAME = "student-photos";
 
-// Ensure the storage bucket exists with public read access
+let bucketChecked = false;
+
+// Ensure the storage bucket exists with public read access (cached in-process)
 async function ensureBucketExists(admin: ReturnType<typeof createAdminClient>) {
+  if (bucketChecked) return;
   try {
     const { data: buckets } = await admin.storage.listBuckets();
     if (!buckets?.some((b) => b.name === BUCKET_NAME)) {
@@ -15,6 +18,7 @@ async function ensureBucketExists(admin: ReturnType<typeof createAdminClient>) {
         allowedMimeTypes: ["image/webp", "image/jpeg", "image/png"],
       });
     }
+    bucketChecked = true;
   } catch (err) {
     console.warn("Storage bucket auto-check warning:", err);
   }

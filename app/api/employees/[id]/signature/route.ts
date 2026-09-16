@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 const BUCKET_NAME = "staff-signatures";
 
+let bucketChecked = false;
+
 async function ensureBucketExists(admin: ReturnType<typeof createAdminClient>) {
+  if (bucketChecked) return;
   try {
     const { data: buckets } = await admin.storage.listBuckets();
     if (!buckets?.some((b) => b.name === BUCKET_NAME)) {
@@ -13,6 +17,7 @@ async function ensureBucketExists(admin: ReturnType<typeof createAdminClient>) {
         allowedMimeTypes: ["image/webp", "image/jpeg", "image/png"],
       });
     }
+    bucketChecked = true;
   } catch (err) {
     console.warn("Storage bucket auto-check warning:", err);
   }
@@ -24,6 +29,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const { id } = await params;
     const admin = createAdminClient();
 
@@ -103,6 +113,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+    if (auth.role !== "Admin") {
+      return NextResponse.json({ error: "Forbidden: Only administrators can delete staff signatures." }, { status: 403 });
+    }
+
     const { id } = await params;
     const admin = createAdminClient();
 

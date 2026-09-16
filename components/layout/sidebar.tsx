@@ -471,8 +471,8 @@ export function Sidebar({
   const supabase = createClient();
   const { toggleSidebar } = useSidebar();
 
-  const [fullName, setFullName] = useState("Administrator");
-  const [role, setRole] = useState("Admin");
+  const [fullName, setFullName] = useState("User");
+  const [role, setRole] = useState("Staff");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {

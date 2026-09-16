@@ -153,18 +153,36 @@ export async function dbVerifyCertificate(
       return { valid: false, certificate: null, error: "Database client unavailable" };
     }
 
-    // Try exact or case-insensitive lookup on certificate_no first
+    // 1. Try secure SECURITY DEFINER RPC first (works under strict RLS without table access)
+    try {
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc("verify_certificate_public", { p_certificate_no: normTerm });
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        const cert = rpcData[0];
+        return {
+          valid: cert.status === "Valid",
+          certificate: cert as DBCertificateRow,
+        };
+      }
+    } catch {
+      // Fall through to query if RPC does not exist yet
+    }
+
+    // 2. Direct table lookup fallback (strictly project public verification fields to prevent PII leaks)
+    const PUBLIC_CERT_COLUMNS = "certificate_no, certificate_type, academic_session, issue_date, student_name, student_class, section, roll_no, copy_type, status";
+
     let { data, error } = await supabase
       .from("certificates_registry")
-      .select("*")
+      .select(PUBLIC_CERT_COLUMNS)
       .ilike("certificate_no", normTerm)
       .maybeSingle();
 
     if (!data) {
-      // Fallback search by student_id
+      // Fallback search by student_id with sanitized projection
       const res = await supabase
         .from("certificates_registry")
-        .select("*")
+        .select(PUBLIC_CERT_COLUMNS)
         .ilike("student_id", normTerm)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -183,7 +201,7 @@ export async function dbVerifyCertificate(
       return { valid: false, certificate: null };
     }
 
-    const cert = data as DBCertificateRow;
+    const cert = data as unknown as DBCertificateRow;
     return {
       valid: cert.status === "Valid",
       certificate: cert,

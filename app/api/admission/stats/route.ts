@@ -1,42 +1,38 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function GET() {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const supabase = createAdminClient();
 
-    // 1. Re-admission collection from admission_invoices
-    const { data: readmitInvoices, error: readmitErr } = await supabase
+    // Fetch paid invoices once in a single database query
+    const { data: paidInvoices, error: invoicesErr } = await supabase
       .from("admission_invoices")
-      .select("total_amount, payment_status")
-      .ilike("remarks", "%Re-admission%")
+      .select("total_amount, remarks, is_blank")
       .eq("payment_status", "Paid");
 
-    if (readmitErr) {
-      console.warn("Error fetching re-admission invoices:", readmitErr);
+    if (invoicesErr) {
+      console.warn("Error fetching paid admission invoices:", invoicesErr);
     }
 
-    const reAdmissionVasul = (readmitInvoices || []).reduce(
-      (sum, row) => sum + (Number(row.total_amount) || 0),
-      0
-    );
+    let reAdmissionVasul = 0;
+    let newAdmissionVasul = 0;
 
-    // 2. New admission collection from admission_invoices
-    const { data: newInvoices, error: newErr } = await supabase
-      .from("admission_invoices")
-      .select("total_amount, payment_status")
-      .not("remarks", "ilike", "%Re-admission%")
-      .eq("payment_status", "Paid")
-      .eq("is_blank", false);
-
-    if (newErr) {
-      console.warn("Error fetching new admission invoices:", newErr);
+    for (const row of paidInvoices || []) {
+      const amount = Number(row.total_amount) || 0;
+      const isReAdmit = (row.remarks || "").toLowerCase().includes("re-admission");
+      if (isReAdmit) {
+        reAdmissionVasul += amount;
+      } else if (!row.is_blank) {
+        newAdmissionVasul += amount;
+      }
     }
-
-    const newAdmissionVasul = (newInvoices || []).reduce(
-      (sum, row) => sum + (Number(row.total_amount) || 0),
-      0
-    );
 
     return NextResponse.json({
       success: true,

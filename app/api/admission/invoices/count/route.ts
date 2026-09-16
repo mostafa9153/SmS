@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function GET() {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const supabase = await createClient();
     
     // We only select the minimal columns needed to calculate the count

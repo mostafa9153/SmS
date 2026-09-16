@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 // GET /api/employees/[id]
 export async function GET(
@@ -7,6 +8,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const { id } = await params;
     const admin = createAdminClient();
 
@@ -33,6 +39,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+    if (auth.role !== "Admin") {
+      return NextResponse.json({ error: "Forbidden: Only administrators can update staff profiles." }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await req.json();
     const admin = createAdminClient();
@@ -116,6 +130,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+    if (auth.role !== "Admin") {
+      return NextResponse.json({ error: "Forbidden: Only administrators can delete staff profiles." }, { status: 403 });
+    }
+
     const { id } = await params;
     const admin = createAdminClient();
 

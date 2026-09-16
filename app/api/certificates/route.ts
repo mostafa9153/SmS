@@ -9,6 +9,10 @@ import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 export async function POST(req: Request) {
   try {
     const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const body = await req.json();
 
     let certsToSave: DBCertificateInsert[] = [];
@@ -56,6 +60,11 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q") || undefined;
     const certificateType = searchParams.get("type") || null;

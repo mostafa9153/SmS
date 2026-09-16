@@ -34,18 +34,7 @@ export async function GET() {
       });
     }
 
-    // Run parallel aggregation counts in database
-    const [
-      { count: total },
-      { count: boys },
-      { count: girls },
-    ] = await Promise.all([
-      supabase.from("students").select("*", { count: "exact", head: true }),
-      supabase.from("students").select("*", { count: "exact", head: true }).eq("gender", "Male"),
-      supabase.from("students").select("*", { count: "exact", head: true }).eq("gender", "Female"),
-    ]);
-
-    // Fetch all student records in paginated batches of 1,000 to prevent Supabase 1,000-row limit truncation
+    // Fetch student summary records in paginated batches of 1,000 to prevent Supabase 1,000-row limit truncation
     let allStudentsData: any[] = [];
     let page = 0;
     const pageSize = 1000;
@@ -99,7 +88,9 @@ export async function GET() {
       ST: 0,
     };
 
-    // 4. Welfare & Scholarship Schemes Metrics
+    // 4. Welfare & Scholarship Schemes Metrics + Gender counts (calculated in single pass)
+    let boys = 0;
+    let girls = 0;
     let kanyashreeK1 = 0;
     let kanyashreeK2 = 0;
     let shikshashree = 0;
@@ -112,6 +103,8 @@ export async function GET() {
     let withoutAadhaar = 0;
 
     for (const s of allStudentsData || []) {
+      if (s.gender === "Male") boys++;
+      else if (s.gender === "Female") girls++;
       // Category count
       const cat = normalizeSocialCategory(s.social_category) || "General";
       if (categoryCounts[cat] !== undefined) {
@@ -193,7 +186,7 @@ export async function GET() {
     }
 
     const payload = {
-      total: total || 0,
+      total: allStudentsData.length,
       boys: boys || 0,
       girls: girls || 0,
       statusCounts,

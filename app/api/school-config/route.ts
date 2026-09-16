@@ -63,16 +63,15 @@ async function getConfigFromStorage(
 }
 
 /**
- * Robustly persists configuration to Supabase (system_config table with audit_log fallback)
+ * Robustly persists configuration to Supabase (system_config table with audit_log fallback only if primary fails)
  */
 async function saveConfigToStorage(
   supabase: any,
   key: string,
-  value: any
+  value: any,
+  userId?: string
 ): Promise<boolean> {
-  let saved = false;
-
-  // 1. Try system_config table
+  // 1. Try primary system_config table
   try {
     const { error } = await supabase.from("system_config").upsert({
       key,
@@ -80,20 +79,15 @@ async function saveConfigToStorage(
       updated_at: new Date().toISOString(),
     });
     if (!error) {
-      saved = true;
+      return true;
     }
   } catch (e) {
-    // Proceed to fallback
+    console.warn(`system_config table write failed for ${key}, falling back to audit_log:`, e);
   }
 
-  // 2. Fallback / dual-write to audit_log table
+  // 2. Fallback to audit_log table ONLY if primary system_config table failed
   try {
-    const { data: auditRow } = await supabase
-      .from("audit_log")
-      .select("performed_by")
-      .limit(1)
-      .maybeSingle();
-    const performedBy = auditRow?.performed_by || DEFAULT_SYSTEM_USER;
+    const performedBy = userId || DEFAULT_SYSTEM_USER;
 
     const { error } = await supabase.from("audit_log").insert({
       performed_by: performedBy,
@@ -102,13 +96,13 @@ async function saveConfigToStorage(
       metadata: value,
     });
     if (!error) {
-      saved = true;
+      return true;
     }
   } catch (e) {
     console.warn(`Fallback audit_log write error for ${key}:`, e);
   }
 
-  return saved;
+  return false;
 }
 
 interface CachedConfig {
@@ -280,7 +274,7 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const success = await saveConfigToStorage(supabase, key, value);
+    const success = await saveConfigToStorage(supabase, key, value, auth.user?.id);
 
     if (!success) {
       return NextResponse.json(

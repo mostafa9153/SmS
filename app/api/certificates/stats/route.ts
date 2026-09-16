@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { dbGetCertificateStats } from "@/lib/supabase/db-certificates";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function GET() {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
     const { stats, error } = await dbGetCertificateStats();
 
     if (error) {

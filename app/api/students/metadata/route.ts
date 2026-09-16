@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sortClasses, CLASS_ORDER } from "@/lib/utils";
 
+interface CachedMetadata {
+  data: {
+    classes: string[];
+    sections: string[];
+    admissionYears: number[];
+  };
+  cachedAt: number;
+}
+let cachedMetadata: CachedMetadata | null = null;
+const METADATA_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
+
 // GET /api/students/metadata - Returns lightweight distinct filter options
 export async function GET() {
   try {
@@ -13,7 +24,49 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Pre-seed standard school classes (V to XII) so they are always available
+    // Serve from in-memory cache if fresh
+    if (cachedMetadata && Date.now() - cachedMetadata.cachedAt < METADATA_CACHE_TTL_MS) {
+      return NextResponse.json(cachedMetadata.data, {
+        headers: {
+          "Cache-Control": "private, max-age=120, stale-while-revalidate=300",
+        },
+      });
+    }
+
+    // 1. Try fast server-side RPC first (calculates distinct values in PostgreSQL directly)
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc("get_student_distinct_metadata");
+      if (!rpcError && rpcData && typeof rpcData === "object") {
+        const rpcClasses = Array.isArray(rpcData.classes) ? rpcData.classes : [];
+        const rpcSections = Array.isArray(rpcData.sections) ? rpcData.sections : [];
+        const rpcYears = Array.isArray(rpcData.admissionYears) ? rpcData.admissionYears : [];
+
+        const classSet = new Set<string>([...CLASS_ORDER, ...rpcClasses.filter(Boolean)]);
+        const sectionSet = new Set<string>(rpcSections.filter(Boolean));
+        const yearSet = new Set<number>(rpcYears.filter((y: any) => typeof y === "number"));
+
+        const payload = {
+          classes: sortClasses(Array.from(classSet)),
+          sections: Array.from(sectionSet).sort(),
+          admissionYears: Array.from(yearSet).sort((a, b) => b - a),
+        };
+
+        cachedMetadata = {
+          data: payload,
+          cachedAt: Date.now(),
+        };
+
+        return NextResponse.json(payload, {
+          headers: {
+            "Cache-Control": "private, max-age=120, stale-while-revalidate=300",
+          },
+        });
+      }
+    } catch {
+      // Fall through to query fallback
+    }
+
+    // 2. Fallback: Pre-seed standard school classes (V to XII)
     const classSet = new Set<string>(CLASS_ORDER);
     const sectionSet = new Set<string>();
     const yearSet = new Set<number>();
@@ -51,10 +104,21 @@ export async function GET() {
     const sections = Array.from(sectionSet).sort();
     const admissionYears = Array.from(yearSet).sort((a, b) => b - a);
 
-    return NextResponse.json({
+    const payload = {
       classes,
       sections,
       admissionYears,
+    };
+
+    cachedMetadata = {
+      data: payload,
+      cachedAt: Date.now(),
+    };
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "private, max-age=120, stale-while-revalidate=300",
+      },
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to load metadata" }, { status: 500 });

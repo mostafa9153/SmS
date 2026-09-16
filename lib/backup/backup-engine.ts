@@ -12,6 +12,13 @@ export const KNOWN_BACKUP_TABLES = [
   "students",
   "academic_history",
   "student_results",
+  "staff_profiles",
+  "admission_invoices",
+  "certificates_registry",
+  "admission_applications",
+  "admission_settings",
+  "system_config",
+  "exam_configs",
 ] as const;
 
 // Helper to fetch all rows with pagination to avoid Supabase default 1000 limit

@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const supabase = createAdminClient();
     const body = await req.json();
     const { serials, academicYear, admissionType, targetClass } = body;

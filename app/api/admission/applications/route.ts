@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import type { AdmissionApplication } from "@/lib/types";
 
 export async function GET(req: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const supabase = createAdminClient();
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -107,6 +113,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthenticatedUserRole();
+    if (auth.role === "Guest") {
+      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
+    }
+
     const supabase = createAdminClient();
     const body = await req.json();
 

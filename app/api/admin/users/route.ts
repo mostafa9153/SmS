@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 
 // GET /api/admin/users - List all users with their roles
 export async function GET() {
@@ -200,6 +201,8 @@ export async function PATCH(req: Request) {
       }
     }
 
+    clearUserRoleCache(userId);
+
     return NextResponse.json({ success: true, message: "User updated successfully" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to update user" }, { status: 500 });
@@ -250,6 +253,8 @@ export async function DELETE(req: Request) {
     if (deleteError) {
       return NextResponse.json({ error: deleteError.message }, { status: 400 });
     }
+
+    clearUserRoleCache(targetUserId);
 
     return NextResponse.json({ success: true, message: "User account deleted permanently" });
   } catch (error: any) {

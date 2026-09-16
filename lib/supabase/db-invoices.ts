@@ -189,9 +189,26 @@ export async function dbVerifyInvoice(
       return { valid: false, invoice: null, error: "Database client unavailable" };
     }
 
+    // 1. Try secure SECURITY DEFINER RPC first (protects PII and works under strict RLS)
+    try {
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc("verify_invoice_public", { p_invoice_number: normNumber });
+
+      if (!rpcError && rpcData && rpcData.length > 0) {
+        const inv = rpcData[0];
+        return {
+          valid: inv.invoice_status !== "cancelled",
+          invoice: inv as any,
+        };
+      }
+    } catch {
+      // Fall through to query if RPC does not exist yet
+    }
+
+    // 2. Direct table lookup fallback (explicit projection without contact_number/pen_number)
     const { data, error } = await supabase
       .from("admission_invoices")
-      .select("*")
+      .select("invoice_number, student_name, student_class, section, issue_date, total_amount, payment_status, invoice_status")
       .ilike("invoice_number", normNumber)
       .maybeSingle();
 
@@ -204,7 +221,11 @@ export async function dbVerifyInvoice(
       return { valid: false, invoice: null };
     }
 
-    return { valid: true, invoice: data as DBInvoiceRow };
+    const inv = data as any;
+    return {
+      valid: inv.invoice_status !== "cancelled",
+      invoice: inv,
+    };
   } catch (err: any) {
     console.error("Exception in dbVerifyInvoice:", err);
     return { valid: false, invoice: null, error: err?.message };
