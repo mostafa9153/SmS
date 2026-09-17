@@ -97,8 +97,8 @@ export function SeatArrangementEditor({
     effectiveRooms.length > 0 ? effectiveRooms[0].id : ""
   );
 
-  // State to toggle collapsible Step 4 control header
-  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(true);
+  // State to toggle collapsible Step 4 control header (closed by default)
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false);
 
   // Available classes derived from Step 2 with real DB continuing student count
   const availableClasses: AvailableClassOption[] = useMemo(() => {
