@@ -65,12 +65,9 @@ import {
   X,
   GraduationCap,
   Layers,
-  GripVertical,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
 } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
+import { EmsPrintSuiteHub } from "@/components/ems/print/ems-print-suite-hub";
 import { SeatArrangementEditor } from "@/components/ems/seat-arrangement/seat-arrangement-editor";
 import { getClassColorStyle } from "@/components/ems/seat-card";
 import {
@@ -101,12 +98,23 @@ const normalizeSectionCode = (sec: string): string => {
   return (sec || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
 };
 
-// Calculate enrolled student stats & roll range for a given class and section
+export interface SectionStudentStats {
+  count: number;
+  totalEnrolled: number;
+  minRoll: number;
+  maxRoll: number;
+  rollFrom: number;
+  rollTo: number;
+}
+
+// Calculate enrolled student stats & roll range for a given class and section from actual DB records
 const calculateSectionStudentStats = (
   students: Student[],
   className: string,
-  sectionName: string
-): { count: number; rollFrom: number; rollTo: number } => {
+  sectionName: string,
+  customRollFrom?: number,
+  customRollTo?: number
+): SectionStudentStats => {
   const targetClass = normalizeClassCode(className);
   const targetSec = normalizeSectionCode(sectionName);
 
@@ -118,16 +126,44 @@ const calculateSectionStudentStats = (
   });
 
   if (matched.length === 0) {
-    return { count: 0, rollFrom: 1, rollTo: 35 };
+    return {
+      count: 0,
+      totalEnrolled: 0,
+      minRoll: 1,
+      maxRoll: 35,
+      rollFrom: customRollFrom ?? 1,
+      rollTo: customRollTo ?? 35,
+    };
   }
 
-  // Count is the exact number of active students in DB for this class & section
-  const totalEnrolled = matched.length;
+  // Extract all valid numeric rolls present in DB
+  const validRolls = matched
+    .map((s) => Number(s.presentRoll))
+    .filter((r) => !isNaN(r) && r > 0)
+    .sort((a, b) => a - b);
+
+  const minRoll = validRolls.length > 0 ? validRolls[0] : 1;
+  const maxRoll = validRolls.length > 0 ? validRolls[validRolls.length - 1] : matched.length;
+
+  const effectiveRollFrom = customRollFrom !== undefined ? customRollFrom : minRoll;
+  const effectiveRollTo = customRollTo !== undefined ? customRollTo : maxRoll;
+
+  // Filter actual active students falling inside [effectiveRollFrom, effectiveRollTo]
+  const inRange = matched.filter((s) => {
+    const r = Number(s.presentRoll);
+    if (!isNaN(r) && r > 0) {
+      return r >= effectiveRollFrom && r <= effectiveRollTo;
+    }
+    return true;
+  });
 
   return {
-    count: totalEnrolled,
-    rollFrom: 1,
-    rollTo: totalEnrolled,
+    count: inRange.length,
+    totalEnrolled: matched.length,
+    minRoll,
+    maxRoll,
+    rollFrom: effectiveRollFrom,
+    rollTo: effectiveRollTo,
   };
 };
 
@@ -151,7 +187,10 @@ export interface ClassGroupSectionConfig {
   section: string;
   rollFrom: number;
   rollTo: number;
-  enrolledCount: number;
+  enrolledCount: number; // Actual active continuing students in DB matching [rollFrom, rollTo]
+  totalEnrolled?: number;
+  minRoll?: number;
+  maxRoll?: number;
 }
 
 export interface ClassGroupConfig {
@@ -165,7 +204,7 @@ const STEPS: StepItem[] = [
   { id: 2, title: "Class & Students" },
   { id: 3, title: "Room & Benches" },
   { id: 4, title: "Seat Arrangement" },
-  { id: 5, title: "Visual Seating Map" },
+  { id: 5, title: "Print Suite" },
 ];
 
 export default function EmsMasterPage() {
@@ -216,10 +255,6 @@ export default function EmsMasterPage() {
     saveRooms(updated);
   };
 
-  const handleMoveRoom = (index: number, direction: "up" | "down") => {
-    const targetIndex = direction === "up" ? index - 1 : index + 1;
-    reorderRooms(index, targetIndex);
-  };
 
   // Step 4: Visual Seating Blueprint & History
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
@@ -273,6 +308,9 @@ export default function EmsMasterPage() {
               rollFrom: stats.rollFrom,
               rollTo: stats.rollTo,
               enrolledCount: stats.count,
+              totalEnrolled: stats.totalEnrolled,
+              minRoll: stats.minRoll,
+              maxRoll: stats.maxRoll,
             };
           }),
         };
@@ -291,12 +329,21 @@ export default function EmsMasterPage() {
               rollTo: 35,
               enrolledCount: 0,
             }))).map((sec) => {
-              const stats = calculateSectionStudentStats(loadedStudents, g.class, sec.section);
+              const stats = calculateSectionStudentStats(
+                loadedStudents,
+                g.class,
+                sec.section,
+                sec.rollFrom,
+                sec.rollTo
+              );
               return {
                 ...sec,
-                rollFrom: stats.count > 0 ? stats.rollFrom : sec.rollFrom,
-                rollTo: stats.count > 0 ? stats.rollTo : sec.rollTo,
+                rollFrom: stats.rollFrom,
+                rollTo: stats.rollTo,
                 enrolledCount: stats.count,
+                totalEnrolled: stats.totalEnrolled,
+                minRoll: stats.minRoll,
+                maxRoll: stats.maxRoll,
               };
             }),
           };
@@ -333,6 +380,9 @@ export default function EmsMasterPage() {
         rollFrom: stats.rollFrom,
         rollTo: stats.rollTo,
         enrolledCount: stats.count,
+        totalEnrolled: stats.totalEnrolled,
+        minRoll: stats.minRoll,
+        maxRoll: stats.maxRoll,
       };
     });
 
@@ -355,6 +405,9 @@ export default function EmsMasterPage() {
         rollFrom: stats.rollFrom,
         rollTo: stats.rollTo,
         enrolledCount: stats.count,
+        totalEnrolled: stats.totalEnrolled,
+        minRoll: stats.minRoll,
+        maxRoll: stats.maxRoll,
       };
     });
 
@@ -404,6 +457,9 @@ export default function EmsMasterPage() {
           rollFrom: stats.rollFrom,
           rollTo: stats.rollTo,
           enrolledCount: stats.count,
+          totalEnrolled: stats.totalEnrolled,
+          minRoll: stats.minRoll,
+          maxRoll: stats.maxRoll,
         };
         const updated = [...g.sections, newSec].sort((a, b) =>
           a.section.localeCompare(b.section)
@@ -428,9 +484,26 @@ export default function EmsMasterPage() {
         if (g.id !== groupId) return g;
         return {
           ...g,
-          sections: g.sections.map((s) =>
-            s.section === sectionName ? { ...s, [field]: value } : s
-          ),
+          sections: g.sections.map((s) => {
+            if (s.section !== sectionName) return s;
+            const updatedRollFrom = field === "rollFrom" ? value : s.rollFrom;
+            const updatedRollTo = field === "rollTo" ? value : s.rollTo;
+            const stats = calculateSectionStudentStats(
+              allStudents,
+              g.class,
+              sectionName,
+              updatedRollFrom,
+              updatedRollTo
+            );
+            return {
+              ...s,
+              [field]: value,
+              enrolledCount: stats.count,
+              totalEnrolled: stats.totalEnrolled,
+              minRoll: stats.minRoll,
+              maxRoll: stats.maxRoll,
+            };
+          }),
         };
       })
     );
@@ -451,6 +524,9 @@ export default function EmsMasterPage() {
                   rollFrom: stats.rollFrom,
                   rollTo: stats.rollTo,
                   enrolledCount: stats.count,
+                  totalEnrolled: stats.totalEnrolled,
+                  minRoll: stats.minRoll,
+                  maxRoll: stats.maxRoll,
                 }
               : s
           ),
@@ -473,6 +549,9 @@ export default function EmsMasterPage() {
               rollFrom: stats.rollFrom,
               rollTo: stats.rollTo,
               enrolledCount: stats.count,
+              totalEnrolled: stats.totalEnrolled,
+              minRoll: stats.minRoll,
+              maxRoll: stats.maxRoll,
             };
           }),
         };
@@ -495,6 +574,9 @@ export default function EmsMasterPage() {
               rollFrom: stats.rollFrom,
               rollTo: stats.rollTo,
               enrolledCount: stats.count,
+              totalEnrolled: stats.totalEnrolled,
+              minRoll: stats.minRoll,
+              maxRoll: stats.maxRoll,
             };
           });
         const updated = [...g.sections, ...newSecs].sort((a, b) =>
@@ -584,8 +666,9 @@ export default function EmsMasterPage() {
   );
   const totalDynamicCapacity = totalBenches * studentsPerBench;
 
-  const totalStudentsExpected = classes.reduce(
-    (sum, c) => sum + Math.max(0, c.rollTo - c.rollFrom + 1),
+  // Sum of ACTUAL matching active continuing students from database across all configured sections
+  const totalStudentsExpected = classGroups.reduce(
+    (sum, g) => sum + g.sections.reduce((sSum, s) => sSum + s.enrolledCount, 0),
     0
   );
 
@@ -863,7 +946,7 @@ export default function EmsMasterPage() {
                 const selectedSecNames = new Set(g.sections.map((s) => s.section));
                 const unselectedSecs = availSecs.filter((s) => !selectedSecNames.has(s));
                 const groupTotalStudents = g.sections.reduce(
-                  (sum, s) => sum + Math.max(0, s.rollTo - s.rollFrom + 1),
+                  (sum, s) => sum + s.enrolledCount,
                   0
                 );
 
@@ -873,7 +956,7 @@ export default function EmsMasterPage() {
                 const hasModifiedRolls = g.sections.some((sec) => {
                   const stats = calculateSectionStudentStats(allStudents, g.class, sec.section);
                   return (
-                    stats.count > 0 &&
+                    stats.totalEnrolled > 0 &&
                     (sec.rollFrom !== stats.rollFrom || sec.rollTo !== stats.rollTo)
                   );
                 });
@@ -1004,10 +1087,9 @@ export default function EmsMasterPage() {
                         </div>
                       ) : (
                         g.sections.map((sec) => {
-                          const secCount = Math.max(0, sec.rollTo - sec.rollFrom + 1);
                           const dbStats = calculateSectionStudentStats(allStudents, g.class, sec.section);
                           const isModified =
-                            dbStats.count > 0 &&
+                            dbStats.totalEnrolled > 0 &&
                             (sec.rollFrom !== dbStats.rollFrom || sec.rollTo !== dbStats.rollTo);
 
                           return (
@@ -1016,12 +1098,12 @@ export default function EmsMasterPage() {
                               className="px-3.5 py-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                             >
                               {/* Left: Section Badge & Database Info */}
-                              <div className="flex items-center gap-2.5 min-w-[190px]">
+                              <div className="flex items-center gap-2.5 min-w-[200px]">
                                 <span className="px-2.5 py-0.5 rounded-md bg-primary/12 text-primary border border-primary/20 font-bold text-xs font-mono">
                                   Section {sec.section}
                                 </span>
                                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-                                  {sec.enrolledCount > 0 ? (
+                                  {dbStats.totalEnrolled > 0 ? (
                                     <>
                                       <span
                                         className={cn(
@@ -1030,16 +1112,16 @@ export default function EmsMasterPage() {
                                         )}
                                       />
                                       <span className="text-foreground font-semibold">
-                                        {sec.enrolledCount} in DB
+                                        {dbStats.totalEnrolled} in DB
                                       </span>
                                       <span className="text-[10px] font-mono text-muted-foreground/70">
-                                        (Roll {dbStats.rollFrom}–{dbStats.rollTo})
+                                        (Roll {dbStats.minRoll}–{dbStats.maxRoll})
                                       </span>
                                     </>
                                   ) : (
                                     <>
                                       <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                                      <span>Custom Range</span>
+                                      <span>0 Active in DB</span>
                                     </>
                                   )}
                                 </div>
@@ -1062,7 +1144,7 @@ export default function EmsMasterPage() {
                                           parseInt(e.target.value) || 1
                                         )
                                       }
-                                      className="h-7 w-15 text-center text-xs font-mono font-bold border-0 bg-transparent focus-visible:ring-0 p-0"
+                                      className="h-7 w-16 text-center text-xs font-mono font-bold border-0 bg-transparent focus-visible:ring-0 p-0"
                                       placeholder="1"
                                     />
                                     <span className="text-muted-foreground/50 text-xs px-0.5 select-none">—</span>
@@ -1078,7 +1160,7 @@ export default function EmsMasterPage() {
                                           parseInt(e.target.value) || 1
                                         )
                                       }
-                                      className="h-7 w-15 text-center text-xs font-mono font-bold border-0 bg-transparent focus-visible:ring-0 p-0"
+                                      className="h-7 w-16 text-center text-xs font-mono font-bold border-0 bg-transparent focus-visible:ring-0 p-0"
                                       placeholder="35"
                                     />
                                   </div>
@@ -1090,7 +1172,7 @@ export default function EmsMasterPage() {
                                       size="icon"
                                       className="h-6.5 w-6.5 text-muted-foreground hover:text-foreground rounded-md shrink-0 cursor-pointer"
                                       onClick={() => handleResetSectionRoll(g.id, sec.section)}
-                                      title={`Reset Section ${sec.section} to Roll ${dbStats.rollFrom}–${dbStats.rollTo}`}
+                                      title={`Reset Section ${sec.section} to Roll ${dbStats.minRoll}–${dbStats.maxRoll}`}
                                     >
                                       <RotateCcw className="h-3 w-3 text-primary" />
                                     </Button>
@@ -1099,9 +1181,15 @@ export default function EmsMasterPage() {
 
                                 <Badge
                                   variant="secondary"
-                                  className="h-7 px-2 text-[11px] font-mono font-bold border border-border/70 bg-background text-foreground shrink-0 flex items-center"
+                                  className={cn(
+                                    "h-7 px-2.5 text-[11px] font-mono font-bold border shrink-0 flex items-center gap-1.5 transition-colors",
+                                    sec.enrolledCount > 0
+                                      ? "border-border/70 bg-background text-foreground"
+                                      : "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                  )}
                                 >
-                                  {secCount} Students
+                                  <Users className="h-3 w-3 text-primary" />
+                                  <span>{sec.enrolledCount} Candidates</span>
                                 </Badge>
 
                                 <Button
@@ -1198,23 +1286,23 @@ export default function EmsMasterPage() {
       {/* STEP 3: Room & Benches Configuration                         */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 3 && (
-        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-4">
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-6 shadow-sm space-y-5">
           {/* Step 3 Header with Students Per Bench Control */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-xs">
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
                   Room Selection & Bench Capacity
                 </h2>
               </div>
             </div>
 
             {/* Students Per Bench Segmented Control */}
-            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
-              <span className="text-[11px] font-semibold text-muted-foreground px-2 flex items-center gap-1 select-none">
+            <div className="flex items-center gap-1.5 bg-muted/50 p-1.5 rounded-xl border border-border/70 self-start sm:self-auto shadow-2xs">
+              <span className="text-[11px] font-semibold text-muted-foreground px-2.5 flex items-center gap-1.5 select-none">
                 <Armchair className="h-3.5 w-3.5 text-primary" /> Per Bench:
               </span>
               {[1, 2, 3].map((num) => (
@@ -1223,10 +1311,10 @@ export default function EmsMasterPage() {
                   type="button"
                   onClick={() => setStudentsPerBench(num)}
                   className={cn(
-                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
                     studentsPerBench === num
-                      ? "bg-primary text-primary-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                      ? "bg-primary text-primary-foreground shadow-xs scale-[1.02]"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/80"
                   )}
                 >
                   {num} {num === 1 ? "Seater" : num === 3 ? "Seater (Std)" : "Seater"}
@@ -1235,7 +1323,7 @@ export default function EmsMasterPage() {
             </div>
           </div>
 
-          {/* Ultra-Clean Compact Capacity Status Bar */}
+          {/* Clean Spacious Capacity Summary Bar */}
           {(() => {
             const accommodatedStudents = Math.min(totalStudentsExpected, totalDynamicCapacity);
             const availableSeats = Math.max(0, totalDynamicCapacity - totalStudentsExpected);
@@ -1246,57 +1334,75 @@ export default function EmsMasterPage() {
                 : 0;
 
             return (
-              <div className="p-3 sm:p-3.5 rounded-xl border border-border/70 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <Users className="h-4 w-4 text-primary" />
-                    <span className="text-muted-foreground">Candidates:</span>
-                    <span className="font-bold font-mono text-foreground text-sm">
-                      {totalStudentsExpected}
-                    </span>
+              <div className="p-4 rounded-xl border border-border/70 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+                  {/* Candidates */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <Users className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                        Candidates
+                      </div>
+                      <div className="font-bold font-mono text-foreground text-sm">
+                        {totalStudentsExpected}
+                      </div>
+                    </div>
                   </div>
 
-                  <span className="text-muted-foreground/30 hidden sm:inline">•</span>
+                  <div className="h-8 w-[1px] bg-border/60 hidden sm:block" />
 
-                  <div className="flex items-center gap-1.5">
-                    <Armchair className="h-4 w-4 text-primary" />
-                    <span className="text-muted-foreground">Selected Seats:</span>
-                    <span className="font-bold font-mono text-foreground text-sm">
-                      {totalDynamicCapacity}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      ({selectedRooms.length} of {rooms.length} Rooms)
-                    </span>
+                  {/* Selected Capacity */}
+                  <div className="flex items-center gap-2">
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <Armchair className="h-3.5 w-3.5" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
+                        Selected Capacity
+                      </div>
+                      <div className="font-bold font-mono text-foreground text-sm flex items-center gap-1.5">
+                        <span>{totalDynamicCapacity} Seats</span>
+                        <span className="text-xs font-normal text-muted-foreground">
+                          ({selectedRooms.length} of {rooms.length} Rooms)
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  {deficitStudents > 0 ? (
-                    <Badge variant="destructive" className="text-[11px] font-semibold gap-1 py-0.5">
-                      <AlertCircle className="h-3 w-3" /> Short by {deficitStudents} seats
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-[11px] font-semibold gap-1 py-0.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                    >
-                      <CheckCircle2 className="h-3 w-3" /> All Accommodated (+{availableSeats} extra)
-                    </Badge>
-                  )}
+                  <div className="h-8 w-[1px] bg-border/60 hidden sm:block" />
+
+                  {/* Status Badge */}
+                  <div>
+                    {deficitStudents > 0 ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-semibold">
+                        <AlertCircle className="h-3.5 w-3.5" /> Short by {deficitStudents} seats
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> All Accommodated (+{availableSeats} extra)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                {/* Compact Progress Indicator */}
+                {/* Progress Bar */}
                 {totalDynamicCapacity > 0 && (
-                  <div className="w-full sm:w-44 space-y-1 shrink-0">
-                    <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                  <div className="w-full md:w-48 space-y-1.5 shrink-0">
+                    <div className="flex justify-between text-[11px] text-muted-foreground font-mono font-medium">
                       <span>Occupancy: {capacityPercent}%</span>
                       <span>
                         {accommodatedStudents}/{totalDynamicCapacity}
                       </span>
                     </div>
-                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden border border-border/50">
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden border border-border/60">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
-                          deficitStudents > 0 ? "bg-rose-500" : "bg-primary"
+                          deficitStudents > 0
+                            ? "bg-rose-500"
+                            : "bg-gradient-to-r from-primary to-primary/80"
                         )}
                         style={{ width: `${capacityPercent}%` }}
                       />
@@ -1308,14 +1414,14 @@ export default function EmsMasterPage() {
           })()}
 
           {/* Rooms Selection Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex items-center gap-2.5">
               <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Available Examination Rooms
+                Available Rooms
               </span>
-              <Badge variant="secondary" className="text-[11px] font-mono font-bold">
+              <span className="px-2 py-0.5 rounded-md bg-muted border border-border/70 text-muted-foreground text-xs font-mono font-semibold">
                 {selectedRoomIds.length} of {rooms.length} Selected
-              </Badge>
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1324,7 +1430,7 @@ export default function EmsMasterPage() {
                 type="button"
                 variant={selectedRoomIds.length === rooms.length ? "secondary" : "outline"}
                 onClick={handleToggleSelectAllRooms}
-                className="h-7 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer"
+                className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs transition-all"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-primary" />
                 {selectedRoomIds.length === rooms.length
@@ -1335,58 +1441,93 @@ export default function EmsMasterPage() {
                 size="sm"
                 variant="outline"
                 onClick={() => setRoomsManagerOpen(true)}
-                className="h-7 text-xs font-semibold gap-1 hover:border-primary/40 cursor-pointer"
+                className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs transition-all"
               >
                 <DoorOpen className="h-3.5 w-3.5 text-primary" /> Manage Rooms
               </Button>
               <Button
                 size="sm"
-                variant="ghost"
+                variant="default"
                 onClick={handleOpenNewRoom}
-                className="h-7 text-xs font-semibold gap-1 text-primary hover:bg-primary/10 cursor-pointer"
+                className="h-8 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs transition-all"
               >
                 <Plus className="h-3.5 w-3.5" /> New Room
               </Button>
             </div>
           </div>
 
-          {/* Room Cards Grid - 100% Clickable, Clean & Minimal */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Room Cards Grid - Clean, Spacious, Reorderable & Boostable */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {rooms.map((room, roomIdx) => {
               const isSelected = selectedRoomIds.includes(room.id);
               const roomBenchCount = room.columns.reduce((sum, c) => sum + c.benchCount, 0);
               const roomDynamicSeats = roomBenchCount * studentsPerBench;
+              const isDraggingThis = draggedRoomIndex === roomIdx;
+              const isDragOverThis = dragOverRoomIndex === roomIdx;
 
               return (
                 <div
                   key={room.id}
+                  draggable
+                  onDragStart={(e) => {
+                    setDraggedRoomIndex(roomIdx);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragOverRoomIndex !== roomIdx) {
+                      setDragOverRoomIndex(roomIdx);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverRoomIndex === roomIdx) {
+                      setDragOverRoomIndex(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (draggedRoomIndex !== null && draggedRoomIndex !== roomIdx) {
+                      reorderRooms(draggedRoomIndex, roomIdx);
+                    }
+                    setDraggedRoomIndex(null);
+                    setDragOverRoomIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRoomIndex(null);
+                    setDragOverRoomIndex(null);
+                  }}
                   onClick={() => toggleRoom(room.id)}
                   className={cn(
-                    "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-pointer select-none relative group",
+                    "p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3.5 shadow-2xs cursor-grab active:cursor-grabbing select-none relative group",
                     isSelected
-                      ? "border-primary bg-primary/[0.04] ring-1 ring-primary/40"
-                      : "border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20"
+                      ? "border-primary/80 bg-primary/[0.03] ring-1 ring-primary/30"
+                      : "border-border/70 bg-card hover:border-primary/40 hover:bg-muted/15",
+                    isDraggingThis && "opacity-40 scale-[0.98]",
+                    isDragOverThis && "ring-2 ring-primary border-primary bg-primary/10 scale-[1.01]"
                   )}
                 >
-                  {/* Top Row: Sequence Badge, Room Name, Edit Icon, Checkbox */}
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span
+                  {/* Top Row: Sequence Badge, Room Title, Edit & Checkbox */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {/* Sequence Badge */}
+                      <div
                         className={cn(
-                          "h-6 px-2 rounded-md text-[11px] font-bold font-mono tracking-wider flex items-center justify-center shrink-0 border",
+                          "h-7 min-w-[32px] px-2 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 border transition-all",
                           isSelected
                             ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                            : "bg-muted text-muted-foreground border-border"
+                            : "bg-muted text-muted-foreground border-border/70"
                         )}
+                        title={`Room Order Priority #${roomIdx + 1} (Drag to reorder)`}
                       >
                         #{roomIdx + 1}
-                      </span>
+                      </div>
+
                       <div className="min-w-0">
-                        <h4 className="font-bold text-xs text-foreground truncate">
-                          {room.roomNumber}
+                        <h4 className="font-bold text-sm text-foreground truncate flex items-center gap-1.5">
+                          <span>{room.roomNumber.toLowerCase().startsWith("room") ? room.roomNumber : `Room ${room.roomNumber}`}</span>
                         </h4>
                         {room.floor && (
-                          <p className="text-[10px] text-muted-foreground truncate">
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {room.floor}
                           </p>
                         )}
@@ -1394,20 +1535,20 @@ export default function EmsMasterPage() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Minimal Edit Icon Button */}
+                      {/* Edit Button */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenEditRoom(room);
                         }}
-                        className="h-7 w-7 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-background border border-transparent hover:border-border/60 flex items-center justify-center transition-all cursor-pointer"
+                        className="h-7 w-7 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-background border border-transparent hover:border-border/70 flex items-center justify-center transition-all cursor-pointer"
                         title="Edit Room Layout"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
 
-                      {/* Crisp Checkbox */}
+                      {/* Selection Checkbox */}
                       <div
                         className={cn(
                           "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
@@ -1421,16 +1562,13 @@ export default function EmsMasterPage() {
                     </div>
                   </div>
 
-                  {/* Bottom Row: Columns/Benches & Total Seats */}
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px]">
+                  {/* Bottom Row: Capacity & Layout metrics */}
+                  <div className="pt-2.5 border-t border-border/40 flex items-center justify-between text-xs">
                     <span className="text-muted-foreground font-medium">
-                      {room.columns.length} Columns • {roomBenchCount} Benches
+                      {roomBenchCount} Benches • {room.columns.length} Cols
                     </span>
-                    <span className="font-bold font-mono text-xs text-primary">
-                      {roomDynamicSeats} Seats{" "}
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        ({studentsPerBench}/bench)
-                      </span>
+                    <span className="font-bold font-mono text-sm text-primary">
+                      {roomDynamicSeats} Seats
                     </span>
                   </div>
                 </div>
@@ -1438,13 +1576,13 @@ export default function EmsMasterPage() {
             })}
           </div>
 
-          {/* Bottom Execution */}
-          <div className="pt-3 border-t border-border/60 flex items-center justify-between">
+          {/* Bottom Navigation Buttons */}
+          <div className="pt-4 border-t border-border/60 flex items-center justify-between gap-3">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setStep(2)}
-              className="text-xs font-semibold gap-1 cursor-pointer"
+              className="h-9 px-4 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs hover:border-primary/40 transition-all"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </Button>
@@ -1452,7 +1590,7 @@ export default function EmsMasterPage() {
               size="sm"
               onClick={handleExecuteAllocation}
               disabled={loading || selectedRooms.length === 0}
-              className="text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm disabled:opacity-50"
+              className="h-9 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground cursor-pointer shadow-sm hover:shadow-md transition-all disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -1461,8 +1599,8 @@ export default function EmsMasterPage() {
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  Proceed to Seat Arrangement <ArrowRight className="h-3.5 w-3.5" />
+                  <Sparkles className="h-4 w-4 text-amber-300 fill-amber-300/30" />
+                  Proceed to Seat Arrangement <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </Button>
@@ -1489,94 +1627,33 @@ export default function EmsMasterPage() {
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* STEP 5: Visual 2D Seating Blueprint (Read-Only Preview)      */}
+      {/* STEP 5: Dedicated Examination Print Suite Hub                */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 5 && (
-        <div className="space-y-4">
-          {/* Next-Level Minimal Header Bar with Room Switcher Pills & Master Print Suite Button */}
-          {generatedAllocation && (
-            <div className="p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/95 backdrop-blur-md shadow-xs space-y-3.5">
-              {/* Top Row: Title & Info */}
-              <div className="flex flex-wrap items-center justify-between gap-2.5 border-b border-border/40 pb-2.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                    {generatedAllocation.title}
-                  </h3>
-                  <Badge
-                    variant="secondary"
-                    className="text-xs font-mono font-semibold px-2.5 py-0.5 bg-muted/60"
-                  >
-                    {generatedAllocation.summary.totalStudents} Students • {studentsPerBench}/bench
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Bottom Row: Room Tabs (Left) + Master Print Button (Far Right) */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                {/* Room Switcher Tabs */}
-                <div className="flex items-center gap-1.5 overflow-x-auto bg-muted/40 p-1 rounded-xl border border-border/60 shadow-2xs">
-                  {generatedAllocation.roomAllocations.map((room, rIdx) => {
-                    const isSelected = room.roomId === activeBlueprintRoomId;
-                    return (
-                      <button
-                        key={room.roomId}
-                        onClick={() => setActiveBlueprintRoomId(room.roomId)}
-                        className={cn(
-                          "px-3.5 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 cursor-pointer select-none",
-                          isSelected
-                            ? "bg-background text-foreground shadow-xs font-bold border border-primary/30 ring-1 ring-primary/20"
-                            : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "px-1.5 py-0.5 rounded-md text-[10px] font-black font-mono tracking-wider",
-                            isSelected
-                              ? "bg-primary text-primary-foreground shadow-2xs"
-                              : "bg-muted text-muted-foreground border border-border/50"
-                          )}
-                        >
-                          #{rIdx + 1}
-                        </span>
-                        <DoorOpen className={cn("h-3.5 w-3.5", isSelected ? "text-primary" : "text-muted-foreground")} />
-                        <span>{room.roomNumber}</span>
-                        <span className="text-[10px] opacity-75 font-mono">
-                          ({room.occupiedSeats}/{room.totalSeats})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Master Print Button: Prominent, Wider, Far Right */}
-                <Button
-                  size="lg"
-                  onClick={() => setPrintDialogOpen(true)}
-                  className="sm:ml-auto h-11 px-6 sm:px-8 text-sm font-black tracking-wide rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-98 transition-all cursor-pointer border border-indigo-300/30 gap-2.5 shrink-0"
-                >
-                  <Printer className="h-4 w-4" />
-                  <span>Print Exam Suite</span>
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* 2D Visual Blueprint in Read-Only Mode */}
-          {activeBlueprintRoom ? (
-            <VisualRoomBlueprint
-              room={activeBlueprintRoom}
-              examTitle={generatedAllocation?.title}
-              examType={generatedAllocation?.examType}
-              readOnly={true}
-            />
-          ) : (
-            <div className="p-10 text-center border border-dashed rounded-xl">
-              <Armchair className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm font-semibold">No room selected</p>
-            </div>
-          )}
-        </div>
+        generatedAllocation ? (
+          <EmsPrintSuiteHub
+            allocation={generatedAllocation}
+            onBackToStep4={() => setStep(4)}
+            onViewBlueprint={() => setStep(4)}
+          />
+        ) : (
+          <div className="p-10 text-center border border-dashed rounded-2xl bg-muted/10 space-y-3">
+            <Printer className="h-8 w-8 text-muted-foreground mx-auto mb-1" />
+            <p className="text-sm font-semibold text-foreground">No Active Seating Allocation</p>
+            <p className="text-xs text-muted-foreground">
+              Please complete Step 3 and Step 4 to generate exam seat allocation.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setStep(3)}
+              className="text-xs font-semibold gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Return to Room Setup
+            </Button>
+          </div>
+        )
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
@@ -1609,9 +1686,9 @@ export default function EmsMasterPage() {
               onClick={() => {
                 setGeneratedAllocation(savedAllocations[0]);
                 setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
-                setStep(5);
+                setStep(4);
               }}
-              className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer"
+              className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
             >
               <RotateCcw className="h-3.5 w-3.5 text-primary" /> View Seating Blueprint
             </Button>
@@ -1621,11 +1698,11 @@ export default function EmsMasterPage() {
               onClick={() => {
                 setGeneratedAllocation(savedAllocations[0]);
                 setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
-                setPrintDialogOpen(true);
+                setStep(5);
               }}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs hover:scale-[1.01] active:scale-[0.98] transition-all"
             >
-              <Printer className="h-3.5 w-3.5" /> Print Suite
+              <Printer className="h-3.5 w-3.5" /> Open Print Suite
             </Button>
           </div>
         </div>
@@ -1639,6 +1716,10 @@ export default function EmsMasterPage() {
         onAddNewRoom={handleOpenNewRoom}
         onEditRoom={handleOpenEditRoom}
         onDeleteRoom={handleDeleteRoom}
+        onReorderRooms={(updatedRooms) => {
+          setRooms(updatedRooms);
+          saveRooms(updatedRooms);
+        }}
       />
 
       {/* Room Editor Dialog */}
