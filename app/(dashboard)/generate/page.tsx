@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Sparkles,
   Award,
@@ -29,19 +29,45 @@ import {
   Info,
   SlidersHorizontal,
   Contact,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { DBCertificateRow, CertificateStats } from "@/lib/supabase/db-certificates";
+import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
 import {
   getLocalCachedCertificates,
   getLocalCertificateStats,
-} from "@/lib/utils/certificate-registry";
-import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
+  type DBCertificateRow,
+  type CertificateStats,
+} from "@/lib/certificate/certificate-storage";
 
-type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "tracker";
+type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker";
+const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker"];
+
+function GenerateHubPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const categoryParam = searchParams.get("category") as CategoryFilter;
+  const initialCategory = categoryParam && VALID_GENERATE_CATEGORIES.includes(categoryParam) ? categoryParam : "all";
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategoryState] = useState<CategoryFilter>(initialCategory);
+
+  const setSelectedCategory = (cat: CategoryFilter) => {
+    setSelectedCategoryState(cat);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (cat === "all") {
+        url.searchParams.delete("category");
+      } else {
+        url.searchParams.set("category", cat);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
 interface GeneratorModule {
   id: string;
