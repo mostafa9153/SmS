@@ -37,7 +37,6 @@ export function VisualRoomBlueprint({
   onEditArrangement,
 }: VisualRoomBlueprintProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedClassFilter, setSelectedClassFilter] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [swapSourceSeat, setSwapSourceSeat] = useState<SeatAssignment | null>(null);
@@ -82,20 +81,13 @@ export function VisualRoomBlueprint({
     setSwapSourceSeat(null);
   };
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.15, 1.6));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.15, 0.7));
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(prev + 0.15, 1.5));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.15, 0.75));
   const handleResetZoom = () => setZoomLevel(1);
 
   // Seat search match
   const isSeatMatched = (seat: SeatAssignment) => {
     if (seat.isVacant) return false;
-
-    if (selectedClassFilter) {
-      const classKey = `${seat.studentClass}-${seat.studentSection || "A"}`;
-      if (classKey !== selectedClassFilter && seat.studentClass !== selectedClassFilter) {
-        return false;
-      }
-    }
 
     if (!searchQuery.trim()) return false;
     const q = searchQuery.trim().toLowerCase();
@@ -106,57 +98,95 @@ export function VisualRoomBlueprint({
   };
 
   return (
-    <div
-      className={`relative flex flex-col rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-xl transition-all duration-300 ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none bg-background p-4 overflow-y-auto" : "p-4 sm:p-6"
-      }`}
-    >
-      {/* Top Clean Header: Room title & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60">
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <DoorOpen className="h-5 w-5 text-primary" />
-            <span>{room.roomNumber}</span>
-          </h2>
-          <span className="text-xs text-muted-foreground font-mono">
-            ({room.occupiedSeats}/{room.totalSeats} Seated)
-          </span>
-        </div>
-
-        {/* Search & Zoom Controls */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-52">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search Roll / Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 text-base sm:text-xs h-9 sm:h-8 bg-background/80 rounded-xl"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
+    <div className={cn("relative z-10 space-y-3", isFullscreen && "fixed inset-0 z-50 bg-background p-6 overflow-auto")}>
+      {/* Blueprint Header / Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-muted/30 border border-border/60 rounded-2xl">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-foreground mr-1">
+            <DoorOpen className="h-4 w-4 text-primary" />
+            <span>Room {room.roomNumber}</span>
           </div>
 
-          <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-xl border border-border/60">
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={handleZoomOut} title="Zoom Out">
+          <Badge variant="secondary" className="font-mono text-[11px] h-5">
+            {room.totalAllocated} / {room.capacity} Allocated
+          </Badge>
+
+          {room.classesPresent.map((cls) => {
+            const theme = getClassColorStyle(cls);
+            return (
+              <span
+                key={cls}
+                className={cn(
+                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                  theme ? `${theme.badgeBg} ${theme.badgeText} ${theme.border}` : "bg-muted text-muted-foreground"
+                )}
+              >
+                <span className={cn("h-1.5 w-1.5 rounded-full", theme?.dotBg || "bg-primary")} />
+                Class {cls}
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Search & Actions */}
+        <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative w-36 sm:w-48">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Find student / roll..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-7.5 pl-8 pr-2 text-xs rounded-xl bg-background border border-border focus:border-primary focus:outline-none"
+            />
+          </div>
+
+          {/* Zoom Controls */}
+          <div className="flex items-center gap-0.5 bg-background border border-border/70 rounded-xl p-0.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6.5 w-6.5 rounded-lg"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 0.75}
+              title="Zoom Out"
+            >
               <ZoomOut className="h-3.5 w-3.5" />
             </Button>
-            <span className="text-[10px] font-mono px-1 font-semibold text-muted-foreground">
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              className="text-[10px] font-mono font-bold px-1.5 hover:text-primary cursor-pointer select-none"
+              title="Reset Zoom"
+            >
               {Math.round(zoomLevel * 100)}%
-            </span>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={handleZoomIn} title="Zoom In">
+            </button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6.5 w-6.5 rounded-lg"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 1.5}
+              title="Zoom In"
+            >
               <ZoomIn className="h-3.5 w-3.5" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg" onClick={handleResetZoom} title="Reset">
-              <RotateCcw className="h-3.5 w-3.5" />
-            </Button>
+          </div>
+
+          {/* Action Icons */}
+          <div className="flex items-center gap-1">
+            {onEditArrangement && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={onEditArrangement}
+              >
+                <RefreshCw className="h-3 w-3" /> Re-arrange
+              </Button>
+            )}
+
             <Button
               variant="ghost"
               size="icon"
@@ -169,46 +199,6 @@ export function VisualRoomBlueprint({
           </div>
         </div>
       </div>
-
-      {/* Class Quick Filters (if multiple classes) */}
-      {room.classesPresent.length > 1 && (
-        <div className="flex items-center gap-1.5 py-2 overflow-x-auto text-xs">
-          <Button
-            size="sm"
-            variant={selectedClassFilter === null ? "default" : "outline"}
-            className="h-6 text-xs rounded-md px-2"
-            onClick={() => setSelectedClassFilter(null)}
-          >
-            All
-          </Button>
-          {room.classesPresent.map((cls) => {
-            const theme = getClassColorStyle(cls);
-            const isSelected = selectedClassFilter === cls;
-            return (
-              <Button
-                key={cls}
-                size="sm"
-                variant={isSelected ? "default" : "outline"}
-                className={cn(
-                  "h-6 text-xs rounded-md px-2.5 font-semibold gap-1.5 transition-all cursor-pointer",
-                  isSelected
-                    ? theme?.badgeBg || "bg-primary text-white"
-                    : "hover:bg-muted text-foreground"
-                )}
-                onClick={() => setSelectedClassFilter(isSelected ? null : cls)}
-              >
-                <span
-                  className={cn(
-                    "h-2 w-2 rounded-full shrink-0",
-                    isSelected ? "bg-white" : theme?.dotBg || "bg-primary"
-                  )}
-                />
-                Class {cls}
-              </Button>
-            );
-          })}
-        </div>
-      )}
 
       {/* Swap Mode Banner */}
       {!readOnly && swapSourceSeat && (
