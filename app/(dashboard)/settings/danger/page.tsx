@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ShieldAlert } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import { DangerZoneTab } from "@/components/settings/danger-zone-tab";
@@ -16,7 +17,9 @@ export default function DangerSettingsPage() {
         icon={ShieldAlert}
         iconColor="text-rose-600 dark:text-rose-400 bg-rose-500/10"
       />
-      <DangerZoneTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Danger Zone...</div>}>
+        <DangerZoneTab />
+      </Suspense>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { UserCheck } from "lucide-react";
 import { SettingsBackButton } from "@/components/settings/settings-back-button";
 import { UsersTab } from "@/components/settings/users-tab";
@@ -35,7 +36,9 @@ export default function UsersSettingsPage() {
           </div>
         </div>
       </div>
-      <UsersTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Users...</div>}>
+        <UsersTab />
+      </Suspense>
     </div>
   );
 }

@@ -56,9 +56,22 @@ function MarksheetGeneratorContent() {
   const classParam = searchParams.get("class");
 
   // Mode: "single" vs "bulk"
-  const [generatorMode, setGeneratorMode] = useState<"single" | "bulk">(
+  const [generatorMode, setGeneratorModeState] = useState<"single" | "bulk">(
     modeParam === "bulk" ? "bulk" : "single"
   );
+
+  const setGeneratorMode = (m: "single" | "bulk") => {
+    setGeneratorModeState(m);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (m === "single") {
+        url.searchParams.delete("mode");
+      } else {
+        url.searchParams.set("mode", m);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);

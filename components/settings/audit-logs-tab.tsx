@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileText,
@@ -29,9 +30,29 @@ interface AuditLogEntry {
   };
 }
 
+const FILTER_OPTIONS = ["All", "CREATE", "UPDATE", "DELETE", "SYSTEM_CONFIG"];
+
 export function AuditLogsTab() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter") || searchParams.get("tab");
+  const initialFilter = filterParam && FILTER_OPTIONS.includes(filterParam) ? filterParam : "All";
+
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [activeFilter, setActiveFilterState] = useState<string>(initialFilter);
+
+  const setActiveFilter = (filter: string) => {
+    setActiveFilterState(filter);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filter === "All") {
+        url.searchParams.delete("filter");
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("filter", filter);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   const { data: logsData, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["admin", "audit-logs"],

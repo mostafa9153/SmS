@@ -3,6 +3,15 @@ import { EmsRoom, ExamAllocation } from "./types";
 
 const ROOMS_STORAGE_KEY = "sms_ems_saved_rooms_v1";
 const ALLOCATIONS_STORAGE_KEY = "sms_ems_saved_allocations_v1";
+const ACTIVE_ALLOCATION_STORAGE_KEY = "sms_ems_active_allocation_v1";
+
+// Maximum number of full exam allocations to retain in browser localStorage to prevent 5MB QuotaExceededError
+const MAX_SAVED_ALLOCATIONS = 5;
+
+// In-memory runtime cache for resilience if storage quota is strictly exhausted
+let memoryRooms: EmsRoom[] | null = null;
+let memoryAllocations: ExamAllocation[] | null = null;
+let memoryActiveAllocation: ExamAllocation | null = null;
 
 // Default pre-configured classrooms for immediate use
 export const DEFAULT_ROOMS: EmsRoom[] = [
@@ -59,7 +68,41 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
 
 // Helper to calculate total capacity from columns
 export function calculateRoomCapacity(columns: EmsRoom["columns"]): number {
-  return columns.reduce((total, col) => total + col.benchCount * (col.seatsPerBench || 3), 0);
+  if (!Array.isArray(columns)) return 0;
+  return columns.reduce((total, col) => total + (col.benchCount || 0) * (col.seatsPerBench || 3), 0);
+}
+
+// Safely write to storage with fallback
+function safeWriteItem(key: string, value: any): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const serialized = JSON.stringify(value);
+    try {
+      localStorage.setItem(key, serialized);
+      try {
+        sessionStorage.removeItem(key);
+      } catch {}
+      return true;
+    } catch (err: any) {
+      console.warn(`[EMS Storage] localStorage setItem failed for key "${key}", attempting fallback:`, err?.message || err);
+      try {
+        localStorage.removeItem(key);
+      } catch {}
+      try {
+        sessionStorage.setItem(key, serialized);
+        return true;
+      } catch (sessionErr) {
+        console.warn(`[EMS Storage] sessionStorage setItem also failed for key "${key}":`, sessionErr);
+        try {
+          sessionStorage.removeItem(key);
+        } catch {}
+        return false;
+      }
+    }
+  } catch (serializationErr) {
+    console.error(`[EMS Storage] JSON stringify failed for key "${key}":`, serializationErr);
+    return false;
+  }
 }
 
 // Retrieve all rooms (with fallback to default rooms)
@@ -67,25 +110,38 @@ export function getSavedRooms(): EmsRoom[] {
   if (typeof window === "undefined") return DEFAULT_ROOMS;
   try {
     const raw = localStorage.getItem(ROOMS_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(ROOMS_STORAGE_KEY, JSON.stringify(DEFAULT_ROOMS));
-      return DEFAULT_ROOMS;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        memoryRooms = parsed;
+        return parsed;
+      }
     }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ROOMS;
-  } catch (err) {
-    console.error("Error reading saved rooms from localStorage:", err);
+    const sessionRaw = sessionStorage.getItem(ROOMS_STORAGE_KEY);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        memoryRooms = parsed;
+        return parsed;
+      }
+    }
+    if (memoryRooms && memoryRooms.length > 0) {
+      return memoryRooms;
+    }
+    // Initialize default rooms in storage
+    safeWriteItem(ROOMS_STORAGE_KEY, DEFAULT_ROOMS);
+    memoryRooms = DEFAULT_ROOMS;
     return DEFAULT_ROOMS;
+  } catch (err) {
+    console.error("[EMS Storage] Error reading saved rooms:", err);
+    return memoryRooms || DEFAULT_ROOMS;
   }
 }
 
 export function saveRooms(rooms: EmsRoom[]): void {
   if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(ROOMS_STORAGE_KEY, JSON.stringify(rooms));
-  } catch (err) {
-    console.error("Error saving rooms to localStorage:", err);
-  }
+  memoryRooms = rooms;
+  safeWriteItem(ROOMS_STORAGE_KEY, rooms);
 
   // Background DB Sync
   try {
@@ -93,7 +149,7 @@ export function saveRooms(rooms: EmsRoom[]): void {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key: "ems_rooms", value: rooms }),
-    }).catch((err) => console.warn("Failed to sync rooms to DB:", err));
+    }).catch((err) => console.warn("[EMS Storage] Failed to sync rooms to DB:", err));
   } catch {}
 }
 
@@ -132,12 +188,94 @@ export function getSavedAllocations(): ExamAllocation[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(ALLOCATIONS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        memoryAllocations = parsed;
+        return parsed;
+      }
+    }
+    // Check sessionStorage fallback
+    const sessionRaw = sessionStorage.getItem(ALLOCATIONS_STORAGE_KEY);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (Array.isArray(parsed)) {
+        memoryAllocations = parsed;
+        return parsed;
+      }
+    }
+    return memoryAllocations || [];
   } catch (err) {
-    console.error("Error reading allocations:", err);
-    return [];
+    console.error("[EMS Storage] Error reading allocations:", err);
+    return memoryAllocations || [];
+  }
+}
+
+/**
+ * Quota-safe writer for allocations.
+ * Progressively prunes older allocations when localStorage quota is exceeded.
+ */
+function safePersistAllocations(allocations: ExamAllocation[]): void {
+  if (typeof window === "undefined") return;
+
+  if (!Array.isArray(allocations) || allocations.length === 0) {
+    memoryAllocations = [];
+    try {
+      localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify([]));
+    } catch {
+      try {
+        localStorage.removeItem(ALLOCATIONS_STORAGE_KEY);
+      } catch {}
+    }
+    try {
+      sessionStorage.removeItem(ALLOCATIONS_STORAGE_KEY);
+    } catch {}
+    return;
+  }
+
+  // Always enforce max limit on allocations retained
+  const cappedAllocations = allocations.slice(0, MAX_SAVED_ALLOCATIONS);
+  memoryAllocations = cappedAllocations;
+
+  let savedSuccessfully = false;
+
+  // Progressive eviction loop: try saving capped list, then 4, 3, 2, 1 if QuotaExceededError is thrown
+  for (let count = cappedAllocations.length; count >= 1; count--) {
+    const subset = cappedAllocations.slice(0, count);
+    try {
+      localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(subset));
+      savedSuccessfully = true;
+      try {
+        sessionStorage.removeItem(ALLOCATIONS_STORAGE_KEY);
+      } catch {}
+      if (count < cappedAllocations.length) {
+        console.warn(
+          `[EMS Storage] Pruned older allocations to fit browser storage quota (retained ${count} of ${cappedAllocations.length}).`
+        );
+      }
+      break;
+    } catch (err: any) {
+      // If quota exceeded, continue loop to try smaller subset
+      console.warn(`[EMS Storage] localStorage quota exceeded attempting to save ${count} allocations, evicting oldest...`);
+    }
+  }
+
+  // If even a single allocation failed to fit in localStorage, fallback to sessionStorage and memory
+  if (!savedSuccessfully) {
+    // Remove stale data from localStorage so it doesn't shadow sessionStorage fallback
+    try {
+      localStorage.removeItem(ALLOCATIONS_STORAGE_KEY);
+    } catch {}
+
+    try {
+      sessionStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(cappedAllocations.slice(0, 1)));
+      console.info("[EMS Storage] Saved latest allocation to sessionStorage as fallback.");
+    } catch (sessionErr) {
+      console.warn("[EMS Storage] Storage completely exhausted. Allocation preserved in runtime memory cache.", sessionErr);
+      try {
+        sessionStorage.removeItem(ALLOCATIONS_STORAGE_KEY);
+      } catch {}
+    }
   }
 }
 
@@ -147,7 +285,7 @@ export function saveAllocation(allocation: ExamAllocation): void {
   try {
     const allocations = getSavedAllocations();
     const index = allocations.findIndex((a) => a.id === allocation.id);
-    const updated = {
+    const updated: ExamAllocation = {
       ...allocation,
       updatedAt: new Date().toISOString(),
     };
@@ -156,7 +294,95 @@ export function saveAllocation(allocation: ExamAllocation): void {
     } else {
       allocations.unshift(updated);
     }
-    localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(allocations));
+
+    // Persist safely with quota management
+    safePersistAllocations(allocations);
+
+    // Update active allocation
+    saveActiveAllocation(updated);
+
+    // Background DB Sync
+    try {
+      fetch("/api/school-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "ems_allocations", value: allocations.slice(0, MAX_SAVED_ALLOCATIONS) }),
+      }).catch((err) => console.warn("[EMS Storage] Failed to sync allocations to DB:", err));
+    } catch {}
+  } catch (err) {
+    console.error("[EMS Storage] Error saving allocation:", err);
+  }
+}
+
+// Active allocation helpers
+export function getActiveAllocation(): ExamAllocation | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(ACTIVE_ALLOCATION_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        memoryActiveAllocation = parsed;
+        return parsed;
+      }
+    }
+    const sessionRaw = sessionStorage.getItem(ACTIVE_ALLOCATION_STORAGE_KEY);
+    if (sessionRaw) {
+      const parsed = JSON.parse(sessionRaw);
+      if (parsed && typeof parsed === "object") {
+        memoryActiveAllocation = parsed;
+        return parsed;
+      }
+    }
+    return memoryActiveAllocation;
+  } catch (err) {
+    console.error("[EMS Storage] Error reading active allocation:", err);
+    return memoryActiveAllocation;
+  }
+}
+
+export function saveActiveAllocation(allocation: ExamAllocation): void {
+  if (typeof window === "undefined") return;
+  memoryActiveAllocation = allocation;
+  safeWriteItem(ACTIVE_ALLOCATION_STORAGE_KEY, allocation);
+}
+
+export function clearActiveAllocation(): void {
+  if (typeof window === "undefined") return;
+  memoryActiveAllocation = null;
+  try {
+    localStorage.removeItem(ACTIVE_ALLOCATION_STORAGE_KEY);
+  } catch {}
+  try {
+    sessionStorage.removeItem(ACTIVE_ALLOCATION_STORAGE_KEY);
+  } catch {}
+}
+
+// Get allocation by ID
+export function getAllocationById(id: string): ExamAllocation | undefined {
+  const allocations = getSavedAllocations();
+  const found = allocations.find((a) => a.id === id);
+  if (found) return found;
+  const active = getActiveAllocation();
+  if (active && active.id === id) return active;
+  if (memoryAllocations) {
+    const memFound = memoryAllocations.find((a) => a.id === id);
+    if (memFound) return memFound;
+  }
+  return undefined;
+}
+
+export function deleteAllocation(id: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const allocations = getSavedAllocations().filter((a) => a.id !== id);
+    safePersistAllocations(allocations);
+
+    // If active allocation was deleted, clear it
+    const active = getActiveAllocation();
+    if (active && active.id === id) {
+      clearActiveAllocation();
+    }
 
     // Background DB Sync
     try {
@@ -164,32 +390,11 @@ export function saveAllocation(allocation: ExamAllocation): void {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key: "ems_allocations", value: allocations }),
-      }).catch((err) => console.warn("Failed to sync allocations to DB:", err));
+      }).catch((err) => console.warn("[EMS Storage] Failed to sync allocations deletion to DB:", err));
     } catch {}
   } catch (err) {
-    console.error("Error saving allocation:", err);
+    console.error("[EMS Storage] Error deleting allocation:", err);
   }
-}
-
-// Get allocation by ID
-export function getAllocationById(id: string): ExamAllocation | undefined {
-  const allocations = getSavedAllocations();
-  return allocations.find((a) => a.id === id);
-}
-
-export function deleteAllocation(id: string): void {
-  const allocations = getSavedAllocations().filter((a) => a.id !== id);
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ALLOCATIONS_STORAGE_KEY, JSON.stringify(allocations));
-
-  // Background DB Sync
-  try {
-    fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "ems_allocations", value: allocations }),
-    }).catch((err) => console.warn("Failed to sync allocations deletion to DB:", err));
-  } catch {}
 }
 
 // Swap two seats in an allocation

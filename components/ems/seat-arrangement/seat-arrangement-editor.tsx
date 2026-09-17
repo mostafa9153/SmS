@@ -30,7 +30,6 @@ import { PatternSelector } from "./pattern-selector";
 import { ColumnClassAssigner, AvailableClassOption } from "./column-class-assigner";
 import { MidFillClassPrompt } from "./mid-fill-class-prompt";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
-import { CustomSelect, CustomSelectOption } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,8 +96,8 @@ export function SeatArrangementEditor({
     effectiveRooms.length > 0 ? effectiveRooms[0].id : ""
   );
 
-  // State to toggle collapsible Step 4 control header (closed by default)
-  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false);
+  // State to toggle collapsible Step 4 control header
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(true);
 
   // Available classes derived from Step 2 with real DB continuing student count
   const availableClasses: AvailableClassOption[] = useMemo(() => {
@@ -126,26 +125,6 @@ export function SeatArrangementEditor({
 
     return Array.from(unique.values());
   }, [classes, allStudents]);
-
-  // Short exam title (e.g., "2nd Summative Evaluation" -> "2nd Summative")
-  const shortExamType = useMemo(() => {
-    if (!examType) return "";
-    return examType
-      .replace(/\s*Evaluation\s*/gi, "")
-      .replace(/\s*Exam\s*$/gi, "")
-      .trim();
-  }, [examType]);
-
-  // Short classes summary (e.g. "Class V, VI")
-  const chosenClassesSummary = useMemo(() => {
-    const list =
-      availableClasses.length > 0
-        ? availableClasses.map((c) => c.code.replace(/^Class\s*/i, "").trim())
-        : classes.map((c) => normalizeClassCode(c.class).replace(/^Class\s*/i, "").trim());
-    const unique = Array.from(new Set(list)).filter(Boolean);
-    if (unique.length === 0) return "";
-    return `Class ${unique.join(", ")}`;
-  }, [availableClasses, classes]);
 
   // Global student pool
   const studentPool = useMemo(() => {
@@ -268,20 +247,6 @@ export function SeatArrangementEditor({
 
   // UU Mid-Fill Class Prompt State
   const [promptState, setPromptState] = useState<ArrangementPromptState | null>(null);
-
-  // Room Select Options for quick navigation dropdown
-  const roomSelectOptions: CustomSelectOption[] = useMemo(() => {
-    return effectiveRooms.map((r, idx) => {
-      const alloc = roomAllocations.find((a) => a.roomId === r.id);
-      const occupied = alloc?.occupiedSeats || 0;
-      const total = alloc?.totalSeats || r.totalCapacity;
-      const isFull = occupied === total && total > 0;
-      return {
-        value: r.id,
-        label: `#${idx + 1} ${r.roomNumber} (${isFull ? `✓ ${occupied}/${total}` : `${occupied}/${total}`})`,
-      };
-    });
-  }, [effectiveRooms, roomAllocations]);
 
   // Push current state to undo history
   const pushHistorySnapshot = useCallback(() => {
@@ -710,61 +675,54 @@ export function SeatArrangementEditor({
       {/* ROOM CONFIGURATION PANEL: Algorithm & Column Assignments     */}
       {/* ──────────────────────────────────────────────────────────── */}
       {activeRoom && (
-        <div className="relative z-30 p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-xs space-y-3.5 shadow-xs">
-          {/* Header Row: Title + Exam Badge + Highlighted Edit Button */}
-          <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3">
-            <div className="flex items-center gap-2.5 min-w-0">
+        <div className="relative z-30 p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-xs space-y-4 shadow-xs">
+          {/* Clean Step 4 Header with Collapsible Toggle */}
+          <div className="flex items-center justify-between border-b border-border/40 pb-3">
+            <div className="flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <Armchair className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex items-center gap-2 min-w-0">
-                <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight truncate">
-                  Step 4: Seat Arrangement
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
+                  Step 4: Seat Arrangement & Blueprint
                 </h3>
-                {(shortExamType || chosenClassesSummary) && (
-                  <Badge className="bg-primary/10 text-primary border-primary/25 text-xs font-semibold px-2.5 py-0.5 shrink-0 inline-flex items-center gap-1.5 shadow-2xs">
-                    {shortExamType && <span>{shortExamType}</span>}
-                    {shortExamType && chosenClassesSummary && (
-                      <span className="opacity-40 font-normal">•</span>
-                    )}
-                    {chosenClassesSummary && <span>{chosenClassesSummary}</span>}
+                {examType && (
+                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2 py-0.5">
+                    {examType}
                   </Badge>
                 )}
               </div>
             </div>
 
-            {/* Highlighted Edit Button */}
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setIsConfigExpanded((prev) => !prev)}
-              className={cn(
-                "h-7.5 px-3 text-xs font-bold gap-1.5 cursor-pointer shadow-2xs transition-all",
-                isConfigExpanded
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
-              )}
-              title="Edit and customize column seats & directions"
-            >
-              <Sliders className="h-3.5 w-3.5" />
-              <span>{isConfigExpanded ? "Close Edit" : "Edit"}</span>
-              {isConfigExpanded ? (
-                <ChevronUp className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5" />
-              )}
-            </Button>
+            {/* Collapsible toggle button */}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsConfigExpanded((prev) => !prev)}
+                className="h-7.5 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
+              >
+                <Sliders className="h-3.5 w-3.5 text-primary" />
+                <span>{isConfigExpanded ? "Hide Pattern Rules" : "Edit Pattern & Columns"}</span>
+                {isConfigExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </Button>
+            </div>
           </div>
 
-          {/* Full-width 2-Strategy Pattern Switch Sections */}
-          <PatternSelector
-            value={activeConfig.pattern}
-            onChange={handlePatternChange}
-          />
-
-          {/* Collapsible Customizer: ONLY opens when user clicks Edit */}
-          {isConfigExpanded && (
+          {/* Collapsible Content */}
+          {isConfigExpanded ? (
             <div className="space-y-4 pt-1 animate-in fade-in duration-200">
+              {/* Pattern Selector */}
+              <PatternSelector
+                value={activeConfig.pattern}
+                onChange={handlePatternChange}
+              />
+
               {/* Column Class Assigner */}
               <ColumnClassAssigner
                 columns={activeRoom.columns}
@@ -799,78 +757,81 @@ export function SeatArrangementEditor({
                 </Button>
               </div>
             </div>
+          ) : (
+            /* Compact Summary Bar when collapsed */
+            <div className="py-1 flex items-center justify-between text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="font-mono text-[11px] font-bold">
+                  {activeConfig.pattern === "FIXED_U"
+                    ? "Pattern: Fixed Outer U-Loop"
+                    : "Pattern: Interleaved Snake Loop"}
+                </Badge>
+                <span>•</span>
+                <span>{activeRoom.columns.length} Columns Assigned</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfigExpanded(true)}
+                className="text-primary font-bold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span>Expand Controls</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
         </div>
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* ROOM SELECTOR: Compact Tabs & Quick Room Dropdown            */}
+      {/* ROOM SELECTOR SEGMENTED TAB BAR (Positioned Before Room)     */}
       {/* ──────────────────────────────────────────────────────────── */}
-      <div className="p-1.5 rounded-2xl bg-muted/40 border border-border/70 flex items-center justify-between gap-2 shadow-2xs">
-        {/* Left: Compact, sleek room pills */}
-        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
-          {effectiveRooms.map((room, roomIdx) => {
-            const isSelected = room.id === activeRoomId;
-            const alloc = roomAllocations.find((r) => r.roomId === room.id);
-            const occupied = alloc?.occupiedSeats || 0;
-            const total = alloc?.totalSeats || room.totalCapacity;
-            const isFull = occupied === total && total > 0;
-            const displayRoomNumber = room.roomNumber.replace(/^Room\s+/i, "");
+      <div className="p-1.5 rounded-2xl bg-muted/40 border border-border/70 flex items-center gap-1.5 overflow-x-auto shadow-2xs">
+        {effectiveRooms.map((room, roomIdx) => {
+          const isSelected = room.id === activeRoomId;
+          const alloc = roomAllocations.find((r) => r.roomId === room.id);
+          const occupied = alloc?.occupiedSeats || 0;
+          const total = alloc?.totalSeats || room.totalCapacity;
+          const isFull = occupied === total && total > 0;
 
-            return (
-              <button
-                key={room.id}
-                onClick={() => setActiveRoomId(room.id)}
+          return (
+            <button
+              key={room.id}
+              onClick={() => setActiveRoomId(room.id)}
+              className={cn(
+                "px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer shrink-0 border",
+                isSelected
+                  ? "bg-background text-foreground border-primary/40 shadow-xs font-bold ring-1 ring-primary/20"
+                  : "bg-transparent text-muted-foreground hover:text-foreground border-transparent hover:bg-background/50"
+              )}
+            >
+              <span
                 className={cn(
-                  "px-2.5 py-1.5 rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border",
+                  "px-1.5 py-0.5 rounded-md text-[10px] font-black font-mono tracking-wider",
                   isSelected
-                    ? "bg-background text-foreground border-primary/40 shadow-xs font-bold ring-1 ring-primary/20"
-                    : "bg-transparent text-muted-foreground hover:text-foreground border-transparent hover:bg-background/50"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "bg-muted text-muted-foreground border border-border/50"
                 )}
-                title={`Room ${room.roomNumber} - ${occupied}/${total} Allocated`}
               >
-                <span
-                  className={cn(
-                    "px-1 py-0.2 rounded-md text-[9px] font-black font-mono tracking-tight",
-                    isSelected
-                      ? "bg-primary text-primary-foreground shadow-2xs"
-                      : "bg-muted text-muted-foreground border border-border/50"
-                  )}
-                >
-                  #{roomIdx + 1}
-                </span>
-                <DoorOpen className={cn("h-3.5 w-3.5 shrink-0", isSelected ? "text-primary" : "text-muted-foreground")} />
-                <span className="font-semibold whitespace-nowrap">{displayRoomNumber}</span>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-[10px] px-1 py-0 h-4 font-mono font-semibold shrink-0 transition-colors",
-                    isFull
-                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
-                      : isSelected
-                      ? "bg-primary/10 text-primary border border-primary/20"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {isFull ? `✓ ${occupied}/${total}` : `${occupied}/${total}`}
-                </Badge>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right: Quick Room Dropdown for fast jumping */}
-        {effectiveRooms.length > 2 && (
-          <div className="w-40 sm:w-48 shrink-0">
-            <CustomSelect
-              value={activeRoomId}
-              onChange={(val) => setActiveRoomId(String(val))}
-              options={roomSelectOptions}
-              placeholder="Select Room..."
-              triggerClassName="h-7.5 text-xs font-bold bg-background border-border/70"
-            />
-          </div>
-        )}
+                #{roomIdx + 1}
+              </span>
+              <DoorOpen className={cn("h-3.5 w-3.5", isSelected ? "text-primary" : "text-muted-foreground")} />
+              <span className="font-semibold">{room.roomNumber}</span>
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[10px] px-1.5 py-0 h-4 font-mono font-semibold transition-colors",
+                  isFull
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
+                    : isSelected
+                    ? "bg-primary/10 text-primary border border-primary/20"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {isFull ? `✓ ${occupied}/${total}` : `${occupied}/${total} Seated`}
+              </Badge>
+            </button>
+          );
+        })}
       </div>
 
       {/* ──────────────────────────────────────────────────────────── */}

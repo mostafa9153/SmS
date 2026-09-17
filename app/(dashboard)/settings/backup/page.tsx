@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Cloud } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import { BackupRestoreTab } from "@/components/backup/backup-restore-tab";
@@ -16,7 +17,9 @@ export default function BackupSettingsPage() {
         icon={Cloud}
         iconColor="text-blue-600 dark:text-blue-400 bg-blue-500/10"
       />
-      <BackupRestoreTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Backup & Cloud...</div>}>
+        <BackupRestoreTab />
+      </Suspense>
     </div>
   );
 }

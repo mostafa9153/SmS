@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStudents, getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { updateReAdmissionStatus } from "@/lib/data/admission";
@@ -25,6 +26,7 @@ import {
   UserX,
   User,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, sortClasses } from "@/lib/utils";
@@ -47,12 +49,50 @@ const CLASS_NEXT_MAP: Record<string, string> = {
   XII: "Passed Out",
 };
 
-export default function ReAdmissionPage() {
+const VALID_RE_STATUSES = ["all", "pending", "admitted", "not_admitted"] as const;
+
+function ReAdmissionPageContent() {
   const queryClient = useQueryClient();
-  const [selectedClass, setSelectedClass] = useState<string>("V");
-  const [selectedSection, setSelectedSection] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const searchParams = useSearchParams();
+
+  const statusParam = searchParams.get("status") as any;
+  const initialStatus = statusParam && VALID_RE_STATUSES.includes(statusParam) ? statusParam : "all";
+  const classParam = searchParams.get("class");
+  const sectionParam = searchParams.get("section");
+
+  const [selectedClass, setSelectedClassState] = useState<string>(classParam || "V");
+  const [selectedSection, setSelectedSectionState] = useState<string>(sectionParam || "");
+  const [statusFilter, setStatusFilterState] = useState<string>(initialStatus);
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const updateReUrl = (paramsToUpdate: Record<string, string | null>) => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      Object.entries(paramsToUpdate).forEach(([k, v]) => {
+        if (!v || (k === "status" && v === "all") || (k === "class" && v === "V")) {
+          url.searchParams.delete(k);
+        } else {
+          url.searchParams.set(k, v);
+        }
+      });
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  const setSelectedClass = (cls: string) => {
+    setSelectedClassState(cls);
+    updateReUrl({ class: cls });
+  };
+
+  const setSelectedSection = (sec: string) => {
+    setSelectedSectionState(sec);
+    updateReUrl({ section: sec });
+  };
+
+  const setStatusFilter = (st: string) => {
+    setStatusFilterState(st);
+    updateReUrl({ status: st });
+  };
 
   // Modal State
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
@@ -795,5 +835,20 @@ export default function ReAdmissionPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ReAdmissionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Re-Admission Desk...</span>
+        </div>
+      }
+    >
+      <ReAdmissionPageContent />
+    </Suspense>
   );
 }

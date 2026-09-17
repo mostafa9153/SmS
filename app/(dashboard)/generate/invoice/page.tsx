@@ -518,6 +518,15 @@ function InvoiceGeneratorContent() {
 
   function handleModeChange(mode: "single" | "bulk") {
     setGeneratorMode(mode);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (mode === "single") {
+        url.searchParams.delete("mode");
+      } else {
+        url.searchParams.set("mode", mode);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
     const targetClass = mode === "bulk" ? bulkClass : invoice.studentClass;
     const category = getFeeCategoryForClass(targetClass);
     setActiveFeeCategory(category);

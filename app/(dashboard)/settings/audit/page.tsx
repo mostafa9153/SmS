@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Activity } from "lucide-react";
 import { SettingsBackButton } from "@/components/settings/settings-back-button";
 import { AuditLogsTab } from "@/components/settings/audit-logs-tab";
@@ -35,7 +36,9 @@ export default function AuditLogsSettingsPage() {
           </div>
         </div>
       </div>
-      <AuditLogsTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Audit Logs...</div>}>
+        <AuditLogsTab />
+      </Suspense>
     </div>
   );
 }

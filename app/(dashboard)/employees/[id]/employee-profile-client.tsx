@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   User,
@@ -32,13 +33,34 @@ import { StaffSignatureCard } from "@/components/employees/staff-signature-card"
 import { StaffDeleteDialog } from "@/components/employees/staff-delete-dialog";
 import { cn, calculateDetailedAge } from "@/lib/utils";
 
+const VALID_EMPLOYEE_TABS = ["primary", "personal", "contact", "professional"] as const;
+type EmployeeTab = (typeof VALID_EMPLOYEE_TABS)[number];
+
 interface EmployeeProfileClientProps {
   staff: any;
 }
 
 export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileClientProps) {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as EmployeeTab;
+  const initialTab = tabParam && VALID_EMPLOYEE_TABS.includes(tabParam) ? tabParam : "primary";
+
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [currentStaff, setCurrentStaff] = useState(initialStaff);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (val === "primary") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", val);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   const dAge = currentStaff.dob ? calculateDetailedAge(currentStaff.dob) : null;
   const bank = currentStaff.bank_details || {};
@@ -254,7 +276,7 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
       </div>
 
       {/* 3. 4-Tab Structured Details View */}
-      <Tabs defaultValue="primary" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="bg-muted/80 p-1 rounded-2xl border border-border/80 flex flex-wrap h-auto gap-1">
           <TabsTrigger
             value="primary"

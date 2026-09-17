@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { EmsStepperMap, StepItem } from "@/components/ems/ems-stepper-map";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
 import { RoomEditorDialog } from "@/components/ems/room-editor-dialog";
@@ -65,8 +65,13 @@ import {
   X,
   GraduationCap,
   Layers,
+  GripVertical,
+  ChevronLeft,
+  ChevronRight,
+  ArrowUpDown,
 } from "lucide-react";
-import { EmsPrintStudio } from "@/components/ems/print/ems-print-studio";
+import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
+import { EmsPrintSuiteHub } from "@/components/ems/print/ems-print-suite-hub";
 import { SeatArrangementEditor } from "@/components/ems/seat-arrangement/seat-arrangement-editor";
 import { getClassColorStyle } from "@/components/ems/seat-card";
 import {
@@ -202,45 +207,16 @@ const STEPS: StepItem[] = [
   { id: 1, title: "Session & Exam" },
   { id: 2, title: "Class & Students" },
   { id: 3, title: "Room & Benches" },
-  { id: 4, title: "Seat Arrangement" },
+  { id: 4, title: "Seat Arrangement & Blueprint" },
   { id: 5, title: "Print Suite" },
 ];
 
-function updateUrlParam(key: string, value: string) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  if (value) {
-    url.searchParams.set(key, value);
-  } else {
-    url.searchParams.delete(key);
-  }
-  window.history.replaceState(null, "", url.toString());
-}
-
-function EmsMasterPageContent() {
+export default function EmsMasterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  // Initialize step from URL param if available (1..5)
-  const stepParam = searchParams.get("step");
-  const initialStep = stepParam ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 5) : 1;
-
-  // Wizard Step State with URL synchronization
-  const [step, setStepState] = useState<number>(initialStep);
-  const [completedSteps, setCompletedSteps] = useState<number[]>(() => {
-    if (initialStep > 1) {
-      return Array.from({ length: initialStep - 1 }, (_, i) => i + 1);
-    }
-    return [];
-  });
-
-  const setStep = (newStep: number | ((prev: number) => number)) => {
-    setStepState((prev) => {
-      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
-      updateUrlParam("step", String(nextStep));
-      return nextStep;
-    });
-  };
+  // Wizard Step State
+  const [step, setStep] = useState<number>(1);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(2026);
@@ -283,10 +259,16 @@ function EmsMasterPageContent() {
     saveRooms(updated);
   };
 
+  const handleMoveRoom = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    reorderRooms(index, targetIndex);
+  };
+
   // Step 4: Visual Seating Blueprint & History
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
   const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
   const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Loading & Mismatch Modal
   const [loading, setLoading] = useState(false);
@@ -314,20 +296,7 @@ function EmsMasterPageContent() {
     if (saved.length > 0) {
       setSelectedRoomIds([saved[0].id]);
     }
-    const savedAllocs = getSavedAllocations();
-    setSavedAllocations(savedAllocs);
-    if (savedAllocs.length > 0) {
-      setGeneratedAllocation((prev) => {
-        if (!prev) {
-          const first = savedAllocs[0];
-          if (first.roomAllocations && first.roomAllocations.length > 0) {
-            setActiveBlueprintRoomId(first.roomAllocations[0].roomId);
-          }
-          return first;
-        }
-        return prev;
-      });
-    }
+    setSavedAllocations(getSavedAllocations());
 
     // Fetch continuing students & initialize class groups with all sections and auto-fetched roll ranges
     fetchContinuingStudents().then((loadedStudents) => {
@@ -1325,23 +1294,23 @@ function EmsMasterPageContent() {
       {/* STEP 3: Room & Benches Configuration                         */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 3 && (
-        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-6 shadow-sm space-y-5">
+        <div className="rounded-2xl border border-border/80 bg-card p-4 sm:p-5 shadow-xs space-y-4">
           {/* Step 3 Header with Students Per Bench Control */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <Building2 className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-foreground tracking-tight">
+                <h2 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
                   Room Selection & Bench Capacity
                 </h2>
               </div>
             </div>
 
             {/* Students Per Bench Segmented Control */}
-            <div className="flex items-center gap-1.5 bg-muted/50 p-1.5 rounded-xl border border-border/70 self-start sm:self-auto shadow-2xs">
-              <span className="text-[11px] font-semibold text-muted-foreground px-2.5 flex items-center gap-1.5 select-none">
+            <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border/60">
+              <span className="text-[11px] font-semibold text-muted-foreground px-2 flex items-center gap-1 select-none">
                 <Armchair className="h-3.5 w-3.5 text-primary" /> Per Bench:
               </span>
               {[1, 2, 3].map((num) => (
@@ -1350,10 +1319,10 @@ function EmsMasterPageContent() {
                   type="button"
                   onClick={() => setStudentsPerBench(num)}
                   className={cn(
-                    "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+                    "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer",
                     studentsPerBench === num
-                      ? "bg-primary text-primary-foreground shadow-xs scale-[1.02]"
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/80"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                 >
                   {num} {num === 1 ? "Seater" : num === 3 ? "Seater (Std)" : "Seater"}
@@ -1362,7 +1331,7 @@ function EmsMasterPageContent() {
             </div>
           </div>
 
-          {/* Clean Spacious Capacity Summary Bar */}
+          {/* Ultra-Clean Compact Capacity Status Bar */}
           {(() => {
             const accommodatedStudents = Math.min(totalStudentsExpected, totalDynamicCapacity);
             const availableSeats = Math.max(0, totalDynamicCapacity - totalStudentsExpected);
@@ -1373,75 +1342,57 @@ function EmsMasterPageContent() {
                 : 0;
 
             return (
-              <div className="p-4 rounded-xl border border-border/70 bg-muted/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-                  {/* Candidates */}
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                      <Users className="h-3.5 w-3.5" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                        Candidates
-                      </div>
-                      <div className="font-bold font-mono text-foreground text-sm">
-                        {totalStudentsExpected}
-                      </div>
-                    </div>
+              <div className="p-3 sm:p-3.5 rounded-xl border border-border/70 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <Users className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">Candidates:</span>
+                    <span className="font-bold font-mono text-foreground text-sm">
+                      {totalStudentsExpected}
+                    </span>
                   </div>
 
-                  <div className="h-8 w-[1px] bg-border/60 hidden sm:block" />
+                  <span className="text-muted-foreground/30 hidden sm:inline">•</span>
 
-                  {/* Selected Capacity */}
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                      <Armchair className="h-3.5 w-3.5" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] uppercase font-semibold text-muted-foreground tracking-wider">
-                        Selected Capacity
-                      </div>
-                      <div className="font-bold font-mono text-foreground text-sm flex items-center gap-1.5">
-                        <span>{totalDynamicCapacity} Seats</span>
-                        <span className="text-xs font-normal text-muted-foreground">
-                          ({selectedRooms.length} of {rooms.length} Rooms)
-                        </span>
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-1.5">
+                    <Armchair className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">Selected Seats:</span>
+                    <span className="font-bold font-mono text-foreground text-sm">
+                      {totalDynamicCapacity}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      ({selectedRooms.length} of {rooms.length} Rooms)
+                    </span>
                   </div>
 
-                  <div className="h-8 w-[1px] bg-border/60 hidden sm:block" />
-
-                  {/* Status Badge */}
-                  <div>
-                    {deficitStudents > 0 ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive text-xs font-semibold">
-                        <AlertCircle className="h-3.5 w-3.5" /> Short by {deficitStudents} seats
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> All Accommodated (+{availableSeats} extra)
-                      </span>
-                    )}
-                  </div>
+                  {deficitStudents > 0 ? (
+                    <Badge variant="destructive" className="text-[11px] font-semibold gap-1 py-0.5">
+                      <AlertCircle className="h-3 w-3" /> Short by {deficitStudents} seats
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-semibold gap-1 py-0.5 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    >
+                      <CheckCircle2 className="h-3 w-3" /> All Accommodated (+{availableSeats} extra)
+                    </Badge>
+                  )}
                 </div>
 
-                {/* Progress Bar */}
+                {/* Compact Progress Indicator */}
                 {totalDynamicCapacity > 0 && (
-                  <div className="w-full md:w-48 space-y-1.5 shrink-0">
-                    <div className="flex justify-between text-[11px] text-muted-foreground font-mono font-medium">
+                  <div className="w-full sm:w-44 space-y-1 shrink-0">
+                    <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
                       <span>Occupancy: {capacityPercent}%</span>
                       <span>
                         {accommodatedStudents}/{totalDynamicCapacity}
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden border border-border/60">
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden border border-border/50">
                       <div
                         className={cn(
                           "h-full rounded-full transition-all duration-500",
-                          deficitStudents > 0
-                            ? "bg-rose-500"
-                            : "bg-gradient-to-r from-primary to-primary/80"
+                          deficitStudents > 0 ? "bg-rose-500" : "bg-primary"
                         )}
                         style={{ width: `${capacityPercent}%` }}
                       />
@@ -1453,14 +1404,14 @@ function EmsMasterPageContent() {
           })()}
 
           {/* Rooms Selection Toolbar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+            <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-foreground uppercase tracking-wider">
-                Available Rooms
+                Available Examination Rooms
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-muted border border-border/70 text-muted-foreground text-xs font-mono font-semibold">
+              <Badge variant="secondary" className="text-[11px] font-mono font-bold">
                 {selectedRoomIds.length} of {rooms.length} Selected
-              </span>
+              </Badge>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1469,7 +1420,7 @@ function EmsMasterPageContent() {
                 type="button"
                 variant={selectedRoomIds.length === rooms.length ? "secondary" : "outline"}
                 onClick={handleToggleSelectAllRooms}
-                className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs transition-all"
+                className="h-7 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-primary" />
                 {selectedRoomIds.length === rooms.length
@@ -1480,93 +1431,58 @@ function EmsMasterPageContent() {
                 size="sm"
                 variant="outline"
                 onClick={() => setRoomsManagerOpen(true)}
-                className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs transition-all"
+                className="h-7 text-xs font-semibold gap-1 hover:border-primary/40 cursor-pointer"
               >
                 <DoorOpen className="h-3.5 w-3.5 text-primary" /> Manage Rooms
               </Button>
               <Button
                 size="sm"
-                variant="default"
+                variant="ghost"
                 onClick={handleOpenNewRoom}
-                className="h-8 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs transition-all"
+                className="h-7 text-xs font-semibold gap-1 text-primary hover:bg-primary/10 cursor-pointer"
               >
                 <Plus className="h-3.5 w-3.5" /> New Room
               </Button>
             </div>
           </div>
 
-          {/* Room Cards Grid - Clean, Spacious, Reorderable & Boostable */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          {/* Room Cards Grid - 100% Clickable, Clean & Minimal */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {rooms.map((room, roomIdx) => {
               const isSelected = selectedRoomIds.includes(room.id);
               const roomBenchCount = room.columns.reduce((sum, c) => sum + c.benchCount, 0);
               const roomDynamicSeats = roomBenchCount * studentsPerBench;
-              const isDraggingThis = draggedRoomIndex === roomIdx;
-              const isDragOverThis = dragOverRoomIndex === roomIdx;
 
               return (
                 <div
                   key={room.id}
-                  draggable
-                  onDragStart={(e) => {
-                    setDraggedRoomIndex(roomIdx);
-                    e.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (dragOverRoomIndex !== roomIdx) {
-                      setDragOverRoomIndex(roomIdx);
-                    }
-                  }}
-                  onDragLeave={() => {
-                    if (dragOverRoomIndex === roomIdx) {
-                      setDragOverRoomIndex(null);
-                    }
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    if (draggedRoomIndex !== null && draggedRoomIndex !== roomIdx) {
-                      reorderRooms(draggedRoomIndex, roomIdx);
-                    }
-                    setDraggedRoomIndex(null);
-                    setDragOverRoomIndex(null);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedRoomIndex(null);
-                    setDragOverRoomIndex(null);
-                  }}
                   onClick={() => toggleRoom(room.id)}
                   className={cn(
-                    "p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-3.5 shadow-2xs cursor-grab active:cursor-grabbing select-none relative group",
+                    "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-pointer select-none relative group",
                     isSelected
-                      ? "border-primary/80 bg-primary/[0.03] ring-1 ring-primary/30"
-                      : "border-border/70 bg-card hover:border-primary/40 hover:bg-muted/15",
-                    isDraggingThis && "opacity-40 scale-[0.98]",
-                    isDragOverThis && "ring-2 ring-primary border-primary bg-primary/10 scale-[1.01]"
+                      ? "border-primary bg-primary/[0.04] ring-1 ring-primary/40"
+                      : "border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20"
                   )}
                 >
-                  {/* Top Row: Sequence Badge, Room Title, Edit & Checkbox */}
-                  <div className="flex items-start justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      {/* Sequence Badge */}
-                      <div
+                  {/* Top Row: Sequence Badge, Room Name, Edit Icon, Checkbox */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span
                         className={cn(
-                          "h-7 min-w-[32px] px-2 rounded-lg text-xs font-bold font-mono flex items-center justify-center shrink-0 border transition-all",
+                          "h-6 px-2 rounded-md text-[11px] font-bold font-mono tracking-wider flex items-center justify-center shrink-0 border",
                           isSelected
                             ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                            : "bg-muted text-muted-foreground border-border/70"
+                            : "bg-muted text-muted-foreground border-border"
                         )}
-                        title={`Room Order Priority #${roomIdx + 1} (Drag to reorder)`}
                       >
                         #{roomIdx + 1}
-                      </div>
-
+                      </span>
                       <div className="min-w-0">
-                        <h4 className="font-bold text-sm text-foreground truncate flex items-center gap-1.5">
-                          <span>{room.roomNumber.toLowerCase().startsWith("room") ? room.roomNumber : `Room ${room.roomNumber}`}</span>
+                        <h4 className="font-bold text-xs text-foreground truncate">
+                          {room.roomNumber}
                         </h4>
                         {room.floor && (
-                          <p className="text-[11px] text-muted-foreground truncate">
+                          <p className="text-[10px] text-muted-foreground truncate">
                             {room.floor}
                           </p>
                         )}
@@ -1574,20 +1490,20 @@ function EmsMasterPageContent() {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      {/* Edit Button */}
+                      {/* Minimal Edit Icon Button */}
                       <button
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenEditRoom(room);
                         }}
-                        className="h-7 w-7 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-background border border-transparent hover:border-border/70 flex items-center justify-center transition-all cursor-pointer"
+                        className="h-7 w-7 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-background border border-transparent hover:border-border/60 flex items-center justify-center transition-all cursor-pointer"
                         title="Edit Room Layout"
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
 
-                      {/* Selection Checkbox */}
+                      {/* Crisp Checkbox */}
                       <div
                         className={cn(
                           "h-5 w-5 rounded-md border flex items-center justify-center transition-all",
@@ -1601,13 +1517,16 @@ function EmsMasterPageContent() {
                     </div>
                   </div>
 
-                  {/* Bottom Row: Capacity & Layout metrics */}
-                  <div className="pt-2.5 border-t border-border/40 flex items-center justify-between text-xs">
+                  {/* Bottom Row: Columns/Benches & Total Seats */}
+                  <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px]">
                     <span className="text-muted-foreground font-medium">
-                      {roomBenchCount} Benches • {room.columns.length} Cols
+                      {room.columns.length} Columns • {roomBenchCount} Benches
                     </span>
-                    <span className="font-bold font-mono text-sm text-primary">
-                      {roomDynamicSeats} Seats
+                    <span className="font-bold font-mono text-xs text-primary">
+                      {roomDynamicSeats} Seats{" "}
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        ({studentsPerBench}/bench)
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -1615,13 +1534,13 @@ function EmsMasterPageContent() {
             })}
           </div>
 
-          {/* Bottom Navigation Buttons */}
-          <div className="pt-4 border-t border-border/60 flex items-center justify-between gap-3">
+          {/* Bottom Execution */}
+          <div className="pt-3 border-t border-border/60 flex items-center justify-between">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setStep(2)}
-              className="h-9 px-4 text-xs font-semibold gap-1.5 cursor-pointer shadow-2xs hover:border-primary/40 transition-all"
+              className="text-xs font-semibold gap-1 cursor-pointer"
             >
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </Button>
@@ -1629,7 +1548,7 @@ function EmsMasterPageContent() {
               size="sm"
               onClick={handleExecuteAllocation}
               disabled={loading || selectedRooms.length === 0}
-              className="h-9 px-5 text-xs font-bold gap-2 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary text-primary-foreground cursor-pointer shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+              className="text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-sm disabled:opacity-50"
             >
               {loading ? (
                 <>
@@ -1638,8 +1557,8 @@ function EmsMasterPageContent() {
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4 text-amber-300 fill-amber-300/30" />
-                  Proceed to Seat Arrangement <ArrowRight className="h-4 w-4" />
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  Proceed to Seat Arrangement <ArrowRight className="h-3.5 w-3.5" />
                 </>
               )}
             </Button>
@@ -1666,13 +1585,12 @@ function EmsMasterPageContent() {
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* STEP 5: Dedicated Examination Print Suite Studio             */}
+      {/* STEP 5: Dedicated Examination Print Suite Hub                */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 5 && (
         generatedAllocation ? (
-          <EmsPrintStudio
+          <EmsPrintSuiteHub
             allocation={generatedAllocation}
-            defaultRoomId={activeBlueprintRoomId || "ALL"}
             onBackToStep4={() => setStep(4)}
             onViewBlueprint={() => setStep(4)}
           />
@@ -1756,10 +1674,6 @@ function EmsMasterPageContent() {
         onAddNewRoom={handleOpenNewRoom}
         onEditRoom={handleOpenEditRoom}
         onDeleteRoom={handleDeleteRoom}
-        onReorderRooms={(updatedRooms) => {
-          setRooms(updatedRooms);
-          saveRooms(updatedRooms);
-        }}
       />
 
       {/* Room Editor Dialog */}
@@ -1782,21 +1696,16 @@ function EmsMasterPageContent() {
         report={mismatchReport}
         allowProceedOnError={true}
       />
-    </div>
-  );
-}
 
-export default function EmsMasterPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
-          <span>Loading Examination Suite...</span>
-        </div>
-      }
-    >
-      <EmsMasterPageContent />
-    </Suspense>
+      {/* EMS Print Suite Modal */}
+      {generatedAllocation && (
+        <EmsPrintDialog
+          open={printDialogOpen}
+          onOpenChange={setPrintDialogOpen}
+          allocation={generatedAllocation}
+          defaultRoomId={activeBlueprintRoomId || "ALL"}
+        />
+      )}
+    </div>
   );
 }

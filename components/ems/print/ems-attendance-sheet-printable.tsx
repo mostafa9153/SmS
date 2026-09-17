@@ -10,7 +10,8 @@ export interface EmsAttendanceSheetPrintableProps {
   examType: string;
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
-  examHeaders?: string[]; // Array of up to 8 strings for Date/Subject
+  examHeaders?: string[]; // Array of up to 8 strings for Subject
+  examDates?: string[]; // Array of up to 8 strings for Exam dates
 }
 
 interface StudentRowItem {
@@ -27,9 +28,12 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
   schoolProfile,
   targetRoomId = "ALL",
   examHeaders = ["Date 1", "Date 2", "Date 3", "Date 4", "Date 5", "Date 6", "Date 7", "Date 8"],
+  examDates = [],
 }) => {
   // Ensure exactly 8 headers
-  const columns8 = Array.from({ length: 8 }).map((_, i) => examHeaders[i] || `Exam ${i + 1}`);
+  const columns8 = Array.from({ length: 8 }).map((_, i) =>
+    examHeaders[i] !== undefined ? examHeaders[i] : `Exam ${i + 1}`
+  );
 
   // Filter target rooms
   const activeRooms =
@@ -208,14 +212,25 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                         </tr>
                         <tr className="bg-white border-b-[1.5px] border-black">
                           {/* 8 Exam Columns - Date Row */}
-                          {columns8.map((_, i) => (
-                            <th
-                              key={`th-date-${i}`}
-                              className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-700 h-[6mm] select-none"
-                            >
-                              <span className="font-mono tracking-widest">&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;</span>
-                            </th>
-                          ))}
+                          {columns8.map((_, i) => {
+                            const dateVal = examDates?.[i]?.trim();
+                            return (
+                              <th
+                                key={`th-date-${i}`}
+                                className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-800 h-[6mm]"
+                              >
+                                {dateVal ? (
+                                  <span className="font-mono font-bold tracking-tight text-[8px] text-black">
+                                    {dateVal}
+                                  </span>
+                                ) : (
+                                  <span className="font-mono tracking-widest text-neutral-400 select-none">
+                                    &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;
+                                  </span>
+                                )}
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody className="flex-1">

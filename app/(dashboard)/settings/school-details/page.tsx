@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { School } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import { SchoolDetailsTab } from "@/components/school-details/school-details-tab";
@@ -16,7 +17,9 @@ export default function SchoolDetailsSettingsPage() {
         icon={School}
         iconColor="text-amber-600 dark:text-amber-400 bg-amber-500/10"
       />
-      <SchoolDetailsTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading School Details...</div>}>
+        <SchoolDetailsTab />
+      </Suspense>
     </div>
   );
 }

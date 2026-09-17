@@ -27,9 +27,6 @@ export interface ColumnClassAllocationConfig {
   assignedClassCode: string;  // = s1ClassCode
   assignedSection?: string;
   secondaryClassCode?: string; // = s2ClassCode
-  // Dynamic per-seat fill direction. Key is 1-based seat index (e.g. 1 for S1, 2 for S2).
-  // If not provided for a seat, defaults to 'top-to-bottom'.
-  seatDirections?: Record<number, FillDirection>;
 }
 
 export interface RoomArrangementConfig {
