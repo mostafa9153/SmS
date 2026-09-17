@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdmissionApplications, admitNewStudentApplication } from "@/lib/data/admission";
 import type { AdmissionApplication } from "@/lib/types";
@@ -23,6 +24,7 @@ import {
   ExternalLink,
   Filter,
   RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -33,11 +35,31 @@ import {
   FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
-export default function ApplicationsDeskPage() {
+const VALID_APP_STATUSES = ["pending", "admitted", "rejected", "all"] as const;
+
+function ApplicationsDeskPageContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+
+  const statusParam = searchParams.get("status") as any;
+  const initialStatus = statusParam && VALID_APP_STATUSES.includes(statusParam) ? statusParam : "pending";
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilterState] = useState(initialStatus);
   const [classFilter, setClassFilter] = useState("all");
+
+  const setStatusFilter = (st: string) => {
+    setStatusFilterState(st);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (st === "pending") {
+        url.searchParams.delete("status");
+      } else {
+        url.searchParams.set("status", st);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Admit Verification Modal State
   const [selectedApp, setSelectedApp] = useState<AdmissionApplication | null>(null);
@@ -579,5 +601,20 @@ export default function ApplicationsDeskPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ApplicationsDeskPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Applications Desk...</span>
+        </div>
+      }
+    >
+      <ApplicationsDeskPageContent />
+    </Suspense>
   );
 }
