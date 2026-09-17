@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   GraduationCap,
   Users,
@@ -30,12 +31,18 @@ import {
   BarChart3,
   Layers,
   Sparkles,
+  Award,
+  Loader2,
+  Calendar,
+  Lock,
+  Unlock,
+  Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +51,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -51,6 +60,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { showToast } from "@/components/ui/toast-banner";
 import type { TeacherPermissions } from "@/lib/types/teacher";
 import { DataTableSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
 
@@ -165,8 +176,26 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
   },
 ];
 
-export default function AdminTeacherManagementPage() {
-  const [activeTab, setActiveTab] = useState<"accounts" | "classes" | "tasks" | "performance">("accounts");
+const VALID_TEACHER_TABS = ["accounts", "classes", "tasks", "performance"] as const;
+
+function AdminTeacherManagementContent() {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as any;
+  const initialTab = tabParam && VALID_TEACHER_TABS.includes(tabParam) ? tabParam : "accounts";
+  const [activeTab, setActiveTabState] = useState<"accounts" | "classes" | "tasks" | "performance">(initialTab);
+
+  const setActiveTab = (tab: "accounts" | "classes" | "tasks" | "performance") => {
+    setActiveTabState(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "accounts") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", tab);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -2193,5 +2222,20 @@ export default function AdminTeacherManagementPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AdminTeacherManagementPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Teachers Management...</span>
+        </div>
+      }
+    >
+      <AdminTeacherManagementContent />
+    </Suspense>
   );
 }

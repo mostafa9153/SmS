@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Upload,
@@ -81,7 +81,7 @@ const STEPS = [
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 
-export default function BulkUploadPage() {
+function BulkUploadPageContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
@@ -1703,5 +1703,20 @@ export default function BulkUploadPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BulkUploadPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Bulk Import Studio...</span>
+        </div>
+      }
+    >
+      <BulkUploadPageContent />
+    </Suspense>
   );
 }

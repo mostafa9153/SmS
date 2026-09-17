@@ -16,7 +16,20 @@ import { cn } from "@/lib/utils";
 function OfflineAdmissionCenterContent() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab") === "scan" ? "scan" : "generator";
-  const [activeTab, setActiveTab] = useState<"generator" | "scan">(initialTab);
+  const [activeTab, setActiveTabState] = useState<"generator" | "scan">(initialTab);
+
+  const setActiveTab = (tab: "generator" | "scan") => {
+    setActiveTabState(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "generator") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", tab);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1700px] mx-auto space-y-5">

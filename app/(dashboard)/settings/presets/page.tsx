@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { MapPin } from "lucide-react";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import { PresetAddressesTab } from "@/components/settings/preset-addresses-tab";
@@ -16,7 +17,9 @@ export default function PresetsSettingsPage() {
         icon={MapPin}
         iconColor="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
       />
-      <PresetAddressesTab />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Presets...</div>}>
+        <PresetAddressesTab />
+      </Suspense>
     </div>
   );
 }

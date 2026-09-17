@@ -60,11 +60,30 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 import { FeePresetManager } from "@/components/settings/fee-preset-manager";
 import { Receipt } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 type PresetSection = "defaults" | "fee" | "address" | "bank" | "school" | "ai";
+const VALID_PRESET_SECTIONS: PresetSection[] = ["defaults", "fee", "address", "bank", "school", "ai"];
 
 export function PresetAddressesTab() {
-  const [activeSection, setActiveSection] = useState<PresetSection>("defaults");
+  const searchParams = useSearchParams();
+  const sectionParam = (searchParams.get("section") || searchParams.get("tab")) as PresetSection;
+  const initialSection = sectionParam && VALID_PRESET_SECTIONS.includes(sectionParam) ? sectionParam : "defaults";
+  const [activeSection, setActiveSectionState] = useState<PresetSection>(initialSection);
+
+  const setActiveSection = (section: PresetSection) => {
+    setActiveSectionState(section);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (section === "defaults") {
+        url.searchParams.delete("section");
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("section", section);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // 0. Student Entry Defaults State
   const [studentPresets, setStudentPresets] = useState<StudentEntryPresets>(DEFAULT_STUDENT_ENTRY_PRESETS);

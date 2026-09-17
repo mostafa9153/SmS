@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { EmsStepperMap, StepItem } from "@/components/ems/ems-stepper-map";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
 import { RoomEditorDialog } from "@/components/ems/room-editor-dialog";
@@ -206,12 +206,41 @@ const STEPS: StepItem[] = [
   { id: 5, title: "Print Suite" },
 ];
 
-export default function EmsMasterPage() {
-  const router = useRouter();
+function updateUrlParam(key: string, value: string) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (value) {
+    url.searchParams.set(key, value);
+  } else {
+    url.searchParams.delete(key);
+  }
+  window.history.replaceState(null, "", url.toString());
+}
 
-  // Wizard Step State
-  const [step, setStep] = useState<number>(1);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+function EmsMasterPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize step from URL param if available (1..5)
+  const stepParam = searchParams.get("step");
+  const initialStep = stepParam ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 5) : 1;
+
+  // Wizard Step State with URL synchronization
+  const [step, setStepState] = useState<number>(initialStep);
+  const [completedSteps, setCompletedSteps] = useState<number[]>(() => {
+    if (initialStep > 1) {
+      return Array.from({ length: initialStep - 1 }, (_, i) => i + 1);
+    }
+    return [];
+  });
+
+  const setStep = (newStep: number | ((prev: number) => number)) => {
+    setStepState((prev) => {
+      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
+      updateUrlParam("step", String(nextStep));
+      return nextStep;
+    });
+  };
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(2026);
@@ -254,12 +283,10 @@ export default function EmsMasterPage() {
     saveRooms(updated);
   };
 
-
   // Step 4: Visual Seating Blueprint & History
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
   const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
   const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
-  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Loading & Mismatch Modal
   const [loading, setLoading] = useState(false);
@@ -287,7 +314,20 @@ export default function EmsMasterPage() {
     if (saved.length > 0) {
       setSelectedRoomIds([saved[0].id]);
     }
-    setSavedAllocations(getSavedAllocations());
+    const savedAllocs = getSavedAllocations();
+    setSavedAllocations(savedAllocs);
+    if (savedAllocs.length > 0) {
+      setGeneratedAllocation((prev) => {
+        if (!prev) {
+          const first = savedAllocs[0];
+          if (first.roomAllocations && first.roomAllocations.length > 0) {
+            setActiveBlueprintRoomId(first.roomAllocations[0].roomId);
+          }
+          return first;
+        }
+        return prev;
+      });
+    }
 
     // Fetch continuing students & initialize class groups with all sections and auto-fetched roll ranges
     fetchContinuingStudents().then((loadedStudents) => {
@@ -1743,5 +1783,20 @@ export default function EmsMasterPage() {
         allowProceedOnError={true}
       />
     </div>
+  );
+}
+
+export default function EmsMasterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Examination Suite...</span>
+        </div>
+      }
+    >
+      <EmsMasterPageContent />
+    </Suspense>
   );
 }

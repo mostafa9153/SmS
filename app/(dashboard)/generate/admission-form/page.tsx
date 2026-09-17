@@ -73,9 +73,23 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
   const studentIdParam = searchParams.get("studentId");
 
   // Form tab selection: Class V-IX vs Class XI
-  const [activeTab, setActiveTab] = useState<"v-ix" | "xi">(
-    formTypeParam === "xi" ? "xi" : "v-ix"
+  const [activeTab, setActiveTabState] = useState<"v-ix" | "xi">(
+    formTypeParam === "xi" || searchParams.get("tab") === "xi" ? "xi" : "v-ix"
   );
+
+  const setActiveTab = (tab: "v-ix" | "xi") => {
+    setActiveTabState(tab);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (tab === "xi") {
+        url.searchParams.set("type", "xi");
+      } else {
+        url.searchParams.delete("type");
+        url.searchParams.delete("tab");
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Generation Mode: 'single' vs 'bulk'
   const [generationMode, setGenerationMode] = useState<"single" | "bulk">("bulk");

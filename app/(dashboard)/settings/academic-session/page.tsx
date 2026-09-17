@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { SettingsPageHeader } from "@/components/settings/settings-page-header";
@@ -24,7 +25,9 @@ export default function AcademicSessionSettingsPage() {
           Individual Class Promotion →
         </Link>
       </SettingsPageHeader>
-      <AcademicSessionClient />
+      <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Academic Session...</div>}>
+        <AcademicSessionClient />
+      </Suspense>
     </div>
   );
 }

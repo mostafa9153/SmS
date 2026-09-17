@@ -1,13 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { SecondarySessionTab } from "./secondary-session-tab";
 import { HigherSecondarySessionTab } from "./higher-secondary-session-tab";
 import { School, GraduationCap, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function AcademicSessionClient() {
-  const [activeSection, setActiveSection] = useState<"secondary" | "higher_secondary">("secondary");
+  const searchParams = useSearchParams();
+  const sectionParam = searchParams.get("section") || searchParams.get("tab");
+  const initialSection = sectionParam === "higher_secondary" ? "higher_secondary" : "secondary";
+  const [activeSection, setActiveSectionState] = useState<"secondary" | "higher_secondary">(initialSection);
+
+  const setActiveSection = (section: "secondary" | "higher_secondary") => {
+    setActiveSectionState(section);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (section === "secondary") {
+        url.searchParams.delete("section");
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("section", section);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   return (
     <div className="w-full space-y-5">
