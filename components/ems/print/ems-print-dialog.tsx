@@ -13,11 +13,13 @@ import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-pro
 import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
 import { EmsAttendanceSheetPrintable } from "./ems-attendance-sheet-printable";
+import { EmsGateNoticePrintable } from "./ems-gate-notice-printable";
 import {
   Printer,
   FileText,
   Tag,
   ClipboardList,
+  DoorOpen,
   ZoomIn,
   ZoomOut,
   RotateCcw,
@@ -40,7 +42,7 @@ import {
 } from "@/lib/ems/ems-config-loader";
 import { cn } from "@/lib/utils";
 
-export type PrintDocType = "admit" | "slips" | "attendance";
+export type PrintDocType = "admit" | "slips" | "attendance" | "gate";
 
 export interface EmsPrintDialogProps {
   open: boolean;
@@ -156,13 +158,16 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const totalPagesAdmit = Math.ceil(totalOccupiedStudents / 21) || 1;
   const totalPagesSlips = Math.ceil(totalOccupiedStudents / 30) || 1;
   const totalPagesAttendance = selectedRooms.length || 1;
+  const totalPagesGate = selectedRooms.length || 1;
 
   const currentTotalPages =
     activeDoc === "admit"
       ? totalPagesAdmit
       : activeDoc === "slips"
         ? totalPagesSlips
-        : totalPagesAttendance;
+        : activeDoc === "attendance"
+          ? totalPagesAttendance
+          : totalPagesGate;
 
   // Selected room metadata for display
   const activeRoomObj = rooms.find((r) => r.roomId === targetRoomId);
@@ -248,7 +253,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
               </button>
             </div>
 
-            {/* SECTION 1: Document Type Switcher (Modern 3-Column Segmented Grid) */}
+            {/* SECTION 1: Document Type Switcher (Modern 4-Column Segmented Grid) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
@@ -256,12 +261,12 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                   <span>Document Format</span>
                 </span>
                 <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
-                  3 Standards
+                  4 Standards
                 </span>
               </div>
 
-              {/* 3-Card Grid */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* 4-Card Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {/* 1. Mini Admit Cards */}
                 <button
                   type="button"
@@ -342,6 +347,34 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     <span className="block text-xs font-bold leading-tight">Attendance</span>
                     <span className={cn("text-[9px] block truncate", activeDoc === "attendance" ? "text-amber-100" : "text-slate-400")}>
                       Signature sheet
+                    </span>
+                  </div>
+                </button>
+
+                {/* 4. Room Gate Notice */}
+                <button
+                  type="button"
+                  onClick={() => setActiveDoc("gate")}
+                  className={cn(
+                    "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between h-20 select-none",
+                    activeDoc === "gate"
+                      ? "bg-purple-600 text-white font-bold border-purple-500 shadow-md shadow-purple-600/25 ring-2 ring-purple-400/40"
+                      : "bg-slate-50/80 dark:bg-slate-950/60 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  )}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <DoorOpen className={cn("w-4 h-4", activeDoc === "gate" ? "text-white" : "text-purple-600 dark:text-purple-400")} />
+                    <span className={cn(
+                      "text-[9px] font-mono px-1.5 py-0.2 rounded font-bold",
+                      activeDoc === "gate" ? "bg-purple-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    )}>
+                      A4 Notice
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-xs font-bold leading-tight">Gate Notice</span>
+                    <span className={cn("text-[9px] block truncate", activeDoc === "gate" ? "text-purple-100" : "text-slate-400")}>
+                      Hall door roster
                     </span>
                   </div>
                 </button>
@@ -771,6 +804,16 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     examHeaders={examHeaders}
                   />
                 )}
+
+                {activeDoc === "gate" && (
+                  <EmsGateNoticePrintable
+                    rooms={allocation.roomAllocations || []}
+                    academicYear={allocation.academicYear}
+                    examType={allocation.examType}
+                    schoolProfile={schoolProfile}
+                    targetRoomId={targetRoomId}
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -814,6 +857,16 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
             examHeaders={examHeaders}
+          />
+        )}
+
+        {activeDoc === "gate" && (
+          <EmsGateNoticePrintable
+            rooms={allocation.roomAllocations || []}
+            academicYear={allocation.academicYear}
+            examType={allocation.examType}
+            schoolProfile={schoolProfile}
+            targetRoomId={targetRoomId}
           />
         )}
       </div>,

@@ -21,6 +21,12 @@ export function normalizeClassCode(c?: string): string {
   return romanMap[clean] || clean;
 }
 
+// Normalize section code for robust matching
+export function normalizeSectionCode(sec?: string): string {
+  if (!sec) return "";
+  return sec.trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+}
+
 // Group students by class code, strictly ensuring Section A finishes before Section B starts
 export function buildClassStudentPool(
   allStudents: Student[],
@@ -49,19 +55,19 @@ export function buildClassStudentPool(
     configsByClass.forEach((cfgs, normClass) => {
       // Sort sections so Section A is first, Section B is second, etc.
       cfgs.sort((a, b) => {
-        const secA = (a.section || "").trim().toUpperCase();
-        const secB = (b.section || "").trim().toUpperCase();
+        const secA = normalizeSectionCode(a.section);
+        const secB = normalizeSectionCode(b.section);
         return secA.localeCompare(secB, undefined, { numeric: true });
       });
 
       const classStudents: Student[] = [];
 
       cfgs.forEach((cfg) => {
-        const secUpper = (cfg.section || "").trim().toUpperCase();
+        const normCfgSec = normalizeSectionCode(cfg.section);
         const matching = allStudents.filter((s) => {
           if (s.currentStatus && s.currentStatus !== "Continuing") return false;
           if (normalizeClassCode(s.presentClass) !== normClass) return false;
-          if (secUpper && (s.presentSection || "").trim().toUpperCase() !== secUpper) return false;
+          if (normCfgSec && normalizeSectionCode(s.presentSection) !== normCfgSec) return false;
           const roll = Number(s.presentRoll) || 0;
           if (cfg.rollFrom && roll < cfg.rollFrom) return false;
           if (cfg.rollTo && roll > cfg.rollTo) return false;
@@ -96,8 +102,8 @@ export function buildClassStudentPool(
   // Sort each class list: Section A first (rolls ascending), then Section B (rolls ascending)...
   map.forEach((list) => {
     list.sort((a, b) => {
-      const secA = (a.presentSection || "").trim().toUpperCase();
-      const secB = (b.presentSection || "").trim().toUpperCase();
+      const secA = normalizeSectionCode(a.presentSection);
+      const secB = normalizeSectionCode(b.presentSection);
       if (secA !== secB) {
         return secA.localeCompare(secB, undefined, { numeric: true });
       }
