@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdmissionApplications, admitNewStudentApplication } from "@/lib/data/admission";
 import type { AdmissionApplication } from "@/lib/types";
@@ -30,6 +31,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -41,16 +43,37 @@ import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
-export default function NewAdmissionDashboard() {
+const VALID_NEW_SOURCES = ["all", "offline", "online", "blank"] as const;
+
+function NewAdmissionDashboardContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+
+  const sourceParam = searchParams.get("source") as any;
+  const initialSource = sourceParam && VALID_NEW_SOURCES.includes(sourceParam) ? sourceParam : "all";
 
   // Filters state
-  const [sourceFilter, setSourceFilter] = useState<"all" | "offline" | "online" | "blank">("all");
+  const [sourceFilter, setSourceFilterState] = useState<"all" | "offline" | "online" | "blank">(initialSource);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [classFilter, setClassFilter] = useState<string>("V");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const setSourceFilter = (src: "all" | "offline" | "online" | "blank") => {
+    setSourceFilterState(src);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (src === "all") {
+        url.searchParams.delete("source");
+      } else {
+        url.searchParams.set("source", src);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Admit Verification Modal State
   const [selectedApp, setSelectedApp] = useState<AdmissionApplication | null>(null);
@@ -236,7 +259,9 @@ export default function NewAdmissionDashboard() {
     setAssignedRoll(String(app.targetRoll || 1));
     setFeePaid(true);
 
-    const feeItems = getSavedFeeStructure();
+    // 1. Take amount dynamically from class preset tier (5-8, 9-10, 11-12)
+    const category = getFeeCategoryForClass(app.targetClass);
+    const feeItems = getSavedFeeStructure(category);
     const invoiceTotal = calculateFeeTotal(feeItems);
     setFeeAmount(String(app.feeAmount || (invoiceTotal > 0 ? invoiceTotal : 600)));
 
@@ -1288,5 +1313,20 @@ export default function NewAdmissionDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function NewAdmissionDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading New Admission Hub...</span>
+        </div>
+      }
+    >
+      <NewAdmissionDashboardContent />
+    </Suspense>
   );
 }

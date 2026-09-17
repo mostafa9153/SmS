@@ -28,8 +28,8 @@ import {
   GraduationCap,
   FileCheck,
   ReceiptText,
-  RefreshCw,
   FileText,
+  User,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -144,6 +144,14 @@ const settingsNavItems = [
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
     activeColor: "from-blue-500/15 via-blue-500/8 text-blue-700 dark:text-blue-300 border-blue-600",
+  },
+  {
+    href: "/settings/teachers",
+    tab: "teachers",
+    label: "Teacher Management",
+    icon: <GraduationCap className="h-4 w-4" />,
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+    activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
   },
   {
     href: "/settings/academic-session",
@@ -639,8 +647,22 @@ export function Sidebar({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
-            
 
+            <DropdownMenuItem
+              onClick={() => router.push("/profile")}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer hover:bg-accent text-foreground transition-colors"
+            >
+              <User className="h-3.5 w-3.5 text-primary" />
+              <span>Admin Profile & Security</span>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem
+              onClick={() => router.push("/teacher")}
+              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer hover:bg-accent text-foreground transition-colors"
+            >
+              <GraduationCap className="h-3.5 w-3.5 text-emerald-500" />
+              <span>Teacher Workspace</span>
+            </DropdownMenuItem>
 
             <DropdownMenuItem 
               onClick={handleLogout} 

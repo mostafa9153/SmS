@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStudents, getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { updateReAdmissionStatus } from "@/lib/data/admission";
@@ -25,6 +26,7 @@ import {
   UserX,
   User,
   RotateCcw,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import { cn, sortClasses } from "@/lib/utils";
@@ -32,6 +34,8 @@ import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
 const CLASS_NEXT_MAP: Record<string, string> = {
@@ -45,12 +49,50 @@ const CLASS_NEXT_MAP: Record<string, string> = {
   XII: "Passed Out",
 };
 
-export default function ReAdmissionPage() {
+const VALID_RE_STATUSES = ["all", "pending", "admitted", "not_admitted"] as const;
+
+function ReAdmissionPageContent() {
   const queryClient = useQueryClient();
-  const [selectedClass, setSelectedClass] = useState<string>("V");
-  const [selectedSection, setSelectedSection] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const searchParams = useSearchParams();
+
+  const statusParam = searchParams.get("status") as any;
+  const initialStatus = statusParam && VALID_RE_STATUSES.includes(statusParam) ? statusParam : "all";
+  const classParam = searchParams.get("class");
+  const sectionParam = searchParams.get("section");
+
+  const [selectedClass, setSelectedClassState] = useState<string>(classParam || "V");
+  const [selectedSection, setSelectedSectionState] = useState<string>(sectionParam || "");
+  const [statusFilter, setStatusFilterState] = useState<string>(initialStatus);
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const updateReUrl = (paramsToUpdate: Record<string, string | null>) => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      Object.entries(paramsToUpdate).forEach(([k, v]) => {
+        if (!v || (k === "status" && v === "all") || (k === "class" && v === "V")) {
+          url.searchParams.delete(k);
+        } else {
+          url.searchParams.set(k, v);
+        }
+      });
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  const setSelectedClass = (cls: string) => {
+    setSelectedClassState(cls);
+    updateReUrl({ class: cls });
+  };
+
+  const setSelectedSection = (sec: string) => {
+    setSelectedSectionState(sec);
+    updateReUrl({ section: sec });
+  };
+
+  const setStatusFilter = (st: string) => {
+    setStatusFilterState(st);
+    updateReUrl({ status: st });
+  };
 
   // Modal State
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
@@ -137,6 +179,15 @@ export default function ReAdmissionPage() {
     return generateInvoiceNumber(1, currentYear);
   };
 
+  // Dynamic fee calculation on class change
+  function handleNewClassChange(cls: string) {
+    setNewClass(cls);
+    const category = getFeeCategoryForClass(cls);
+    const feeItems = getSavedFeeStructure(category);
+    const invoiceTotal = calculateFeeTotal(feeItems);
+    setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
+  }
+
   // Open modal
   async function openConfirmModal(student: Student) {
     setActiveStudent(student);
@@ -146,14 +197,33 @@ export default function ReAdmissionPage() {
     setNewRoll(String(student.presentRoll || 1));
     setFeePaid(true);
 
-    // 1. Take amount dynamically from invoice fee structure configuration
-    const feeItems = getSavedFeeStructure();
+    // 1. Take amount dynamically from class preset tier (5-8, 9-10, 11-12)
+    const category = getFeeCategoryForClass(defaultNext);
+    const feeItems = getSavedFeeStructure(category);
     const invoiceTotal = calculateFeeTotal(feeItems);
     setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
 
-    // 2. Fetch the real upcoming invoice number
+    // 2. Check if student already has a registered invoice
     setReceiptNo("Syncing...");
     setModalOpen(true);
+
+    try {
+      const studentIdToSearch = student.schoolId || student.id;
+      const res = await fetch(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.data) && data.data.length > 0) {
+        const existingInv = data.data[0];
+        setReceiptNo(existingInv.invoice_number);
+        if (existingInv.total_amount) {
+          setFeeAmount(String(existingInv.total_amount));
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not check existing invoice for student:", e);
+    }
+
+    // 3. Fetch fresh invoice sequence
     const nextInvoiceNo = await fetchNextInvoiceNumber();
     setReceiptNo(nextInvoiceNo);
   }
@@ -633,7 +703,7 @@ export default function ReAdmissionPage() {
                   </span>
                   <CustomSelect
                     value={newClass}
-                    onChange={setNewClass}
+                    onChange={handleNewClassChange}
                     options={[
                       { value: "V", label: "Class V" },
                       { value: "VI", label: "Class VI" },
@@ -688,7 +758,7 @@ export default function ReAdmissionPage() {
                       Invoice Amount (₹)
                     </label>
                     <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md">
-                      From Invoice
+                      {newClass ? `${FEE_SECTIONS.find((s) => s.id === getFeeCategoryForClass(newClass))?.shortLabel || "Preset"} Tier` : "From Preset"}
                     </span>
                   </div>
                   <Input
@@ -765,5 +835,20 @@ export default function ReAdmissionPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ReAdmissionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Re-Admission Desk...</span>
+        </div>
+      }
+    >
+      <ReAdmissionPageContent />
+    </Suspense>
   );
 }

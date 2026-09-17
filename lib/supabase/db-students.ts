@@ -55,12 +55,14 @@ export interface DBStudent {
   weight_kg: number | null;
   height_cm: number | null;
   student_unique_code: string | null;
+  kanyashree_id?: string | null;
   dise_code: string | null;
   health_id: string | null;
   annual_family_income: number | null;
   birth_registration_no: string | null;
   identification_mark: string | null;
   relationship_with_guardian: string | null;
+  guardian_occupation?: string | null;
   guardian_qualification: string | null;
   father_occupation?: string | null;
   mother_occupation?: string | null;
@@ -189,12 +191,14 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     weightKg: db.weight_kg != null ? Number(db.weight_kg) : undefined,
     heightCm: db.height_cm != null ? Number(db.height_cm) : undefined,
     studentUniqueCode: db.student_unique_code || undefined,
+    kanyashreeId: db.kanyashree_id || undefined,
     diseCode: db.dise_code || undefined,
     healthId: db.health_id || undefined,
     annualFamilyIncome: db.annual_family_income != null ? Number(db.annual_family_income) : undefined,
     birthRegistrationNo: db.birth_registration_no || undefined,
     identificationMark: db.identification_mark || undefined,
     relationshipWithGuardian: db.relationship_with_guardian || undefined,
+    guardianOccupation: (db as any).guardian_occupation || (db.relationship_with_guardian?.toLowerCase() === "father" ? (db as any).father_occupation : db.relationship_with_guardian?.toLowerCase() === "mother" ? (db as any).mother_occupation : undefined) || undefined,
     guardianQualification: db.guardian_qualification || undefined,
     bankIfsc: db.bank_ifsc || undefined,
     bankAccountNo: db.bank_account_no || undefined,
@@ -299,12 +303,14 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     weight_kg: toNullableNumber(student.weightKg),
     height_cm: toNullableNumber(student.heightCm),
     student_unique_code: toNullableString(student.studentUniqueCode),
+    kanyashree_id: toNullableString(student.kanyashreeId),
     dise_code: toNullableString(student.diseCode),
     health_id: toNullableString(student.healthId),
     annual_family_income: toNullableNumber(student.annualFamilyIncome),
     birth_registration_no: toNullableString(student.birthRegistrationNo),
     identification_mark: toNullableString(student.identificationMark),
     relationship_with_guardian: toNullableString(student.relationshipWithGuardian),
+    guardian_occupation: toNullableString(student.guardianOccupation),
     guardian_qualification: toNullableString(student.guardianQualification),
     bank_ifsc: toNullableString(student.bankIfsc),
     bank_account_no: toNullableString(student.bankAccountNo),
@@ -373,6 +379,9 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "father_name",
   "mother_name",
   "guardian_name",
+  "relationship_with_guardian",
+  "guardian_occupation",
+  "guardian_qualification",
   "mobile",
   "alt_mobile",
   "address",
@@ -387,6 +396,7 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "pen",
   "aadhaar",
   "student_unique_code",
+  "kanyashree_id",
   "photo_url",
   "is_cwsn",
   "is_aay",
@@ -665,7 +675,9 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
     dbInput.school_id = await generateSchoolId(
       input.admissionYear || new Date().getFullYear(),
       input.presentClass || "V",
-      input.presentSection || "A"
+      input.presentSection || "A",
+      input.presentRoll,
+      input.admissionNo || "01"
     );
   }
 
@@ -698,10 +710,13 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
     }
     // If unique constraint violation on school_id (code 23505), regenerate and retry
     if (error && (error.code === "23505" || error.message.includes("school_id"))) {
+      const fallbackReg = input.admissionNo ? `${input.admissionNo}-${attempt + 1}` : `${attempt + 2}`;
       dbInput.school_id = await generateSchoolId(
         input.admissionYear || new Date().getFullYear(),
         input.presentClass || "V",
-        input.presentSection || "A"
+        input.presentSection || "A",
+        input.presentRoll,
+        fallbackReg
       );
       continue;
     }
@@ -768,12 +783,14 @@ export async function dbUpdateStudent(
   if (updates.weightKg !== undefined) dbUpdates.weight_kg = toNullableNumber(updates.weightKg);
   if (updates.heightCm !== undefined) dbUpdates.height_cm = toNullableNumber(updates.heightCm);
   if (updates.studentUniqueCode !== undefined) dbUpdates.student_unique_code = toNullableString(updates.studentUniqueCode);
+  if (updates.kanyashreeId !== undefined) dbUpdates.kanyashree_id = toNullableString(updates.kanyashreeId);
   if (updates.diseCode !== undefined) dbUpdates.dise_code = toNullableString(updates.diseCode);
   if (updates.healthId !== undefined) dbUpdates.health_id = toNullableString(updates.healthId);
   if (updates.annualFamilyIncome !== undefined) dbUpdates.annual_family_income = toNullableNumber(updates.annualFamilyIncome);
   if (updates.birthRegistrationNo !== undefined) dbUpdates.birth_registration_no = toNullableString(updates.birthRegistrationNo);
   if (updates.identificationMark !== undefined) dbUpdates.identification_mark = toNullableString(updates.identificationMark);
   if (updates.relationshipWithGuardian !== undefined) dbUpdates.relationship_with_guardian = toNullableString(updates.relationshipWithGuardian);
+  if (updates.guardianOccupation !== undefined) dbUpdates.guardian_occupation = toNullableString(updates.guardianOccupation);
   if (updates.guardianQualification !== undefined) dbUpdates.guardian_qualification = toNullableString(updates.guardianQualification);
   if (updates.bankIfsc !== undefined) dbUpdates.bank_ifsc = toNullableString(updates.bankIfsc);
   if (updates.bankAccountNo !== undefined) dbUpdates.bank_account_no = toNullableString(updates.bankAccountNo);

@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Sparkles,
   Award,
@@ -29,19 +29,21 @@ import {
   Info,
   SlidersHorizontal,
   Contact,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
 import type { DBCertificateRow, CertificateStats } from "@/lib/supabase/db-certificates";
 import {
   getLocalCachedCertificates,
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
-import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
 
-type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "tracker";
+type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker";
+const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker"];
 
 interface GeneratorModule {
   id: string;
@@ -350,10 +352,28 @@ function CardInfoPopover({
   );
 }
 
-export default function GenerateHubPage() {
+function GenerateHubPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const categoryParam = searchParams.get("category") as CategoryFilter;
+  const initialCategory = categoryParam && VALID_GENERATE_CATEGORIES.includes(categoryParam) ? categoryParam : "all";
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
+  const [selectedCategory, setSelectedCategoryState] = useState<CategoryFilter>(initialCategory);
+
+  const setSelectedCategory = (cat: CategoryFilter) => {
+    setSelectedCategoryState(cat);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (cat === "all") {
+        url.searchParams.delete("category");
+      } else {
+        url.searchParams.set("category", cat);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
   const [stats, setStats] = useState<CertificateStats | null>(null);
   const [recentCerts, setRecentCerts] = useState<DBCertificateRow[]>([]);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -413,7 +433,7 @@ export default function GenerateHubPage() {
     try {
       const cached = getLocalCachedCertificates();
       const localMatch = cached.find(
-        (c) =>
+        (c: DBCertificateRow) =>
           c.certificate_no.toUpperCase() === cleanTerm ||
           (c.student_id && c.student_id.toUpperCase() === cleanTerm)
       );
@@ -901,5 +921,20 @@ export default function GenerateHubPage() {
         onScanSuccess={handleScanSuccess}
       />
     </div>
+  );
+}
+
+export default function GenerateHubPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Certificate & Document Hub...</span>
+        </div>
+      }
+    >
+      <GenerateHubPageContent />
+    </Suspense>
   );
 }

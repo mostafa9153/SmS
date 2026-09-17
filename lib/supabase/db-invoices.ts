@@ -790,3 +790,37 @@ export async function dbUndoInvoiceBatch(params: {
     return { success: false, deletedCount: 0, newSequence: 1, error: err?.message };
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Get Invoices for specific student IDs (e.g. from admission/queue)
+// ─────────────────────────────────────────────────────────────
+export async function dbGetInvoicesByStudentIds(
+  studentIds: string[]
+): Promise<{ data: DBInvoiceRow[]; error?: string }> {
+  if (!studentIds || studentIds.length === 0) return { data: [] };
+  try {
+    const supabase = await getClient();
+    if (!supabase) return { data: [], error: "Database client unavailable" };
+
+    const cleanIds = studentIds.map((id) => id.trim()).filter(Boolean);
+    if (cleanIds.length === 0) return { data: [] };
+
+    const { data, error } = await supabase
+      .from("admission_invoices")
+      .select("*")
+      .in("student_id", cleanIds)
+      .neq("invoice_status", "cancelled")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error querying invoices by student IDs:", error);
+      return { data: [], error: error.message };
+    }
+
+    return { data: (data as DBInvoiceRow[]) || [] };
+  } catch (err: any) {
+    console.error("Exception in dbGetInvoicesByStudentIds:", err);
+    return { data: [], error: err?.message };
+  }
+}
+

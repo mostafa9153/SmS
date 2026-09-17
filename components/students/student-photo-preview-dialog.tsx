@@ -42,14 +42,13 @@ export function StudentPhotoPreviewDialog({
   const router = useRouter();
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const [photoVersion, setPhotoVersion] = useState(Date.now());
+  const [photoVersion, setPhotoVersion] = useState<number | null>(null);
   const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (student) {
       setCurrentPhoto(student.photoUrl);
       setImgError(false);
-      setPhotoVersion(Date.now());
     }
   }, [student]);
 
@@ -66,7 +65,7 @@ export function StudentPhotoPreviewDialog({
     : "S";
 
   const effectivePhotoSrc = currentPhoto
-    ? `${currentPhoto}?v=${photoVersion}`
+    ? (photoVersion ? `${currentPhoto}?v=${photoVersion}` : currentPhoto)
     : null;
 
   const dAge = student.dob ? calculateDetailedAge(student.dob) : null;

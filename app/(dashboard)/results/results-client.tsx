@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Award,
@@ -44,24 +44,77 @@ const CLASS_OPTIONS = [
   { value: "XII", label: "Class XII" },
 ];
 
+const SECTION_OPTIONS = [
+  { value: "ALL", label: "All Sections" },
+  { value: "A", label: "Section A" },
+  { value: "B", label: "Section B" },
+  { value: "C", label: "Section C" },
+  { value: "D", label: "Section D" },
+];
+
 const EXAMS = [
   "1st Summative Evaluation",
   "2nd Summative Evaluation",
+  "3rd Summative Evaluation",
+  "Selection Test",
   "Annual Examination",
 ];
 
 export default function ResultsClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
+  const classParam = searchParams.get("class");
+  const sectionParam = searchParams.get("section");
+  const examParam = searchParams.get("exam");
+  const yearParam = searchParams.get("year");
+  const modeParam = searchParams.get("mode");
+
   // Filter State
-  const [academicYear, setAcademicYear] = useState<number>(currentYear);
-  const [selectedClass, setSelectedClass] = useState<string>("V");
-  const [selectedSection, setSelectedSection] = useState<string>("ALL");
-  const [selectedExam, setSelectedExam] = useState<string>("1st Summative Evaluation");
+  const [academicYear, setAcademicYearState] = useState<number>(() => {
+    if (yearParam && !isNaN(parseInt(yearParam, 10))) return parseInt(yearParam, 10);
+    return currentYear;
+  });
+  const [selectedClass, setSelectedClassState] = useState<string>(classParam || "V");
+  const [selectedSection, setSelectedSectionState] = useState<string>(sectionParam || "ALL");
+  const [selectedExam, setSelectedExamState] = useState<string>(examParam || "1st Summative Evaluation");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [, setSchemeVersion] = useState<number>(0);
+
+  const updateResultUrl = (paramsToUpdate: Record<string, string | null>) => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    Object.entries(paramsToUpdate).forEach(([key, val]) => {
+      if (val === null || val === "" || (key === "class" && val === "V") || (key === "section" && val === "ALL") || (key === "exam" && val === "1st Summative Evaluation") || (key === "year" && val === String(currentYear)) || (key === "mode" && val === "both")) {
+        url.searchParams.delete(key);
+      } else {
+        url.searchParams.set(key, val);
+      }
+    });
+    window.history.replaceState(null, "", url.toString());
+  };
+
+  const setSelectedClass = (cls: string) => {
+    setSelectedClassState(cls);
+    updateResultUrl({ class: cls });
+  };
+
+  const setSelectedSection = (sec: string) => {
+    setSelectedSectionState(sec);
+    updateResultUrl({ section: sec });
+  };
+
+  const setSelectedExam = (ex: string) => {
+    setSelectedExamState(ex);
+    updateResultUrl({ exam: ex });
+  };
+
+  const setAcademicYear = (yr: number) => {
+    setAcademicYearState(yr);
+    updateResultUrl({ year: String(yr) });
+  };
 
   // Dynamic Full Marks resolved from Settings-configured Evaluation Scheme
   const currentFullMarks = getDynamicClassFullMarks(selectedClass, selectedExam);
@@ -76,7 +129,14 @@ export default function ResultsClient() {
   }, []);
 
   // Rank Display Mode: "section" | "class" | "both"
-  const [rankViewMode, setRankViewMode] = useState<"both" | "section" | "class">("both");
+  const [rankViewMode, setRankViewModeState] = useState<"both" | "section" | "class">(
+    modeParam === "section" || modeParam === "class" ? modeParam : "both"
+  );
+
+  const setRankViewMode = (mode: "both" | "section" | "class") => {
+    setRankViewModeState(mode);
+    updateResultUrl({ mode });
+  };
 
   // Modal State for Entering Single Marks
   const [editingStudentResult, setEditingStudentResult] = useState<StudentResult | null>(null);

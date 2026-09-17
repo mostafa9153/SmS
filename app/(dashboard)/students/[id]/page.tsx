@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getStudentById, getStudentResultHistory, saveStudentResult, deleteStudent } from "@/lib/data/students";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -67,11 +67,31 @@ import Link from "next/link";
 import type { StudentResult } from "@/lib/types";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 
-export default function StudentProfilePage() {
+const VALID_STUDENT_TABS = ["personal", "academic", "facilities", "bank", "identification", "history", "results"];
+
+function StudentProfilePageContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
+
+  const tabParam = searchParams.get("tab");
+  const initialTab = tabParam && VALID_STUDENT_TABS.includes(tabParam) ? tabParam : "personal";
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
+
+  const handleTabChange = (val: string) => {
+    setActiveTab(val);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (val === "personal") {
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("tab", val);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // State for Add Result Modal
   const [isAddResultOpen, setIsAddResultOpen] = useState(false);
@@ -377,7 +397,7 @@ export default function StudentProfilePage() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="personal">
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto p-1.5 gap-1.5 bg-muted/60 rounded-2xl custom-scrollbar select-none">
           <TabsTrigger value="personal" className="flex items-center gap-1.5 text-xs py-2 px-3 rounded-xl shrink-0">
             <User className="h-3.5 w-3.5" />
@@ -479,6 +499,7 @@ export default function StudentProfilePage() {
                 <InfoField label="Mother's Occupation" value={student.motherOccupation} />
                 <InfoField label="Guardian's Name" value={student.guardianName} />
                 <InfoField label="Relationship with Guardian" value={student.relationshipWithGuardian} />
+                <InfoField label="Guardian's Occupation" value={student.guardianOccupation} />
                 <InfoField label="Guardian's Qualification" value={student.guardianQualification} />
                 <InfoField label="Annual Family Income" value={student.annualFamilyIncome ? `₹${student.annualFamilyIncome.toLocaleString("en-IN")}` : undefined} />
                 <InfoField label="Primary Mobile" value={student.studentContact} copyable />
@@ -771,6 +792,10 @@ export default function StudentProfilePage() {
               <InfoField label="PEN (Permanent Education Number)" value={student.pen} copyable />
               <InfoField label="DISE Code" value={student.diseCode} copyable />
               <InfoField label="Health ID" value={student.healthId} copyable />
+              <InfoField label="Student Unique Code" value={student.studentUniqueCode} copyable />
+              {(student.gender === "Female" || Boolean(student.kanyashreeId)) && (
+                <InfoField label="Kanyashree ID / Applicant ID" value={student.kanyashreeId} copyable />
+              )}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   Aadhaar Available? (Yes/No)
@@ -1279,5 +1304,26 @@ function InfoField({
         )}
       </div>
     </div>
+  );
+}
+
+export default function StudentProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 max-w-7xl mx-auto space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-4 gap-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+          <Skeleton className="h-64 w-full" />
+        </div>
+      }
+    >
+      <StudentProfilePageContent />
+    </Suspense>
   );
 }

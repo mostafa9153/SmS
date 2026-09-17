@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  DoorOpen,
   Sliders,
   Wand2,
   MapPin,
@@ -26,13 +25,6 @@ export function EmsNavTabs({ activeTab }: EmsNavTabsProps) {
       sublabel: "Overview",
       icon: <LayoutDashboard className="h-4 w-4" />,
       active: pathname === "/ems",
-    },
-    {
-      href: "/ems/rooms",
-      label: "Classroom Setup",
-      sublabel: "Benches & Halls",
-      icon: <DoorOpen className="h-4 w-4" />,
-      active: pathname.startsWith("/ems/rooms"),
     },
     {
       href: "/ems/manual",

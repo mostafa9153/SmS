@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   FileText,
@@ -10,8 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
 
 interface AuditLogEntry {
   id: string;
@@ -29,8 +30,29 @@ interface AuditLogEntry {
   };
 }
 
+const FILTER_OPTIONS = ["All", "CREATE", "UPDATE", "DELETE", "SYSTEM_CONFIG"];
+
 export function AuditLogsTab() {
+  const searchParams = useSearchParams();
+  const filterParam = searchParams.get("filter") || searchParams.get("tab");
+  const initialFilter = filterParam && FILTER_OPTIONS.includes(filterParam) ? filterParam : "All";
+
   const [selectedLog, setSelectedLog] = useState<AuditLogEntry | null>(null);
+  const [activeFilter, setActiveFilterState] = useState<string>(initialFilter);
+
+  const setActiveFilter = (filter: string) => {
+    setActiveFilterState(filter);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (filter === "All") {
+        url.searchParams.delete("filter");
+        url.searchParams.delete("tab");
+      } else {
+        url.searchParams.set("filter", filter);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   const { data: logsData, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["admin", "audit-logs"],
@@ -44,6 +66,14 @@ export function AuditLogsTab() {
     staleTime: 2 * 60 * 1000,
   });
 
+  const filterOptions = ["All", "CREATE", "UPDATE", "DELETE", "SYSTEM_CONFIG"];
+
+  const filteredLogs = logsData?.logs.filter((log) => {
+    if (activeFilter === "All") return true;
+    if (activeFilter === "SYSTEM_CONFIG") return log.action.includes("SYSTEM") || log.action.includes("CONFIG");
+    return log.action.includes(activeFilter);
+  }) || [];
+
   return (
     <Card className="border-muted bg-card">
       <CardHeader>
@@ -51,75 +81,106 @@ export function AuditLogsTab() {
         <CardDescription className="text-xs text-muted-foreground">
           Immutable track log of edits, deletions, and Aadhaar/PII lookups for regulatory compliance.
         </CardDescription>
+        
+        {/* Filter Bar */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {filterOptions.map((filter) => (
+            <Button
+              key={filter}
+              variant={activeFilter === filter ? "default" : "outline"}
+              size="sm"
+              onClick={() => setActiveFilter(filter)}
+              className={`h-7 text-xs rounded-full cursor-pointer ${
+                activeFilter === filter ? "bg-primary text-primary-foreground" : "bg-muted/50 hover:bg-muted"
+              }`}
+            >
+              {filter}
+            </Button>
+          ))}
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         {isLoadingLogs ? (
-          <div className="p-8 text-center text-sm text-muted-foreground flex justify-center items-center gap-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-            Loading audit logs...
+          <div className="p-5">
+            <DataTableSkeleton />
           </div>
         ) : (
-          <div className="border-t max-h-[500px] overflow-y-auto overflow-x-auto">
-            <div className="min-w-[580px]">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background z-10">
-                  <TableRow className="bg-muted/40">
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>User</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Target Entity</TableHead>
-                    <TableHead className="w-[100px] text-right">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {logsData?.logs.map((log) => (
-                    <TableRow key={log.id} className="hover:bg-muted/10 text-xs">
-                      <TableCell className="whitespace-nowrap py-3 font-mono text-[10px] text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        <div>{log.performedBy?.fullName || "System Admin"}</div>
-                        <div className="text-[10px] text-muted-foreground">{log.performedBy?.role || "Admin"}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            log.action === "DELETE" 
-                              ? "border-red-200 bg-red-50 text-red-700" 
-                              : log.action === "VIEW_AADHAAR"
-                              ? "border-amber-200 bg-amber-50 text-amber-700"
-                              : "border-sky-200 bg-sky-50 text-sky-700"
-                          }
-                        >
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-[10px] text-muted-foreground">
-                        {log.tableName} {log.recordId ? `(${log.recordId.substring(0, 8)}...)` : ""}
-                      </TableCell>
-                      <TableCell className="text-right py-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8 sm:h-7 text-xs sm:text-[10px] px-2.5 rounded-lg"
-                          onClick={() => setSelectedLog(log)}
-                        >
-                          Inspect
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {logsData?.logs.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
-                        No audit logs registered yet.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+          <div className="border-t max-h-[600px] overflow-y-auto p-4 sm:p-6 space-y-4">
+            {filteredLogs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                No audit logs found for the selected filter.
+              </div>
+            ) : (
+              <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-muted before:to-transparent">
+                {filteredLogs.map((log) => {
+                  let borderColor = "border-sky-500";
+                  if (log.action.includes("DELETE")) borderColor = "border-rose-500";
+                  else if (log.action.includes("UPDATE")) borderColor = "border-amber-500";
+                  else if (log.action.includes("CREATE")) borderColor = "border-emerald-500";
+                  else if (log.action.includes("SYSTEM") || log.action.includes("CONFIG")) borderColor = "border-blue-500";
+
+                  // Human readable relative time
+                  const logDate = new Date(log.createdAt);
+                  const diffMs = Date.now() - logDate.getTime();
+                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                  const diffMinutes = Math.floor(diffMs / (1000 * 60));
+                  
+                  let relativeTime = "Just now";
+                  if (diffDays > 0) relativeTime = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                  else if (diffHours > 0) relativeTime = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                  else if (diffMinutes > 0) relativeTime = `${diffMinutes} min${diffMinutes > 1 ? 's' : ''} ago`;
+
+                  return (
+                    <div 
+                      key={log.id} 
+                      className={`relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group animate-in fade-in slide-in-from-bottom-2 duration-300`}
+                    >
+                      {/* Timeline Icon */}
+                      <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-background bg-muted text-muted-foreground shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
+                        <Activity className="h-4 w-4" />
+                      </div>
+                      
+                      {/* Card */}
+                      <div className={`w-[calc(100%-3rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl bg-card border shadow-sm hover:shadow-md transition-shadow border-l-4 ${borderColor}`}>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <Badge variant="outline" className={`font-semibold bg-background ${borderColor} border-l-2 text-[10px]`}>
+                            {log.action}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {relativeTime}
+                          </span>
+                        </div>
+                        
+                        <div className="mb-2">
+                          <p className="text-sm font-semibold text-foreground">
+                            {log.performedBy?.fullName || "System Admin"}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {log.performedBy?.role || "Admin"}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                          <span className="font-mono text-[10px] bg-muted px-2 py-1 rounded-md text-muted-foreground truncate max-w-[150px]">
+                            {log.tableName} {log.recordId ? `(${log.recordId.substring(0, 8)})` : ""}
+                          </span>
+                          
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-7 text-[10px] px-2.5 rounded-lg cursor-pointer"
+                            onClick={() => setSelectedLog(log)}
+                          >
+                            Inspect
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </CardContent>

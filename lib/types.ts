@@ -28,7 +28,7 @@ export interface AcademicHistoryEntry {
 
 export interface Student {
   id: string;                    // Internal UUID / unique key
-  schoolId: string;              // Permanent school-issued ID — format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)
+  schoolId: string;              // Permanent school-issued ID — format: MHS/CLASS/ADMISSION_YEAR/REG (e.g. MHS/IX/2024/105)
   name: string;
   photoUrl?: string;             // 3:4 Passport photo public URL (WebP)
   pen?: string;                  // Permanent Education Number (govt)
@@ -82,12 +82,14 @@ export interface Student {
   weightKg?: number;
   heightCm?: number;
   studentUniqueCode?: string;    // Banglar Shiksha / BSP Student Unique Code
+  kanyashreeId?: string;         // Kanyashree ID for female students
   diseCode?: string;
   healthId?: string;
   annualFamilyIncome?: number;
   birthRegistrationNo?: string;
   identificationMark?: string;
   relationshipWithGuardian?: string;
+  guardianOccupation?: string;
   guardianQualification?: string;
   bankIfsc?: string;
   bankAccountNo?: string;

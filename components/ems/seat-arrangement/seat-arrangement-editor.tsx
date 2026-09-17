@@ -90,12 +90,13 @@ export function SeatArrangementEditor({
       totalCapacity: r.columns.reduce((acc, c) => acc + c.benchCount * studentsPerBench, 0),
     }));
   }, [rooms, studentsPerBench]);
-
   // Active Room Selection
-  const [activeRoomId, setActiveRoomId] = useState<string>(
-    effectiveRooms.length > 0 ? effectiveRooms[0].id : ""
-  );
-
+  const [activeRoomId, setActiveRoomId] = useState<string>(() => {
+    if (initialAllocation?.roomAllocations && initialAllocation.roomAllocations.length > 0) {
+      return initialAllocation.roomAllocations[0].roomId;
+    }
+    return effectiveRooms.length > 0 ? effectiveRooms[0].id : "";
+  });
   // State to toggle collapsible Step 4 control header
   const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(true);
 
@@ -202,21 +203,12 @@ export function SeatArrangementEditor({
 
   // Current allocated rooms state — auto-generated with selected pattern & seamless multi-room overflow
   const [roomAllocations, setRoomAllocations] = useState<AllocatedRoom[]>(() => {
-    // If an allocation was already prepared or modified and matches effectiveRooms, preserve it!
+    // If an allocation was already prepared or modified, preserve it!
     if (
       initialAllocation?.roomAllocations &&
-      initialAllocation.roomAllocations.length > 0 &&
-      effectiveRooms.length > 0 &&
-      effectiveRooms.every((r) =>
-        initialAllocation.roomAllocations.some((ar) => ar.roomId === r.id)
-      )
+      initialAllocation.roomAllocations.length > 0
     ) {
-      const firstAlloc = initialAllocation.roomAllocations[0];
-      const allocSeatsPerBench =
-        firstAlloc.seats.length > 0 && firstAlloc.columns[0]?.seatsPerBench;
-      if (!allocSeatsPerBench || !studentsPerBench || allocSeatsPerBench === studentsPerBench) {
-        return initialAllocation.roomAllocations;
-      }
+      return initialAllocation.roomAllocations;
     }
 
     let currentCursors = new Map<string, number>();

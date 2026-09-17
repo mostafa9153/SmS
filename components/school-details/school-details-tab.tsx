@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Building, 
   GraduationCap, 
@@ -126,9 +127,29 @@ const DEFAULT_CLASSES: ClassItem[] = [
   { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts / Science / Commerce", classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
 ];
 
+type SchoolDetailsSubTab = "profile" | "classes" | "marks_scheme";
+const VALID_SCHOOL_DETAILS_TABS: SchoolDetailsSubTab[] = ["profile", "classes", "marks_scheme"];
+
 export function SchoolDetailsTab() {
   // Navigation between the requested options: School Profile, Class Management & Marks Scheme
-  const [subOption, setSubOption] = useState<"profile" | "classes" | "marks_scheme">("profile");
+  const searchParams = useSearchParams();
+  const tabParam = (searchParams.get("tab") || searchParams.get("section")) as SchoolDetailsSubTab;
+  const initialTab = tabParam && VALID_SCHOOL_DETAILS_TABS.includes(tabParam) ? tabParam : "profile";
+  const [subOption, setSubOptionState] = useState<SchoolDetailsSubTab>(initialTab);
+
+  const setSubOption = (option: SchoolDetailsSubTab) => {
+    setSubOptionState(option);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (option === "profile") {
+        url.searchParams.delete("tab");
+        url.searchParams.delete("section");
+      } else {
+        url.searchParams.set("tab", option);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Profile Form State
   const [profile, setProfile] = useState<SchoolProfileData>(DEFAULT_SCHOOL_PROFILE);

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -27,5 +28,9 @@ export default async function EmployeeProfilePage({
     notFound();
   }
 
-  return <EmployeeProfileClient staff={staff} />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Profile...</div>}>
+      <EmployeeProfileClient staff={staff} />
+    </Suspense>
+  );
 }

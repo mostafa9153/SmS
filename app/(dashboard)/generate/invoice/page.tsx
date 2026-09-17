@@ -15,9 +15,11 @@ import {
   DEFAULT_FEE_ITEMS,
   getSavedFeeStructure,
   saveFeeStructure,
+  resetFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
   getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 import {
   InvoicePrintableView,
@@ -67,6 +69,7 @@ import { recordPrintBatch } from "@/lib/utils/print-history";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["ALL", "A", "B", "C", "D"];
+const EMPTY_STUDENTS_ARRAY: Student[] = [];
 
 function InvoiceGeneratorContent() {
   const searchParams = useSearchParams();
@@ -337,12 +340,13 @@ function InvoiceGeneratorContent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: bulkStudents = [], isLoading: isBulkLoading } = useQuery({
+  const { data: rawBulkStudents, isLoading: isBulkLoading } = useQuery({
     queryKey: ["students", "class", bulkClass, bulkSection],
     queryFn: () => getStudents("summary", bulkClass, bulkSection),
     enabled: generatorMode === "bulk" && !!bulkClass,
     staleTime: 5 * 60 * 1000,
   });
+  const bulkStudents = rawBulkStudents ?? EMPTY_STUDENTS_ARRAY;
 
   const isLoadingStudents = isSearchLoading || isDirectStudentLoading || isBulkLoading;
 
@@ -386,6 +390,10 @@ function InvoiceGeneratorContent() {
     }));
   }, [dynamicClasses]);
 
+  const [activeFeeCategory, setActiveFeeCategory] = useState<FeeCategory>(() =>
+    getFeeCategoryForClass(classParam?.toUpperCase() || "IX")
+  );
+
   // Available sections for the currently selected bulkClass
   const availableSectionsForSelectedClass = useMemo(() => {
     if (!bulkClass) return ["A", "B", "C", "D"];
@@ -424,10 +432,51 @@ function InvoiceGeneratorContent() {
     }
   }, [directStudentData]);
 
-  // Handle choosing a student in Single Mode
-  function handleSelectStudent(student: Student) {
+  // Handle choosing a student in Single Mode (with existing invoice auto-sync)
+  async function handleSelectStudent(student: Student) {
     setSelectedStudent(student);
     const category = getFeeCategoryForClass(student.presentClass);
+    setActiveFeeCategory(category);
+    const defaultFeeItems = getSavedFeeStructure(category);
+
+    // 1. Check if an invoice was already generated/registered for this student in DB
+    try {
+      const studentIdToSearch = student.schoolId || student.id;
+      const res = await fetch(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.data) && data.data.length > 0) {
+        const existingInv = data.data[0];
+        setInvoice((prev) => ({
+          ...prev,
+          invoiceNumber: existingInv.invoice_number,
+          academicSession: existingInv.academic_session || prev.academicSession,
+          studentId: student.schoolId || student.id,
+          studentName: student.name,
+          studentClass: student.presentClass,
+          section: student.presentSection || "A",
+          rollNo: String(student.presentRoll || "01"),
+          guardianName: student.guardianName || student.fatherName || "",
+          contactNumber: student.studentContact || student.altMobile || "",
+          penNumber: student.pen || "",
+          feeItems: Array.isArray(existingInv.fee_items) && existingInv.fee_items.length > 0
+            ? existingInv.fee_items
+            : defaultFeeItems,
+          paymentMode: existingInv.payment_mode || "Cash",
+          paymentStatus: existingInv.payment_status || "Paid",
+          remarks: existingInv.remarks || prev.remarks,
+        }));
+        showToast({
+          type: "success",
+          title: "Registered Invoice Loaded",
+          description: `Loaded ${student.name} with registered Invoice #${existingInv.invoice_number}`,
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not lookup student invoice:", e);
+    }
+
+    // 2. Default fresh invoice for student
     setInvoice((prev) => ({
       ...prev,
       studentId: student.schoolId || student.id,
@@ -438,7 +487,7 @@ function InvoiceGeneratorContent() {
       guardianName: student.guardianName || student.fatherName || "",
       contactNumber: student.studentContact || student.altMobile || "",
       penNumber: student.pen || "",
-      feeItems: getSavedFeeStructure(category),
+      feeItems: defaultFeeItems,
     }));
     showToast({
       type: "success",
@@ -449,6 +498,7 @@ function InvoiceGeneratorContent() {
 
   function updateInvoiceClass(newClass: string) {
     const category = getFeeCategoryForClass(newClass);
+    setActiveFeeCategory(category);
     setInvoice((prev) => ({
       ...prev,
       studentClass: newClass,
@@ -459,6 +509,7 @@ function InvoiceGeneratorContent() {
   function handleBulkClassChange(newClass: string) {
     setBulkClass(newClass);
     const category = getFeeCategoryForClass(newClass);
+    setActiveFeeCategory(category);
     setInvoice((prev) => ({
       ...prev,
       feeItems: getSavedFeeStructure(category),
@@ -467,8 +518,18 @@ function InvoiceGeneratorContent() {
 
   function handleModeChange(mode: "single" | "bulk") {
     setGeneratorMode(mode);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (mode === "single") {
+        url.searchParams.delete("mode");
+      } else {
+        url.searchParams.set("mode", mode);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
     const targetClass = mode === "bulk" ? bulkClass : invoice.studentClass;
     const category = getFeeCategoryForClass(targetClass);
+    setActiveFeeCategory(category);
     setInvoice((prev) => ({
       ...prev,
       feeItems: getSavedFeeStructure(category),
@@ -485,6 +546,7 @@ function InvoiceGeneratorContent() {
 
   // Bulk Mode: Filter class roster & sort by Roll No ascending
   const classRoster = useMemo(() => {
+    if (!bulkStudents.length) return EMPTY_STUDENTS_ARRAY;
     return [...bulkStudents]
       .sort((a, b) => {
         const rA = parseInt(String(a.presentRoll)) || 9999;
@@ -495,13 +557,17 @@ function InvoiceGeneratorContent() {
 
   // Automatically select all students when class or section changes
   useEffect(() => {
-    if (classRoster.length > 0) {
-      setSelectedStudentIds(classRoster.map((s) => s.id));
-      setCurrentPreviewIndex(0);
-    } else {
-      setSelectedStudentIds([]);
-      setCurrentPreviewIndex(0);
-    }
+    const nextIds = classRoster.map((s) => s.id);
+    setSelectedStudentIds((prev) => {
+      if (
+        prev.length === nextIds.length &&
+        prev.every((id, idx) => id === nextIds[idx])
+      ) {
+        return prev;
+      }
+      return nextIds;
+    });
+    setCurrentPreviewIndex(0);
   }, [classRoster]);
 
   // Filter roster by local search in bulk mode
@@ -643,29 +709,42 @@ function InvoiceGeneratorContent() {
     });
   }
 
+  function handleCategoryTabChange(category: FeeCategory) {
+    setActiveFeeCategory(category);
+    const items = getSavedFeeStructure(category);
+    setInvoice((prev) => ({
+      ...prev,
+      feeItems: items,
+    }));
+    const sec = FEE_SECTIONS.find((s) => s.id === category);
+    showToast({
+      type: "info",
+      title: "Fee Preset Switched",
+      description: `Loaded ${sec?.label || category} preset breakdown.`,
+    });
+  }
+
   function handleSaveAsDefaultFeeStructure() {
-    const targetClass = generatorMode === "bulk" ? bulkClass : invoice.studentClass;
-    const category = getFeeCategoryForClass(targetClass);
-    saveFeeStructure(category, invoice.feeItems);
+    saveFeeStructure(activeFeeCategory, invoice.feeItems);
+    const sec = FEE_SECTIONS.find((s) => s.id === activeFeeCategory);
     showToast({
       type: "success",
-      title: "Saved as Default",
-      description: `Current fee breakdown saved for ${category} category.`,
+      title: "Saved as School Default",
+      description: `Default fee breakdown for ${sec?.label || activeFeeCategory} updated successfully.`,
     });
   }
 
   function handleResetDefaultFees() {
-    const targetClass = generatorMode === "bulk" ? bulkClass : invoice.studentClass;
-    const category = getFeeCategoryForClass(targetClass);
-    saveFeeStructure(category, DEFAULT_FEE_ITEMS);
+    const resetItems = resetFeeStructure(activeFeeCategory);
     setInvoice((prev) => ({
       ...prev,
-      feeItems: DEFAULT_FEE_ITEMS,
+      feeItems: resetItems,
     }));
+    const sec = FEE_SECTIONS.find((s) => s.id === activeFeeCategory);
     showToast({
       type: "info",
       title: "Defaults Restored",
-      description: `Fee structure reset to official standards for ${category}.`,
+      description: `Fee structure reset to official standard for ${sec?.label || activeFeeCategory}.`,
     });
   }
 
@@ -1230,26 +1309,53 @@ function InvoiceGeneratorContent() {
               </CardContent>
             </Card>
 
-            {/* Card 3: Fee Particulars Editor */}
+            {/* Card 3: Fee Particulars Editor with 3 Section Presets */}
             <Card className="border border-border/80 shadow-xs rounded-2xl overflow-hidden">
-              <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-xs font-bold text-foreground">
-                    Fee Particulars (Customizable)
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground">
-                    Admin can add, edit name/amount, or delete any fee head.
-                  </p>
+              <CardHeader className="p-4 border-b bg-muted/20 space-y-3">
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xs font-bold text-foreground">
+                      Fee Particulars (3 Section Presets)
+                    </CardTitle>
+                    <p className="text-[11px] text-muted-foreground">
+                      Select a section preset to configure its default admission fee breakdown.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddFeeItem}
+                    className="h-7 text-xs font-semibold gap-1 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Item</span>
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddFeeItem}
-                  className="h-7 text-xs font-semibold gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Item</span>
-                </Button>
+
+                {/* 3 Section Selector Tabs */}
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted/60 border border-border/60 text-xs">
+                  {FEE_SECTIONS.map((sec) => {
+                    const isSelected = activeFeeCategory === sec.id;
+                    return (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => handleCategoryTabChange(sec.id)}
+                        className={cn(
+                          "py-1.5 px-2 rounded-lg font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer",
+                          isSelected
+                            ? "bg-background text-foreground shadow-xs border border-border"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                        )}
+                      >
+                        <span className="text-[11px] truncate">{sec.shortLabel}</span>
+                        <span className="text-[9.5px] font-normal opacity-75 font-mono">
+                          Classes {sec.classRange}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </CardHeader>
 
               <CardContent className="p-3 space-y-2">
@@ -1865,30 +1971,57 @@ function InvoiceGeneratorContent() {
               </CardContent>
             </Card>
 
-            {/* Card 3: Batch Fee Particulars (Applies to all) */}
+            {/* Card 3: Batch Fee Particulars (Applies to all) with 3 Section Presets */}
             <Card className="border border-border/80 shadow-xs rounded-2xl overflow-hidden">
-              <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-xs font-bold text-foreground">
-                    Shared Fee Structure for Class {bulkClass}
-                  </CardTitle>
-                  <p className="text-[11px] text-muted-foreground">
-                    Applied equally to all{" "}
-                    {bulkFillMode === "blank"
-                      ? `${bulkBlankCount} blank`
-                      : `${selectedStudentIds.length}`}{" "}
-                    generated student slips.
-                  </p>
+              <CardHeader className="p-4 border-b bg-muted/20 space-y-3">
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xs font-bold text-foreground">
+                      Shared Fee Structure for Class {bulkClass}
+                    </CardTitle>
+                    <p className="text-[11px] text-muted-foreground">
+                      Applied equally to all{" "}
+                      {bulkFillMode === "blank"
+                        ? `${bulkBlankCount} blank`
+                        : `${selectedStudentIds.length}`}{" "}
+                      generated student slips.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddFeeItem}
+                    className="h-7 text-xs font-semibold gap-1 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Head</span>
+                  </Button>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddFeeItem}
-                  className="h-7 text-xs font-semibold gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Add Head</span>
-                </Button>
+
+                {/* 3 Section Selector Tabs */}
+                <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted/60 border border-border/60 text-xs">
+                  {FEE_SECTIONS.map((sec) => {
+                    const isSelected = activeFeeCategory === sec.id;
+                    return (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => handleCategoryTabChange(sec.id)}
+                        className={cn(
+                          "py-1.5 px-2 rounded-lg font-bold transition-all text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer",
+                          isSelected
+                            ? "bg-background text-foreground shadow-xs border border-border"
+                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                        )}
+                      >
+                        <span className="text-[11px] truncate">{sec.shortLabel}</span>
+                        <span className="text-[9.5px] font-normal opacity-75 font-mono">
+                          Classes {sec.classRange}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </CardHeader>
 
               <CardContent className="p-3 space-y-2">
@@ -1931,6 +2064,28 @@ function InvoiceGeneratorContent() {
                   <span className="text-sm font-mono text-primary font-extrabold">
                     ₹{grandTotal.toFixed(2)}
                   </span>
+                </div>
+
+                {/* Save / Reset Actions */}
+                <div className="pt-2 border-t flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetDefaultFees}
+                    className="h-7 text-[11px] font-semibold gap-1 text-muted-foreground cursor-pointer"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Restore Standard</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleSaveAsDefaultFeeStructure}
+                    className="h-7 text-[11px] font-semibold gap-1 shadow-2xs cursor-pointer"
+                  >
+                    <Save className="h-3 w-3" />
+                    <span>Save as Default</span>
+                  </Button>
                 </div>
               </CardContent>
             </Card>

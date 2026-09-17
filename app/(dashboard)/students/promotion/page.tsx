@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getStudents,
@@ -14,7 +14,7 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn, sortClasses } from "@/lib/utils";
-import { ArrowRight, ChevronDown, ArrowLeft } from "lucide-react";
+import { ArrowRight, ChevronDown, ArrowLeft, Loader2 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -23,12 +23,50 @@ const CLASS_NEXT: Record<string, string> = {
   IX: "X", X: "Sent Up M.P.", XI: "XII", XII: "XII",
 };
 
-export default function PromotionPage() {
+function PromotionPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const [selectedClass, setSelectedClass] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
-  const [mode, setMode] = useState<"result" | "manual">("result");
+
+  const classParam = searchParams.get("class");
+  const sectionParam = searchParams.get("section");
+  const modeParam = searchParams.get("mode");
+
+  const [selectedClass, setSelectedClassState] = useState(classParam || "");
+  const [selectedSection, setSelectedSectionState] = useState(sectionParam || "");
+  const [mode, setModeState] = useState<"result" | "manual">(
+    modeParam === "manual" ? "manual" : "result"
+  );
+
+  const updatePromotionUrl = (paramsToUpdate: Record<string, string | null>) => {
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      Object.entries(paramsToUpdate).forEach(([k, v]) => {
+        if (!v || (k === "mode" && v === "result")) {
+          url.searchParams.delete(k);
+        } else {
+          url.searchParams.set(k, v);
+        }
+      });
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  const setSelectedClass = (cls: string) => {
+    setSelectedClassState(cls);
+    updatePromotionUrl({ class: cls });
+  };
+
+  const setSelectedSection = (sec: string) => {
+    setSelectedSectionState(sec);
+    updatePromotionUrl({ section: sec });
+  };
+
+  const setMode = (m: "result" | "manual") => {
+    setModeState(m);
+    updatePromotionUrl({ mode: m });
+  };
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [action, setAction] = useState<"promote" | "detain" | "transfer" | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -447,5 +485,20 @@ export default function PromotionPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function PromotionPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Promotion & Transfer Desk...</span>
+        </div>
+      }
+    >
+      <PromotionPageContent />
+    </Suspense>
   );
 }

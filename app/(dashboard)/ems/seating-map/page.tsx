@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { EmsNavTabs } from "@/components/ems/ems-nav-tabs";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
@@ -29,55 +29,81 @@ import {
   Wand2,
   Armchair,
   Printer,
+  Loader2,
 } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
 
-export default function EmsSeatingMapPage() {
+function updateUrlParam(params: Record<string, string | null>) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  for (const [key, value] of Object.entries(params)) {
+    if (value) {
+      url.searchParams.set(key, value);
+    } else {
+      url.searchParams.delete(key);
+    }
+  }
+  window.history.replaceState(null, "", url.toString());
+}
+
+function EmsSeatingMapContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const allocIdFromUrl = searchParams.get("id");
+  const roomIdFromUrl = searchParams.get("room");
 
   const [allocations, setAllocations] = useState<ExamAllocation[]>([]);
   const [currentAllocation, setCurrentAllocation] = useState<ExamAllocation | null>(null);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("");
+  const [selectedRoomId, setSelectedRoomIdState] = useState<string>("");
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
+  const setSelectedRoomId = (roomId: string) => {
+    setSelectedRoomIdState(roomId);
+    updateUrlParam({ room: roomId });
+  };
+
   useEffect(() => {
-    const saved = getSavedAllocations();
-    setAllocations(saved);
+    async function loadAllocations() {
+      const saved = getSavedAllocations();
+      setAllocations(saved);
 
-    let activeAlloc: ExamAllocation | undefined;
+      let activeAlloc: ExamAllocation | undefined;
 
-    if (allocIdFromUrl) {
-      activeAlloc = saved.find((a) => a.id === allocIdFromUrl);
+      if (allocIdFromUrl) {
+        activeAlloc = saved.find((a: ExamAllocation) => a.id === allocIdFromUrl);
+      }
+
+      if (!activeAlloc && saved.length > 0) {
+        activeAlloc = saved[0];
+      }
+
+      // If still no allocation exists, generate a rich demo allocation for immediate viewing!
+      if (!activeAlloc) {
+        const demoAlloc = await generateDemoAllocation();
+        saveAllocation(demoAlloc);
+        setAllocations([demoAlloc]);
+        activeAlloc = demoAlloc;
+      }
+
+      setCurrentAllocation(activeAlloc);
+      if (activeAlloc && activeAlloc.roomAllocations.length > 0) {
+        const matchingRoom = roomIdFromUrl && activeAlloc.roomAllocations.some((r) => r.roomId === roomIdFromUrl);
+        const targetRoomId = matchingRoom ? roomIdFromUrl! : activeAlloc.roomAllocations[0].roomId;
+        setSelectedRoomIdState(targetRoomId);
+      }
+
+      setMounted(true);
     }
 
-    if (!activeAlloc && saved.length > 0) {
-      activeAlloc = saved[0];
-    }
-
-    // If still no allocation exists, generate a rich demo allocation for immediate viewing!
-    if (!activeAlloc) {
-      const demoAlloc = generateDemoAllocation();
-      saveAllocation(demoAlloc);
-      setAllocations([demoAlloc]);
-      activeAlloc = demoAlloc;
-    }
-
-    setCurrentAllocation(activeAlloc);
-    if (activeAlloc && activeAlloc.roomAllocations.length > 0) {
-      setSelectedRoomId(activeAlloc.roomAllocations[0].roomId);
-    }
-
-    setMounted(true);
-  }, [allocIdFromUrl]);
+    loadAllocations();
+  }, [allocIdFromUrl, roomIdFromUrl]);
 
   // Handle seat swap
-  const handleSwapSeats = (seat1: SeatAssignment, seat2: SeatAssignment) => {
+  const handleSwapSeats = async (seat1: SeatAssignment, seat2: SeatAssignment) => {
     if (!currentAllocation) return;
 
-    const updated = updateSeatSwap(
+    const updated = await updateSeatSwap(
       currentAllocation.id,
       selectedRoomId,
       seat1.seatId,
@@ -86,7 +112,7 @@ export default function EmsSeatingMapPage() {
 
     if (updated) {
       setCurrentAllocation(updated);
-      setAllocations(getSavedAllocations());
+      setAllocations(await getSavedAllocations());
     }
   };
 
@@ -94,10 +120,9 @@ export default function EmsSeatingMapPage() {
     const found = allocations.find((a) => a.id === allocId);
     if (found) {
       setCurrentAllocation(found);
-      if (found.roomAllocations.length > 0) {
-        setSelectedRoomId(found.roomAllocations[0].roomId);
-      }
-      router.push(`/ems/seating-map?id=${found.id}`);
+      const firstRoomId = found.roomAllocations.length > 0 ? found.roomAllocations[0].roomId : "";
+      setSelectedRoomIdState(firstRoomId);
+      updateUrlParam({ id: found.id, room: firstRoomId || null });
     }
   };
 
@@ -238,9 +263,24 @@ export default function EmsSeatingMapPage() {
   );
 }
 
+export default function EmsSeatingMapPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Seating Blueprint...</span>
+        </div>
+      }
+    >
+      <EmsSeatingMapContent />
+    </Suspense>
+  );
+}
+
 // Helper to generate a demo allocation if the user has no saved allocations yet
-function generateDemoAllocation(): ExamAllocation {
-  const rooms = getSavedRooms();
+async function generateDemoAllocation(): Promise<ExamAllocation> {
+  const rooms = await getSavedRooms();
   const room1 = rooms[0];
 
   const sampleStudents = [

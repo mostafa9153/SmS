@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
+import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 
 export async function POST(req: Request) {
   try {
@@ -93,11 +94,13 @@ export async function POST(req: Request) {
     const targetClass = newClass || student.present_class;
     const targetSection = newSection || student.present_section;
     const targetRoll = newRoll ? parseInt(newRoll) : (student.present_roll || 1);
+    const todayDateStr = new Date().toISOString().split("T")[0];
 
     const updatePayload: Record<string, any> = {
       present_class: targetClass,
       present_section: targetSection,
       present_roll: targetRoll,
+      present_class_admission_date: todayDateStr,
       current_status: "Continuing",
       re_admission_status: "admitted",
       re_admitted_at: new Date().toISOString(),
@@ -105,6 +108,18 @@ export async function POST(req: Request) {
       is_invoice_queued: true,
       updated_at: new Date().toISOString(),
     };
+
+    if (student.school_id) {
+      const parsed = parseSchoolId(student.school_id);
+      if (!parsed.isLegacyFormat) {
+        updatePayload.school_id = buildSchoolId(
+          targetClass,
+          parsed.year || student.admission_year || currentYear,
+          parsed.registerNo || student.admission_no || "01",
+          parsed.prefix
+        );
+      }
+    }
 
     if (targetClass !== student.present_class) {
       updatePayload.previous_class = student.present_class;
@@ -178,6 +193,23 @@ export async function POST(req: Request) {
       console.warn("Could not record academic_history record:", histErr);
     }
 
+    // If authenticated user is a Teacher, verify re-admission permission and class assignment
+    if (auth.role === "Teacher") {
+      const perms = auth.permissions;
+      if (perms && perms.can_handle_readmission === false) {
+        return NextResponse.json(
+          { error: "Forbidden: You do not have permission to process re-admissions." },
+          { status: 403 }
+        );
+      }
+      if (perms?.allowed_classes && perms.allowed_classes.length > 0 && !perms.allowed_classes.includes(targetClass)) {
+        return NextResponse.json(
+          { error: `Forbidden: You are not assigned to handle re-admissions for Class ${targetClass}.` },
+          { status: 403 }
+        );
+      }
+    }
+
     // Record invoice in admission_invoices table if an invoice number was provided
     if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
       try {
@@ -204,12 +236,49 @@ export async function POST(req: Request) {
             copy_type: "both",
             is_blank: false,
             invoice_status: "active",
+            collected_by: auth.user?.id || null,
+            collector_name: auth.fullName || "Staff",
             updated_at: new Date().toISOString(),
           },
           { onConflict: "invoice_number" }
         );
+
+        // Record in teacher_activity_logs for real-time tracking
+        await supabase.from("teacher_activity_logs").insert({
+          user_id: auth.user?.id || null,
+          teacher_id: auth.staffId || null,
+          teacher_name: auth.fullName || "Staff",
+          action_type: "RE_ADMISSION",
+          target_student_id: student.school_id || student.id,
+          target_student_name: student.name,
+          student_class: targetClass,
+          section: targetSection,
+          amount_collected: invTotal,
+          metadata: {
+            receipt_no: paymentReceiptNo.trim(),
+            payment_status: feePaid ? "Paid" : "Due",
+          },
+        });
       } catch (invErr) {
-        console.warn("Could not upsert into admission_invoices:", invErr);
+        console.warn("Could not upsert into admission_invoices or teacher_activity_logs:", invErr);
+      }
+    } else {
+      // Still log the re-admission activity even without fee receipt
+      try {
+        await supabase.from("teacher_activity_logs").insert({
+          user_id: auth.user?.id || null,
+          teacher_id: auth.staffId || null,
+          teacher_name: auth.fullName || "Staff",
+          action_type: "RE_ADMISSION",
+          target_student_id: student.school_id || student.id,
+          target_student_name: student.name,
+          student_class: targetClass,
+          section: targetSection,
+          amount_collected: 0,
+          metadata: { fee_paid: feePaid },
+        });
+      } catch (actErr) {
+        console.warn("Could not log teacher re-admission activity:", actErr);
       }
     }
 

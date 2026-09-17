@@ -97,6 +97,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [examHeaders, setExamHeaders] = useState<string[]>(() =>
     getDynamicSubjectsForClasses(uniqueClasses)
   );
+  const [examDates, setExamDates] = useState<string[]>(() => Array(8).fill(""));
 
   useEffect(() => {
     // When dialog opens, fetch freshest school profile & configs from database
@@ -191,9 +192,42 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   };
 
   const handleHeaderChange = (index: number, val: string) => {
-    const updated = [...examHeaders];
+    const updated = Array.from({ length: 8 }).map((_, i) => examHeaders[i] ?? "");
     updated[index] = val;
     setExamHeaders(updated);
+  };
+
+  const handleDateChange = (index: number, val: string) => {
+    const updated = Array.from({ length: 8 }).map((_, i) => examDates[i] ?? "");
+    updated[index] = val;
+    setExamDates(updated);
+  };
+
+  const handleFillConsecutiveDates = (startOffset = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + startOffset);
+    const newDates: string[] = [];
+    let cur = new Date(d);
+    while (newDates.length < 8) {
+      if (cur.getDay() !== 0) {
+        const day = String(cur.getDate()).padStart(2, "0");
+        const month = String(cur.getMonth() + 1).padStart(2, "0");
+        newDates.push(`${day}/${month}`);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    setExamDates(newDates);
+  };
+
+  const handleAddQuickDate = (dateStr: string) => {
+    const nextDates = Array.from({ length: 8 }).map((_, i) => examDates[i] ?? "");
+    const emptyIdx = nextDates.findIndex((d) => !d.trim());
+    if (emptyIdx !== -1) {
+      nextDates[emptyIdx] = dateStr;
+    } else {
+      nextDates[0] = dateStr;
+    }
+    setExamDates(nextDates);
   };
 
   const setTodayDate = () => {
@@ -280,12 +314,6 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 >
                   <div className="flex items-center justify-between w-full">
                     <FileText className={cn("w-4 h-4", activeDoc === "admit" ? "text-white" : "text-indigo-600 dark:text-indigo-400")} />
-                    <span className={cn(
-                      "text-[9px] font-mono px-1.5 py-0.2 rounded font-bold",
-                      activeDoc === "admit" ? "bg-indigo-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    )}>
-                      21/A4
-                    </span>
                   </div>
                   <div>
                     <span className="block text-xs font-bold leading-tight">Admit Cards</span>
@@ -308,12 +336,6 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 >
                   <div className="flex items-center justify-between w-full">
                     <Tag className={cn("w-4 h-4", activeDoc === "slips" ? "text-white" : "text-emerald-600 dark:text-emerald-400")} />
-                    <span className={cn(
-                      "text-[9px] font-mono px-1.5 py-0.2 rounded font-bold",
-                      activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    )}>
-                      30/A4
-                    </span>
                   </div>
                   <div>
                     <span className="block text-xs font-bold leading-tight">Bench Slips</span>
@@ -336,12 +358,6 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 >
                   <div className="flex items-center justify-between w-full">
                     <ClipboardList className={cn("w-4 h-4", activeDoc === "attendance" ? "text-white" : "text-amber-600 dark:text-amber-400")} />
-                    <span className={cn(
-                      "text-[9px] font-mono px-1.5 py-0.2 rounded font-bold",
-                      activeDoc === "attendance" ? "bg-amber-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                    )}>
-                      8-Days
-                    </span>
                   </div>
                   <div>
                     <span className="block text-xs font-bold leading-tight">Attendance</span>
@@ -535,21 +551,21 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </div>
               )}
 
-              {/* Attendance Sheet: 8 Dynamic Headers (Spacious & Clean Inputs) */}
+              {/* Attendance Sheet: 8 Dynamic Headers & Dates (Spacious & Clean Inputs) */}
               {activeDoc === "attendance" && (
                 <div className="p-3.5 bg-slate-50/90 dark:bg-slate-950/70 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
                     <div>
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <Sliders className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>8 Exam Column Headers</span>
+                        <span>8 Exam Days (Subject & Date)</span>
                       </span>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Subject names or dates for attendance columns
+                        Set Subject names and Exam dates independently for each day.
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                       <Button
                         type="button"
                         variant="outline"
@@ -559,71 +575,107 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         title="Auto-fill subjects from database"
                       >
                         <Sparkles className="w-3 h-3 text-indigo-500" />
-                        <span>Auto-fill</span>
+                        <span>Auto Subjects</span>
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          setExamHeaders([
-                            "Date 1", "Date 2", "Date 3", "Date 4",
-                            "Date 5", "Date 6", "Date 7", "Date 8"
-                          ])
-                        }
-                        className="h-7 text-[10px] font-medium px-2 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer rounded-lg"
-                        title="Set default Date 1 to Date 8 labels"
+                        onClick={() => handleFillConsecutiveDates(0)}
+                        className="h-7 text-[10px] font-bold px-2 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/50 cursor-pointer rounded-lg gap-1"
+                        title="Fill 8 consecutive exam dates starting today (skipping Sundays)"
                       >
-                        Date 1-8
+                        <Calendar className="w-3 h-3 text-emerald-500" />
+                        <span>Dates (Today+)</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setExamHeaders(Array(8).fill(""));
+                          setExamDates(Array(8).fill(""));
+                        }}
+                        className="h-7 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2 cursor-pointer rounded-lg"
+                        title="Clear all subjects and dates"
+                      >
+                        Clear All
                       </Button>
                     </div>
                   </div>
 
-                  {/* 2-Column Wide Inputs with Day Badges */}
-                  <div className="grid grid-cols-2 gap-2">
-                    {examHeaders.map((header, idx) => (
+                  {/* 8 Columns Grid: each day has Day Header + Subject Input + Date Input */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {Array.from({ length: 8 }).map((_, idx) => (
                       <div
                         key={`header-box-${idx}`}
-                        className="flex items-center rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-1 pl-2 gap-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all group"
+                        className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
                       >
-                        <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 shrink-0 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-800/60 select-none">
-                          D{idx + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={header}
-                          onChange={(e) => handleHeaderChange(idx, e.target.value)}
-                          placeholder={`Subject ${idx + 1}`}
-                          className="w-full text-xs bg-transparent border-0 outline-none text-slate-900 dark:text-white font-medium placeholder:text-slate-400"
-                        />
-                        {header && (
-                          <button
-                            type="button"
-                            onClick={() => handleHeaderChange(idx, "")}
-                            className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-slate-600 p-0.5 rounded transition-opacity cursor-pointer mr-1"
-                            title="Clear"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
+                            Day {idx + 1}
+                          </span>
+                          {(examHeaders[idx] || examDates[idx]) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                handleHeaderChange(idx, "");
+                                handleDateChange(idx, "");
+                              }}
+                              className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-0.5 rounded transition-opacity cursor-pointer"
+                              title="Clear this day's subject & date"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Subject Name Input */}
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                            Subject
+                          </span>
+                          <input
+                            type="text"
+                            value={examHeaders[idx] || ""}
+                            onChange={(e) => handleHeaderChange(idx, e.target.value)}
+                            placeholder={`Sub ${idx + 1}`}
+                            className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-semibold placeholder:text-muted-foreground/60 transition-colors"
+                          />
+                        </div>
+
+                        {/* Date Input */}
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                            Date
+                          </span>
+                          <input
+                            type="text"
+                            value={examDates[idx] || ""}
+                            onChange={(e) => handleDateChange(idx, e.target.value)}
+                            placeholder="DD/MM"
+                            className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Quick Subject Suggestion Tags */}
-                  <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-800">
-                    <span className="text-[10px] text-slate-400 font-semibold block mb-1">
-                      Quick Add Common Subjects:
-                    </span>
-                    <div className="flex flex-wrap gap-1">
+                  {/* Quick Subject & Date Chips */}
+                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-2">
+                    {/* Subject Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
+                        Quick Subject:
+                      </span>
                       {["Bengali", "English", "Mathematics", "Phy Science", "Life Science", "History", "Geography", "Health & PE"].map((sub) => (
                         <button
                           key={sub}
                           type="button"
                           onClick={() => {
-                            const nextHeaders = [...examHeaders];
+                            const nextHeaders = Array.from({ length: 8 }).map((_, i) => examHeaders[i] ?? "");
                             const emptyIdx = nextHeaders.findIndex(
-                              (h) => !h || h.startsWith("Exam ") || h.startsWith("Date ")
+                              (h) => !h.trim() || h.startsWith("Exam ")
                             );
                             if (emptyIdx !== -1) {
                               nextHeaders[emptyIdx] = sub;
@@ -637,6 +689,45 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                           + {sub}
                         </button>
                       ))}
+                    </div>
+
+                    {/* Date Chips */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
+                        Quick Date:
+                      </span>
+                      {(() => {
+                        const today = new Date();
+                        const d1 = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        const d2 = `${String(tomorrow.getDate()).padStart(2, "0")}/${String(tomorrow.getMonth() + 1).padStart(2, "0")}`;
+                        const dayAfter = new Date(today);
+                        dayAfter.setDate(dayAfter.getDate() + 2);
+                        const d3 = `${String(dayAfter.getDate()).padStart(2, "0")}/${String(dayAfter.getMonth() + 1).padStart(2, "0")}`;
+
+                        return [
+                          { label: `Today (${d1})`, val: d1 },
+                          { label: `Tomorrow (${d2})`, val: d2 },
+                          { label: `+2 Days (${d3})`, val: d3 },
+                        ].map((chip) => (
+                          <button
+                            key={chip.val}
+                            type="button"
+                            onClick={() => handleAddQuickDate(chip.val)}
+                            className="text-[10px] bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:border-emerald-300 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md transition-all cursor-pointer select-none font-mono font-medium"
+                          >
+                            + {chip.label}
+                          </button>
+                        ));
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => setExamDates(Array(8).fill(""))}
+                        className="text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent px-2 py-0.5 rounded-md transition-all cursor-pointer select-none"
+                      >
+                        Clear Dates
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -802,6 +893,17 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     schoolProfile={schoolProfile}
                     targetRoomId={targetRoomId}
                     examHeaders={examHeaders}
+                    examDates={examDates}
+                  />
+                )}
+
+                {activeDoc === "gate" && (
+                  <EmsGateNoticePrintable
+                    rooms={allocation.roomAllocations || []}
+                    academicYear={allocation.academicYear}
+                    examType={allocation.examType}
+                    schoolProfile={schoolProfile}
+                    targetRoomId={targetRoomId}
                   />
                 )}
 
@@ -857,6 +959,17 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
             examHeaders={examHeaders}
+            examDates={examDates}
+          />
+        )}
+
+        {activeDoc === "gate" && (
+          <EmsGateNoticePrintable
+            rooms={allocation.roomAllocations || []}
+            academicYear={allocation.academicYear}
+            examType={allocation.examType}
+            schoolProfile={schoolProfile}
+            targetRoomId={targetRoomId}
           />
         )}
 

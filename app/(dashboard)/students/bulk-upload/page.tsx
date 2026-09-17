@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useCallback, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Upload,
@@ -81,13 +81,32 @@ const STEPS = [
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 
-export default function BulkUploadPage() {
+function BulkUploadPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();
 
-  // Wizard State
-  const [step, setStep] = useState(1);
+  // Wizard State with URL synchronization
+  const stepParam = searchParams.get("step");
+  const initialStep = stepParam ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 4) : 1;
+  const [step, setStepState] = useState(initialStep);
+
+  const setStep = (newStep: number | ((prev: number) => number)) => {
+    setStepState((prev) => {
+      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (nextStep === 1) {
+          url.searchParams.delete("step");
+        } else {
+          url.searchParams.set("step", String(nextStep));
+        }
+        window.history.replaceState(null, "", url.toString());
+      }
+      return nextStep;
+    });
+  };
   const { addNotification } = useNotifications();
   const [uploadType, setUploadType] = useState<BulkUploadType>("current_students");
   const [file, setFile] = useState<File | null>(null);
@@ -1030,6 +1049,28 @@ export default function BulkUploadPage() {
         </div>
       )}
 
+      {/* Fallback for steps 2..4 when page is refreshed without active parsed file */}
+      {step > 1 && !parsedData && (
+        <div className="rounded-2xl border bg-card p-8 text-center space-y-4 shadow-xs animate-fade-in">
+          <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <FileSpreadsheet className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold">No File Loaded for Step {step}</p>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Please upload your Excel or CSV file in Step 1 before mapping columns or previewing import data.
+            </p>
+          </div>
+          <button
+            onClick={() => setStep(1)}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Return to Step 1: Upload File</span>
+          </button>
+        </div>
+      )}
+
       {/* ──────────────────────────────────────────────────────────── */}
       {/* STEP 2: Interactive Column Mapping                            */}
       {/* ──────────────────────────────────────────────────────────── */}
@@ -1703,5 +1744,20 @@ export default function BulkUploadPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function BulkUploadPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Bulk Import Studio...</span>
+        </div>
+      }
+    >
+      <BulkUploadPageContent />
+    </Suspense>
   );
 }

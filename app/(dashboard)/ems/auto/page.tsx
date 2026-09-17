@@ -71,12 +71,13 @@ export default function EmsAutoAllocationPage() {
   useEffect(() => {
     syncAllEmsConfigsFromDb().then(() => {
       setAvailableClasses(getDynamicClassCodes());
-      setRooms(getSavedRooms());
+      const saved = getSavedRooms();
+      setRooms(saved);
+      setSelectedRoomIds(saved.slice(0, 2).map((r: EmsRoom) => r.id));
     });
     const saved = getSavedRooms();
     setRooms(saved);
-    // By default, select first 2 rooms if available
-    setSelectedRoomIds(saved.slice(0, 2).map((r) => r.id));
+    setSelectedRoomIds(saved.slice(0, 2).map((r: EmsRoom) => r.id));
   }, []);
 
   // Add a new class row

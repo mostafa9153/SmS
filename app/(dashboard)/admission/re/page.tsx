@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStudents, getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { updateReAdmissionStatus } from "@/lib/data/admission";
@@ -31,16 +32,21 @@ import {
   Layers,
   ChevronRight,
   UserPlus,
+  Users,
+  ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
 import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
-// Class progression mapping (Class 5 -> 6, 6 -> 7, etc.)
-const CLASS_NEXT_MAP: Record<string, string> = {
+// Promotion mapping standard: V -> VI, VI -> VII, etc.
+const CLASS_PROMOTION_MAP: Record<string, string> = {
   V: "VI",
   VI: "VII",
   VII: "VIII",
@@ -51,14 +57,35 @@ const CLASS_NEXT_MAP: Record<string, string> = {
   XII: "Passed Out",
 };
 
-export default function ReAdmissionDashboard() {
+const CLASS_NEXT_MAP = CLASS_PROMOTION_MAP;
+
+const VALID_RE_STATUSES = ["all", "pending", "admitted", "not_admitted"] as const;
+
+function ReAdmissionDashboardContent() {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+
+  const statusParam = searchParams.get("status") as any;
+  const initialStatus = statusParam && VALID_RE_STATUSES.includes(statusParam) ? statusParam : "all";
 
   // Filters State
   const [selectedClass, setSelectedClass] = useState<string>("all");
   const [selectedSection, setSelectedSection] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "admitted" | "not_admitted">("all");
+  const [statusFilter, setStatusFilterState] = useState<"all" | "pending" | "admitted" | "not_admitted">(initialStatus);
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  const setStatusFilter = (st: "all" | "pending" | "admitted" | "not_admitted") => {
+    setStatusFilterState(st);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (st === "all") {
+        url.searchParams.delete("status");
+      } else {
+        url.searchParams.set("status", st);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
 
   // Confirmation Modal State
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
@@ -172,6 +199,15 @@ export default function ReAdmissionDashboard() {
     return generateInvoiceNumber(1, currentYear);
   };
 
+  // Dynamic Fee Recalculation on Class Change
+  function handleNewClassChange(cls: string) {
+    setNewClass(cls);
+    const category = getFeeCategoryForClass(cls);
+    const feeItems = getSavedFeeStructure(category);
+    const invoiceTotal = calculateFeeTotal(feeItems);
+    setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
+  }
+
   // Open Re-Admission Modal
   async function openConfirmModal(student: Student) {
     setActiveStudent(student);
@@ -181,12 +217,33 @@ export default function ReAdmissionDashboard() {
     setNewRoll(String(student.presentRoll || 1));
     setFeePaid(true);
 
-    const feeItems = getSavedFeeStructure();
+    // Auto-fetch preset amount according to class tier: 5-8, 9-10, 11-12
+    const category = getFeeCategoryForClass(targetClass);
+    const feeItems = getSavedFeeStructure(category);
     const invoiceTotal = calculateFeeTotal(feeItems);
     setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
 
     setReceiptNo("Syncing...");
     setModalOpen(true);
+
+    // 1. Check if student already has a registered invoice in DB
+    try {
+      const studentIdToSearch = student.schoolId || student.id;
+      const res = await fetch(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.data) && data.data.length > 0) {
+        const existingInv = data.data[0];
+        setReceiptNo(existingInv.invoice_number);
+        if (existingInv.total_amount) {
+          setFeeAmount(String(existingInv.total_amount));
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not check existing invoice for student:", e);
+    }
+
+    // 2. Fetch fresh sequential invoice number
     const nextInvoiceNo = await fetchNextInvoiceNumber();
     setReceiptNo(nextInvoiceNo);
   }
@@ -943,7 +1000,7 @@ export default function ReAdmissionDashboard() {
                   </span>
                   <CustomSelect
                     value={newClass}
-                    onChange={setNewClass}
+                    onChange={handleNewClassChange}
                     options={[
                       { value: "V", label: "Class V" },
                       { value: "VI", label: "Class VI" },
@@ -1000,7 +1057,7 @@ export default function ReAdmissionDashboard() {
                       Invoice Amount (₹)
                     </label>
                     <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md">
-                      From Invoice
+                      {newClass ? `${FEE_SECTIONS.find((s) => s.id === getFeeCategoryForClass(newClass))?.shortLabel || "Preset"} Tier` : "From Preset"}
                     </span>
                   </div>
                   <Input
@@ -1087,5 +1144,20 @@ export default function ReAdmissionDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function ReAdmissionDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Re-Admission Desk...</span>
+        </div>
+      }
+    >
+      <ReAdmissionDashboardContent />
+    </Suspense>
   );
 }

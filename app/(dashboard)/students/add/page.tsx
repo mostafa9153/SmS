@@ -29,8 +29,8 @@ const studentSchema = z.object({
     .string()
     .min(1, "School ID is required")
     .regex(
-      /^[A-Z0-9_-]+\/\d{4}\/\d{2,}\/[A-Z0-9_-]+\/[A-Z0-9_-]+\/\d{2,}$/i,
-      "School ID format: MHS/YYYY/REG/CLASS/SECTION/ROLL (e.g. MHS/2026/01/V/A/001)"
+      /^[A-Z0-9/_-]+$/i,
+      "School ID format: MHS/CLASS/YEAR/REG (e.g. MHS/IX/2024/105)"
     ),
   dob: z.string().refine((v) => {
     const d = new Date(v);
@@ -69,6 +69,7 @@ const studentSchema = z.object({
   motherOccupation: z.string().optional(),
   guardianName: z.string().optional(),
   relationshipWithGuardian: z.string().optional(),
+  guardianOccupation: z.string().optional(),
   guardianQualification: z.string().optional(),
   annualFamilyIncome: z.coerce.number().optional(),
 
@@ -143,6 +144,7 @@ const studentSchema = z.object({
   diseCode: z.string().optional(),
   healthId: z.string().optional(),
   studentUniqueCode: z.string().optional(),
+  kanyashreeId: z.string().optional(),
   aadhaar: z.string().optional().refine((v) => !v || /^\d{12}$/.test(v), "Aadhaar must be 12 digits"),
   nameAsPerAadhaar: z.string().optional(),
 });
@@ -220,6 +222,9 @@ export default function AddStudentPage() {
       nss: false,
       scoutsGuides: false,
       admissionYear: new Date().getFullYear(),
+      admissionDate: new Date().toISOString().split("T")[0],
+      presentClassAdmissionDate: new Date().toISOString().split("T")[0],
+      admissionNo: "01",
       fatherOccupation: "",
       motherOccupation: "",
     },
@@ -231,19 +236,59 @@ export default function AddStudentPage() {
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
   const watchPresentClass = watch("presentClass");
+  const watchAdmissionYear = watch("admissionYear");
+  const watchAdmissionNo = watch("admissionNo");
+  const watchAdmissionDate = watch("admissionDate");
+  const watchGender = watch("gender");
   const [hasAadhaarVal, setHasAadhaarVal] = useState("Yes");
 
   const fatherNameWatched = watch("fatherName");
+  const fatherOccupationWatched = watch("fatherOccupation");
   const motherNameWatched = watch("motherName");
+  const motherOccupationWatched = watch("motherOccupation");
   const relationshipWatched = watch("relationshipWithGuardian");
+  const studentContactWatched = watch("studentContact");
+  const altMobileWatched = watch("altMobile");
 
+  // Auto-sync admission year when admission date is chosen
   useEffect(() => {
-    if (relationshipWatched === "Father" && fatherNameWatched) {
-      setValue("guardianName", fatherNameWatched, { shouldValidate: true });
-    } else if (relationshipWatched === "Mother" && motherNameWatched) {
-      setValue("guardianName", motherNameWatched, { shouldValidate: true });
+    if (watchAdmissionDate) {
+      const year = new Date(watchAdmissionDate).getFullYear();
+      if (!isNaN(year) && year > 1990 && year <= new Date().getFullYear()) {
+        setValue("admissionYear", year, { shouldValidate: true });
+      }
     }
-  }, [relationshipWatched, fatherNameWatched, motherNameWatched, setValue]);
+  }, [watchAdmissionDate, setValue]);
+
+  // Auto-sync guardian fields based on relationship and parent details
+  useEffect(() => {
+    const rel = (relationshipWatched || "").trim().toLowerCase();
+    if (rel === "father") {
+      if (fatherNameWatched) {
+        setValue("guardianName", fatherNameWatched, { shouldValidate: true });
+      }
+      if (fatherOccupationWatched) {
+        setValue("guardianOccupation", fatherOccupationWatched, { shouldValidate: true });
+      }
+    } else if (rel === "mother") {
+      if (motherNameWatched) {
+        setValue("guardianName", motherNameWatched, { shouldValidate: true });
+      }
+      if (motherOccupationWatched) {
+        setValue("guardianOccupation", motherOccupationWatched, { shouldValidate: true });
+      }
+    }
+  }, [relationshipWatched, fatherNameWatched, motherNameWatched, fatherOccupationWatched, motherOccupationWatched, setValue]);
+
+  // Auto-sync guardian mobile with primary contact if empty
+  useEffect(() => {
+    const rel = (relationshipWatched || "").trim().toLowerCase();
+    if (rel === "father" || rel === "mother") {
+      if (studentContactWatched && (!altMobileWatched || altMobileWatched.trim() === "")) {
+        setValue("altMobile", studentContactWatched, { shouldValidate: true });
+      }
+    }
+  }, [relationshipWatched, studentContactWatched, altMobileWatched, setValue]);
 
   useEffect(() => {
     const presets = getSavedStudentEntryPresets();
@@ -358,6 +403,9 @@ export default function AddStudentPage() {
                   <SchoolIdInput
                     value={field.value}
                     onChange={field.onChange}
+                    presentClass={watchPresentClass}
+                    admissionYear={watchAdmissionYear}
+                    admissionNo={watchAdmissionNo}
                   />
                 )}
               />
@@ -652,6 +700,20 @@ export default function AddStudentPage() {
                 )}
               />
             </FormField>
+            <FormField label="Guardian's Occupation" error={errors.guardianOccupation?.message}>
+              <Controller
+                control={control}
+                name="guardianOccupation"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select guardian's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
+              />
+            </FormField>
             <FormField label="Guardian's Qualification" error={errors.guardianQualification?.message}>
               <Controller
                 control={control}
@@ -746,23 +808,30 @@ export default function AddStudentPage() {
             <FormField label="Present Class Admission Date" error={errors.presentClassAdmissionDate?.message}>
               <input {...register("presentClassAdmissionDate")} type="date" />
             </FormField>
-            <FormField label="Academic Stream (HS only)" error={errors.academicStream?.message}>
-              <Controller
-                control={control}
-                name="academicStream"
-                render={({ field }) => (
-                  <CustomSelect
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder="Select stream..."
-                    options={STREAM_OPTIONS}
+            {(() => {
+              const normalizedClass = (watchPresentClass || "").toUpperCase().replace(/^CLASS\s*/i, "").replace(/^STD\s*/i, "").trim();
+              const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
+              if (!isHs) return null;
+              return (
+                <FormField label="Academic Stream (HS only)" error={errors.academicStream?.message}>
+                  <Controller
+                    control={control}
+                    name="academicStream"
+                    render={({ field }) => (
+                      <CustomSelect
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        placeholder="Select stream..."
+                        options={STREAM_OPTIONS}
+                      />
+                    )}
                   />
-                )}
-              />
-            </FormField>
+                </FormField>
+              );
+            })()}
             {(() => {
               const normalizedClass = (watchPresentClass || "").toUpperCase().replace(/^CLASS\s*/i, "").trim();
-              const isBoardClass = ["X", "10", "XI", "11", "XII", "12"].includes(normalizedClass);
+              const isBoardClass = ["IX", "9", "X", "10", "XI", "11", "XII", "12"].includes(normalizedClass);
               const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
               if (!isBoardClass) return null;
               return (
@@ -990,6 +1059,11 @@ export default function AddStudentPage() {
             <FormField label="Student Unique Code" error={errors.studentUniqueCode?.message}>
               <input {...register("studentUniqueCode")} placeholder="Unique identifier code" />
             </FormField>
+            {watchGender === "Female" && (
+              <FormField label="Kanyashree ID / Applicant ID" error={errors.kanyashreeId?.message}>
+                <input {...register("kanyashreeId")} placeholder="e.g. 19190100101150000001" />
+              </FormField>
+            )}
             <FormField label="Aadhaar Available? (Yes/No)">
               <CustomSelect
                 value={hasAadhaarVal}
