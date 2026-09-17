@@ -66,7 +66,7 @@ export function ColumnClassAssigner({
     { value: "", label: "Select Class" },
     ...availableClasses.map((c) => ({
       value: c.code,
-      label: `Class ${c.code}${c.count !== undefined ? ` (${c.count})` : ""}`,
+      label: c.name || `Class ${c.code}${c.count !== undefined ? ` (${c.count})` : ""}`,
     })),
   ];
 
@@ -74,7 +74,7 @@ export function ColumnClassAssigner({
     { value: "", label: "Auto (Next Class)" },
     ...availableClasses.map((c) => ({
       value: c.code,
-      label: `Class ${c.code}`,
+      label: c.name || `Class ${c.code}`,
     })),
   ];
 
@@ -141,13 +141,17 @@ export function ColumnClassAssigner({
   };
 
   return (
-    <div className="relative z-20 space-y-3">
+    <div className="relative z-20 space-y-3.5">
       {/* Top Header & Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <Columns className="h-3.5 w-3.5 text-primary" />
-          <span>Column & Seat Classes</span>
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
+            <Columns className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+            Column & Seat Classes
+          </span>
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {availableClasses.length >= 2 && !disabled && (
@@ -158,9 +162,9 @@ export function ColumnClassAssigner({
                   variant="outline"
                   size="sm"
                   onClick={handleSyncFixedU}
-                  className="h-7 text-[11px] font-semibold gap-1.5 text-primary hover:text-primary cursor-pointer border-primary/30 hover:bg-primary/5 shadow-2xs transition-all hover:scale-[1.01]"
+                  className="h-8 text-xs font-semibold gap-1.5 text-primary hover:text-primary cursor-pointer border-primary/30 hover:bg-primary/5 shadow-2xs transition-all hover:scale-[1.01]"
                 >
-                  <Sparkles className="h-3 w-3 text-amber-500" />
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
                   <span>Sync All (Outer: {availableClasses[0]?.code} / Mid: {availableClasses[1]?.code})</span>
                 </Button>
               ) : (
@@ -169,9 +173,9 @@ export function ColumnClassAssigner({
                   variant="outline"
                   size="sm"
                   onClick={handleAutoAlternate}
-                  className="h-7 text-[11px] font-semibold gap-1.5 text-primary hover:text-primary cursor-pointer border-primary/30 hover:bg-primary/5 shadow-2xs transition-all hover:scale-[1.01]"
+                  className="h-8 text-xs font-semibold gap-1.5 text-primary hover:text-primary cursor-pointer border-primary/30 hover:bg-primary/5 shadow-2xs transition-all hover:scale-[1.01]"
                 >
-                  <ArrowLeftRight className="h-3 w-3" />
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
                   <span>Auto-Alternate (A-B-A)</span>
                 </Button>
               )}
@@ -183,10 +187,10 @@ export function ColumnClassAssigner({
               type="button"
               size="sm"
               onClick={onApplyToAllRooms}
-              className="h-7 text-[11px] font-bold gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer shadow-xs px-2.5 transition-all hover:scale-[1.01]"
+              className="h-8 text-xs font-bold gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer shadow-xs px-3 transition-all hover:scale-[1.01]"
               title="Apply this room's configuration to all examination rooms"
             >
-              <Copy className="h-3 w-3" />
+              <Copy className="h-3.5 w-3.5" />
               <span>Apply to All Rooms</span>
             </Button>
           )}
@@ -194,7 +198,7 @@ export function ColumnClassAssigner({
       </div>
 
       {/* Visual Bench Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-3.5">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {columns.map((col) => {
           const currentConfig = columnAssignments.find((c) => c.columnIndex === col.columnIndex);
 
@@ -220,67 +224,71 @@ export function ColumnClassAssigner({
             <div
               key={col.columnIndex}
               className={cn(
-                "relative focus-within:z-30 p-3.5 rounded-2xl border transition-all space-y-3 shadow-2xs bg-card/95 backdrop-blur-xs",
-                s1Style ? s1Style.border : "border-border/70"
+                "relative focus-within:z-30 p-4 rounded-2xl border-2 transition-all space-y-3.5 shadow-xs bg-card/95 backdrop-blur-xs",
+                s1Style ? s1Style.border : "border-border/80"
               )}
             >
               {/* Column Header */}
-              <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Layers className="h-3.5 w-3.5 text-primary" />
+                    <Layers className="h-4 w-4 text-primary" />
                     <h5 className="text-xs font-bold text-foreground tracking-tight truncate">
                       {col.columnLabel || `Column ${col.columnIndex}`}
                     </h5>
                   </div>
-                  <Badge variant="secondary" className="text-[10px] font-mono px-1.5 py-0 h-4.5 shrink-0">
-                    {col.benchCount} Benches • {capacity} Seats
+                  <Badge variant="secondary" className="text-[11px] font-mono font-medium px-2 py-0.5 h-5 shrink-0">
+                    {col.benchCount} Benches • {capacity} Seats ({seatsPerBench}/bench)
                   </Badge>
                 </div>
 
                 {/* Quick Action Tools */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     title="Swap S1 & S2 classes"
                     onClick={() => handleSwapSeats(col.columnIndex, s1Class, s2Class, s3MirrorS1)}
                     disabled={disabled}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded-md hover:bg-muted/70 transition-colors cursor-pointer border border-transparent hover:border-border/50"
+                    className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground gap-1.5 cursor-pointer border-border/70 hover:bg-muted/70"
                   >
-                    <ArrowLeftRight className="h-2.5 w-2.5" />
+                    <ArrowLeftRight className="h-3 w-3" />
                     <span>Swap</span>
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     type="button"
-                    title="Advanced rules (Overflow class)"
+                    variant="outline"
+                    size="sm"
+                    title="Advanced column rules (Overflow class)"
                     onClick={() => toggleAdvanced(col.columnIndex)}
                     className={cn(
-                      "p-1 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer border",
+                      "h-7 w-7 p-0 cursor-pointer border transition-colors",
                       isAdvancedOpen
-                        ? "bg-primary/10 text-primary border-primary/30"
-                        : "hover:bg-muted/70 border-transparent hover:border-border/50"
+                        ? "bg-primary/15 text-primary border-primary/40 hover:bg-primary/20"
+                        : "text-muted-foreground hover:text-foreground border-border/70 hover:bg-muted/70"
                     )}
                   >
-                    <Settings2 className="h-3 w-3" />
-                  </button>
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
 
               {/* Visual Bench Layout: Side-by-Side Seat Slots */}
-              <div className="p-2.5 rounded-xl bg-muted/25 border border-border/40 space-y-2">
+              <div className="p-3 rounded-xl bg-muted/30 dark:bg-muted/20 border border-border/50 space-y-2.5">
                 <div
                   className={cn(
-                    "grid gap-2",
+                    "grid gap-2.5",
                     isThreeSeat ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"
                   )}
                 >
                   {/* ────────────────── SEAT 1 (LEFT) ────────────────── */}
-                  <div className="p-2 rounded-lg bg-background/90 border border-border/60 space-y-1.5 shadow-2xs">
+                  <div className="p-2.5 rounded-xl bg-background border border-border/70 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 ring-2 ring-blue-500/20" />
-                        <span className="text-[11px] font-bold text-foreground truncate">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500 ring-2 ring-blue-500/20" />
+                        <span className="text-xs font-bold text-foreground truncate">
                           S1 (Left)
                         </span>
                       </div>
@@ -299,10 +307,10 @@ export function ColumnClassAssigner({
                           });
                         }}
                         className={cn(
-                          "shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer border shadow-2xs",
+                          "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
                           s1Dir === "bottom-to-top"
-                            ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
-                            : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/50"
+                            ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
+                            : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
                         )}
                       >
                         {s1Dir === "bottom-to-top" ? (
@@ -330,17 +338,18 @@ export function ColumnClassAssigner({
                       }}
                       options={classSelectOptions}
                       placeholder="Select Class"
-                      className="text-xs h-8"
+                      className="text-xs"
+                      triggerClassName="h-8.5 text-xs px-2.5 font-medium"
                       disabled={disabled}
                     />
                   </div>
 
                   {/* ────────────────── SEAT 2 (CENTER / RIGHT) ────────────────── */}
-                  <div className="p-2 rounded-lg bg-background/90 border border-border/60 space-y-1.5 shadow-2xs">
+                  <div className="p-2.5 rounded-xl bg-background border border-border/70 space-y-2 shadow-2xs">
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-500/20" />
-                        <span className="text-[11px] font-bold text-foreground truncate">
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-500/20" />
+                        <span className="text-xs font-bold text-foreground truncate">
                           {isThreeSeat ? "S2 (Center)" : "S2 (Right)"}
                         </span>
                       </div>
@@ -359,10 +368,10 @@ export function ColumnClassAssigner({
                           });
                         }}
                         className={cn(
-                          "shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer border shadow-2xs",
+                          "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
                           s2Dir === "bottom-to-top"
-                            ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
-                            : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/50"
+                            ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
+                            : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
                         )}
                       >
                         {s2Dir === "bottom-to-top" ? (
@@ -389,18 +398,19 @@ export function ColumnClassAssigner({
                       }}
                       options={classSelectOptions}
                       placeholder="Select Class"
-                      className="text-xs h-8"
+                      className="text-xs"
+                      triggerClassName="h-8.5 text-xs px-2.5 font-medium"
                       disabled={disabled}
                     />
                   </div>
 
                   {/* ────────────────── SEAT 3 (RIGHT - 3 SEATS ONLY) ────────────────── */}
                   {isThreeSeat && (
-                    <div className="p-2 rounded-lg bg-background/90 border border-border/60 space-y-1.5 shadow-2xs">
+                    <div className="p-2.5 rounded-xl bg-background border border-border/70 space-y-2 shadow-2xs">
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="h-2 w-2 shrink-0 rounded-full bg-purple-500 ring-2 ring-purple-500/20" />
-                          <span className="text-[11px] font-bold text-foreground truncate">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-purple-500 ring-2 ring-purple-500/20" />
+                          <span className="text-xs font-bold text-foreground truncate">
                             S3 (Right)
                           </span>
                         </div>
@@ -419,10 +429,10 @@ export function ColumnClassAssigner({
                             });
                           }}
                           className={cn(
-                            "shrink-0 flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold transition-all cursor-pointer border shadow-2xs",
+                            "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
                             s3Dir === "bottom-to-top"
-                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30"
-                              : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/50"
+                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
+                              : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
                           )}
                         >
                           {s3Dir === "bottom-to-top" ? (
@@ -441,8 +451,8 @@ export function ColumnClassAssigner({
 
                       {/* Mirroring / Custom Class Picker for S3 */}
                       {s3MirrorS1 ? (
-                        <div className="flex items-center justify-between gap-1 text-xs px-2 h-8 bg-purple-500/10 dark:bg-purple-950/30 rounded-lg border border-dashed border-purple-300 dark:border-purple-800">
-                          <span className="text-[10px] text-purple-700 dark:text-purple-300 font-semibold truncate flex items-center gap-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1 text-xs px-2.5 h-8.5 bg-purple-500/10 dark:bg-purple-950/30 rounded-lg border border-dashed border-purple-300 dark:border-purple-800">
+                          <span className="text-[11px] text-purple-700 dark:text-purple-300 font-semibold truncate flex items-center gap-1 min-w-0">
                             <Link2 className="h-3 w-3 text-purple-600 dark:text-purple-400 shrink-0" />
                             <span className="truncate">= S1 {s1Class ? `(${s1Class})` : ""}</span>
                           </span>
@@ -455,7 +465,7 @@ export function ColumnClassAssigner({
                                 s3ClassCode: currentConfig?.s3ClassCode || s1Class,
                               });
                             }}
-                            className="text-[10px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 underline shrink-0 cursor-pointer flex items-center gap-0.5"
+                            className="text-[10px] font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 underline shrink-0 cursor-pointer flex items-center gap-0.5 px-1 py-0.5"
                           >
                             <Unlink2 className="h-2.5 w-2.5" />
                             <span>Custom</span>
@@ -473,12 +483,15 @@ export function ColumnClassAssigner({
                               }}
                               options={classSelectOptions}
                               placeholder="Select Class"
-                              className="text-xs h-8"
+                              className="text-xs"
+                              triggerClassName="h-8.5 text-xs px-2.5 font-medium"
                               disabled={disabled}
                             />
                           </div>
-                          <button
+                          <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             title="Link back to Seat 1"
                             onClick={() => {
                               updateColumnConfig(col.columnIndex, {
@@ -486,10 +499,10 @@ export function ColumnClassAssigner({
                                 s3ClassCode: s1Class,
                               });
                             }}
-                            className="h-8 w-8 rounded-lg bg-muted/60 hover:bg-muted text-muted-foreground hover:text-primary transition-colors cursor-pointer border border-border/50 flex items-center justify-center shrink-0"
+                            className="h-8.5 w-8.5 p-0 shrink-0 cursor-pointer border-border/70 hover:bg-muted text-muted-foreground hover:text-primary"
                           >
                             <Link2 className="h-3.5 w-3.5" />
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -499,10 +512,10 @@ export function ColumnClassAssigner({
 
               {/* Expandable Advanced Options (Overflow Class) */}
               {isAdvancedOpen && (
-                <div className="p-2.5 rounded-xl bg-muted/30 border border-border/50 space-y-1.5 animate-in fade-in duration-150">
+                <div className="p-3 rounded-xl bg-muted/40 border border-border/60 space-y-2 animate-in fade-in duration-150">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
                     <span className="flex items-center gap-1.5 text-foreground font-bold">
-                      <Settings2 className="h-3 w-3 text-primary" />
+                      <Settings2 className="h-3.5 w-3.5 text-primary" />
                       <span>Overflow Class</span>
                     </span>
                     <span
@@ -521,7 +534,8 @@ export function ColumnClassAssigner({
                     }}
                     options={overflowSelectOptions}
                     placeholder="Auto (Next Class)"
-                    className="text-xs h-8"
+                    className="text-xs"
+                    triggerClassName="h-8 text-xs px-2.5 font-medium"
                     disabled={disabled}
                   />
                 </div>
@@ -533,4 +547,5 @@ export function ColumnClassAssigner({
     </div>
   );
 }
+
 
