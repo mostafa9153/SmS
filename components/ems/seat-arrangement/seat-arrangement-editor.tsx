@@ -24,6 +24,7 @@ import {
   arrangeRoomInterleaved,
   arrangeRoomUnified,
   normalizeClassCode,
+  normalizeSectionCode,
 } from "@/lib/ems/seat-arrangement-algorithm";
 import { PatternSelector } from "./pattern-selector";
 import { ColumnClassAssigner, AvailableClassOption } from "./column-class-assigner";
@@ -44,6 +45,10 @@ import {
   Armchair,
   CheckCircle2,
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Sliders,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,27 +77,54 @@ export function SeatArrangementEditor({
   onCommitArrangement,
   onBackToStep3,
 }: SeatArrangementEditorProps) {
+  // Dynamically ensure rooms reflect chosen studentsPerBench capacity
+  const effectiveRooms = useMemo(() => {
+    if (!studentsPerBench) return rooms;
+    return rooms.map((r) => ({
+      ...r,
+      defaultSeatsPerBench: studentsPerBench,
+      columns: r.columns.map((c) => ({
+        ...c,
+        seatsPerBench: studentsPerBench,
+      })),
+      totalCapacity: r.columns.reduce((acc, c) => acc + c.benchCount * studentsPerBench, 0),
+    }));
+  }, [rooms, studentsPerBench]);
+
   // Active Room Selection
   const [activeRoomId, setActiveRoomId] = useState<string>(
-    rooms.length > 0 ? rooms[0].id : ""
+    effectiveRooms.length > 0 ? effectiveRooms[0].id : ""
   );
 
-  // Available classes derived from Step 2
+  // State to toggle collapsible Step 4 control header
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(true);
+
+  // Available classes derived from Step 2 with real DB continuing student count
   const availableClasses: AvailableClassOption[] = useMemo(() => {
     const unique = new Map<string, { code: string; name: string; count: number }>();
 
     classes.forEach((c) => {
       const norm = normalizeClassCode(c.class);
-      const expected = Math.max(0, c.rollTo - c.rollFrom + 1);
+      const normSec = normalizeSectionCode(c.section);
+      const actualMatching = allStudents.filter((s) => {
+        if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+        if (normalizeClassCode(s.presentClass) !== norm) return false;
+        if (normSec && normalizeSectionCode(s.presentSection) !== normSec) return false;
+        const roll = Number(s.presentRoll) || 0;
+        if (c.rollFrom && roll < c.rollFrom) return false;
+        if (c.rollTo && roll > c.rollTo) return false;
+        return true;
+      }).length;
+
       if (!unique.has(norm)) {
-        unique.set(norm, { code: norm, name: `Class ${norm}`, count: expected });
+        unique.set(norm, { code: norm, name: `Class ${norm}`, count: actualMatching });
       } else {
-        unique.get(norm)!.count += expected;
+        unique.get(norm)!.count += actualMatching;
       }
     });
 
     return Array.from(unique.values());
-  }, [classes]);
+  }, [classes, allStudents]);
 
   // Global student pool
   const studentPool = useMemo(() => {
@@ -104,7 +136,7 @@ export function SeatArrangementEditor({
   const defaultRoomConfigs = useMemo(() => {
     const configs: Record<string, RoomArrangementConfig> = {};
 
-    rooms.forEach((r) => {
+    effectiveRooms.forEach((r) => {
       const mapped = initialRoomClassMap[r.id] || [];
       const primaryClass = mapped[0] || availableClasses[0]?.code || "";
       const secondaryClass = mapped[1] || availableClasses[1]?.code || primaryClass;
@@ -132,7 +164,7 @@ export function SeatArrangementEditor({
     });
 
     return configs;
-  }, [rooms, initialRoomClassMap, availableClasses]);
+  }, [effectiveRooms, initialRoomClassMap, availableClasses]);
 
   // Per-room arrangement configurations
   const [roomConfigs, setRoomConfigs] = useState<Record<string, RoomArrangementConfig>>(defaultRoomConfigs);
@@ -143,7 +175,7 @@ export function SeatArrangementEditor({
       let currentCursors = new Map<string, number>();
       const updatedRooms: AllocatedRoom[] = [];
 
-      rooms.forEach((r) => {
+      effectiveRooms.forEach((r) => {
         const rConfig = configsToUse[r.id] || {
           roomId: r.id,
           pattern: "INTERLEAVED",
@@ -165,11 +197,28 @@ export function SeatArrangementEditor({
 
       return updatedRooms;
     },
-    [rooms, studentPool]
+    [effectiveRooms, studentPool]
   );
 
   // Current allocated rooms state — auto-generated with selected pattern & seamless multi-room overflow
   const [roomAllocations, setRoomAllocations] = useState<AllocatedRoom[]>(() => {
+    // If an allocation was already prepared or modified and matches effectiveRooms, preserve it!
+    if (
+      initialAllocation?.roomAllocations &&
+      initialAllocation.roomAllocations.length > 0 &&
+      effectiveRooms.length > 0 &&
+      effectiveRooms.every((r) =>
+        initialAllocation.roomAllocations.some((ar) => ar.roomId === r.id)
+      )
+    ) {
+      const firstAlloc = initialAllocation.roomAllocations[0];
+      const allocSeatsPerBench =
+        firstAlloc.seats.length > 0 && firstAlloc.columns[0]?.seatsPerBench;
+      if (!allocSeatsPerBench || !studentsPerBench || allocSeatsPerBench === studentsPerBench) {
+        return initialAllocation.roomAllocations;
+      }
+    }
+
     let currentCursors = new Map<string, number>();
     const initialPool = buildClassStudentPool(
       allStudents,
@@ -177,7 +226,7 @@ export function SeatArrangementEditor({
       classes
     );
 
-    return rooms.map((r) => {
+    return effectiveRooms.map((r) => {
       const cfg = defaultRoomConfigs[r.id];
       const patternToUse = cfg?.pattern || "INTERLEAVED";
       const { allocatedRoom, updatedCursors } = arrangeRoomUnified(
@@ -252,7 +301,7 @@ export function SeatArrangementEditor({
   };
 
   // Active room data
-  const activeRoom = rooms.find((r) => r.id === activeRoomId) || rooms[0];
+  const activeRoom = effectiveRooms.find((r) => r.id === activeRoomId) || effectiveRooms[0];
   const activeAllocation = roomAllocations.find((r) => r.roomId === activeRoomId);
   const activeConfig =
     roomConfigs[activeRoomId] || {
@@ -407,7 +456,7 @@ export function SeatArrangementEditor({
 
     const updatedConfigs: Record<string, RoomArrangementConfig> = {};
 
-    rooms.forEach((r) => {
+    effectiveRooms.forEach((r) => {
       // Map active room's column assignments to target room r's columns
       const matchedCols: ColumnClassAllocationConfig[] = r.columns.map((col, idx) => {
         const existing =
@@ -626,65 +675,92 @@ export function SeatArrangementEditor({
       {/* ROOM CONFIGURATION PANEL: Algorithm & Column Assignments     */}
       {/* ──────────────────────────────────────────────────────────── */}
       {activeRoom && (
-        <div className="relative z-30 p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-xs space-y-4 shadow-xs">
-          {/* Clean Step 4 Header */}
-          <div className="flex items-center justify-between border-b border-border/40 pb-3">
-            <div className="flex items-center gap-2.5">
+        <div className="relative z-30 p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-xs space-y-3.5 shadow-xs">
+          {/* Header Row: Title + Exam Badge + Highlighted Edit Button */}
+          <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-3">
+            <div className="flex items-center gap-2.5 min-w-0">
               <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <Armchair className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                  Step 4: Examination Seating Planner
+              <div className="flex items-center gap-2 min-w-0">
+                <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight truncate">
+                  Step 4: Seat Arrangement
                 </h3>
                 {examType && (
-                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2 py-0.5">
+                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2 py-0.5 shrink-0">
                     {examType}
                   </Badge>
                 )}
               </div>
             </div>
+
+            {/* Highlighted Edit Button */}
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsConfigExpanded((prev) => !prev)}
+              className={cn(
+                "h-7.5 px-3 text-xs font-bold gap-1.5 cursor-pointer shadow-2xs transition-all",
+                isConfigExpanded
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
+              )}
+              title="Edit and customize column seats & directions"
+            >
+              <Sliders className="h-3.5 w-3.5" />
+              <span>{isConfigExpanded ? "Close Edit" : "Edit"}</span>
+              {isConfigExpanded ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
+              )}
+            </Button>
           </div>
 
-          {/* Pattern Selector */}
+          {/* Full-width 2-Strategy Pattern Switch Sections */}
           <PatternSelector
             value={activeConfig.pattern}
             onChange={handlePatternChange}
           />
 
-          {/* Column Class Assigner */}
-          <ColumnClassAssigner
-            columns={activeRoom.columns}
-            availableClasses={availableClasses}
-            columnAssignments={activeConfig.columnAssignments}
-            onAssignmentChange={handleColumnAssignmentChange}
-            onApplyToAllRooms={handleApplyTemplateToAllRooms}
-            pattern={activeConfig.pattern}
-          />
+          {/* Collapsible Customizer: ONLY opens when user clicks Edit */}
+          {isConfigExpanded && (
+            <div className="space-y-4 pt-1 animate-in fade-in duration-200">
+              {/* Column Class Assigner */}
+              <ColumnClassAssigner
+                columns={activeRoom.columns}
+                availableClasses={availableClasses}
+                columnAssignments={activeConfig.columnAssignments}
+                onAssignmentChange={handleColumnAssignmentChange}
+                onApplyToAllRooms={handleApplyTemplateToAllRooms}
+                pattern={activeConfig.pattern}
+              />
 
-          {/* Action Row: Auto-Arrange & Reset Room */}
-          <div className="pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleResetActiveRoom}
-              className="h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1.5 cursor-pointer border-rose-200 dark:border-rose-900"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Reset {activeRoom.roomNumber} Seats</span>
-            </Button>
+              {/* Action Row: Auto-Arrange & Reset Room */}
+              <div className="pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetActiveRoom}
+                  className="h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1.5 cursor-pointer border-rose-200 dark:border-rose-900"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Reset {activeRoom.roomNumber} Seats</span>
+                </Button>
 
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleAutoArrangeActiveRoom}
-              className="h-8 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer px-3.5"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              <span>Re-apply Arrangement to {activeRoom.roomNumber}</span>
-            </Button>
-          </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleAutoArrangeActiveRoom}
+                  className="h-8 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer px-3.5"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  <span>Re-apply Arrangement to {activeRoom.roomNumber}</span>
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -692,7 +768,7 @@ export function SeatArrangementEditor({
       {/* ROOM SELECTOR SEGMENTED TAB BAR (Positioned Before Room)     */}
       {/* ──────────────────────────────────────────────────────────── */}
       <div className="p-1.5 rounded-2xl bg-muted/40 border border-border/70 flex items-center gap-1.5 overflow-x-auto shadow-2xs">
-        {rooms.map((room, roomIdx) => {
+        {effectiveRooms.map((room, roomIdx) => {
           const isSelected = room.id === activeRoomId;
           const alloc = roomAllocations.find((r) => r.roomId === room.id);
           const occupied = alloc?.occupiedSeats || 0;
@@ -774,9 +850,10 @@ export function SeatArrangementEditor({
         <Button
           size="sm"
           onClick={handleCommitToStep5}
-          className="text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer shadow-md"
+          className="text-xs font-bold gap-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white cursor-pointer shadow-md hover:scale-[1.01] active:scale-[0.98] transition-all px-4"
         >
-          <span>Proceed to Visual Blueprint & Print</span>
+          <Printer className="h-3.5 w-3.5" />
+          <span>Proceed to Print Suite</span>
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
