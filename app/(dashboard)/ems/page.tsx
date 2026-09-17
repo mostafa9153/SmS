@@ -271,13 +271,7 @@ function EmsMasterPageContent() {
     setStepState((prev) => {
       const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
       if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        if (nextStep === 1) {
-          url.searchParams.delete("step");
-        } else {
-          url.searchParams.set("step", String(nextStep));
-        }
-        window.history.replaceState(null, "", url.toString());
+        window.history.replaceState(null, "", "?step=" + nextStep);
         try {
           sessionStorage.setItem("sms_ems_current_step", String(nextStep));
         } catch {}
@@ -1609,8 +1603,8 @@ function EmsMasterPageContent() {
               const isSelected = selectedRoomIds.includes(room.id);
               const roomBenchCount = room.columns.reduce((sum, c) => sum + c.benchCount, 0);
               const roomDynamicSeats = roomBenchCount * studentsPerBench;
-              const isDragging = draggedRoomIndex === roomIdx;
-              const isDragOver = dragOverRoomIndex === roomIdx;
+              const isDraggingThis = draggedRoomIndex === roomIdx;
+              const isDragOverThis = dragOverRoomIndex === roomIdx;
 
               return (
                 <div
@@ -1638,7 +1632,10 @@ function EmsMasterPageContent() {
                     e.preventDefault();
                     e.stopPropagation();
                     const fromIdxStr = e.dataTransfer.getData("text/plain");
-                    const parsedFrom = fromIdxStr !== "" && !isNaN(parseInt(fromIdxStr, 10)) ? parseInt(fromIdxStr, 10) : draggedRoomIndex;
+                    const parsedFrom =
+                      fromIdxStr !== "" && !isNaN(parseInt(fromIdxStr, 10))
+                        ? parseInt(fromIdxStr, 10)
+                        : draggedRoomIndex;
                     if (parsedFrom !== null && parsedFrom >= 0 && parsedFrom !== roomIdx) {
                       reorderRooms(parsedFrom, roomIdx);
                     }
@@ -1660,12 +1657,12 @@ function EmsMasterPageContent() {
                     toggleRoom(room.id);
                   }}
                   className={cn(
-                    "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-pointer select-none relative group",
+                    "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-grab active:cursor-grabbing select-none relative group",
                     isSelected
                       ? "border-primary bg-primary/[0.04] ring-1 ring-primary/40"
                       : "border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20",
-                    isDragging && "opacity-40 scale-[0.98] border-dashed border-primary shadow-inner",
-                    isDragOver && "ring-2 ring-primary ring-offset-2 bg-primary/10 border-primary scale-[1.02] shadow-md"
+                    isDraggingThis && "opacity-40 scale-[0.98] border-dashed border-primary shadow-inner",
+                    isDragOverThis && "ring-2 ring-primary ring-offset-2 bg-primary/10 border-primary scale-[1.02] shadow-md"
                   )}
                 >
                   {/* Top Row: Sequence Badge with Drag Grip, Room Name, Quick Move Up/Down, Edit Icon, Checkbox */}

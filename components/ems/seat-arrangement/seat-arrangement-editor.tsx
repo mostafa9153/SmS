@@ -233,6 +233,19 @@ export function SeatArrangementEditor({
     });
   });
 
+  // Sync initialAllocation when prop changes or mounts on page restore
+  useEffect(() => {
+    if (initialAllocation?.roomAllocations && initialAllocation.roomAllocations.length > 0) {
+      setRoomAllocations(initialAllocation.roomAllocations);
+      setActiveRoomId((prev) => {
+        if (prev && initialAllocation.roomAllocations.some((r) => r.roomId === prev)) {
+          return prev;
+        }
+        return initialAllocation.roomAllocations[0].roomId;
+      });
+    }
+  }, [initialAllocation]);
+
   // Undo / Redo Stacks
   const [undoStack, setUndoStack] = useState<ArrangementHistoryEntry[]>([]);
   const [redoStack, setRedoStack] = useState<ArrangementHistoryEntry[]>([]);
