@@ -108,7 +108,7 @@ export function VisualRoomBlueprint({
           </div>
 
           <Badge variant="secondary" className="font-mono text-[11px] h-5">
-            {room.totalAllocated} / {room.capacity} Allocated
+            {room.occupiedSeats} / {room.totalSeats} Allocated
           </Badge>
 
           {room.classesPresent.map((cls) => {
@@ -118,7 +118,7 @@ export function VisualRoomBlueprint({
                 key={cls}
                 className={cn(
                   "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
-                  theme ? `${theme.badgeBg} ${theme.badgeText} ${theme.border}` : "bg-muted text-muted-foreground"
+                  theme ? `${theme.badgeBg} ${theme.border}` : "bg-muted text-muted-foreground"
                 )}
               >
                 <span className={cn("h-1.5 w-1.5 rounded-full", theme?.dotBg || "bg-primary")} />
@@ -183,7 +183,7 @@ export function VisualRoomBlueprint({
                 className="h-7 text-xs gap-1"
                 onClick={onEditArrangement}
               >
-                <RefreshCw className="h-3 w-3" /> Re-arrange
+                <RotateCcw className="h-3 w-3" /> Re-arrange
               </Button>
             )}
 

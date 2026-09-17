@@ -126,6 +126,26 @@ export function SeatArrangementEditor({
     return Array.from(unique.values());
   }, [classes, allStudents]);
 
+  // Short exam title (e.g., "2nd Summative Evaluation" -> "2nd Summative")
+  const shortExamType = useMemo(() => {
+    if (!examType) return "";
+    return examType
+      .replace(/\s*Evaluation\s*/gi, "")
+      .replace(/\s*Exam\s*$/gi, "")
+      .trim();
+  }, [examType]);
+
+  // Short classes summary (e.g. "Class V, VI")
+  const chosenClassesSummary = useMemo(() => {
+    const list =
+      availableClasses.length > 0
+        ? availableClasses.map((c) => c.code.replace(/^Class\s*/i, "").trim())
+        : classes.map((c) => normalizeClassCode(c.class).replace(/^Class\s*/i, "").trim());
+    const unique = Array.from(new Set(list)).filter(Boolean);
+    if (unique.length === 0) return "";
+    return `Class ${unique.join(", ")}`;
+  }, [availableClasses, classes]);
+
   // Global student pool
   const studentPool = useMemo(() => {
     const allowedCodes = availableClasses.map((c) => c.code);
@@ -686,9 +706,13 @@ export function SeatArrangementEditor({
                 <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight truncate">
                   Step 4: Seat Arrangement
                 </h3>
-                {examType && (
-                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2 py-0.5 shrink-0">
-                    {examType}
+                {(shortExamType || chosenClassesSummary) && (
+                  <Badge className="bg-primary/10 text-primary border-primary/25 text-xs font-semibold px-2.5 py-0.5 shrink-0 inline-flex items-center gap-1.5 shadow-2xs">
+                    {shortExamType && <span>{shortExamType}</span>}
+                    {shortExamType && chosenClassesSummary && (
+                      <span className="opacity-40 font-normal">•</span>
+                    )}
+                    {chosenClassesSummary && <span>{chosenClassesSummary}</span>}
                   </Badge>
                 )}
               </div>

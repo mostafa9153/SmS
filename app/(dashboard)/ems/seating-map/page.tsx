@@ -44,40 +44,44 @@ export default function EmsSeatingMapPage() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const saved = getSavedAllocations();
-    setAllocations(saved);
+    async function loadAllocations() {
+      const saved = getSavedAllocations();
+      setAllocations(saved);
 
-    let activeAlloc: ExamAllocation | undefined;
+      let activeAlloc: ExamAllocation | undefined;
 
-    if (allocIdFromUrl) {
-      activeAlloc = saved.find((a) => a.id === allocIdFromUrl);
+      if (allocIdFromUrl) {
+        activeAlloc = saved.find((a: ExamAllocation) => a.id === allocIdFromUrl);
+      }
+
+      if (!activeAlloc && saved.length > 0) {
+        activeAlloc = saved[0];
+      }
+
+      // If still no allocation exists, generate a rich demo allocation for immediate viewing!
+      if (!activeAlloc) {
+        const demoAlloc = await generateDemoAllocation();
+        saveAllocation(demoAlloc);
+        setAllocations([demoAlloc]);
+        activeAlloc = demoAlloc;
+      }
+
+      setCurrentAllocation(activeAlloc);
+      if (activeAlloc && activeAlloc.roomAllocations.length > 0) {
+        setSelectedRoomId(activeAlloc.roomAllocations[0].roomId);
+      }
+
+      setMounted(true);
     }
 
-    if (!activeAlloc && saved.length > 0) {
-      activeAlloc = saved[0];
-    }
-
-    // If still no allocation exists, generate a rich demo allocation for immediate viewing!
-    if (!activeAlloc) {
-      const demoAlloc = generateDemoAllocation();
-      saveAllocation(demoAlloc);
-      setAllocations([demoAlloc]);
-      activeAlloc = demoAlloc;
-    }
-
-    setCurrentAllocation(activeAlloc);
-    if (activeAlloc && activeAlloc.roomAllocations.length > 0) {
-      setSelectedRoomId(activeAlloc.roomAllocations[0].roomId);
-    }
-
-    setMounted(true);
+    loadAllocations();
   }, [allocIdFromUrl]);
 
   // Handle seat swap
-  const handleSwapSeats = (seat1: SeatAssignment, seat2: SeatAssignment) => {
+  const handleSwapSeats = async (seat1: SeatAssignment, seat2: SeatAssignment) => {
     if (!currentAllocation) return;
 
-    const updated = updateSeatSwap(
+    const updated = await updateSeatSwap(
       currentAllocation.id,
       selectedRoomId,
       seat1.seatId,
@@ -86,7 +90,7 @@ export default function EmsSeatingMapPage() {
 
     if (updated) {
       setCurrentAllocation(updated);
-      setAllocations(getSavedAllocations());
+      setAllocations(await getSavedAllocations());
     }
   };
 
@@ -239,8 +243,8 @@ export default function EmsSeatingMapPage() {
 }
 
 // Helper to generate a demo allocation if the user has no saved allocations yet
-function generateDemoAllocation(): ExamAllocation {
-  const rooms = getSavedRooms();
+async function generateDemoAllocation(): Promise<ExamAllocation> {
+  const rooms = await getSavedRooms();
   const room1 = rooms[0];
 
   const sampleStudents = [
