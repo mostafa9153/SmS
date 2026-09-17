@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { EmsStepperMap, StepItem } from "@/components/ems/ems-stepper-map";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
 import { RoomEditorDialog } from "@/components/ems/room-editor-dialog";
@@ -16,6 +16,8 @@ import {
   deleteRoom,
   saveAllocation,
   getSavedAllocations,
+  getActiveAllocation,
+  saveActiveAllocation,
   updateSeatSwap,
   calculateRoomCapacity,
 } from "@/lib/ems/room-storage";
@@ -211,12 +213,43 @@ const STEPS: StepItem[] = [
   { id: 5, title: "Print Suite" },
 ];
 
-export default function EmsMasterPage() {
+function EmsMasterPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialize step from URL searchParams or sessionStorage (fallback to 1)
+  const stepParam = searchParams.get("step");
+  const initialStep = stepParam
+    ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 5)
+    : 1;
 
   // Wizard Step State
-  const [step, setStep] = useState<number>(1);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [step, setStepState] = useState<number>(initialStep);
+  const [completedSteps, setCompletedSteps] = useState<number[]>(() => {
+    const done: number[] = [];
+    for (let i = 1; i < initialStep; i++) done.push(i);
+    return done;
+  });
+
+  // Synchronized step setter that updates URL query param and sessionStorage
+  const setStep = (newStep: number | ((prev: number) => number)) => {
+    setStepState((prev) => {
+      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (nextStep === 1) {
+          url.searchParams.delete("step");
+        } else {
+          url.searchParams.set("step", String(nextStep));
+        }
+        window.history.replaceState(null, "", url.toString());
+        try {
+          sessionStorage.setItem("sms_ems_current_step", String(nextStep));
+        } catch {}
+      }
+      return nextStep;
+    });
+  };
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(2026);
@@ -264,9 +297,17 @@ export default function EmsMasterPage() {
     reorderRooms(index, targetIndex);
   };
 
-  // Step 4: Visual Seating Blueprint & History
+  // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
-  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
+  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(() => {
+    if (typeof window !== "undefined") {
+      const active = getActiveAllocation();
+      if (active) return active;
+      const saved = getSavedAllocations();
+      if (saved.length > 0) return saved[0];
+    }
+    return null;
+  });
   const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
@@ -278,6 +319,39 @@ export default function EmsMasterPage() {
 
   // Dynamic classes from DB
   const [availableClasses, setAvailableClasses] = useState<string[]>(() => getDynamicClassCodes());
+
+  // Listen to browser back/forward popstate
+  useEffect(() => {
+    const handlePopState = () => {
+      const param = new URLSearchParams(window.location.search).get("step");
+      if (param) {
+        const s = parseInt(param, 10);
+        if (s >= 1 && s <= 5) {
+          setStepState(s);
+        }
+      } else {
+        setStepState(1);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Sync step changes if searchParams changes externally
+  useEffect(() => {
+    const stepQuery = searchParams.get("step");
+    if (stepQuery) {
+      const parsed = parseInt(stepQuery, 10);
+      if (parsed >= 1 && parsed <= 5 && parsed !== step) {
+        setStepState(parsed);
+        const doneSteps: number[] = [];
+        for (let i = 1; i < parsed; i++) {
+          doneSteps.push(i);
+        }
+        setCompletedSteps((prev) => Array.from(new Set([...prev, ...doneSteps])));
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     // Sync fresh configs (classes, school profile, rooms) from database
@@ -293,10 +367,47 @@ export default function EmsMasterPage() {
 
     const saved = getSavedRooms();
     setRooms(saved);
-    if (saved.length > 0) {
-      setSelectedRoomIds([saved[0].id]);
+    const savedAllocs = getSavedAllocations();
+    setSavedAllocations(savedAllocs);
+
+    // Restore active or most recent allocation on reload
+    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
+    if (activeAlloc) {
+      setGeneratedAllocation((prev) => prev || activeAlloc);
+      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
+      if (activeAlloc.examType) setExamType(activeAlloc.examType);
+      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
+        setActiveBlueprintRoomId((prev) => prev || activeAlloc.roomAllocations[0].roomId);
+        setSelectedRoomIds((prev) =>
+          prev.length === 0 ? activeAlloc.roomAllocations.map((r) => r.roomId) : prev
+        );
+      }
     }
-    setSavedAllocations(getSavedAllocations());
+
+    // Restore step if URL or sessionStorage has step
+    const stepQuery = searchParams.get("step");
+    let targetStep = 1;
+    if (stepQuery) {
+      const parsed = parseInt(stepQuery, 10);
+      if (parsed >= 1 && parsed <= 5) targetStep = parsed;
+    } else {
+      try {
+        const sess = sessionStorage.getItem("sms_ems_current_step");
+        if (sess) {
+          const parsed = parseInt(sess, 10);
+          if (parsed >= 1 && parsed <= 5) targetStep = parsed;
+        }
+      } catch {}
+    }
+
+    if (targetStep > 1) {
+      setStepState(targetStep);
+      const doneSteps: number[] = [];
+      for (let i = 1; i < targetStep; i++) {
+        doneSteps.push(i);
+      }
+      setCompletedSteps((prev) => Array.from(new Set([...prev, ...doneSteps])));
+    }
 
     // Fetch continuing students & initialize class groups with all sections and auto-fetched roll ranges
     fetchContinuingStudents().then((loadedStudents) => {
@@ -754,10 +865,12 @@ export default function EmsMasterPage() {
 
   const finishAllocation = (allocation: ExamAllocation) => {
     saveAllocation(allocation);
+    saveActiveAllocation(allocation);
     setGeneratedAllocation(allocation);
     setSavedAllocations(getSavedAllocations());
     if (allocation.roomAllocations.length > 0) {
       setActiveBlueprintRoomId(allocation.roomAllocations[0].roomId);
+      setSelectedRoomIds(allocation.roomAllocations.map((r) => r.roomId));
     }
     markStepDone(3);
     setStep(4);
@@ -765,10 +878,12 @@ export default function EmsMasterPage() {
 
   const handleCommitArrangement = (finalAllocation: ExamAllocation) => {
     saveAllocation(finalAllocation);
+    saveActiveAllocation(finalAllocation);
     setGeneratedAllocation(finalAllocation);
     setSavedAllocations(getSavedAllocations());
     if (finalAllocation.roomAllocations.length > 0) {
       setActiveBlueprintRoomId(finalAllocation.roomAllocations[0].roomId);
+      setSelectedRoomIds(finalAllocation.roomAllocations.map((r) => r.roomId));
     }
     markStepDone(4);
     setStep(5);
@@ -1446,27 +1561,71 @@ export default function EmsMasterPage() {
             </div>
           </div>
 
-          {/* Room Cards Grid - 100% Clickable, Clean & Minimal */}
+          {/* Room Cards Grid - 100% Clickable, Draggable with Grip & Drop Indicator */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {rooms.map((room, roomIdx) => {
               const isSelected = selectedRoomIds.includes(room.id);
               const roomBenchCount = room.columns.reduce((sum, c) => sum + c.benchCount, 0);
               const roomDynamicSeats = roomBenchCount * studentsPerBench;
+              const isDragging = draggedRoomIndex === roomIdx;
+              const isDragOver = dragOverRoomIndex === roomIdx;
 
               return (
                 <div
                   key={room.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/plain", String(roomIdx));
+                    e.dataTransfer.effectAllowed = "move";
+                    setDraggedRoomIndex(roomIdx);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    if (dragOverRoomIndex !== roomIdx) {
+                      setDragOverRoomIndex(roomIdx);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverRoomIndex === roomIdx) {
+                      setDragOverRoomIndex(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (draggedRoomIndex !== null && draggedRoomIndex !== roomIdx) {
+                      reorderRooms(draggedRoomIndex, roomIdx);
+                    }
+                    setDraggedRoomIndex(null);
+                    setDragOverRoomIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedRoomIndex(null);
+                    setDragOverRoomIndex(null);
+                  }}
                   onClick={() => toggleRoom(room.id)}
                   className={cn(
                     "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-pointer select-none relative group",
                     isSelected
                       ? "border-primary bg-primary/[0.04] ring-1 ring-primary/40"
-                      : "border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20"
+                      : "border-border/70 bg-card hover:border-primary/30 hover:bg-muted/20",
+                    isDragging && "opacity-40 scale-[0.98] border-dashed border-primary shadow-inner",
+                    isDragOver && "ring-2 ring-primary ring-offset-2 bg-primary/10 border-primary scale-[1.02] shadow-md"
                   )}
                 >
-                  {/* Top Row: Sequence Badge, Room Name, Edit Icon, Checkbox */}
+                  {/* Top Row: Sequence Badge with Drag Grip, Room Name, Quick Move Up/Down, Edit Icon, Checkbox */}
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {/* Drag Grip Handle */}
+                      <div
+                        title="Drag to reorder room priority"
+                        className="p-1 -ml-1 text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+
                       <span
                         className={cn(
                           "h-6 px-2 rounded-md text-[11px] font-bold font-mono tracking-wider flex items-center justify-center shrink-0 border",
@@ -1489,7 +1648,35 @@ export default function EmsMasterPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0">
+                      {/* Move Up/Down Quick Buttons */}
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          disabled={roomIdx === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveRoom(roomIdx, "up");
+                          }}
+                          className="h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-background flex items-center justify-center transition-all disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                          title="Move room up"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5 rotate-90" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={roomIdx === rooms.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveRoom(roomIdx, "down");
+                          }}
+                          className="h-6 w-6 rounded text-muted-foreground/60 hover:text-foreground hover:bg-background flex items-center justify-center transition-all disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed"
+                          title="Move room down"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5 rotate-90" />
+                        </button>
+                      </div>
+
                       {/* Minimal Edit Icon Button */}
                       <button
                         type="button"
@@ -1571,7 +1758,23 @@ export default function EmsMasterPage() {
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 4 && (
         <SeatArrangementEditor
-          rooms={selectedRooms}
+          rooms={
+            selectedRooms.length > 0
+              ? selectedRooms
+              : rooms.length > 0
+              ? rooms
+              : generatedAllocation?.roomAllocations.map((ar) => ({
+                  id: ar.roomId,
+                  roomNumber: ar.roomNumber,
+                  floor: ar.floor,
+                  building: ar.building,
+                  defaultSeatsPerBench: studentsPerBench,
+                  columns: ar.columns,
+                  totalCapacity: ar.totalSeats,
+                  createdAt: "",
+                  updatedAt: "",
+                })) || []
+          }
           classes={classes}
           allStudents={allStudents}
           studentsPerBench={studentsPerBench}
@@ -1642,8 +1845,15 @@ export default function EmsMasterPage() {
               size="sm"
               variant="outline"
               onClick={() => {
+                saveActiveAllocation(savedAllocations[0]);
                 setGeneratedAllocation(savedAllocations[0]);
+                if (savedAllocations[0].academicYear) setAcademicYear(savedAllocations[0].academicYear);
+                if (savedAllocations[0].examType) setExamType(savedAllocations[0].examType);
                 setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
+                setSelectedRoomIds(savedAllocations[0].roomAllocations.map((r) => r.roomId));
+                markStepDone(1);
+                markStepDone(2);
+                markStepDone(3);
                 setStep(4);
               }}
               className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
@@ -1654,8 +1864,16 @@ export default function EmsMasterPage() {
             <Button
               size="sm"
               onClick={() => {
+                saveActiveAllocation(savedAllocations[0]);
                 setGeneratedAllocation(savedAllocations[0]);
+                if (savedAllocations[0].academicYear) setAcademicYear(savedAllocations[0].academicYear);
+                if (savedAllocations[0].examType) setExamType(savedAllocations[0].examType);
                 setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
+                setSelectedRoomIds(savedAllocations[0].roomAllocations.map((r) => r.roomId));
+                markStepDone(1);
+                markStepDone(2);
+                markStepDone(3);
+                markStepDone(4);
                 setStep(5);
               }}
               className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs hover:scale-[1.01] active:scale-[0.98] transition-all"
@@ -1707,5 +1925,20 @@ export default function EmsMasterPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function EmsMasterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span>Loading Examination Management System...</span>
+        </div>
+      }
+    >
+      <EmsMasterPageContent />
+    </Suspense>
   );
 }
