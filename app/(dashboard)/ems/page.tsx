@@ -218,18 +218,53 @@ function EmsMasterPageContent() {
   const searchParams = useSearchParams();
 
   // Initialize step from URL searchParams or sessionStorage (fallback to 1)
-  const stepParam = searchParams.get("step");
-  const initialStep = stepParam
-    ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 5)
-    : 1;
+  const getInitialStep = (): number => {
+    const stepParam = searchParams.get("step");
+    if (stepParam) {
+      const parsed = parseInt(stepParam, 10);
+      if (parsed >= 1 && parsed <= 5) return parsed;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const sess = sessionStorage.getItem("sms_ems_current_step");
+        if (sess) {
+          const parsed = parseInt(sess, 10);
+          if (parsed >= 1 && parsed <= 5) return parsed;
+        }
+      } catch {}
+    }
+    return 1;
+  };
+
+  const initialStep = getInitialStep();
+
+  // Initial active allocation restoration from storage
+  const getInitialActiveAlloc = (): ExamAllocation | null => {
+    if (typeof window !== "undefined") {
+      const active = getActiveAllocation();
+      if (active) return active;
+      const saved = getSavedAllocations();
+      if (saved.length > 0) return saved[0];
+    }
+    return null;
+  };
+
+  const initialAlloc = getInitialActiveAlloc();
 
   // Wizard Step State
   const [step, setStepState] = useState<number>(initialStep);
   const [completedSteps, setCompletedSteps] = useState<number[]>(() => {
     const done: number[] = [];
-    for (let i = 1; i < initialStep; i++) done.push(i);
+    for (let i = 1; i <= initialStep; i++) done.push(i);
     return done;
   });
+
+  // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
+  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>(() => {
+    if (typeof window !== "undefined") return getSavedAllocations();
+    return [];
+  });
+  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
 
   // Synchronized step setter that updates URL query param and sessionStorage
   const setStep = (newStep: number | ((prev: number) => number)) => {
@@ -246,14 +281,17 @@ function EmsMasterPageContent() {
         try {
           sessionStorage.setItem("sms_ems_current_step", String(nextStep));
         } catch {}
+        if (generatedAllocation) {
+          saveActiveAllocation(generatedAllocation);
+        }
       }
       return nextStep;
     });
   };
 
   // Step 1: Session & Exam
-  const [academicYear, setAcademicYear] = useState<number>(2026);
-  const [examType, setExamType] = useState<ExamType>("1st Summative Evaluation");
+  const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || 2026);
+  const [examType, setExamType] = useState<ExamType>(() => initialAlloc?.examType || "1st Summative Evaluation");
 
   // Step 2: Class & Students (Group-wise with multi-section auto-select & DB roll ranges)
   const [classGroups, setClassGroups] = useState<ClassGroupConfig[]>([]);
@@ -263,8 +301,20 @@ function EmsMasterPageContent() {
 
   // Step 3: Room & Benches Setup
   const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
-  const [rooms, setRooms] = useState<EmsRoom[]>([]);
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [rooms, setRooms] = useState<EmsRoom[]>(() => {
+    if (typeof window !== "undefined") return getSavedRooms();
+    return [];
+  });
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
+    if (initialAlloc?.roomAllocations && initialAlloc.roomAllocations.length > 0) {
+      return initialAlloc.roomAllocations.map((r) => r.roomId);
+    }
+    if (typeof window !== "undefined") {
+      const saved = getSavedRooms();
+      if (saved.length > 0) return [saved[0].id];
+    }
+    return [];
+  });
   // Room-wise Assigned Classes mapping (roomId -> class codes array, e.g. ["VIII", "IX"])
   const [roomClassMap, setRoomClassMap] = useState<Record<string, string[]>>({});
   const [editorOpen, setEditorOpen] = useState(false);
@@ -274,6 +324,7 @@ function EmsMasterPageContent() {
   // Drag-and-drop room serial reordering state
   const [draggedRoomIndex, setDraggedRoomIndex] = useState<number | null>(null);
   const [dragOverRoomIndex, setDragOverRoomIndex] = useState<number | null>(null);
+  const dragJustFinishedRef = React.useRef<boolean>(false);
 
   // Reorder rooms helper (updates state, localStorage, and DB)
   const reorderRooms = (fromIndex: number, toIndex: number) => {
@@ -297,18 +348,9 @@ function EmsMasterPageContent() {
     reorderRooms(index, targetIndex);
   };
 
-  // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
-  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
-  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(() => {
-    if (typeof window !== "undefined") {
-      const active = getActiveAllocation();
-      if (active) return active;
-      const saved = getSavedAllocations();
-      if (saved.length > 0) return saved[0];
-    }
-    return null;
+  const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>(() => {
+    return initialAlloc?.roomAllocations?.[0]?.roomId || "";
   });
-  const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Loading & Mismatch Modal
@@ -1575,6 +1617,7 @@ function EmsMasterPageContent() {
                   key={room.id}
                   draggable
                   onDragStart={(e) => {
+                    dragJustFinishedRef.current = true;
                     e.dataTransfer.setData("text/plain", String(roomIdx));
                     e.dataTransfer.effectAllowed = "move";
                     setDraggedRoomIndex(roomIdx);
@@ -1594,17 +1637,28 @@ function EmsMasterPageContent() {
                   onDrop={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (draggedRoomIndex !== null && draggedRoomIndex !== roomIdx) {
-                      reorderRooms(draggedRoomIndex, roomIdx);
+                    const fromIdxStr = e.dataTransfer.getData("text/plain");
+                    const parsedFrom = fromIdxStr !== "" && !isNaN(parseInt(fromIdxStr, 10)) ? parseInt(fromIdxStr, 10) : draggedRoomIndex;
+                    if (parsedFrom !== null && parsedFrom >= 0 && parsedFrom !== roomIdx) {
+                      reorderRooms(parsedFrom, roomIdx);
                     }
                     setDraggedRoomIndex(null);
                     setDragOverRoomIndex(null);
+                    setTimeout(() => {
+                      dragJustFinishedRef.current = false;
+                    }, 80);
                   }}
                   onDragEnd={() => {
                     setDraggedRoomIndex(null);
                     setDragOverRoomIndex(null);
+                    setTimeout(() => {
+                      dragJustFinishedRef.current = false;
+                    }, 80);
                   }}
-                  onClick={() => toggleRoom(room.id)}
+                  onClick={() => {
+                    if (dragJustFinishedRef.current) return;
+                    toggleRoom(room.id);
+                  }}
                   className={cn(
                     "p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-2xs cursor-pointer select-none relative group",
                     isSelected
