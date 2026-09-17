@@ -30,7 +30,7 @@ export function StudentPhotoAvatar({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(photoUrl || undefined);
   const [imageError, setImageError] = useState(false);
-  const [timestamp, setTimestamp] = useState<number>(Date.now());
+  const [timestamp, setTimestamp] = useState<number | null>(null);
 
   // Update internal url when prop changes
   React.useEffect(() => {
@@ -102,7 +102,7 @@ export function StudentPhotoAvatar({
         .toUpperCase()
     : "S";
 
-  const effectivePhotoSrc = currentUrl ? `${currentUrl}?t=${timestamp}` : null;
+  const effectivePhotoSrc = currentUrl ? (timestamp ? `${currentUrl}?t=${timestamp}` : currentUrl) : null;
 
   return (
     <>

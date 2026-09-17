@@ -66,8 +66,7 @@ import {
   GraduationCap,
   Layers,
 } from "lucide-react";
-import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
-import { EmsPrintSuiteHub } from "@/components/ems/print/ems-print-suite-hub";
+import { EmsPrintStudio } from "@/components/ems/print/ems-print-studio";
 import { SeatArrangementEditor } from "@/components/ems/seat-arrangement/seat-arrangement-editor";
 import { getClassColorStyle } from "@/components/ems/seat-card";
 import {
@@ -790,7 +789,7 @@ export default function EmsMasterPage() {
   );
 
   return (
-    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
+    <div className={cn("p-3.5 sm:p-6 mx-auto space-y-4 sm:space-y-6", step >= 4 ? "max-w-[1600px]" : "max-w-5xl")}>
       {/* Header matching Bulk Upload with Classrooms & Halls Management Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1627,12 +1626,13 @@ export default function EmsMasterPage() {
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* STEP 5: Dedicated Examination Print Suite Hub                */}
+      {/* STEP 5: Dedicated Examination Print Suite Studio             */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 5 && (
         generatedAllocation ? (
-          <EmsPrintSuiteHub
+          <EmsPrintStudio
             allocation={generatedAllocation}
+            defaultRoomId={activeBlueprintRoomId || "ALL"}
             onBackToStep4={() => setStep(4)}
             onViewBlueprint={() => setStep(4)}
           />
@@ -1742,16 +1742,6 @@ export default function EmsMasterPage() {
         report={mismatchReport}
         allowProceedOnError={true}
       />
-
-      {/* EMS Print Suite Modal */}
-      {generatedAllocation && (
-        <EmsPrintDialog
-          open={printDialogOpen}
-          onOpenChange={setPrintDialogOpen}
-          allocation={generatedAllocation}
-          defaultRoomId={activeBlueprintRoomId || "ALL"}
-        />
-      )}
     </div>
   );
 }

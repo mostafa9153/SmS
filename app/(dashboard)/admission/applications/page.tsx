@@ -29,6 +29,8 @@ import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
 export default function ApplicationsDeskPage() {
@@ -93,8 +95,9 @@ export default function ApplicationsDeskPage() {
     setAssignedRoll(String(app.targetRoll || 1));
     setFeePaid(true);
 
-    // 1. Take amount dynamically from invoice fee structure
-    const feeItems = getSavedFeeStructure();
+    // 1. Take amount dynamically from class preset tier (5-8, 9-10, 11-12)
+    const category = getFeeCategoryForClass(app.targetClass);
+    const feeItems = getSavedFeeStructure(category);
     const invoiceTotal = calculateFeeTotal(feeItems);
     setFeeAmount(String(app.feeAmount || (invoiceTotal > 0 ? invoiceTotal : 600)));
 

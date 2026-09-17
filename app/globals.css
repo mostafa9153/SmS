@@ -358,7 +358,8 @@
   /* Exact A4 Sheet Box Model: 278mm height ensures zero overflow on 297mm paper */
   .ems-admit-sheet,
   .ems-slips-sheet,
-  .ems-attendance-sheet {
+  .ems-attendance-sheet,
+  .ems-gate-notice-sheet {
     width: 210mm !important;
     height: 278mm !important;
     max-height: 278mm !important;

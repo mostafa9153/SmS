@@ -37,6 +37,8 @@ import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 
 // Class progression mapping (Class 5 -> 6, 6 -> 7, etc.)
@@ -172,6 +174,15 @@ export default function ReAdmissionDashboard() {
     return generateInvoiceNumber(1, currentYear);
   };
 
+  // Dynamic Fee Recalculation on Class Change
+  function handleNewClassChange(cls: string) {
+    setNewClass(cls);
+    const category = getFeeCategoryForClass(cls);
+    const feeItems = getSavedFeeStructure(category);
+    const invoiceTotal = calculateFeeTotal(feeItems);
+    setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
+  }
+
   // Open Re-Admission Modal
   async function openConfirmModal(student: Student) {
     setActiveStudent(student);
@@ -181,12 +192,33 @@ export default function ReAdmissionDashboard() {
     setNewRoll(String(student.presentRoll || 1));
     setFeePaid(true);
 
-    const feeItems = getSavedFeeStructure();
+    // Auto-fetch preset amount according to class tier: 5-8, 9-10, 11-12
+    const category = getFeeCategoryForClass(targetClass);
+    const feeItems = getSavedFeeStructure(category);
     const invoiceTotal = calculateFeeTotal(feeItems);
     setFeeAmount(String(invoiceTotal > 0 ? invoiceTotal : 600));
 
     setReceiptNo("Syncing...");
     setModalOpen(true);
+
+    // 1. Check if student already has a registered invoice in DB
+    try {
+      const studentIdToSearch = student.schoolId || student.id;
+      const res = await fetch(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      const data = await res.json();
+      if (res.ok && Array.isArray(data?.data) && data.data.length > 0) {
+        const existingInv = data.data[0];
+        setReceiptNo(existingInv.invoice_number);
+        if (existingInv.total_amount) {
+          setFeeAmount(String(existingInv.total_amount));
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not check existing invoice for student:", e);
+    }
+
+    // 2. Fetch fresh sequential invoice number
     const nextInvoiceNo = await fetchNextInvoiceNumber();
     setReceiptNo(nextInvoiceNo);
   }
@@ -943,7 +975,7 @@ export default function ReAdmissionDashboard() {
                   </span>
                   <CustomSelect
                     value={newClass}
-                    onChange={setNewClass}
+                    onChange={handleNewClassChange}
                     options={[
                       { value: "V", label: "Class V" },
                       { value: "VI", label: "Class VI" },
@@ -1000,7 +1032,7 @@ export default function ReAdmissionDashboard() {
                       Invoice Amount (₹)
                     </label>
                     <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded-md">
-                      From Invoice
+                      {newClass ? `${FEE_SECTIONS.find((s) => s.id === getFeeCategoryForClass(newClass))?.shortLabel || "Preset"} Tier` : "From Preset"}
                     </span>
                   </div>
                   <Input

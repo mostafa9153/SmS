@@ -10,16 +10,17 @@ import {
   KeyRound,
   Eye,
   EyeOff,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getCurrentUserRole } from "@/lib/data/students";
+import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
 
 interface UserProfile {
   id: string;
@@ -213,23 +214,35 @@ export function UsersTab() {
     }
   };
 
-  return (
-    <div className="rounded-2xl border bg-card/90 backdrop-blur shadow-sm overflow-hidden">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b">
-        <div className="flex items-center gap-2.5">
-          <h2 className="text-base font-bold text-foreground">Authorized System Users</h2>
-          <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-            {usersData?.users.length || 0} Registered
-          </Badge>
-        </div>
+  const isAdmin = userRole === "Admin";
 
-        {/* Add User Dialog */}
-        <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-          <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl active:scale-95 shadow-xs font-semibold text-xs px-3.5 py-2" />}>
-            <UserPlus className="h-4 w-4" />
-            Add New User
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      {/* Stat Bar */}
+      <div className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 px-3 py-1">Total Users: {usersData?.users.length || 0}</Badge>
+        <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20 px-3 py-1">Admins: {usersData?.users.filter(u => u.role === "Admin").length || 0}</Badge>
+        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 px-3 py-1">Staff: {usersData?.users.filter(u => u.role === "Staff").length || 0}</Badge>
+      </div>
+
+      <div className="rounded-2xl border border-border/80 bg-card/90 backdrop-blur shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b border-border/80">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-base font-bold text-foreground">Authorized System Users</h2>
+            <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+              {usersData?.users.length || 0} Registered
+            </Badge>
+          </div>
+
+          {/* Add User Dialog */}
+          {isAdmin && (
+            <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+              <DialogTrigger render={<Button size="sm" className="flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl active:scale-95 shadow-xs font-semibold text-xs px-3.5 py-2 cursor-pointer">
+                  <UserPlus className="h-4 w-4" />
+                  Add New User
+                  <Shield className="h-3 w-3 ml-1 opacity-70" />
+                </Button>} />
+              <DialogContent className="sm:max-w-[425px]">
             <form onSubmit={handleAddUserSubmit}>
               <DialogHeader>
                 <DialogTitle>Add System User</DialogTitle>
@@ -341,13 +354,13 @@ export function UsersTab() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
 
       <div>
         {isLoadingUsers ? (
-          <div className="p-10 text-center text-sm text-muted-foreground flex justify-center items-center gap-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
-            Loading user list...
+          <div className="p-5">
+            <DataTableSkeleton />
           </div>
         ) : usersError ? (
           <div className="p-8 text-center text-sm text-destructive flex flex-col items-center justify-center gap-2">
@@ -355,104 +368,89 @@ export function UsersTab() {
             <p>Failed to load users: {usersError.message}</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <div className="min-w-[620px]">
-              <Table>
-                <TableHeader className="bg-muted/40">
-                  <TableRow>
-                    <TableHead className="font-semibold text-xs text-muted-foreground">Full Name</TableHead>
-                    <TableHead className="font-semibold text-xs text-muted-foreground">Email Address</TableHead>
-                    <TableHead className="font-semibold text-xs text-muted-foreground">Role</TableHead>
-                    <TableHead className="font-semibold text-xs text-muted-foreground">Created At</TableHead>
-                    <TableHead className="w-[80px] text-right font-semibold text-xs text-muted-foreground">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {usersData?.users.map((u) => {
-                    const isSelf = u.id === currentUser?.id;
-                    const initials = u.fullName
-                      .split(" ")
-                      .map((n) => n[0])
-                      .slice(0, 2)
-                      .join("")
-                      .toUpperCase() || "U";
+          <div className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {usersData?.users.map((u) => {
+                const isSelf = u.id === currentUser?.id;
+                const initials = u.fullName
+                  .split(" ")
+                  .map((n) => n[0])
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase() || "U";
 
-                    return (
-                      <TableRow key={u.id} className="hover:bg-muted/20 transition-colors">
-                        <TableCell className="font-semibold text-xs text-foreground py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="h-7 w-7 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-[10px]">
-                              {initials}
-                            </div>
-                            <span>{u.fullName}</span>
+                return (
+                  <div key={u.id} className="group p-4 rounded-2xl bg-card border border-border/60 hover:border-primary/30 shadow-sm hover:shadow-md transition-all duration-300">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${u.role === "Admin" ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"}`}>
+                          {initials}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-foreground text-sm truncate max-w-[120px] sm:max-w-[140px]" title={u.fullName}>{u.fullName}</p>
                             {isSelf && (
-                              <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200">
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200 shrink-0">
                                 You
                               </Badge>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground font-mono">{u.email}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            className={
-                              u.role === "Admin" 
-                                ? "bg-amber-100 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200/60 font-semibold text-[11px] px-2 py-0.5 rounded-md" 
-                                : "bg-emerald-100 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 font-semibold text-[11px] px-2 py-0.5 rounded-md"
-                            }
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5 truncate max-w-[150px]" title={u.email}>{u.email}</p>
+                        </div>
+                      </div>
+                      
+                      <Badge className={
+                        u.role === "Admin" 
+                          ? "bg-indigo-100 hover:bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-200/60 font-semibold text-[10px] px-2 py-0.5 rounded-md" 
+                          : "bg-emerald-100 hover:bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/60 font-semibold text-[10px] px-2 py-0.5 rounded-md"
+                      }>
+                        {u.role}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-border/50 flex items-center justify-between">
+                      <span className="text-[11px] text-muted-foreground">
+                        Added {new Date(u.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                      </span>
+                      {isAdmin && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                            onClick={() => {
+                              setEditingUser(u);
+                              setEditFullName(u.fullName);
+                              setEditRole(u.role);
+                              setEditPassword("");
+                              setEditError("");
+                              setShowEditPassword(false);
+                            }}
+                            title="Reset password or change role"
                           >
-                            {u.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(u.createdAt).toLocaleDateString(undefined, {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </TableCell>
-                        <TableCell className="text-right py-2">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                              onClick={() => {
-                                setEditingUser(u);
-                                setEditFullName(u.fullName);
-                                setEditRole(u.role);
-                                setEditPassword("");
-                                setEditError("");
-                                setShowEditPassword(false);
-                              }}
-                              title="Reset password or change role"
-                            >
-                              <KeyRound className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
-                              disabled={isSelf || deleteUserMutation.isPending}
-                              onClick={() => handleDeleteUser(u.id, u.email)}
-                              title={isSelf ? "Cannot delete own account" : "Delete user account"}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {usersData?.users.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-sm">
-                        No other system users found.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            disabled={isSelf || deleteUserMutation.isPending}
+                            onClick={() => handleDeleteUser(u.id, u.email)}
+                            title={isSelf ? "Cannot delete own account" : "Delete user account"}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {usersData?.users.length === 0 && (
+                <div className="col-span-full text-center py-8 text-muted-foreground text-sm">
+                  No other system users found.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -576,6 +574,7 @@ export function UsersTab() {
           </form>
         </DialogContent>
       </Dialog>
+    </div>
     </div>
   );
 }

@@ -24,7 +24,7 @@ export function StaffSignatureAvatar({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(signatureUrl || undefined);
   const [imageError, setImageError] = useState(false);
-  const [timestamp, setTimestamp] = useState<number>(Date.now());
+  const [timestamp, setTimestamp] = useState<number | null>(null);
 
   React.useEffect(() => {
     setCurrentUrl(signatureUrl || undefined);
@@ -72,7 +72,7 @@ export function StaffSignatureAvatar({
     }
   };
 
-  const effectiveUrl = currentUrl ? `${currentUrl}${currentUrl.includes("data:") ? "" : `?t=${timestamp}`}` : null;
+  const effectiveUrl = currentUrl ? `${currentUrl}${currentUrl.includes("data:") ? "" : (timestamp ? `?t=${timestamp}` : "")}` : null;
 
   return (
     <>

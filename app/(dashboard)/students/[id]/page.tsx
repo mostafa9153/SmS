@@ -479,6 +479,7 @@ export default function StudentProfilePage() {
                 <InfoField label="Mother's Occupation" value={student.motherOccupation} />
                 <InfoField label="Guardian's Name" value={student.guardianName} />
                 <InfoField label="Relationship with Guardian" value={student.relationshipWithGuardian} />
+                <InfoField label="Guardian's Occupation" value={student.guardianOccupation} />
                 <InfoField label="Guardian's Qualification" value={student.guardianQualification} />
                 <InfoField label="Annual Family Income" value={student.annualFamilyIncome ? `₹${student.annualFamilyIncome.toLocaleString("en-IN")}` : undefined} />
                 <InfoField label="Primary Mobile" value={student.studentContact} copyable />
@@ -771,6 +772,10 @@ export default function StudentProfilePage() {
               <InfoField label="PEN (Permanent Education Number)" value={student.pen} copyable />
               <InfoField label="DISE Code" value={student.diseCode} copyable />
               <InfoField label="Health ID" value={student.healthId} copyable />
+              <InfoField label="Student Unique Code" value={student.studentUniqueCode} copyable />
+              {(student.gender === "Female" || Boolean(student.kanyashreeId)) && (
+                <InfoField label="Kanyashree ID / Applicant ID" value={student.kanyashreeId} copyable />
+              )}
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1.5">
                   Aadhaar Available? (Yes/No)

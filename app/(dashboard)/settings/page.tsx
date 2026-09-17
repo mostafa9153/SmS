@@ -24,6 +24,8 @@ export default async function SettingsRootPage({ searchParams }: SettingsPagePro
         redirect("/settings/presets");
       case "danger":
         redirect("/settings/danger");
+      case "teachers":
+        redirect("/settings/teachers");
       case "users":
       default:
         redirect("/settings/users");

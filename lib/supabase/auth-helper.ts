@@ -3,14 +3,18 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface AuthContext {
   user: any | null;
-  role: "Admin" | "Staff" | "Guest";
+  role: "Admin" | "Staff" | "Teacher" | "Guest";
   fullName: string;
+  staffId?: string | null;
+  permissions?: any;
 }
 
 // In-memory cache for user role lookups to eliminate repeated user_roles queries
 interface CachedRole {
-  role: "Admin" | "Staff" | "Guest";
+  role: "Admin" | "Staff" | "Teacher" | "Guest";
   fullName: string;
+  staffId?: string | null;
+  permissions?: any;
   cachedAt: number;
 }
 
@@ -45,23 +49,27 @@ export async function getAuthenticatedUserRole(): Promise<AuthContext> {
         user,
         role: cached.role,
         fullName: cached.fullName,
+        staffId: cached.staffId,
+        permissions: cached.permissions,
       };
     }
 
     const admin = createAdminClient();
     const { data: roleData, error: roleQueryError } = await admin
       .from("user_roles")
-      .select("role, full_name")
+      .select("role, full_name, staff_id, permissions")
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (roleData && roleData.role) {
-      const resolvedRole = roleData.role as "Admin" | "Staff";
+      const resolvedRole = roleData.role as "Admin" | "Staff" | "Teacher";
       const resolvedName = roleData.full_name || user.email?.split("@")[0] || "User";
 
       roleCache.set(user.id, {
         role: resolvedRole,
         fullName: resolvedName,
+        staffId: roleData.staff_id || null,
+        permissions: roleData.permissions || null,
         cachedAt: Date.now(),
       });
 
@@ -69,6 +77,8 @@ export async function getAuthenticatedUserRole(): Promise<AuthContext> {
         user,
         role: resolvedRole,
         fullName: resolvedName,
+        staffId: roleData.staff_id || null,
+        permissions: roleData.permissions || null,
       };
     }
 

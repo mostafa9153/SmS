@@ -37,12 +37,11 @@ export function StaffPhotoPreviewDialog({
 }: StaffPhotoPreviewDialogProps) {
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
-  const [photoVersion, setPhotoVersion] = useState(Date.now());
+  const [photoVersion, setPhotoVersion] = useState<number | null>(null);
 
   useEffect(() => {
     if (staff) {
       setImgError(false);
-      setPhotoVersion(Date.now());
     }
   }, [staff]);
 
@@ -59,7 +58,7 @@ export function StaffPhotoPreviewDialog({
     : "T";
 
   const effectivePhotoSrc = staff.profile_picture_url
-    ? `${staff.profile_picture_url}?v=${photoVersion}`
+    ? (photoVersion ? `${staff.profile_picture_url}?v=${photoVersion}` : staff.profile_picture_url)
     : null;
 
   const dAge = staff.dob ? calculateDetailedAge(staff.dob) : null;

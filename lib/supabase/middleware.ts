@@ -36,7 +36,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   const pathname = request.nextUrl.pathname;
-  const isLoginPage = pathname.startsWith("/login");
+  const isTeacherLogin = pathname.startsWith("/teacher/login");
+  const isLoginPage = pathname.startsWith("/login") || isTeacherLogin;
   const isApiRoute = pathname.startsWith("/api");
   const isAuthCallback = pathname.startsWith("/auth");
   const isStaticAsset =
@@ -59,43 +60,55 @@ export async function updateSession(request: NextRequest) {
   // Refresh user token - essential for UI page auth checks and redirects
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 1. If not logged in & trying to access protected UI routes, redirect to /login
+  // Helper to get cached user role
+  async function resolveUserRole(uid: string): Promise<string | null> {
+    const cached = middlewareRoleCache.get(uid);
+    if (cached && Date.now() - cached.cachedAt < ROLE_CACHE_TTL) {
+      return cached.role;
+    }
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", uid)
+      .maybeSingle();
+
+    const role = roleData?.role || null;
+    if (role) {
+      middlewareRoleCache.set(uid, { role, cachedAt: Date.now() });
+    }
+    return role;
+  }
+
+  // 1. If not logged in & trying to access protected UI routes
   if (!user && !isLoginPage && !isAuthCallback) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    if (pathname.startsWith("/teacher")) {
+      url.pathname = "/teacher/login";
+    } else {
+      url.pathname = "/login";
+    }
     return NextResponse.redirect(url);
   }
 
-  // 2. If logged in & trying to access /login, redirect to dashboard /
+  // 2. If logged in & trying to access /login or /teacher/login
   if (user && isLoginPage) {
+    const userRole = await resolveUserRole(user.id);
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    if (userRole === "Teacher") {
+      url.pathname = "/teacher";
+    } else {
+      url.pathname = "/";
+    }
     return NextResponse.redirect(url);
   }
 
   // 3. Admin-only route protection for /settings
   if (user && request.nextUrl.pathname.startsWith("/settings")) {
-    let userRole: string | null = null;
-    const cached = middlewareRoleCache.get(user.id);
-    if (cached && Date.now() - cached.cachedAt < ROLE_CACHE_TTL) {
-      userRole = cached.role;
-    } else {
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      userRole = roleData?.role || null;
-      if (userRole) {
-        middlewareRoleCache.set(user.id, { role: userRole, cachedAt: Date.now() });
-      }
-    }
-
+    const userRole = await resolveUserRole(user.id);
     if (userRole !== "Admin") {
-      // Redirect staff to dashboard if they try to access settings
+      // Redirect staff/teachers to appropriate dashboard
       const url = request.nextUrl.clone();
-      url.pathname = "/";
+      url.pathname = userRole === "Teacher" ? "/teacher" : "/";
       return NextResponse.redirect(url);
     }
   }

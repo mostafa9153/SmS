@@ -21,6 +21,12 @@ export function normalizeClassCode(c?: string): string {
   return romanMap[clean] || clean;
 }
 
+// Normalize section code for robust matching
+export function normalizeSectionCode(sec?: string): string {
+  if (!sec) return "";
+  return sec.trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+}
+
 // Group students by class code, strictly ensuring Section A finishes before Section B starts
 export function buildClassStudentPool(
   allStudents: Student[],
@@ -49,19 +55,19 @@ export function buildClassStudentPool(
     configsByClass.forEach((cfgs, normClass) => {
       // Sort sections so Section A is first, Section B is second, etc.
       cfgs.sort((a, b) => {
-        const secA = (a.section || "").trim().toUpperCase();
-        const secB = (b.section || "").trim().toUpperCase();
+        const secA = normalizeSectionCode(a.section);
+        const secB = normalizeSectionCode(b.section);
         return secA.localeCompare(secB, undefined, { numeric: true });
       });
 
       const classStudents: Student[] = [];
 
       cfgs.forEach((cfg) => {
-        const secUpper = (cfg.section || "").trim().toUpperCase();
+        const normCfgSec = normalizeSectionCode(cfg.section);
         const matching = allStudents.filter((s) => {
           if (s.currentStatus && s.currentStatus !== "Continuing") return false;
           if (normalizeClassCode(s.presentClass) !== normClass) return false;
-          if (secUpper && (s.presentSection || "").trim().toUpperCase() !== secUpper) return false;
+          if (normCfgSec && normalizeSectionCode(s.presentSection) !== normCfgSec) return false;
           const roll = Number(s.presentRoll) || 0;
           if (cfg.rollFrom && roll < cfg.rollFrom) return false;
           if (cfg.rollTo && roll > cfg.rollTo) return false;
@@ -96,8 +102,8 @@ export function buildClassStudentPool(
   // Sort each class list: Section A first (rolls ascending), then Section B (rolls ascending)...
   map.forEach((list) => {
     list.sort((a, b) => {
-      const secA = (a.presentSection || "").trim().toUpperCase();
-      const secB = (b.presentSection || "").trim().toUpperCase();
+      const secA = normalizeSectionCode(a.presentSection);
+      const secB = normalizeSectionCode(b.presentSection);
       if (secA !== secB) {
         return secA.localeCompare(secB, undefined, { numeric: true });
       }
@@ -279,95 +285,64 @@ export function arrangeRoomInterleaved(
 
     const colSeatGrid: Map<string, Student | undefined> = new Map();
 
+    const fillSeatColumn = (seatPos: number, classCode: string, avoidClassCode: string | undefined, overflowClassCode: string | undefined, isBottomUpDefault: boolean) => {
+      const explicitDir = colAssign?.seatDirections?.[seatPos];
+      const isBottomUp = explicitDir === "bottom-to-top" || (!explicitDir && isBottomUpDefault);
+      
+      if (isBottomUp) {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-${seatPos}`, getNextStudentForClass(classCode, avoidClassCode, overflowClassCode));
+        }
+      } else {
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-${seatPos}`, getNextStudentForClass(classCode, avoidClassCode, overflowClassCode));
+        }
+      }
+    };
+
     if (seatsPerBench === 3) {
       if (colIdx === 0) {
         // Col 1 (k = 0):
         // Outer: S1 Top → Bottom, S3 Bottom → Top (exits Top)
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-        }
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, false);
+        fillSeatColumn(3, s3Class, s2Class, overflowClass, true);
         // Center S2: Top → Bottom
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, false);
       } else if (colIdx === 1) {
         // Col 2 (k = 1):
         // S1 Bottom → Top, S3 Top → Bottom (exits Bottom)
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-        }
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, true);
+        fillSeatColumn(3, s3Class, s2Class, overflowClass, false);
         // Center S2: Top → Bottom
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, false);
       } else if (colIdx === 2) {
         // Col 3 (k = 2):
         // S1 Bottom → Top, S3 Top → Bottom (exits Bottom)
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-        }
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, true);
+        fillSeatColumn(3, s3Class, s2Class, overflowClass, false);
         // Center S2: Bottom → Top
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, true);
       } else {
         // Col 4+ (k >= 3): 4-column periodic continuous snake cycle
         const isS2BottomUp = colIdx % 4 === 2 || colIdx % 4 === 3;
         const isS1BottomUp = colIdx % 4 === 1 || colIdx % 4 === 2;
 
-        if (isS1BottomUp) {
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          }
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-          }
-        } else {
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          }
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-          }
-        }
-
-        if (isS2BottomUp) {
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-          }
-        } else {
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-          }
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, isS1BottomUp);
+        fillSeatColumn(3, s3Class, s2Class, overflowClass, !isS1BottomUp);
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, isS2BottomUp);
       }
     } else if (seatsPerBench === 2) {
       // 2-seat benches:
       if (colIdx % 2 === 0) {
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, false);
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, false);
       } else {
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, true);
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, true);
       }
     } else if (seatsPerBench === 1) {
       // 1-seat bench:
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
-      }
+      fillSeatColumn(1, s1Class, undefined, overflowClass, false);
     } else {
       throw new Error(
         `Unsupported seats-per-bench value: ${seatsPerBench}. Only 1, 2, or 3 are supported.`
@@ -561,45 +536,46 @@ export function arrangeRoomFixedU(
     const seatsPerBench = colConfig.seatsPerBench || 2;
     const colSeatGrid: Map<string, Student | undefined> = new Map();
 
+    const fillSeatColumn = (seatPos: number, classCode: string, avoidClassCode: string | undefined, overflowClassCode: string | undefined, isBottomUpDefault: boolean) => {
+      const explicitDir = colAssign?.seatDirections?.[seatPos];
+      const isBottomUp = explicitDir === "bottom-to-top" || (!explicitDir && isBottomUpDefault);
+      
+      if (isBottomUp) {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-${seatPos}`, getNextStudentForClass(classCode, avoidClassCode, overflowClassCode));
+        }
+      } else {
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-${seatPos}`, getNextStudentForClass(classCode, avoidClassCode, overflowClassCode));
+        }
+      }
+    };
+
     if (seatsPerBench === 3) {
       // S1 (Outer Left): Top -> Bottom (Bench 1 to N)
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-      }
+      fillSeatColumn(1, s1Class, s2Class, overflowClass, false);
       // S3 (Outer Right): Bottom -> Top (Bench N to 1) - forms U-loop with S1
-      for (let b = benchCount; b >= 1; b--) {
-        colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-      }
+      fillSeatColumn(3, s3Class, s2Class, overflowClass, true);
 
       // S2 (Center): Continuous oscillating snake flow
       // Even columns (0, 2, 4...): Top -> Bottom (Bench 1 to N, exits rear)
       // Odd columns (1, 3, 5...): Bottom -> Top (Bench N to 1, enters rear, exits front)
       if (colIdx % 2 === 0) {
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, false);
       } else {
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, true);
       }
     } else if (seatsPerBench === 2) {
       if (colIdx % 2 === 0) {
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, false);
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, false);
       } else {
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
+        fillSeatColumn(1, s1Class, s2Class, overflowClass, true);
+        fillSeatColumn(2, s2Class, s1Class, overflowClass, true);
       }
     } else if (seatsPerBench === 1) {
       // 1-seat bench:
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
-      }
+      fillSeatColumn(1, s1Class, undefined, overflowClass, false);
     } else {
       throw new Error(
         `Unsupported seats-per-bench value: ${seatsPerBench}. Only 1, 2, or 3 are supported.`

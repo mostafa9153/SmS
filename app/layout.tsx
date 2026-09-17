@@ -46,6 +46,7 @@ export default function RootLayout({
       className={`${manrope.variable} notranslate`}
       translate="no"
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
     >
       <head>
         <meta name="google" content="notranslate" />
@@ -56,7 +57,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className={`${manrope.className} font-sans antialiased notranslate`}>
+      <body
+        className={`${manrope.className} font-sans antialiased notranslate`}
+        suppressHydrationWarning
+      >
         <TopProgressBar />
         <NotificationProvider>
           <QueryProvider>

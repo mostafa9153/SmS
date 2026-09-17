@@ -145,8 +145,8 @@ function CertificateGeneratorContent() {
       pincode: parsedAddr.pincode,
       examType: chosenExam,
       passingYear: String(currentYear),
-      boardRollNo: s.presentRoll ? `123456N 00${s.presentRoll}` : prev.boardRollNo,
-      boardRegistrationNo: s.pen || s.schoolId || prev.boardRegistrationNo,
+      boardRollNo: s.boardRollNo || (s.presentRoll ? `123456N 00${s.presentRoll}` : prev.boardRollNo),
+      boardRegistrationNo: s.boardRegistrationNo || s.pen || s.schoolId || prev.boardRegistrationNo,
       certificateNo: prev.certificateNo || formatDocumentNumber("character-certificate", certSeq, currentYear),
       remarks: `I wish ${pronounObject} every success and prosperity in ${pronounPossessive} future academic and personal endeavours.`,
     }));

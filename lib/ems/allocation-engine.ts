@@ -11,6 +11,14 @@ import {
   MismatchItem,
 } from "./types";
 
+import {
+  normalizeClassCode,
+  normalizeSectionCode,
+  buildClassStudentPool,
+  arrangeRoomUnified,
+} from "./seat-arrangement-algorithm";
+import { ColumnClassAllocationConfig } from "./seat-arrangement-types";
+
 // Helper to fetch active continuing students from API
 export async function fetchContinuingStudents(): Promise<Student[]> {
   try {
@@ -38,15 +46,15 @@ export function filterAndValidateClassStudents(
 } {
   const mismatches: MismatchItem[] = [];
 
-  const normClass = (className || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
-  const normSec = (section || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+  const normClass = normalizeClassCode(className);
+  const normSec = normalizeSectionCode(section);
 
   // All active continuing students in this class & section, sorted by roll
   const allSectionStudents = allStudents
     .filter((s) => {
       if (s.currentStatus && s.currentStatus !== "Continuing") return false;
-      const sClass = (s.presentClass || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
-      const sSec = (s.presentSection || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
+      const sClass = normalizeClassCode(s.presentClass);
+      const sSec = normalizeSectionCode(s.presentSection);
       return sClass === normClass && (!normSec || sSec === normSec);
     })
     .sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
@@ -66,23 +74,24 @@ export function filterAndValidateClassStudents(
 
   let classStudents: Student[] = [];
 
-  // If roll range covers all students in DB (e.g. Roll 1 to 101 for 101 students):
-  if (rollFrom <= 1 && rollTo >= allSectionStudents.length) {
-    classStudents = allSectionStudents;
-  } else {
-    // If user specified a sub-range (e.g. 1 to 50):
-    // First, attempt matching by presentRoll
-    const byRoll = allSectionStudents.filter(
-      (s) => s.presentRoll >= rollFrom && s.presentRoll <= rollTo
-    );
-    if (byRoll.length > 0) {
-      classStudents = byRoll;
-    } else {
-      // Fallback to slice based on 1-based order
-      const start = Math.max(0, rollFrom - 1);
-      const end = Math.min(allSectionStudents.length, rollTo);
-      classStudents = allSectionStudents.slice(start, end);
+  // Match active continuing students whose actual roll is within [rollFrom, rollTo]
+  const byRoll = allSectionStudents.filter((s) => {
+    const roll = Number(s.presentRoll);
+    if (!isNaN(roll) && roll > 0) {
+      return roll >= rollFrom && roll <= rollTo;
     }
+    return false;
+  });
+
+  if (byRoll.length > 0) {
+    classStudents = byRoll;
+  } else if (allSectionStudents.some((s) => !s.presentRoll || isNaN(Number(s.presentRoll)))) {
+    // Only fallback to index slicing if rolls are missing or unassigned
+    const start = Math.max(0, rollFrom - 1);
+    const end = Math.min(allSectionStudents.length, rollTo);
+    classStudents = allSectionStudents.slice(start, end);
+  } else {
+    classStudents = [];
   }
 
   return { students: classStudents, mismatches };
@@ -208,8 +217,6 @@ export function generateAutoAllocation(
 } {
   const mismatchItems: MismatchItem[] = [];
 
-  const normalizeCode = (c: string) => (c || "").trim().toUpperCase().replace(/^CLASS\s*/i, "");
-
   // 1. Gather all class student pools — strictly sequencing Section A before Section B
   interface ClassGroup {
     key: string;
@@ -224,8 +231,8 @@ export function generateAutoAllocation(
   const sortedClassInputs = [...config.classes].sort((a, b) => {
     const classComp = a.class.localeCompare(b.class);
     if (classComp !== 0) return classComp;
-    const secA = (a.section || "").trim().toUpperCase();
-    const secB = (b.section || "").trim().toUpperCase();
+    const secA = normalizeSectionCode(a.section);
+    const secB = normalizeSectionCode(b.section);
     return secA.localeCompare(secB, undefined, { numeric: true });
   });
 
@@ -240,7 +247,7 @@ export function generateAutoAllocation(
     mismatches.forEach((m) => mismatchItems.push(m));
     totalStudentsNeeded += students.length;
 
-    const normKey = normalizeCode(c.class);
+    const normKey = normalizeClassCode(c.class);
     if (!classGroupsMap.has(normKey)) {
       classGroupsMap.set(normKey, []);
     }
@@ -287,26 +294,24 @@ export function generateAutoAllocation(
 
   // 2. Distribute students into rooms based on strategy & roomClassMap
   const allocatedRooms: AllocatedRoom[] = [];
-  let currentClassIndex = 0;
 
-  targetRooms.forEach((room) => {
-    const seats: SeatAssignment[] = [];
-    let globalSeatCounter = 1;
-    const roomClassesPresent = new Set<string>();
+  if (config.strategy === "alternate-columns") {
+    let currentClassIndex = 0;
+    targetRooms.forEach((room) => {
+      const seats: SeatAssignment[] = [];
+      let globalSeatCounter = 1;
+      const roomClassesPresent = new Set<string>();
 
-    // Determine which classes are eligible to sit in this room
-    const assignedClasses = config.roomClassMap?.[room.id];
-    const allowedClassSet =
-      assignedClasses && assignedClasses.length > 0
-        ? new Set(assignedClasses.map(normalizeCode))
-        : null;
+      const assignedClasses = config.roomClassMap?.[room.id];
+      const allowedClassSet =
+        assignedClasses && assignedClasses.length > 0
+          ? new Set(assignedClasses.map(normalizeClassCode))
+          : null;
 
-    const eligibleGroups = allowedClassSet
-      ? classGroups.filter((g) => allowedClassSet.has(normalizeCode(g.class)))
-      : classGroups;
+      const eligibleGroups = allowedClassSet
+        ? classGroups.filter((g) => allowedClassSet.has(normalizeClassCode(g.class)))
+        : classGroups;
 
-    if (config.strategy === "alternate-columns") {
-      // Column Block strategy:
       room.columns.forEach((colConfig) => {
         const effectiveSeatsPerBench =
           config.studentsPerBench || colConfig.seatsPerBench || 3;
@@ -356,90 +361,88 @@ export function generateAutoAllocation(
 
         currentClassIndex++;
       });
-    } else {
-      // Interleaved seats strategy:
-      room.columns.forEach((colConfig) => {
-        const effectiveSeatsPerBench =
-          config.studentsPerBench || colConfig.seatsPerBench || 2;
 
-        for (let b = 1; b <= colConfig.benchCount; b++) {
-          for (let s = 1; s <= effectiveSeatsPerBench; s++) {
-            let attempts = 0;
-            while (
-              eligibleGroups.length > 0 &&
-              eligibleGroups[currentClassIndex % eligibleGroups.length].students.length === 0 &&
-              attempts < eligibleGroups.length
-            ) {
-              currentClassIndex++;
-              attempts++;
-            }
+      const occupiedSeats = seats.filter((s) => !s.isVacant).length;
+      const vacantSeats = seats.filter((s) => s.isVacant).length;
 
-            const activeGroup =
-              eligibleGroups.length > 0 &&
-              eligibleGroups[currentClassIndex % eligibleGroups.length].students.length > 0
-                ? eligibleGroups[currentClassIndex % eligibleGroups.length]
-                : null;
-            let student: Student | undefined = undefined;
-
-            if (activeGroup && activeGroup.students.length > 0) {
-              student = activeGroup.students.shift();
-              roomClassesPresent.add(activeGroup.key);
-            }
-
-            seats.push({
-              seatId: `${room.id}-C${colConfig.columnIndex}-B${b}-S${s}`,
-              roomId: room.id,
-              roomNumber: room.roomNumber,
-              columnIndex: colConfig.columnIndex,
-              benchIndex: b,
-              seatPosition: s,
-              globalSeatNumber: globalSeatCounter++,
-              studentId: student?.id,
-              studentName: student?.name,
-              studentRoll: student?.presentRoll,
-              studentClass: student?.presentClass,
-              studentSection: student?.presentSection,
-              isVacant: !student,
-            });
-
-            currentClassIndex++;
-          }
-        }
+      allocatedRooms.push({
+        roomId: room.id,
+        roomNumber: room.roomNumber,
+        floor: room.floor,
+        building: room.building,
+        columns: room.columns,
+        seats,
+        totalSeats: seats.length,
+        occupiedSeats,
+        vacantSeats,
+        classesPresent: Array.from(roomClassesPresent),
       });
-    }
-
-    const occupiedSeats = seats.filter((s) => !s.isVacant).length;
-    const vacantSeats = seats.filter((s) => s.isVacant).length;
-
-    allocatedRooms.push({
-      roomId: room.id,
-      roomNumber: room.roomNumber,
-      floor: room.floor,
-      building: room.building,
-      columns: room.columns,
-      seats,
-      totalSeats: seats.length,
-      occupiedSeats,
-      vacantSeats,
-      classesPresent: Array.from(roomClassesPresent),
     });
-  });
-
-  const unseatedCount = classGroups.reduce((sum, g) => sum + g.students.length, 0);
-  if (unseatedCount > 0) {
-    const unseatedClasses = Array.from(
-      new Set(classGroups.filter((g) => g.students.length > 0).map((g) => g.class))
+  } else {
+    // Default High-Standard School Exam Interleaved Snake Loop Allocation
+    const studentPool = buildClassStudentPool(
+      allStudents,
+      Array.from(new Set(sortedClassInputs.map((c) => normalizeClassCode(c.class)))),
+      sortedClassInputs
     );
-    mismatchItems.push({
-      type: "SEATS_DEFICIT",
-      severity: "warning",
-      title: "Unassigned / Unseated Students Remaining",
-      message: `${unseatedCount} student(s) from Class ${unseatedClasses.join(", ")} could not be seated in their assigned rooms due to room capacity.`,
-      suggestedAction: "Assign more rooms to these classes or increase seats per bench.",
+
+    let currentCursors = new Map<string, number>();
+
+    targetRooms.forEach((room) => {
+      const spb = config.studentsPerBench || room.defaultSeatsPerBench || 3;
+      const normalizedRoom: EmsRoom = {
+        ...room,
+        defaultSeatsPerBench: spb,
+        columns: room.columns.map((col) => ({
+          ...col,
+          seatsPerBench: spb,
+        })),
+        totalCapacity: room.columns.reduce((acc, col) => acc + col.benchCount * spb, 0),
+      };
+
+      // Determine default assigned classes for this room
+      const assignedClasses = config.roomClassMap?.[room.id] || [];
+      const primaryClass = assignedClasses[0] || sortedClassInputs[0]?.class || "";
+      const secondaryClass = assignedClasses[1] || sortedClassInputs[1]?.class || primaryClass;
+
+      const columnAssignments: ColumnClassAllocationConfig[] = normalizedRoom.columns.map((col, idx) => {
+        const s1 = idx % 2 === 0 ? primaryClass : secondaryClass;
+        const s2 = idx % 2 === 0 ? secondaryClass : primaryClass;
+        return {
+          columnIndex: col.columnIndex,
+          s1ClassCode: s1,
+          s2ClassCode: s2,
+          s3MirrorS1: true,
+          s3ClassCode: s1,
+          assignedClassCode: s1,
+          secondaryClassCode: s2,
+        };
+      });
+
+      const { allocatedRoom, updatedCursors } = arrangeRoomUnified(
+        "INTERLEAVED",
+        normalizedRoom,
+        columnAssignments,
+        studentPool,
+        currentCursors
+      );
+      currentCursors = updatedCursors;
+      allocatedRooms.push(allocatedRoom);
     });
   }
 
   const totalOccupied = allocatedRooms.reduce((sum, r) => sum + r.occupiedSeats, 0);
+  const unseatedCount = Math.max(0, totalStudentsNeeded - totalOccupied);
+  if (unseatedCount > 0) {
+    mismatchItems.push({
+      type: "SEATS_DEFICIT",
+      severity: "warning",
+      title: "Unassigned / Unseated Students Remaining",
+      message: `${unseatedCount} student(s) could not be seated in their assigned rooms due to room capacity.`,
+      suggestedAction: "Assign more rooms to these classes or increase seats per bench.",
+    });
+  }
+
   const allClasses = Array.from(new Set(allocatedRooms.flatMap((r) => r.classesPresent)));
 
   const allocation: ExamAllocation = {

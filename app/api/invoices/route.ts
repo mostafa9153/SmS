@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
-import { dbSaveInvoices, dbSearchInvoices, type DBInvoiceInsert } from "@/lib/supabase/db-invoices";
+import {
+  dbSaveInvoices,
+  dbSearchInvoices,
+  dbGetInvoicesByStudentIds,
+  type DBInvoiceInsert,
+} from "@/lib/supabase/db-invoices";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { logTeacherActivity } from "@/lib/supabase/db-teachers";
 
 export async function POST(req: Request) {
   try {
@@ -24,11 +30,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No invoice data provided" }, { status: 400 });
     }
 
+    if (auth.role === "Teacher" && auth.permissions?.can_generate_invoices === false) {
+      return NextResponse.json(
+        { error: "Forbidden: You do not have permission to generate fee invoices." },
+        { status: 403 }
+      );
+    }
+
     // Attach current user name/email if available
-    const printedBy = auth?.user?.email || auth?.fullName || null;
+    const printedBy = auth?.fullName || auth?.user?.email || null;
     invoicesToSave = invoicesToSave.map((item) => ({
       ...item,
       printed_by: item.printed_by || printedBy,
+      collected_by: auth.user?.id || null,
+      collector_name: auth.fullName || "Staff",
     }));
 
     const result = await dbSaveInvoices(invoicesToSave);
@@ -38,6 +53,28 @@ export async function POST(req: Request) {
         { error: result.error || "Failed to save invoices" },
         { status: 500 }
       );
+    }
+
+    // Log teacher activity for each generated invoice
+    if (auth.user) {
+      for (const inv of invoicesToSave) {
+        try {
+          await logTeacherActivity({
+            userId: auth.user.id,
+            teacherId: auth.staffId,
+            teacherName: auth.fullName || "Staff",
+            actionType: "INVOICE_GENERATED",
+            targetStudentId: inv.student_id || null,
+            targetStudentName: inv.student_name || null,
+            studentClass: inv.student_class || null,
+            section: inv.section || null,
+            amountCollected: Number(inv.total_amount) || 0,
+            metadata: { invoice_number: inv.invoice_number },
+          });
+        } catch (logErr) {
+          console.warn("Could not log invoice teacher activity:", logErr);
+        }
+      }
     }
 
     return NextResponse.json({
@@ -62,6 +99,21 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
+    const studentIdsParam = searchParams.get("studentIds");
+    const singleStudentId = searchParams.get("studentId");
+
+    if (studentIdsParam || singleStudentId) {
+      const ids = studentIdsParam
+        ? studentIdsParam.split(",").map((s) => s.trim()).filter(Boolean)
+        : [singleStudentId!.trim()];
+      const result = await dbGetInvoicesByStudentIds(ids);
+      return NextResponse.json({
+        data: result.data,
+        total: result.data.length,
+        error: result.error,
+      });
+    }
+
     const query = searchParams.get("q") || undefined;
     const isBlankParam = searchParams.get("isBlank");
     const isBlank =

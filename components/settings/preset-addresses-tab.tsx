@@ -58,8 +58,10 @@ import {
 } from "lucide-react";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
+import { FeePresetManager } from "@/components/settings/fee-preset-manager";
+import { Receipt } from "lucide-react";
 
-type PresetSection = "defaults" | "address" | "bank" | "school" | "ai";
+type PresetSection = "defaults" | "fee" | "address" | "bank" | "school" | "ai";
 
 export function PresetAddressesTab() {
   const [activeSection, setActiveSection] = useState<PresetSection>("defaults");
@@ -404,6 +406,20 @@ export function PresetAddressesTab() {
 
         <button
           type="button"
+          onClick={() => setActiveSection("fee")}
+          className={cn(
+            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
+            activeSection === "fee"
+              ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/30 shadow-2xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+          )}
+        >
+          <Receipt className="h-3.5 w-3.5 text-purple-500" />
+          🧾 Invoice Fee Presets (3 Tiers)
+        </button>
+
+        <button
+          type="button"
           onClick={() => setActiveSection("address")}
           className={cn(
             "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
@@ -632,6 +648,13 @@ export function PresetAddressesTab() {
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* SECTION: Invoice Fee Presets (3 Tiers: Class 5-8, 9-10, 11-12) */}
+      {activeSection === "fee" && (
+        <div className="space-y-5 animate-in fade-in-50 duration-200">
+          <FeePresetManager />
         </div>
       )}
 

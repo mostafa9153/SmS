@@ -11,6 +11,8 @@ import {
   getSavedFeeStructure,
   calculateFeeTotal,
   generateInvoiceNumber,
+  getFeeCategoryForClass,
+  FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
 import { InvoicePrintableBatchView } from "@/components/invoice/invoice-printable-view";
 import { InvoiceTrackerModal } from "@/components/invoice/invoice-tracker-modal";
@@ -261,10 +263,17 @@ export default function BulkInvoicesPage() {
     });
   }
 
+  const [existingInvoicesMap, setExistingInvoicesMap] = useState<Map<string, any>>(new Map());
+
   // Build InvoiceData objects for printing with sequential receipt numbers & custom overrides
   const currentBatchInvoices = useMemo<InvoiceData[]>(() => {
     if (!activePrintGroup) return [];
-    const feeItems = customFeeItems && customFeeItems.length > 0 ? customFeeItems : getSavedFeeStructure();
+    const category = getFeeCategoryForClass(customClass || activePrintGroup.class);
+    const defaultFeeItems =
+      customFeeItems && customFeeItems.length > 0
+        ? customFeeItems
+        : getSavedFeeStructure(category);
+
     const issueDate = new Date().toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "2-digit",
@@ -276,25 +285,44 @@ export default function BulkInvoicesPage() {
       hour12: true,
     });
 
-    return activePrintGroup.students.map((student, idx) => ({
-      invoiceNumber: generateInvoiceNumber(invoiceSeq + idx, currentYear),
-      academicSession: selectedSession,
-      issueDate,
-      issueTime,
-      studentId: student.schoolId || `STU-${student.id.slice(0, 6)}`,
-      studentName: student.name,
-      studentClass: customClass || student.presentClass,
-      section: student.presentSection || "A",
-      rollNo: String(student.presentRoll || idx + 1),
-      guardianName: student.fatherName || student.guardianName || "N/A",
-      contactNumber: student.studentContact || "",
-      penNumber: student.pen || "",
-      feeItems,
-      paymentMode: "Cash" as const,
-      paymentStatus: "Paid" as const,
-      remarks: `Admission Fee ${selectedSession}`,
-    }));
-  }, [activePrintGroup, selectedSession, currentYear, invoiceSeq, customClass, customFeeItems]);
+    let autoSeqOffset = 0;
+
+    return activePrintGroup.students.map((student, idx) => {
+      const sId = (student.schoolId || student.id || "").toUpperCase().trim();
+      const existing = existingInvoicesMap.get(sId);
+
+      // If student already has a registered invoice from re-admission, use that EXACT invoice number!
+      const invoiceNumber = existing?.invoice_number || generateInvoiceNumber(invoiceSeq + autoSeqOffset++, currentYear);
+      const feeItems =
+        Array.isArray(existing?.fee_items) && existing.fee_items.length > 0
+          ? existing.fee_items
+          : defaultFeeItems;
+      const paymentMode = (existing?.payment_mode as any) || "Cash";
+      const paymentStatus = (existing?.payment_status as any) || "Paid";
+      const remarks = existing?.remarks || `Admission Fee ${selectedSession}`;
+
+      return {
+        invoiceNumber,
+        academicSession: existing?.academic_session || selectedSession,
+        issueDate: existing?.issue_date
+          ? new Date(existing.issue_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+          : issueDate,
+        issueTime: existing?.issue_time || issueTime,
+        studentId: student.schoolId || `STU-${student.id.slice(0, 6)}`,
+        studentName: student.name,
+        studentClass: customClass || student.presentClass,
+        section: student.presentSection || "A",
+        rollNo: String(student.presentRoll || idx + 1),
+        guardianName: student.fatherName || student.guardianName || "N/A",
+        contactNumber: student.studentContact || "",
+        penNumber: student.pen || "",
+        feeItems,
+        paymentMode,
+        paymentStatus,
+        remarks,
+      };
+    });
+  }, [activePrintGroup, selectedSession, currentYear, invoiceSeq, customClass, customFeeItems, existingInvoicesMap]);
 
   const formattedStartReceipt = useMemo(() => {
     return generateInvoiceNumber(invoiceSeq, currentYear);
@@ -310,10 +338,28 @@ export default function BulkInvoicesPage() {
     await syncSequenceFromDatabase();
     setActivePrintGroup(group);
     setCustomClass(group.class);
-    setCustomFeeItems(getSavedFeeStructure());
+    const category = getFeeCategoryForClass(group.class);
+    setCustomFeeItems(getSavedFeeStructure(category));
     setIsClassLocked(true);
     setIsAmountLocked(true);
     setIsInvoiceNoLocked(true);
+
+    // Fetch existing registered invoices for these students to preserve their confirmed invoice numbers
+    try {
+      const studentIds = group.students.map((s) => s.schoolId || s.id).filter(Boolean);
+      const res = await fetch(`/api/invoices?studentIds=${encodeURIComponent(studentIds.join(","))}`);
+      const data = await res.json();
+      const map = new Map<string, any>();
+      if (res.ok && Array.isArray(data?.data)) {
+        data.data.forEach((inv: any) => {
+          if (inv.student_id) map.set(inv.student_id.toUpperCase().trim(), inv);
+        });
+      }
+      setExistingInvoicesMap(map);
+    } catch (e) {
+      console.warn("Could not fetch existing invoices for queue group:", e);
+    }
+
     setPrintModalOpen(true);
   }
 

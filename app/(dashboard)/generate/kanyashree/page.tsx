@@ -152,7 +152,7 @@ function KanyashreeCertificateGeneratorContent() {
     setCert((prev) => ({
       ...prev,
       studentId: s.id,
-      kanyashreeId: s.pen ? `19111305602${s.pen.slice(-6)}` : `19111305602${s.id.replace(/\D/g, "").padStart(8, "0")}`,
+      kanyashreeId: s.kanyashreeId || (s.pen ? `19111305602${s.pen.slice(-6)}` : `19111305602${s.id.replace(/\D/g, "").padStart(8, "0")}`),
       pen: s.pen || "",
       studentName: s.name,
       gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",

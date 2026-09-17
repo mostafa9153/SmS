@@ -13,33 +13,132 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
+const STORAGE_KEY = "sms_active_students_filters";
 
 interface StudentsClientProps {
   mode?: "active" | "all";
 }
 
+function parseUrlFilters(searchParams: URLSearchParams, mode: "active" | "all"): StudentFilters | null {
+  const q = searchParams.get("q") ?? undefined;
+  const cls = searchParams.get("class") ?? undefined;
+  const sec = searchParams.get("section") ?? undefined;
+  const status = searchParams.get("status") ?? undefined;
+  const gender = searchParams.get("gender") ?? undefined;
+  const socialCategory = searchParams.get("socialCategory") ?? undefined;
+  const scheme = searchParams.get("scheme") ?? undefined;
+  const hasAadhaar = searchParams.get("hasAadhaar") ?? undefined;
+  const admissionYear = searchParams.get("admissionYear") ? Number(searchParams.get("admissionYear")) : undefined;
+  const ageSlab = searchParams.get("ageSlab") ?? undefined;
+
+  const hasAnyParam = q !== undefined || cls !== undefined || sec !== undefined ||
+    status !== undefined || gender !== undefined || socialCategory !== undefined ||
+    scheme !== undefined || hasAadhaar !== undefined || admissionYear !== undefined || ageSlab !== undefined;
+
+  if (!hasAnyParam) return null;
+
+  return {
+    query: q,
+    class: cls,
+    section: sec,
+    status: status as any,
+    gender: gender as any,
+    socialCategory,
+    scheme: scheme as any,
+    hasAadhaar: hasAadhaar as any,
+    admissionYear,
+    ageSlab,
+    studentType: mode === "active" ? "active" : undefined,
+  };
+}
+
 export default function StudentsClient({ mode = "active" }: StudentsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") ?? undefined;
 
-  const [filters, setFilters] = useState<StudentFilters>({
-    query: initialQuery,
+  // Initial state defaults to Class V Section A (matches server prefetch)
+  const [filters, setFilters] = useState<StudentFilters>(() => ({
+    class: "V",
+    section: "A",
     studentType: mode === "active" ? "active" : undefined,
-  });
+  }));
   const [exportOpen, setExportOpen] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Sync URL search parameter changes
-  const queryParam = searchParams.get("q") || "";
+  // Restore filter state on client mount from URL or sessionStorage
   useEffect(() => {
-    setFilters((prev) => ({
-      ...prev,
-      query: queryParam || undefined,
-    }));
-  }, [queryParam]);
+    const urlFilters = parseUrlFilters(new URLSearchParams(window.location.search), mode);
+    if (urlFilters) {
+      setFilters(urlFilters);
+      try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(urlFilters));
+      } catch {}
+    } else {
+      try {
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object") {
+            setFilters({
+              ...parsed,
+              studentType: mode === "active" ? "active" : undefined,
+            });
+          }
+        }
+      } catch {}
+    }
+    setIsInitialized(true);
+  }, [mode]);
+
+  // Sync active filters to URL search parameters & sessionStorage
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    } catch {}
+
+    const params = new URLSearchParams();
+    if (filters.query) params.set("q", filters.query);
+    if (filters.class) params.set("class", filters.class);
+    if (filters.section) params.set("section", filters.section);
+    if (filters.status) params.set("status", filters.status);
+    if (filters.gender) params.set("gender", filters.gender);
+    if (filters.socialCategory) params.set("socialCategory", filters.socialCategory);
+    if (filters.scheme) params.set("scheme", filters.scheme);
+    if (filters.hasAadhaar) params.set("hasAadhaar", filters.hasAadhaar);
+    if (filters.admissionYear) params.set("admissionYear", String(filters.admissionYear));
+    if (filters.ageSlab) params.set("ageSlab", filters.ageSlab);
+
+    const queryString = params.toString();
+    const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
+    window.history.replaceState(null, "", newUrl);
+  }, [filters, isInitialized]);
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const urlFilters = parseUrlFilters(new URLSearchParams(window.location.search), mode);
+      if (urlFilters) {
+        setFilters(urlFilters);
+      } else {
+        setFilters({
+          class: "V",
+          section: "A",
+          studentType: mode === "active" ? "active" : undefined,
+        });
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [mode]);
 
   function handleFilterChange(newFilters: StudentFilters) {
-    setFilters(newFilters);
+    setFilters({
+      ...newFilters,
+      studentType: mode === "active" ? "active" : undefined,
+    });
   }
 
   const {

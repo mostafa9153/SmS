@@ -20,10 +20,10 @@ export default async function ActiveStudentsPage() {
 
   if (auth.role !== "Guest") {
     await queryClient.prefetchInfiniteQuery({
-      queryKey: ["students-infinite", { query: undefined, studentType: "active" }],
+      queryKey: ["students-infinite", { class: "V", section: "A", studentType: "active" }],
       queryFn: async () => {
         const result = await dbSearchStudents(
-          { studentType: "active" },
+          { class: "V", section: "A", studentType: "active" },
           1,
           20,
           auth.role,
