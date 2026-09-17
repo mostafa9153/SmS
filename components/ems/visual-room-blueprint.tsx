@@ -104,7 +104,7 @@ export function VisualRoomBlueprint({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-foreground mr-1">
             <DoorOpen className="h-4 w-4 text-primary" />
-            <span>Room {room.roomNumber}</span>
+            <span>{room.roomNumber ? (room.roomNumber.toLowerCase().startsWith("room") ? room.roomNumber : `Room ${room.roomNumber}`) : "Room"}</span>
           </div>
 
           <Badge variant="secondary" className="font-mono text-[11px] h-5">

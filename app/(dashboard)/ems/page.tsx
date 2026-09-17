@@ -260,28 +260,36 @@ function EmsMasterPageContent() {
   });
 
   // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
-  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>(() => {
-    if (typeof window !== "undefined") return getSavedAllocations();
-    return [];
-  });
-  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
+  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
+  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
 
-  // Synchronized step setter that updates URL query param and sessionStorage
+  // Hydration-safe mounted flag — avoids SSR/client mismatch
+  const [mounted, setMounted] = useState(false);
+
+  // Synchronized step setter — side-effects deferred via useEffect to avoid "setState during render"
+  const pendingStepRef = React.useRef<number | null>(null);
   const setStep = (newStep: number | ((prev: number) => number)) => {
     setStepState((prev) => {
       const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
-      if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", "?step=" + nextStep);
-        try {
-          sessionStorage.setItem("sms_ems_current_step", String(nextStep));
-        } catch {}
-        if (generatedAllocation) {
-          saveActiveAllocation(generatedAllocation);
-        }
-      }
+      pendingStepRef.current = nextStep;
       return nextStep;
     });
   };
+
+  // Flush URL + sessionStorage update after step state has settled
+  useEffect(() => {
+    if (pendingStepRef.current !== null) {
+      const nextStep = pendingStepRef.current;
+      pendingStepRef.current = null;
+      window.history.replaceState(null, "", "?step=" + nextStep);
+      try {
+        sessionStorage.setItem("sms_ems_current_step", String(nextStep));
+      } catch {}
+      if (generatedAllocation) {
+        saveActiveAllocation(generatedAllocation);
+      }
+    }
+  }, [step, generatedAllocation]);
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || 2026);
@@ -293,22 +301,10 @@ function EmsMasterPageContent() {
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState<boolean>(true);
 
-  // Step 3: Room & Benches Setup
-  const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
-  const [rooms, setRooms] = useState<EmsRoom[]>(() => {
-    if (typeof window !== "undefined") return getSavedRooms();
-    return [];
-  });
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
-    if (initialAlloc?.roomAllocations && initialAlloc.roomAllocations.length > 0) {
-      return initialAlloc.roomAllocations.map((r) => r.roomId);
-    }
-    if (typeof window !== "undefined") {
-      const saved = getSavedRooms();
-      if (saved.length > 0) return [saved[0].id];
-    }
-    return [];
-  });
+  // Step 3: Room & Benches Setup — start empty to avoid SSR/client hydration mismatch
+  const [studentsPerBench, setStudentsPerBench] = useState<number>(3);
+  const [rooms, setRooms] = useState<EmsRoom[]>([]);
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   // Room-wise Assigned Classes mapping (roomId -> class codes array, e.g. ["VIII", "IX"])
   const [roomClassMap, setRoomClassMap] = useState<Record<string, string[]>>({});
   const [editorOpen, setEditorOpen] = useState(false);
@@ -390,6 +386,31 @@ function EmsMasterPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
+    // Mark as mounted (client-only) — resolves SSR/client hydration mismatches
+    setMounted(true);
+
+    // Restore rooms and allocations from localStorage on client mount
+    const saved = getSavedRooms();
+    setRooms(saved);
+    const savedAllocs = getSavedAllocations();
+    setSavedAllocations(savedAllocs);
+
+    // Restore active allocation
+    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
+    if (activeAlloc) {
+      setGeneratedAllocation(activeAlloc);
+      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
+      if (activeAlloc.examType) setExamType(activeAlloc.examType);
+      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
+        setActiveBlueprintRoomId(activeAlloc.roomAllocations[0].roomId);
+        setSelectedRoomIds(activeAlloc.roomAllocations.map((r) => r.roomId));
+      }
+    }
+
+    if (saved.length > 0 && !activeAlloc) {
+      setSelectedRoomIds([saved[0].id]);
+    }
+
     // Sync fresh configs (classes, school profile, rooms) from database
     syncAllEmsConfigsFromDb().then(() => {
       const freshClasses = getDynamicClassCodes();
@@ -400,25 +421,6 @@ function EmsMasterPageContent() {
         setSelectedRoomIds((prev) => (prev.length === 0 ? [freshRooms[0].id] : prev));
       }
     });
-
-    const saved = getSavedRooms();
-    setRooms(saved);
-    const savedAllocs = getSavedAllocations();
-    setSavedAllocations(savedAllocs);
-
-    // Restore active or most recent allocation on reload
-    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
-    if (activeAlloc) {
-      setGeneratedAllocation((prev) => prev || activeAlloc);
-      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
-      if (activeAlloc.examType) setExamType(activeAlloc.examType);
-      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
-        setActiveBlueprintRoomId((prev) => prev || activeAlloc.roomAllocations[0].roomId);
-        setSelectedRoomIds((prev) =>
-          prev.length === 0 ? activeAlloc.roomAllocations.map((r) => r.roomId) : prev
-        );
-      }
-    }
 
     // Restore step if URL or sessionStorage has step
     const stepQuery = searchParams.get("step");
