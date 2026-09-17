@@ -288,7 +288,7 @@ export function ColumnClassAssigner({
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500 ring-2 ring-blue-500/20" />
-                        <span className="text-xs font-bold text-foreground truncate">
+                        <span className="text-xs font-bold text-foreground truncate" title="Seat 1 (Left)">
                           S1 (Left)
                         </span>
                       </div>
@@ -307,22 +307,16 @@ export function ColumnClassAssigner({
                           });
                         }}
                         className={cn(
-                          "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
+                          "shrink-0 h-6 w-6 rounded-md flex items-center justify-center transition-all cursor-pointer border shadow-2xs",
                           s1Dir === "bottom-to-top"
                             ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
                             : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
                         )}
                       >
                         {s1Dir === "bottom-to-top" ? (
-                          <>
-                            <ArrowUp className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
-                            <span>Back</span>
-                          </>
+                          <ArrowUp className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                         ) : (
-                          <>
-                            <ArrowDown className="h-2.5 w-2.5 text-primary" />
-                            <span>Front</span>
-                          </>
+                          <ArrowDown className="h-3 w-3 text-primary" />
                         )}
                       </button>
                     </div>
@@ -340,6 +334,7 @@ export function ColumnClassAssigner({
                       placeholder="Select Class"
                       className="text-xs"
                       triggerClassName="h-8.5 text-xs px-2.5 font-medium"
+                      dropdownClassName="w-full min-w-full z-[100] shadow-xl rounded-xl"
                       disabled={disabled}
                     />
                   </div>
@@ -349,7 +344,7 @@ export function ColumnClassAssigner({
                     <div className="flex items-center justify-between gap-1">
                       <div className="flex items-center gap-1.5 min-w-0">
                         <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-500/20" />
-                        <span className="text-xs font-bold text-foreground truncate">
+                        <span className="text-xs font-bold text-foreground truncate" title={isThreeSeat ? "Seat 2 (Center)" : "Seat 2 (Right)"}>
                           {isThreeSeat ? "S2 (Center)" : "S2 (Right)"}
                         </span>
                       </div>
@@ -368,22 +363,16 @@ export function ColumnClassAssigner({
                           });
                         }}
                         className={cn(
-                          "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
+                          "shrink-0 h-6 w-6 rounded-md flex items-center justify-center transition-all cursor-pointer border shadow-2xs",
                           s2Dir === "bottom-to-top"
                             ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
                             : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
                         )}
                       >
                         {s2Dir === "bottom-to-top" ? (
-                          <>
-                            <ArrowUp className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
-                            <span>Back</span>
-                          </>
+                          <ArrowUp className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                         ) : (
-                          <>
-                            <ArrowDown className="h-2.5 w-2.5 text-primary" />
-                            <span>Front</span>
-                          </>
+                          <ArrowDown className="h-3 w-3 text-primary" />
                         )}
                       </button>
                     </div>
@@ -400,6 +389,7 @@ export function ColumnClassAssigner({
                       placeholder="Select Class"
                       className="text-xs"
                       triggerClassName="h-8.5 text-xs px-2.5 font-medium"
+                      dropdownClassName="w-full min-w-full z-[100] shadow-xl rounded-xl"
                       disabled={disabled}
                     />
                   </div>
@@ -410,43 +400,55 @@ export function ColumnClassAssigner({
                       <div className="flex items-center justify-between gap-1">
                         <div className="flex items-center gap-1.5 min-w-0">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-purple-500 ring-2 ring-purple-500/20" />
-                          <span className="text-xs font-bold text-foreground truncate">
+                          <span className="text-xs font-bold text-foreground truncate" title="Seat 3 (Right)">
                             S3 (Right)
                           </span>
                         </div>
 
-                        {/* S3 Direction Toggle Button */}
-                        <button
-                          type="button"
-                          disabled={disabled}
-                          title={s3Dir === "bottom-to-top" ? "Filling: Back to Front (Row N → 1)" : "Filling: Front to Back (Row 1 → N)"}
-                          onClick={() => {
-                            updateColumnConfig(col.columnIndex, {
-                              seatDirections: {
-                                ...currentConfig?.seatDirections,
-                                3: s3Dir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom",
-                              },
-                            });
-                          }}
-                          className={cn(
-                            "shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer border shadow-2xs",
-                            s3Dir === "bottom-to-top"
-                              ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
-                              : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
+                        {/* Controls (Relink when custom + Direction Toggle) */}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!s3MirrorS1 && (
+                            <button
+                              type="button"
+                              title="Link back to Seat 1"
+                              onClick={() => {
+                                updateColumnConfig(col.columnIndex, {
+                                  s3MirrorS1: true,
+                                  s3ClassCode: s1Class,
+                                });
+                              }}
+                              className="h-6 w-6 rounded-md flex items-center justify-center bg-purple-500/10 text-purple-600 hover:bg-purple-500/20 border border-purple-300 dark:border-purple-800 transition-all cursor-pointer"
+                            >
+                              <Link2 className="h-3 w-3" />
+                            </button>
                           )}
-                        >
-                          {s3Dir === "bottom-to-top" ? (
-                            <>
-                              <ArrowUp className="h-2.5 w-2.5 text-indigo-600 dark:text-indigo-400" />
-                              <span>Back</span>
-                            </>
-                          ) : (
-                            <>
-                              <ArrowDown className="h-2.5 w-2.5 text-primary" />
-                              <span>Front</span>
-                            </>
-                          )}
-                        </button>
+
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            title={s3Dir === "bottom-to-top" ? "Filling: Back to Front (Row N → 1)" : "Filling: Front to Back (Row 1 → N)"}
+                            onClick={() => {
+                              updateColumnConfig(col.columnIndex, {
+                                seatDirections: {
+                                  ...currentConfig?.seatDirections,
+                                  3: s3Dir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom",
+                                },
+                              });
+                            }}
+                            className={cn(
+                              "h-6 w-6 rounded-md flex items-center justify-center transition-all cursor-pointer border shadow-2xs",
+                              s3Dir === "bottom-to-top"
+                                ? "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/25"
+                                : "bg-muted/80 text-muted-foreground hover:text-foreground border-border/60 hover:bg-muted"
+                            )}
+                          >
+                            {s3Dir === "bottom-to-top" ? (
+                              <ArrowUp className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                            ) : (
+                              <ArrowDown className="h-3 w-3 text-primary" />
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Mirroring / Custom Class Picker for S3 */}
@@ -472,38 +474,20 @@ export function ColumnClassAssigner({
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1">
-                          <div className="flex-1 min-w-0">
-                            <CustomSelect
-                              value={s3Class}
-                              onChange={(val) => {
-                                updateColumnConfig(col.columnIndex, {
-                                  s3ClassCode: val,
-                                });
-                              }}
-                              options={classSelectOptions}
-                              placeholder="Select Class"
-                              className="text-xs"
-                              triggerClassName="h-8.5 text-xs px-2.5 font-medium"
-                              disabled={disabled}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            title="Link back to Seat 1"
-                            onClick={() => {
-                              updateColumnConfig(col.columnIndex, {
-                                s3MirrorS1: true,
-                                s3ClassCode: s1Class,
-                              });
-                            }}
-                            className="h-8.5 w-8.5 p-0 shrink-0 cursor-pointer border-border/70 hover:bg-muted text-muted-foreground hover:text-primary"
-                          >
-                            <Link2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        <CustomSelect
+                          value={s3Class}
+                          onChange={(val) => {
+                            updateColumnConfig(col.columnIndex, {
+                              s3ClassCode: val,
+                            });
+                          }}
+                          options={classSelectOptions}
+                          placeholder="Select Class"
+                          className="text-xs w-full"
+                          triggerClassName="h-8.5 text-xs px-2.5 font-medium w-full"
+                          dropdownClassName="w-full min-w-full z-[100] shadow-xl rounded-xl"
+                          disabled={disabled}
+                        />
                       )}
                     </div>
                   )}
