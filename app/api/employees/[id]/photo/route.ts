@@ -35,6 +35,13 @@ export async function POST(
     }
 
     const { id } = await params;
+    const isSelfTeacher = auth.role === "Teacher" && auth.staffId === id;
+    const isAdmin = auth.role === "Admin";
+
+    if (!isAdmin && !isSelfTeacher) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to update this staff photo." }, { status: 403 });
+    }
+
     const admin = createAdminClient();
 
     let photoUrl = "";
@@ -108,11 +115,15 @@ export async function DELETE(
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
     }
-    if (auth.role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Only administrators can delete staff photos." }, { status: 403 });
-    }
 
     const { id } = await params;
+    const isSelfTeacher = auth.role === "Teacher" && auth.staffId === id;
+    const isAdmin = auth.role === "Admin";
+
+    if (!isAdmin && !isSelfTeacher) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to delete this staff photo." }, { status: 403 });
+    }
+
     const admin = createAdminClient();
 
     const { data: updated, error } = await admin

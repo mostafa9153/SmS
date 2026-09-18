@@ -9,6 +9,7 @@ export interface EmsAttendanceSheetPrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;
+  examHalf?: "1st Half" | "2nd Half";
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   examHeaders?: string[]; // Array of up to 8 strings for Subject
@@ -30,6 +31,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
   rooms,
   academicYear,
   examType,
+  examHalf,
   schoolProfile,
   targetRoomId = "ALL",
   examHeaders = ["Date 1", "Date 2", "Date 3", "Date 4", "Date 5", "Date 6", "Date 7", "Date 8"],
@@ -197,10 +199,15 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
 
                     {/* Sub-Header Row: Center Exam Title */}
                     <div className="grid grid-cols-12 border-t-[1.2px] border-black mt-1 pt-1 text-[9.5px] font-bold items-center">
-                      <div className="col-span-12 text-center truncate">
+                      <div className="col-span-12 text-center truncate flex items-center justify-center gap-2">
                         <span className="text-black font-black tracking-wide uppercase">
                           {examType} - {academicYear}
                         </span>
+                        {examHalf && (
+                          <span className="text-[9px] font-black uppercase text-black border-[1.5px] border-black px-2 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
+                            [ {examHalf} ]
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

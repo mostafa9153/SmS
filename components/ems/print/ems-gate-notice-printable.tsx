@@ -10,6 +10,7 @@ export interface EmsGateNoticePrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;
+  examHalf?: "1st Half" | "2nd Half";
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
 }
@@ -18,6 +19,7 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
   rooms,
   academicYear,
   examType,
+  examHalf,
   schoolProfile,
   targetRoomId = "ALL",
 }) => {
@@ -159,8 +161,13 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
                       <span className="inline-block bg-black text-white px-2 py-0.5 text-[9px] font-black tracking-wider uppercase rounded-[2px]">
                         2D SEATING BLUEPRINT • GATE NOTICE
                       </span>
-                      <p className="text-[8px] font-mono font-bold text-neutral-800 mt-0.5">
-                        AY {academicYear} • {examType}
+                      <p className="text-[8px] font-mono font-bold text-neutral-800 mt-0.5 flex items-center justify-end gap-1.5">
+                        <span>AY {academicYear} • {examType}</span>
+                        {examHalf && (
+                          <span className="text-[8px] font-black uppercase text-black border border-black px-1.5 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
+                            [ {examHalf} ]
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>

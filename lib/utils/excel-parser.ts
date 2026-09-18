@@ -371,6 +371,130 @@ export const TARGET_FIELDS: FieldDefinition[] = [
     ],
   },
   {
+    key: "wbbseRegNo",
+    label: "WBBSE Reg No (Class 9-10)",
+    category: "Board Examination",
+    icon: "📋",
+    aliases: [
+      "wbbse reg no",
+      "wbbse registration no",
+      "wbbse registration number",
+      "wbbse reg",
+      "wbbse reg.",
+      "wbbse reg. no.",
+      "madhyamik reg no",
+      "madhyamik registration no",
+      "madhyamik reg",
+      "class 9 reg no",
+      "class 10 reg no",
+      "class 9 registration",
+      "class 10 registration",
+      "wbbse_reg_no",
+      "wbbse_registration_no",
+      "board reg no",
+      "board registration no",
+      "board registration",
+      "board reg. no.",
+      "board reg number",
+      "registration no",
+      "registration number",
+      "reg no",
+      "reg no.",
+      "reg. no",
+      "reg. no.",
+    ],
+  },
+  {
+    key: "wbchseRegNo",
+    label: "WBCHSE Reg No (Class 11-12)",
+    category: "Board Examination",
+    icon: "📋",
+    aliases: [
+      "wbchse reg no",
+      "wbchse registration no",
+      "wbchse registration number",
+      "wbchse reg",
+      "wbchse reg.",
+      "wbchse reg. no.",
+      "hs reg no",
+      "hs registration no",
+      "higher secondary reg no",
+      "higher secondary registration no",
+      "hs reg",
+      "class 11 reg no",
+      "class 12 reg no",
+      "class 11 registration",
+      "class 12 registration",
+      "wbchse_reg_no",
+      "wbchse_registration_no",
+    ],
+  },
+  {
+    key: "wbbseRollNo",
+    label: "WBBSE Roll No (Class 9-10)",
+    category: "Board Examination",
+    icon: "🎯",
+    aliases: [
+      "wbbse roll no",
+      "wbbse roll number",
+      "wbbse roll",
+      "madhyamik roll no",
+      "madhyamik roll",
+      "mp roll no",
+      "mp roll",
+      "class 9 roll no",
+      "class 10 roll no",
+      "wbbse_roll_no",
+    ],
+  },
+  {
+    key: "wbchseRollNo",
+    label: "WBCHSE Roll No (Class 11-12)",
+    category: "Board Examination",
+    icon: "🎯",
+    aliases: [
+      "wbchse roll no",
+      "wbchse roll number",
+      "wbchse roll",
+      "hs roll no",
+      "hs roll",
+      "higher secondary roll no",
+      "higher secondary roll",
+      "class 11 roll no",
+      "class 12 roll no",
+      "wbchse_roll_no",
+    ],
+  },
+  {
+    key: "boardRegistrationNo",
+    label: "Board Registration No (WBBSE / WBCHSE)",
+    category: "Board Examination",
+    icon: "📋",
+    aliases: [
+      "board registration no",
+      "board reg no",
+      "board registration number",
+      "board reg",
+      "board_registration_no",
+      "board_reg_no",
+      "board registration",
+      "board reg. no.",
+    ],
+  },
+  {
+    key: "boardRollNo",
+    label: "Board Roll Number (WBBSE / WBCHSE)",
+    category: "Board Examination",
+    icon: "🎯",
+    aliases: [
+      "board roll no",
+      "board roll number",
+      "board roll",
+      "board_roll_no",
+      "board roll no.",
+    ],
+  },
+  {
     key: "identificationMark",
     label: "Identification Mark",
     category: "Identifiers",
@@ -1338,6 +1462,9 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "studentUniqueCode",
     "bankAccountNo",
     "bankIfsc",
+    "wbbseRegNo",
+    "wbchseRegNo",
+    "boardRegistrationNo",
     "birthRegistrationNo",
     "diseCode",
     "healthId",
@@ -1349,6 +1476,9 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "academicStream",
     "mediumOfInstruction",
     "dob",
+    "wbbseRollNo",
+    "wbchseRollNo",
+    "boardRollNo",
     "presentRoll",
     "presentClass",
     "presentSection",
@@ -1776,6 +1906,22 @@ export function applyMapping(
         fieldKey === "mainstreamedDate"
       ) {
         (student as any)[fieldKey] = normalizeDate(rawVal);
+      } else if (
+        fieldKey === "wbbseRegNo" ||
+        fieldKey === "wbchseRegNo" ||
+        fieldKey === "boardRegistrationNo"
+      ) {
+        const trimmedVal = String(rawVal).trim();
+        student.boardRegistrationNo = trimmedVal;
+        (student as any)[fieldKey] = trimmedVal;
+      } else if (
+        fieldKey === "wbbseRollNo" ||
+        fieldKey === "wbchseRollNo" ||
+        fieldKey === "boardRollNo"
+      ) {
+        const trimmedVal = String(rawVal).trim();
+        student.boardRollNo = trimmedVal;
+        (student as any)[fieldKey] = trimmedVal;
       } else {
         (student as any)[fieldKey] = String(rawVal).trim();
       }

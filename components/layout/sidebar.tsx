@@ -30,6 +30,7 @@ import {
   ReceiptText,
   FileText,
   User,
+  Briefcase,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -72,6 +73,19 @@ const navItems: NavItem[] = [
     href: "/",
     icon: <LayoutDashboard className="h-4 w-4" />,
     iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Teacher Management",
+    href: "/teacher-management",
+    icon: <GraduationCap className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
+    adminOnly: true,
+  },
+  {
+    label: "Teacher Workspace",
+    href: "/teacher",
+    icon: <Briefcase className="h-4 w-4" />,
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
   },
   {
     label: "Students Register",
@@ -146,7 +160,7 @@ const settingsNavItems = [
     activeColor: "from-blue-500/15 via-blue-500/8 text-blue-700 dark:text-blue-300 border-blue-600",
   },
   {
-    href: "/settings/teachers",
+    href: "/teacher-management",
     tab: "teachers",
     label: "Teacher Management",
     icon: <GraduationCap className="h-4 w-4" />,
@@ -482,24 +496,28 @@ export function Sidebar({
 
   const [fullName, setFullName] = useState("User");
   const [role, setRole] = useState("Staff");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [designation, setDesignation] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     async function loadUserProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("user_roles")
-          .select("full_name, role")
-          .eq("user_id", user.id)
-          .single();
-        
-        if (profile) {
-          setFullName(profile.full_name || "User");
-          setRole(profile.role || "Staff");
+      try {
+        const res = await fetch("/api/auth/profile");
+        const data = await res.json();
+        if (data.success && data.user) {
+          setFullName(data.user.fullName || data.staff?.full_name || "User");
+          setRole(data.user.role || "Staff");
+          setPhotoUrl(data.staff?.profile_picture_url || null);
+          setDesignation(data.staff?.designation || data.user.role || "Staff");
         } else {
-          setFullName(user.email?.split("@")[0] || "User");
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            setFullName(user.user_metadata?.full_name || user.email?.split("@")[0] || "User");
+          }
         }
+      } catch (err) {
+        console.error("Error loading sidebar profile:", err);
       }
     }
     loadUserProfile();
@@ -623,17 +641,27 @@ export function Sidebar({
           }>
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
-                <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold shadow-xs">
-                  {fullName.charAt(0).toUpperCase()}
+                <div className="h-8.5 w-8.5 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold shadow-xs overflow-hidden">
+                  {photoUrl ? (
+                    <Image
+                      src={photoUrl}
+                      alt={fullName}
+                      width={34}
+                      height={34}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    fullName.charAt(0).toUpperCase()
+                  )}
                 </div>
-                <span className="absolute bottom-0 right-0 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-background" />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background z-10" />
               </div>
               <div className="leading-tight min-w-0">
                 <p className="text-xs font-bold text-foreground truncate max-w-[125px]">
                   {fullName}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {role} · Session 2026
+                  {designation || role} · Session 2026
                 </p>
               </div>
             </div>
@@ -643,7 +671,7 @@ export function Sidebar({
             <DropdownMenuLabel className="p-2">
               <div className="flex flex-col">
                 <span className="font-bold text-xs text-foreground truncate">{fullName}</span>
-                <span className="text-[10px] text-muted-foreground font-medium">{role || "User"} · Session 2026</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">{designation || role || "User"} · Session 2026</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
@@ -653,7 +681,7 @@ export function Sidebar({
               className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium cursor-pointer hover:bg-accent text-foreground transition-colors"
             >
               <User className="h-3.5 w-3.5 text-primary" />
-              <span>Admin Profile & Security</span>
+              <span>My Profile &amp; Security</span>
             </DropdownMenuItem>
 
             <DropdownMenuItem
@@ -663,6 +691,8 @@ export function Sidebar({
               <GraduationCap className="h-3.5 w-3.5 text-emerald-500" />
               <span>Teacher Workspace</span>
             </DropdownMenuItem>
+
+            <DropdownMenuSeparator className="my-1" />
 
             <DropdownMenuItem 
               onClick={handleLogout} 

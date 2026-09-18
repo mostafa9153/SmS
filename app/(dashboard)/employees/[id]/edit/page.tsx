@@ -10,10 +10,13 @@ export const metadata: Metadata = {
 
 export default async function EmployeeEditPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ returnUrl?: string }>;
 }) {
   const { id } = await params;
+  const sParams = searchParams ? await searchParams : {};
   const supabase = await createClient();
 
   const { data: staff, error } = await supabase
@@ -27,5 +30,5 @@ export default async function EmployeeEditPage({
     notFound();
   }
 
-  return <EmployeeEditForm staff={staff} />;
+  return <EmployeeEditForm staff={staff} returnUrl={sParams.returnUrl} />;
 }

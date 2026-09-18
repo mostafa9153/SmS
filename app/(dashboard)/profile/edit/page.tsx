@@ -1,0 +1,112 @@
+import { Metadata } from "next";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft, AlertCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { EmployeeEditForm } from "@/app/(dashboard)/employees/[id]/edit/employee-edit-form";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Edit My Profile | SMS",
+  description: "Comprehensive institutional form for editing your faculty / staff profile.",
+};
+
+export default async function ProfileEditPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    redirect("/login");
+  }
+
+  const adminClient = createAdminClient();
+
+  // 1. Fetch user role to find staff_id
+  const { data: roleRow } = await adminClient
+    .from("user_roles")
+    .select("*")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  let staff: any = null;
+
+  if (roleRow?.staff_id) {
+    const { data: staffData } = await adminClient
+      .from("staff_profiles")
+      .select("*")
+      .eq("id", roleRow.staff_id)
+      .maybeSingle();
+    staff = staffData;
+  }
+
+  // Fallback: match by email if staff_id is not directly linked in user_roles
+  if (!staff && user.email) {
+    const { data: staffByEmail } = await adminClient
+      .from("staff_profiles")
+      .select("*")
+      .eq("email", user.email)
+      .maybeSingle();
+    staff = staffByEmail;
+  }
+
+  if (!staff) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+        <div className="flex items-center gap-3 border-b border-border/80 pb-4">
+          <Link
+            href="/profile"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "icon" }),
+              "rounded-xl h-9 w-9 bg-card hover:bg-muted shadow-2xs border-border flex items-center justify-center"
+            )}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+              Profile Not Linked
+            </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              No faculty / staff institutional record found for this account.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 flex flex-col items-center text-center space-y-3">
+          <div className="h-12 w-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <AlertCircle className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            No Staff Record Associated
+          </p>
+          <p className="text-xs text-muted-foreground max-w-md">
+            This account is not currently linked to an active faculty/staff profile. If you are an administrator, you can manage staff profiles from the Employees directory.
+          </p>
+          <Link
+            href="/profile"
+            className={cn(
+              buttonVariants({ size: "sm" }),
+              "rounded-xl h-9 px-4 text-xs font-semibold bg-primary text-primary-foreground"
+            )}
+          >
+            Return to My Profile
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <EmployeeEditForm
+      staff={staff}
+      returnUrl="/profile"
+      title="Edit My Profile"
+      subtitle={`Updating institutional profile for: ${staff.full_name} (${staff.unique_id})`}
+    />
+  );
+}

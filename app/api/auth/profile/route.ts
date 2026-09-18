@@ -45,13 +45,69 @@ export async function GET() {
         .maybeSingle();
 
       staffData = staff;
+    }
 
+    // Fallback if staff_id was missing or null: lookup by email or user_id, or auto-create for admin
+    if (!staffData && user.email) {
+      const { data: matchedStaff } = await adminClient
+        .from("staff_profiles")
+        .select("*")
+        .or(`email.ilike.${user.email},user_id.eq.${user.id}`)
+        .maybeSingle();
+
+      if (matchedStaff) {
+        staffData = matchedStaff;
+        await adminClient
+          .from("user_roles")
+          .update({ staff_id: matchedStaff.id })
+          .eq("user_id", user.id);
+      } else {
+        const adminUniqueId = `ADM${Math.floor(1000 + Math.random() * 9000)}`;
+        const adminName = roleRow.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Administrator";
+        const { data: newStaff } = await adminClient
+          .from("staff_profiles")
+          .insert({
+            user_id: user.id,
+            unique_id: adminUniqueId,
+            full_name: adminName,
+            designation: isAdmin ? "Headmaster / Administrator" : "Staff Member",
+            employee_type: "TEACHING",
+            status: "ACTIVE",
+            email: user.email,
+            caste: "General",
+            service_type: "Permanent",
+            primary_meta: {
+              academic_section: "Higher Secondary",
+              appointed_subject: "Administration",
+            },
+            professional_meta: {
+              professional_qualification: "Post Graduate",
+              post_status: "Sanctioned Post",
+            },
+            bank_details: {
+              bank_name: "State Bank of India",
+            },
+          })
+          .select()
+          .maybeSingle();
+
+        if (newStaff) {
+          staffData = newStaff;
+          await adminClient
+            .from("user_roles")
+            .update({ staff_id: newStaff.id })
+            .eq("user_id", user.id);
+        }
+      }
+    }
+
+    if (staffData) {
       // Fetch teacher class assignments
       const currentYear = new Date().getFullYear();
       const { data: assigns } = await adminClient
         .from("teacher_class_assignments")
         .select("*")
-        .eq("teacher_id", roleRow.staff_id)
+        .eq("teacher_id", staffData.id)
         .eq("academic_year", currentYear);
 
       assignments = assigns || [];

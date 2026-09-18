@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExamAllocation, AllocatedRoom, PrintDocType } from "@/lib/ems/types";
+import { ExamAllocation, AllocatedRoom, PrintDocType, ExamHalf } from "@/lib/ems/types";
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
@@ -108,6 +108,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   }, [isRoomPopoverOpen]);
 
   // Options & Settings state
+  const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [issueDate, setIssueDate] = useState<string>(() => {
     const d = new Date();
     return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
@@ -313,7 +314,37 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {/* 1st Half / 2nd Half Switcher (Placed right before Print Document) */}
+          <div className="inline-flex p-0.5 rounded-xl bg-muted/80 border border-border/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setExamHalf("1st Half")}
+              className={cn(
+                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                examHalf === "1st Half"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Select 1st Half Examination Shift"
+            >
+              1st Half
+            </button>
+            <button
+              type="button"
+              onClick={() => setExamHalf("2nd Half")}
+              className={cn(
+                "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                examHalf === "2nd Half"
+                  ? "bg-amber-500 text-white shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Select 2nd Half Examination Shift"
+            >
+              2nd Half
+            </button>
+          </div>
+
           {/* Exactly ONE prominent primary Print Document button with keyboard shortcut */}
           <Button
             type="button"
@@ -885,6 +916,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 schoolProfile={schoolProfile}
                 targetRoomId={targetRoomId}
                 showSignature={showAdmitSignature}
+                examHalf={examHalf}
               />
             )}
 
@@ -907,6 +939,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 targetRoomId={targetRoomId}
                 examHeaders={examHeaders}
                 examDates={examDates}
+                examHalf={examHalf}
               />
             )}
 
@@ -917,6 +950,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 examType={allocation.examType}
                 schoolProfile={schoolProfile}
                 targetRoomId={targetRoomId}
+                examHalf={examHalf}
               />
             )}
           </div>
@@ -938,6 +972,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               schoolProfile={schoolProfile}
               targetRoomId={targetRoomId}
               showSignature={showAdmitSignature}
+              examHalf={examHalf}
             />
           )}
 
@@ -960,6 +995,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               targetRoomId={targetRoomId}
               examHeaders={examHeaders}
               examDates={examDates}
+              examHalf={examHalf}
             />
           )}
 
@@ -970,6 +1006,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               examType={allocation.examType}
               schoolProfile={schoolProfile}
               targetRoomId={targetRoomId}
+              examHalf={examHalf}
             />
           )}
         </div>,

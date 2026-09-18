@@ -37,7 +37,7 @@ export default function TeacherLoginPage() {
     async function checkSession() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        router.replace("/teacher");
+        router.replace("/");
       } else {
         setIsCheckingSession(false);
       }
@@ -64,8 +64,8 @@ export default function TeacherLoginPage() {
       if (error) {
         setErrorMsg(error.message || "Invalid email or password.");
       } else if (data.session) {
-        // Full navigation to establish cookies with middleware
-        window.location.href = "/teacher";
+        // Full navigation to establish cookies with middleware -> lands on main dashboard (/)
+        window.location.href = "/";
       }
     } catch (err: any) {
       setErrorMsg("An unexpected error occurred. Please try again.");

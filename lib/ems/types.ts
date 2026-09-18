@@ -11,6 +11,8 @@ export const EXAM_TYPES: ExamType[] = [
   "3rd Summative Evaluation",
 ];
 
+export type ExamHalf = "1st Half" | "2nd Half";
+
 // Printable document type for EMS print suite
 export type PrintDocType = "admit" | "slips" | "attendance" | "gate";
 

@@ -31,11 +31,20 @@ import { StaffSignatureAvatar } from "@/components/employees/staff-signature-ava
 
 interface EmployeeEditFormProps {
   staff: any;
+  returnUrl?: string;
+  title?: string;
+  subtitle?: string;
 }
 
-export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
+export function EmployeeEditForm({
+  staff,
+  returnUrl,
+  title,
+  subtitle,
+}: EmployeeEditFormProps) {
   const router = useRouter();
   const [isSaving, setIsSaving] = useState(false);
+  const backTarget = returnUrl || `/employees/${staff.id}`;
 
   const [formData, setFormData] = useState({
     // Primary / Employment
@@ -211,7 +220,7 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
         description: "Employee details have been saved to the database.",
       });
 
-      router.push(`/employees/${staff.id}`);
+      router.push(backTarget);
       router.refresh();
     } catch (err: any) {
       console.error("Employee update error:", err);
@@ -231,7 +240,7 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/80 pb-4">
         <div className="flex items-center gap-3">
           <Link
-            href={`/employees/${staff.id}`}
+            href={backTarget}
             className={cn(
               buttonVariants({ variant: "outline", size: "icon" }),
               "rounded-xl h-9 w-9 bg-card hover:bg-muted shadow-2xs border-border flex items-center justify-center"
@@ -241,12 +250,16 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
           </Link>
           <div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-              Edit Employee Profile
+              {title || "Edit Employee Profile"}
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Updating institutional records for:{" "}
-              <span className="font-bold text-foreground">{staff.full_name}</span>{" "}
-              <span className="font-mono text-xs opacity-75">({staff.unique_id})</span>
+              {subtitle || (
+                <>
+                  Updating institutional records for:{" "}
+                  <span className="font-bold text-foreground">{staff.full_name}</span>{" "}
+                  <span className="font-mono text-xs opacity-75">({staff.unique_id})</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -254,7 +267,7 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
         {/* Quick Action in Header */}
         <div className="flex items-center gap-2">
           <Link
-            href={`/employees/${staff.id}`}
+            href={backTarget}
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
               "rounded-xl h-9 text-xs font-semibold flex items-center justify-center"
@@ -707,7 +720,7 @@ export function EmployeeEditForm({ staff }: EmployeeEditFormProps) {
         {/* 3. Bottom Action Bar */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/80 sticky bottom-4 bg-background/95 backdrop-blur-md p-4 rounded-2xl border shadow-lg">
           <Link
-            href={`/employees/${staff.id}`}
+            href={backTarget}
             className={cn(
               buttonVariants({ variant: "outline" }),
               "rounded-xl h-10 px-5 text-sm font-semibold flex items-center justify-center"

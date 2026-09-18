@@ -43,11 +43,15 @@ export async function PATCH(
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
     }
-    if (auth.role !== "Admin") {
-      return NextResponse.json({ error: "Forbidden: Only administrators can update staff profiles." }, { status: 403 });
-    }
 
     const { id } = await params;
+    const isSelfTeacher = auth.role === "Teacher" && auth.staffId === id;
+    const isAdmin = auth.role === "Admin";
+
+    if (!isAdmin && !isSelfTeacher) {
+      return NextResponse.json({ error: "Forbidden: You do not have permission to update this staff profile." }, { status: 403 });
+    }
+
     const body = await req.json();
     const admin = createAdminClient();
 
@@ -57,6 +61,7 @@ export async function PATCH(
 
     if (body.full_name !== undefined) updates.full_name = body.full_name;
     if (body.unique_id !== undefined) updates.unique_id = body.unique_id;
+    if (body.profile_picture_url !== undefined) updates.profile_picture_url = body.profile_picture_url;
     if (body.employee_type !== undefined) updates.employee_type = body.employee_type;
     if (body.status !== undefined) updates.status = body.status;
     if (body.designation !== undefined) updates.designation = body.designation;
@@ -115,6 +120,13 @@ export async function PATCH(
     if (error) {
       console.error("Update staff error:", error);
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (body.full_name) {
+      await admin
+        .from("user_roles")
+        .update({ full_name: body.full_name })
+        .eq("staff_id", id);
     }
 
     return NextResponse.json({ success: true, staff: updated });

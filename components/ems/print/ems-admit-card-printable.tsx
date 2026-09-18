@@ -10,6 +10,7 @@ export interface EmsAdmitCardPrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;
+  examHalf?: "1st Half" | "2nd Half";
   issueDate?: string;
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
@@ -48,6 +49,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   rooms,
   academicYear,
   examType,
+  examHalf,
   issueDate = new Date().toLocaleDateString("en-GB"),
   schoolProfile,
   targetRoomId = "ALL",
@@ -155,8 +157,13 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                       <h4 className="text-[8.5px] font-black uppercase tracking-tight text-neutral-900 truncate leading-tight">
                         {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
                       </h4>
-                      <p className="text-[7.5px] font-bold text-neutral-600 tracking-tight leading-none mt-0.5">
-                        {formatShortExam(examType, academicYear)}
+                      <p className="text-[7.5px] font-bold text-neutral-600 tracking-tight leading-none mt-0.5 flex items-center gap-1">
+                        <span>{formatShortExam(examType, academicYear)}</span>
+                        {examHalf && (
+                          <span className="text-[7px] font-black uppercase text-neutral-950 border border-neutral-900 px-1 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
+                            [ {examHalf} ]
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="shrink-0 text-right">

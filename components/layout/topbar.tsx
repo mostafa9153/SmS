@@ -2,21 +2,14 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Menu, Search, Bell, LogOut, Settings, User, PanelLeftOpen, PanelLeftClose, CalendarClock } from "lucide-react";
+import { Menu, Search, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationPanel } from "@/components/layout/notification-panel";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/components/layout/sidebar-context";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 export function Topbar() {
   const router = useRouter();
@@ -24,26 +17,29 @@ export function Topbar() {
   const { isOpen, toggleSidebar, isMobileOpen, setIsMobileOpen } = useSidebar();
 
   const [searchValue, setSearchValue] = useState("");
-  const [fullName, setFullName] = useState("Guest");
+  const [fullName, setFullName] = useState("User");
   const [role, setRole] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [designation, setDesignation] = useState("");
 
   useEffect(() => {
     async function loadUserProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Fetch full name and role from user_roles
-        const { data: profile } = await supabase
-          .from("user_roles")
-          .select("full_name, role")
-          .eq("user_id", user.id)
-          .single();
-
-        if (profile) {
-          setFullName(profile.full_name || "User");
-          setRole(profile.role || "");
+      try {
+        const res = await fetch("/api/auth/profile");
+        const data = await res.json();
+        if (data.success && data.user) {
+          setFullName(data.user.fullName || data.staff?.full_name || "User");
+          setRole(data.user.role || "");
+          setPhotoUrl(data.staff?.profile_picture_url || null);
+          setDesignation(data.staff?.designation || data.user.role || "User");
         } else {
-          setFullName(user.email?.split("@")[0] || "User");
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            setFullName(user.user_metadata?.full_name || user.email?.split("@")[0] || "User");
+          }
         }
+      } catch (err) {
+        console.error("Error loading topbar profile:", err);
       }
     }
     loadUserProfile();
@@ -55,12 +51,6 @@ export function Topbar() {
       router.push(`/students?q=${encodeURIComponent(searchValue.trim())}`);
       setSearchValue("");
     }
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace("/login");
-    router.refresh();
   }
 
   return (
@@ -121,42 +111,28 @@ export function Topbar() {
 
         <div className="h-3.5 w-px bg-border/60 mx-0.5 hidden sm:block" />
 
-        {/* User profile dropdown - Touch-friendly avatar */}
-        <DropdownMenu>
-          <DropdownMenuTrigger render={
-            <button
-              title={`${fullName} (${role || "User"})`}
-              aria-label="User account menu"
-              className="flex items-center justify-center min-h-[38px] min-w-[38px] rounded-full p-1 hover:ring-2 hover:ring-primary/30 outline-none transition-all duration-150 active:scale-95 cursor-pointer"
-            />
-          }>
-            <div className="relative flex h-7.5 w-7.5 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white shadow-xs font-bold text-xs ring-1.5 ring-primary/25">
-              {fullName.charAt(0).toUpperCase()}
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background" />
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 bg-popover/95 backdrop-blur-md text-popover-foreground rounded-xl shadow-lg border border-border/80 p-1.5">
-            <DropdownMenuLabel className="p-2">
-              <div className="flex flex-col">
-                <span className="font-bold text-xs text-foreground">{fullName}</span>
-                {role && <span className="text-[10px] text-muted-foreground font-medium">{role} Access Level</span>}
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator className="my-1" />
-
-            {role === "Admin" && (
-              <DropdownMenuItem onClick={() => router.push("/settings")} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer hover:bg-accent transition-colors">
-                <Settings className="h-3.5 w-3.5 text-rose-500" />
-                <span>Settings & Access</span>
-              </DropdownMenuItem>
+        {/* User profile direct button - Opens /profile directly */}
+        <Link
+          href="/profile"
+          title={`${fullName} (${designation || role || "User"}) - Profile`}
+          aria-label="View Profile"
+          className="group flex items-center justify-center min-h-[38px] min-w-[38px] rounded-full p-1 hover:ring-2 hover:ring-primary/40 outline-none transition-all duration-150 active:scale-95 cursor-pointer"
+        >
+          <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white shadow-xs font-bold text-xs ring-1.5 ring-primary/25 overflow-hidden group-hover:scale-105 transition-transform">
+            {photoUrl ? (
+              <Image
+                src={photoUrl}
+                alt={fullName}
+                width={32}
+                height={32}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              fullName.charAt(0).toUpperCase()
             )}
-
-            <DropdownMenuItem onClick={handleLogout} variant="destructive" className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer hover:bg-destructive/10 text-destructive transition-colors">
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Sign Out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-background z-10" />
+          </div>
+        </Link>
       </div>
     </header>
   );

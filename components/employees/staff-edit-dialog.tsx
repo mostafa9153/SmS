@@ -94,9 +94,13 @@ export function StaffEditDialog({
     mobile: staff.mobile || "",
     email: staff.email || "",
     landline: staff.landline || "",
+    dob: staff.dob || "",
     present_village: staff.present_address?.village || staff.present_address?.town_village || "",
     present_district: staff.present_address?.district || "South 24 Parganas",
     present_pincode: staff.present_address?.pin_code || "700001",
+    permanent_village: staff.permanent_address?.village || staff.permanent_address?.town_village || "",
+    permanent_district: staff.permanent_address?.district || "South 24 Parganas",
+    permanent_pincode: staff.permanent_address?.pin_code || "700001",
 
     // Professional Details
     service_type: staff.service_type || "Permanent",
@@ -142,6 +146,7 @@ export function StaffEditDialog({
       caste: staff.caste || "General",
       basic_pay: staff.basic_pay || "",
       joining_date: staff.joining_date || "",
+      dob: staff.dob || "",
       appointed_subject: staff.primary_meta?.appointed_subject || "",
       academic_section: staff.primary_meta?.academic_section || "Secondary",
 
@@ -167,6 +172,9 @@ export function StaffEditDialog({
       present_village: staff.present_address?.village || staff.present_address?.town_village || "",
       present_district: staff.present_address?.district || "South 24 Parganas",
       present_pincode: staff.present_address?.pin_code || "700001",
+      permanent_village: staff.permanent_address?.village || staff.permanent_address?.town_village || "",
+      permanent_district: staff.permanent_address?.district || "South 24 Parganas",
+      permanent_pincode: staff.permanent_address?.pin_code || "700001",
 
       service_type: staff.service_type || "Permanent",
       appointment_memo: staff.appointment_memo || "",
@@ -206,6 +214,7 @@ export function StaffEditDialog({
         caste: formData.caste,
         basic_pay: formData.basic_pay ? Number(formData.basic_pay) : null,
         joining_date: formData.joining_date || null,
+        dob: formData.dob || null,
         
         primary_meta: {
           ...(staff.primary_meta || {}),
@@ -247,6 +256,13 @@ export function StaffEditDialog({
           village: formData.present_village,
           district: formData.present_district,
           pin_code: formData.present_pincode,
+        },
+
+        permanent_address: {
+          ...(staff.permanent_address || {}),
+          village: formData.permanent_village,
+          district: formData.permanent_district,
+          pin_code: formData.permanent_pincode,
         },
 
         service_type: formData.service_type,
@@ -546,6 +562,15 @@ export function StaffEditDialog({
                   />
                 </div>
                 <div className="space-y-1">
+                  <Label className="text-xs font-medium">Date of Birth (DOB)</Label>
+                  <Input
+                    type="date"
+                    value={formData.dob}
+                    onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1">
                   <Label className="text-xs font-medium">Health Scheme</Label>
                   <Input
                     value={formData.health_scheme_opted}
@@ -577,13 +602,20 @@ export function StaffEditDialog({
                     className="h-9 text-xs rounded-xl"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs font-medium">Landline</Label>
                   <Input
                     value={formData.landline}
                     onChange={(e) => setFormData({ ...formData, landline: e.target.value })}
                     className="h-9 text-xs rounded-xl font-mono"
                   />
+                </div>
+
+                {/* Present Address Header */}
+                <div className="sm:col-span-2 pt-2 border-t border-border/60">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-primary" /> Present Address
+                  </p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Village / Town / Street</Label>
@@ -601,11 +633,42 @@ export function StaffEditDialog({
                     className="h-9 text-xs rounded-xl"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 sm:col-span-2">
                   <Label className="text-xs font-medium">PIN Code</Label>
                   <Input
                     value={formData.present_pincode}
                     onChange={(e) => setFormData({ ...formData, present_pincode: e.target.value })}
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                </div>
+
+                {/* Permanent Address Header */}
+                <div className="sm:col-span-2 pt-2 border-t border-border/60">
+                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-indigo-500" /> Permanent Address
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Village / Town / Street</Label>
+                  <Input
+                    value={formData.permanent_village}
+                    onChange={(e) => setFormData({ ...formData, permanent_village: e.target.value })}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">District</Label>
+                  <Input
+                    value={formData.permanent_district}
+                    onChange={(e) => setFormData({ ...formData, permanent_district: e.target.value })}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs font-medium">PIN Code</Label>
+                  <Input
+                    value={formData.permanent_pincode}
+                    onChange={(e) => setFormData({ ...formData, permanent_pincode: e.target.value })}
                     className="h-9 text-xs rounded-xl font-mono"
                   />
                 </div>

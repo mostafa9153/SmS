@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExamAllocation, AllocatedRoom, PrintDocType } from "@/lib/ems/types";
+import { ExamAllocation, AllocatedRoom, PrintDocType, ExamHalf } from "@/lib/ems/types";
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
@@ -60,6 +60,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
 }) => {
   const [activeDoc, setActiveDoc] = useState<PrintDocType>(defaultDoc);
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
+  const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
   const [roomSearch, setRoomSearch] = useState("");
@@ -762,6 +763,39 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </div>
               </div>
 
+              {/* Exam Shift (1st Half / 2nd Half) */}
+              <div className="flex items-center justify-between p-1.5 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 pl-2">
+                  Exam Shift:
+                </span>
+                <div className="flex items-center gap-1 bg-white/80 dark:bg-slate-950/80 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setExamHalf("1st Half")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer",
+                      examHalf === "1st Half"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                    )}
+                  >
+                    1st Half
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExamHalf("2nd Half")}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer",
+                      examHalf === "2nd Half"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                    )}
+                  >
+                    2nd Half
+                  </button>
+                </div>
+              </div>
+
               {/* Master Print Button: Prominent, Glowing, Bottom of Sidebar */}
               <Button
                 onClick={handlePrint}
@@ -864,6 +898,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     schoolProfile={schoolProfile}
                     targetRoomId={targetRoomId}
                     showSignature={showAdmitSignature}
+                    examHalf={examHalf}
                   />
                 )}
 
@@ -886,6 +921,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     targetRoomId={targetRoomId}
                     examHeaders={examHeaders}
                     examDates={examDates}
+                    examHalf={examHalf}
                   />
                 )}
 
@@ -896,16 +932,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     examType={allocation.examType}
                     schoolProfile={schoolProfile}
                     targetRoomId={targetRoomId}
-                  />
-                )}
-
-                {activeDoc === "gate" && (
-                  <EmsGateNoticePrintable
-                    rooms={allocation.roomAllocations || []}
-                    academicYear={allocation.academicYear}
-                    examType={allocation.examType}
-                    schoolProfile={schoolProfile}
-                    targetRoomId={targetRoomId}
+                    examHalf={examHalf}
                   />
                 )}
               </div>
@@ -930,6 +957,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
             showSignature={showAdmitSignature}
+            examHalf={examHalf}
           />
         )}
 
@@ -952,6 +980,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             targetRoomId={targetRoomId}
             examHeaders={examHeaders}
             examDates={examDates}
+            examHalf={examHalf}
           />
         )}
 
@@ -962,16 +991,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             examType={allocation.examType}
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
-          />
-        )}
-
-        {activeDoc === "gate" && (
-          <EmsGateNoticePrintable
-            rooms={allocation.roomAllocations || []}
-            academicYear={allocation.academicYear}
-            examType={allocation.examType}
-            schoolProfile={schoolProfile}
-            targetRoomId={targetRoomId}
+            examHalf={examHalf}
           />
         )}
       </div>,

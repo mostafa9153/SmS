@@ -544,40 +544,52 @@ function BulkUploadPageContent() {
       ];
     } else {
       filename = `Current_Students_${targetSessionYear}_Template.xlsx`;
-      wsData = [
-        [
-          "Student Code",
-          "Roll No",
-          "Student Name",
-          "Student DOB",
-          "Academic Year",
-          "Class",
-          "Section",
-          "Father Name",
-          "Mother Name",
-          "Guardian Contact Number",
-          "Student Contact Number",
-          "Bank IFS Code",
-          "Bank A/C number",
-          "Aadhaar Y/N",
-        ],
-        [
-          "BSP-2026-101",
-          1,
-          "Rohit Sharma",
-          "2012-05-15",
-          targetSessionYear,
-          classForTemplate,
-          secForTemplate,
-          "Gopal Sharma",
-          "Sita Sharma",
-          "9830012345",
-          "9830012345",
-          "SBIN0001234",
-          "123456789012",
-          "Yes",
-        ],
+      const normCls = classForTemplate.toUpperCase().replace(/^CLASS\s*/i, "").trim();
+      const isHsCls = ["XI", "11", "XII", "12"].includes(normCls);
+      const isSecCls = ["IX", "9", "X", "10"].includes(normCls);
+
+      const headers = [
+        "Student Code",
+        "Roll No",
+        "Student Name",
+        "Student DOB",
+        "Academic Year",
+        "Class",
+        "Section",
+        "Father Name",
+        "Mother Name",
+        "Guardian Contact Number",
+        "Student Contact Number",
+        "Bank IFS Code",
+        "Bank A/C number",
+        "Aadhaar Y/N",
       ];
+      const sampleRow: any[] = [
+        "BSP-2026-101",
+        1,
+        "Rohit Sharma",
+        "2012-05-15",
+        targetSessionYear,
+        classForTemplate,
+        secForTemplate,
+        "Gopal Sharma",
+        "Sita Sharma",
+        "9830012345",
+        "9830012345",
+        "SBIN0001234",
+        "123456789012",
+        "Yes",
+      ];
+
+      if (isHsCls) {
+        headers.push("WBCHSE Reg No", "WBCHSE Roll No");
+        sampleRow.push("19111305602/2024", "123456N 0012");
+      } else if (isSecCls) {
+        headers.push("WBBSE Reg No", "WBBSE Roll No");
+        sampleRow.push("19180201004/2024", "123456N 0012");
+      }
+
+      wsData = [headers, sampleRow];
     }
 
     const XLSX = await import("xlsx");

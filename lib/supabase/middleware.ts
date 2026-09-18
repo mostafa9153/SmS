@@ -90,15 +90,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 2. If logged in & trying to access /login or /teacher/login
+  // 2. If logged in & trying to access /login or /teacher/login -> Land on main dashboard (/)
   if (user && isLoginPage) {
-    const userRole = await resolveUserRole(user.id);
     const url = request.nextUrl.clone();
-    if (userRole === "Teacher") {
-      url.pathname = "/teacher";
-    } else {
-      url.pathname = "/";
-    }
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
@@ -106,9 +101,8 @@ export async function updateSession(request: NextRequest) {
   if (user && request.nextUrl.pathname.startsWith("/settings")) {
     const userRole = await resolveUserRole(user.id);
     if (userRole !== "Admin") {
-      // Redirect staff/teachers to appropriate dashboard
       const url = request.nextUrl.clone();
-      url.pathname = userRole === "Teacher" ? "/teacher" : "/";
+      url.pathname = "/";
       return NextResponse.redirect(url);
     }
   }

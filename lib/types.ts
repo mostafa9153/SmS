@@ -100,8 +100,12 @@ export interface Student {
   academicYear?: string;
   mediumOfInstruction?: string;
   presentClassAdmissionDate?: string;
-  boardRegistrationNo?: string; // WBBSE / WBCHSE Board Registration No (Classes 10, 11, 12)
+  boardRegistrationNo?: string; // WBBSE / WBCHSE Board Registration No (Classes 9, 10, 11, 12)
+  wbbseRegNo?: string;          // Alias for WBBSE Board Registration No (Classes 9 & 10)
+  wbchseRegNo?: string;         // Alias for WBCHSE Board Registration No (Classes 11 & 12)
   boardRollNo?: string;         // Board Exam Roll Number
+  wbbseRollNo?: string;         // Alias for WBBSE Board Roll Number
+  wbchseRollNo?: string;        // Alias for WBCHSE Board Roll Number
   languageGroup?: string[];
   foreignLanguage?: string;
   mandatorySubjects?: string[];

@@ -203,6 +203,8 @@ export async function dbProcessBulkUpload(
     applyIfPresent("academic_stream", inc.academicStream?.trim(), existing.academic_stream, "Academic Stream");
     applyIfPresent("medium_of_instruction", inc.mediumOfInstruction?.trim(), existing.medium_of_instruction, "Medium of Instruction");
     applyIfPresent("birth_registration_no", inc.birthRegistrationNo?.trim(), existing.birth_registration_no, "Birth Registration No");
+    applyIfPresent("board_registration_no", (inc.boardRegistrationNo || inc.wbbseRegNo || inc.wbchseRegNo)?.trim(), existing.board_registration_no, "Board Registration No");
+    applyIfPresent("board_roll_no", (inc.boardRollNo || inc.wbbseRollNo || inc.wbchseRollNo)?.trim(), existing.board_roll_no, "Board Roll No");
     applyIfPresent("dise_code", inc.diseCode?.trim(), existing.dise_code, "DISE Code");
     applyIfPresent("minority_group", inc.minorityGroup?.trim(), existing.minority_group, "Minority Group");
     applyIfPresent("mother_tongue", inc.motherTongue?.trim(), existing.mother_tongue, "Mother Tongue");
@@ -329,6 +331,8 @@ export async function dbProcessBulkUpload(
         academic_stream: inc.academicStream?.trim() || null,
         medium_of_instruction: inc.mediumOfInstruction?.trim() || null,
         birth_registration_no: inc.birthRegistrationNo?.trim() || null,
+        board_registration_no: (inc.boardRegistrationNo || inc.wbbseRegNo || inc.wbchseRegNo)?.trim() || null,
+        board_roll_no: (inc.boardRollNo || inc.wbbseRollNo || inc.wbchseRollNo)?.trim() || null,
         dise_code: inc.diseCode?.trim() || null,
         minority_group: inc.minorityGroup?.trim() || null,
         mother_tongue: inc.motherTongue?.trim() || null,
