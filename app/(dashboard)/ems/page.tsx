@@ -258,23 +258,26 @@ function EmsMasterPageContent() {
   });
   const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
 
-  // Synchronized step setter that updates URL query param and sessionStorage
+  // Synchronized step setter
   const setStep = (newStep: number | ((prev: number) => number)) => {
-    setStepState((prev) => {
-      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
-      if (typeof window !== "undefined") {
-        window.history.replaceState(null, "", "?step=" + nextStep);
-        try {
-          sessionStorage.setItem("sms_ems_current_step", String(nextStep));
-        } catch {}
-        if (generatedAllocation) {
-          saveActiveAllocation(generatedAllocation);
-        }
-        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-      }
-      return nextStep;
-    });
+    setStepState((prev) => (typeof newStep === "function" ? newStep(prev) : newStep));
   };
+
+  // Sync step changes to URL query param, sessionStorage, and window scroll safely in useEffect
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const currentParam = new URLSearchParams(window.location.search).get("step");
+    if (currentParam !== String(step)) {
+      window.history.replaceState(null, "", "?step=" + step);
+    }
+    try {
+      sessionStorage.setItem("sms_ems_current_step", String(step));
+    } catch {}
+    if (generatedAllocation) {
+      saveActiveAllocation(generatedAllocation);
+    }
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [step, generatedAllocation]);
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || new Date().getFullYear());
