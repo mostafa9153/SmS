@@ -23,6 +23,13 @@ export interface ColumnClassAllocationConfig {
   s3MirrorS1: boolean;        // If true, S3 uses the same class as S1 (default: true)
   s3ClassCode?: string;       // Right Outer seat class — only used when s3MirrorS1 = false
   overflowClassCode?: string; // When outer class runs out, continue with this class (per-column)
+  
+  // Per-seat & per-column roll flow direction controls
+  direction?: FillDirection;    // Column overall direction (default: "top-to-bottom")
+  s1Direction?: FillDirection; // "top-to-bottom" | "bottom-to-top"
+  s2Direction?: FillDirection; // "top-to-bottom" | "bottom-to-top"
+  s3Direction?: FillDirection; // "top-to-bottom" | "bottom-to-top"
+
   // Backward-compat aliases (derived from s1/s2 for legacy algorithm paths)
   assignedClassCode: string;  // = s1ClassCode
   assignedSection?: string;

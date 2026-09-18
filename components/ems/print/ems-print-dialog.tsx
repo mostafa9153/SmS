@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExamAllocation, AllocatedRoom } from "@/lib/ems/types";
+import { ExamAllocation, AllocatedRoom, PrintDocType } from "@/lib/ems/types";
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
@@ -39,10 +39,9 @@ import {
 import {
   getDynamicSubjectsForClasses,
   syncAllEmsConfigsFromDb,
+  formatRoomName,
 } from "@/lib/ems/ems-config-loader";
 import { cn } from "@/lib/utils";
-
-export type PrintDocType = "admit" | "slips" | "attendance" | "gate";
 
 export interface EmsPrintDialogProps {
   open: boolean;
@@ -50,13 +49,6 @@ export interface EmsPrintDialogProps {
   allocation: ExamAllocation;
   defaultRoomId?: string;
   defaultDoc?: PrintDocType;
-}
-
-// Helper to format room name cleanly (avoid duplicate "Room ROOM 201")
-function formatRoomName(rawName: string): string {
-  if (!rawName) return "Room";
-  const clean = rawName.trim().replace(/^Room\s+/i, "");
-  return `Room ${clean}`;
 }
 
 export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({

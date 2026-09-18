@@ -49,6 +49,27 @@ export function filterAndValidateClassStudents(
   const normClass = normalizeClassCode(className);
   const normSec = normalizeSectionCode(section);
 
+  // Check for inactive / left / transferred students in DB matching this class
+  const inactiveStudents = allStudents.filter((s) => {
+    if (!s.currentStatus || s.currentStatus === "Continuing") return false;
+    const sClass = normalizeClassCode(s.presentClass);
+    const sSec = normalizeSectionCode(s.presentSection);
+    return sClass === normClass && (!normSec || sSec === normSec);
+  });
+
+  if (inactiveStudents.length > 0) {
+    mismatches.push({
+      type: "ROLL_INACTIVE",
+      severity: "warning",
+      title: `Inactive / Discontinued Students in Class ${className}-${section}`,
+      message: `${inactiveStudents.length} student(s) in Class ${className}-${section} are marked as Inactive/Transferred in Database and excluded from seating.`,
+      details: inactiveStudents.slice(0, 5).map((s) => `${s.name} (Roll ${s.presentRoll || "N/A"}, Status: ${s.currentStatus})`),
+      class: className,
+      section: section,
+      suggestedAction: "If any of these students should be seated, update their status to 'Continuing' in Student Directory.",
+    });
+  }
+
   // All active continuing students in this class & section, sorted by roll
   const allSectionStudents = allStudents
     .filter((s) => {
@@ -72,6 +93,21 @@ export function filterAndValidateClassStudents(
     return { students: [], mismatches };
   }
 
+  // Check for blank or unassigned roll numbers
+  const blankRollStudents = allSectionStudents.filter((s) => !s.presentRoll || isNaN(Number(s.presentRoll)));
+  if (blankRollStudents.length > 0) {
+    mismatches.push({
+      type: "ROLL_NOT_FOUND",
+      severity: "warning",
+      title: `Blank / Unassigned Rolls in Class ${className}-${section}`,
+      message: `${blankRollStudents.length} active student(s) in Class ${className}-${section} have blank or invalid roll numbers.`,
+      details: blankRollStudents.slice(0, 5).map((s) => `${s.name} (ID: ${s.id || s.schoolId || "N/A"})`),
+      class: className,
+      section: section,
+      suggestedAction: "Assign proper roll numbers in Student Directory for accurate seating sequence.",
+    });
+  }
+
   let classStudents: Student[] = [];
 
   // Match active continuing students whose actual roll is within [rollFrom, rollTo]
@@ -85,13 +121,44 @@ export function filterAndValidateClassStudents(
 
   if (byRoll.length > 0) {
     classStudents = byRoll;
-  } else if (allSectionStudents.some((s) => !s.presentRoll || isNaN(Number(s.presentRoll)))) {
-    // Only fallback to index slicing if rolls are missing or unassigned
+
+    // Check for missing rolls in the requested range [rollFrom, rollTo]
+    const presentRollSet = new Set(byRoll.map((s) => Number(s.presentRoll)));
+    const missingRolls: number[] = [];
+    for (let r = rollFrom; r <= rollTo; r++) {
+      if (!presentRollSet.has(r)) {
+        missingRolls.push(r);
+      }
+    }
+    if (missingRolls.length > 0 && missingRolls.length <= 50) {
+      mismatches.push({
+        type: "ROLL_NOT_FOUND",
+        severity: "warning",
+        title: `Missing Rolls in Class ${className}-${section} (Roll ${rollFrom} to ${rollTo})`,
+        message: `${missingRolls.length} roll number(s) in range [${rollFrom} - ${rollTo}] could not be found among active continuing students.`,
+        details: [`Missing Roll Nos: ${missingRolls.join(", ")}`],
+        class: className,
+        section: section,
+        rollsAffected: missingRolls,
+        suggestedAction: "Verify if these rolls were skipped, unassigned, or belonging to inactive students.",
+      });
+    }
+  } else if (blankRollStudents.length > 0) {
+    // Fallback to index slicing if rolls are unassigned
     const start = Math.max(0, rollFrom - 1);
     const end = Math.min(allSectionStudents.length, rollTo);
     classStudents = allSectionStudents.slice(start, end);
   } else {
     classStudents = [];
+    mismatches.push({
+      type: "ROLL_NOT_FOUND",
+      severity: "warning",
+      title: `No Students Found in Roll Range [${rollFrom} - ${rollTo}] for Class ${className}-${section}`,
+      message: `No active continuing students match roll numbers ${rollFrom} to ${rollTo} in Class ${className}-${section}.`,
+      class: className,
+      section: section,
+      suggestedAction: "Adjust the roll range in Step 2 to match active enrolled roll numbers.",
+    });
   }
 
   return { students: classStudents, mismatches };

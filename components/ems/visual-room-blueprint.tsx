@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { cleanColumnLabel } from "@/lib/ems/room-storage";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SeatCard, getClassColorStyle } from "./seat-card";
 import { Input } from "@/components/ui/input";
@@ -104,7 +105,7 @@ export function VisualRoomBlueprint({
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-foreground mr-1">
             <DoorOpen className="h-4 w-4 text-primary" />
-            <span>{room.roomNumber ? (room.roomNumber.toLowerCase().startsWith("room") ? room.roomNumber : `Room ${room.roomNumber}`) : "Room"}</span>
+            <span>Room {room.roomNumber}</span>
           </div>
 
           <Badge variant="secondary" className="font-mono text-[11px] h-5">
@@ -240,7 +241,7 @@ export function VisualRoomBlueprint({
                   {/* Column Header */}
                   <div className="w-full text-center py-1.5 px-3 rounded-lg bg-muted/40 border border-border/70 shadow-2xs">
                     <span className="text-xs font-bold text-foreground tracking-wide">
-                      {col.config.columnLabel || `Column ${col.config.columnIndex}`}
+                      {cleanColumnLabel(col.config.columnLabel, col.config.columnIndex)}
                     </span>
                   </div>
 

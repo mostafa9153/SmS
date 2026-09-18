@@ -169,6 +169,48 @@ export function buildClassStudentPool(
  * - Multi-Room Cascade:
  *   - Unallocated students smoothly cascade into Room 2, Room 3, etc. via classCursors.
  */
+// Determine default fill direction for a seat position
+export function getDefaultSeatDirection(
+  pattern: ArrangementPattern,
+  colIdx: number,
+  seatPos: number,
+  seatsPerBench: number = 3
+): FillDirection {
+  if (seatsPerBench === 1) return "top-to-bottom";
+
+  if (seatsPerBench === 2) {
+    return colIdx % 2 === 0 ? "top-to-bottom" : "bottom-to-top";
+  }
+
+  // 3-seat benches:
+  if (pattern === "FIXED_U") {
+    if (seatPos === 1) return "top-to-bottom";
+    if (seatPos === 3) return "bottom-to-top";
+    return colIdx % 2 === 0 ? "top-to-bottom" : "bottom-to-top";
+  }
+
+  // INTERLEAVED:
+  if (colIdx === 0) {
+    if (seatPos === 1) return "top-to-bottom";
+    if (seatPos === 3) return "bottom-to-top";
+    return "top-to-bottom"; // S2
+  } else if (colIdx === 1) {
+    if (seatPos === 1) return "bottom-to-top";
+    if (seatPos === 3) return "top-to-bottom";
+    return "top-to-bottom"; // S2
+  } else if (colIdx === 2) {
+    if (seatPos === 1) return "bottom-to-top";
+    if (seatPos === 3) return "top-to-bottom";
+    return "bottom-to-top"; // S2
+  } else {
+    const isS1BottomUp = colIdx % 4 === 1 || colIdx % 4 === 2;
+    const isS2BottomUp = colIdx % 4 === 2 || colIdx % 4 === 3;
+    if (seatPos === 1) return isS1BottomUp ? "bottom-to-top" : "top-to-bottom";
+    if (seatPos === 3) return isS1BottomUp ? "top-to-bottom" : "bottom-to-top";
+    return isS2BottomUp ? "bottom-to-top" : "top-to-bottom";
+  }
+}
+
 export function arrangeRoomInterleaved(
   room: EmsRoom,
   columnConfigs: ColumnClassAllocationConfig[],
@@ -276,103 +318,79 @@ export function arrangeRoomInterleaved(
       s3Class = s1Class;
     }
 
-    // Backward compat aliases for rest of the function
-    const outerClass = s1Class;
-    const centerClass = s2Class;
-
     const benchCount = colConfig.benchCount;
     const seatsPerBench = colConfig.seatsPerBench || 2;
-
     const colSeatGrid: Map<string, Student | undefined> = new Map();
 
+    // Determine directional flow for each seat lane (Top-to-Bottom vs Bottom-to-Top)
+    const s1Dir = colAssign?.s1Direction || (colAssign?.direction) || getDefaultSeatDirection("INTERLEAVED", colIdx, 1, seatsPerBench);
+    const s2Dir = colAssign?.s2Direction || (colAssign?.direction) || getDefaultSeatDirection("INTERLEAVED", colIdx, 2, seatsPerBench);
+    const s3Dir = colAssign?.s3Direction || (colAssign?.direction) || getDefaultSeatDirection("INTERLEAVED", colIdx, 3, seatsPerBench);
+
     if (seatsPerBench === 3) {
-      if (colIdx === 0) {
-        // Col 1 (k = 0):
-        // Outer: S1 Top → Bottom, S3 Bottom → Top (exits Top)
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-        }
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-        }
-        // Center S2: Top → Bottom
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
-      } else if (colIdx === 1) {
-        // Col 2 (k = 1):
-        // S1 Bottom → Top, S3 Top → Bottom (exits Bottom)
+      // S1 (Seat 1 - Left)
+      if (s1Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
         }
+      } else {
         for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-        }
-        // Center S2: Top → Bottom
-        for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-        }
-      } else if (colIdx === 2) {
-        // Col 3 (k = 2):
-        // S1 Bottom → Top, S3 Top → Bottom (exits Bottom)
-        for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
         }
+      }
+
+      // S3 (Seat 3 - Right)
+      if (s3Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
+        }
+      } else {
         for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
         }
-        // Center S2: Bottom → Top
+      }
+
+      // S2 (Seat 2 - Center)
+      if (s2Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       } else {
-        // Col 4+ (k >= 3): 4-column periodic continuous snake cycle
-        const isS2BottomUp = colIdx % 4 === 2 || colIdx % 4 === 3;
-        const isS1BottomUp = colIdx % 4 === 1 || colIdx % 4 === 2;
-
-        if (isS1BottomUp) {
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          }
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-          }
-        } else {
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-          }
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
-          }
-        }
-
-        if (isS2BottomUp) {
-          for (let b = benchCount; b >= 1; b--) {
-            colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-          }
-        } else {
-          for (let b = 1; b <= benchCount; b++) {
-            colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
-          }
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 2) {
-      // 2-seat benches:
-      if (colIdx % 2 === 0) {
+      // S1
+      if (s1Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
+      } else {
         for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
+      }
+
+      // S2
+      if (s2Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       } else {
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 1) {
-      // 1-seat bench:
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+      if (s1Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+        }
+      } else {
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+        }
       }
     } else {
       throw new Error(
@@ -567,44 +585,75 @@ export function arrangeRoomFixedU(
     const seatsPerBench = colConfig.seatsPerBench || 2;
     const colSeatGrid: Map<string, Student | undefined> = new Map();
 
+    // Determine directional flow for each seat lane (Top-to-Bottom vs Bottom-to-Top)
+    const s1Dir = colAssign?.s1Direction || (colAssign?.direction) || getDefaultSeatDirection("FIXED_U", colIdx, 1, seatsPerBench);
+    const s2Dir = colAssign?.s2Direction || (colAssign?.direction) || getDefaultSeatDirection("FIXED_U", colIdx, 2, seatsPerBench);
+    const s3Dir = colAssign?.s3Direction || (colAssign?.direction) || getDefaultSeatDirection("FIXED_U", colIdx, 3, seatsPerBench);
+
     if (seatsPerBench === 3) {
-      // S1 (Outer Left): Top -> Bottom (Bench 1 to N)
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
-      }
-      // S3 (Outer Right): Bottom -> Top (Bench N to 1) - forms U-loop with S1
-      for (let b = benchCount; b >= 1; b--) {
-        colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
+      // S1 (Seat 1 - Outer Left)
+      if (s1Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
+      } else {
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
       }
 
-      // S2 (Center): Continuous oscillating snake flow
-      // Even columns (0, 2, 4...): Top -> Bottom (Bench 1 to N, exits rear)
-      // Odd columns (1, 3, 5...): Bottom -> Top (Bench N to 1, enters rear, exits front)
-      if (colIdx % 2 === 0) {
+      // S3 (Seat 3 - Outer Right)
+      if (s3Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
+        }
+      } else {
         for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(s3Class, s2Class, overflowClass));
+        }
+      }
+
+      // S2 (Seat 2 - Center)
+      if (s2Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       } else {
-        for (let b = benchCount; b >= 1; b--) {
+        for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 2) {
-      if (colIdx % 2 === 0) {
+      // S1
+      if (s1Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
+      } else {
         for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        }
+      }
+
+      // S2
+      if (s2Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       } else {
-        for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+        for (let b = 1; b <= benchCount; b++) {
           colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 1) {
-      // 1-seat bench:
-      for (let b = 1; b <= benchCount; b++) {
-        colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+      if (s1Dir === "bottom-to-top") {
+        for (let b = benchCount; b >= 1; b--) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+        }
+      } else {
+        for (let b = 1; b <= benchCount; b++) {
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, undefined, overflowClass));
+        }
       }
     } else {
       throw new Error(

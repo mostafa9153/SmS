@@ -5,13 +5,20 @@ const ROOMS_STORAGE_KEY = "sms_ems_saved_rooms_v1";
 const ALLOCATIONS_STORAGE_KEY = "sms_ems_saved_allocations_v1";
 const ACTIVE_ALLOCATION_STORAGE_KEY = "sms_ems_active_allocation_v1";
 
-// Maximum number of full exam allocations to retain in browser localStorage to prevent 5MB QuotaExceededError
-const MAX_SAVED_ALLOCATIONS = 5;
+// Maximum number of full exam allocations to retain (last 10 seat arrangements)
+const MAX_SAVED_ALLOCATIONS = 10;
 
 // In-memory runtime cache for resilience if storage quota is strictly exhausted
 let memoryRooms: EmsRoom[] | null = null;
 let memoryAllocations: ExamAllocation[] | null = null;
 let memoryActiveAllocation: ExamAllocation | null = null;
+
+// Clean column label helper to strip (Window Side), (Middle Side), etc.
+export function cleanColumnLabel(label?: string, columnIndex?: number): string {
+  if (!label) return columnIndex ? `Column ${columnIndex}` : "Column";
+  const cleaned = label.replace(/\s*\([^)]*(?:Side|Window|Middle|Door|Aisle|Wall|Left|Right)[^)]*\)/gi, "").trim();
+  return cleaned || (columnIndex ? `Column ${columnIndex}` : label);
+}
 
 // Default pre-configured classrooms for immediate use
 export const DEFAULT_ROOMS: EmsRoom[] = [
@@ -22,9 +29,9 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     building: "Main Academic Block",
     defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Window Side)", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2 (Middle Aisle)", benchCount: 5, seatsPerBench: 3 }, // 1 less bench for door space
-      { columnIndex: 3, columnLabel: "Column 3 (Door Side)", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2", benchCount: 5, seatsPerBench: 3 }, // 1 less bench for door space
+      { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
     ],
     totalCapacity: 51, // (6*3) + (5*3) + (6*3) = 18 + 15 + 18 = 51
     notes: "Column 2 has 5 benches due to rear exit walkway",
@@ -38,9 +45,9 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     building: "Main Academic Block",
     defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Left)", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2 (Middle)", benchCount: 6, seatsPerBench: 3 },
-      { columnIndex: 3, columnLabel: "Column 3 (Right)", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 1, columnLabel: "Column 1", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2", benchCount: 6, seatsPerBench: 3 },
+      { columnIndex: 3, columnLabel: "Column 3", benchCount: 6, seatsPerBench: 3 },
     ],
     totalCapacity: 54, // (6*3) + (6*3) + (6*3) = 54
     notes: "Standard rectangular classroom with 3 equal columns",
@@ -54,10 +61,10 @@ export const DEFAULT_ROOMS: EmsRoom[] = [
     building: "Centenary Hall",
     defaultSeatsPerBench: 3,
     columns: [
-      { columnIndex: 1, columnLabel: "Column 1 (Left Wall)", benchCount: 7, seatsPerBench: 3 },
-      { columnIndex: 2, columnLabel: "Column 2 (Center-Left)", benchCount: 8, seatsPerBench: 3 },
-      { columnIndex: 3, columnLabel: "Column 3 (Center-Right)", benchCount: 8, seatsPerBench: 3 },
-      { columnIndex: 4, columnLabel: "Column 4 (Right Wall)", benchCount: 7, seatsPerBench: 3 },
+      { columnIndex: 1, columnLabel: "Column 1", benchCount: 7, seatsPerBench: 3 },
+      { columnIndex: 2, columnLabel: "Column 2", benchCount: 8, seatsPerBench: 3 },
+      { columnIndex: 3, columnLabel: "Column 3", benchCount: 8, seatsPerBench: 3 },
+      { columnIndex: 4, columnLabel: "Column 4", benchCount: 7, seatsPerBench: 3 },
     ],
     totalCapacity: 90, // (7*3) + (8*3) + (8*3) + (7*3) = 21 + 24 + 24 + 21 = 90
     notes: "Large exam hall suitable for combined board tests",
@@ -105,6 +112,17 @@ function safeWriteItem(key: string, value: any): boolean {
   }
 }
 
+function sanitizeRoomColumns(rooms: EmsRoom[]): EmsRoom[] {
+  if (!Array.isArray(rooms)) return [];
+  return rooms.map((r) => ({
+    ...r,
+    columns: (r.columns || []).map((c) => ({
+      ...c,
+      columnLabel: cleanColumnLabel(c.columnLabel, c.columnIndex),
+    })),
+  }));
+}
+
 // Retrieve all rooms (with fallback to default rooms)
 export function getSavedRooms(): EmsRoom[] {
   if (typeof window === "undefined") return DEFAULT_ROOMS;
@@ -113,20 +131,22 @@ export function getSavedRooms(): EmsRoom[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        memoryRooms = parsed;
-        return parsed;
+        const sanitized = sanitizeRoomColumns(parsed);
+        memoryRooms = sanitized;
+        return sanitized;
       }
     }
     const sessionRaw = sessionStorage.getItem(ROOMS_STORAGE_KEY);
     if (sessionRaw) {
       const parsed = JSON.parse(sessionRaw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        memoryRooms = parsed;
-        return parsed;
+        const sanitized = sanitizeRoomColumns(parsed);
+        memoryRooms = sanitized;
+        return sanitized;
       }
     }
     if (memoryRooms && memoryRooms.length > 0) {
-      return memoryRooms;
+      return sanitizeRoomColumns(memoryRooms);
     }
     // Initialize default rooms in storage
     safeWriteItem(ROOMS_STORAGE_KEY, DEFAULT_ROOMS);
@@ -134,23 +154,42 @@ export function getSavedRooms(): EmsRoom[] {
     return DEFAULT_ROOMS;
   } catch (err) {
     console.error("[EMS Storage] Error reading saved rooms:", err);
-    return memoryRooms || DEFAULT_ROOMS;
+    return memoryRooms ? sanitizeRoomColumns(memoryRooms) : DEFAULT_ROOMS;
   }
 }
 
-export function saveRooms(rooms: EmsRoom[]): void {
-  if (typeof window === "undefined") return;
-  memoryRooms = rooms;
-  safeWriteItem(ROOMS_STORAGE_KEY, rooms);
-
-  // Background DB Sync
+/**
+ * Robust DB Sync helper for EMS data key-value persistence via /api/school-config.
+ * Validates HTTP response status and handles error logging gracefully.
+ */
+async function syncKeyToDb(key: string, value: any): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   try {
-    fetch("/api/school-config", {
+    const res = await fetch("/api/school-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "ems_rooms", value: rooms }),
-    }).catch((err) => console.warn("[EMS Storage] Failed to sync rooms to DB:", err));
-  } catch {}
+      body: JSON.stringify({ key, value }),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      console.warn(
+        `[EMS Storage] DB Sync failed for key "${key}" (HTTP status ${res.status}):`,
+        errData.error || res.statusText
+      );
+      return false;
+    }
+    return true;
+  } catch (err: any) {
+    console.warn(`[EMS Storage] Network error syncing "${key}" to DB:`, err?.message || err);
+    return false;
+  }
+}
+
+export function saveRooms(rooms: EmsRoom[]): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  memoryRooms = rooms;
+  safeWriteItem(ROOMS_STORAGE_KEY, rooms);
+  return syncKeyToDb("ems_rooms", rooms);
 }
 
 // Get single room by ID
@@ -209,6 +248,49 @@ export function getSavedAllocations(): ExamAllocation[] {
     console.error("[EMS Storage] Error reading allocations:", err);
     return memoryAllocations || [];
   }
+}
+
+/**
+ * Fetch saved allocations directly from Supabase / API Database and sync locally
+ */
+export async function fetchAllocationsFromDb(): Promise<ExamAllocation[]> {
+  if (typeof window === "undefined") return [];
+  try {
+    const res = await fetch("/api/school-config?key=ems_allocations");
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.value) && data.value.length > 0) {
+        const dbAllocations: ExamAllocation[] = data.value.slice(0, MAX_SAVED_ALLOCATIONS);
+        safePersistAllocations(dbAllocations);
+        return dbAllocations;
+      }
+    }
+  } catch (err) {
+    console.warn("[EMS Storage] Could not fetch allocations from DB:", err);
+  }
+  return getSavedAllocations();
+}
+
+/**
+ * Fetch saved rooms directly from Supabase / API Database and sync locally
+ */
+export async function fetchRoomsFromDb(): Promise<EmsRoom[]> {
+  if (typeof window === "undefined") return DEFAULT_ROOMS;
+  try {
+    const res = await fetch("/api/school-config?key=ems_rooms");
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.value) && data.value.length > 0) {
+        const sanitized = sanitizeRoomColumns(data.value);
+        memoryRooms = sanitized;
+        safeWriteItem(ROOMS_STORAGE_KEY, sanitized);
+        return sanitized;
+      }
+    }
+  } catch (err) {
+    console.warn("[EMS Storage] Could not fetch rooms from DB:", err);
+  }
+  return getSavedRooms();
 }
 
 /**
@@ -280,8 +362,8 @@ function safePersistAllocations(allocations: ExamAllocation[]): void {
 }
 
 // Save an allocation
-export function saveAllocation(allocation: ExamAllocation): void {
-  if (typeof window === "undefined") return;
+export function saveAllocation(allocation: ExamAllocation): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
   try {
     const allocations = getSavedAllocations();
     const index = allocations.findIndex((a) => a.id === allocation.id);
@@ -301,16 +383,11 @@ export function saveAllocation(allocation: ExamAllocation): void {
     // Update active allocation
     saveActiveAllocation(updated);
 
-    // Background DB Sync
-    try {
-      fetch("/api/school-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ems_allocations", value: allocations.slice(0, MAX_SAVED_ALLOCATIONS) }),
-      }).catch((err) => console.warn("[EMS Storage] Failed to sync allocations to DB:", err));
-    } catch {}
+    // DB Sync with res.ok check
+    return syncKeyToDb("ems_allocations", allocations.slice(0, MAX_SAVED_ALLOCATIONS));
   } catch (err) {
     console.error("[EMS Storage] Error saving allocation:", err);
+    return Promise.resolve(false);
   }
 }
 
@@ -372,8 +449,8 @@ export function getAllocationById(id: string): ExamAllocation | undefined {
   return undefined;
 }
 
-export function deleteAllocation(id: string): void {
-  if (typeof window === "undefined") return;
+export function deleteAllocation(id: string): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
   try {
     const allocations = getSavedAllocations().filter((a) => a.id !== id);
     safePersistAllocations(allocations);
@@ -384,16 +461,11 @@ export function deleteAllocation(id: string): void {
       clearActiveAllocation();
     }
 
-    // Background DB Sync
-    try {
-      fetch("/api/school-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: "ems_allocations", value: allocations }),
-      }).catch((err) => console.warn("[EMS Storage] Failed to sync allocations deletion to DB:", err));
-    } catch {}
+    // DB Sync with res.ok check
+    return syncKeyToDb("ems_allocations", allocations);
   } catch (err) {
     console.error("[EMS Storage] Error deleting allocation:", err);
+    return Promise.resolve(false);
   }
 }
 

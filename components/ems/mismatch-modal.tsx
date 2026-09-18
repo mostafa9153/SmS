@@ -107,6 +107,23 @@ export function MismatchModal({
   );
 }
 
+function getTypeTag(type: string) {
+  switch (type) {
+    case "ROLL_NOT_FOUND":
+      return <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">Roll Issue</Badge>;
+    case "ROLL_INACTIVE":
+      return <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30">Inactive Student</Badge>;
+    case "CAPACITY_OVERFLOW":
+      return <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/30">Capacity Overflow</Badge>;
+    case "SEATS_DEFICIT":
+      return <Badge variant="outline" className="text-[10px] bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/30">Seat Deficit</Badge>;
+    case "CLASS_EMPTY":
+      return <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-500/30">Class Empty</Badge>;
+    default:
+      return null;
+  }
+}
+
 function MismatchCard({ item }: { item: MismatchItem }) {
   const getBadge = () => {
     switch (item.severity) {
@@ -145,22 +162,45 @@ function MismatchCard({ item }: { item: MismatchItem }) {
   return (
     <div className={`p-4 rounded-xl border ${getCardStyle()} space-y-2.5 transition-all shadow-2xs`}>
       <div className="flex items-start justify-between gap-3">
-        <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
-          {item.severity === "error" ? (
-            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
-          ) : item.severity === "warning" ? (
-            <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
-          ) : (
-            <Info className="h-4 w-4 text-blue-500 shrink-0" />
-          )}
-          <span>{item.title}</span>
-        </h4>
+        <div className="flex flex-col gap-1">
+          <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
+            {item.severity === "error" ? (
+              <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+            ) : item.severity === "warning" ? (
+              <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+            ) : (
+              <Info className="h-4 w-4 text-blue-500 shrink-0" />
+            )}
+            <span>{item.title}</span>
+          </h4>
+          <div className="flex items-center gap-1.5 pl-6 flex-wrap">
+            {getTypeTag(item.type)}
+            {item.class && (
+              <Badge variant="secondary" className="text-[10px] font-mono">
+                Class {item.class}{item.section ? `-${item.section}` : ""}
+              </Badge>
+            )}
+          </div>
+        </div>
         {getBadge()}
       </div>
 
       <p className="text-xs text-muted-foreground leading-relaxed pl-6">
         {item.message}
       </p>
+
+      {item.rollsAffected && item.rollsAffected.length > 0 && (
+        <div className="pl-6 pt-0.5">
+          <p className="text-[11px] font-semibold text-muted-foreground mb-1">Affected Roll Numbers ({item.rollsAffected.length}):</p>
+          <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 bg-background/80 rounded-lg border border-border/60">
+            {item.rollsAffected.map((r, i) => (
+              <Badge key={i} variant="outline" className="text-[10px] font-mono bg-muted/40">
+                Roll #{r}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       {item.details && item.details.length > 0 && (
         <div className="pl-6 pt-0.5">

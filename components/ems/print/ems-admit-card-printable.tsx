@@ -3,6 +3,7 @@
 import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
+import { formatRoomName } from "@/lib/ems/ems-config-loader";
 
 export interface EmsAdmitCardPrintableProps {
   rooms: AllocatedRoom[];
@@ -38,13 +39,6 @@ function formatShortExam(examType: string, academicYear: number | string): strin
     .replace(/•.*$/, "")
     .trim();
   return `${shortened} ${academicYear}`;
-}
-
-// Clean room number helper
-function formatRoomName(raw: string): string {
-  if (!raw) return "Room";
-  const clean = raw.trim().replace(/^Room\s+/i, "");
-  return `Room ${clean}`;
 }
 
 export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
@@ -162,48 +156,48 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                     </div>
                   </div>
 
-                  {/* Card Middle: Student Profile & Seating Info (No Box Fill!) */}
-                  <div className="relative z-10 grid grid-cols-12 gap-0.5 my-auto items-center">
+                  {/* Card Middle: Student Profile & Seating Info */}
+                  <div className="relative z-10 grid grid-cols-12 gap-1 my-auto items-center">
                     {/* Left Col: Student Profile (7 cols) */}
-                    <div className="col-span-7 flex flex-col justify-center space-y-0.5 min-w-0">
+                    <div className="col-span-7 flex flex-col justify-center space-y-0.5 min-w-0 pr-0.5">
                       <div className="truncate">
-                        <span className="text-[12.5px] font-black uppercase text-neutral-950 block truncate leading-tight tracking-tight">
+                        <span className="text-[15.5px] font-black uppercase text-neutral-950 block truncate leading-tight tracking-tight">
                           {item.studentName}
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-1 text-[9.5px] text-neutral-800 font-bold leading-tight">
+                      <div className="flex items-center space-x-1 text-[12.5px] text-neutral-800 font-bold leading-tight">
                         <span>
-                          Class: <strong className="font-black text-neutral-950 text-[11px]">{item.studentClass} - {item.studentSection}</strong>
+                          Class: <strong className="font-black text-neutral-950 text-[14.5px]">{item.studentClass} - {item.studentSection}</strong>
                         </span>
                       </div>
 
                       <div className="pt-0.5">
-                        <span className="text-[9.5px] font-black text-neutral-950 px-1.5 py-0.2 rounded border border-neutral-400 tracking-wide leading-none inline-block">
+                        <span className="text-[13px] font-black text-neutral-950 px-2 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-wide leading-none inline-block">
                           ROLL: {String(item.studentRoll).padStart(2, "0")}
                         </span>
                       </div>
                     </div>
 
-                    {/* Right Col: Location & Seat (5 cols) - NO BOX FILL, CLEAN HIGHLIGHT */}
+                    {/* Right Col: Location, Bench & Seat (5 cols) */}
                     <div className="col-span-5 flex flex-col justify-between text-right pl-1 border-l border-neutral-200/80">
                       <div>
-                        <span className="text-[11.5px] font-black text-neutral-950 block leading-tight tracking-tight">
+                        <span className="text-[16.5px] font-black text-neutral-950 block leading-tight tracking-tight">
                           {formatRoomName(item.roomNumber)}
                         </span>
                         {item.floor && (
-                          <span className="text-[7.5px] font-bold text-neutral-500 block truncate leading-tight">
+                          <span className="text-[10px] font-bold text-neutral-500 block truncate leading-tight">
                             {item.floor}
                           </span>
                         )}
                       </div>
 
                       <div className="pt-0.5 mt-0.5 border-t border-neutral-200/80">
-                        <div className="text-[8px] font-bold text-neutral-700 leading-tight">
-                          Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong>
+                        <div className="text-[11.5px] font-bold text-neutral-700 leading-tight">
+                          Col <strong className="font-black text-neutral-950 text-[12px]">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950 text-[12px]">{item.benchIndex}</strong>
                         </div>
-                        <div className="text-[10.5px] font-black text-indigo-950 leading-tight mt-0.5">
-                          Seat: <span className="text-[11.5px] font-black text-neutral-950">S{item.seatPosition}</span>
+                        <div className="text-[13.5px] font-black text-indigo-950 leading-tight mt-0.5">
+                          Seat: <span className="text-[16.5px] font-black text-neutral-950">S{item.seatPosition}</span>
                         </div>
                       </div>
                     </div>

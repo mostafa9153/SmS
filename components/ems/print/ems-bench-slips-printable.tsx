@@ -64,8 +64,8 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
     });
   });
 
-  // Chunk slips into pages of 30 (3 columns x 10 rows)
-  const SLIPS_PER_PAGE = 30;
+  // Chunk slips into pages of 57 (3 columns x 19 rows)
+  const SLIPS_PER_PAGE = 57;
   const pages: StudentBenchSlipItem[][] = [];
   for (let i = 0; i < slips.length; i += SLIPS_PER_PAGE) {
     pages.push(slips.slice(i, i + SLIPS_PER_PAGE));
@@ -89,72 +89,66 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
           </div>
 
           <div
-            className="ems-slips-sheet w-[210mm] h-[278mm] max-h-[278mm] mx-auto p-[2mm_4mm] box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
+            className="ems-slips-sheet w-[210mm] h-[287mm] max-h-[287mm] mx-auto p-[1mm_3mm] box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
           >
-            {/* 3 Columns x 10 Rows Grid = 30 Slips */}
-            <div className="grid grid-cols-3 grid-rows-10 gap-x-[2mm] gap-y-[1mm] h-full w-full">
-              {pageSlips.map((item, idx) => (
-                <div
-                  key={`slip-${pageIndex}-${idx}`}
-                  className="relative border border-dashed border-neutral-300 rounded-[2px] p-[2mm] flex flex-col justify-between overflow-hidden bg-white h-full box-border"
-                >
-                  {/* Micro Cut Indicator Icon */}
-                  <span className="absolute -top-1.5 -right-1 text-[8px] text-neutral-400 select-none pointer-events-none opacity-40">
-                    ✂
-                  </span>
+            {/* 3 Columns x 19 Rows Grid = 57 Slips */}
+            <div className="grid grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm] h-full w-full">
+              {pageSlips.map((item, idx) => {
+                const cleanRoom = item.roomNumber.replace(/^Room\s*/i, "").trim();
+                const displayRoom = cleanRoom ? `Room ${cleanRoom}` : "Room";
 
-                  {/* School Logo Watermark in Background */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-                    <img
-                      src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                      alt="Watermark"
-                      loading="eager"
-                      decoding="async"
-                      className="w-14 h-14 object-contain opacity-[0.08] grayscale print:filter-none print:opacity-[0.05]"
-                    />
-                  </div>
-
-                  {/* Top Mini Header: Exam Type & Room Number */}
-                  <div className="relative z-10 flex items-center justify-between border-b border-neutral-200/80 pb-0.5 leading-none">
-                    <span className="text-[7px] font-bold text-neutral-500 uppercase tracking-wider truncate max-w-[130px]">
-                      {examType} • {academicYear}
+                return (
+                  <div
+                    key={`slip-${pageIndex}-${idx}`}
+                    className="relative border border-dashed border-neutral-300 rounded-[2px] px-[2mm] py-[0.8mm] flex flex-col justify-between overflow-hidden bg-white h-full box-border"
+                  >
+                    {/* Micro Cut Indicator Icon */}
+                    <span className="absolute -top-1 -right-0.5 text-[7px] text-neutral-400 select-none pointer-events-none opacity-40">
+                      ✂
                     </span>
-                    <span className="text-[7.5px] font-black text-neutral-900 bg-neutral-100 border border-neutral-300 px-1 py-0.2 rounded leading-none">
-                      Room {item.roomNumber}
-                    </span>
-                  </div>
 
-                  {/* Main Body: Big Roll, Class, Student Name & Bench Coordinates */}
-                  <div className="relative z-10 grid grid-cols-12 gap-1 my-auto items-center">
-                    {/* Left: Roll Number & Class Section (6 cols) */}
-                    <div className="col-span-6 flex flex-col justify-center">
+                    {/* School Logo Watermark in Background */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                      <img
+                        src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                        alt="Watermark"
+                        loading="eager"
+                        decoding="async"
+                        className="w-9 h-9 object-contain opacity-[0.06] grayscale print:filter-none print:opacity-[0.05]"
+                      />
+                    </div>
+
+                    {/* Line 1: Big Roll (Left) & Student Name (Right) */}
+                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
                       <div className="text-[17px] font-black text-neutral-950 tracking-tight leading-none">
                         ROLL {String(item.studentRoll).padStart(2, "0")}
                       </div>
-                      <div className="text-[10.5px] font-bold text-neutral-700 leading-tight mt-1">
-                        Class: <span className="font-black text-neutral-950 text-[11px]">{item.studentClass} - {item.studentSection}</span>
+                      <div className="text-[11.5px] font-black uppercase text-neutral-950 truncate text-right leading-none max-w-[110px]">
+                        {item.studentName}
                       </div>
                     </div>
 
-                    {/* Right: Student Name & Bench Coordinates (6 cols) */}
-                    <div className="col-span-6 flex flex-col justify-center text-right">
-                      <div className="text-[11px] font-black uppercase text-neutral-950 block truncate leading-tight">
-                        {item.studentName}
+                    {/* Line 2: Class & Section (Left) & Room, Col, Bench, Seat (Right) */}
+                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
+                      <div className="text-[10.5px] font-bold text-neutral-700 leading-none">
+                        Class: <span className="font-black text-neutral-950 text-[11.5px]">{item.studentClass} - {item.studentSection}</span>
                       </div>
-                      <div className="flex items-center justify-end space-x-1 text-[8.5px] font-bold text-neutral-800 pt-1">
-                        <span className="text-neutral-600">
+                      <div className="flex items-center justify-end space-x-1 text-[8.5px] font-bold text-neutral-800 leading-none">
+                        <span className="text-[10px] font-black text-neutral-950 bg-neutral-100 px-1 py-0.2 rounded border border-neutral-300 leading-none">{displayRoom}</span>
+                        <span className="text-neutral-400 text-[7px]">•</span>
+                        <span className="text-neutral-600 text-[8.5px]">
                           Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
                         </span>
-                        <span className="bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1.5 py-0.2 rounded text-[9px] leading-none">
+                        <span className="bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1 py-0.2 rounded text-[8.5px] leading-none">
                           Seat S{item.seatPosition}
                         </span>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
-              {/* Fill empty cells in page if less than 30 slips */}
+              {/* Fill empty cells in page if less than 57 slips */}
               {Array.from({ length: SLIPS_PER_PAGE - pageSlips.length }).map((_, i) => (
                 <div
                   key={`empty-slip-${i}`}

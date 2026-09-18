@@ -30,6 +30,7 @@ import { PatternSelector } from "./pattern-selector";
 import { ColumnClassAssigner, AvailableClassOption } from "./column-class-assigner";
 import { MidFillClassPrompt } from "./mid-fill-class-prompt";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
+import { getClassColorStyle } from "@/components/ems/seat-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -97,8 +98,8 @@ export function SeatArrangementEditor({
     }
     return effectiveRooms.length > 0 ? effectiveRooms[0].id : "";
   });
-  // State to toggle collapsible Step 4 control header
-  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(true);
+  // State to toggle collapsible Step 4 Column Edit section (defaults to false / auto hide)
+  const [isConfigExpanded, setIsConfigExpanded] = useState<boolean>(false);
 
   // Available classes derived from Step 2 with real DB continuing student count
   const availableClasses: AvailableClassOption[] = useMemo(() => {
@@ -169,6 +170,9 @@ export function SeatArrangementEditor({
 
   // Per-room arrangement configurations
   const [roomConfigs, setRoomConfigs] = useState<Record<string, RoomArrangementConfig>>(defaultRoomConfigs);
+
+  // Target scope: Single Room vs All Rooms (Default: All Rooms)
+  const [applyScope, setApplyScope] = useState<"ALL_ROOMS" | "SINGLE_ROOM">("ALL_ROOMS");
 
   // Cascade auto-arrangement sequentially across all rooms
   const runCascadeAllocationAcrossRooms = useCallback(
@@ -316,63 +320,84 @@ export function SeatArrangementEditor({
       startDirection: "top-to-bottom",
     };
 
-  // Update pattern for active room
+  // Update pattern for room(s) based on applyScope
   const handlePatternChange = (newPattern: ArrangementPattern) => {
     pushHistorySnapshot();
-
-    const current = roomConfigs[activeRoomId] || {
-      roomId: activeRoomId,
-      pattern: newPattern,
-      columnAssignments: [],
-      startDirection: "top-to-bottom",
-    };
 
     const primaryClass = availableClasses[0]?.code || "";
     const secondaryClass = availableClasses[1]?.code || primaryClass;
 
-    let updatedCols = current.columnAssignments;
-    if (newPattern === "FIXED_U") {
-      // In Fixed U-Loop: All columns have Outer = Primary Class, Center = Secondary Class
-      updatedCols = (activeRoom?.columns || []).map((col) => {
-        const existing = current.columnAssignments.find((c) => c.columnIndex === col.columnIndex);
-        return {
-          columnIndex: col.columnIndex,
-          s1ClassCode: primaryClass,
-          s2ClassCode: secondaryClass,
-          s3MirrorS1: true,
-          s3ClassCode: primaryClass,
-          overflowClassCode: existing?.overflowClassCode,
-          assignedClassCode: primaryClass,
-          secondaryClassCode: secondaryClass,
+    const generateColsForRoom = (r: EmsRoom, currentCols: ColumnClassAllocationConfig[]): ColumnClassAllocationConfig[] => {
+      if (newPattern === "FIXED_U") {
+        return (r.columns || []).map((col) => {
+          const existing = currentCols.find((c) => c.columnIndex === col.columnIndex);
+          return {
+            columnIndex: col.columnIndex,
+            s1ClassCode: primaryClass,
+            s2ClassCode: secondaryClass,
+            s3MirrorS1: true,
+            s3ClassCode: primaryClass,
+            overflowClassCode: existing?.overflowClassCode,
+            direction: existing?.direction,
+            s1Direction: existing?.s1Direction,
+            s2Direction: existing?.s2Direction,
+            s3Direction: existing?.s3Direction,
+            assignedClassCode: primaryClass,
+            secondaryClassCode: secondaryClass,
+          };
+        });
+      } else {
+        return (r.columns || []).map((col, idx) => {
+          const s1 = idx % 2 === 0 ? primaryClass : secondaryClass;
+          const s2 = idx % 2 === 0 ? secondaryClass : primaryClass;
+          const existing = currentCols.find((c) => c.columnIndex === col.columnIndex);
+          return {
+            columnIndex: col.columnIndex,
+            s1ClassCode: s1,
+            s2ClassCode: s2,
+            s3MirrorS1: true,
+            s3ClassCode: s1,
+            overflowClassCode: existing?.overflowClassCode,
+            direction: existing?.direction,
+            s1Direction: existing?.s1Direction,
+            s2Direction: existing?.s2Direction,
+            s3Direction: existing?.s3Direction,
+            assignedClassCode: s1,
+            secondaryClassCode: s2,
+          };
+        });
+      }
+    };
+
+    let updatedConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+
+    if (applyScope === "ALL_ROOMS") {
+      effectiveRooms.forEach((r) => {
+        const current = roomConfigs[r.id] || {
+          roomId: r.id,
+          pattern: newPattern,
+          columnAssignments: [],
+          startDirection: "top-to-bottom",
+        };
+        updatedConfigs[r.id] = {
+          ...current,
+          pattern: newPattern,
+          columnAssignments: generateColsForRoom(r, current.columnAssignments),
         };
       });
     } else {
-      // In Interleaved Snake Loop: Columns alternate roles (A-B-A...)
-      updatedCols = (activeRoom?.columns || []).map((col, idx) => {
-        const s1 = idx % 2 === 0 ? primaryClass : secondaryClass;
-        const s2 = idx % 2 === 0 ? secondaryClass : primaryClass;
-        const existing = current.columnAssignments.find((c) => c.columnIndex === col.columnIndex);
-        return {
-          columnIndex: col.columnIndex,
-          s1ClassCode: s1,
-          s2ClassCode: s2,
-          s3MirrorS1: true,
-          s3ClassCode: s1,
-          overflowClassCode: existing?.overflowClassCode,
-          assignedClassCode: s1,
-          secondaryClassCode: s2,
-        };
-      });
-    }
-
-    const updatedConfigs: Record<string, RoomArrangementConfig> = {
-      ...roomConfigs,
-      [activeRoomId]: {
+      const current = roomConfigs[activeRoomId] || {
+        roomId: activeRoomId,
+        pattern: newPattern,
+        columnAssignments: [],
+        startDirection: "top-to-bottom",
+      };
+      updatedConfigs[activeRoomId] = {
         ...current,
         pattern: newPattern,
-        columnAssignments: updatedCols,
-      },
-    };
+        columnAssignments: generateColsForRoom(activeRoom || effectiveRooms[0], current.columnAssignments),
+      };
+    }
 
     setRoomConfigs(updatedConfigs);
 
@@ -381,14 +406,13 @@ export function SeatArrangementEditor({
     setRoomAllocations(updatedRooms);
   };
 
-  // Update column assignment for active room (supports both granular updates and legacy params)
+  // Update column assignment for active room or all rooms based on applyScope
   const handleColumnAssignmentChange = (
     columnIndex: number,
     primaryOrUpdates: string | Partial<ColumnClassAllocationConfig>,
     secondaryClass?: string
   ) => {
     pushHistorySnapshot();
-    const currentCols = roomConfigs[activeRoomId]?.columnAssignments || [];
     let updatedObj: Partial<ColumnClassAllocationConfig> = {};
 
     if (typeof primaryOrUpdates === "string") {
@@ -408,15 +432,14 @@ export function SeatArrangementEditor({
       }
     }
 
-    const existingIndex = currentCols.findIndex((c) => c.columnIndex === columnIndex);
-    let updatedCols: ColumnClassAllocationConfig[];
-
-    if (existingIndex >= 0) {
-      updatedCols = currentCols.map((c, idx) =>
-        idx === existingIndex ? { ...c, ...updatedObj } : c
-      );
-    } else {
-      updatedCols = [
+    const applyColsUpdate = (currentCols: ColumnClassAllocationConfig[]): ColumnClassAllocationConfig[] => {
+      const existingIndex = currentCols.findIndex((c) => c.columnIndex === columnIndex);
+      if (existingIndex >= 0) {
+        return currentCols.map((c, idx) =>
+          idx === existingIndex ? { ...c, ...updatedObj } : c
+        );
+      }
+      return [
         ...currentCols,
         {
           columnIndex,
@@ -429,20 +452,91 @@ export function SeatArrangementEditor({
           ...updatedObj,
         },
       ];
-    }
+    };
 
-    const newConfigs: Record<string, RoomArrangementConfig> = {
-      ...roomConfigs,
-      [activeRoomId]: {
+    let newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+
+    if (applyScope === "ALL_ROOMS") {
+      effectiveRooms.forEach((r) => {
+        const rConfig = roomConfigs[r.id] || {
+          roomId: r.id,
+          pattern: activeConfig.pattern || "INTERLEAVED",
+          columnAssignments: [],
+          startDirection: "top-to-bottom",
+        };
+        newConfigs[r.id] = {
+          ...rConfig,
+          columnAssignments: applyColsUpdate(rConfig.columnAssignments),
+        };
+      });
+    } else {
+      const currentCols = roomConfigs[activeRoomId]?.columnAssignments || [];
+      newConfigs[activeRoomId] = {
         ...(roomConfigs[activeRoomId] || {
           roomId: activeRoomId,
           pattern: "INTERLEAVED",
           columnAssignments: [],
           startDirection: "top-to-bottom",
         }),
-        columnAssignments: updatedCols,
-      },
-    };
+        columnAssignments: applyColsUpdate(currentCols),
+      };
+    }
+
+    setRoomConfigs(newConfigs);
+
+    // Recalculate seating across all rooms immediately
+    const updatedRooms = runCascadeAllocationAcrossRooms(newConfigs);
+    setRoomAllocations(updatedRooms);
+  };
+
+  // Bulk update column assignments (atomic single-batch update for Single or All Rooms)
+  const handleBulkColumnAssignmentChange = (newCols: ColumnClassAllocationConfig[]) => {
+    pushHistorySnapshot();
+    let newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+
+    if (applyScope === "ALL_ROOMS") {
+      effectiveRooms.forEach((r) => {
+        const matchedCols: ColumnClassAllocationConfig[] = r.columns.map((col, idx) => {
+          const srcCol = newCols.find((c) => c.columnIndex === col.columnIndex) || newCols[idx % newCols.length];
+          const s1 = srcCol?.s1ClassCode || srcCol?.assignedClassCode || availableClasses[0]?.code || "";
+          const s2 = srcCol?.s2ClassCode || srcCol?.secondaryClassCode || availableClasses[1]?.code || "";
+          return {
+            columnIndex: col.columnIndex,
+            s1ClassCode: s1,
+            s2ClassCode: s2,
+            s3MirrorS1: srcCol?.s3MirrorS1 !== false,
+            s3ClassCode: srcCol?.s3ClassCode || s1,
+            overflowClassCode: srcCol?.overflowClassCode,
+            direction: srcCol?.direction,
+            s1Direction: srcCol?.s1Direction,
+            s2Direction: srcCol?.s2Direction,
+            s3Direction: srcCol?.s3Direction,
+            assignedClassCode: s1,
+            secondaryClassCode: s2,
+          };
+        });
+
+        newConfigs[r.id] = {
+          ...(roomConfigs[r.id] || {
+            roomId: r.id,
+            pattern: activeConfig.pattern || "INTERLEAVED",
+            columnAssignments: [],
+            startDirection: "top-to-bottom",
+          }),
+          columnAssignments: matchedCols,
+        };
+      });
+    } else {
+      newConfigs[activeRoomId] = {
+        ...(roomConfigs[activeRoomId] || {
+          roomId: activeRoomId,
+          pattern: "INTERLEAVED",
+          columnAssignments: [],
+          startDirection: "top-to-bottom",
+        }),
+        columnAssignments: newCols,
+      };
+    }
 
     setRoomConfigs(newConfigs);
 
@@ -478,6 +572,10 @@ export function SeatArrangementEditor({
           s3MirrorS1: existing?.s3MirrorS1 !== false,
           s3ClassCode: existing?.s3ClassCode || s1,
           overflowClassCode: existing?.overflowClassCode,
+          direction: existing?.direction,
+          s1Direction: existing?.s1Direction,
+          s2Direction: existing?.s2Direction,
+          s3Direction: existing?.s3Direction,
           assignedClassCode: s1,
           secondaryClassCode: s2,
         };
@@ -496,6 +594,14 @@ export function SeatArrangementEditor({
     // Recalculate seating across all rooms sequentially
     const updatedRooms = runCascadeAllocationAcrossRooms(updatedConfigs);
     setRoomAllocations(updatedRooms);
+  };
+
+  // Scope toggle handler (Single Room vs All Rooms)
+  const handleScopeChange = (newScope: "ALL_ROOMS" | "SINGLE_ROOM") => {
+    setApplyScope(newScope);
+    if (newScope === "ALL_ROOMS") {
+      handleApplyTemplateToAllRooms();
+    }
   };
 
   // Run auto-arrangement for active room (also cascades downstream rooms)
@@ -681,59 +787,80 @@ export function SeatArrangementEditor({
       {/* ──────────────────────────────────────────────────────────── */}
       {activeRoom && (
         <div className="relative z-30 p-4 sm:p-5 rounded-2xl border border-border/80 bg-card/80 backdrop-blur-xs space-y-4 shadow-xs">
-          {/* Clean Step 4 Header with Collapsible Toggle */}
-          <div className="flex items-center justify-between border-b border-border/40 pb-3">
-            <div className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
+          {/* Clean Step 4 Header with Short Exam Name, Selected Classes, and Highlighted Column Edit Toggle */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 pb-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="h-8.5 w-8.5 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <Armchair className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-                  Step 4: Seat Arrangement & Blueprint
+                  Seat Arrangement
                 </h3>
                 {examType && (
-                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2 py-0.5">
-                    {examType}
+                  <Badge className="bg-primary/15 text-primary border-primary/25 text-xs font-bold px-2.5 py-0.5 shadow-2xs">
+                    {examType.replace(" Evaluation", "")}
                   </Badge>
                 )}
+                {availableClasses.map((c) => {
+                  const colorStyle = getClassColorStyle(c.code);
+                  return (
+                    <span
+                      key={c.code}
+                      className={cn(
+                        "text-xs font-bold px-2 py-0.5 rounded-md shadow-2xs",
+                        colorStyle?.badgeBg || "bg-muted text-foreground border border-border"
+                      )}
+                    >
+                      Class {c.code}
+                    </span>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Collapsible toggle button */}
+            {/* Highlighted Column Edit Button */}
             <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setIsConfigExpanded((prev) => !prev)}
-                className="h-7.5 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
-              >
-                <Sliders className="h-3.5 w-3.5 text-primary" />
-                <span>{isConfigExpanded ? "Hide Pattern Rules" : "Edit Pattern & Columns"}</span>
-                {isConfigExpanded ? (
-                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                className={cn(
+                  "h-8 text-xs font-bold gap-1.5 px-3.5 rounded-xl border transition-all duration-200 cursor-pointer shadow-xs active:scale-95",
+                  isConfigExpanded
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm hover:bg-primary/90"
+                    : "bg-primary/10 text-primary border-primary/40 hover:bg-primary/20 hover:border-primary"
                 )}
+              >
+                <Sliders className={cn("h-3.5 w-3.5 transition-transform duration-200", isConfigExpanded ? "text-primary-foreground" : "text-primary")} />
+                <span>Column Edit</span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 transition-transform duration-300 ease-out",
+                    isConfigExpanded ? "rotate-180" : "rotate-0"
+                  )}
+                />
               </Button>
             </div>
           </div>
 
-          {/* Collapsible Content */}
-          {isConfigExpanded ? (
-            <div className="space-y-4 pt-1 animate-in fade-in duration-200">
-              {/* Pattern Selector */}
-              <PatternSelector
-                value={activeConfig.pattern}
-                onChange={handlePatternChange}
-              />
+          {/* Grand Strategy Pattern Switcher (Full Width) */}
+          <PatternSelector
+            value={activeConfig.pattern}
+            onChange={handlePatternChange}
+          />
 
+          {/* Collapsible Column Configuration & Actions with Ultra Smooth CSS Transition */}
+          <div className={cn("ems-accordion-drawer", isConfigExpanded && "is-open")}>
+            <div className="ems-accordion-content space-y-4">
               {/* Column Class Assigner */}
               <ColumnClassAssigner
                 columns={activeRoom.columns}
                 availableClasses={availableClasses}
                 columnAssignments={activeConfig.columnAssignments}
                 onAssignmentChange={handleColumnAssignmentChange}
+                onBulkAssignmentChange={handleBulkColumnAssignmentChange}
                 onApplyToAllRooms={handleApplyTemplateToAllRooms}
                 pattern={activeConfig.pattern}
               />
@@ -762,28 +889,7 @@ export function SeatArrangementEditor({
                 </Button>
               </div>
             </div>
-          ) : (
-            /* Compact Summary Bar when collapsed */
-            <div className="py-1 flex items-center justify-between text-xs text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="font-mono text-[11px] font-bold">
-                  {activeConfig.pattern === "FIXED_U"
-                    ? "Pattern: Fixed Outer U-Loop"
-                    : "Pattern: Interleaved Snake Loop"}
-                </Badge>
-                <span>•</span>
-                <span>{activeRoom.columns.length} Columns Assigned</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsConfigExpanded(true)}
-                className="text-primary font-bold hover:underline cursor-pointer flex items-center gap-1"
-              >
-                <span>Expand Controls</span>
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
+          </div>
         </div>
       )}
 

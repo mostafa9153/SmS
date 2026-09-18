@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { EmsRoom, RoomColumnConfig } from "@/lib/ems/types";
 import { calculateRoomCapacity } from "@/lib/ems/room-storage";
 
+import { cleanColumnLabel } from "@/lib/ems/room-storage";
+
 interface RoomEditorDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,7 +52,7 @@ export function RoomEditorDialog({
       setColumns(
         initialRoom.columns.map((c, idx) => ({
           columnIndex: idx + 1,
-          columnLabel: c.columnLabel || `Column ${idx + 1}`,
+          columnLabel: cleanColumnLabel(c.columnLabel, idx + 1),
           benchCount: c.benchCount || 5,
           seatsPerBench: c.seatsPerBench || 3,
         }))

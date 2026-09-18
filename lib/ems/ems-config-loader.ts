@@ -251,3 +251,19 @@ export async function syncAllEmsConfigsFromDb(): Promise<{
     classes: getDynamicClassList(),
   };
 }
+
+/**
+ * Format raw room number/name cleanly (e.g. "101" -> "Room 101").
+ */
+export function formatRoomName(rawName: string): string {
+  if (!rawName) return "Room N/A";
+  const cleaned = rawName.trim();
+  if (/^(Room|Hall|Lab|Auditorium)\b/i.test(cleaned)) {
+    return cleaned;
+  }
+  if (/^\d+[A-Z]?$/i.test(cleaned)) {
+    return `Room ${cleaned}`;
+  }
+  return cleaned;
+}
+

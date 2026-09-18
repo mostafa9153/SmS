@@ -20,6 +20,9 @@ import {
   saveActiveAllocation,
   updateSeatSwap,
   calculateRoomCapacity,
+  fetchAllocationsFromDb,
+  fetchRoomsFromDb,
+  deleteAllocation,
 } from "@/lib/ems/room-storage";
 import {
   fetchContinuingStudents,
@@ -73,7 +76,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
-import { EmsPrintSuiteHub } from "@/components/ems/print/ems-print-suite-hub";
+import { EmsPrintStudio } from "@/components/ems/print/ems-print-studio";
 import { SeatArrangementEditor } from "@/components/ems/seat-arrangement/seat-arrangement-editor";
 import { getClassColorStyle } from "@/components/ems/seat-card";
 import {
@@ -83,25 +86,14 @@ import {
   syncAllEmsConfigsFromDb,
 } from "@/lib/ems/ems-config-loader";
 
-// Normalize class for matching
-const normalizeClassCode = (c: string): string => {
-  const clean = (c || "").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
-  const romanMap: Record<string, string> = {
-    "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V",
-    "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X",
-    "11": "XI", "12": "XII",
-  };
-  return romanMap[clean] || clean;
-};
+import {
+  normalizeClassCode,
+  normalizeSectionCode,
+} from "@/lib/ems/seat-arrangement-algorithm";
 
 // Sort class groups strictly in consecutive order: 5, 6, 7, 8, 9, 10, 11, 12 (V..XII)
 const sortClassGroups = (groups: ClassGroupConfig[]): ClassGroupConfig[] => {
   return [...groups].sort((a, b) => getClassNumericRank(a.class) - getClassNumericRank(b.class));
-};
-
-// Normalize section for matching
-const normalizeSectionCode = (sec: string): string => {
-  return (sec || "").trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
 };
 
 export interface SectionStudentStats {
@@ -209,7 +201,7 @@ const STEPS: StepItem[] = [
   { id: 1, title: "Session & Exam" },
   { id: 2, title: "Class & Students" },
   { id: 3, title: "Room & Benches" },
-  { id: 4, title: "Seat Arrangement & Blueprint" },
+  { id: 4, title: "Seat Arrangement" },
   { id: 5, title: "Print Suite" },
 ];
 
@@ -260,39 +252,32 @@ function EmsMasterPageContent() {
   });
 
   // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
-  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
-  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
+  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>(() => {
+    if (typeof window !== "undefined") return getSavedAllocations();
+    return [];
+  });
+  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
 
-  // Hydration-safe mounted flag — avoids SSR/client mismatch
-  const [mounted, setMounted] = useState(false);
-
-  // Synchronized step setter — side-effects deferred via useEffect to avoid "setState during render"
-  const pendingStepRef = React.useRef<number | null>(null);
+  // Synchronized step setter that updates URL query param and sessionStorage
   const setStep = (newStep: number | ((prev: number) => number)) => {
     setStepState((prev) => {
       const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
-      pendingStepRef.current = nextStep;
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", "?step=" + nextStep);
+        try {
+          sessionStorage.setItem("sms_ems_current_step", String(nextStep));
+        } catch {}
+        if (generatedAllocation) {
+          saveActiveAllocation(generatedAllocation);
+        }
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      }
       return nextStep;
     });
   };
 
-  // Flush URL + sessionStorage update after step state has settled
-  useEffect(() => {
-    if (pendingStepRef.current !== null) {
-      const nextStep = pendingStepRef.current;
-      pendingStepRef.current = null;
-      window.history.replaceState(null, "", "?step=" + nextStep);
-      try {
-        sessionStorage.setItem("sms_ems_current_step", String(nextStep));
-      } catch {}
-      if (generatedAllocation) {
-        saveActiveAllocation(generatedAllocation);
-      }
-    }
-  }, [step, generatedAllocation]);
-
   // Step 1: Session & Exam
-  const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || 2026);
+  const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || new Date().getFullYear());
   const [examType, setExamType] = useState<ExamType>(() => initialAlloc?.examType || "1st Summative Evaluation");
 
   // Step 2: Class & Students (Group-wise with multi-section auto-select & DB roll ranges)
@@ -301,10 +286,22 @@ function EmsMasterPageContent() {
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [studentsLoading, setStudentsLoading] = useState<boolean>(true);
 
-  // Step 3: Room & Benches Setup — start empty to avoid SSR/client hydration mismatch
-  const [studentsPerBench, setStudentsPerBench] = useState<number>(3);
-  const [rooms, setRooms] = useState<EmsRoom[]>([]);
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  // Step 3: Room & Benches Setup
+  const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
+  const [rooms, setRooms] = useState<EmsRoom[]>(() => {
+    if (typeof window !== "undefined") return getSavedRooms();
+    return [];
+  });
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
+    if (initialAlloc?.roomAllocations && initialAlloc.roomAllocations.length > 0) {
+      return initialAlloc.roomAllocations.map((r) => r.roomId);
+    }
+    if (typeof window !== "undefined") {
+      const saved = getSavedRooms();
+      if (saved.length > 0) return [saved[0].id];
+    }
+    return [];
+  });
   // Room-wise Assigned Classes mapping (roomId -> class codes array, e.g. ["VIII", "IX"])
   const [roomClassMap, setRoomClassMap] = useState<Record<string, string[]>>({});
   const [editorOpen, setEditorOpen] = useState(false);
@@ -381,46 +378,52 @@ function EmsMasterPageContent() {
           doneSteps.push(i);
         }
         setCompletedSteps((prev) => Array.from(new Set([...prev, ...doneSteps])));
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+        }
       }
     }
   }, [searchParams]);
 
   useEffect(() => {
-    // Mark as mounted (client-only) — resolves SSR/client hydration mismatches
-    setMounted(true);
-
-    // Restore rooms and allocations from localStorage on client mount
     const saved = getSavedRooms();
-    setRooms(saved);
+    if (saved.length > 0) {
+      setRooms(saved);
+    }
     const savedAllocs = getSavedAllocations();
     setSavedAllocations(savedAllocs);
 
-    // Restore active allocation
-    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
-    if (activeAlloc) {
-      setGeneratedAllocation(activeAlloc);
-      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
-      if (activeAlloc.examType) setExamType(activeAlloc.examType);
-      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
-        setActiveBlueprintRoomId(activeAlloc.roomAllocations[0].roomId);
-        setSelectedRoomIds(activeAlloc.roomAllocations.map((r) => r.roomId));
+    // Fetch latest saved allocations from Database
+    fetchAllocationsFromDb().then((dbAllocs) => {
+      if (dbAllocs && dbAllocs.length > 0) {
+        setSavedAllocations(dbAllocs);
       }
-    }
-
-    if (saved.length > 0 && !activeAlloc) {
-      setSelectedRoomIds([saved[0].id]);
-    }
+    });
 
     // Sync fresh configs (classes, school profile, rooms) from database
     syncAllEmsConfigsFromDb().then(() => {
       const freshClasses = getDynamicClassCodes();
       setAvailableClasses(freshClasses);
       const freshRooms = getSavedRooms();
-      setRooms(freshRooms);
-      if (freshRooms.length > 0) {
+      if (freshRooms && freshRooms.length > 0) {
+        setRooms(freshRooms);
         setSelectedRoomIds((prev) => (prev.length === 0 ? [freshRooms[0].id] : prev));
       }
     });
+
+    // Restore active or most recent allocation on reload
+    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
+    if (activeAlloc) {
+      setGeneratedAllocation((prev) => prev || activeAlloc);
+      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
+      if (activeAlloc.examType) setExamType(activeAlloc.examType);
+      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
+        setActiveBlueprintRoomId((prev) => prev || activeAlloc.roomAllocations[0].roomId);
+        setSelectedRoomIds((prev) =>
+          prev.length === 0 ? activeAlloc.roomAllocations.map((r) => r.roomId) : prev
+        );
+      }
+    }
 
     // Restore step if URL or sessionStorage has step
     const stepQuery = searchParams.get("step");
@@ -951,7 +954,7 @@ function EmsMasterPageContent() {
   );
 
   return (
-    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
+    <div className="p-3.5 sm:p-6 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
       {/* Header matching Bulk Upload with Classrooms & Halls Management Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -1007,7 +1010,7 @@ function EmsMasterPageContent() {
                 <Input
                   type="number"
                   value={academicYear}
-                  onChange={(e) => setAcademicYear(parseInt(e.target.value) || 2026)}
+                  onChange={(e) => setAcademicYear(parseInt(e.target.value) || new Date().getFullYear())}
                   className="h-10 text-xs font-mono font-bold rounded-xl bg-muted/50 opacity-100 cursor-not-allowed"
                   disabled
                 />
@@ -1035,6 +1038,122 @@ function EmsMasterPageContent() {
               </Button>
             </div>
           </div>
+
+          {/* Recent Exam Seating Plans History (Last 10 Saved Arrangements) */}
+          {savedAllocations.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                  <History className="h-4 w-4 text-primary" />
+                  <span>Recent Exam Seating Plans History</span>
+                </div>
+                <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary bg-primary/5">
+                  Last {Math.min(10, savedAllocations.length)} Saved in Database
+                </Badge>
+              </div>
+
+              <div className="space-y-2 max-h-[460px] overflow-y-auto pr-1">
+                {savedAllocations.slice(0, 10).map((plan, pIdx) => {
+                  return (
+                    <div
+                      key={plan.id || `plan-${pIdx}`}
+                      className="rounded-xl border border-border/80 bg-card hover:bg-muted/30 transition-colors p-3 sm:p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs shadow-2xs group"
+                    >
+                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-xl bg-primary/10 text-primary shrink-0 border border-primary/20 mt-0.5 sm:mt-0 font-mono font-bold text-[11px] w-8 h-8 flex items-center justify-center">
+                          #{pIdx + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-foreground flex flex-wrap items-center gap-2">
+                            <span className="truncate">{plan.title || `${plan.examType} (${plan.academicYear})`}</span>
+                            <Badge variant="secondary" className="text-[10px] font-mono font-bold shrink-0">
+                              {plan.summary?.totalStudents || 0} Students
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              • {plan.summary?.totalRooms || plan.roomAllocations?.length || 0} Room(s)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            <span>Saved on {new Date(plan.createdAt).toLocaleDateString()}</span>
+                            <span>•</span>
+                            <span>{new Date(plan.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            {plan.summary?.classesAllocated && plan.summary.classesAllocated.length > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className="text-[10px] font-semibold text-neutral-600 dark:text-neutral-400">
+                                  Classes: {plan.summary.classesAllocated.join(", ")}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            saveActiveAllocation(plan);
+                            setGeneratedAllocation(plan);
+                            if (plan.academicYear) setAcademicYear(plan.academicYear);
+                            if (plan.examType) setExamType(plan.examType);
+                            setActiveBlueprintRoomId(plan.roomAllocations[0]?.roomId || "");
+                            setSelectedRoomIds(plan.roomAllocations.map((r) => r.roomId));
+                            markStepDone(1);
+                            markStepDone(2);
+                            markStepDone(3);
+                            markStepDone(4);
+                            setStep(4);
+                          }}
+                          className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5 text-primary" /> View Blueprint
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            saveActiveAllocation(plan);
+                            setGeneratedAllocation(plan);
+                            if (plan.academicYear) setAcademicYear(plan.academicYear);
+                            if (plan.examType) setExamType(plan.examType);
+                            setActiveBlueprintRoomId(plan.roomAllocations[0]?.roomId || "");
+                            setSelectedRoomIds(plan.roomAllocations.map((r) => r.roomId));
+                            markStepDone(1);
+                            markStepDone(2);
+                            markStepDone(3);
+                            markStepDone(4);
+                            setStep(5);
+                          }}
+                          className="h-8 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs hover:scale-[1.01] active:scale-[0.98] transition-all"
+                        >
+                          <Printer className="h-3.5 w-3.5" /> Print Suite
+                        </Button>
+
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm("Are you sure you want to delete this saved seating plan?")) {
+                              await deleteAllocation(plan.id);
+                              const remaining = getSavedAllocations();
+                              setSavedAllocations(remaining);
+                            }
+                          }}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                          title="Delete saved plan"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1841,14 +1960,13 @@ function EmsMasterPageContent() {
       )}
 
       {/* ──────────────────────────────────────────────────────────── */}
-      {/* STEP 5: Dedicated Examination Print Suite Hub                */}
+      {/* STEP 5: Dedicated Examination Print Suite Studio             */}
       {/* ──────────────────────────────────────────────────────────── */}
       {step === 5 && (
         generatedAllocation ? (
-          <EmsPrintSuiteHub
+          <EmsPrintStudio
             allocation={generatedAllocation}
             onBackToStep4={() => setStep(4)}
-            onViewBlueprint={() => setStep(4)}
           />
         ) : (
           <div className="p-10 text-center border border-dashed rounded-2xl bg-muted/10 space-y-3">
@@ -1868,73 +1986,6 @@ function EmsMasterPageContent() {
             </Button>
           </div>
         )
-      )}
-
-      {/* ──────────────────────────────────────────────────────────── */}
-      {/* USER REQUIREMENT: View Recent Allocation moved to bottom     */}
-      {/* ──────────────────────────────────────────────────────────── */}
-      {savedAllocations.length > 0 && (
-        <div className="rounded-xl border border-border/80 bg-muted/20 p-3.5 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-2xs">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0 border border-primary/20">
-              <History className="h-4 w-4" />
-            </div>
-            <div>
-              <div className="font-semibold text-foreground flex items-center gap-2">
-                <span>Recent Exam Seating Plan: {savedAllocations[0].title}</span>
-                <Badge variant="secondary" className="text-[10px] font-mono">
-                  {savedAllocations[0].summary.totalStudents} Students
-                </Badge>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Saved on {new Date(savedAllocations[0].createdAt).toLocaleDateString()} •{" "}
-                {savedAllocations[0].summary.totalRooms} Room(s) allocated ({savedAllocations.length} saved plans)
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                saveActiveAllocation(savedAllocations[0]);
-                setGeneratedAllocation(savedAllocations[0]);
-                if (savedAllocations[0].academicYear) setAcademicYear(savedAllocations[0].academicYear);
-                if (savedAllocations[0].examType) setExamType(savedAllocations[0].examType);
-                setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
-                setSelectedRoomIds(savedAllocations[0].roomAllocations.map((r) => r.roomId));
-                markStepDone(1);
-                markStepDone(2);
-                markStepDone(3);
-                setStep(4);
-              }}
-              className="text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs"
-            >
-              <RotateCcw className="h-3.5 w-3.5 text-primary" /> View Seating Blueprint
-            </Button>
-
-            <Button
-              size="sm"
-              onClick={() => {
-                saveActiveAllocation(savedAllocations[0]);
-                setGeneratedAllocation(savedAllocations[0]);
-                if (savedAllocations[0].academicYear) setAcademicYear(savedAllocations[0].academicYear);
-                if (savedAllocations[0].examType) setExamType(savedAllocations[0].examType);
-                setActiveBlueprintRoomId(savedAllocations[0].roomAllocations[0]?.roomId || "");
-                setSelectedRoomIds(savedAllocations[0].roomAllocations.map((r) => r.roomId));
-                markStepDone(1);
-                markStepDone(2);
-                markStepDone(3);
-                markStepDone(4);
-                setStep(5);
-              }}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold gap-1.5 cursor-pointer shadow-xs hover:scale-[1.01] active:scale-[0.98] transition-all"
-            >
-              <Printer className="h-3.5 w-3.5" /> Open Print Suite
-            </Button>
-          </div>
-        </div>
       )}
 
       {/* Rooms Manager Dialog */}

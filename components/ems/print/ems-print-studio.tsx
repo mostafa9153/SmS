@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ExamAllocation, AllocatedRoom } from "@/lib/ems/types";
+import { ExamAllocation, AllocatedRoom, PrintDocType } from "@/lib/ems/types";
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
@@ -21,7 +21,6 @@ import {
   RotateCcw,
   Maximize2,
   Calendar,
-  Layers,
   Settings2,
   Sliders,
   SlidersHorizontal,
@@ -39,11 +38,19 @@ import {
 } from "lucide-react";
 import {
   getDynamicSubjectsForClasses,
+  getDatabaseSubjectsForClass,
   syncAllEmsConfigsFromDb,
+  formatRoomName,
 } from "@/lib/ems/ems-config-loader";
+import { getSavedMarksSchemes } from "@/lib/utils/marks-config";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-
-export type PrintDocType = "admit" | "slips" | "attendance" | "gate";
 
 export interface EmsPrintStudioProps {
   allocation: ExamAllocation;
@@ -53,13 +60,6 @@ export interface EmsPrintStudioProps {
   onViewBlueprint?: () => void;
   onClose?: () => void;
   isDialog?: boolean;
-}
-
-// Helper to format room name cleanly (avoid duplicate "Room ROOM 201")
-function formatRoomName(rawName: string): string {
-  if (!rawName) return "Room";
-  const clean = rawName.trim().replace(/^Room\s+/i, "");
-  return `Room ${clean}`;
 }
 
 export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
@@ -84,6 +84,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
   }, []);
 
   // Click outside listener for room selector popover
@@ -120,6 +123,41 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
       )
     );
   }, [allocation]);
+
+  // Dynamically extract only the subjects saved in Settings for the classes in this exam allocation
+  const availableSubjects = useMemo(() => {
+    const subsSet = new Set<string>();
+    uniqueClasses.forEach((cls) => {
+      const classSubs = getDatabaseSubjectsForClass(cls);
+      classSubs.forEach((sub) => {
+        if (sub && sub.trim()) subsSet.add(sub.trim());
+      });
+    });
+
+    if (subsSet.size === 0) {
+      const allSchemes = getSavedMarksSchemes();
+      allSchemes.forEach((s) => {
+        (s.subjects || []).forEach((sub) => {
+          if (sub && sub.trim()) subsSet.add(sub.trim().replace(/\s*\([^)]*\)/g, "").trim());
+        });
+      });
+    }
+
+    if (subsSet.size === 0) {
+      return [
+        "Bengali",
+        "English",
+        "Mathematics",
+        "Physical Science",
+        "Life Science",
+        "History",
+        "Geography",
+        "Health & Physical Education",
+      ];
+    }
+
+    return Array.from(subsSet);
+  }, [uniqueClasses]);
 
   const [examHeaders, setExamHeaders] = useState<string[]>(() =>
     getDynamicSubjectsForClasses(uniqueClasses)
@@ -189,17 +227,13 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   );
 
   const totalPagesAdmit = Math.ceil(totalOccupiedStudents / 21) || 1;
-  const totalPagesSlips = Math.ceil(totalOccupiedStudents / 30) || 1;
+  const totalPagesSlips = Math.ceil(totalOccupiedStudents / 57) || 1;
   const totalPagesAttendance =
     selectedRooms.reduce((acc, r) => {
       const studentCount = r.seats.filter((s) => !s.isVacant && s.studentName).length;
-      return acc + Math.max(1, Math.ceil(Math.max(25, studentCount + 1) / 28));
+      return acc + Math.max(1, Math.ceil(studentCount / 50));
     }, 0) || 1;
-  const totalPagesGate =
-    selectedRooms.reduce((acc, r) => {
-      const studentCount = r.seats.filter((s) => !s.isVacant && s.studentName).length;
-      return acc + Math.max(1, Math.ceil(studentCount / 26));
-    }, 0) || 1;
+  const totalPagesGate = selectedRooms.length || 1;
 
   const currentTotalPages =
     activeDoc === "admit"
@@ -243,33 +277,6 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     setExamDates(updated);
   };
 
-  const handleFillConsecutiveDates = (startOffset = 0) => {
-    const d = new Date();
-    d.setDate(d.getDate() + startOffset);
-    const newDates: string[] = [];
-    let cur = new Date(d);
-    while (newDates.length < 8) {
-      if (cur.getDay() !== 0) {
-        const day = String(cur.getDate()).padStart(2, "0");
-        const month = String(cur.getMonth() + 1).padStart(2, "0");
-        newDates.push(`${day}/${month}`);
-      }
-      cur.setDate(cur.getDate() + 1);
-    }
-    setExamDates(newDates);
-  };
-
-  const handleAddQuickDate = (dateStr: string) => {
-    const nextDates = Array.from({ length: 8 }).map((_, i) => examDates[i] ?? "");
-    const emptyIdx = nextDates.findIndex((d) => !d.trim());
-    if (emptyIdx !== -1) {
-      nextDates[emptyIdx] = dateStr;
-    } else {
-      nextDates[0] = dateStr;
-    }
-    setExamDates(nextDates);
-  };
-
   const setTodayDate = () => {
     const d = new Date();
     setIssueDate(
@@ -300,36 +307,13 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           )}
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate">
-                Print Suite
-              </h1>
-              {allocation.examType && (
-                <span className="text-xs text-muted-foreground font-medium truncate">
-                  • {allocation.examType} ({allocation.academicYear})
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground truncate">
-              {schoolProfile.schoolName || "Institutional Examination Studio"}
-            </p>
+            <h1 className="text-base sm:text-lg font-bold text-foreground tracking-tight truncate">
+              Print Suite
+            </h1>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {onViewBlueprint && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onViewBlueprint}
-              className="h-9 text-xs font-semibold gap-1.5 hover:border-primary/40 cursor-pointer shadow-2xs rounded-xl"
-            >
-              <Layers className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline">View Blueprint</span>
-            </Button>
-          )}
-
           {/* Exactly ONE prominent primary Print Document button with keyboard shortcut */}
           <Button
             type="button"
@@ -368,7 +352,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               type="button"
               onClick={() => setActiveDoc("admit")}
               className={cn(
-                "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none",
+                "h-10 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none group",
                 activeDoc === "admit"
                   ? "bg-indigo-600 text-white font-bold border-indigo-500 shadow-sm shadow-indigo-600/25 ring-2 ring-indigo-400/40"
                   : "bg-background text-foreground border-border hover:bg-muted/60"
@@ -376,16 +360,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <FileText className={cn("w-4 h-4 shrink-0", activeDoc === "admit" ? "text-white" : "text-indigo-600 dark:text-indigo-400")} />
-                <div className="min-w-0">
-                  <span className="block text-xs font-bold leading-tight truncate">Admit Cards</span>
-                  <span className={cn("text-[10px] block truncate", activeDoc === "admit" ? "text-indigo-100" : "text-muted-foreground")}>
-                    Candidate slips
-                  </span>
-                </div>
+                <span className="block text-xs font-bold leading-tight truncate">Admit Cards</span>
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0",
+                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150",
                   activeDoc === "admit" ? "bg-indigo-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
@@ -398,7 +377,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               type="button"
               onClick={() => setActiveDoc("slips")}
               className={cn(
-                "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none",
+                "h-10 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none group",
                 activeDoc === "slips"
                   ? "bg-emerald-600 text-white font-bold border-emerald-500 shadow-sm shadow-emerald-600/25 ring-2 ring-emerald-400/40"
                   : "bg-background text-foreground border-border hover:bg-muted/60"
@@ -406,20 +385,15 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <Tag className={cn("w-4 h-4 shrink-0", activeDoc === "slips" ? "text-white" : "text-emerald-600 dark:text-emerald-400")} />
-                <div className="min-w-0">
-                  <span className="block text-xs font-bold leading-tight truncate">Bench Slips</span>
-                  <span className={cn("text-[10px] block truncate", activeDoc === "slips" ? "text-emerald-100" : "text-muted-foreground")}>
-                    Desk labels
-                  </span>
-                </div>
+                <span className="block text-xs font-bold leading-tight truncate">Bench Slips</span>
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0",
+                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150",
                   activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                30/A4
+                57/A4
               </span>
             </button>
 
@@ -428,7 +402,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               type="button"
               onClick={() => setActiveDoc("attendance")}
               className={cn(
-                "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none",
+                "h-10 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none group",
                 activeDoc === "attendance"
                   ? "bg-amber-600 text-white font-bold border-amber-500 shadow-sm shadow-amber-600/25 ring-2 ring-amber-400/40"
                   : "bg-background text-foreground border-border hover:bg-muted/60"
@@ -436,16 +410,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <ClipboardList className={cn("w-4 h-4 shrink-0", activeDoc === "attendance" ? "text-white" : "text-amber-600 dark:text-amber-400")} />
-                <div className="min-w-0">
-                  <span className="block text-xs font-bold leading-tight truncate">Attendance</span>
-                  <span className={cn("text-[10px] block truncate", activeDoc === "attendance" ? "text-amber-100" : "text-muted-foreground")}>
-                    Register sheet
-                  </span>
-                </div>
+                <span className="block text-xs font-bold leading-tight truncate">Attendance</span>
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0",
+                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150",
                   activeDoc === "attendance" ? "bg-amber-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
@@ -458,7 +427,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               type="button"
               onClick={() => setActiveDoc("gate")}
               className={cn(
-                "p-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none",
+                "h-10 px-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 select-none group",
                 activeDoc === "gate"
                   ? "bg-purple-600 text-white font-bold border-purple-500 shadow-sm shadow-purple-600/25 ring-2 ring-purple-400/40"
                   : "bg-background text-foreground border-border hover:bg-muted/60"
@@ -466,16 +435,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             >
               <div className="flex items-center gap-2 min-w-0">
                 <DoorOpen className={cn("w-4 h-4 shrink-0", activeDoc === "gate" ? "text-white" : "text-purple-600 dark:text-purple-400")} />
-                <div className="min-w-0">
-                  <span className="block text-xs font-bold leading-tight truncate">Gate Notice</span>
-                  <span className={cn("text-[10px] block truncate", activeDoc === "gate" ? "text-purple-100" : "text-muted-foreground")}>
-                    Hall poster
-                  </span>
-                </div>
+                <span className="block text-xs font-bold leading-tight truncate">Gate Notice</span>
               </div>
               <span
                 className={cn(
-                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0",
+                  "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150",
                   activeDoc === "gate" ? "bg-purple-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
@@ -641,50 +605,13 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               )}
             </Button>
 
-            {/* Document & Print Summary snippet */}
-            <div className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/40 border border-border/80 text-xs text-muted-foreground font-medium select-none">
-              <span className="font-semibold text-foreground">
-                {targetRoomId === "ALL" ? "All Rooms" : formatRoomName(activeRoomObj?.roomNumber || "")}
-              </span>
-              <span>•</span>
-              <span className="font-mono text-foreground font-bold">{totalOccupiedStudents} Students</span>
-              <span>•</span>
-              <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                A4 ({currentTotalPages} Page{currentTotalPages > 1 ? "s" : ""})
-              </span>
-            </div>
+
           </div>
         </div>
 
         {/* ── ROW 2: Collapsible Options Drawer ─────────────────────── */}
         {isOptionsOpen && (
           <div className="pt-3 border-t border-border/70 rounded-xl bg-muted/25 p-3.5 sm:p-4 space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-border/70">
-              <div className="flex items-center gap-2">
-                <Settings2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                <span className="text-xs font-bold text-foreground">
-                  {activeDoc === "admit"
-                    ? "Admit Card Print Options"
-                    : activeDoc === "attendance"
-                      ? "Attendance Table Column Headers"
-                      : activeDoc === "slips"
-                        ? "Bench Slip Layout Specifications"
-                        : "Gate Notice Configuration & Summary"}
-                </span>
-              </div>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsOptionsOpen(false)}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg gap-1"
-              >
-                <ChevronUp className="w-3.5 h-3.5" />
-                <span>Hide Options</span>
-              </Button>
-            </div>
-
             {/* FOR ADMIT CARDS */}
             {activeDoc === "admit" && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -744,65 +671,6 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             {/* FOR ATTENDANCE SHEET */}
             {activeDoc === "attendance" && (
               <div className="space-y-3.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <span className="text-xs font-bold text-foreground block">
-                      Attendance Register Columns (8 Exam Slots)
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block">
-                      Set Subject names and Exam dates independently for each day.
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExamHeaders(getDynamicSubjectsForClasses(uniqueClasses))}
-                      className="h-7 text-[10px] font-bold px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 cursor-pointer rounded-lg gap-1"
-                      title="Auto-fill subjects from allocated classes"
-                    >
-                      <Sparkles className="w-3 h-3 text-indigo-500" />
-                      <span>Auto Subjects</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleFillConsecutiveDates(0)}
-                      className="h-7 text-[10px] font-bold px-2 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 cursor-pointer rounded-lg gap-1"
-                      title="Fill 8 consecutive exam dates starting today (skipping Sundays)"
-                    >
-                      <Calendar className="w-3 h-3 text-emerald-500" />
-                      <span>Dates (Today+)</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleFillConsecutiveDates(1)}
-                      className="h-7 text-[10px] font-bold px-2 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 cursor-pointer rounded-lg gap-1"
-                      title="Fill 8 consecutive exam dates starting tomorrow (skipping Sundays)"
-                    >
-                      <Calendar className="w-3 h-3 text-emerald-500" />
-                      <span>Dates (Tmrw+)</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setExamHeaders(Array(8).fill(""));
-                        setExamDates(Array(8).fill(""));
-                      }}
-                      className="h-7 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2 cursor-pointer rounded-lg"
-                      title="Clear all subjects and dates"
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-
                 {/* 8 Columns Grid: each day has Day Header + Subject Input + Date Input */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
                   {Array.from({ length: 8 }).map((_, idx) => (
@@ -829,18 +697,33 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                         )}
                       </div>
 
-                      {/* Subject Name Input */}
+                      {/* Subject Dropdown Selector */}
                       <div className="space-y-0.5">
                         <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
                           Subject
                         </span>
-                        <input
-                          type="text"
+                        <Select
                           value={examHeaders[idx] || ""}
-                          onChange={(e) => handleHeaderChange(idx, e.target.value)}
-                          placeholder={`Sub ${idx + 1}`}
-                          className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-semibold placeholder:text-muted-foreground/60 transition-colors"
-                        />
+                          onValueChange={(val: string | null) => {
+                            handleHeaderChange(idx, val || "");
+                          }}
+                        >
+                          <SelectTrigger className="h-7 text-xs bg-muted/30 hover:bg-muted/50 focus-visible:bg-background border-border/60 rounded-md px-2 py-0.5 text-foreground font-semibold">
+                            <SelectValue placeholder="Select Subject" />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl min-w-44 z-[60]">
+                            {availableSubjects.map((sub) => (
+                              <SelectItem key={sub} value={sub} className="text-xs">
+                                {sub}
+                              </SelectItem>
+                            ))}
+                            {examHeaders[idx] && !availableSubjects.includes(examHeaders[idx]) && (
+                              <SelectItem value={examHeaders[idx]} className="text-xs">
+                                {examHeaders[idx]}
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Date Input */}
@@ -852,82 +735,12 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                           type="text"
                           value={examDates[idx] || ""}
                           onChange={(e) => handleDateChange(idx, e.target.value)}
-                          placeholder="DD/MM"
+                          placeholder="DD/MM/YYYY"
                           className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
                         />
                       </div>
                     </div>
                   ))}
-                </div>
-
-                {/* Quick Add Subject & Date Chips */}
-                <div className="pt-2 border-t border-border/60 space-y-2">
-                  {/* Subject Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
-                      Quick Subject:
-                    </span>
-                    {["Bengali", "English", "Mathematics", "Phy Science", "Life Science", "History", "Geography", "Health & PE"].map((sub) => (
-                      <button
-                        key={sub}
-                        type="button"
-                        onClick={() => {
-                          const nextHeaders = Array.from({ length: 8 }).map((_, i) => examHeaders[i] ?? "");
-                          const emptyIdx = nextHeaders.findIndex(
-                            (h) => !h.trim() || h.startsWith("Exam ")
-                          );
-                          if (emptyIdx !== -1) {
-                            nextHeaders[emptyIdx] = sub;
-                          } else {
-                            nextHeaders[0] = sub;
-                          }
-                          setExamHeaders(nextHeaders);
-                        }}
-                        className="text-[10px] bg-card text-foreground hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:border-indigo-300 border border-border px-2 py-0.5 rounded-md transition-all cursor-pointer select-none font-medium"
-                      >
-                        + {sub}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Date Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
-                      Quick Date:
-                    </span>
-                    {(() => {
-                      const today = new Date();
-                      const d1 = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
-                      const tomorrow = new Date(today);
-                      tomorrow.setDate(tomorrow.getDate() + 1);
-                      const d2 = `${String(tomorrow.getDate()).padStart(2, "0")}/${String(tomorrow.getMonth() + 1).padStart(2, "0")}`;
-                      const dayAfter = new Date(today);
-                      dayAfter.setDate(dayAfter.getDate() + 2);
-                      const d3 = `${String(dayAfter.getDate()).padStart(2, "0")}/${String(dayAfter.getMonth() + 1).padStart(2, "0")}`;
-
-                      return [
-                        { label: `Today (${d1})`, val: d1 },
-                        { label: `Tomorrow (${d2})`, val: d2 },
-                        { label: `+2 Days (${d3})`, val: d3 },
-                      ].map((chip) => (
-                        <button
-                          key={chip.val}
-                          type="button"
-                          onClick={() => handleAddQuickDate(chip.val)}
-                          className="text-[10px] bg-card text-foreground hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:border-emerald-300 border border-border px-2 py-0.5 rounded-md transition-all cursor-pointer select-none font-mono font-medium"
-                        >
-                          + {chip.label}
-                        </button>
-                      ));
-                    })()}
-                    <button
-                      type="button"
-                      onClick={() => setExamDates(Array(8).fill(""))}
-                      className="text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent px-2 py-0.5 rounded-md transition-all cursor-pointer select-none"
-                    >
-                      Clear Dates
-                    </button>
-                  </div>
                 </div>
               </div>
             )}
@@ -938,7 +751,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1 shadow-2xs">
                   <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>30 Desk Slips / A4 Sheet (3×10 Grid)</span>
+                    <span>57 Desk Slips / A4 Sheet (3×19 Grid)</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     Designed for rapid scissor cutting with micro cut lines, institutional crest, and student roll numbers.
@@ -963,20 +776,20 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1 shadow-2xs">
                   <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Examination Hall Door Noticeboard Poster</span>
+                    <span>2D Seating Floor Plan / Gate Notice (1 Page Per Room)</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Official door poster showing room location, floor, capacity, and allocated candidate roll ranges.
+                    Official door poster showing blackboard, columns, benches, seat positions, student roll numbers, and entrance door.
                   </p>
                 </div>
 
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1 shadow-2xs">
                   <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400 font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Invigilator Verification Roster</span>
+                    <span>Desk-by-Desk Visual Blueprint</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Includes student roll numbers, ID numbers, seated desks, invigilator check boxes, and board guidelines.
+                    Provides candidates and invigilators with an immediate, unambiguous visual map of every desk inside the examination hall.
                   </p>
                 </div>
               </div>

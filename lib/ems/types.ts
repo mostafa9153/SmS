@@ -11,10 +11,13 @@ export const EXAM_TYPES: ExamType[] = [
   "3rd Summative Evaluation",
 ];
 
+// Printable document type for EMS print suite
+export type PrintDocType = "admit" | "slips" | "attendance" | "gate";
+
 // Configuration for an individual column in a room (allows uneven bench heights)
 export interface RoomColumnConfig {
   columnIndex: number; // 1-indexed (1, 2, 3...)
-  columnLabel: string; // e.g. "Column 1 (Window Side)"
+  columnLabel: string; // e.g. "Column 1"
   benchCount: number; // Number of benches in this specific column
   seatsPerBench: number; // Seats per bench in this column (e.g. 2 or 3)
 }

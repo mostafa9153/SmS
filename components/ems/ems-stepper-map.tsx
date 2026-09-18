@@ -28,8 +28,7 @@ export function EmsStepperMap({
         {steps.map((s, idx) => {
           const isDone = completedSteps.includes(s.id);
           const isCurrent = currentStep === s.id;
-          const maxReached = Math.max(currentStep, ...completedSteps, 1);
-          const isClickable = isDone || s.id <= maxReached + 1;
+          const isClickable = isDone || s.id <= Math.max(...completedSteps, 1);
 
           return (
             <div key={s.id} className="flex items-center flex-1 last:flex-none">
