@@ -4,6 +4,7 @@ import React from "react";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 export interface EmsGateNoticePrintableProps {
   rooms: AllocatedRoom[];
@@ -52,29 +53,54 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
           };
         });
 
-        // Group students by Class + Section to summarize roll ranges
+        // Group students by Class + Section / Stream to summarize roll/reg ranges
         const occupiedSeats = room.seats.filter(
           (s) => !s.isVacant && s.studentName
         );
-        const classSummaryMap = new Map<string, number[]>();
+
+        interface SummaryGroup {
+          isHs: boolean;
+          rolls: number[];
+          regs: string[];
+        }
+
+        const classSummaryMap = new Map<string, SummaryGroup>();
         occupiedSeats.forEach((s) => {
-          const key = `${s.studentClass || "Class"}-${s.studentSection || "A"}`;
+          const isHs = isHigherSecondaryClass(s.studentClass);
+          const streamText = s.studentStream || (s.studentSection ? toShortStream(s.studentSection) : "") || "Sci";
+          const key = isHs
+            ? `${s.studentClass || "XI"} - ${streamText}`
+            : `${s.studentClass || "Class"}-${s.studentSection || "A"}`;
+
           if (!classSummaryMap.has(key)) {
-            classSummaryMap.set(key, []);
+            classSummaryMap.set(key, { isHs, rolls: [], regs: [] });
           }
-          classSummaryMap.get(key)!.push(Number(s.studentRoll) || 0);
+          const grp = classSummaryMap.get(key)!;
+          if (s.studentRoll) grp.rolls.push(Number(s.studentRoll));
+          if (s.studentRegNo) grp.regs.push(s.studentRegNo.trim());
         });
 
         const classSummaries: { classKey: string; count: number; rollRange: string }[] = [];
-        classSummaryMap.forEach((rolls, key) => {
-          rolls.sort((a, b) => a - b);
-          const min = rolls[0] || 1;
-          const max = rolls[rolls.length - 1] || rolls.length;
-          classSummaries.push({
-            classKey: key,
-            count: rolls.length,
-            rollRange: rolls.length === 1 ? `Roll ${min}` : `Roll ${min} – ${max}`,
-          });
+        classSummaryMap.forEach((grp, key) => {
+          if (grp.isHs && grp.regs.length > 0) {
+            grp.regs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+            const minReg = grp.regs[0];
+            const maxReg = grp.regs[grp.regs.length - 1];
+            classSummaries.push({
+              classKey: key,
+              count: grp.regs.length,
+              rollRange: grp.regs.length === 1 ? `Reg ${minReg}` : `Reg ${minReg} – ${maxReg}`,
+            });
+          } else {
+            grp.rolls.sort((a, b) => a - b);
+            const min = grp.rolls[0] || 1;
+            const max = grp.rolls[grp.rolls.length - 1] || grp.rolls.length;
+            classSummaries.push({
+              classKey: key,
+              count: grp.rolls.length,
+              rollRange: grp.rolls.length === 1 ? `Roll ${min}` : `Roll ${min} – ${max}`,
+            });
+          }
         });
 
         const isLastRoom = roomIdx === activeRooms.length - 1;
@@ -231,32 +257,50 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
                                       );
                                     }
 
+                                    const isSeatHs = isHigherSecondaryClass(seat.studentClass);
+                                    const seatStreamText = seat.studentStream || (seat.studentSection ? toShortStream(seat.studentSection) : "") || "Sci";
+                                    const seatRegVal = (seat.studentRegNo || "").trim();
+
                                     return (
                                       <div
                                         key={seat.seatId}
                                         className="border border-neutral-400 bg-white rounded-[1px] p-1 flex flex-col justify-between overflow-hidden shadow-2xs min-h-[16mm]"
                                       >
-                                        {/* Roll & Seat Pos (75% Larger) */}
+                                        {/* Roll / Reg & Seat Pos */}
                                         <div className="flex items-center justify-between leading-none border-b border-neutral-200 pb-0.5">
-                                          <span className="text-[16px] font-black text-neutral-950 font-mono tracking-tight leading-none">
-                                            R-{String(seat.studentRoll).padStart(2, "0")}
-                                          </span>
+                                          {isSeatHs ? (
+                                            <span
+                                              className={`font-black text-neutral-950 font-mono tracking-tight leading-none truncate max-w-[85px] ${
+                                                seatRegVal.length > 10 ? "text-[11px]" : seatRegVal.length > 7 ? "text-[12.5px]" : "text-[14px]"
+                                              }`}
+                                              title={seatRegVal ? `Reg No: ${seatRegVal}` : `Roll ${seat.studentRoll}`}
+                                            >
+                                              {seatRegVal ? `REG ${seatRegVal}` : `R-${String(seat.studentRoll).padStart(2, "0")}`}
+                                            </span>
+                                          ) : (
+                                            <span className="text-[16px] font-black text-neutral-950 font-mono tracking-tight leading-none">
+                                              R-{String(seat.studentRoll).padStart(2, "0")}
+                                            </span>
+                                          )}
                                           <span className="text-[11.5px] font-black bg-neutral-100 border border-neutral-400 px-1 py-0.2 rounded-[1px] text-neutral-950 leading-none">
                                             S{seat.seatPosition}
                                           </span>
                                         </div>
 
-                                        {/* Student Name (75% Larger) */}
+                                        {/* Student Name */}
                                         <div className="py-0.5 truncate leading-tight">
                                           <span className="text-[13px] font-black uppercase text-neutral-950 truncate block tracking-tight leading-tight">
                                             {seat.studentName}
                                           </span>
                                         </div>
 
-                                        {/* Class & Section (75% Larger) */}
+                                        {/* Class & Section / Stream */}
                                         <div className="leading-none pt-0.5 border-t border-neutral-100 flex items-center justify-between text-[11px] font-bold text-neutral-700">
                                           <span className="truncate">
-                                            Cl: <strong className="font-black text-neutral-950 text-[12px]">{seat.studentClass}-{seat.studentSection}</strong>
+                                            Cl:{" "}
+                                            <strong className="font-black text-neutral-950 text-[12px]">
+                                              {isSeatHs ? `${seat.studentClass} - ${seatStreamText}` : `${seat.studentClass}-${seat.studentSection}`}
+                                            </strong>
                                           </span>
                                         </div>
                                       </div>

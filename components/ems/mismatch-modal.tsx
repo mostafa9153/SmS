@@ -98,7 +98,7 @@ export function MismatchModal({
               className="text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 cursor-pointer shadow-xs"
             >
               <CheckCircle className="h-4 w-4" />
-              Skip Missing & Generate Seating Plan
+              Proceed to Seat Arrangement
             </Button>
           )}
         </DialogFooter>

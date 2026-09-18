@@ -26,6 +26,7 @@ import {
   normalizeClassCode,
   normalizeSectionCode,
 } from "@/lib/ems/seat-arrangement-algorithm";
+import { detectAllMissingRolls } from "@/lib/ems/allocation-engine";
 import { PatternSelector } from "./pattern-selector";
 import { ColumnClassAssigner, AvailableClassOption } from "./column-class-assigner";
 import { MidFillClassPrompt } from "./mid-fill-class-prompt";
@@ -780,8 +781,53 @@ export function SeatArrangementEditor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undoStack, redoStack]);
 
+  const missingRollsReport = useMemo(() => {
+    return detectAllMissingRolls(classes, allStudents);
+  }, [classes, allStudents]);
+
+  const totalMissingRollsCount = useMemo(() => {
+    return missingRollsReport.reduce((acc, m) => acc + m.missingRolls.length, 0);
+  }, [missingRollsReport]);
+
   return (
     <div className="space-y-4">
+      {/* Missing Roll Notice Banner (if any database rolls are missing in range) */}
+      {missingRollsReport.length > 0 && (
+        <div className="p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0 mt-0.5">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">
+                  Missing Roll Numbers Detected
+                </h4>
+                <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-mono">
+                  {totalMissingRollsCount} Missing in DB
+                </Badge>
+              </div>
+              <p className="text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                Active students have been seated continuously without leaving empty gaps for skipped rolls.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {missingRollsReport.map((m, idx) => (
+                  <div
+                    key={idx}
+                    className="text-[11px] font-mono bg-background/90 border border-amber-500/30 rounded-lg px-2.5 py-1 text-foreground flex items-center gap-1.5 shadow-2xs"
+                  >
+                    <span className="font-bold text-primary">Class {m.class}-{m.section}:</span>
+                    <span className="text-muted-foreground">Missing:</span>
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{m.missingFormatted}</span>
+                    <span className="text-[10px] text-muted-foreground/80">({m.foundCount}/{m.expectedCount} active)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ──────────────────────────────────────────────────────────── */}
       {/* ROOM CONFIGURATION PANEL: Algorithm & Column Assignments     */}
       {/* ──────────────────────────────────────────────────────────── */}

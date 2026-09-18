@@ -21,13 +21,88 @@ export function normalizeClassCode(c?: string): string {
   return romanMap[clean] || clean;
 }
 
+// Check if a class is Higher Secondary (Class 11 or 12)
+export function isHigherSecondaryClass(c?: string): boolean {
+  if (!c) return false;
+  const norm = normalizeClassCode(c);
+  return norm === "XI" || norm === "XII" || norm === "11" || norm === "12";
+}
+
+// Standardize short stream representation (Sci, Arts, Com)
+export function toShortStream(stream?: string): string {
+  if (!stream) return "";
+  const s = stream.trim().toLowerCase();
+  if (s.includes("sci")) return "Sci";
+  if (s.includes("art") || s.includes("hum")) return "Arts";
+  if (s.includes("com")) return "Com";
+  return stream.trim();
+}
+
 // Normalize section code for robust matching
 export function normalizeSectionCode(sec?: string): string {
   if (!sec) return "";
   return sec.trim().toUpperCase().replace(/^SEC(TION)?\s*[-_]?\s*/i, "");
 }
 
-// Group students by class code, strictly ensuring Section A finishes before Section B starts
+// Information on HS students missing a board registration number
+export interface MissingHsStudentInfo {
+  id: string;
+  name: string;
+  presentClass: string;
+  presentRoll: number;
+  academicStream?: string;
+  gender: string;
+}
+
+// Pre-flight check to detect HS students missing Board Registration Numbers
+export function checkMissingHsRegistrationNos(
+  allStudents: Student[],
+  configuredClasses: AutoAllocationClassInput[]
+): MissingHsStudentInfo[] {
+  const missing: MissingHsStudentInfo[] = [];
+  const seenIds = new Set<string>();
+
+  configuredClasses.forEach((cfg) => {
+    if (!isHigherSecondaryClass(cfg.class)) return;
+    const normClass = normalizeClassCode(cfg.class);
+
+    const matching = allStudents.filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      if (normalizeClassCode(s.presentClass) !== normClass) return false;
+      if (cfg.stream && cfg.stream !== "ALL" && toShortStream(s.academicStream) !== toShortStream(cfg.stream)) {
+        return false;
+      }
+      if (cfg.gender && cfg.gender !== "ALL") {
+        const isBoy = cfg.gender.toLowerCase().startsWith("boy") || cfg.gender.toLowerCase() === "male";
+        if (isBoy && s.gender !== "Male") return false;
+        if (!isBoy && s.gender !== "Female") return false;
+      }
+      return true;
+    });
+
+    matching.forEach((s) => {
+      if (!s.boardRegistrationNo || s.boardRegistrationNo.trim() === "") {
+        if (!seenIds.has(s.id)) {
+          seenIds.add(s.id);
+          missing.push({
+            id: s.id,
+            name: s.name,
+            presentClass: s.presentClass,
+            presentRoll: s.presentRoll,
+            academicStream: s.academicStream,
+            gender: s.gender,
+          });
+        }
+      }
+    });
+  });
+
+  return missing;
+}
+
+// Group students by class code.
+// For Classes V-X: strictly section-by-section and roll-by-roll.
+// For Classes XI-XII: stream-by-stream and gender filtered, sorted by Board Registration Number (natural alphanumeric sort).
 export function buildClassStudentPool(
   allStudents: Student[],
   allowedClasses?: string[],
@@ -39,8 +114,7 @@ export function buildClassStudentPool(
     ? new Set(allowedClasses.map((c) => normalizeClassCode(c)))
     : null;
 
-  // 1. If configuredClasses is provided (from Step 2 setup), sequence sections explicitly:
-  // Section A rolls (1..N) first, THEN Section B rolls (1..N), etc.
+  // 1. If configuredClasses is provided (from Step 2 setup)
   if (configuredClasses && configuredClasses.length > 0) {
     const configsByClass = new Map<string, AutoAllocationClassInput[]>();
     configuredClasses.forEach((cfg) => {
@@ -53,33 +127,76 @@ export function buildClassStudentPool(
     });
 
     configsByClass.forEach((cfgs, normClass) => {
-      // Sort sections so Section A is first, Section B is second, etc.
-      cfgs.sort((a, b) => {
-        const secA = normalizeSectionCode(a.section);
-        const secB = normalizeSectionCode(b.section);
-        return secA.localeCompare(secB, undefined, { numeric: true });
-      });
-
+      const isHs = isHigherSecondaryClass(normClass);
       const classStudents: Student[] = [];
 
-      cfgs.forEach((cfg) => {
-        const normCfgSec = normalizeSectionCode(cfg.section);
-        const matching = allStudents.filter((s) => {
-          if (s.currentStatus && s.currentStatus !== "Continuing") return false;
-          if (normalizeClassCode(s.presentClass) !== normClass) return false;
-          if (normCfgSec && normalizeSectionCode(s.presentSection) !== normCfgSec) return false;
-          const roll = Number(s.presentRoll) || 0;
-          if (cfg.rollFrom && roll < cfg.rollFrom) return false;
-          if (cfg.rollTo && roll > cfg.rollTo) return false;
-          return true;
+      if (isHs) {
+        // Higher Secondary (Class XI & XII):
+        cfgs.forEach((cfg) => {
+          const cfgStreamShort = cfg.stream && cfg.stream !== "ALL" ? toShortStream(cfg.stream) : null;
+          const isBoyFilter = cfg.gender && cfg.gender !== "ALL" ? (cfg.gender.toLowerCase().startsWith("boy") || cfg.gender.toLowerCase() === "male") : null;
+
+          const matching = allStudents.filter((s) => {
+            if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+            if (normalizeClassCode(s.presentClass) !== normClass) return false;
+            if (cfgStreamShort && toShortStream(s.academicStream) !== cfgStreamShort) return false;
+            if (isBoyFilter !== null) {
+              if (isBoyFilter && s.gender !== "Male") return false;
+              if (!isBoyFilter && s.gender !== "Female") return false;
+            }
+            return true;
+          });
+
+          // Natural alphanumeric sort by boardRegistrationNo (or fallback to schoolId / roll)
+          matching.sort((a, b) => {
+            const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
+            const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
+            return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+          });
+
+          // Filter by regNoFrom / regNoTo if provided
+          let filtered = matching;
+          if (cfg.regNoFrom && cfg.regNoFrom.trim()) {
+            const fromVal = cfg.regNoFrom.trim();
+            const fromIdx = filtered.findIndex((s) => (s.boardRegistrationNo || "").trim().localeCompare(fromVal, undefined, { numeric: true }) >= 0);
+            if (fromIdx !== -1) {
+              filtered = filtered.slice(fromIdx);
+            }
+          }
+          if (cfg.regNoTo && cfg.regNoTo.trim()) {
+            const toVal = cfg.regNoTo.trim();
+            const toIdx = filtered.findLastIndex((s) => (s.boardRegistrationNo || "").trim().localeCompare(toVal, undefined, { numeric: true }) <= 0);
+            if (toIdx !== -1) {
+              filtered = filtered.slice(0, toIdx + 1);
+            }
+          }
+
+          classStudents.push(...filtered);
+        });
+      } else {
+        // Classes V to X (Junior classes - 100% untouched behavior):
+        cfgs.sort((a, b) => {
+          const secA = normalizeSectionCode(a.section);
+          const secB = normalizeSectionCode(b.section);
+          return secA.localeCompare(secB, undefined, { numeric: true });
         });
 
-        // Strictly sort by roll ascending within this section
-        matching.sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
+        cfgs.forEach((cfg) => {
+          const normCfgSec = normalizeSectionCode(cfg.section);
+          const matching = allStudents.filter((s) => {
+            if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+            if (normalizeClassCode(s.presentClass) !== normClass) return false;
+            if (normCfgSec && normalizeSectionCode(s.presentSection) !== normCfgSec) return false;
+            const roll = Number(s.presentRoll) || 0;
+            if (cfg.rollFrom && roll < cfg.rollFrom) return false;
+            if (cfg.rollTo && roll > cfg.rollTo) return false;
+            return true;
+          });
 
-        // Append: Section A students will come first, then Section B students!
-        classStudents.push(...matching);
-      });
+          matching.sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
+          classStudents.push(...matching);
+        });
+      }
 
       map.set(normClass, classStudents);
     });
@@ -99,16 +216,26 @@ export function buildClassStudentPool(
     map.get(norm)!.push(student);
   });
 
-  // Sort each class list: Section A first (rolls ascending), then Section B (rolls ascending)...
-  map.forEach((list) => {
-    list.sort((a, b) => {
-      const secA = normalizeSectionCode(a.presentSection);
-      const secB = normalizeSectionCode(b.presentSection);
-      if (secA !== secB) {
-        return secA.localeCompare(secB, undefined, { numeric: true });
-      }
-      return (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0);
-    });
+  // Sort each class list:
+  map.forEach((list, normClass) => {
+    if (isHigherSecondaryClass(normClass)) {
+      // HS Classes: natural sort by Board Reg No
+      list.sort((a, b) => {
+        const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
+        const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
+        return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+      });
+    } else {
+      // Junior Classes: Section A first (rolls ascending), then Section B...
+      list.sort((a, b) => {
+        const secA = normalizeSectionCode(a.presentSection);
+        const secB = normalizeSectionCode(b.presentSection);
+        if (secA !== secB) {
+          return secA.localeCompare(secB, undefined, { numeric: true });
+        }
+        return (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0);
+      });
+    }
   });
 
   return map;
@@ -423,6 +550,9 @@ export function arrangeRoomInterleaved(
           studentRoll: student?.presentRoll,
           studentClass: student?.presentClass,
           studentSection: student?.presentSection,
+          studentRegNo: student?.boardRegistrationNo,
+          studentStream: student?.academicStream ? toShortStream(student.academicStream) : undefined,
+          studentGender: student?.gender,
           schoolId: student?.schoolId,
           fatherName: student?.fatherName,
           contact: student?.studentContact,
@@ -686,6 +816,9 @@ export function arrangeRoomFixedU(
           studentRoll: student?.presentRoll,
           studentClass: student?.presentClass,
           studentSection: student?.presentSection,
+          studentRegNo: student?.boardRegistrationNo,
+          studentStream: student?.academicStream ? toShortStream(student.academicStream) : undefined,
+          studentGender: student?.gender,
           schoolId: student?.schoolId,
           fatherName: student?.fatherName,
           contact: student?.studentContact,
@@ -919,6 +1052,9 @@ export function arrangeRoomUu(
           studentRoll: student?.presentRoll,
           studentClass: student?.presentClass,
           studentSection: student?.presentSection,
+          studentRegNo: student?.boardRegistrationNo,
+          studentStream: student?.academicStream ? toShortStream(student.academicStream) : undefined,
+          studentGender: student?.gender,
           schoolId: student?.schoolId,
           fatherName: student?.fatherName,
           contact: student?.studentContact,

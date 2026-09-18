@@ -493,6 +493,9 @@ export function updateSeatSwap(
     studentRoll: s1.studentRoll,
     studentClass: s1.studentClass,
     studentSection: s1.studentSection,
+    studentRegNo: s1.studentRegNo,
+    studentStream: s1.studentStream,
+    studentGender: s1.studentGender,
     schoolId: s1.schoolId,
     fatherName: s1.fatherName,
     contact: s1.contact,
@@ -504,6 +507,9 @@ export function updateSeatSwap(
   s1.studentRoll = s2.studentRoll;
   s1.studentClass = s2.studentClass;
   s1.studentSection = s2.studentSection;
+  s1.studentRegNo = s2.studentRegNo;
+  s1.studentStream = s2.studentStream;
+  s1.studentGender = s2.studentGender;
   s1.schoolId = s2.schoolId;
   s1.fatherName = s2.fatherName;
   s1.contact = s2.contact;
@@ -514,6 +520,9 @@ export function updateSeatSwap(
   s2.studentRoll = tempStudent.studentRoll;
   s2.studentClass = tempStudent.studentClass;
   s2.studentSection = tempStudent.studentSection;
+  s2.studentRegNo = tempStudent.studentRegNo;
+  s2.studentStream = tempStudent.studentStream;
+  s2.studentGender = tempStudent.studentGender;
   s2.schoolId = tempStudent.schoolId;
   s2.fatherName = tempStudent.fatherName;
   s2.contact = tempStudent.contact;

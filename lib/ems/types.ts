@@ -50,6 +50,9 @@ export interface SeatAssignment {
   studentRoll?: number;
   studentClass?: string;
   studentSection?: string;
+  studentRegNo?: string;
+  studentStream?: string;
+  studentGender?: string;
   schoolId?: string;
   fatherName?: string;
   contact?: string;
@@ -117,10 +120,15 @@ export interface MismatchReport {
 
 // Auto Allocation Request configuration
 export interface AutoAllocationClassInput {
-  class: string; // e.g. "IX"
-  section: string; // e.g. "A"
+  class: string; // e.g. "IX", "XI"
+  section: string; // e.g. "A" or "ALL"
   rollFrom: number; // e.g. 1
   rollTo: number; // e.g. 50
+  stream?: string; // e.g. "Science", "Arts", "Commerce", "ALL" (For HS Class 11 & 12)
+  gender?: string; // e.g. "Male", "Female", "ALL" (Boys / Girls filter)
+  regNoFrom?: string; // e.g. "WB10001" (For HS Class 11 & 12)
+  regNoTo?: string; // e.g. "WB10050" (For HS Class 11 & 12)
+  isHsClass?: boolean;
 }
 
 export interface AutoAllocationConfig {

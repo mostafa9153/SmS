@@ -3,6 +3,7 @@
 import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
+import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 export interface EmsBenchSlipsPrintableProps {
   rooms: AllocatedRoom[];
@@ -17,6 +18,8 @@ interface StudentBenchSlipItem {
   studentRoll: number;
   studentClass: string;
   studentSection: string;
+  studentRegNo?: string;
+  studentStream?: string;
   roomNumber: string;
   columnIndex: number;
   benchIndex: number;
@@ -55,6 +58,8 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
         studentRoll: s.studentRoll || 1,
         studentClass: s.studentClass || "VIII",
         studentSection: s.studentSection || "A",
+        studentRegNo: s.studentRegNo,
+        studentStream: s.studentStream,
         roomNumber: r.roomNumber,
         columnIndex: s.columnIndex,
         benchIndex: s.benchIndex,
@@ -96,6 +101,9 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
               {pageSlips.map((item, idx) => {
                 const cleanRoom = item.roomNumber.replace(/^Room\s*/i, "").trim();
                 const displayRoom = cleanRoom ? `Room ${cleanRoom}` : "Room";
+                const isHs = isHigherSecondaryClass(item.studentClass);
+                const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
+                const regVal = (item.studentRegNo || "").trim();
 
                 return (
                   <div
@@ -118,20 +126,34 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                       />
                     </div>
 
-                    {/* Line 1: Big Roll (Left) & Student Name (Right) */}
+                    {/* Line 1: Big Roll or Reg No (Left) & Student Name (Right) */}
                     <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
-                      <div className="text-[17px] font-black text-neutral-950 tracking-tight leading-none">
-                        ROLL {String(item.studentRoll).padStart(2, "0")}
-                      </div>
+                      {isHs ? (
+                        <div
+                          className={`font-black text-neutral-950 tracking-tight leading-none truncate max-w-[125px] ${
+                            regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13.5px]" : "text-[15px]"
+                          }`}
+                          title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
+                        >
+                          {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
+                        </div>
+                      ) : (
+                        <div className="text-[17px] font-black text-neutral-950 tracking-tight leading-none">
+                          ROLL {String(item.studentRoll).padStart(2, "0")}
+                        </div>
+                      )}
                       <div className="text-[11.5px] font-black uppercase text-neutral-950 truncate text-right leading-none max-w-[110px]">
                         {item.studentName}
                       </div>
                     </div>
 
-                    {/* Line 2: Class & Section (Left) & Room, Col, Bench, Seat (Right) */}
+                    {/* Line 2: Class & Section/Stream (Left) & Room, Col, Bench, Seat (Right) */}
                     <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
                       <div className="text-[10.5px] font-bold text-neutral-700 leading-none">
-                        Class: <span className="font-black text-neutral-950 text-[11.5px]">{item.studentClass} - {item.studentSection}</span>
+                        Class:{" "}
+                        <span className="font-black text-neutral-950 text-[11.5px]">
+                          {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                        </span>
                       </div>
                       <div className="flex items-center justify-end space-x-1 text-[8.5px] font-bold text-neutral-800 leading-none">
                         <span className="text-[10px] font-black text-neutral-950 bg-neutral-100 px-1 py-0.2 rounded border border-neutral-300 leading-none">{displayRoom}</span>

@@ -4,6 +4,7 @@ import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { formatRoomName } from "@/lib/ems/ems-config-loader";
+import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 export interface EmsAdmitCardPrintableProps {
   rooms: AllocatedRoom[];
@@ -20,6 +21,8 @@ interface StudentAdmitItem {
   studentRoll: number;
   studentClass: string;
   studentSection: string;
+  studentRegNo?: string;
+  studentStream?: string;
   schoolId?: string;
   roomNumber: string;
   floor?: string;
@@ -73,6 +76,8 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
           studentRoll: s.studentRoll || 1,
           studentClass: s.studentClass || "VIII",
           studentSection: s.studentSection || "A",
+          studentRegNo: s.studentRegNo,
+          studentStream: s.studentStream,
           schoolId: s.schoolId,
           roomNumber: r.roomNumber,
           floor: r.floor || "Ground Floor",
@@ -85,10 +90,15 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
       });
   });
 
-  // Sort students by Room, Class, and Roll
+  // Sort students by Room, Class, and RegNo/Roll
   students.sort((a, b) => {
     if (a.roomNumber !== b.roomNumber) return a.roomNumber.localeCompare(b.roomNumber);
     if (a.studentClass !== b.studentClass) return a.studentClass.localeCompare(b.studentClass);
+    if (isHigherSecondaryClass(a.studentClass)) {
+      const regA = (a.studentRegNo || "").trim() || `${a.studentRoll}`;
+      const regB = (b.studentRegNo || "").trim() || `${b.studentRoll}`;
+      return regA.localeCompare(regB, undefined, { numeric: true });
+    }
     if (a.studentSection !== b.studentSection) return a.studentSection.localeCompare(b.studentSection);
     return a.studentRoll - b.studentRoll;
   });
@@ -166,21 +176,40 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center space-x-1 text-[12.5px] text-neutral-800 font-bold leading-tight">
-                        <span>
-                          Class: <strong className="font-black text-neutral-950 text-[14.5px]">{item.studentClass} - {item.studentSection}</strong>
-                        </span>
-                      </div>
+                      {(() => {
+                        const isHs = isHigherSecondaryClass(item.studentClass);
+                        const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
+                        const regVal = (item.studentRegNo || "").trim();
 
-                      <div className="pt-0.5">
-                        <span className="text-[13px] font-black text-neutral-950 px-2 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-wide leading-none inline-block">
-                          ROLL: {String(item.studentRoll).padStart(2, "0")}
-                        </span>
-                      </div>
+                        return (
+                          <>
+                            <div className="flex items-center space-x-1 text-[12.5px] text-neutral-800 font-bold leading-tight">
+                              <span>
+                                Class:{" "}
+                                <strong className="font-black text-neutral-950 text-[14.5px]">
+                                  {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                                </strong>
+                              </span>
+                            </div>
+
+                            <div className="pt-0.5">
+                              {isHs && regVal ? (
+                                <span className="text-[11px] font-black text-neutral-950 px-1.5 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-tight leading-none inline-block truncate max-w-full">
+                                  REG: {regVal}
+                                </span>
+                              ) : (
+                                <span className="text-[13px] font-black text-neutral-950 px-2 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-wide leading-none inline-block">
+                                  ROLL: {String(item.studentRoll).padStart(2, "0")}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
-                    {/* Right Col: Location, Bench & Seat (5 cols) */}
-                    <div className="col-span-5 flex flex-col justify-between text-right pl-1 border-l border-neutral-200/80">
+                    {/* Right Col: Location, Bench Column & Bench Number (5 cols) */}
+                    <div className="col-span-5 flex flex-col justify-center text-right pl-1 border-l border-neutral-200/80 space-y-0.5">
                       <div>
                         <span className="text-[16.5px] font-black text-neutral-950 block leading-tight tracking-tight">
                           {formatRoomName(item.roomNumber)}
@@ -193,11 +222,12 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                       </div>
 
                       <div className="pt-0.5 mt-0.5 border-t border-neutral-200/80">
-                        <div className="text-[11.5px] font-bold text-neutral-700 leading-tight">
-                          Col <strong className="font-black text-neutral-950 text-[12px]">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950 text-[12px]">{item.benchIndex}</strong>
-                        </div>
-                        <div className="text-[13.5px] font-black text-indigo-950 leading-tight mt-0.5">
-                          Seat: <span className="text-[16.5px] font-black text-neutral-950">S{item.seatPosition}</span>
+                        <div className="text-[12.5px] font-black text-neutral-950 leading-tight">
+                          <span>Col </span>
+                          <strong className="font-black text-neutral-950 text-[14.5px]">{item.columnIndex}</strong>
+                          <span className="text-neutral-400 mx-1">•</span>
+                          <span>Bench </span>
+                          <strong className="font-black text-neutral-950 text-[14.5px]">{item.benchIndex}</strong>
                         </div>
                       </div>
                     </div>

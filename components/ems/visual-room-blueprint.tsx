@@ -94,8 +94,9 @@ export function VisualRoomBlueprint({
     const q = searchQuery.trim().toLowerCase();
     const nameMatch = seat.studentName?.toLowerCase().includes(q);
     const rollMatch = seat.studentRoll !== undefined && String(seat.studentRoll).includes(q);
+    const regMatch = Boolean(seat.studentRegNo && seat.studentRegNo.toLowerCase().includes(q));
 
-    return Boolean(nameMatch || rollMatch);
+    return Boolean(nameMatch || rollMatch || regMatch);
   };
 
   return (

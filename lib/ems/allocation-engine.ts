@@ -16,6 +16,8 @@ import {
   normalizeSectionCode,
   buildClassStudentPool,
   arrangeRoomUnified,
+  toShortStream,
+  isHigherSecondaryClass,
 } from "./seat-arrangement-algorithm";
 import { ColumnClassAllocationConfig } from "./seat-arrangement-types";
 
@@ -33,20 +35,220 @@ export async function fetchContinuingStudents(): Promise<Student[]> {
   }
 }
 
-// Check for missing rolls and return found students + mismatch items
+// Helper to neatly format roll numbers (e.g. [1, 2, 3, 5, 8, 9, 10] -> "1–3, 5, 8–10" or "5, 8, 14")
+export function formatMissingRolls(rolls: number[]): string {
+  if (!rolls || rolls.length === 0) return "";
+  if (rolls.length <= 10) return rolls.join(", ");
+
+  const ranges: string[] = [];
+  let start = rolls[0];
+  let prev = rolls[0];
+
+  for (let i = 1; i < rolls.length; i++) {
+    const cur = rolls[i];
+    if (cur === prev + 1) {
+      prev = cur;
+    } else {
+      ranges.push(start === prev ? `${start}` : `${start}–${prev}`);
+      start = cur;
+      prev = cur;
+    }
+  }
+  ranges.push(start === prev ? `${start}` : `${start}–${prev}`);
+  return ranges.join(", ");
+}
+
+export interface MissingRollsInfo {
+  class: string;
+  section: string;
+  rollFrom: number;
+  rollTo: number;
+  expectedCount: number;
+  foundCount: number;
+  missingRolls: number[];
+  missingFormatted: string;
+}
+
+// Global missing rolls detector for any configured classes (skips HS classes)
+export function detectAllMissingRolls(
+  configuredClasses: { class: string; section: string; rollFrom: number; rollTo: number; isHsClass?: boolean }[],
+  allStudents: Student[]
+): MissingRollsInfo[] {
+  const results: MissingRollsInfo[] = [];
+
+  configuredClasses.forEach((cfg) => {
+    if (cfg.isHsClass || isHigherSecondaryClass(cfg.class)) return;
+
+    const normClass = normalizeClassCode(cfg.class);
+    const normSec = normalizeSectionCode(cfg.section);
+
+    const activeSecStudents = allStudents.filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      const sClass = normalizeClassCode(s.presentClass);
+      const sSec = normalizeSectionCode(s.presentSection);
+      return sClass === normClass && (!normSec || normSec === "ALL" || sSec === normSec);
+    });
+
+    const presentRollSet = new Set(
+      activeSecStudents
+        .map((s) => Number(s.presentRoll))
+        .filter((r) => !isNaN(r) && r > 0)
+    );
+
+    const missingRolls: number[] = [];
+    for (let r = cfg.rollFrom; r <= cfg.rollTo; r++) {
+      if (!presentRollSet.has(r)) {
+        missingRolls.push(r);
+      }
+    }
+
+    if (missingRolls.length > 0) {
+      const expectedCount = Math.max(0, cfg.rollTo - cfg.rollFrom + 1);
+      const foundCount = Math.max(0, expectedCount - missingRolls.length);
+      results.push({
+        class: cfg.class,
+        section: cfg.section,
+        rollFrom: cfg.rollFrom,
+        rollTo: cfg.rollTo,
+        expectedCount,
+        foundCount,
+        missingRolls,
+        missingFormatted: formatMissingRolls(missingRolls),
+      });
+    }
+  });
+
+  return results;
+}
+
+// Check for missing rolls / reg numbers and return found students + mismatch items
 export function filterAndValidateClassStudents(
   allStudents: Student[],
   className: string,
   section: string,
   rollFrom: number,
-  rollTo: number
+  rollTo: number,
+  stream?: string,
+  gender?: string,
+  regNoFrom?: string,
+  regNoTo?: string,
+  isHsClass?: boolean
 ): {
   students: Student[];
   mismatches: MismatchItem[];
 } {
   const mismatches: MismatchItem[] = [];
-
+  const isHs = isHsClass ?? isHigherSecondaryClass(className);
   const normClass = normalizeClassCode(className);
+
+  // -------------------------------------------------------------
+  // Higher Secondary (Class 11 & 12) Validation & Filtering
+  // -------------------------------------------------------------
+  if (isHs) {
+    const streamShort = stream && stream !== "ALL" ? toShortStream(stream) : null;
+    const isBoyFilter =
+      gender && gender !== "ALL"
+        ? gender.toLowerCase().startsWith("boy") || gender.toLowerCase() === "male"
+        : null;
+
+    // Inactive HS students check
+    const inactiveStudents = allStudents.filter((s) => {
+      if (!s.currentStatus || s.currentStatus === "Continuing") return false;
+      if (normalizeClassCode(s.presentClass) !== normClass) return false;
+      if (streamShort && toShortStream(s.academicStream) !== streamShort) return false;
+      if (isBoyFilter !== null) {
+        if (isBoyFilter && s.gender !== "Male") return false;
+        if (!isBoyFilter && s.gender !== "Female") return false;
+      }
+      return true;
+    });
+
+    if (inactiveStudents.length > 0) {
+      mismatches.push({
+        type: "ROLL_INACTIVE",
+        severity: "warning",
+        title: `Inactive / Discontinued Students in Class ${className} (${stream || "ALL"})`,
+        message: `${inactiveStudents.length} student(s) in Class ${className} are marked as Inactive/Transferred in Database and excluded from seating.`,
+        details: inactiveStudents.slice(0, 5).map((s) => `${s.name} (Reg: ${s.boardRegistrationNo || s.presentRoll || "N/A"}, Status: ${s.currentStatus})`),
+        class: className,
+        suggestedAction: "If any of these students should be seated, update their status to 'Continuing' in Student Directory.",
+      });
+    }
+
+    // Active continuing HS students
+    const matching = allStudents.filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      if (normalizeClassCode(s.presentClass) !== normClass) return false;
+      if (streamShort && toShortStream(s.academicStream) !== streamShort) return false;
+      if (isBoyFilter !== null) {
+        if (isBoyFilter && s.gender !== "Male") return false;
+        if (!isBoyFilter && s.gender !== "Female") return false;
+      }
+      return true;
+    });
+
+    if (matching.length === 0) {
+      mismatches.push({
+        type: "CLASS_EMPTY",
+        severity: "error",
+        title: `No Active Students Found for Class ${className} (${stream || "ALL"})`,
+        message: `No active continuing students found in Database for Class ${className} ${stream && stream !== "ALL" ? `Stream ${stream}` : ""}.`,
+        class: className,
+        suggestedAction: "Please verify class, stream, and student records in directory.",
+      });
+      return { students: [], mismatches };
+    }
+
+    // Check for missing Board Registration Numbers
+    const missingRegStudents = matching.filter(
+      (s) => !s.boardRegistrationNo || s.boardRegistrationNo.trim() === ""
+    );
+    if (missingRegStudents.length > 0) {
+      mismatches.push({
+        type: "ROLL_NOT_FOUND",
+        severity: "warning",
+        title: `Missing Board Registration Numbers in Class ${className} (${missingRegStudents.length} Student${missingRegStudents.length > 1 ? "s" : ""})`,
+        message: `${missingRegStudents.length} student(s) in Class ${className} lack a Board Registration Number in Database.`,
+        details: missingRegStudents.slice(0, 5).map((s) => `${s.name} (Roll: ${s.presentRoll || "N/A"})`),
+        class: className,
+        suggestedAction: "Update Board Registration Numbers in Student Directory for proper board seating order.",
+      });
+    }
+
+    // Sort by board registration number (natural alphanumeric sort)
+    matching.sort((a, b) => {
+      const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
+      const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
+      return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+    });
+
+    // Filter by regNoFrom / regNoTo if provided
+    let filtered = matching;
+    if (regNoFrom && regNoFrom.trim()) {
+      const fromVal = regNoFrom.trim();
+      const fromIdx = filtered.findIndex(
+        (s) => (s.boardRegistrationNo || "").trim().localeCompare(fromVal, undefined, { numeric: true }) >= 0
+      );
+      if (fromIdx !== -1) {
+        filtered = filtered.slice(fromIdx);
+      }
+    }
+    if (regNoTo && regNoTo.trim()) {
+      const toVal = regNoTo.trim();
+      const toIdx = filtered.findLastIndex(
+        (s) => (s.boardRegistrationNo || "").trim().localeCompare(toVal, undefined, { numeric: true }) <= 0
+      );
+      if (toIdx !== -1) {
+        filtered = filtered.slice(0, toIdx + 1);
+      }
+    }
+
+    return { students: filtered, mismatches };
+  }
+
+  // -------------------------------------------------------------
+  // Classes V to X (Junior classes - 100% backward compatible)
+  // -------------------------------------------------------------
   const normSec = normalizeSectionCode(section);
 
   // Check for inactive / left / transferred students in DB matching this class
@@ -54,7 +256,7 @@ export function filterAndValidateClassStudents(
     if (!s.currentStatus || s.currentStatus === "Continuing") return false;
     const sClass = normalizeClassCode(s.presentClass);
     const sSec = normalizeSectionCode(s.presentSection);
-    return sClass === normClass && (!normSec || sSec === normSec);
+    return sClass === normClass && (!normSec || normSec === "ALL" || sSec === normSec);
   });
 
   if (inactiveStudents.length > 0) {
@@ -76,7 +278,7 @@ export function filterAndValidateClassStudents(
       if (s.currentStatus && s.currentStatus !== "Continuing") return false;
       const sClass = normalizeClassCode(s.presentClass);
       const sSec = normalizeSectionCode(s.presentSection);
-      return sClass === normClass && (!normSec || sSec === normSec);
+      return sClass === normClass && (!normSec || normSec === "ALL" || sSec === normSec);
     })
     .sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
 
@@ -130,17 +332,18 @@ export function filterAndValidateClassStudents(
         missingRolls.push(r);
       }
     }
-    if (missingRolls.length > 0 && missingRolls.length <= 50) {
+    if (missingRolls.length > 0) {
+      const formatted = formatMissingRolls(missingRolls);
       mismatches.push({
         type: "ROLL_NOT_FOUND",
         severity: "warning",
-        title: `Missing Rolls in Class ${className}-${section} (Roll ${rollFrom} to ${rollTo})`,
-        message: `${missingRolls.length} roll number(s) in range [${rollFrom} - ${rollTo}] could not be found among active continuing students.`,
-        details: [`Missing Roll Nos: ${missingRolls.join(", ")}`],
+        title: `Missing Rolls in Class ${className}-${section} (${missingRolls.length} Roll${missingRolls.length > 1 ? "s" : ""} Missing)`,
+        message: `${missingRolls.length} roll number(s) in range [${rollFrom} - ${rollTo}] could not be found in Database: ${formatted}.`,
+        details: [`Missing Roll Nos (${missingRolls.length}): ${missingRolls.join(", ")}`],
         class: className,
         section: section,
         rollsAffected: missingRolls,
-        suggestedAction: "Verify if these rolls were skipped, unassigned, or belonging to inactive students.",
+        suggestedAction: "These missing rolls will be omitted so active students are seated continuously without empty gaps.",
       });
     }
   } else if (blankRollStudents.length > 0) {
@@ -150,13 +353,20 @@ export function filterAndValidateClassStudents(
     classStudents = allSectionStudents.slice(start, end);
   } else {
     classStudents = [];
+    const missingRolls: number[] = [];
+    for (let r = rollFrom; r <= rollTo; r++) {
+      missingRolls.push(r);
+    }
+    const formatted = formatMissingRolls(missingRolls);
     mismatches.push({
       type: "ROLL_NOT_FOUND",
       severity: "warning",
       title: `No Students Found in Roll Range [${rollFrom} - ${rollTo}] for Class ${className}-${section}`,
-      message: `No active continuing students match roll numbers ${rollFrom} to ${rollTo} in Class ${className}-${section}.`,
+      message: `No active continuing students match roll numbers ${rollFrom} to ${rollTo} in Class ${className}-${section}. Missing rolls: ${formatted}.`,
+      details: [`Missing Roll Nos (${missingRolls.length}): ${missingRolls.join(", ")}`],
       class: className,
       section: section,
+      rollsAffected: missingRolls,
       suggestedAction: "Adjust the roll range in Step 2 to match active enrolled roll numbers.",
     });
   }
@@ -238,6 +448,9 @@ export function generateManualRoomAllocation(
           studentRoll: student?.presentRoll,
           studentClass: student?.presentClass,
           studentSection: student?.presentSection,
+          studentRegNo: student?.boardRegistrationNo,
+          studentStream: student?.academicStream ? toShortStream(student.academicStream) : undefined,
+          studentGender: student?.gender,
           schoolId: student?.schoolId,
           fatherName: student?.fatherName,
           contact: student?.studentContact,
@@ -309,7 +522,12 @@ export function generateAutoAllocation(
       c.class,
       c.section,
       c.rollFrom,
-      c.rollTo
+      c.rollTo,
+      c.stream,
+      c.gender,
+      c.regNoFrom,
+      c.regNoTo,
+      c.isHsClass
     );
     mismatches.forEach((m) => mismatchItems.push(m));
     totalStudentsNeeded += students.length;
@@ -318,7 +536,7 @@ export function generateAutoAllocation(
     if (!classGroupsMap.has(normKey)) {
       classGroupsMap.set(normKey, []);
     }
-    // Append this section's students (already sorted by roll ascending)
+    // Append this section's students (already sorted by roll ascending / regNo)
     classGroupsMap.get(normKey)!.push(...students);
   });
 
@@ -421,6 +639,12 @@ export function generateAutoAllocation(
               studentRoll: student?.presentRoll,
               studentClass: student?.presentClass,
               studentSection: student?.presentSection,
+              studentRegNo: student?.boardRegistrationNo,
+              studentStream: student?.academicStream ? toShortStream(student.academicStream) : undefined,
+              studentGender: student?.gender,
+              schoolId: student?.schoolId,
+              fatherName: student?.fatherName,
+              contact: student?.studentContact,
               isVacant: !student,
             });
           }

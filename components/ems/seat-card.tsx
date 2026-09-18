@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeftRight, MapPin, User } from "lucide-react";
+import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 interface SeatCardProps {
   seat: SeatAssignment;
@@ -184,6 +185,8 @@ export function SeatCard({
 }: SeatCardProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const colorTheme = getClassColorStyle(seat.studentClass);
+  const isHs = isHigherSecondaryClass(seat.studentClass);
+  const streamText = seat.studentStream || (seat.studentSection ? toShortStream(seat.studentSection) : "") || "Sci";
 
   const handleClick = () => {
     if (swapModeActive) {
@@ -211,6 +214,14 @@ export function SeatCard({
     );
   }
 
+  const regVal = (seat.studentRegNo || "").trim();
+  const regFontSize =
+    regVal.length > 10
+      ? "text-[9.5px] sm:text-[10.5px] tracking-tighter"
+      : regVal.length > 7
+      ? "text-[11px] sm:text-xs tracking-tight"
+      : "text-xs sm:text-sm tracking-tight";
+
   return (
     <>
       <div
@@ -229,24 +240,35 @@ export function SeatCard({
             : "hover:-translate-y-0.5"
         }`}
       >
-        {/* 1. Class & Sec */}
+        {/* 1. Class & Sec / Stream */}
         <Badge
           className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs leading-none ${
             colorTheme?.badgeBg || "bg-primary text-white"
           }`}
         >
-          {seat.studentClass} - {seat.studentSection || "A"}
+          {isHs ? `${seat.studentClass} - ${streamText}` : `${seat.studentClass} - ${seat.studentSection || "A"}`}
         </Badge>
 
-        {/* 2. Roll */}
-        <div className="my-0.5">
-          <span
-            className={`text-sm sm:text-base font-black tracking-tight leading-none ${
-              colorTheme?.textRoll || "text-foreground"
-            }`}
-          >
-            Roll {seat.studentRoll !== undefined ? String(seat.studentRoll).padStart(2, "0") : "--"}
-          </span>
+        {/* 2. Roll / Board Reg No */}
+        <div className="my-0.5 w-full px-0.5">
+          {isHs ? (
+            <span
+              className={`block font-black leading-none truncate ${regFontSize} ${
+                colorTheme?.textRoll || "text-foreground"
+              }`}
+              title={regVal ? `Reg No: ${regVal}` : undefined}
+            >
+              {regVal ? `Reg: ${regVal}` : `Roll ${seat.studentRoll !== undefined ? String(seat.studentRoll).padStart(2, "0") : "--"}`}
+            </span>
+          ) : (
+            <span
+              className={`text-sm sm:text-base font-black tracking-tight leading-none ${
+                colorTheme?.textRoll || "text-foreground"
+              }`}
+            >
+              Roll {seat.studentRoll !== undefined ? String(seat.studentRoll).padStart(2, "0") : "--"}
+            </span>
+          )}
         </div>
 
         {/* 3. Student Name */}
@@ -274,11 +296,17 @@ export function SeatCard({
                 <DialogTitle className="text-base font-bold">
                   {seat.studentName || "Student"}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+                <DialogDescription className="text-xs text-muted-foreground flex flex-wrap items-center gap-2 mt-0.5">
                   <Badge className={`text-[10px] font-bold ${colorTheme?.badgeBg || "bg-primary"}`}>
-                    Class {seat.studentClass}-{seat.studentSection || "A"}
+                    {isHs
+                      ? `Class ${seat.studentClass} - ${streamText}`
+                      : `Class ${seat.studentClass}-${seat.studentSection || "A"}`}
                   </Badge>
-                  <span className="font-bold text-foreground">Roll: {seat.studentRoll}</span>
+                  {isHs && seat.studentRegNo ? (
+                    <span className="font-bold text-foreground">Reg No: {seat.studentRegNo}</span>
+                  ) : (
+                    <span className="font-bold text-foreground">Roll: {seat.studentRoll}</span>
+                  )}
                 </DialogDescription>
               </div>
             </div>

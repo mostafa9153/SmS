@@ -3,6 +3,7 @@
 import React from "react";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
+import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 export interface EmsAttendanceSheetPrintableProps {
   rooms: AllocatedRoom[];
@@ -12,6 +13,7 @@ export interface EmsAttendanceSheetPrintableProps {
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   examHeaders?: string[]; // Array of up to 8 strings for Subject
   examDates?: string[]; // Array of up to 8 strings for Exam dates
+  layoutMode?: "multi-exam" | "single-day"; // Defaults to multi-exam (8 cols)
 }
 
 interface StudentRowItem {
@@ -19,6 +21,9 @@ interface StudentRowItem {
   name: string;
   studentClass: string;
   section: string;
+  regNo?: string;
+  stream?: string;
+  isHs: boolean;
 }
 
 export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintableProps> = ({
@@ -29,8 +34,9 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
   targetRoomId = "ALL",
   examHeaders = ["Date 1", "Date 2", "Date 3", "Date 4", "Date 5", "Date 6", "Date 7", "Date 8"],
   examDates = [],
+  layoutMode = "multi-exam",
 }) => {
-  // Ensure exactly 8 headers
+  // Ensure exactly 8 headers for multi-exam mode
   const columns8 = Array.from({ length: 8 }).map((_, i) =>
     examHeaders[i] !== undefined ? examHeaders[i] : `Exam ${i + 1}`
   );
@@ -47,10 +53,15 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
         // Extract occupied seats for this room
         const occupiedSeats = room.seats.filter((s) => !s.isVacant && s.studentName);
 
-        // Group students by Class + Section
+        // Group students by Class + Section / Stream
         const classMap = new Map<string, StudentRowItem[]>();
         occupiedSeats.forEach((s) => {
-          const key = `${s.studentClass || "Class"}-${s.studentSection || "A"}`;
+          const isHs = isHigherSecondaryClass(s.studentClass);
+          const streamText = s.studentStream || (s.studentSection ? toShortStream(s.studentSection) : "") || "Sci";
+          const key = isHs
+            ? `${s.studentClass || "XI"} - ${streamText}`
+            : `${s.studentClass || "Class"}-${s.studentSection || "A"}`;
+
           if (!classMap.has(key)) {
             classMap.set(key, []);
           }
@@ -59,19 +70,30 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
             name: s.studentName || "Student",
             studentClass: s.studentClass || "",
             section: s.studentSection || "",
+            regNo: s.studentRegNo,
+            stream: streamText,
+            isHs,
           });
         });
 
-        // Sort students within each class by roll
+        // Sort students within each class: for HS by natural alphanumeric sort of Reg No, else by Roll
         classMap.forEach((list) => {
-          list.sort((a, b) => a.roll - b.roll);
+          if (list.length > 0 && list[0].isHs) {
+            list.sort((a, b) => {
+              const regA = (a.regNo || "").trim() || `${a.roll}`;
+              const regB = (b.regNo || "").trim() || `${b.roll}`;
+              return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+            });
+          } else {
+            list.sort((a, b) => a.roll - b.roll);
+          }
         });
 
         const classKeys = Array.from(classMap.keys());
 
-        // Prepare rows for the single table
+        // Prepare rows for the table
         type RowData =
-          | { type: "header"; title: string }
+          | { type: "header"; title: string; isHs: boolean }
           | { type: "student"; student: StudentRowItem; index: number }
           | { type: "total_present"; className: string }
           | { type: "invigilator_sign"; className: string }
@@ -79,10 +101,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
 
         const allRows: RowData[] = [];
         classKeys.forEach((key) => {
-          allRows.push({ type: "header", title: `CLASS: ${key}` });
           const students = classMap.get(key) || [];
+          const isHs = students.length > 0 && students[0].isHs;
+          allRows.push({ type: "header", title: `CLASS: ${key}`, isHs });
           students.forEach((s, i) => allRows.push({ type: "student", student: s, index: i }));
-          // Total Present and Invigilator Sign only at the end of each class
+          // Total Present and Invigilator Sign at the end of each class
           allRows.push({ type: "total_present", className: key });
           allRows.push({ type: "invigilator_sign", className: key });
         });
@@ -91,7 +114,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           allRows.push({ type: "empty" });
         }
 
-        // Chunk rows into pages (up to 52 rows per page to fit 50 students on a single A4 page)
+        // Chunk rows into pages (up to 52 rows per page)
         const MAX_ROWS_PER_PAGE = 52;
         const pages: RowData[][] = [];
         for (let i = 0; i < allRows.length; i += MAX_ROWS_PER_PAGE) {
@@ -133,7 +156,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                   />
                 </div>
 
-                {/* Outer Heavy Border matching West Bengal School Registers */}
+                {/* Outer Heavy Border */}
                 <div className="relative z-10 border-[1.8px] border-black h-full flex flex-col justify-between text-neutral-950 p-[1.2mm]">
                   {/* TOP HEADER SECTION */}
                   <div className="border-b-[1.5px] border-black pb-1 mb-1">
@@ -182,166 +205,276 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                     </div>
                   </div>
 
-                  {/* SINGLE WIDE REGISTER TABLE */}
+                  {/* REGISTER TABLE */}
                   <div className="flex flex-col h-full flex-1 min-h-0 mt-0.5">
-                    <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
-                      <thead>
-                        <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
-                          <th
-                            rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[42px] text-center font-black p-1 text-[9px]"
-                          >
-                            Roll
-                          </th>
-                          <th
-                            rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[270px] text-left font-black p-1 pl-2.5 text-[9px] truncate"
-                          >
-                            Student Name
-                          </th>
-                          {/* 8 Exam Columns - Subject Names */}
-                          {columns8.map((headerText, i) => (
-                            <th
-                              key={`th-subject-${i}`}
-                              className="border-r border-black font-black text-center p-0.5 text-[8.5px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                              style={{ width: "calc((100% - 312px) / 8)" }}
-                            >
-                              {headerText}
+                    {layoutMode === "single-day" ? (
+                      /* SINGLE-DAY DETAILED SIGNATURE SHEET */
+                      <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
+                        <thead>
+                          <tr className="bg-neutral-100/90 border-b-[1.5px] border-black">
+                            <th className="border-r-[1.5px] border-black w-[65px] text-center font-black p-1 text-[9px]">
+                              Roll / Reg No
                             </th>
-                          ))}
-                        </tr>
-                        <tr className="bg-white border-b-[1.5px] border-black">
-                          {/* 8 Exam Columns - Date Row */}
-                          {columns8.map((_, i) => {
-                            const dateVal = examDates?.[i]?.trim();
+                            <th className="border-r-[1.5px] border-black w-[220px] text-left font-black p-1 pl-2.5 text-[9px] truncate">
+                              Student Name
+                            </th>
+                            <th className="border-r border-black w-[110px] text-center font-black p-1 text-[8.5px] uppercase">
+                              Main Script No.
+                            </th>
+                            <th className="border-r border-black w-[90px] text-center font-black p-1 text-[8.5px] uppercase">
+                              Extra Sheets
+                            </th>
+                            <th className="border-r border-black text-center font-black p-1 text-[8.5px] uppercase">
+                              Candidate Signature
+                            </th>
+                            <th className="text-center font-black p-1 text-[8.5px] uppercase w-[120px]">
+                              Invigilator Sign
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="flex-1">
+                          {pageRows.map((row, idx) => {
+                            if (row.type === "header") {
+                              return (
+                                <tr
+                                  key={`sd-row-${idx}`}
+                                  className="border-b-[1.2px] border-black bg-neutral-200/80"
+                                  style={{ height: "5.2mm" }}
+                                >
+                                  <td
+                                    colSpan={6}
+                                    className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5"
+                                  >
+                                    {row.title}
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            if (row.type === "total_present") {
+                              return (
+                                <tr
+                                  key={`sd-row-${idx}`}
+                                  className="border-b border-black bg-neutral-100 font-bold"
+                                  style={{ height: "5.2mm" }}
+                                >
+                                  <td
+                                    colSpan={2}
+                                    className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                  >
+                                    TOTAL PRESENT:
+                                  </td>
+                                  <td colSpan={4} className="bg-white text-center p-0" />
+                                </tr>
+                              );
+                            }
+
+                            if (row.type === "invigilator_sign") {
+                              return (
+                                <tr
+                                  key={`sd-row-${idx}`}
+                                  className="border-b-[1.5px] border-black bg-neutral-50 font-bold"
+                                  style={{ height: "5.8mm" }}
+                                >
+                                  <td
+                                    colSpan={2}
+                                    className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8px] text-neutral-900"
+                                  >
+                                    INVIGILATOR SIGN:
+                                  </td>
+                                  <td colSpan={4} className="bg-white text-center p-0" />
+                                </tr>
+                              );
+                            }
+
+                            const isStudent = row.type === "student";
+                            const student = isStudent ? row.student : null;
+                            const regVal = student?.regNo?.trim();
+
                             return (
-                              <th
-                                key={`th-date-${i}`}
-                                className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8px] text-neutral-800 h-[4.5mm]"
+                              <tr
+                                key={`sd-row-${idx}`}
+                                className="border-b border-black/70 hover:bg-neutral-50/50"
+                                style={{ height: "4.7mm" }}
                               >
-                                {dateVal ? (
-                                  <span className="font-mono font-bold tracking-tight text-[8px] text-black">
-                                    {dateVal}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono tracking-widest text-neutral-400 select-none">
-                                    &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;
-                                  </span>
-                                )}
-                              </th>
+                                <td className="border-r-[1.5px] border-black text-center font-black text-[9px] p-0 leading-none truncate px-1">
+                                  {student ? (student.isHs && regVal ? regVal : String(student.roll).padStart(2, "0")) : ""}
+                                </td>
+                                <td className="border-r-[1.5px] border-black px-2 font-black text-[9.5px] uppercase truncate text-neutral-950 leading-none">
+                                  {student ? student.name : ""}
+                                </td>
+                                <td className="border-r border-black/70 text-center p-0" />
+                                <td className="border-r border-black/70 text-center p-0" />
+                                <td className="border-r border-black/70 text-center p-0" />
+                                <td className="text-center p-0" />
+                              </tr>
                             );
                           })}
-                        </tr>
-                      </thead>
-                      <tbody className="flex-1">
-                        {pageRows.map((row, idx) => {
-                          if (row.type === "header") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b-[1.2px] border-black bg-neutral-200/80"
-                                style={{ height: "5.2mm" }}
+                        </tbody>
+                      </table>
+                    ) : (
+                      /* MULTI-DATE / EXAM (8 COLUMNS) */
+                      <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
+                        <thead>
+                          <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
+                            <th
+                              rowSpan={2}
+                              className="border-r-[1.5px] border-black w-[58px] text-center font-black p-1 text-[8.5px]"
+                            >
+                              Roll / Reg
+                            </th>
+                            <th
+                              rowSpan={2}
+                              className="border-r-[1.5px] border-black w-[255px] text-left font-black p-1 pl-2 text-[9px] truncate"
+                            >
+                              Student Name
+                            </th>
+                            {/* 8 Exam Columns - Subject Names */}
+                            {columns8.map((headerText, i) => (
+                              <th
+                                key={`th-subject-${i}`}
+                                className="border-r border-black font-black text-center p-0.5 text-[8.5px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
+                                style={{ width: "calc((100% - 313px) / 8)" }}
                               >
-                                <td
-                                  colSpan={10}
-                                  className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5"
+                                {headerText}
+                              </th>
+                            ))}
+                          </tr>
+                          <tr className="bg-white border-b-[1.5px] border-black">
+                            {/* 8 Exam Columns - Date Row */}
+                            {columns8.map((_, i) => {
+                              const dateVal = examDates?.[i]?.trim();
+                              return (
+                                <th
+                                  key={`th-date-${i}`}
+                                  className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8px] text-neutral-800 h-[4.5mm]"
                                 >
-                                  {row.title}
-                                </td>
-                              </tr>
-                            );
-                          }
+                                  {dateVal ? (
+                                    <span className="font-mono font-bold tracking-tight text-[8px] text-black">
+                                      {dateVal}
+                                    </span>
+                                  ) : (
+                                    <span className="font-mono tracking-widest text-neutral-400 select-none">
+                                      &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;
+                                    </span>
+                                  )}
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody className="flex-1">
+                          {pageRows.map((row, idx) => {
+                            if (row.type === "header") {
+                              return (
+                                <tr
+                                  key={`row-${idx}`}
+                                  className="border-b-[1.2px] border-black bg-neutral-200/80"
+                                  style={{ height: "5.2mm" }}
+                                >
+                                  <td
+                                    colSpan={10}
+                                    className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5"
+                                  >
+                                    {row.title}
+                                  </td>
+                                </tr>
+                              );
+                            }
 
-                          if (row.type === "total_present") {
+                            if (row.type === "total_present") {
+                              return (
+                                <tr
+                                  key={`row-${idx}`}
+                                  className="border-b border-black bg-neutral-100 font-bold"
+                                  style={{ height: "5.2mm" }}
+                                >
+                                  <td
+                                    colSpan={2}
+                                    className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                  >
+                                    TOTAL PRESENT:
+                                  </td>
+                                  {columns8.map((_, colI) => (
+                                    <td
+                                      key={`total-${idx}-${colI}`}
+                                      className="border-r border-black/80 bg-white text-center p-0"
+                                    />
+                                  ))}
+                                </tr>
+                              );
+                            }
+
+                            if (row.type === "invigilator_sign") {
+                              return (
+                                <tr
+                                  key={`row-${idx}`}
+                                  className="border-b-[1.5px] border-black bg-neutral-50 font-bold"
+                                  style={{ height: "5.8mm" }}
+                                >
+                                  <td
+                                    colSpan={2}
+                                    className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8px] text-neutral-900"
+                                  >
+                                    INVIGILATOR SIGN:
+                                  </td>
+                                  {columns8.map((_, colI) => (
+                                    <td
+                                      key={`sign-${idx}-${colI}`}
+                                      className="border-r border-black/80 bg-white text-center p-0"
+                                    />
+                                  ))}
+                                </tr>
+                              );
+                            }
+
+                            const isStudent = row.type === "student";
+                            const student = isStudent ? row.student : null;
+                            const regVal = student?.regNo?.trim();
+
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b border-black bg-neutral-100 font-bold"
-                                style={{ height: "5.2mm" }}
+                                className="border-b border-black/70 hover:bg-neutral-50/50"
+                                style={{ height: "4.7mm" }}
                               >
-                                <td
-                                  colSpan={2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
-                                >
-                                  TOTAL PRESENT:
+                                <td className="border-r-[1.5px] border-black text-center font-black text-[8.5px] p-0 leading-none truncate px-0.5">
+                                  {student ? (student.isHs && regVal ? regVal : String(student.roll).padStart(2, "0")) : ""}
                                 </td>
+                                <td className="border-r-[1.5px] border-black px-2 font-black text-[9.5px] uppercase truncate text-neutral-950 leading-none">
+                                  {student ? student.name : ""}
+                                </td>
+                                {/* 8 Signature/Script Boxes */}
                                 {columns8.map((_, colI) => (
                                   <td
-                                    key={`total-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0"
+                                    key={`cell-${idx}-${colI}`}
+                                    className="border-r border-black/70 text-center p-0"
                                   />
                                 ))}
                               </tr>
                             );
-                          }
+                          })}
 
-                          if (row.type === "invigilator_sign") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b-[1.5px] border-black bg-neutral-50 font-bold"
-                                style={{ height: "5.8mm" }}
-                              >
-                                <td
-                                  colSpan={2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8px] text-neutral-900"
-                                >
-                                  INVIGILATOR SIGN:
-                                </td>
-                                {columns8.map((_, colI) => (
-                                  <td
-                                    key={`sign-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0"
-                                  />
-                                ))}
-                              </tr>
-                            );
-                          }
-
-                          const isStudent = row.type === "student";
-
-                          return (
+                          {/* Fill remaining space if less than 50 rows on the page */}
+                          {Array.from({ length: Math.max(0, 48 - pageRows.length) }).map((_, emptyI) => (
                             <tr
-                              key={`row-${idx}`}
-                              className="border-b border-black/70 hover:bg-neutral-50/50"
+                              key={`filler-${emptyI}`}
+                              className="border-b border-neutral-200"
                               style={{ height: "4.7mm" }}
                             >
-                              <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none">
-                                {isStudent ? String(row.student.roll).padStart(2, "0") : ""}
-                              </td>
-                              <td className="border-r-[1.5px] border-black px-2 font-black text-[9.5px] uppercase truncate text-neutral-950 leading-none">
-                                {isStudent ? row.student.name : ""}
-                              </td>
-                              {/* 8 Signature/Script Boxes */}
+                              <td className="border-r-[1.5px] border-black text-center p-0" />
+                              <td className="border-r-[1.5px] border-black p-0" />
                               {columns8.map((_, colI) => (
                                 <td
-                                  key={`cell-${idx}-${colI}`}
-                                  className="border-r border-black/70 text-center p-0"
+                                  key={`filler-cell-${emptyI}-${colI}`}
+                                  className="border-r border-neutral-300 text-center p-0"
                                 />
                               ))}
                             </tr>
-                          );
-                        })}
-
-                        {/* Fill remaining space if less than 50 rows on the page */}
-                        {Array.from({ length: Math.max(0, 48 - pageRows.length) }).map((_, emptyI) => (
-                          <tr
-                            key={`filler-${emptyI}`}
-                            className="border-b border-neutral-200"
-                            style={{ height: "4.7mm" }}
-                          >
-                            <td className="border-r-[1.5px] border-black text-center p-0" />
-                            <td className="border-r-[1.5px] border-black p-0" />
-                            {columns8.map((_, colI) => (
-                              <td
-                                key={`filler-cell-${emptyI}-${colI}`}
-                                className="border-r border-neutral-300 text-center p-0"
-                              />
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 </div>
 
