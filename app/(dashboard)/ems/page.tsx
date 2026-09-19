@@ -876,7 +876,32 @@ function EmsMasterPageContent() {
     setClassGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
-        const updated = { ...g, ...updates };
+
+        const streamChanged = updates.stream !== undefined && updates.stream !== g.stream;
+        const genderChanged = updates.gender !== undefined && updates.gender !== g.gender;
+
+        let nextRegFrom = updates.regNoFrom !== undefined ? updates.regNoFrom : g.regNoFrom;
+        let nextRegTo = updates.regNoTo !== undefined ? updates.regNoTo : g.regNoTo;
+
+        // When gender or stream changes without explicit reg range input, auto-fill matching DB range directly into the inputs
+        if ((streamChanged || genderChanged) && updates.regNoFrom === undefined && updates.regNoTo === undefined) {
+          const freshStats = calculateHsStudentStats(
+            allStudents,
+            g.class,
+            updates.stream ?? g.stream ?? "ALL",
+            updates.gender ?? g.gender ?? "ALL"
+          );
+          nextRegFrom = freshStats.minRegNo;
+          nextRegTo = freshStats.maxRegNo;
+        }
+
+        const updated = {
+          ...g,
+          ...updates,
+          regNoFrom: nextRegFrom,
+          regNoTo: nextRegTo,
+        };
+
         const stats = calculateHsStudentStats(
           allStudents,
           updated.class,
@@ -1767,16 +1792,9 @@ function EmsMasterPageContent() {
 
                           {/* Board Reg No Range */}
                           <div className="space-y-1 sm:col-span-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[11px] font-semibold text-muted-foreground">
-                                Board Reg No Range
-                              </label>
-                              {hsStats.minRegNo && (
-                                <span className="text-[10px] font-mono text-muted-foreground/70">
-                                  (DB: {hsStats.minRegNo} – {hsStats.maxRegNo})
-                                </span>
-                              )}
-                            </div>
+                            <label className="text-[11px] font-semibold text-muted-foreground block">
+                              Board Reg No Range
+                            </label>
                             <div className="flex items-center gap-1.5">
                               <div className="flex items-center gap-1 flex-1 bg-background/90 border border-input rounded-xl p-0.5 shadow-2xs focus-within:ring-1 focus-within:ring-primary focus-within:border-primary">
                                 <Input
