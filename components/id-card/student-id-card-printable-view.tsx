@@ -305,8 +305,14 @@ export function StudentIDCardPrintableView({
           </div>
           <div className="flex items-baseline gap-1">
             <span className="text-[6.5px] font-semibold text-[#003366]">ROLL:</span>
-            <span className="text-[7.0px] font-bold text-slate-800">{student.presentRoll || student.previousRollNo || "—"}</span>
+            <span className="text-[7.0px] font-bold text-slate-800">{student.presentRoll || (student as any).previousRollNo || "—"}</span>
           </div>
+        </div>
+
+        {/* 4. PEN ID (Simple Uniform Line) */}
+        <div className="flex items-baseline gap-1 leading-tight">
+          <span className="text-[6.5px] font-semibold text-[#003366] shrink-0">PEN ID:</span>
+          <span className="text-[6.8px] font-bold font-mono text-slate-800">{student.pen || "—"}</span>
         </div>
 
         {/* 4. Class & Section (Prominent) & Session */}

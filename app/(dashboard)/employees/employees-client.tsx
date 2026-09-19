@@ -144,7 +144,7 @@ export default function EmployeesClient({
       ? "Teaching Staff Directory"
       : typeParam === "non-teaching"
       ? "Non-Teaching Staff Directory"
-      : "Employee Registered";
+      : "Employee Register";
 
   const hasFilters = Boolean(
     filters.query || filters.designation || filters.caste || filters.status

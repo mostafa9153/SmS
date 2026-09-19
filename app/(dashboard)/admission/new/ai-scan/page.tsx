@@ -16,9 +16,12 @@ import {
   ChevronDown,
   Database,
   UserPlus,
+  FileCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { StudentAddEditForm } from "@/components/students/student-add-edit-form";
+import { AdmitStudentDialog } from "@/components/admission/admit-student-dialog";
+import { AdmissionSuccessDialog } from "@/components/admission/admission-success-dialog";
 
 export function AiScanContent({
   hideBackLink,
@@ -48,6 +51,28 @@ export function AiScanContent({
 
   // Form Fields extracted by AI
   const [extractedData, setExtractedData] = useState<Record<string, any>>({});
+
+  // State for immediate admission modal
+  const [admitModalOpen, setAdmitModalOpen] = useState(false);
+  const [admittedAppData, setAdmittedAppData] = useState<any>(null);
+  const [successDialogData, setSuccessDialogData] = useState<{
+    open: boolean;
+    studentName: string;
+    className: string;
+    section: string;
+    roll: number;
+    receiptNo: string;
+    feeAmount: number;
+    stream?: string;
+  }>({
+    open: false,
+    studentName: "",
+    className: "V",
+    section: "A",
+    roll: 1,
+    receiptNo: "",
+    feeAmount: 0,
+  });
 
   // Start Camera
   const startCamera = async () => {
@@ -155,6 +180,101 @@ export function AiScanContent({
     }
   };
 
+  const [isSavingPending, setIsSavingPending] = useState(false);
+
+  const handleSaveAsPendingApplication = async () => {
+    const candidateName = extractedData.studentName || extractedData.name || "New Applicant";
+
+    try {
+      setIsSavingPending(true);
+      const res = await fetch("/api/admission/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName: candidateName,
+          gender: extractedData.gender || "Male",
+          dob: extractedData.dob || extractedData.dateOfBirth,
+          fatherName: extractedData.fatherName,
+          motherName: extractedData.motherName,
+          guardianName: extractedData.guardianName || extractedData.fatherName,
+          studentContact: extractedData.studentContact || extractedData.contact,
+          altMobile: extractedData.altMobile,
+          address: extractedData.address || extractedData.village,
+          village: extractedData.village,
+          postOffice: extractedData.postOffice,
+          policeStation: extractedData.policeStation,
+          district: extractedData.district,
+          pincode: extractedData.pincode,
+          targetClass: extractedData.targetClass || extractedData.class || "V",
+          targetSection: extractedData.targetSection || extractedData.section || "A",
+          targetRoll: extractedData.targetRoll ? parseInt(extractedData.targetRoll) : 1,
+          socialCategory: extractedData.socialCategory || "General",
+          religion: extractedData.religion || "Islam",
+          aadhaar: extractedData.aadhaar,
+          formMethod: "ai_scan",
+          scannedImageUrl: capturedImage || undefined,
+          aiExtractedData: extractedData,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save application");
+
+      queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
+      showToast(`Application ${data.application.applicationNo || ""} saved as Pending!`, "success");
+      router.push("/admission/new?tab=pending");
+    } catch (err: any) {
+      showToast(err.message || "Failed to save application as pending", "error");
+    } finally {
+      setIsSavingPending(false);
+    }
+  };
+
+  const handleAdmitScannedImmediately = async () => {
+    const candidateName = extractedData.studentName || extractedData.name || "New Applicant";
+
+    try {
+      // Create pending application first in staging
+      const res = await fetch("/api/admission/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentName: candidateName,
+          gender: extractedData.gender || "Male",
+          dob: extractedData.dob || extractedData.dateOfBirth,
+          fatherName: extractedData.fatherName,
+          motherName: extractedData.motherName,
+          guardianName: extractedData.guardianName || extractedData.fatherName,
+          studentContact: extractedData.studentContact || extractedData.contact,
+          altMobile: extractedData.altMobile,
+          address: extractedData.address || extractedData.village,
+          village: extractedData.village,
+          postOffice: extractedData.postOffice,
+          policeStation: extractedData.policeStation,
+          district: extractedData.district,
+          pincode: extractedData.pincode,
+          targetClass: extractedData.targetClass || extractedData.class || "V",
+          targetSection: extractedData.targetSection || extractedData.section || "A",
+          targetRoll: extractedData.targetRoll ? parseInt(extractedData.targetRoll) : 1,
+          socialCategory: extractedData.socialCategory || "General",
+          religion: extractedData.religion || "Islam",
+          aadhaar: extractedData.aadhaar,
+          formMethod: "ai_scan",
+          scannedImageUrl: capturedImage || undefined,
+          aiExtractedData: extractedData,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save application");
+
+      setAdmittedAppData(data.application);
+      setAdmitModalOpen(true);
+    } catch (err: any) {
+      showToast(err.message || "Failed to prepare application for admission", "error");
+    }
+  };
+
   return (
     <div className={cn("space-y-6", !embedded && "p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto")}>
       {/* Top Header */}
@@ -173,7 +293,7 @@ export function AiScanContent({
             <div>
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-primary" />
-                <span>Add New Student</span>
+                <span>Add New Student (Manual &amp; AI Scan)</span>
               </h1>
             </div>
           </div>
@@ -227,19 +347,19 @@ export function AiScanContent({
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3 bg-card border p-3.5 rounded-2xl shadow-2xs">
-          <span className="text-xs font-semibold text-foreground">Add New Student Record</span>
+          <span className="text-xs font-semibold text-foreground">AI Admission Form Scanner</span>
           <button
             type="button"
             onClick={() => setShowScanner((prev) => !prev)}
             className="px-3 py-1.5 rounded-xl bg-pink-500/10 hover:bg-pink-500/20 text-pink-600 dark:text-pink-400 font-bold text-xs flex items-center gap-1.5 border border-pink-500/30 transition-all cursor-pointer"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            <span>{showScanner ? "Close AI Scan" : "AI Form Scan"}</span>
+            <span>{showScanner ? "Close AI Scan" : "Open AI Form Scan"}</span>
           </button>
         </div>
       )}
 
-      {/* Scanner Mode Selector: Live Camera vs Upload (Toggled by showScanner) */}
+      {/* Scanner Mode Selector */}
       {showScanner && (
         <div className="bg-card border-2 border-pink-500/30 rounded-3xl p-5 shadow-md space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="flex items-center justify-between border-b pb-3">
@@ -299,91 +419,129 @@ export function AiScanContent({
             )}
           </div>
 
-        {/* Viewport Area */}
-        <div className="flex flex-col items-center justify-center">
-          {capturedImage ? (
-            <div className="relative w-full max-w-md rounded-2xl overflow-hidden border bg-black shadow-inner">
-              <img
-                src={capturedImage}
-                alt="Captured Admission Form"
-                className="w-full h-auto max-h-80 object-contain mx-auto"
-              />
-              <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                Ready for AI Scan
+          {/* Viewport Area */}
+          <div className="flex flex-col items-center justify-center">
+            {capturedImage ? (
+              <div className="relative w-full max-w-md rounded-2xl overflow-hidden border bg-black shadow-inner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={capturedImage}
+                  alt="Captured Admission Form"
+                  className="w-full h-auto max-h-80 object-contain mx-auto"
+                />
+                <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
+                  Ready for AI Scan
+                </div>
               </div>
-            </div>
-          ) : mode === "camera" ? (
-            <div className="relative w-full max-w-md rounded-2xl overflow-hidden border bg-black shadow-inner flex flex-col items-center justify-center min-h-[260px]">
-              <video
-                ref={videoRef}
-                playsInline
-                muted
-                className="w-full h-auto max-h-80 object-cover"
-              />
-              <canvas ref={canvasRef} className="hidden" />
+            ) : mode === "camera" ? (
+              <div className="relative w-full max-w-md rounded-2xl overflow-hidden border bg-black shadow-inner flex flex-col items-center justify-center min-h-[260px]">
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  className="w-full h-auto max-h-80 object-cover"
+                />
+                <canvas ref={canvasRef} className="hidden" />
 
-              {/* Camera Action Overlay */}
-              <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-4">
-                <Button
-                  onClick={takeSnapshot}
-                  className="h-12 w-12 rounded-full bg-white text-slate-900 hover:bg-slate-200 shadow-xl border-4 border-slate-300/40 p-0 flex items-center justify-center cursor-pointer active:scale-95"
-                  title="Capture Photo"
-                >
-                  <Camera className="h-6 w-6 text-slate-900" />
-                </Button>
+                <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-4">
+                  <Button
+                    onClick={takeSnapshot}
+                    className="h-12 w-12 rounded-full bg-white text-slate-900 hover:bg-slate-200 shadow-xl border-4 border-slate-300/40 p-0 flex items-center justify-center cursor-pointer active:scale-95"
+                    title="Capture Photo"
+                  >
+                    <Camera className="h-6 w-6 text-slate-900" />
+                  </Button>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFacingMode((prev) => (prev === "environment" ? "user" : "environment"))
-                  }
-                  className="p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-md cursor-pointer"
-                  title="Switch Camera"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFacingMode((prev) => (prev === "environment" ? "user" : "environment"))
+                    }
+                    className="p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-md cursor-pointer"
+                    title="Switch Camera"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <label className="w-full max-w-md border-2 border-dashed border-border hover:border-primary/50 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-muted/20 hover:bg-muted/40">
-              <Upload className="h-10 w-10 text-muted-foreground/60 mb-2" />
-              <span className="text-xs font-bold text-foreground">
-                Click to upload admission form photo
-              </span>
-              <span className="text-[10px] text-muted-foreground mt-1">
-                PNG, JPG or JPEG from mobile or desktop
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-          )}
-
-          {/* Trigger Scan Button */}
-          {capturedImage && (
-            <div className="mt-4">
-              <Button
-                onClick={handleScanWithAi}
-                disabled={isScanning}
-                className="px-6 py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md cursor-pointer flex items-center gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                <span>
-                  {isScanning ? "Analyzing Document with AI..." : "Scan & Extract Details"}
+            ) : (
+              <label className="w-full max-w-md border-2 border-dashed border-border hover:border-primary/50 rounded-3xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-muted/20 hover:bg-muted/40">
+                <Upload className="h-10 w-10 text-muted-foreground/60 mb-2" />
+                <span className="text-xs font-bold text-foreground">
+                  Click to upload admission form photo
                 </span>
-              </Button>
-            </div>
-          )}
+                <span className="text-[10px] text-muted-foreground mt-1">
+                  PNG, JPG or JPEG from mobile or desktop
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+
+            {/* Trigger Scan Button */}
+            {capturedImage && (
+              <div className="mt-4">
+                <Button
+                  onClick={handleScanWithAi}
+                  disabled={isScanning}
+                  className="px-6 py-2.5 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md cursor-pointer flex items-center gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>
+                    {isScanning ? "Analyzing Document with AI..." : "Scan & Extract Details"}
+                  </span>
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
       )}
 
-      {/* Standard Application Form (Always rendered for manual entry or AI auto-fill) */}
+      {/* Quick Action Strip for AI Extraction */}
+      {Object.keys(extractedData).length > 0 && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="h-5 w-5 text-emerald-600" />
+            <div>
+              <h4 className="text-xs font-bold text-emerald-950 dark:text-emerald-100">
+                AI Extraction Ready: {extractedData.studentName || extractedData.name || "Candidate"}
+              </h4>
+              <p className="text-[11px] text-muted-foreground">
+                Target: Class {extractedData.targetClass || extractedData.class || "V"} &bull; Guardian: {extractedData.guardianName || extractedData.fatherName || "N/A"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveAsPendingApplication}
+              disabled={isSavingPending}
+              className="h-8 rounded-xl font-bold text-xs gap-1.5 shadow-2xs cursor-pointer border-emerald-500/30 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-500/10"
+            >
+              <FileCheck2 className="h-3.5 w-3.5" />
+              <span>{isSavingPending ? "Saving..." : "Save as Application (Pending)"}</span>
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={handleAdmitScannedImmediately}
+              className="h-8 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5 shadow-sm cursor-pointer"
+            >
+              <UserPlus className="h-3.5 w-3.5" />
+              <span>Admit Immediately</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Form Content */}
       <div className="mt-8 border-t border-border pt-6 space-y-6">
-        {/* Collapsible Raw Extracted Data Box */}
         {Object.keys(extractedData).length > 0 && (
           <details className="bg-card border rounded-xl overflow-hidden shadow-sm group [&_summary::-webkit-details-marker]:hidden">
             <summary className="px-4 py-3 bg-muted/30 cursor-pointer flex items-center justify-between font-semibold text-sm text-foreground hover:bg-muted/50 transition-colors list-none">
@@ -406,6 +564,33 @@ export function AiScanContent({
           isEmbedded={true}
         />
       </div>
+
+      {/* Immediate Admit Modal */}
+      <AdmitStudentDialog
+        open={admitModalOpen}
+        onOpenChange={setAdmitModalOpen}
+        application={admittedAppData}
+        onAdmitSuccess={(res) => {
+          queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
+          setSuccessDialogData({
+            open: true,
+            ...res,
+          });
+        }}
+      />
+
+      {/* Success Dialog */}
+      <AdmissionSuccessDialog
+        open={successDialogData.open}
+        onOpenChange={(open) => setSuccessDialogData((prev) => ({ ...prev, open }))}
+        studentName={successDialogData.studentName}
+        className={successDialogData.className}
+        section={successDialogData.section}
+        roll={successDialogData.roll}
+        receiptNo={successDialogData.receiptNo}
+        feeAmount={successDialogData.feeAmount}
+        stream={successDialogData.stream}
+      />
     </div>
   );
 }

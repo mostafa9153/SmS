@@ -100,6 +100,26 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
         });
         const classLabel = classKeys.length > 0 ? `Class: ${classKeys.join(", ")}` : "";
 
+        // Collect all students in this room maintaining class sorting
+        const allRoomStudents: { student: StudentRowItem; classKey: string }[] = [];
+        classKeys.forEach((key) => {
+          const list = classMap.get(key) || [];
+          list.forEach((s) => {
+            allRoomStudents.push({ student: s, classKey: key });
+          });
+        });
+
+        // Chunk strictly by 30 students per page
+        const STUDENTS_PER_PAGE = 30;
+        const studentBatches: { student: StudentRowItem; classKey: string }[][] = [];
+        if (allRoomStudents.length === 0) {
+          studentBatches.push([]);
+        } else {
+          for (let i = 0; i < allRoomStudents.length; i += STUDENTS_PER_PAGE) {
+            studentBatches.push(allRoomStudents.slice(i, i + STUDENTS_PER_PAGE));
+          }
+        }
+
         // Prepare rows for the table
         type RowData =
           | { type: "header"; title: string; isHs: boolean }
@@ -109,32 +129,33 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           | { type: "invigilator_sign"; className: string }
           | { type: "empty" };
 
-        const allRows: RowData[] = [];
-        classKeys.forEach((key) => {
-          const students = classMap.get(key) || [];
-          const isHs = students.length > 0 && students[0].isHs;
-          allRows.push({ type: "header", title: `CLASS: ${key}`, isHs });
-          students.forEach((s, i) => allRows.push({ type: "student", student: s, index: i }));
-          // Summary rows at the end of each class: Total Present, Total Absent, Invigilator Sign
-          allRows.push({ type: "total_present", className: key });
-          allRows.push({ type: "total_absent", className: key });
-          allRows.push({ type: "invigilator_sign", className: key });
-        });
-
-        if (allRows.length === 0) {
-          allRows.push({ type: "empty" });
-        }
-
-        // Chunk rows into pages (up to 48 rows per page for clean A4 fit)
-        const MAX_ROWS_PER_PAGE = 48;
-        const pages: RowData[][] = [];
-        for (let i = 0; i < allRows.length; i += MAX_ROWS_PER_PAGE) {
-          pages.push(allRows.slice(i, i + MAX_ROWS_PER_PAGE));
-        }
-
         const displayRoom = formatRoomName(room.roomNumber);
 
-        return pages.map((pageRows, pageIdx) => {
+        return studentBatches.map((batch, pageIdx) => {
+          // Group batch students by class
+          const batchClassMap = new Map<string, StudentRowItem[]>();
+          batch.forEach((item) => {
+            if (!batchClassMap.has(item.classKey)) {
+              batchClassMap.set(item.classKey, []);
+            }
+            batchClassMap.get(item.classKey)!.push(item.student);
+          });
+
+          const pageRows: RowData[] = [];
+          batchClassMap.forEach((students, key) => {
+            const isHs = students.length > 0 && students[0].isHs;
+            pageRows.push({ type: "header", title: `CLASS: ${key}`, isHs });
+            students.forEach((s, i) => pageRows.push({ type: "student", student: s, index: i }));
+            // Summary rows at the end of each class: Total Present, Total Absent, Invigilator Sign
+            pageRows.push({ type: "total_present", className: key });
+            pageRows.push({ type: "total_absent", className: key });
+            pageRows.push({ type: "invigilator_sign", className: key });
+          });
+
+          if (pageRows.length === 0) {
+            pageRows.push({ type: "empty" });
+          }
+
           return (
             <div
               key={`attendance-room-${room.roomId}-page-${pageIdx}`}
@@ -144,7 +165,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
                 <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
                   Room {roomIdx + 1} of {activeRooms.length}
-                  {pages.length > 1 ? ` (Page ${pageIdx + 1}/${pages.length})` : ""}
+                  {studentBatches.length > 1 ? ` (Page ${pageIdx + 1}/${studentBatches.length})` : ""}
                 </span>
                 <span>•</span>
                 <span>
@@ -184,7 +205,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           </span>
                           <span className="text-[7.5px] font-mono font-bold text-neutral-600 block">
                             PG {roomIdx + 1}
-                            {pages.length > 1 ? `-${pageIdx + 1}` : ""}
+                            {studentBatches.length > 1 ? `-${pageIdx + 1}` : ""}
                           </span>
                         </div>
                       </div>
@@ -245,19 +266,19 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                         <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[34px] text-center font-black p-1 text-[8.5px] shrink-0"
+                            className="border-r-[1.5px] border-black w-[36px] text-center font-black p-1 text-[9px] shrink-0"
                           >
                             Roll
                           </th>
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[72px] text-center font-black p-1 text-[8.5px] shrink-0"
+                            className="border-r-[1.5px] border-black w-[76px] text-center font-black p-1 text-[9px] shrink-0"
                           >
                             Reg No
                           </th>
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[145px] text-left font-black p-1 pl-2 text-[9px] truncate shrink-0"
+                            className="border-r-[1.5px] border-black w-[150px] text-left font-black p-1 pl-2 text-[9.5px] truncate shrink-0"
                           >
                             Student Name
                           </th>
@@ -265,8 +286,8 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           {columns.map((headerText, i) => (
                             <th
                               key={`th-subject-${i}`}
-                              className="border-r border-black font-black text-center p-1 text-[8.5px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                              style={{ width: `calc((100% - 251px) / ${numCols})` }}
+                              className="border-r border-black font-black text-center p-1 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
+                              style={{ width: `calc((100% - 262px) / ${numCols})` }}
                             >
                               {headerText}
                             </th>
@@ -279,10 +300,10 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             return (
                               <th
                                 key={`th-date-${i}`}
-                                className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8px] text-neutral-800 h-[4.5mm]"
+                                className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-800 h-[5mm]"
                               >
                                 {dateVal ? (
-                                  <span className="font-mono font-bold tracking-tight text-[8px] text-black">
+                                  <span className="font-mono font-bold tracking-tight text-[8.5px] text-black">
                                     {dateVal}
                                   </span>
                                 ) : (
@@ -301,12 +322,12 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b-[1.2px] border-black bg-neutral-200/80"
-                                style={{ height: "5.2mm" }}
+                                className="border-b-[1.2px] border-black bg-neutral-200/90"
+                                style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={3 + numCols}
-                                  className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5"
+                                  className="text-center font-black text-[10.5px] uppercase tracking-widest text-black py-0.5"
                                 >
                                   {row.title}
                                 </td>
@@ -319,11 +340,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               <tr
                                 key={`row-${idx}`}
                                 className="border-b border-black bg-neutral-100 font-bold"
-                                style={{ height: "5.2mm" }}
+                                style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={3}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
                                 >
                                   TOTAL PRESENT:
                                 </td>
@@ -342,11 +363,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               <tr
                                 key={`row-${idx}`}
                                 className="border-b border-black bg-neutral-100 font-bold"
-                                style={{ height: "5.2mm" }}
+                                style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={3}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
                                 >
                                   TOTAL ABSENT:
                                 </td>
@@ -365,11 +386,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               <tr
                                 key={`row-${idx}`}
                                 className="border-b-[1.5px] border-black bg-neutral-50 font-bold"
-                                style={{ height: "5.8mm" }}
+                                style={{ height: "6.2mm" }}
                               >
                                 <td
                                   colSpan={3}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
                                 >
                                   INVIGILATOR SIGN:
                                 </td>
@@ -391,15 +412,15 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             <tr
                               key={`row-${idx}`}
                               className="border-b border-black/70 hover:bg-neutral-50/50"
-                              style={{ height: "4.7mm" }}
+                              style={{ height: "6.5mm", minHeight: "6.5mm" }}
                             >
-                              <td className="border-r-[1.5px] border-black text-center font-black text-[8.5px] p-0 leading-none truncate px-0.5">
+                              <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5">
                                 {student ? String(student.roll).padStart(2, "0") : ""}
                               </td>
-                              <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[8px] p-0 leading-none truncate px-0.5">
+                              <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5">
                                 {regVal || "-"}
                               </td>
-                              <td className="border-r-[1.5px] border-black px-2 font-black text-[9.5px] uppercase truncate text-neutral-950 leading-none">
+                              <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none">
                                 {student ? student.name : ""}
                               </td>
                               {/* Dynamic Signature/Script Boxes */}
@@ -412,25 +433,6 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             </tr>
                           );
                         })}
-
-                        {/* Fill remaining space if less than 48 rows on the page */}
-                        {Array.from({ length: Math.max(0, 48 - pageRows.length) }).map((_, emptyI) => (
-                          <tr
-                            key={`filler-${emptyI}`}
-                            className="border-b border-neutral-200"
-                            style={{ height: "4.7mm" }}
-                          >
-                            <td className="border-r-[1.5px] border-black text-center p-0" />
-                            <td className="border-r-[1.5px] border-black text-center p-0" />
-                            <td className="border-r-[1.5px] border-black p-0" />
-                            {columns.map((_, colI) => (
-                              <td
-                                key={`filler-cell-${emptyI}-${colI}`}
-                                className="border-r border-neutral-300 text-center p-0"
-                              />
-                            ))}
-                          </tr>
-                        ))}
                       </tbody>
                     </table>
                   </div>

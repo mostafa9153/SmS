@@ -17,6 +17,9 @@ export async function GET(req: Request) {
     const admissionType = searchParams.get("admissionType");
     const search = searchParams.get("search");
 
+    const academicYearParam = searchParams.get("academicYear");
+    const isTransferredParam = searchParams.get("isTransferredToActive");
+
     let query = supabase
       .from("admission_applications")
       .select("*")
@@ -30,6 +33,12 @@ export async function GET(req: Request) {
     }
     if (admissionType && admissionType !== "all") {
       query = query.eq("admission_type", admissionType);
+    }
+    if (academicYearParam && academicYearParam !== "all") {
+      query = query.eq("academic_year", academicYearParam);
+    }
+    if (isTransferredParam !== null && isTransferredParam !== undefined && isTransferredParam !== "all") {
+      query = query.eq("is_transferred_to_active", isTransferredParam === "true");
     }
     if (search) {
       query = query.or(
@@ -96,6 +105,18 @@ export async function GET(req: Request) {
       admittedRoll: row.admitted_roll ? Number(row.admitted_roll) : undefined,
       admittedAt: row.admitted_at || undefined,
       admittedBy: row.admitted_by || undefined,
+      stream: row.stream || undefined,
+      schoolId: row.school_id || undefined,
+      isTransferredToActive: !!row.is_transferred_to_active,
+      transferredToActiveAt: row.transferred_to_active_at || undefined,
+      admissionDate: row.admission_date || undefined,
+
+      bankAccountNo: row.bank_account_no || undefined,
+      bankIfsc: row.bank_ifsc || undefined,
+      bankName: row.bank_name || undefined,
+      kanyashreeId: row.kanyashree_id || undefined,
+      verifiedDocuments: Array.isArray(row.verified_documents) ? row.verified_documents : [],
+      subjectCombinations: Array.isArray(row.subject_combinations) ? row.subject_combinations : [],
 
       aiExtractedData: row.ai_extracted_data || undefined,
       scannedImageUrl: row.scanned_image_url || undefined,
@@ -169,6 +190,14 @@ export async function POST(req: Request) {
       fee_amount: body.feeAmount ? parseFloat(body.feeAmount) : 0,
       payment_receipt_no: body.paymentReceiptNo || null,
       payment_mode: body.paymentMode || "Cash",
+
+      stream: body.stream || null,
+      bank_account_no: body.bankAccountNo || null,
+      bank_ifsc: body.bankIfsc || null,
+      bank_name: body.bankName || null,
+      kanyashree_id: body.kanyashreeId || null,
+      verified_documents: body.verifiedDocuments || [],
+      subject_combinations: body.subjectCombinations || [],
 
       ai_extracted_data: body.aiExtractedData || null,
       scanned_image_url: body.scannedImageUrl || null,

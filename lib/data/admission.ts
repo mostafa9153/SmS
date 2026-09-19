@@ -27,12 +27,16 @@ export async function getAdmissionApplications(filters?: {
   targetClass?: string;
   admissionType?: string;
   search?: string;
+  academicYear?: string;
+  isTransferredToActive?: string;
 }): Promise<AdmissionApplication[]> {
   const params = new URLSearchParams();
   if (filters?.status) params.append("status", filters.status);
   if (filters?.targetClass) params.append("targetClass", filters.targetClass);
   if (filters?.admissionType) params.append("admissionType", filters.admissionType);
   if (filters?.search) params.append("search", filters.search);
+  if (filters?.academicYear) params.append("academicYear", filters.academicYear);
+  if (filters?.isTransferredToActive) params.append("isTransferredToActive", filters.isTransferredToActive);
 
   const res = await fetch(`/api/admission/applications?${params.toString()}`);
   if (!res.ok) {
@@ -70,16 +74,52 @@ export async function createAdmissionApplication(
   return result.application;
 }
 
+export async function editAdmissionApplication(
+  id: string,
+  data: Partial<AdmissionApplication>
+): Promise<AdmissionApplication> {
+  const res = await fetch(`/api/admission/applications/${id}/edit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to update admission application");
+  }
+  const result = await res.json();
+  return result.application;
+}
+
 export async function admitNewStudentApplication(
   applicationId: string,
   assignment: {
+    class?: string;
     section: string;
     roll: number;
     feePaid: boolean;
     feeAmount: number;
     paymentReceiptNo?: string;
+    paymentMode?: string;
+    stream?: string;
+    photoUrl?: string;
+    bankAccountNo?: string;
+    bankIfsc?: string;
+    bankName?: string;
+    kanyashreeId?: string;
+    verifiedDocuments?: string[];
+    forceReAdmit?: boolean;
   }
-): Promise<{ success: boolean; studentId: string }> {
+): Promise<{
+  success: boolean;
+  applicationId: string;
+  invoiceNumber: string;
+  studentName: string;
+  targetClass: string;
+  targetSection: string;
+  targetRoll: number;
+  message?: string;
+}> {
   const res = await fetch(`/api/admission/applications/${applicationId}/admit`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -89,6 +129,91 @@ export async function admitNewStudentApplication(
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to confirm student admission");
   }
+  return res.json();
+}
+
+export async function revertAdmissionApplication(
+  applicationId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`/api/admission/applications/${applicationId}/revert`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to revert admission");
+  }
+  return res.json();
+}
+
+export async function deleteAdmissionApplication(
+  applicationId: string
+): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`/api/admission/applications/${applicationId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to delete application");
+  }
+  return res.json();
+}
+
+export async function transferApplicationsToActive(payload: {
+  applicationIds?: string[];
+  className?: string;
+  academicYear?: string;
+}): Promise<{
+  success: boolean;
+  transferredCount: number;
+  transferredStudents: Array<{ id: string; name: string; schoolId: string; class: string; roll: number }>;
+  skippedCount: number;
+  skippedWarnings: Array<{ id: string; name: string; reason: string }>;
+  message: string;
+}> {
+  const res = await fetch("/api/admission/applications/transfer-to-active", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to transfer admitted students to active directory");
+  }
+  return res.json();
+}
+
+export async function getNextAvailableRoll(
+  targetClass: string,
+  section: string,
+  academicYear?: string
+): Promise<number> {
+  const params = new URLSearchParams({
+    class: targetClass,
+    section: section,
+  });
+  if (academicYear) params.append("academicYear", academicYear);
+
+  const res = await fetch(`/api/admission/next-roll?${params.toString()}`);
+  if (!res.ok) return 1;
+  const data = await res.json();
+  return Number(data.nextRoll) || 1;
+}
+
+export async function checkDuplicateApplicant(params: {
+  aadhaar?: string;
+  contact?: string;
+  excludeId?: string;
+}): Promise<{
+  isDuplicate: boolean;
+  duplicates: Array<{ source: string; name: string; class: string; matchType: string; id: string }>;
+}> {
+  const searchParams = new URLSearchParams();
+  if (params.aadhaar) searchParams.append("aadhaar", params.aadhaar);
+  if (params.contact) searchParams.append("contact", params.contact);
+  if (params.excludeId) searchParams.append("excludeId", params.excludeId);
+
+  const res = await fetch(`/api/admission/check-duplicate?${searchParams.toString()}`);
+  if (!res.ok) return { isDuplicate: false, duplicates: [] };
   return res.json();
 }
 

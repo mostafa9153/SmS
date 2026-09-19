@@ -84,7 +84,7 @@ const navItems: NavItem[] = [
     ],
   },
   {
-    label: "Employee Registered",
+    label: "Employee Register",
     icon: <UserPlus className="h-4 w-4" />,
     iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
     children: [
@@ -135,7 +135,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
   },
   {
-    label: "Admin Hub",
+    label: "Admin Panel",
     href: "/admin-hub",
     icon: <ShieldAlert className="h-4 w-4" />,
     iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",

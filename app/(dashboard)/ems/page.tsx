@@ -371,39 +371,17 @@ function EmsMasterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Initialize step from URL searchParams or sessionStorage (fallback to 1)
+  // Initialize step strictly from URL searchParams (guarantees identical SSR and Client initial state)
   const getInitialStep = (): number => {
-    const stepParam = searchParams.get("step");
+    const stepParam = searchParams?.get("step");
     if (stepParam) {
       const parsed = parseInt(stepParam, 10);
       if (parsed >= 1 && parsed <= 5) return parsed;
-    }
-    if (typeof window !== "undefined") {
-      try {
-        const sess = sessionStorage.getItem("sms_ems_current_step");
-        if (sess) {
-          const parsed = parseInt(sess, 10);
-          if (parsed >= 1 && parsed <= 5) return parsed;
-        }
-      } catch {}
     }
     return 1;
   };
 
   const initialStep = getInitialStep();
-
-  // Initial active allocation restoration from storage
-  const getInitialActiveAlloc = (): ExamAllocation | null => {
-    if (typeof window !== "undefined") {
-      const active = getActiveAllocation();
-      if (active) return active;
-      const saved = getSavedAllocations();
-      if (saved.length > 0) return saved[0];
-    }
-    return null;
-  };
-
-  const initialAlloc = getInitialActiveAlloc();
 
   // Wizard Step State
   const [step, setStepState] = useState<number>(initialStep);
@@ -417,7 +395,7 @@ function EmsMasterPageContent() {
 
   // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
   const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
-  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
+  const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(null);
 
   // Synchronized step setter
   const setStep = (newStep: number | ((prev: number) => number)) => {
@@ -426,7 +404,7 @@ function EmsMasterPageContent() {
 
   // Sync step changes to URL query param, sessionStorage, and window scroll safely in useEffect
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !mounted) return;
     const currentParam = new URLSearchParams(window.location.search).get("step");
     if (currentParam !== String(step)) {
       window.history.replaceState(null, "", "?step=" + step);
@@ -438,11 +416,11 @@ function EmsMasterPageContent() {
       saveActiveAllocation(generatedAllocation);
     }
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-  }, [step, generatedAllocation]);
+  }, [step, generatedAllocation, mounted]);
 
   // Step 1: Session & Exam
-  const [academicYear, setAcademicYear] = useState<number>(() => initialAlloc?.academicYear || new Date().getFullYear());
-  const [examType, setExamType] = useState<ExamType>(() => initialAlloc?.examType || "1st Summative Evaluation");
+  const [academicYear, setAcademicYear] = useState<number>(() => new Date().getFullYear());
+  const [examType, setExamType] = useState<ExamType>("1st Summative Evaluation");
 
   // Step 2: Class & Students (Group-wise with multi-section auto-select & DB roll ranges)
   const [classGroups, setClassGroups] = useState<ClassGroupConfig[]>([]);
@@ -456,12 +434,7 @@ function EmsMasterPageContent() {
   // Step 3: Room & Benches Setup
   const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
   const [rooms, setRooms] = useState<EmsRoom[]>([]);
-  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
-    if (initialAlloc?.roomAllocations && initialAlloc.roomAllocations.length > 0) {
-      return initialAlloc.roomAllocations.map((r) => r.roomId);
-    }
-    return [];
-  });
+  const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   // Room-wise Assigned Classes mapping (roomId -> class codes array, e.g. ["VIII", "IX"])
   const [roomClassMap, setRoomClassMap] = useState<Record<string, string[]>>({});
   const [editorOpen, setEditorOpen] = useState(false);
@@ -495,9 +468,7 @@ function EmsMasterPageContent() {
     reorderRooms(index, targetIndex);
   };
 
-  const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>(() => {
-    return initialAlloc?.roomAllocations?.[0]?.roomId || "";
-  });
+  const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
   const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   // Loading & Mismatch Modal
@@ -1349,6 +1320,22 @@ function EmsMasterPageContent() {
   const activeBlueprintRoom = generatedAllocation?.roomAllocations.find(
     (r) => r.roomId === activeBlueprintRoomId
   );
+
+  if (!mounted) {
+    return (
+      <div className="p-3.5 sm:p-6 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6 animate-pulse">
+        <div className="flex items-center justify-between gap-3">
+          <div className="h-8 w-64 bg-muted/60 rounded-xl" />
+          <div className="h-8 w-36 bg-muted/60 rounded-xl" />
+        </div>
+        <div className="h-16 rounded-2xl bg-muted/40 border border-border/70" />
+        <div className="h-96 rounded-2xl bg-card/60 border border-border/70 flex flex-col items-center justify-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary/70" />
+          <p className="text-xs font-medium text-muted-foreground">Loading Examination Suite...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">

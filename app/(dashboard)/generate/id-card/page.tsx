@@ -31,8 +31,31 @@ import {
   Calendar,
   Layers,
   GraduationCap,
+  AlertTriangle,
+  AlertCircle,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { showToast } from "@/components/ui/toast-banner";
+
+export interface MissingStudentField {
+  key: string;
+  label: string;
+}
+
+export function getMissingStudentFields(student: Student): MissingStudentField[] {
+  const missing: MissingStudentField[] = [];
+  if (!student.pen || !student.pen.trim()) missing.push({ key: "pen", label: "PEN ID" });
+  if (!student.schoolId || !student.schoolId.trim()) missing.push({ key: "schoolId", label: "School ID" });
+  if (!student.name || !student.name.trim()) missing.push({ key: "name", label: "Name" });
+  if (!student.fatherName && !student.guardianName) missing.push({ key: "fatherName", label: "Father Name" });
+  if (!student.studentContact && !student.altMobile) missing.push({ key: "studentContact", label: "Mobile No" });
+  if (!student.bloodGroup || !student.bloodGroup.trim()) missing.push({ key: "bloodGroup", label: "Blood Group" });
+  if (!student.dob || !student.dob.trim()) missing.push({ key: "dob", label: "DOB" });
+  if (!student.photoUrl) missing.push({ key: "photoUrl", label: "Photo" });
+  return missing;
+}
 
 const CLASS_OPTIONS = [
   { label: "All Classes", value: "all" },
@@ -127,7 +150,8 @@ function StudentIDCardStudioContent() {
         const matchesRoll = String(s.presentRoll || "").includes(q);
         const matchesSchoolId = (s.schoolId || "").toLowerCase().includes(q);
         const matchesId = (s.id || "").toLowerCase().includes(q);
-        if (!matchesName && !matchesFather && !matchesRoll && !matchesSchoolId && !matchesId) {
+        const matchesPen = (s.pen || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesFather && !matchesRoll && !matchesSchoolId && !matchesId && !matchesPen) {
           return false;
         }
       }
@@ -171,18 +195,28 @@ function StudentIDCardStudioContent() {
 
   // Single student printing state (null means bulk mode)
   const [printingSingleStudent, setPrintingSingleStudent] = useState<Student | null>(null);
+  const [warningModalOpen, setWarningModalOpen] = useState<boolean>(false);
+  const [studentsWithIssues, setStudentsWithIssues] = useState<Student[]>([]);
+  const [pendingPrintMode, setPendingPrintMode] = useState<"bulk" | Student | null>(null);
 
-  // Direct Print Trigger for Bulk
-  const handlePrintBulk = () => {
-    if (studentsToPrint.length === 0) return;
+  const executeDirectBulkPrint = (includeAll: boolean = true) => {
+    setWarningModalOpen(false);
+    let toPrint = studentsToPrint;
+    if (!includeAll) {
+      toPrint = toPrint.filter((s) => getMissingStudentFields(s).length === 0);
+    }
+    if (toPrint.length === 0) {
+      showToast({ type: "error", title: "No complete cards available to print" });
+      return;
+    }
     setPrintingSingleStudent(null);
     setTimeout(() => {
       window.print();
     }, 100);
   };
 
-  // Direct Print Trigger for Single Card
-  const handlePrintSingle = (student: Student) => {
+  const executeDirectSinglePrint = (student: Student) => {
+    setWarningModalOpen(false);
     setPrintingSingleStudent(student);
     setTimeout(() => {
       window.print();
@@ -190,6 +224,41 @@ function StudentIDCardStudioContent() {
         setPrintingSingleStudent(null);
       }, 1000);
     }, 100);
+  };
+
+  // Print Interceptor for Bulk
+  const handlePrintBulk = () => {
+    if (studentsToPrint.length === 0) return;
+    const issues = studentsToPrint.filter((s) => getMissingStudentFields(s).length > 0);
+    if (issues.length > 0) {
+      setStudentsWithIssues(issues);
+      setPendingPrintMode("bulk");
+      setWarningModalOpen(true);
+      showToast({
+        type: "error",
+        title: "⚠️ Missing Student Details Found",
+        description: `${issues.length} student(s) have missing required IDs (PEN, School ID, Mobile, etc.)`
+      });
+    } else {
+      executeDirectBulkPrint(true);
+    }
+  };
+
+  // Print Interceptor for Single Card
+  const handlePrintSingle = (student: Student) => {
+    const issues = getMissingStudentFields(student);
+    if (issues.length > 0) {
+      setStudentsWithIssues([student]);
+      setPendingPrintMode(student);
+      setWarningModalOpen(true);
+      showToast({
+        type: "error",
+        title: "⚠️ Missing Information",
+        description: `${student.name} is missing: ${issues.map((i) => i.label).join(", ")}`
+      });
+    } else {
+      executeDirectSinglePrint(student);
+    }
   };
 
   return (
@@ -401,11 +470,33 @@ function StudentIDCardStudioContent() {
                           </button>
 
                           <div className="min-w-0">
-                            <p className="font-bold text-foreground truncate">
-                              {s.name}
-                            </p>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-foreground truncate">
+                                {s.name}
+                              </p>
+                              {(() => {
+                                const missing = getMissingStudentFields(s);
+                                if (missing.length > 0) {
+                                  return (
+                                    <span
+                                      className="text-[9.5px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 px-1.5 py-0.2 rounded-full flex items-center gap-0.5 shrink-0"
+                                      title={`Missing: ${missing.map((m) => m.label).join(", ")}`}
+                                    >
+                                      <AlertTriangle className="h-2.5 w-2.5 text-amber-600" />
+                                      {missing.length} missing
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-0.5 shrink-0">
+                                    <CheckCircle2 className="h-2.5 w-2.5" />
+                                  </span>
+                                );
+                              })()}
+                            </div>
                             <p className="text-[11px] text-muted-foreground truncate">
                               Roll: {s.presentRoll || "—"} • ID: {s.schoolId || s.id}
+                              {s.pen ? ` • PEN: ${s.pen}` : " • No PEN"}
                             </p>
                           </div>
                         </div>
@@ -537,6 +628,137 @@ function StudentIDCardStudioContent() {
           </div>
         </div>
       </div>
+
+      {/* ==================================================================== */}
+      {/* WARNING AUDIT MODAL (Visible when missing data is detected)         */}
+      {/* ==================================================================== */}
+      {warningModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:hidden animate-in fade-in duration-150">
+          <div className="bg-card w-full max-w-2xl rounded-2xl shadow-2xl border border-border overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="bg-amber-500 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-white/20 flex items-center justify-center text-lg">
+                  <AlertTriangle className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Missing Student Information Detected!</h3>
+                  <p className="text-xs text-amber-100">Review missing identifiers before printing ID cards</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWarningModalOpen(false)}
+                className="text-white/80 hover:text-white text-lg p-1 rounded-lg cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Table of Missing Data */}
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <div>
+                  <span className="font-bold">Important Notice:</span> The following student records have missing required fields (such as <strong>PEN ID, School ID, Mobile No, Blood Group, or DOB</strong>). If printed now, placeholder values (e.g. <code>—</code>) will appear on the physical cards.
+                </div>
+              </div>
+
+              <div className="border border-border rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-muted/50 border-b border-border text-muted-foreground font-bold">
+                    <tr>
+                      <th className="py-2.5 px-3">Roll &amp; Name</th>
+                      <th className="py-2.5 px-3">Class / Sec</th>
+                      <th className="py-2.5 px-3">Missing Fields</th>
+                      <th className="py-2.5 px-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60 text-foreground font-medium">
+                    {studentsWithIssues.map((st) => {
+                      const missing = getMissingStudentFields(st);
+                      return (
+                        <tr key={st.id} className="hover:bg-muted/30">
+                          <td className="py-2.5 px-3">
+                            <span className="font-bold text-foreground">{st.name}</span>
+                            <div className="text-[10px] text-muted-foreground font-mono">
+                              Roll: {st.presentRoll || "—"} • ID: {st.schoolId || st.id}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-semibold text-muted-foreground">
+                            {st.presentClass} - {st.presentSection || "A"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-wrap gap-1">
+                              {missing.map((m) => (
+                                <span
+                                  key={m.key}
+                                  className="bg-rose-500/10 text-rose-700 dark:text-rose-400 text-[10px] font-bold px-1.5 py-0.5 rounded border border-rose-500/20"
+                                >
+                                  {m.label}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <Link
+                              href={`/students/${st.id}/edit`}
+                              target="_blank"
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 text-xs font-bold underline inline-flex items-center gap-1"
+                            >
+                              Edit Profile
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-muted/30 px-6 py-3.5 border-t border-border flex flex-wrap items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWarningModalOpen(false)}
+                className="rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                Close &amp; Review Records
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (pendingPrintMode === "bulk") {
+                      executeDirectBulkPrint(true);
+                    } else if (pendingPrintMode) {
+                      executeDirectSinglePrint(pendingPrintMode);
+                    }
+                  }}
+                  className="rounded-xl bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 text-xs font-bold cursor-pointer"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+                  Print Anyway
+                </Button>
+                {pendingPrintMode === "bulk" && (
+                  <Button
+                    size="sm"
+                    onClick={() => executeDirectBulkPrint(false)}
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 cursor-pointer"
+                  >
+                    <Printer className="h-3.5 w-3.5 mr-1" />
+                    Print Only Complete Cards ({studentsToPrint.length - studentsWithIssues.length})
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ==================================================================== */}
       {/* PRINT ENGINE OUTPUT (Visible ONLY in @media print)                   */}

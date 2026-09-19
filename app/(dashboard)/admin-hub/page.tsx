@@ -145,7 +145,7 @@ export default function AdminHubPage() {
               Administrative Control Centers
             </h1>
             <Badge className="bg-indigo-600 text-white dark:bg-indigo-500 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shadow-2xs">
-              Admin Hub
+              Admin Panel
             </Badge>
           </div>
         </div>

@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { StaffProfile } from "@/components/employees/staff-table";
 
 export const metadata: Metadata = {
-  title: "Employee Registered | SMS",
+  title: "Employee Register | SMS",
   description: "Manage teaching and non-teaching faculty and staff profiles.",
 };
 

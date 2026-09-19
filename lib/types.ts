@@ -374,13 +374,26 @@ export interface AdmissionApplication {
   paymentReceiptNo?: string;
   paymentMode?: string;
 
-  // Linkage upon admission
+  // Linkage upon admission & Staging
   admittedStudentId?: string;
   admittedClass?: string;
   admittedSection?: string;
   admittedRoll?: number;
   admittedAt?: string;
   admittedBy?: string;
+  stream?: string;
+  schoolId?: string;
+  isTransferredToActive?: boolean;
+  transferredToActiveAt?: string;
+  admissionDate?: string;
+
+  // Additional Verification & Demographics
+  bankAccountNo?: string;
+  bankIfsc?: string;
+  bankName?: string;
+  kanyashreeId?: string;
+  verifiedDocuments?: string[];
+  subjectCombinations?: string[];
 
   aiExtractedData?: Record<string, any>;
   scannedImageUrl?: string;
