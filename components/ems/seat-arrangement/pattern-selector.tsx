@@ -28,12 +28,21 @@ export function PatternSelector({
     <TooltipProvider delay={100}>
       <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* CARD 1: Interleaved (1:1 Ratio) */}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange("INTERLEAVED")}
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          onClick={() => {
+            if (!disabled) onChange("INTERLEAVED");
+          }}
+          onKeyDown={(e) => {
+            if (!disabled && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              onChange("INTERLEAVED");
+            }
+          }}
           className={cn(
-            "w-full text-left p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 select-none relative overflow-hidden group",
+            "w-full text-left p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 select-none relative overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            disabled && "opacity-60 cursor-not-allowed pointer-events-none",
             currentPattern === "INTERLEAVED"
               ? "border-primary bg-primary/10 shadow-sm ring-1 ring-primary/30"
               : "border-border/70 bg-card/60 hover:bg-muted/60 hover:border-primary/40 text-muted-foreground"
@@ -102,15 +111,24 @@ export function PatternSelector({
               <div className="h-6 w-6 rounded-full border-2 border-border/80 group-hover:border-primary/50" />
             )}
           </div>
-        </button>
+        </div>
 
         {/* CARD 2: Fixed Outer U-Loop (2:1 Ratio) */}
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange("FIXED_U")}
+        <div
+          role="button"
+          tabIndex={disabled ? -1 : 0}
+          onClick={() => {
+            if (!disabled) onChange("FIXED_U");
+          }}
+          onKeyDown={(e) => {
+            if (!disabled && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              onChange("FIXED_U");
+            }
+          }}
           className={cn(
-            "w-full text-left p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 select-none relative overflow-hidden group",
+            "w-full text-left p-3.5 sm:p-4 rounded-xl border-2 transition-all cursor-pointer flex items-center justify-between gap-3 select-none relative overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+            disabled && "opacity-60 cursor-not-allowed pointer-events-none",
             currentPattern === "FIXED_U"
               ? "border-amber-500 bg-amber-500/10 dark:bg-amber-950/25 shadow-sm ring-1 ring-amber-500/30"
               : "border-border/70 bg-card/60 hover:bg-muted/60 hover:border-amber-500/40 text-muted-foreground"
@@ -179,7 +197,7 @@ export function PatternSelector({
               <div className="h-6 w-6 rounded-full border-2 border-border/80 group-hover:border-amber-500/50" />
             )}
           </div>
-        </button>
+        </div>
       </div>
     </TooltipProvider>
   );

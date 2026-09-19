@@ -413,11 +413,10 @@ function EmsMasterPageContent() {
     return done;
   });
 
+  const [mounted, setMounted] = useState(false);
+
   // Step 4 & 5: Visual Seating Blueprint, Print Suite & History
-  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>(() => {
-    if (typeof window !== "undefined") return getSavedAllocations();
-    return [];
-  });
+  const [savedAllocations, setSavedAllocations] = useState<ExamAllocation[]>([]);
   const [generatedAllocation, setGeneratedAllocation] = useState<ExamAllocation | null>(initialAlloc);
 
   // Synchronized step setter
@@ -456,17 +455,10 @@ function EmsMasterPageContent() {
 
   // Step 3: Room & Benches Setup
   const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
-  const [rooms, setRooms] = useState<EmsRoom[]>(() => {
-    if (typeof window !== "undefined") return getSavedRooms();
-    return [];
-  });
+  const [rooms, setRooms] = useState<EmsRoom[]>([]);
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>(() => {
     if (initialAlloc?.roomAllocations && initialAlloc.roomAllocations.length > 0) {
       return initialAlloc.roomAllocations.map((r) => r.roomId);
-    }
-    if (typeof window !== "undefined") {
-      const saved = getSavedRooms();
-      if (saved.length > 0) return [saved[0].id];
     }
     return [];
   });
@@ -554,6 +546,7 @@ function EmsMasterPageContent() {
   }, [searchParams]);
 
   useEffect(() => {
+    setMounted(true);
     const saved = getSavedRooms();
     if (saved.length > 0) {
       setRooms(saved);
@@ -1384,7 +1377,7 @@ function EmsMasterPageContent() {
           className="flex items-center gap-2 rounded-xl border border-border/80 bg-card text-foreground px-3.5 py-2 text-xs font-semibold hover:bg-muted hover:border-primary/40 transition-all shadow-2xs cursor-pointer self-start sm:self-auto"
         >
           <DoorOpen className="h-4 w-4 text-primary" />
-          <span>Classrooms & Halls ({rooms.length})</span>
+          <span suppressHydrationWarning>Classrooms & Halls ({mounted ? rooms.length : 0})</span>
         </Button>
       </div>
 
