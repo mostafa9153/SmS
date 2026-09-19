@@ -107,14 +107,17 @@ export function simplifySubjectName(fullName: string): string {
  * Get the real subjects configured for given classes from Marks Distribution Schemes.
  * Returns up to 8 subjects matching the classes.
  */
-export function getDynamicSubjectsForClasses(classCodes: string[]): string[] {
+export function getDynamicSubjectsForClasses(classCodes: string[], examType?: string): string[] {
   const schemes: ClassMarksScheme[] = getSavedMarksSchemes();
   const subjectsSet = new Set<string>();
 
-  // If specific classes are provided, pull their subjects
-  const cleanCodes = classCodes.map((c) => c.trim().toUpperCase());
-  const matchedSchemes = schemes.filter((s) => cleanCodes.includes(s.classCode.toUpperCase()));
+  // Check if class allocation is Higher Secondary (XI / XII) or semester exams
+  const cleanCodes = classCodes.map((c) => c.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, ""));
+  const isHs = cleanCodes.some((c) => ["XI", "11", "XII", "12"].includes(c)) ||
+    (examType && ["Sem I", "Sem II", "Semester I", "Semester II"].includes(examType));
 
+  // If specific classes are provided, pull their subjects
+  const matchedSchemes = schemes.filter((s) => cleanCodes.includes(s.classCode.toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "")));
   const targetSchemes = matchedSchemes.length > 0 ? matchedSchemes : schemes;
 
   targetSchemes.forEach((s) => {
@@ -129,28 +132,33 @@ export function getDynamicSubjectsForClasses(classCodes: string[]): string[] {
   const subjectList = Array.from(subjectsSet);
 
   if (subjectList.length > 0) {
-    // Fill or slice to exactly 8 columns
-    const result: string[] = [];
-    for (let i = 0; i < 8; i++) {
-      if (i < subjectList.length) {
-        result.push(subjectList[i]);
-      } else {
-        result.push(`Exam ${i + 1}`);
-      }
+    // Return max 6 for HS or exact subjects count
+    if (isHs && subjectList.length > 6) {
+      return subjectList.slice(0, 6);
     }
-    return result;
+    return subjectList;
   }
 
   // Fallback defaults
+  if (isHs) {
+    return [
+      "Bengali",
+      "English",
+      "Physics",
+      "Chemistry",
+      "Mathematics",
+      "Biology",
+    ];
+  }
+
   return [
     "Bengali",
     "English",
-    "Math",
-    "Phy Sci",
-    "Life Sci",
+    "Mathematics",
+    "Physical Science",
+    "Life Science",
     "History",
     "Geography",
-    "Additional",
   ];
 }
 

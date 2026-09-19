@@ -161,36 +161,37 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
                       <span className="inline-block bg-black text-white px-2 py-0.5 text-[9px] font-black tracking-wider uppercase rounded-[2px]">
                         2D SEATING BLUEPRINT • GATE NOTICE
                       </span>
-                      <p className="text-[8px] font-mono font-bold text-neutral-800 mt-0.5 flex items-center justify-end gap-1.5">
+                      <p className="text-[8.5px] font-mono font-bold text-neutral-800 mt-0.5 flex items-center justify-end gap-1.5">
                         <span>AY {academicYear} • {examType}</span>
                         {examHalf && (
-                          <span className="text-[8px] font-black uppercase text-black border border-black px-1.5 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
-                            [ {examHalf} ]
-                          </span>
+                          <>
+                            <span className="text-neutral-400">•</span>
+                            <span className="text-black font-bold uppercase">{examHalf}</span>
+                          </>
                         )}
                       </p>
                     </div>
                   </div>
 
-                  {/* Room & Floor Banner */}
-                  <div className="mt-1 bg-neutral-100 border border-black/80 rounded-[2px] px-2 py-1 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="bg-black text-white px-2 py-0.5 text-[11px] font-black tracking-wider rounded-[2px]">
+                  {/* Room & Floor Banner with Total Students */}
+                  <div className="mt-1 bg-neutral-100 border border-black/80 rounded-[2px] px-2.5 py-1 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="bg-black text-white px-2.5 py-0.5 text-[12px] font-black tracking-wider rounded-[2px]">
                         {displayRoom.toUpperCase()}
                       </div>
-                      <span className="text-[9.5px] font-bold text-neutral-800">
+                      <span className="text-[10px] font-bold text-neutral-800">
                         {room.floor ? `${room.floor} Floor` : "Main Floor"}
                         {room.building ? ` • ${room.building}` : ""}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[9px] font-bold text-neutral-800">
+                    <div className="flex items-center gap-3 text-[9.5px] font-bold text-neutral-800">
                       <span>
-                        Total Capacity: <strong className="text-black font-mono">{room.totalSeats}</strong>
+                        Total Students in Room: <strong className="text-black font-mono font-black text-[11px] bg-white border border-black/40 px-1.5 py-0.5 rounded-[2px]">{room.occupiedSeats}</strong>
                       </span>
                       <span className="text-neutral-400">•</span>
                       <span>
-                        Allocated: <strong className="text-black font-mono">{room.occupiedSeats}</strong>
+                        Room Capacity: <strong className="text-black font-mono">{room.totalSeats}</strong>
                       </span>
                     </div>
                   </div>

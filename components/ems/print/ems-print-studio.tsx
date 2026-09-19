@@ -161,9 +161,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   }, [uniqueClasses]);
 
   const [examHeaders, setExamHeaders] = useState<string[]>(() =>
-    getDynamicSubjectsForClasses(uniqueClasses)
+    getDynamicSubjectsForClasses(uniqueClasses, allocation.examType)
   );
-  const [examDates, setExamDates] = useState<string[]>(() => Array(8).fill(""));
+  const [examDates, setExamDates] = useState<string[]>(() =>
+    Array(getDynamicSubjectsForClasses(uniqueClasses, allocation.examType).length || 6).fill("")
+  );
 
   useEffect(() => {
     // Fetch freshest school profile & configs from database
@@ -172,7 +174,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     });
 
     // Auto-update subjects based on allocated classes
-    setExamHeaders(getDynamicSubjectsForClasses(uniqueClasses));
+    const defaultSubs = getDynamicSubjectsForClasses(uniqueClasses, allocation.examType);
+    setExamHeaders(defaultSubs);
+    setExamDates(Array(defaultSubs.length).fill(""));
   }, [allocation, uniqueClasses]);
 
   // Real-time listener for school profile changes across tabs/windows
@@ -267,15 +271,34 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   };
 
   const handleHeaderChange = (index: number, val: string) => {
-    const updated = Array.from({ length: 8 }).map((_, i) => examHeaders[i] ?? "");
+    const updated = [...examHeaders];
     updated[index] = val;
     setExamHeaders(updated);
   };
 
   const handleDateChange = (index: number, val: string) => {
-    const updated = Array.from({ length: 8 }).map((_, i) => examDates[i] ?? "");
+    const updated = [...examDates];
     updated[index] = val;
     setExamDates(updated);
+  };
+
+  const handleAddSubjectColumn = () => {
+    if (examHeaders.length >= 10) return;
+    const nextIdx = examHeaders.length + 1;
+    setExamHeaders([...examHeaders, `Subject ${nextIdx}`]);
+    setExamDates([...examDates, ""]);
+  };
+
+  const handleRemoveSubjectColumn = (index: number) => {
+    if (examHeaders.length <= 1) return;
+    setExamHeaders(examHeaders.filter((_, i) => i !== index));
+    setExamDates(examDates.filter((_, i) => i !== index));
+  };
+
+  const handleResetSubjects = () => {
+    const defaultSubs = getDynamicSubjectsForClasses(uniqueClasses, allocation.examType);
+    setExamHeaders(defaultSubs);
+    setExamDates(Array(defaultSubs.length).fill(""));
   };
 
   const setTodayDate = () => {
@@ -701,29 +724,59 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
 
             {/* FOR ATTENDANCE SHEET */}
             {activeDoc === "attendance" && (
-              <div className="space-y-3.5">
-                {/* 8 Columns Grid: each day has Day Header + Subject Input + Date Input */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
-                  {Array.from({ length: 8 }).map((_, idx) => (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-foreground">
+                      Subject Columns ({examHeaders.length})
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Columns dynamically resize on the printed attendance sheet
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddSubjectColumn}
+                      disabled={examHeaders.length >= 10}
+                      className="h-7 text-xs font-bold gap-1 rounded-lg border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer"
+                    >
+                      <span>+ Add Subject</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetSubjects}
+                      className="h-7 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      Reset Defaults
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Dynamic Subject Columns Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-2">
+                  {examHeaders.map((headerVal, idx) => (
                     <div
                       key={`header-box-${idx}`}
                       className="rounded-xl border border-border bg-card p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
-                          Day {idx + 1}
+                          Sub {idx + 1}
                         </span>
-                        {(examHeaders[idx] || examDates[idx]) && (
+                        {examHeaders.length > 1 && (
                           <button
                             type="button"
-                            onClick={() => {
-                              handleHeaderChange(idx, "");
-                              handleDateChange(idx, "");
-                            }}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground p-0.5 rounded transition-opacity cursor-pointer"
-                            title="Clear this day's subject & date"
+                            onClick={() => handleRemoveSubjectColumn(idx)}
+                            className="text-muted-foreground hover:text-rose-600 p-0.5 rounded transition-colors cursor-pointer"
+                            title="Remove this subject column"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         )}
                       </div>
@@ -734,7 +787,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                           Subject
                         </span>
                         <Select
-                          value={examHeaders[idx] || ""}
+                          value={headerVal || ""}
                           onValueChange={(val: string | null) => {
                             handleHeaderChange(idx, val || "");
                           }}
@@ -748,9 +801,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                                 {sub}
                               </SelectItem>
                             ))}
-                            {examHeaders[idx] && !availableSubjects.includes(examHeaders[idx]) && (
-                              <SelectItem value={examHeaders[idx]} className="text-xs">
-                                {examHeaders[idx]}
+                            {headerVal && !availableSubjects.includes(headerVal) && (
+                              <SelectItem value={headerVal} className="text-xs">
+                                {headerVal}
                               </SelectItem>
                             )}
                           </SelectContent>
