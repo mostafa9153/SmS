@@ -488,25 +488,29 @@ export function arrangeRoomInterleaved(
         }
       }
     } else if (seatsPerBench === 2) {
-      // S1
+      // 2-Seat Bench: S1 (Seat 1 - Left) & S3 (Seat 3 - Right) with S2 (Seat 2 - Middle) left vacant
+      const effectiveS3Class = s3Class || s2Class;
+      const effectiveS3Dir = s3Dir || s2Dir;
+
+      // S1 (Seat 1 - Left)
       if (s1Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, effectiveS3Class, overflowClass));
         }
       } else {
         for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, effectiveS3Class, overflowClass));
         }
       }
 
-      // S2
-      if (s2Dir === "bottom-to-top") {
+      // S3 (Seat 3 - Right) — S2 is left empty/vacant
+      if (effectiveS3Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(effectiveS3Class, s1Class, overflowClass));
         }
       } else {
         for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(effectiveS3Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 1) {
@@ -526,8 +530,11 @@ export function arrangeRoomInterleaved(
     }
 
     // Now flatten into SeatAssignment records ordered by benchIndex then seatPosition
+    // For 2-seat benches, render 3 physical slots [1, 2, 3] with Slot 2 as vacant middle gap
+    const slotPositions = seatsPerBench === 2 ? [1, 2, 3] : Array.from({ length: seatsPerBench }, (_, i) => i + 1);
+
     for (let b = 1; b <= benchCount; b++) {
-      for (let s = 1; s <= seatsPerBench; s++) {
+      for (const s of slotPositions) {
         const student = colSeatGrid.get(`${b}-${s}`);
         const isVacant = !student;
 
@@ -754,25 +761,29 @@ export function arrangeRoomFixedU(
         }
       }
     } else if (seatsPerBench === 2) {
-      // S1
+      // 2-Seat Bench: S1 (Seat 1 - Left) & S3 (Seat 3 - Right) with S2 (Seat 2 - Middle) left vacant
+      const effectiveS3Class = s3Class || s2Class;
+      const effectiveS3Dir = s3Dir || s2Dir;
+
+      // S1 (Seat 1 - Left)
       if (s1Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, effectiveS3Class, overflowClass));
         }
       } else {
         for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, s2Class, overflowClass));
+          colSeatGrid.set(`${b}-1`, getNextStudentForClass(s1Class, effectiveS3Class, overflowClass));
         }
       }
 
-      // S2
-      if (s2Dir === "bottom-to-top") {
+      // S3 (Seat 3 - Right) — S2 is left empty/vacant
+      if (effectiveS3Dir === "bottom-to-top") {
         for (let b = benchCount; b >= 1; b--) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(effectiveS3Class, s1Class, overflowClass));
         }
       } else {
         for (let b = 1; b <= benchCount; b++) {
-          colSeatGrid.set(`${b}-2`, getNextStudentForClass(s2Class, s1Class, overflowClass));
+          colSeatGrid.set(`${b}-3`, getNextStudentForClass(effectiveS3Class, s1Class, overflowClass));
         }
       }
     } else if (seatsPerBench === 1) {
@@ -792,8 +803,11 @@ export function arrangeRoomFixedU(
     }
 
     // Flatten into SeatAssignment records ordered by benchIndex then seatPosition
+    // For 2-seat benches, render 3 physical slots [1, 2, 3] with Slot 2 as vacant middle gap
+    const slotPositions = seatsPerBench === 2 ? [1, 2, 3] : Array.from({ length: seatsPerBench }, (_, i) => i + 1);
+
     for (let b = 1; b <= benchCount; b++) {
-      for (let s = 1; s <= seatsPerBench; s++) {
+      for (const s of slotPositions) {
         const student = colSeatGrid.get(`${b}-${s}`);
         const isVacant = !student;
 
@@ -999,8 +1013,10 @@ export function arrangeRoomUu(
       for (let b = benchCount; b >= 1; b--) benchIndices.push(b);
     }
 
+    const slotPositionsToFill = seatsPerBench === 2 ? [1, 3] : Array.from({ length: seatsPerBench }, (_, i) => i + 1);
+
     for (const b of benchIndices) {
-      for (let s = 1; s <= seatsPerBench; s++) {
+      for (const s of slotPositionsToFill) {
         if (encounteredPrompt) {
           // Already hit a pause point, mark remaining slots vacant until user resumes
           seatGrid.set(`${colConfig.columnIndex}-${b}-${s}`, undefined);
@@ -1027,9 +1043,10 @@ export function arrangeRoomUu(
   room.columns.forEach((colConfig) => {
     const benchCount = colConfig.benchCount;
     const seatsPerBench = colConfig.seatsPerBench || 2;
+    const slotPositions = seatsPerBench === 2 ? [1, 2, 3] : Array.from({ length: seatsPerBench }, (_, i) => i + 1);
 
     for (let b = 1; b <= benchCount; b++) {
-      for (let s = 1; s <= seatsPerBench; s++) {
+      for (const s of slotPositions) {
         const student = seatGrid.get(`${colConfig.columnIndex}-${b}-${s}`);
         const isVacant = !student;
 

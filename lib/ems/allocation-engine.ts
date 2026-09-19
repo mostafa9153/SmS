@@ -425,8 +425,28 @@ export function generateManualRoomAllocation(
       });
     }
 
+    const slotPositions =
+      effectiveSeatsPerBench === 2
+        ? [1, 2, 3]
+        : Array.from({ length: effectiveSeatsPerBench }, (_, i) => i + 1);
+
     for (let b = 1; b <= colConfig.benchCount; b++) {
-      for (let s = 1; s <= effectiveSeatsPerBench; s++) {
+      for (const s of slotPositions) {
+        if (effectiveSeatsPerBench === 2 && s === 2) {
+          // Middle seat is a physical vacant gap between Seat 1 (Left) and Seat 3 (Right)
+          seats.push({
+            seatId: `${room.id}-C${colConfig.columnIndex}-B${b}-S${s}`,
+            roomId: room.id,
+            roomNumber: room.roomNumber,
+            columnIndex: colConfig.columnIndex,
+            benchIndex: b,
+            seatPosition: s,
+            globalSeatNumber: globalSeatCounter++,
+            isVacant: true,
+          });
+          continue;
+        }
+
         const student = colStudents[studentPointer];
         const isOccupied = Boolean(student);
 
@@ -617,8 +637,28 @@ export function generateAutoAllocation(
             ? eligibleGroups[currentClassIndex % eligibleGroups.length]
             : null;
 
+        const slotPositions =
+          effectiveSeatsPerBench === 2
+            ? [1, 2, 3]
+            : Array.from({ length: effectiveSeatsPerBench }, (_, i) => i + 1);
+
         for (let b = 1; b <= colConfig.benchCount; b++) {
-          for (let s = 1; s <= effectiveSeatsPerBench; s++) {
+          for (const s of slotPositions) {
+            if (effectiveSeatsPerBench === 2 && s === 2) {
+              // Middle seat is a physical vacant gap between Seat 1 (Left) and Seat 3 (Right)
+              seats.push({
+                seatId: `${room.id}-C${colConfig.columnIndex}-B${b}-S${s}`,
+                roomId: room.id,
+                roomNumber: room.roomNumber,
+                columnIndex: colConfig.columnIndex,
+                benchIndex: b,
+                seatPosition: s,
+                globalSeatNumber: globalSeatCounter++,
+                isVacant: true,
+              });
+              continue;
+            }
+
             let student: Student | undefined = undefined;
 
             if (activeGroup && activeGroup.students.length > 0) {

@@ -292,6 +292,10 @@ export function ColumnClassAssigner({
               currentConfig?.direction ||
               getDefaultSeatDirection(pattern, colIdx, 3, seatsPerBench);
 
+            const isTwoSeat = seatsPerBench === 2;
+            const effectiveRightClass = isTwoSeat ? (currentConfig?.s3ClassCode || s2Class) : s2Class;
+            const effectiveRightDir = isTwoSeat ? (currentConfig?.s3Direction || s2Dir) : s2Dir;
+
             return (
               <div
                 key={col.columnIndex}
@@ -354,7 +358,7 @@ export function ColumnClassAssigner({
 
                 {/* Per-Seat Controls with Icon-only Direction Toggles */}
                 <div className="space-y-2.5">
-                  {/* Seat 1 */}
+                  {/* Seat 1 (Left) */}
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
                       <span className="flex items-center gap-1.5">
@@ -407,60 +411,75 @@ export function ColumnClassAssigner({
                     />
                   </div>
 
-                  {/* Seat 2 */}
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                  {/* Middle Seat Vacant Gap indicator for 2-Seat Benches */}
+                  {isTwoSeat && (
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-muted/40 border border-dashed border-border/70 text-[11px] font-mono text-muted-foreground select-none">
                       <span className="flex items-center gap-1.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        <span>Seat 2 {isThreeSeat ? "(Center)" : "(Right)"}</span>
+                        <span className="h-1.5 w-1.5 rounded-full bg-slate-400/80" />
+                        <span className="font-sans font-medium text-foreground/75">Seat 2 (Center)</span>
                       </span>
-
-                      {/* Icon-only Direction Toggle for Seat 2 */}
-                      <Tooltip>
-                        <TooltipTrigger
-                          type="button"
-                          onClick={() => {
-                            const next = s2Dir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom";
-                            updateColumnConfig(col.columnIndex, { s2Direction: next });
-                          }}
-                          disabled={disabled}
-                          className={cn(
-                            "h-6 w-6 rounded-md flex items-center justify-center transition-all border cursor-pointer select-none",
-                            s2Dir === "bottom-to-top"
-                              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
-                              : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
-                          )}
-                        >
-                          {s2Dir === "bottom-to-top" ? (
-                            <ArrowUp className="h-3.5 w-3.5 stroke-[2.5]" />
-                          ) : (
-                            <ArrowDown className="h-3.5 w-3.5 stroke-[2.5]" />
-                          )}
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-[10px] p-2 shadow-lg">
-                          {s2Dir === "bottom-to-top"
-                            ? "Bottom to Top (Bench N → 1). Click to switch to Top to Bottom (1 → N)."
-                            : "Top to Bottom (Bench 1 → N). Click to switch to Bottom to Top (N → 1)."}
-                        </TooltipContent>
-                      </Tooltip>
+                      <Badge variant="outline" className="text-[9px] font-mono border-dashed text-muted-foreground/70 h-4.5 px-1.5 font-bold">
+                        Vacant Gap
+                      </Badge>
                     </div>
-                    <CustomSelect
-                      value={s2Class}
-                      onChange={(val) => {
-                        updateColumnConfig(col.columnIndex, {
-                          s2ClassCode: val,
-                          secondaryClassCode: val,
-                        });
-                      }}
-                      options={classSelectOptions}
-                      placeholder="Select Class"
-                      className="text-xs h-8.5"
-                      disabled={disabled}
-                    />
-                  </div>
+                  )}
 
-                  {/* Seat 3 (Only for 3-seat benches) */}
+                  {/* Seat 2 (Center) for 3-seat benches */}
                   {isThreeSeat && (
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          <span>Seat 2 (Center)</span>
+                        </span>
+
+                        {/* Icon-only Direction Toggle for Seat 2 */}
+                        <Tooltip>
+                          <TooltipTrigger
+                            type="button"
+                            onClick={() => {
+                              const next = s2Dir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom";
+                              updateColumnConfig(col.columnIndex, { s2Direction: next });
+                            }}
+                            disabled={disabled}
+                            className={cn(
+                              "h-6 w-6 rounded-md flex items-center justify-center transition-all border cursor-pointer select-none",
+                              s2Dir === "bottom-to-top"
+                                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+                                : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
+                            )}
+                          >
+                            {s2Dir === "bottom-to-top" ? (
+                              <ArrowUp className="h-3.5 w-3.5 stroke-[2.5]" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5 stroke-[2.5]" />
+                            )}
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-[10px] p-2 shadow-lg">
+                            {s2Dir === "bottom-to-top"
+                              ? "Bottom to Top (Bench N → 1). Click to switch to Top to Bottom (1 → N)."
+                              : "Top to Bottom (Bench 1 → N). Click to switch to Bottom to Top (N → 1)."}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <CustomSelect
+                        value={s2Class}
+                        onChange={(val) => {
+                          updateColumnConfig(col.columnIndex, {
+                            s2ClassCode: val,
+                            secondaryClassCode: val,
+                          });
+                        }}
+                        options={classSelectOptions}
+                        placeholder="Select Class"
+                        className="text-xs h-8.5"
+                        disabled={disabled}
+                      />
+                    </div>
+                  )}
+
+                  {/* Seat 3 (Right) for 2-seat and 3-seat benches */}
+                  {(isThreeSeat || isTwoSeat) && (
                     <div className="space-y-1">
                       <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground">
                         <span className="flex items-center gap-1.5">
@@ -474,51 +493,71 @@ export function ColumnClassAssigner({
                             <TooltipTrigger
                               type="button"
                               onClick={() => {
-                                const next = s3Dir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom";
-                                updateColumnConfig(col.columnIndex, { s3Direction: next });
+                                const next = effectiveRightDir === "top-to-bottom" ? "bottom-to-top" : "top-to-bottom";
+                                updateColumnConfig(col.columnIndex, {
+                                  s3Direction: next,
+                                  ...(isTwoSeat ? { s2Direction: next } : {}),
+                                });
                               }}
                               disabled={disabled}
                               className={cn(
                                 "h-6 w-6 rounded-md flex items-center justify-center transition-all border cursor-pointer select-none",
-                                s3Dir === "bottom-to-top"
+                                effectiveRightDir === "bottom-to-top"
                                   ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
                                   : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 hover:bg-blue-500/20"
                               )}
                             >
-                              {s3Dir === "bottom-to-top" ? (
+                              {effectiveRightDir === "bottom-to-top" ? (
                                 <ArrowUp className="h-3.5 w-3.5 stroke-[2.5]" />
                               ) : (
                                 <ArrowDown className="h-3.5 w-3.5 stroke-[2.5]" />
                               )}
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-[10px] p-2 shadow-lg">
-                              {s3Dir === "bottom-to-top"
+                              {effectiveRightDir === "bottom-to-top"
                                 ? "Bottom to Top (Bench N → 1). Click to switch to Top to Bottom (1 → N)."
                                 : "Top to Bottom (Bench 1 → N). Click to switch to Bottom to Top (N → 1)."}
                             </TooltipContent>
                           </Tooltip>
 
-                          {/* Clean Mirror S1 Switch without label text */}
-                          <label
-                            className="flex items-center cursor-pointer select-none"
-                            title={s3MirrorS1 ? "Mirroring Seat 1 (Click to select custom class)" : "Custom class enabled (Click to mirror Seat 1)"}
-                          >
-                            <Switch
-                              checked={s3MirrorS1}
-                              onCheckedChange={(checked: boolean) => {
-                                updateColumnConfig(col.columnIndex, {
-                                  s3MirrorS1: checked,
-                                  s3ClassCode: checked ? s1Class : (currentConfig?.s3ClassCode || s1Class),
-                                });
-                              }}
-                              disabled={disabled}
-                              className="scale-75 origin-right"
-                            />
-                          </label>
+                          {/* Clean Mirror S1 Switch for 3-Seat Bench */}
+                          {isThreeSeat && (
+                            <label
+                              className="flex items-center cursor-pointer select-none"
+                              title={s3MirrorS1 ? "Mirroring Seat 1 (Click to select custom class)" : "Custom class enabled (Click to mirror Seat 1)"}
+                            >
+                              <Switch
+                                checked={s3MirrorS1}
+                                onCheckedChange={(checked: boolean) => {
+                                  updateColumnConfig(col.columnIndex, {
+                                    s3MirrorS1: checked,
+                                    s3ClassCode: checked ? s1Class : (currentConfig?.s3ClassCode || s1Class),
+                                  });
+                                }}
+                                disabled={disabled}
+                                className="scale-75 origin-right"
+                              />
+                            </label>
+                          )}
                         </div>
                       </div>
 
-                      {!s3MirrorS1 ? (
+                      {isTwoSeat ? (
+                        <CustomSelect
+                          value={effectiveRightClass}
+                          onChange={(val) => {
+                            updateColumnConfig(col.columnIndex, {
+                              s2ClassCode: val,
+                              secondaryClassCode: val,
+                              s3ClassCode: val,
+                            });
+                          }}
+                          options={classSelectOptions}
+                          placeholder="Select Class"
+                          className="text-xs h-8.5"
+                          disabled={disabled}
+                        />
+                      ) : !s3MirrorS1 ? (
                         <CustomSelect
                           value={s3Class}
                           onChange={(val) => {
