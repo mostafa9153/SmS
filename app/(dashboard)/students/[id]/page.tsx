@@ -525,7 +525,7 @@ function StudentProfilePageContent() {
                 <InfoField label="Admission Date" value={student.admissionDate ? formatDate(student.admissionDate) : undefined} />
                 <InfoField label="Admission Type" value={student.admissionType} />
                 <InfoField label="Academic Year" value={student.academicYear} />
-                <InfoField label="Medium of Instruction" value={student.mediumOfInstruction} />
+                <InfoField label="Medium of Instruction" value={student.mediumOfInstruction || "Bengali"} />
                 <InfoField label="Present Class Admission Date" value={student.presentClassAdmissionDate ? formatDate(student.presentClassAdmissionDate) : undefined} />
                 {student.academicStream && <InfoField label="Academic Stream (HS)" value={student.academicStream} />}
                 {student.boardRegistrationNo && (
@@ -1135,6 +1135,9 @@ function StudentProfilePageContent() {
                   options={[
                     { label: "1st Summative Evaluation", value: "1st Summative Evaluation" },
                     { label: "2nd Summative Evaluation", value: "2nd Summative Evaluation" },
+                    { label: "3rd Summative Evaluation / Annual", value: "3rd Summative Evaluation" },
+                    { label: "Sem I", value: "Sem I" },
+                    { label: "Sem II", value: "Sem II" },
                     { label: "Annual Examination", value: "Annual Examination" },
                   ]}
                 />

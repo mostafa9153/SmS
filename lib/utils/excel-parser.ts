@@ -382,6 +382,12 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "wbbse reg",
       "wbbse reg.",
       "wbbse reg. no.",
+      "wbssc reg no",
+      "wbssc registration no",
+      "wbssc registration number",
+      "wbssc reg",
+      "wbssc reg.",
+      "wbssc reg. no.",
       "madhyamik reg no",
       "madhyamik registration no",
       "madhyamik reg",
@@ -391,6 +397,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "class 10 registration",
       "wbbse_reg_no",
       "wbbse_registration_no",
+      "wbssc_reg_no",
+      "wbssc_registration_no",
       "board reg no",
       "board registration no",
       "board registration",
@@ -438,6 +446,9 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "wbbse roll no",
       "wbbse roll number",
       "wbbse roll",
+      "wbssc roll no",
+      "wbssc roll number",
+      "wbssc roll",
       "madhyamik roll no",
       "madhyamik roll",
       "mp roll no",
@@ -445,6 +456,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "class 9 roll no",
       "class 10 roll no",
       "wbbse_roll_no",
+      "wbssc_roll_no",
     ],
   },
   {
@@ -479,6 +491,8 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "board_reg_no",
       "board registration",
       "board reg. no.",
+      "wbssc registration",
+      "wbssc",
     ],
   },
   {
@@ -492,6 +506,7 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "board roll",
       "board_roll_no",
       "board roll no.",
+      "wbssc roll",
     ],
   },
   {
@@ -961,6 +976,331 @@ export const TARGET_FIELDS: FieldDefinition[] = [
       "prev class %",
     ],
   },
+  {
+    key: "previousStatus",
+    label: "Previous Status",
+    category: "Previous",
+    icon: "📌",
+    aliases: [
+      "previous status",
+      "previous class status",
+      "status in previous year",
+      "last year status",
+      "previous_status",
+    ],
+  },
+  {
+    key: "previousSection",
+    label: "Previous Section",
+    category: "Previous",
+    icon: "🔤",
+    aliases: ["previous section", "last year section", "prev section", "previous_section"],
+  },
+  {
+    key: "previousStream",
+    label: "Previous Stream",
+    category: "Previous",
+    icon: "🎨",
+    aliases: ["previous stream", "last year stream", "prev stream", "previous_stream"],
+  },
+  {
+    key: "previousAppearedForExams",
+    label: "Appeared for Exams (Yes/No)",
+    category: "Previous",
+    icon: "📝",
+    aliases: [
+      "appeared for exam",
+      "previous appeared for exam",
+      "appeared in annual exam",
+      "appeared for exams",
+      "previous_appeared_for_exams",
+    ],
+  },
+  {
+    key: "previousResult",
+    label: "Previous Result",
+    category: "Previous",
+    icon: "🏆",
+    aliases: ["previous result", "last year result", "previous exam result", "promoted / passed", "previous_result"],
+  },
+  {
+    key: "previousDaysAttended",
+    label: "Previous Days Attended",
+    category: "Previous",
+    icon: "📅",
+    aliases: [
+      "days attended",
+      "previous days attended",
+      "attendance in last year",
+      "no of days attended",
+      "days attended in previous year",
+      "previous_days_attended",
+    ],
+  },
+
+  // 8. Demographics, Identifiers & Special Categories
+  {
+    key: "kanyashreeId",
+    label: "Kanyashree ID",
+    category: "Identifiers",
+    icon: "👧",
+    aliases: [
+      "kanyashree id",
+      "kanyashree",
+      "kanyashree no",
+      "kanyashree_id",
+      "k1 id",
+      "k2 id",
+      "kanyashree number",
+      "kp id",
+      "kanyasree id",
+      "kanyashree code",
+    ],
+  },
+  {
+    key: "casteCertificateNo",
+    label: "Caste Certificate No",
+    category: "Demographics",
+    icon: "📜",
+    aliases: [
+      "caste certificate no",
+      "caste certificate number",
+      "caste certificate",
+      "caste cert no",
+      "social category certificate no",
+      "caste_certificate_no",
+      "caste cert",
+      "certificate no",
+    ],
+  },
+  {
+    key: "nameAsPerAadhaar",
+    label: "Name as per Aadhaar",
+    category: "Identifiers",
+    icon: "💳",
+    aliases: [
+      "name as per aadhaar",
+      "name in aadhaar",
+      "aadhaar name",
+      "name as per aadhar",
+      "aadhar name",
+      "name_as_per_aadhaar",
+    ],
+  },
+  {
+    key: "guardianOccupation",
+    label: "Guardian's Occupation",
+    category: "Family",
+    icon: "💼",
+    aliases: [
+      "guardian occupation",
+      "guardian's occupation",
+      "guardian profession",
+      "guardian job",
+      "guardian_occupation",
+      "occupation of guardian",
+    ],
+  },
+  {
+    key: "admissionType",
+    label: "Admission Type",
+    category: "Enrolment",
+    icon: "📋",
+    aliases: ["admission type", "type of admission", "admission_type"],
+  },
+  {
+    key: "presentClassAdmissionDate",
+    label: "Present Class Admission Date",
+    category: "Enrolment",
+    icon: "📅",
+    aliases: [
+      "present class admission date",
+      "current class admission date",
+      "class admission date",
+      "admission date in present class",
+      "present_class_admission_date",
+    ],
+  },
+  {
+    key: "hasDisabilityCertificate",
+    label: "Disability Certificate Available (Yes/No)",
+    category: "Welfare",
+    icon: "📜",
+    aliases: [
+      "disability certificate (yes/no)",
+      "disability certificate",
+      "has disability certificate",
+      "disability certificate available",
+      "has_disability_certificate",
+    ],
+  },
+  {
+    key: "disabilityPercentage",
+    label: "Disability Percentage (%)",
+    category: "Welfare",
+    icon: "📊",
+    aliases: [
+      "disability percentage",
+      "disability %",
+      "disability percent",
+      "handicapped %",
+      "disability_percentage",
+    ],
+  },
+  {
+    key: "sldType",
+    label: "SLD Type",
+    category: "Welfare",
+    icon: "🧠",
+    aliases: [
+      "sld type",
+      "specific learning disability",
+      "type of sld",
+      "sld_type",
+    ],
+  },
+  {
+    key: "isAay",
+    label: "AAY Beneficiary (Yes/No)",
+    category: "Welfare",
+    icon: "🌾",
+    aliases: ["aay (yes/no)", "is aay", "aay beneficiary", "antodaya anna yojana", "is_aay", "aay"],
+  },
+  {
+    key: "isEws",
+    label: "EWS Beneficiary (Yes/No)",
+    category: "Welfare",
+    icon: "🏷️",
+    aliases: ["ews (yes/no)", "is ews", "economically weaker section", "is_ews", "ews"],
+  },
+  {
+    key: "indianNationality",
+    label: "Indian Nationality (Yes/No)",
+    category: "Demographics",
+    icon: "🇮🇳",
+    aliases: ["indian nationality", "nationality", "is indian", "indian", "indian_nationality"],
+  },
+  {
+    key: "isOutOfSchool",
+    label: "Out of School Child (Yes/No)",
+    category: "Welfare",
+    icon: "🚸",
+    aliases: ["is out of school", "out of school child", "oosc", "out of school (yes/no)", "is_out_of_school"],
+  },
+  {
+    key: "mainstreamedDate",
+    label: "Mainstreamed Date",
+    category: "Welfare",
+    icon: "📅",
+    aliases: ["mainstreamed date", "date of mainstreaming", "mainstreaming date", "mainstreamed_date"],
+  },
+  {
+    key: "rteSection12C",
+    label: "RTE Section 12(C) (Yes/No)",
+    category: "Welfare",
+    icon: "📖",
+    aliases: ["rte section 12c", "rte beneficiary", "rte 12c", "rte", "rte_section_12c"],
+  },
+  {
+    key: "rteAmountClaimed",
+    label: "RTE Amount Claimed (₹)",
+    category: "Welfare",
+    icon: "💰",
+    aliases: ["rte amount claimed", "rte reimbursement amount", "rte claimed amount", "rte_amount_claimed"],
+  },
+
+  // 9. Facilities & Co-curricular
+  {
+    key: "facilitiesProvided",
+    label: "Facilities Provided",
+    category: "Facilities",
+    icon: "🎁",
+    aliases: ["facilities provided", "facilities received", "student facilities", "facilities_provided"],
+  },
+  {
+    key: "cwsnFacilities",
+    label: "CWSN Facilities",
+    category: "Facilities",
+    icon: "♿",
+    aliases: ["cwsn facilities", "facilities for cwsn", "cwsn aids and appliances", "cwsn_facilities"],
+  },
+  {
+    key: "competitionsOlympiads",
+    label: "Competitions / Olympiads",
+    category: "Activities",
+    icon: "🏆",
+    aliases: ["competitions", "olympiads", "competitions / olympiads", "competitions_olympiads"],
+  },
+  {
+    key: "ncc",
+    label: "NCC Cadet (Yes/No)",
+    category: "Activities",
+    icon: "🎖️",
+    aliases: ["ncc", "ncc cadet", "is ncc"],
+  },
+  {
+    key: "nss",
+    label: "NSS Volunteer (Yes/No)",
+    category: "Activities",
+    icon: "🎗️",
+    aliases: ["nss", "nss volunteer", "is nss"],
+  },
+  {
+    key: "scoutsGuides",
+    label: "Scouts & Guides (Yes/No)",
+    category: "Activities",
+    icon: "🏕️",
+    aliases: ["scouts & guides", "scouts and guides", "scouts / guides", "scouts", "guides", "scouts_guides"],
+  },
+  {
+    key: "distanceToSchool",
+    label: "Distance to School (km)",
+    category: "Enrolment",
+    icon: "📏",
+    aliases: ["distance to school", "distance from residence", "distance in km", "distance to school (km)", "distance_to_school"],
+  },
+  {
+    key: "highestEducationParents",
+    label: "Highest Education of Parents",
+    category: "Family",
+    icon: "🎓",
+    aliases: ["highest education of parents", "parent highest qualification", "highest education parents", "highest_education_parents"],
+  },
+  {
+    key: "languageGroup",
+    label: "Languages Studied",
+    category: "Curriculum",
+    icon: "🗣️",
+    aliases: ["languages studied", "language group", "languages", "language_group"],
+  },
+  {
+    key: "foreignLanguage",
+    label: "Foreign / 3rd Language",
+    category: "Curriculum",
+    icon: "🌐",
+    aliases: ["foreign language", "third language", "3rd language", "foreign_language"],
+  },
+  {
+    key: "mandatorySubjects",
+    label: "Mandatory Subjects",
+    category: "Curriculum",
+    icon: "📚",
+    aliases: ["mandatory subjects", "compulsory subjects", "core subjects", "mandatory_subjects"],
+  },
+  {
+    key: "additionalSubjects",
+    label: "Additional / Elective Subjects",
+    category: "Curriculum",
+    icon: "📖",
+    aliases: ["additional subjects", "optional subjects", "elective subjects", "4th subject", "additional_subjects"],
+  },
+  {
+    key: "coCurricularSubjects",
+    label: "Co-Curricular Subjects",
+    category: "Curriculum",
+    icon: "🎨",
+    aliases: ["co-curricular subjects", "co curricular activities", "work / physical ed", "co_curricular_subjects"],
+  },
 ];
 
 export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMapping }> = {
@@ -1009,6 +1349,17 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "Religion": "religion",
       "IFSC": "bankIfsc",
       "Account No": "bankAccountNo",
+      "Kanyashree ID": "kanyashreeId",
+      "Caste Certificate No": "casteCertificateNo",
+      "Father Occupation": "fatherOccupation",
+      "Mother Occupation": "motherOccupation",
+      "Guardian Occupation": "guardianOccupation",
+      "WBBSE Reg No": "wbbseRegNo",
+      "WBBSE Roll No": "wbbseRollNo",
+      "WBCHSE Reg No": "wbchseRegNo",
+      "WBCHSE Roll No": "wbchseRollNo",
+      "Board Reg No": "boardRegistrationNo",
+      "Board Roll No": "boardRollNo",
     },
   },
   udise: {
@@ -1042,6 +1393,17 @@ export const TEMPLATE_PRESETS: Record<string, { name: string; mapping: ColumnMap
       "Height (cm)": "heightCm",
       "Weight (kg)": "weightKg",
       "Previous Marks (%)": "previousMarksPercent",
+      "Kanyashree ID": "kanyashreeId",
+      "Caste Certificate No": "casteCertificateNo",
+      "Father Occupation": "fatherOccupation",
+      "Mother Occupation": "motherOccupation",
+      "Guardian Occupation": "guardianOccupation",
+      "WBBSE Reg No": "wbbseRegNo",
+      "WBBSE Roll No": "wbbseRollNo",
+      "WBCHSE Reg No": "wbchseRegNo",
+      "WBCHSE Roll No": "wbchseRollNo",
+      "Board Reg No": "boardRegistrationNo",
+      "Board Roll No": "boardRollNo",
     },
   },
 };
@@ -1452,14 +1814,20 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
 
   // Explicit priority order for matching to prevent generic collisions (like "name" eating "father name")
   const PRIORITY_KEYS: (keyof Student)[] = [
+    "fatherOccupation",
+    "motherOccupation",
+    "guardianOccupation",
+    "guardianQualification",
+    "relationshipWithGuardian",
     "fatherName",
     "motherName",
+    "guardianName",
     "altMobile",
     "studentContact",
-    "guardianName",
-    "relationshipWithGuardian",
-    "guardianQualification",
+    "nameAsPerAadhaar",
     "studentUniqueCode",
+    "kanyashreeId",
+    "casteCertificateNo",
     "bankAccountNo",
     "bankIfsc",
     "wbbseRegNo",
@@ -1470,9 +1838,11 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "healthId",
     "identificationMark",
     "admissionNo",
+    "presentClassAdmissionDate",
     "admissionDate",
     "academicYear",
     "admissionYear",
+    "admissionType",
     "academicStream",
     "mediumOfInstruction",
     "dob",
@@ -1490,15 +1860,44 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     "motherTongue",
     "minorityGroup",
     "annualFamilyIncome",
+    "hasDisabilityCertificate",
+    "disabilityPercentage",
+    "sldType",
     "isCwsn",
     "impairmentType",
+    "isAay",
+    "isEws",
+    "indianNationality",
+    "isOutOfSchool",
+    "mainstreamedDate",
     "bloodGroup",
     "heightCm",
     "weightKg",
     "previousMarksPercent",
     "previousSchool",
     "previousClass",
+    "previousSection",
+    "previousStream",
     "previousRollNo",
+    "previousStatus",
+    "previousAppearedForExams",
+    "previousResult",
+    "previousDaysAttended",
+    "rteSection12C",
+    "rteAmountClaimed",
+    "facilitiesProvided",
+    "cwsnFacilities",
+    "competitionsOlympiads",
+    "ncc",
+    "nss",
+    "scoutsGuides",
+    "distanceToSchool",
+    "highestEducationParents",
+    "languageGroup",
+    "foreignLanguage",
+    "mandatorySubjects",
+    "additionalSubjects",
+    "coCurricularSubjects",
     "email",
     "address",
     "pincode",
@@ -1887,7 +2286,12 @@ export function applyMapping(
         fieldKey === "isEws" ||
         fieldKey === "indianNationality" ||
         fieldKey === "hasDisabilityCertificate" ||
-        fieldKey === "isOutOfSchool"
+        fieldKey === "isOutOfSchool" ||
+        fieldKey === "previousAppearedForExams" ||
+        fieldKey === "rteSection12C" ||
+        fieldKey === "ncc" ||
+        fieldKey === "nss" ||
+        fieldKey === "scoutsGuides"
       ) {
         const s = String(rawVal).trim().toLowerCase();
         (student as any)[fieldKey] = ["yes", "y", "true", "1", "t"].includes(s);
@@ -1896,7 +2300,11 @@ export function applyMapping(
         fieldKey === "weightKg" ||
         fieldKey === "annualFamilyIncome" ||
         fieldKey === "previousRollNo" ||
-        fieldKey === "previousMarksPercent"
+        fieldKey === "previousMarksPercent" ||
+        fieldKey === "disabilityPercentage" ||
+        fieldKey === "previousDaysAttended" ||
+        fieldKey === "rteAmountClaimed" ||
+        fieldKey === "distanceToSchool"
       ) {
         const num = parseFloat(String(rawVal).replace(/[^\d.]/g, ""));
         (student as any)[fieldKey] = isNaN(num) ? undefined : num;
@@ -1906,6 +2314,24 @@ export function applyMapping(
         fieldKey === "mainstreamedDate"
       ) {
         (student as any)[fieldKey] = normalizeDate(rawVal);
+      } else if (
+        fieldKey === "languageGroup" ||
+        fieldKey === "mandatorySubjects" ||
+        fieldKey === "additionalSubjects" ||
+        fieldKey === "coCurricularSubjects" ||
+        fieldKey === "facilitiesProvided" ||
+        fieldKey === "cwsnFacilities" ||
+        fieldKey === "competitionsOlympiads"
+      ) {
+        if (Array.isArray(rawVal)) {
+          (student as any)[fieldKey] = rawVal;
+        } else {
+          const arr = String(rawVal)
+            .split(/[,;\n/]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          (student as any)[fieldKey] = arr;
+        }
       } else if (
         fieldKey === "wbbseRegNo" ||
         fieldKey === "wbchseRegNo" ||

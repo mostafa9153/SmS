@@ -34,9 +34,10 @@ export async function dbProcessBulkUpload(
   const lookupPens = rows.map((r) => r.pen?.trim()).filter(Boolean) as string[];
   const lookupAadhaars = rows.map((r) => r.aadhaar?.trim().replace(/\D/g, "")).filter(Boolean) as string[];
   const lookupUniqueCodes = rows.map((r) => r.studentUniqueCode?.trim()).filter(Boolean) as string[];
+  const lookupAdmissionNos = rows.map((r) => r.admissionNo?.trim()).filter(Boolean) as string[];
 
   // 2. Fetch existing candidate matches in parallel
-  const [bySchoolId, byPen, byAadhaar, byUniqueCode] = await Promise.all([
+  const [bySchoolId, byPen, byAadhaar, byUniqueCode, byAdmissionNo] = await Promise.all([
     lookupSchoolIds.length > 0
       ? supabase.from("students").select("*").in("school_id", lookupSchoolIds)
       : Promise.resolve({ data: [] }),
@@ -49,6 +50,9 @@ export async function dbProcessBulkUpload(
     lookupUniqueCodes.length > 0
       ? supabase.from("students").select("*").in("student_unique_code", lookupUniqueCodes)
       : Promise.resolve({ data: [] }),
+    lookupAdmissionNos.length > 0
+      ? supabase.from("students").select("*").in("admission_no", lookupAdmissionNos)
+      : Promise.resolve({ data: [] }),
   ]);
 
   // Index them in Maps for O(1) matching
@@ -56,6 +60,7 @@ export async function dbProcessBulkUpload(
   const penMap = new Map<string, DBStudent>();
   const aadhaarMap = new Map<string, DBStudent>();
   const uniqueCodeMap = new Map<string, DBStudent>();
+  const admissionNoMap = new Map<string, DBStudent>();
 
   for (const s of (bySchoolId.data || []) as DBStudent[]) {
     if (s.school_id) schoolIdMap.set(s.school_id.toUpperCase().trim(), s);
@@ -67,7 +72,16 @@ export async function dbProcessBulkUpload(
     if (s.aadhaar) aadhaarMap.set(s.aadhaar.trim(), s);
   }
   for (const s of (byUniqueCode.data || []) as DBStudent[]) {
-    if (s.student_unique_code) uniqueCodeMap.set(s.student_unique_code.toUpperCase().trim(), s);
+    if (s.student_unique_code) {
+      uniqueCodeMap.set(s.student_unique_code.toUpperCase().trim(), s);
+      uniqueCodeMap.set(s.student_unique_code.trim(), s);
+    }
+  }
+  for (const s of (byAdmissionNo.data || []) as DBStudent[]) {
+    if (s.admission_no) {
+      admissionNoMap.set(s.admission_no.toUpperCase().trim(), s);
+      admissionNoMap.set(s.admission_no.trim(), s);
+    }
   }
 
   // 3. Classify rows into Updates vs Creates
@@ -106,8 +120,9 @@ export async function dbProcessBulkUpload(
     const penKey = r.pen?.toUpperCase().trim();
     const aadhaarKey = r.aadhaar?.trim().replace(/\D/g, "");
     const uniqueCodeKey = r.studentUniqueCode?.toUpperCase().trim();
+    const admissionNoKey = r.admissionNo?.toUpperCase().trim();
 
-    // Priority matching: School ID > PEN > Aadhaar > student_unique_code
+    // Priority matching: School ID > PEN > Aadhaar > student_unique_code > admission_no
     let matched: DBStudent | undefined;
     let matchedBy = "";
 
@@ -123,6 +138,9 @@ export async function dbProcessBulkUpload(
     } else if (uniqueCodeKey && uniqueCodeMap.has(uniqueCodeKey)) {
       matched = uniqueCodeMap.get(uniqueCodeKey);
       matchedBy = "studentUniqueCode";
+    } else if (admissionNoKey && admissionNoMap.has(admissionNoKey)) {
+      matched = admissionNoMap.get(admissionNoKey);
+      matchedBy = "admissionNo";
     }
 
     if (matched) {
@@ -181,8 +199,16 @@ export async function dbProcessBulkUpload(
     applyIfPresent("dob", inc.dob?.trim(), existing.dob, "Date of Birth");
     if (inc.gender) applyIfPresent("gender", normalizeGender(inc.gender), existing.gender, "Gender");
     applyIfPresent("father_name", inc.fatherName?.trim(), existing.father_name, "Father Name");
+    applyIfPresent("father_occupation", inc.fatherOccupation?.trim(), existing.father_occupation, "Father Occupation");
     applyIfPresent("mother_name", inc.motherName?.trim(), existing.mother_name, "Mother Name");
+    applyIfPresent("mother_occupation", inc.motherOccupation?.trim(), existing.mother_occupation, "Mother Occupation");
+    applyIfPresent("guardian_name", inc.guardianName?.trim(), existing.guardian_name, "Guardian Name");
+    applyIfPresent("relationship_with_guardian", inc.relationshipWithGuardian?.trim(), existing.relationship_with_guardian, "Guardian Relation");
+    applyIfPresent("guardian_occupation", inc.guardianOccupation?.trim(), existing.guardian_occupation, "Guardian Occupation");
+    applyIfPresent("guardian_qualification", inc.guardianQualification?.trim(), existing.guardian_qualification, "Guardian Qualification");
     applyIfPresent("mobile", inc.studentContact?.trim(), existing.mobile, "Mobile");
+    applyIfPresent("alt_mobile", inc.altMobile?.trim(), existing.alt_mobile, "Guardian Mobile");
+    applyIfPresent("email", inc.email?.trim(), existing.email, "Email");
     applyIfPresent("address", inc.address?.trim(), existing.address, "Address");
     applyIfPresent("pincode", inc.pincode?.trim(), existing.pincode, "Pincode");
     applyIfPresent("present_class", inc.presentClass?.trim(), existing.present_class, "Class");
@@ -190,38 +216,70 @@ export async function dbProcessBulkUpload(
     if (inc.presentRoll != null) applyIfPresent("present_roll", Number(inc.presentRoll), existing.present_roll, "Roll");
     if (inc.currentStatus) applyIfPresent("current_status", inc.currentStatus, existing.current_status, "Status");
     if (inc.admissionYear != null) applyIfPresent("admission_year", Number(inc.admissionYear), existing.admission_year, "Admission Year");
-    applyIfPresent("pen", inc.pen?.trim(), existing.pen, "PEN");
-    applyIfPresent("aadhaar", inc.aadhaar?.trim().replace(/\D/g, ""), existing.aadhaar, "Aadhaar");
-    applyIfPresent("student_unique_code", inc.studentUniqueCode?.trim(), existing.student_unique_code, "Unique Code");
-    applyIfPresent("guardian_name", inc.guardianName?.trim(), existing.guardian_name, "Guardian Name");
-    applyIfPresent("social_category", normalizeSocialCategory(inc.socialCategory?.trim()), existing.social_category, "Category");
-    applyIfPresent("religion", inc.religion?.trim(), existing.religion, "Religion");
-    applyIfPresent("bank_ifsc", inc.bankIfsc?.trim(), existing.bank_ifsc, "IFSC");
-    applyIfPresent("bank_account_no", inc.bankAccountNo?.trim(), existing.bank_account_no, "Account No");
     applyIfPresent("admission_no", inc.admissionNo?.trim(), existing.admission_no, "Admission Number");
     applyIfPresent("admission_date", inc.admissionDate?.trim(), existing.admission_date, "Admission Date");
-    applyIfPresent("academic_stream", inc.academicStream?.trim(), existing.academic_stream, "Academic Stream");
+    applyIfPresent("admission_type", inc.admissionType?.trim(), existing.admission_type, "Admission Type");
+    applyIfPresent("academic_year", inc.academicYear?.trim(), existing.academic_year, "Academic Year");
     applyIfPresent("medium_of_instruction", inc.mediumOfInstruction?.trim(), existing.medium_of_instruction, "Medium of Instruction");
+    applyIfPresent("present_class_admission_date", inc.presentClassAdmissionDate?.trim(), existing.present_class_admission_date, "Present Class Admission Date");
+    applyIfPresent("academic_stream", inc.academicStream?.trim(), existing.academic_stream, "Academic Stream");
+    applyIfPresent("pen", inc.pen?.trim(), existing.pen, "PEN");
+    applyIfPresent("aadhaar", inc.aadhaar?.trim().replace(/\D/g, ""), existing.aadhaar, "Aadhaar");
+    applyIfPresent("name_as_per_aadhaar", inc.nameAsPerAadhaar?.trim(), existing.name_as_per_aadhaar, "Name as per Aadhaar");
+    applyIfPresent("student_unique_code", inc.studentUniqueCode?.trim(), existing.student_unique_code, "Unique Code");
+    applyIfPresent("kanyashree_id", inc.kanyashreeId?.trim(), existing.kanyashree_id, "Kanyashree ID");
+    applyIfPresent("social_category", normalizeSocialCategory(inc.socialCategory?.trim()), existing.social_category, "Category");
+    applyIfPresent("caste_certificate_no", inc.casteCertificateNo?.trim(), existing.caste_certificate_no, "Caste Certificate No");
+    applyIfPresent("religion", inc.religion?.trim(), existing.religion, "Religion");
+    applyIfPresent("mother_tongue", inc.motherTongue?.trim(), existing.mother_tongue, "Mother Tongue");
+    applyIfPresent("minority_group", inc.minorityGroup?.trim(), existing.minority_group, "Minority Group");
+    applyIfPresent("bank_ifsc", inc.bankIfsc?.trim(), existing.bank_ifsc, "IFSC");
+    applyIfPresent("bank_account_no", inc.bankAccountNo?.trim(), existing.bank_account_no, "Account No");
     applyIfPresent("birth_registration_no", inc.birthRegistrationNo?.trim(), existing.birth_registration_no, "Birth Registration No");
     applyIfPresent("board_registration_no", (inc.boardRegistrationNo || inc.wbbseRegNo || inc.wbchseRegNo)?.trim(), existing.board_registration_no, "Board Registration No");
     applyIfPresent("board_roll_no", (inc.boardRollNo || inc.wbbseRollNo || inc.wbchseRollNo)?.trim(), existing.board_roll_no, "Board Roll No");
     applyIfPresent("dise_code", inc.diseCode?.trim(), existing.dise_code, "DISE Code");
-    applyIfPresent("minority_group", inc.minorityGroup?.trim(), existing.minority_group, "Minority Group");
-    applyIfPresent("mother_tongue", inc.motherTongue?.trim(), existing.mother_tongue, "Mother Tongue");
+    applyIfPresent("health_id", inc.healthId?.trim(), existing.health_id, "Health ID");
+    applyIfPresent("identification_mark", inc.identificationMark?.trim(), existing.identification_mark, "Identification Mark");
     if (inc.isCwsn !== undefined) applyIfPresent("is_cwsn", inc.isCwsn, existing.is_cwsn, "CWSN");
     applyIfPresent("impairment_type", inc.impairmentType?.trim(), existing.impairment_type, "Disability Type");
+    if (inc.hasDisabilityCertificate !== undefined) applyIfPresent("has_disability_certificate", inc.hasDisabilityCertificate, existing.has_disability_certificate, "Disability Certificate");
+    if (inc.disabilityPercentage != null) applyIfPresent("disability_percentage", Number(inc.disabilityPercentage), existing.disability_percentage, "Disability Percentage");
+    applyIfPresent("sld_type", inc.sldType?.trim(), existing.sld_type, "SLD Type");
+    if (inc.isAay !== undefined) applyIfPresent("is_aay", inc.isAay, existing.is_aay, "AAY");
+    if (inc.isEws !== undefined) applyIfPresent("is_ews", inc.isEws, existing.is_ews, "EWS");
+    if (inc.indianNationality !== undefined) applyIfPresent("indian_nationality", inc.indianNationality, existing.indian_nationality, "Indian Nationality");
+    if (inc.isOutOfSchool !== undefined) applyIfPresent("is_out_of_school", inc.isOutOfSchool, existing.is_out_of_school, "Out of School");
+    applyIfPresent("mainstreamed_date", inc.mainstreamedDate?.trim(), existing.mainstreamed_date, "Mainstreamed Date");
     if (inc.annualFamilyIncome != null) applyIfPresent("annual_family_income", Number(inc.annualFamilyIncome), existing.annual_family_income, "Annual Income");
     applyIfPresent("blood_group", inc.bloodGroup?.trim(), existing.blood_group, "Blood Group");
     if (inc.heightCm != null) applyIfPresent("height_cm", Number(inc.heightCm), existing.height_cm, "Height");
     if (inc.weightKg != null) applyIfPresent("weight_kg", Number(inc.weightKg), existing.weight_kg, "Weight");
-    if (inc.previousMarksPercent != null) applyIfPresent("previous_marks_percent", Number(inc.previousMarksPercent), existing.previous_marks_percent, "Previous Marks");
     applyIfPresent("previous_school", inc.previousSchool?.trim(), existing.previous_school, "Previous School");
     applyIfPresent("previous_class", inc.previousClass?.trim(), existing.previous_class, "Previous Class");
+    applyIfPresent("previous_section", inc.previousSection?.trim(), existing.previous_section, "Previous Section");
+    applyIfPresent("previous_stream", inc.previousStream?.trim(), existing.previous_stream, "Previous Stream");
     if (inc.previousRollNo != null) applyIfPresent("previous_roll_no", Number(inc.previousRollNo), existing.previous_roll_no, "Previous Roll");
-    applyIfPresent("relationship_with_guardian", inc.relationshipWithGuardian?.trim(), existing.relationship_with_guardian, "Guardian Relation");
-    applyIfPresent("guardian_qualification", inc.guardianQualification?.trim(), existing.guardian_qualification, "Guardian Qualification");
-    applyIfPresent("identification_mark", inc.identificationMark?.trim(), existing.identification_mark, "Identification Mark");
-    applyIfPresent("health_id", inc.healthId?.trim(), existing.health_id, "Health ID");
+    if (inc.previousMarksPercent != null) applyIfPresent("previous_marks_percent", Number(inc.previousMarksPercent), existing.previous_marks_percent, "Previous Marks");
+    applyIfPresent("previous_status", inc.previousStatus?.trim(), existing.previous_status, "Previous Status");
+    if (inc.previousAppearedForExams !== undefined) applyIfPresent("previous_appeared_for_exams", inc.previousAppearedForExams, existing.previous_appeared_for_exams, "Previous Appeared For Exams");
+    applyIfPresent("previous_result", inc.previousResult?.trim(), existing.previous_result, "Previous Result");
+    if (inc.previousDaysAttended != null) applyIfPresent("previous_days_attended", Number(inc.previousDaysAttended), existing.previous_days_attended, "Previous Days Attended");
+    if (inc.rteSection12C !== undefined) applyIfPresent("rte_section_12c", inc.rteSection12C, existing.rte_section_12c, "RTE Section 12C");
+    if (inc.rteAmountClaimed != null) applyIfPresent("rte_amount_claimed", Number(inc.rteAmountClaimed), existing.rte_amount_claimed, "RTE Amount Claimed");
+    if (inc.facilitiesProvided && inc.facilitiesProvided.length > 0) applyIfPresent("facilities_provided", inc.facilitiesProvided, existing.facilities_provided, "Facilities Provided");
+    if (inc.cwsnFacilities && inc.cwsnFacilities.length > 0) applyIfPresent("cwsn_facilities", inc.cwsnFacilities, existing.cwsn_facilities, "CWSN Facilities");
+    if (inc.competitionsOlympiads && inc.competitionsOlympiads.length > 0) applyIfPresent("competitions_olympiads", inc.competitionsOlympiads, existing.competitions_olympiads, "Competitions/Olympiads");
+    if (inc.ncc !== undefined) applyIfPresent("ncc", inc.ncc, existing.ncc, "NCC");
+    if (inc.nss !== undefined) applyIfPresent("nss", inc.nss, existing.nss, "NSS");
+    if (inc.scoutsGuides !== undefined) applyIfPresent("scouts_guides", inc.scoutsGuides, existing.scouts_guides, "Scouts & Guides");
+    if (inc.distanceToSchool != null) applyIfPresent("distance_to_school", Number(inc.distanceToSchool), existing.distance_to_school, "Distance to School");
+    applyIfPresent("highest_education_parents", inc.highestEducationParents?.trim(), existing.highest_education_parents, "Highest Education Parents");
+    if (inc.languageGroup && inc.languageGroup.length > 0) applyIfPresent("language_group", inc.languageGroup, existing.language_group, "Language Group");
+    applyIfPresent("foreign_language", inc.foreignLanguage?.trim(), existing.foreign_language, "Foreign Language");
+    if (inc.mandatorySubjects && inc.mandatorySubjects.length > 0) applyIfPresent("mandatory_subjects", inc.mandatorySubjects, existing.mandatory_subjects, "Mandatory Subjects");
+    if (inc.additionalSubjects && inc.additionalSubjects.length > 0) applyIfPresent("additional_subjects", inc.additionalSubjects, existing.additional_subjects, "Additional Subjects");
+    if (inc.coCurricularSubjects && inc.coCurricularSubjects.length > 0) applyIfPresent("co_curricular_subjects", inc.coCurricularSubjects, existing.co_curricular_subjects, "Co-Curricular Subjects");
 
     if (Object.keys(dbPatch).length === 0) {
       skippedCount++;
@@ -245,12 +303,41 @@ export async function dbProcessBulkUpload(
     const batch = preparedUpdates.slice(i, i + UPDATE_CONCURRENCY);
     await Promise.all(
       batch.map(async ({ item, existing, dbPatch, changedFieldNames }) => {
-        const { data: updatedRecord, error: updateError } = await supabase
+        let { data: updatedRecord, error: updateError } = await supabase
           .from("students")
           .update(dbPatch)
           .eq("id", existing.id)
           .select()
           .single();
+
+        // Fallback if optional columns cause update errors on database
+        if (updateError && (
+          updateError.message.includes("father_occupation") ||
+          updateError.message.includes("mother_occupation") ||
+          updateError.message.includes("guardian_occupation") ||
+          updateError.message.includes("board_registration_no") ||
+          updateError.message.includes("board_roll_no") ||
+          updateError.message.includes("kanyashree_id") ||
+          updateError.message.includes("caste_certificate_no")
+        )) {
+          const fallbackPatch = { ...dbPatch };
+          delete fallbackPatch.father_occupation;
+          delete fallbackPatch.mother_occupation;
+          delete fallbackPatch.guardian_occupation;
+          delete fallbackPatch.board_registration_no;
+          delete fallbackPatch.board_roll_no;
+          delete fallbackPatch.kanyashree_id;
+          delete fallbackPatch.caste_certificate_no;
+
+          const retryRes = await supabase
+            .from("students")
+            .update(fallbackPatch)
+            .eq("id", existing.id)
+            .select()
+            .single();
+          updatedRecord = retryRes.data;
+          updateError = retryRes.error;
+        }
 
         if (updateError) {
           errorCount++;
@@ -314,8 +401,13 @@ export async function dbProcessBulkUpload(
         dob: inc.dob?.trim() || "2015-01-01",
         gender: normalizeGender(inc.gender),
         father_name: inc.fatherName?.trim() || "N/A",
+        father_occupation: inc.fatherOccupation?.trim() || null,
         mother_name: inc.motherName?.trim() || "N/A",
+        mother_occupation: inc.motherOccupation?.trim() || null,
         guardian_name: inc.guardianName?.trim() || null,
+        relationship_with_guardian: inc.relationshipWithGuardian?.trim() || null,
+        guardian_occupation: inc.guardianOccupation?.trim() || null,
+        guardian_qualification: inc.guardianQualification?.trim() || null,
         address: inc.address?.trim() || null,
         pincode: inc.pincode?.trim() || null,
         mobile: inc.studentContact?.trim() || null,
@@ -328,8 +420,11 @@ export async function dbProcessBulkUpload(
         admission_year: inc.admissionYear != null ? Number(inc.admissionYear) : currentYear,
         admission_date: inc.admissionDate?.trim() || null,
         admission_no: inc.admissionNo?.trim() || null,
+        admission_type: inc.admissionType?.trim() || null,
+        academic_year: inc.academicYear?.trim() || null,
+        present_class_admission_date: inc.presentClassAdmissionDate?.trim() || null,
         academic_stream: inc.academicStream?.trim() || null,
-        medium_of_instruction: inc.mediumOfInstruction?.trim() || null,
+        medium_of_instruction: inc.mediumOfInstruction?.trim() || "Bengali",
         birth_registration_no: inc.birthRegistrationNo?.trim() || null,
         board_registration_no: (inc.boardRegistrationNo || inc.wbbseRegNo || inc.wbchseRegNo)?.trim() || null,
         board_roll_no: (inc.boardRollNo || inc.wbbseRollNo || inc.wbchseRollNo)?.trim() || null,
@@ -338,26 +433,53 @@ export async function dbProcessBulkUpload(
         mother_tongue: inc.motherTongue?.trim() || null,
         pen: inc.pen?.trim() || null,
         aadhaar: inc.aadhaar?.trim().replace(/\D/g, "") || null,
+        name_as_per_aadhaar: inc.nameAsPerAadhaar?.trim() || null,
         student_unique_code: inc.studentUniqueCode?.trim() || null,
+        kanyashree_id: inc.kanyashreeId?.trim() || null,
         social_category: normalizeSocialCategory(inc.socialCategory?.trim()) || "General",
+        caste_certificate_no: inc.casteCertificateNo?.trim() || null,
         religion: inc.religion?.trim() || null,
         bank_ifsc: inc.bankIfsc?.trim() || null,
         bank_account_no: inc.bankAccountNo?.trim() || null,
         is_cwsn: inc.isCwsn || false,
         impairment_type: inc.impairmentType?.trim() || null,
+        has_disability_certificate: inc.hasDisabilityCertificate || false,
+        disability_percentage: inc.disabilityPercentage != null ? Number(inc.disabilityPercentage) : null,
+        sld_type: inc.sldType?.trim() || null,
         is_aay: inc.isAay || false,
         is_ews: inc.isEws || false,
         indian_nationality: inc.indianNationality ?? true,
+        is_out_of_school: inc.isOutOfSchool || false,
+        mainstreamed_date: inc.mainstreamedDate?.trim() || null,
         annual_family_income: inc.annualFamilyIncome != null ? Number(inc.annualFamilyIncome) : null,
         blood_group: inc.bloodGroup?.trim() || null,
         height_cm: inc.heightCm != null ? Number(inc.heightCm) : null,
         weight_kg: inc.weightKg != null ? Number(inc.weightKg) : null,
         previous_school: inc.previousSchool?.trim() || null,
         previous_class: inc.previousClass?.trim() || null,
+        previous_section: inc.previousSection?.trim() || null,
+        previous_stream: inc.previousStream?.trim() || null,
         previous_roll_no: inc.previousRollNo != null ? Number(inc.previousRollNo) : null,
         previous_marks_percent: inc.previousMarksPercent != null ? Number(inc.previousMarksPercent) : null,
-        relationship_with_guardian: inc.relationshipWithGuardian?.trim() || null,
-        guardian_qualification: inc.guardianQualification?.trim() || null,
+        previous_status: inc.previousStatus?.trim() || null,
+        previous_appeared_for_exams: inc.previousAppearedForExams || false,
+        previous_result: inc.previousResult?.trim() || null,
+        previous_days_attended: inc.previousDaysAttended != null ? Number(inc.previousDaysAttended) : null,
+        rte_section_12c: inc.rteSection12C || false,
+        rte_amount_claimed: inc.rteAmountClaimed != null ? Number(inc.rteAmountClaimed) : null,
+        facilities_provided: inc.facilitiesProvided || null,
+        cwsn_facilities: inc.cwsnFacilities || null,
+        competitions_olympiads: inc.competitionsOlympiads || null,
+        ncc: inc.ncc || false,
+        nss: inc.nss || false,
+        scouts_guides: inc.scoutsGuides || false,
+        distance_to_school: inc.distanceToSchool != null ? Number(inc.distanceToSchool) : null,
+        highest_education_parents: inc.highestEducationParents?.trim() || null,
+        language_group: inc.languageGroup || null,
+        foreign_language: inc.foreignLanguage?.trim() || null,
+        mandatory_subjects: inc.mandatorySubjects || null,
+        additional_subjects: inc.additionalSubjects || null,
+        co_curricular_subjects: inc.coCurricularSubjects || null,
         identification_mark: inc.identificationMark?.trim() || null,
         health_id: inc.healthId?.trim() || null,
       });
@@ -373,11 +495,38 @@ export async function dbProcessBulkUpload(
       for (let j = 0; j < chunk.length; j++) {
         const item = chunk[j];
         const payload = chunkPayloads[j];
-        const { data: singleRec, error: singleErr } = await supabase
+        let { data: singleRec, error: singleErr } = await supabase
           .from("students")
           .insert(payload)
           .select()
           .single();
+
+        if (singleErr && (
+          singleErr.message.includes("father_occupation") ||
+          singleErr.message.includes("mother_occupation") ||
+          singleErr.message.includes("guardian_occupation") ||
+          singleErr.message.includes("board_registration_no") ||
+          singleErr.message.includes("board_roll_no") ||
+          singleErr.message.includes("kanyashree_id") ||
+          singleErr.message.includes("caste_certificate_no")
+        )) {
+          const fallbackPayload = { ...payload };
+          delete fallbackPayload.father_occupation;
+          delete fallbackPayload.mother_occupation;
+          delete fallbackPayload.guardian_occupation;
+          delete fallbackPayload.board_registration_no;
+          delete fallbackPayload.board_roll_no;
+          delete fallbackPayload.kanyashree_id;
+          delete fallbackPayload.caste_certificate_no;
+
+          const retrySingle = await supabase
+            .from("students")
+            .insert(fallbackPayload)
+            .select()
+            .single();
+          singleRec = retrySingle.data;
+          singleErr = retrySingle.error;
+        }
 
         if (singleErr || !singleRec) {
           errorCount++;

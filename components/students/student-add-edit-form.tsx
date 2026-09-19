@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useRouter, useParams } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStudentById, updateStudent } from "@/lib/data/students";
-import { ArrowLeft, Loader2 } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createStudent } from "@/lib/data/students";
+import { ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
@@ -18,6 +17,11 @@ import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
 import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
+import {
+  getSavedStudentEntryPresets,
+  fetchStudentEntryPresetsFromDb,
+  applyStudentEntryDefaults,
+} from "@/lib/utils/student-entry-presets";
 
 const studentSchema = z.object({
   // Identity
@@ -27,7 +31,7 @@ const studentSchema = z.object({
     .min(1, "School ID is required")
     .regex(
       /^[A-Z0-9/_-]+$/i,
-      "School ID contains invalid characters"
+      "School ID format: MHS/CLASS/YEAR/REG (e.g. MHS/IX/2024/105)"
     ),
   dob: z.string().refine((v) => {
     if (!v) return false;
@@ -88,7 +92,7 @@ const studentSchema = z.object({
   academicYear: z.string().optional(),
   mediumOfInstruction: z.string().optional(),
   presentClassAdmissionDate: z.string().optional(),
-  admissionYear: z.coerce.number().int().min(1900).max(2100),
+  admissionYear: z.coerce.number().int().min(2000).max(new Date().getFullYear()),
   academicStream: z.string().optional(),
   boardRegistrationNo: z.string().optional().nullable(),
   boardRollNo: z.string().optional().nullable(),
@@ -115,39 +119,35 @@ const studentSchema = z.object({
   rteSection12C: z.coerce.boolean().optional(),
   rteAmountClaimed: z.coerce.number().optional().nullable(),
 
-  // Facilities & Co-curricular
+  // Facilities Profile
   facilitiesProvidedInput: z.string().optional(),
   cwsnFacilitiesInput: z.string().optional(),
-  competitionsOlympiadsInput: z.string().optional(),
+  freeUniforms: z.coerce.boolean().optional(),
+  freeTransport: z.coerce.boolean().optional(),
+  freeBicycle: z.coerce.boolean().optional(),
+  freeHostel: z.coerce.boolean().optional(),
+  freeShoes: z.coerce.boolean().optional(),
+  hasComputerAccess: z.coerce.boolean().optional(),
+
+  // Extra Profile Fields
   ncc: z.coerce.boolean().optional(),
   nss: z.coerce.boolean().optional(),
   scoutsGuides: z.coerce.boolean().optional(),
   distanceToSchool: z.coerce.number().optional().nullable(),
   highestEducationParents: z.string().optional(),
+  competitionsOlympiadsInput: z.string().optional(),
 
   // Bank
   bankIfsc: z.string().optional(),
   bankAccountNo: z.string().optional(),
 
-  // Identifiers
+  // Govt IDs
   pen: z.string().optional(),
   diseCode: z.string().optional(),
   healthId: z.string().optional(),
   studentUniqueCode: z.string().optional(),
   kanyashreeId: z.string().optional(),
-  aadhaar: z
-    .string()
-    .optional()
-    .refine(
-      (v) =>
-        !v ||
-        v.trim() === "" ||
-        v.includes("•") ||
-        v === "PENDING_RECORD" ||
-        v === "Not Available" ||
-        /^\d{12}$/.test(v.trim()),
-      "Aadhaar must be 12 digits"
-    ),
+  aadhaar: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{12}$/.test(v.trim()), "Aadhaar must be 12 digits"),
   nameAsPerAadhaar: z.string().optional(),
 });
 
@@ -195,125 +195,59 @@ const STREAM_OPTIONS = [
   { label: "Vocational", value: "Vocational" },
 ];
 
-export default function EditStudentPage() {
-  const { id } = useParams<{ id: string }>();
+export interface StudentAddEditFormProps {
+  aiExtractedData?: Record<string, any>;
+  onSuccess?: (student: Student) => void;
+  isEmbedded?: boolean;
+}
+
+export function StudentAddEditForm({
+  aiExtractedData,
+  onSuccess,
+  isEmbedded = false,
+}: StudentAddEditFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-
-  const { data: student, isLoading } = useQuery({
-    queryKey: ["student", id],
-    queryFn: () => getStudentById(id),
-  });
 
   const {
     register,
     handleSubmit,
     setValue,
+    getValues,
     watch,
     control,
+    reset,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(studentSchema),
-    values: student
-      ? {
-        name: student.name,
-        schoolId: student.schoolId,
-        dob: student.dob,
-        gender: student.gender,
-        motherTongue: student.motherTongue || "Bengali",
-        religion: student.religion ?? "",
-        indianNationality: student.indianNationality !== false,
-        bloodGroup: student.bloodGroup ?? "",
-        heightCm: student.heightCm,
-        weightKg: student.weightKg,
-        birthRegistrationNo: student.birthRegistrationNo ?? "",
-        identificationMark: student.identificationMark ?? "",
-
-        socialCategory: student.socialCategory ?? "",
-        casteCertificateNo: student.casteCertificateNo ?? "",
-        minorityGroup: student.minorityGroup ?? "",
-        isAay: !!student.isAay,
-        isEws: !!student.isEws,
-        isOutOfSchool: !!student.isOutOfSchool,
-        mainstreamedDate: student.mainstreamedDate ?? "",
-
-        isCwsn: !!student.isCwsn,
-        impairmentType: student.impairmentType ?? "",
-        hasDisabilityCertificate: !!student.hasDisabilityCertificate,
-        disabilityPercentage: student.disabilityPercentage,
-        sldType: student.sldType ?? "",
-
-        fatherName: student.fatherName,
-        fatherOccupation: student.fatherOccupation ?? "",
-        motherName: student.motherName,
-        motherOccupation: student.motherOccupation ?? "",
-        guardianName: student.guardianName ?? "",
-        relationshipWithGuardian: student.relationshipWithGuardian ?? "",
-        guardianOccupation: student.guardianOccupation ?? "",
-        guardianQualification: student.guardianQualification ?? "",
-        annualFamilyIncome: student.annualFamilyIncome,
-
-        studentContact: student.studentContact ?? "",
-        altMobile: student.altMobile ?? "",
-        email: student.email ?? "",
-        address: student.address ?? "",
-        pincode: student.pincode ?? "",
-
-        presentClass: student.presentClass,
-        presentSection: student.presentSection,
-        presentRoll: student.presentRoll,
-        admissionNo: student.admissionNo ?? "",
-        admissionDate: student.admissionDate ?? "",
-        admissionType: student.admissionType ?? "",
-        academicYear: student.academicYear ?? "",
-        mediumOfInstruction: student.mediumOfInstruction || "Bengali",
-        presentClassAdmissionDate: student.presentClassAdmissionDate ?? "",
-        admissionYear: student.admissionYear,
-        academicStream: student.academicStream ?? "",
-        boardRegistrationNo: student.boardRegistrationNo ?? "",
-        boardRollNo: student.boardRollNo ?? "",
-
-        languageGroupInput: student.languageGroup ? student.languageGroup.join(", ") : "",
-        mandatorySubjectsInput: student.mandatorySubjects ? student.mandatorySubjects.join(", ") : "",
-        additionalSubjectsInput: student.additionalSubjects ? student.additionalSubjects.join(", ") : "",
-        coCurricularSubjectsInput: student.coCurricularSubjects ? student.coCurricularSubjects.join(", ") : "",
-
-        previousStatus: student.previousStatus ?? "",
-        previousClass: student.previousClass ?? "",
-        previousSection: student.previousSection ?? "",
-        previousStream: student.previousStream ?? "",
-        previousRollNo: student.previousRollNo,
-        previousAppearedForExams: !!student.previousAppearedForExams,
-        previousResult: student.previousResult ?? "",
-        previousMarksPercent: student.previousMarksPercent,
-        previousDaysAttended: student.previousDaysAttended,
-
-        rteSection12C: !!student.rteSection12C,
-        rteAmountClaimed: student.rteAmountClaimed,
-
-        facilitiesProvidedInput: student.facilitiesProvided ? student.facilitiesProvided.join(", ") : "",
-        cwsnFacilitiesInput: student.cwsnFacilities ? student.cwsnFacilities.join(", ") : "",
-        competitionsOlympiadsInput: student.competitionsOlympiads ? student.competitionsOlympiads.join(", ") : "",
-        ncc: !!student.ncc,
-        nss: !!student.nss,
-        scoutsGuides: !!student.scoutsGuides,
-        distanceToSchool: student.distanceToSchool,
-        highestEducationParents: student.highestEducationParents ?? "",
-
-        bankIfsc: student.bankIfsc ?? "",
-        bankAccountNo: student.bankAccountNo ?? "",
-
-        pen: student.pen ?? "",
-        diseCode: student.diseCode ?? "",
-        healthId: student.healthId ?? "",
-        studentUniqueCode: student.studentUniqueCode ?? "",
-        kanyashreeId: student.kanyashreeId ?? "",
-        aadhaar: student.aadhaar ?? "",
-        nameAsPerAadhaar: student.nameAsPerAadhaar ?? "",
-      }
-      : undefined,
+    defaultValues: {
+      gender: "Male",
+      motherTongue: "Bengali",
+      indianNationality: true,
+      isAay: false,
+      isEws: false,
+      isOutOfSchool: false,
+      isCwsn: false,
+      hasDisabilityCertificate: false,
+      previousAppearedForExams: false,
+      rteSection12C: false,
+      ncc: false,
+      nss: false,
+      scoutsGuides: false,
+      admissionYear: new Date().getFullYear(),
+      admissionDate: new Date().toISOString().split("T")[0],
+      presentClassAdmissionDate: new Date().toISOString().split("T")[0],
+      presentClass: "V",
+      presentSection: "A",
+      presentRoll: 1,
+      admissionNo: "",
+      fatherOccupation: "",
+      motherOccupation: "",
+      mediumOfInstruction: "Bengali",
+    },
   });
 
+  // Watchers
   const isOutOfSchoolChecked = watch("isOutOfSchool");
   const watchSocialCategory = watch("socialCategory");
   const isCwsnChecked = watch("isCwsn");
@@ -324,7 +258,7 @@ export default function EditStudentPage() {
   const watchAdmissionNo = watch("admissionNo");
   const watchAdmissionDate = watch("admissionDate");
   const watchGender = watch("gender");
-  const [hasAadhaarVal, setHasAadhaarVal] = useState<string | null>(null);
+  const [hasAadhaarVal, setHasAadhaarVal] = useState("Yes");
 
   const fatherNameWatched = watch("fatherName");
   const fatherOccupationWatched = watch("fatherOccupation");
@@ -333,6 +267,66 @@ export default function EditStudentPage() {
   const relationshipWatched = watch("relationshipWithGuardian");
   const studentContactWatched = watch("studentContact");
   const altMobileWatched = watch("altMobile");
+
+  // Populate extracted fields when AI returns data
+  useEffect(() => {
+    if (aiExtractedData && Object.keys(aiExtractedData).length > 0) {
+      const fieldMap: Record<string, keyof FormData> = {
+        studentName: "name",
+        name: "name",
+        dob: "dob",
+        dateOfBirth: "dob",
+        fatherName: "fatherName",
+        motherName: "motherName",
+        guardianName: "guardianName",
+        studentContact: "studentContact",
+        contact: "studentContact",
+        phone: "studentContact",
+        mobile: "studentContact",
+        altMobile: "altMobile",
+        address: "address",
+        pincode: "pincode",
+        presentClass: "presentClass",
+        class: "presentClass",
+        targetClass: "presentClass",
+        presentSection: "presentSection",
+        section: "presentSection",
+        targetSection: "presentSection",
+        presentRoll: "presentRoll",
+        roll: "presentRoll",
+        targetRoll: "presentRoll",
+        schoolId: "schoolId",
+        aadhaar: "aadhaar",
+        aadhaarNo: "aadhaar",
+        pen: "pen",
+        kanyashreeId: "kanyashreeId",
+        previousSchool: "previousSchool",
+        bankAccountNo: "bankAccountNo",
+        bankIfsc: "bankIfsc",
+        birthRegistrationNo: "birthRegistrationNo",
+        casteCertificateNo: "casteCertificateNo",
+      };
+
+      Object.entries(aiExtractedData).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          const targetKey = fieldMap[key] || (key in getValues() ? (key as keyof FormData) : undefined);
+          if (targetKey) {
+            if (targetKey === "gender") {
+              const g = String(value).trim().toLowerCase();
+              if (g.startsWith("m")) setValue("gender", "Male");
+              else if (g.startsWith("f")) setValue("gender", "Female");
+              else setValue("gender", "Other");
+            } else if (targetKey === "presentRoll" || targetKey === "annualFamilyIncome" || targetKey === "heightCm" || targetKey === "weightKg") {
+              const num = Number(value);
+              if (!isNaN(num)) setValue(targetKey, num as any, { shouldValidate: true });
+            } else {
+              setValue(targetKey, String(value) as any, { shouldValidate: true });
+            }
+          }
+        }
+      });
+    }
+  }, [aiExtractedData, setValue, getValues]);
 
   // Auto-sync admission year when admission date is chosen
   useEffect(() => {
@@ -374,9 +368,38 @@ export default function EditStudentPage() {
     }
   }, [relationshipWatched, studentContactWatched, altMobileWatched, setValue]);
 
+  useEffect(() => {
+    const presets = getSavedStudentEntryPresets();
+    if (presets.defaultGuardianRelationship && presets.defaultGuardianRelationship !== "None") {
+      setValue("relationshipWithGuardian", presets.defaultGuardianRelationship);
+    }
+    if (presets.defaultReligion && presets.defaultReligion !== "None") {
+      setValue("religion", presets.defaultReligion);
+    }
+    if (presets.defaultMotherTongue && presets.defaultMotherTongue !== "None") {
+      setValue("motherTongue", presets.defaultMotherTongue);
+    }
+    if (presets.defaultMediumOfInstruction && presets.defaultMediumOfInstruction !== "None") {
+      setValue("mediumOfInstruction", presets.defaultMediumOfInstruction);
+    }
+
+    fetchStudentEntryPresetsFromDb().then((p) => {
+      if (p.defaultGuardianRelationship && p.defaultGuardianRelationship !== "None" && !getValues("relationshipWithGuardian")) {
+        setValue("relationshipWithGuardian", p.defaultGuardianRelationship);
+      }
+      if (p.defaultReligion && p.defaultReligion !== "None" && !getValues("religion")) {
+        setValue("religion", p.defaultReligion);
+      }
+      if (p.defaultMediumOfInstruction && p.defaultMediumOfInstruction !== "None" && (!getValues("mediumOfInstruction") || getValues("mediumOfInstruction") === "")) {
+        setValue("mediumOfInstruction", p.defaultMediumOfInstruction);
+      }
+    });
+  }, [setValue, getValues]);
+
   const mutation = useMutation({
-    mutationFn: (data: FormData) => {
-      // Map inputs to lists for array columns
+    mutationFn: (formData: FormData) => {
+      const data = applyStudentEntryDefaults(formData);
+
       const languageGroup = data.languageGroupInput ? data.languageGroupInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const mandatorySubjects = data.mandatorySubjectsInput ? data.mandatorySubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
       const additionalSubjects = data.additionalSubjectsInput ? data.additionalSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
@@ -397,7 +420,7 @@ export default function EditStudentPage() {
         ...rest
       } = data;
 
-      return updateStudent(id, {
+      return createStudent({
         ...rest,
         languageGroup,
         mandatorySubjects,
@@ -406,81 +429,66 @@ export default function EditStudentPage() {
         facilitiesProvided,
         cwsnFacilities,
         competitionsOlympiads,
+        currentStatus: "Continuing",
+        academicHistory: [
+          {
+            year: data.admissionYear,
+            class: data.presentClass,
+            section: data.presentSection,
+            roll: data.presentRoll,
+            status: "Continuing",
+          },
+        ],
       } as any);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["student", id] });
+    onSuccess: (student) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
-      showToast({ type: "success", title: "Student profile updated successfully" });
-      router.push(`/students/${id}`);
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
+      showToast(`Student ${student.name} created & enrolled successfully!`, "success");
+      if (onSuccess) {
+        onSuccess(student);
+      } else {
+        router.push(`/students/${student.id}`);
+      }
     },
     onError: (err: any) => {
-      showToast({
-        type: "error",
-        title: "Failed to update student",
-        description: err.message || "Please check your inputs and try again.",
-      });
+      showToast(err.message || "Failed to save student record", "error");
     },
   });
-
-  if (isLoading) {
-    return (
-      <div className="p-6 max-w-5xl mx-auto space-y-4">
-        <Skeleton className="h-6 w-32" />
-        <Skeleton className="h-[500px] w-full rounded-xl" />
-      </div>
-    );
-  }
-
-  if (!student) {
-    return (
-      <div className="p-6 max-w-5xl mx-auto text-center py-20">
-        <p className="text-muted-foreground">Student not found.</p>
-      </div>
-    );
-  }
 
   function onSubmit(data: FormData) {
     mutation.mutate(data);
   }
 
-  function onFormError(formErrors: any) {
-    const errorKeys = Object.keys(formErrors);
-    if (errorKeys.length > 0) {
-      const firstKey = errorKeys[0];
-      const errMsg = formErrors[firstKey]?.message || "Validation failed";
-      showToast({
-        type: "error",
-        title: "Validation Error",
-        description: `Field '${firstKey}': ${errMsg}`,
-      });
-    }
-  }
-
   return (
-    <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Profile
-      </button>
+    <div className={isEmbedded ? "space-y-6" : "p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5"}>
+      {!isEmbedded && (
+        <>
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
 
-      <div>
-        <h1 className="text-lg sm:text-xl font-bold">Edit Student</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          Updating: <span className="font-medium text-foreground">{student.name}</span>
-        </p>
-      </div>
+          <div>
+            <h1 className="text-lg sm:text-xl font-bold">Add Student</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              Fill in the comprehensive student details below.
+            </p>
+          </div>
+        </>
+      )}
 
-      <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
         {/* Section 1: Demographics */}
         <FormSection title="A. Student Demographics">
           <FormGrid>
             <FormField label="Full Name *" error={errors.name?.message}>
-              <input {...register("name")} />
+              <input {...register("name")} placeholder="e.g. Arjun Mondal" />
             </FormField>
             <FormField label="School ID *" error={errors.schoolId?.message}>
               <Controller
@@ -578,16 +586,16 @@ export default function EditStudentPage() {
               />
             </FormField>
             <FormField label="Height (in CMs)" error={errors.heightCm?.message}>
-              <input {...register("heightCm")} type="number" />
+              <input {...register("heightCm")} type="number" placeholder="e.g. 142" />
             </FormField>
             <FormField label="Weight (in KGs)" error={errors.weightKg?.message}>
-              <input {...register("weightKg")} type="number" step="0.1" />
+              <input {...register("weightKg")} type="number" step="0.1" placeholder="e.g. 35.5" />
             </FormField>
             <FormField label="Birth Registration Number" error={errors.birthRegistrationNo?.message}>
-              <input {...register("birthRegistrationNo")} />
+              <input {...register("birthRegistrationNo")} placeholder="Registration number" />
             </FormField>
             <FormField label="Identification Mark" error={errors.identificationMark?.message}>
-              <input {...register("identificationMark")} />
+              <input {...register("identificationMark")} placeholder="e.g. Mole on left cheek" />
             </FormField>
           </FormGrid>
         </FormSection>
@@ -624,7 +632,7 @@ export default function EditStudentPage() {
               </FormField>
             )}
             <FormField label="Minority Group" error={errors.minorityGroup?.message}>
-              <input {...register("minorityGroup")} />
+              <input {...register("minorityGroup")} placeholder="e.g. Muslim, Christian, None" />
             </FormField>
             <FormField label="AAY (Antyodaya Anna Yojana)?" error={errors.isAay?.message}>
               <Controller
@@ -704,7 +712,7 @@ export default function EditStudentPage() {
             {isCwsnChecked && (
               <>
                 <FormField label="Type of Impairment" error={errors.impairmentType?.message}>
-                  <input {...register("impairmentType")} />
+                  <input {...register("impairmentType")} placeholder="e.g. Blindness, Hearing impairment" />
                 </FormField>
                 <FormField label="Disability Certificate?" error={errors.hasDisabilityCertificate?.message}>
                   <Controller
@@ -724,13 +732,13 @@ export default function EditStudentPage() {
                 </FormField>
                 {hasDisabilityCertChecked && (
                   <FormField label="Disability Percentage (%)" error={errors.disabilityPercentage?.message}>
-                    <input {...register("disabilityPercentage")} type="number" />
+                    <input {...register("disabilityPercentage")} type="number" placeholder="e.g. 40" />
                   </FormField>
                 )}
               </>
             )}
             <FormField label="Specific Learning Disability (SLD)" error={errors.sldType?.message}>
-              <input {...register("sldType")} />
+              <input {...register("sldType")} placeholder="e.g. Dyslexia, None" />
             </FormField>
           </FormGrid>
         </FormSection>
@@ -739,57 +747,41 @@ export default function EditStudentPage() {
         <FormSection title="D. Family & Contacts">
           <FormGrid>
             <FormField label="Father's Name *" error={errors.fatherName?.message}>
-              <input {...register("fatherName")} />
+              <input {...register("fatherName")} placeholder="e.g. Ratan Mondal" />
             </FormField>
             <FormField label="Father's Occupation" error={errors.fatherOccupation?.message}>
               <Controller
                 control={control}
                 name="fatherOccupation"
-                render={({ field }) => {
-                  const matched = OCCUPATION_OPTIONS.find(
-                    (o) => o.value.toLowerCase() === (field.value || "").toLowerCase()
-                  );
-                  const options = field.value && !matched
-                    ? [{ label: field.value, value: field.value }, ...OCCUPATION_OPTIONS]
-                    : OCCUPATION_OPTIONS;
-                  return (
-                    <CustomSelect
-                      value={matched ? matched.value : (field.value ?? "")}
-                      onChange={field.onChange}
-                      placeholder="Select father's occupation..."
-                      options={options}
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select father's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
               />
             </FormField>
             <FormField label="Mother's Name *" error={errors.motherName?.message}>
-              <input {...register("motherName")} />
+              <input {...register("motherName")} placeholder="e.g. Sujata Mondal" />
             </FormField>
             <FormField label="Mother's Occupation" error={errors.motherOccupation?.message}>
               <Controller
                 control={control}
                 name="motherOccupation"
-                render={({ field }) => {
-                  const matched = OCCUPATION_OPTIONS.find(
-                    (o) => o.value.toLowerCase() === (field.value || "").toLowerCase()
-                  );
-                  const options = field.value && !matched
-                    ? [{ label: field.value, value: field.value }, ...OCCUPATION_OPTIONS]
-                    : OCCUPATION_OPTIONS;
-                  return (
-                    <CustomSelect
-                      value={matched ? matched.value : (field.value ?? "")}
-                      onChange={field.onChange}
-                      placeholder="Select mother's occupation..."
-                      options={options}
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select mother's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
               />
             </FormField>
             <FormField label="Guardian's Name" error={errors.guardianName?.message}>
-              <input {...register("guardianName")} />
+              <input {...register("guardianName")} placeholder="e.g. Ramesh Mondal" />
             </FormField>
             <FormField label="Relationship with Guardian" error={errors.relationshipWithGuardian?.message}>
               <Controller
@@ -807,63 +799,41 @@ export default function EditStudentPage() {
               <Controller
                 control={control}
                 name="guardianOccupation"
-                render={({ field }) => {
-                  const cleanVal = field.value?.replace(/\s*\([^)]*\)/g, "").trim();
-                  const matched = OCCUPATION_OPTIONS.find(
-                    (o) =>
-                      o.value.toLowerCase() === field.value?.toLowerCase() ||
-                      (cleanVal && o.value.toLowerCase() === cleanVal.toLowerCase())
-                  );
-                  const options = field.value && !matched
-                    ? [{ label: cleanVal || field.value, value: field.value }, ...OCCUPATION_OPTIONS]
-                    : OCCUPATION_OPTIONS;
-                  return (
-                    <CustomSelect
-                      value={matched ? matched.value : (field.value ?? "")}
-                      onChange={field.onChange}
-                      placeholder="Select guardian's occupation..."
-                      options={options}
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select guardian's occupation..."
+                    options={OCCUPATION_OPTIONS}
+                  />
+                )}
               />
             </FormField>
             <FormField label="Guardian's Qualification" error={errors.guardianQualification?.message}>
               <Controller
                 control={control}
                 name="guardianQualification"
-                render={({ field }) => {
-                  const cleanVal = field.value?.replace(/\s*\([^)]*\)/g, "").trim();
-                  const matched = QUALIFICATION_OPTIONS.find(
-                    (o) =>
-                      o.value.toLowerCase() === field.value?.toLowerCase() ||
-                      (cleanVal && o.value.toLowerCase() === cleanVal.toLowerCase())
-                  );
-                  const options = field.value && !matched
-                    ? [{ label: cleanVal || field.value, value: field.value }, ...QUALIFICATION_OPTIONS]
-                    : QUALIFICATION_OPTIONS;
-                  return (
-                    <CustomSelect
-                      value={matched ? matched.value : (field.value ?? "")}
-                      onChange={field.onChange}
-                      placeholder="Select qualification..."
-                      options={options}
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select qualification..."
+                    options={QUALIFICATION_OPTIONS}
+                  />
+                )}
               />
             </FormField>
             <FormField label="Annual Family Income" error={errors.annualFamilyIncome?.message}>
-              <input {...register("annualFamilyIncome")} type="number" />
+              <input {...register("annualFamilyIncome")} type="number" placeholder="e.g. 120000" />
             </FormField>
             <FormField label="Primary Contact Mobile *" error={errors.studentContact?.message}>
-              <input {...register("studentContact")} />
+              <input {...register("studentContact")} placeholder="e.g. 9876543210" />
             </FormField>
             <FormField label="Guardian Contact No" error={errors.altMobile?.message}>
               <input {...register("altMobile")} placeholder="10-digit guardian mobile" />
             </FormField>
             <FormField label="Contact Email ID" error={errors.email?.message}>
-              <input {...register("email")} type="email" />
+              <input {...register("email")} type="email" placeholder="e.g. guardian@mail.com" />
             </FormField>
             <div className="sm:col-span-2 md:col-span-3">
               <SmartAddressInput
@@ -878,7 +848,7 @@ export default function EditStudentPage() {
           </FormGrid>
         </FormSection>
 
-        {/* Section 5: Enrolment Details */}
+        {/* Section 5: Present Enrolment Details */}
         <FormSection title="E. Enrolment & Academic Details">
           <FormGrid>
             <FormField label="Present Class *" error={errors.presentClass?.message}>
@@ -910,22 +880,22 @@ export default function EditStudentPage() {
               />
             </FormField>
             <FormField label="Present Roll Number *" error={errors.presentRoll?.message}>
-              <input {...register("presentRoll")} type="number" />
+              <input {...register("presentRoll")} type="number" placeholder="e.g. 1" />
             </FormField>
             <FormField label="Admission Number" error={errors.admissionNo?.message}>
-              <input {...register("admissionNo")} />
+              <input {...register("admissionNo")} placeholder="e.g. ADM2025001" />
             </FormField>
             <FormField label="Admission Year *" error={errors.admissionYear?.message}>
-              <input {...register("admissionYear")} type="number" />
+              <input {...register("admissionYear")} type="number" placeholder="2025" />
             </FormField>
             <FormField label="Admission Date" error={errors.admissionDate?.message}>
               <input {...register("admissionDate")} type="date" />
             </FormField>
             <FormField label="Admission Type" error={errors.admissionType?.message}>
-              <input {...register("admissionType")} />
+              <input {...register("admissionType")} placeholder="e.g. Day Scholar, Hosteller" />
             </FormField>
             <FormField label="Academic Year" error={errors.academicYear?.message}>
-              <input {...register("academicYear")} />
+              <input {...register("academicYear")} placeholder="e.g. 2025-2026" />
             </FormField>
             <FormField label="Medium of Instruction" error={errors.mediumOfInstruction?.message}>
               <Controller
@@ -953,19 +923,14 @@ export default function EditStudentPage() {
                   <Controller
                     control={control}
                     name="academicStream"
-                    render={({ field }) => {
-                      const options = field.value && !STREAM_OPTIONS.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
-                        ? [{ label: field.value, value: field.value }, ...STREAM_OPTIONS]
-                        : STREAM_OPTIONS;
-                      return (
-                        <CustomSelect
-                          value={field.value ?? ""}
-                          onChange={field.onChange}
-                          placeholder="Select stream..."
-                          options={options}
-                        />
-                      );
-                    }}
+                    render={({ field }) => (
+                      <CustomSelect
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        placeholder="Select stream..."
+                        options={STREAM_OPTIONS}
+                      />
+                    )}
                   />
                 </FormField>
               );
@@ -1002,19 +967,19 @@ export default function EditStudentPage() {
             })()}
           </FormGrid>
 
-          <p className="text-xs font-semibold text-muted-foreground pt-3 border-t">Languages & Subjects (Comma Separated)</p>
+          <p className="text-xs font-semibold text-muted-foreground pt-3 border-t">Languages &amp; Subjects (Comma Separated)</p>
           <FormGrid>
             <FormField label="Languages Studied" error={errors.languageGroupInput?.message}>
-              <input {...register("languageGroupInput")} />
+              <input {...register("languageGroupInput")} placeholder="e.g. Bengali, English" />
             </FormField>
             <FormField label="Mandatory Subjects" error={errors.mandatorySubjectsInput?.message}>
-              <input {...register("mandatorySubjectsInput")} />
+              <input {...register("mandatorySubjectsInput")} placeholder="e.g. Mathematics, Science, History" />
             </FormField>
             <FormField label="Additional Subjects" error={errors.additionalSubjectsInput?.message}>
-              <input {...register("additionalSubjectsInput")} />
+              <input {...register("additionalSubjectsInput")} placeholder="e.g. Computer Application" />
             </FormField>
             <FormField label="Co-Curricular Subjects" error={errors.coCurricularSubjectsInput?.message}>
-              <input {...register("coCurricularSubjectsInput")} />
+              <input {...register("coCurricularSubjectsInput")} placeholder="e.g. Work Education, Health" />
             </FormField>
           </FormGrid>
         </FormSection>
@@ -1030,34 +995,29 @@ export default function EditStudentPage() {
               />
             </div>
             <FormField label="Schooling Status" error={errors.previousStatus?.message}>
-              <input {...register("previousStatus")} />
+              <input {...register("previousStatus")} placeholder="e.g. Studied in same school" />
             </FormField>
             <FormField label="Previous Grade/Class" error={errors.previousClass?.message}>
-              <input {...register("previousClass")} />
+              <input {...register("previousClass")} placeholder="e.g. IV" />
             </FormField>
             <FormField label="Previous Section" error={errors.previousSection?.message}>
-              <input {...register("previousSection")} />
+              <input {...register("previousSection")} placeholder="e.g. A" />
             </FormField>
             <FormField label="Previous Roll No" error={errors.previousRollNo?.message}>
-              <input {...register("previousRollNo")} type="number" />
+              <input {...register("previousRollNo")} type="number" placeholder="e.g. 1" />
             </FormField>
             <FormField label="Previous Stream" error={errors.previousStream?.message}>
               <Controller
                 control={control}
                 name="previousStream"
-                render={({ field }) => {
-                  const options = field.value && !STREAM_OPTIONS.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
-                    ? [{ label: field.value, value: field.value }, ...STREAM_OPTIONS]
-                    : STREAM_OPTIONS;
-                  return (
-                    <CustomSelect
-                      value={field.value ?? ""}
-                      onChange={field.onChange}
-                      placeholder="Select stream..."
-                      options={options}
-                    />
-                  );
-                }}
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    placeholder="Select stream..."
+                    options={STREAM_OPTIONS}
+                  />
+                )}
               />
             </FormField>
             <FormField label="Appeared for Exams?" error={errors.previousAppearedForExams?.message}>
@@ -1077,13 +1037,13 @@ export default function EditStudentPage() {
               />
             </FormField>
             <FormField label="Exam Result" error={errors.previousResult?.message}>
-              <input {...register("previousResult")} />
+              <input {...register("previousResult")} placeholder="e.g. Passed" />
             </FormField>
             <FormField label="Marks Obtained (%)" error={errors.previousMarksPercent?.message}>
-              <input {...register("previousMarksPercent")} type="number" />
+              <input {...register("previousMarksPercent")} type="number" placeholder="e.g. 78" />
             </FormField>
             <FormField label="Days Attended" error={errors.previousDaysAttended?.message}>
-              <input {...register("previousDaysAttended")} type="number" />
+              <input {...register("previousDaysAttended")} type="number" placeholder="e.g. 185" />
             </FormField>
             <FormField label="Admitted under RTE Sec 12C?" error={errors.rteSection12C?.message}>
               <Controller
@@ -1103,7 +1063,7 @@ export default function EditStudentPage() {
             </FormField>
             {rteSection12CChecked && (
               <FormField label="Amount Claimed from Govt" error={errors.rteAmountClaimed?.message}>
-                <input {...register("rteAmountClaimed")} type="number" />
+                <input {...register("rteAmountClaimed")} type="number" placeholder="e.g. 15000" />
               </FormField>
             )}
           </FormGrid>
@@ -1113,10 +1073,10 @@ export default function EditStudentPage() {
         <FormSection title="G. Facilities Profile & Extras">
           <FormGrid>
             <FormField label="General Facilities (Comma Separated)" error={errors.facilitiesProvidedInput?.message}>
-              <input {...register("facilitiesProvidedInput")} />
+              <input {...register("facilitiesProvidedInput")} placeholder="e.g. Free Uniform, Textbooks" />
             </FormField>
             <FormField label="CWSN Facilities (Comma Separated)" error={errors.cwsnFacilitiesInput?.message}>
-              <input {...register("cwsnFacilitiesInput")} />
+              <input {...register("cwsnFacilitiesInput")} placeholder="e.g. Braille Book, Wheelchair" />
             </FormField>
             <FormField label="NCC Member?" error={errors.ncc?.message}>
               <Controller
@@ -1167,13 +1127,13 @@ export default function EditStudentPage() {
               />
             </FormField>
             <FormField label="Distance to School (KM)" error={errors.distanceToSchool?.message}>
-              <input {...register("distanceToSchool")} type="number" step="0.1" />
+              <input {...register("distanceToSchool")} type="number" step="0.1" placeholder="e.g. 1.2" />
             </FormField>
             <FormField label="Highest Parent Education Level" error={errors.highestEducationParents?.message}>
-              <input {...register("highestEducationParents")} />
+              <input {...register("highestEducationParents")} placeholder="e.g. Post Graduate" />
             </FormField>
             <FormField label="Competitions/Olympiads (Comma Separated)" error={errors.competitionsOlympiadsInput?.message}>
-              <input {...register("competitionsOlympiadsInput")} />
+              <input {...register("competitionsOlympiadsInput")} placeholder="e.g. National Math Olympiad" />
             </FormField>
           </FormGrid>
         </FormSection>
@@ -1194,25 +1154,25 @@ export default function EditStudentPage() {
         <FormSection title="I. Government Identifiers">
           <FormGrid>
             <FormField label="PEN" error={errors.pen?.message}>
-              <input {...register("pen")} />
+              <input {...register("pen")} placeholder="Permanent Education Number" />
             </FormField>
             <FormField label="DISE Code" error={errors.diseCode?.message}>
-              <input {...register("diseCode")} />
+              <input {...register("diseCode")} placeholder="School DISE Code" />
             </FormField>
             <FormField label="Health ID" error={errors.healthId?.message}>
-              <input {...register("healthId")} />
+              <input {...register("healthId")} placeholder="Student Health ID" />
             </FormField>
             <FormField label="Student Unique Code" error={errors.studentUniqueCode?.message}>
-              <input {...register("studentUniqueCode")} />
+              <input {...register("studentUniqueCode")} placeholder="Unique identifier code" />
             </FormField>
-            {(watchGender === "Female" || Boolean(student?.kanyashreeId)) && (
+            {watchGender === "Female" && (
               <FormField label="Kanyashree ID / Applicant ID" error={errors.kanyashreeId?.message}>
                 <input {...register("kanyashreeId")} placeholder="e.g. 19190100101150000001" />
               </FormField>
             )}
             <FormField label="Aadhaar Available? (Yes/No)">
               <CustomSelect
-                value={hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")}
+                value={hasAadhaarVal}
                 onChange={(val) => {
                   setHasAadhaarVal(val);
                   if (val === "No") {
@@ -1229,18 +1189,18 @@ export default function EditStudentPage() {
             <FormField label="Aadhaar Number (12 digits)" error={errors.aadhaar?.message}>
               <input
                 {...register("aadhaar")}
+                placeholder={hasAadhaarVal === "Yes" ? "Enter 12-digit Aadhaar Number" : "Not Available"}
                 maxLength={12}
-                placeholder={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "Yes" ? "Enter 12-digit Aadhaar Number" : "Not Available"}
-                disabled={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "No"}
-                className={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "No" ? "bg-muted/40 cursor-not-allowed text-muted-foreground" : ""}
+                disabled={hasAadhaarVal === "No"}
+                className={hasAadhaarVal === "No" ? "bg-muted/40 cursor-not-allowed text-muted-foreground" : ""}
               />
             </FormField>
             <FormField label="Name (as per Aadhaar)" error={errors.nameAsPerAadhaar?.message}>
               <input
                 {...register("nameAsPerAadhaar")}
-                placeholder={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "Yes" ? "Exact name on Aadhaar" : "Not Available"}
-                disabled={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "No"}
-                className={(hasAadhaarVal ?? (watch("aadhaar") ? "Yes" : "No")) === "No" ? "bg-muted/40 cursor-not-allowed text-muted-foreground" : ""}
+                placeholder={hasAadhaarVal === "Yes" ? "Exact name on Aadhaar" : "Not Available"}
+                disabled={hasAadhaarVal === "No"}
+                className={hasAadhaarVal === "No" ? "bg-muted/40 cursor-not-allowed text-muted-foreground" : ""}
               />
             </FormField>
           </FormGrid>
@@ -1251,22 +1211,24 @@ export default function EditStudentPage() {
           <button
             type="submit"
             disabled={mutation.isPending}
-            className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors"
+            className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors shadow-sm cursor-pointer"
           >
-            {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            {mutation.isPending ? "Saving changes…" : "Save Student"}
+            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            {mutation.isPending ? "Saving Record…" : "Save Student Record"}
           </button>
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted transition-colors"
-          >
-            Cancel
-          </button>
+          {!isEmbedded && (
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="rounded-xl border px-4 py-2.5 text-xs sm:text-sm font-semibold hover:bg-muted transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          )}
         </div>
 
         {mutation.isError && (
-          <p className="text-sm text-destructive">
+          <p className="text-xs font-semibold text-destructive">
             Something went wrong. Please check your fields and try again.
           </p>
         )}
@@ -1283,8 +1245,8 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-5 space-y-4 shadow-sm">
-      <p className="text-sm font-semibold border-b pb-3 text-foreground">{title}</p>
+    <div className="rounded-2xl border bg-card p-4 sm:p-5 space-y-4 shadow-2xs">
+      <p className="text-xs sm:text-sm font-bold border-b pb-2.5 text-foreground">{title}</p>
       {children}
     </div>
   );
@@ -1292,7 +1254,7 @@ function FormSection({
 
 function FormGrid({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">{children}</div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-4">{children}</div>
   );
 }
 
@@ -1309,18 +1271,18 @@ function FormField({
 }) {
   return (
     <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
-      <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+      <label className="block text-xs font-medium text-muted-foreground mb-1">
         {label}
       </label>
       <div
-        className={`[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-base sm:[&>input]:text-sm [&>input]:h-11 sm:[&>input]:h-9 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-ring
-          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-base sm:[&>select]:text-sm [&>select]:h-11 sm:[&>select]:h-9 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-ring
-          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-base sm:[&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none
+        className={`[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-xs [&>input]:h-9 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-ring
+          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-xs [&>select]:h-9 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-ring
+          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-xs [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none
           ${error ? "[&>input]:border-destructive [&>select]:border-destructive [&>textarea]:border-destructive" : ""}`}
       >
         {children}
       </div>
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
     </div>
   );
 }

@@ -3,6 +3,7 @@ export interface StudentEntryPresets {
   defaultReligion: string; // "Hinduism" | "Islam" | "Christianity" | "Sikhism" | "Buddhism" | "Jainism" | "None" | string
   autoFillGuardianName: boolean; // if true and relationship is Father/Mother, auto-set guardianName
   defaultMotherTongue: string; // "Bengali" | "Hindi" | "Urdu" | "English" | "None"
+  defaultMediumOfInstruction: string; // "Bengali" | "English" | "Hindi" | "Urdu" | "Nepali" | "None"
 }
 
 export const DEFAULT_STUDENT_ENTRY_PRESETS: StudentEntryPresets = {
@@ -10,6 +11,7 @@ export const DEFAULT_STUDENT_ENTRY_PRESETS: StudentEntryPresets = {
   defaultReligion: "Hinduism",
   autoFillGuardianName: true,
   defaultMotherTongue: "Bengali",
+  defaultMediumOfInstruction: "Bengali",
 };
 
 const STUDENT_ENTRY_PRESETS_STORAGE_KEY = "sms_student_entry_presets";
@@ -158,6 +160,16 @@ export function applyStudentEntryDefaults<T extends Record<string, any>>(
   if (!currentTongue && presets.defaultMotherTongue && presets.defaultMotherTongue !== "None") {
     result.motherTongue = presets.defaultMotherTongue;
     result.mother_tongue = presets.defaultMotherTongue;
+  }
+
+  // 5. Default Medium of Instruction
+  const currentMedium = (result.mediumOfInstruction || result.medium_of_instruction || "").trim();
+  if (!currentMedium) {
+    const defaultMed = presets.defaultMediumOfInstruction && presets.defaultMediumOfInstruction !== "None"
+      ? presets.defaultMediumOfInstruction
+      : "Bengali";
+    result.mediumOfInstruction = defaultMed;
+    result.medium_of_instruction = defaultMed;
   }
 
   return result as T;

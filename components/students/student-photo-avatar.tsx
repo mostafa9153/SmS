@@ -129,7 +129,7 @@ export function StudentPhotoAvatar({
             "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
             sizeClasses
           )}
-          title={`Click to capture or upload passport photo for ${studentName} (Auto-compressed to < 40KB)`}
+          title={`Click to capture or upload passport photo for ${studentName} (Auto-compressed to 20 KB – 40 KB)`}
           aria-label={`Passport photo of ${studentName}`}
         >
           {effectivePhotoSrc && !imageError ? (
@@ -160,7 +160,7 @@ export function StudentPhotoAvatar({
             <span className="text-[10px] font-medium leading-tight">
               {effectivePhotoSrc && !imageError ? "Change Photo" : "Upload / Snap"}
             </span>
-            <span className="text-[8px] opacity-75 font-mono mt-0.5">&lt; 40 KB</span>
+            <span className="text-[8px] opacity-75 font-mono mt-0.5">20–40 KB</span>
           </div>
 
           {/* Badge indicator on bottom corner */}

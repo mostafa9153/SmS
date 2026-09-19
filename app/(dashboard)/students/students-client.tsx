@@ -256,7 +256,7 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
               Report
             </button>
             <Link
-              href="/students/add"
+              href="/admission/new/ai-scan"
               className="flex-1 sm:flex-none justify-center flex items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs active:scale-95"
             >
               <Plus className="h-3.5 w-3.5" />

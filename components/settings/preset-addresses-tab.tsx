@@ -31,6 +31,7 @@ import {
 import {
   GUARDIAN_DEFAULT_PRESET_OPTIONS,
   RELIGION_DEFAULT_PRESET_OPTIONS,
+  MEDIUM_OF_INSTRUCTION_DEFAULT_PRESET_OPTIONS,
 } from "@/lib/constants/student-options";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ import {
   Landmark,
   School,
   Sparkles,
+  BookOpen,
   Key,
   UserCheck,
   CheckCircle2,
@@ -630,6 +632,28 @@ export function PresetAddressesTab() {
                     Default spoken language at home for registered students when left empty.
                   </p>
                 </div>
+
+                {/* 5. Default Medium of Instruction */}
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
+                      Default Medium of Instruction
+                    </Label>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
+                      Auto Fallback
+                    </span>
+                  </div>
+                  <CustomSelect
+                    value={studentPresets.defaultMediumOfInstruction}
+                    onChange={(val) => setStudentPresets((prev) => ({ ...prev, defaultMediumOfInstruction: val }))}
+                    options={MEDIUM_OF_INSTRUCTION_DEFAULT_PRESET_OPTIONS}
+                    placeholder="Select default medium..."
+                  />
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Default medium of instruction for registered students when left empty.
+                  </p>
+                </div>
               </div>
 
               {/* Real-Time Rule Summary Callout */}
@@ -638,7 +662,7 @@ export function PresetAddressesTab() {
                   <CheckCircle2 className="h-4 w-4 text-amber-500" />
                   Active Auto-Fill Rules Preview
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-1 text-xs">
                   <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
                     <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Guardian Relation</span>
                     <span className="font-semibold text-foreground">
@@ -661,6 +685,12 @@ export function PresetAddressesTab() {
                     <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Mother Tongue</span>
                     <span className="font-semibold text-foreground">
                       {studentPresets.defaultMotherTongue === "None" ? "Leave Blank" : studentPresets.defaultMotherTongue || "Bengali"}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
+                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Medium</span>
+                    <span className="font-semibold text-foreground">
+                      {studentPresets.defaultMediumOfInstruction === "None" ? "Leave Blank" : studentPresets.defaultMediumOfInstruction || "Bengali"}
                     </span>
                   </div>
                 </div>

@@ -3,12 +3,16 @@
 export type ExamType =
   | "1st Summative Evaluation"
   | "2nd Summative Evaluation"
-  | "3rd Summative Evaluation";
+  | "3rd Summative Evaluation"
+  | "Sem I"
+  | "Sem II";
 
 export const EXAM_TYPES: ExamType[] = [
   "1st Summative Evaluation",
   "2nd Summative Evaluation",
   "3rd Summative Evaluation",
+  "Sem I",
+  "Sem II",
 ];
 
 export type ExamHalf = "1st Half" | "2nd Half";

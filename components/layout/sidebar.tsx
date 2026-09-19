@@ -75,19 +75,6 @@ const navItems: NavItem[] = [
     iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20 group-hover:scale-110",
   },
   {
-    label: "Teacher Management",
-    href: "/teacher-management",
-    icon: <GraduationCap className="h-4 w-4" />,
-    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
-    adminOnly: true,
-  },
-  {
-    label: "Teacher Workspace",
-    href: "/teacher",
-    icon: <Briefcase className="h-4 w-4" />,
-    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
-  },
-  {
     label: "Students Register",
     icon: <Users className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
@@ -140,6 +127,19 @@ const navItems: NavItem[] = [
     href: "/ems",
     icon: <ClipboardCheck className="h-4 w-4" />,
     iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Teacher Workspace",
+    href: "/teacher",
+    icon: <Briefcase className="h-4 w-4" />,
+    iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Admin Hub",
+    href: "/admin-hub",
+    icon: <ShieldAlert className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
+    adminOnly: true,
   },
   {
     label: "Settings & Access",

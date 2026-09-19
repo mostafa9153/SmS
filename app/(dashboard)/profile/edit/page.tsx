@@ -44,14 +44,61 @@ export default async function ProfileEditPage() {
     staff = staffData;
   }
 
-  // Fallback: match by email if staff_id is not directly linked in user_roles
+  // Fallback: match by email or user_id
   if (!staff && user.email) {
     const { data: staffByEmail } = await adminClient
       .from("staff_profiles")
       .select("*")
-      .eq("email", user.email)
+      .or(`email.ilike.${user.email},user_id.eq.${user.id}`)
       .maybeSingle();
     staff = staffByEmail;
+  }
+
+  // If still no staff record exists (e.g. brand new Admin), create one seamlessly
+  if (!staff) {
+    const adminUniqueId = `ADM${Math.floor(1000 + Math.random() * 9000)}`;
+    const adminName = roleRow?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Administrator";
+    const isAdmin = roleRow?.role === "Admin";
+
+    const { data: newStaff } = await adminClient
+      .from("staff_profiles")
+      .insert({
+        user_id: user.id,
+        unique_id: adminUniqueId,
+        full_name: adminName,
+        designation: isAdmin ? "Headmaster / Administrator" : "Staff Member",
+        employee_type: "TEACHING",
+        status: "ACTIVE",
+        email: user.email,
+        caste: "General",
+        service_type: "Permanent",
+        primary_meta: {
+          academic_section: "Higher Secondary",
+          appointed_subject: "Administration",
+          approval_qualification: "Post Graduate",
+          employee_group: "Group A",
+        },
+        professional_meta: {
+          professional_qualification: "Post Graduate / B.Ed",
+          post_status: "Sanctioned Post",
+          subject_1: "Administration",
+        },
+        bank_details: {
+          bank_name: "State Bank of India",
+        },
+      })
+      .select()
+      .maybeSingle();
+
+    if (newStaff) {
+      staff = newStaff;
+      if (roleRow) {
+        await adminClient
+          .from("user_roles")
+          .update({ staff_id: newStaff.id })
+          .eq("user_id", user.id);
+      }
+    }
   }
 
   if (!staff) {

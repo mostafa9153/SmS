@@ -19,7 +19,7 @@ export function MobileBottomBar() {
       !["/students/add", "/students/bulk-upload", "/students/promotion"].some((r) =>
         pathname.startsWith(r)
       ));
-  const isAddStudentActive = pathname === "/students/add";
+  const isAddStudentActive = pathname === "/admission/new/ai-scan" || pathname === "/students/add";
   const isResultsActive = pathname.startsWith("/results");
 
   return (
@@ -54,7 +54,7 @@ export function MobileBottomBar() {
 
         {/* Add Student Quick Action */}
         <Link
-          href="/students/add"
+          href="/admission/new/ai-scan"
           className="flex flex-col items-center justify-center h-full gap-0.5 touch-manipulation active:scale-95 group"
           title="Add Student"
         >

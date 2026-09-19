@@ -207,7 +207,7 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     admissionNo: db.admission_no || undefined,
     admissionType: db.admission_type || undefined,
     academicYear: db.academic_year || undefined,
-    mediumOfInstruction: db.medium_of_instruction || undefined,
+    mediumOfInstruction: db.medium_of_instruction || "Bengali",
     presentClassAdmissionDate: db.present_class_admission_date || undefined,
     boardRegistrationNo: db.board_registration_no || (db as any).board_reg_no || undefined,
     boardRollNo: db.board_roll_no || undefined,
@@ -375,15 +375,19 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "dob",
   "gender",
   "social_category",
+  "caste_certificate_no",
   "religion",
   "father_name",
+  "father_occupation",
   "mother_name",
+  "mother_occupation",
   "guardian_name",
   "relationship_with_guardian",
   "guardian_occupation",
   "guardian_qualification",
   "mobile",
   "alt_mobile",
+  "email",
   "address",
   "pincode",
   "present_class",
@@ -393,23 +397,61 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "admission_year",
   "admission_date",
   "admission_no",
+  "admission_type",
+  "academic_year",
+  "medium_of_instruction",
+  "present_class_admission_date",
+  "board_registration_no",
+  "board_roll_no",
   "pen",
   "aadhaar",
+  "name_as_per_aadhaar",
   "student_unique_code",
   "kanyashree_id",
   "photo_url",
+  "dise_code",
+  "health_id",
+  "birth_registration_no",
+  "identification_mark",
   "is_cwsn",
+  "impairment_type",
+  "has_disability_certificate",
+  "disability_percentage",
+  "sld_type",
   "is_aay",
   "is_ews",
+  "indian_nationality",
+  "is_out_of_school",
+  "mainstreamed_date",
+  "blood_group",
+  "height_cm",
+  "weight_kg",
+  "annual_family_income",
+  "mother_tongue",
   "minority_group",
-  "has_disability_certificate",
-  "previous_marks_percent",
   "previous_school",
-  "caste_certificate_no",
+  "previous_class",
+  "previous_section",
+  "previous_stream",
+  "previous_roll_no",
+  "previous_status",
+  "previous_marks_percent",
   "bank_account_no",
   "bank_ifsc",
   "academic_stream",
-  "blood_group",
+  "language_group",
+  "foreign_language",
+  "mandatory_subjects",
+  "additional_subjects",
+  "co_curricular_subjects",
+  "facilities_provided",
+  "cwsn_facilities",
+  "competitions_olympiads",
+  "ncc",
+  "nss",
+  "scouts_guides",
+  "distance_to_school",
+  "highest_education_parents",
   "re_admission_status",
   "is_invoice_queued",
   "re_admitted_at",
@@ -699,13 +741,19 @@ export async function dbCreateStudent(input: Omit<Student, "id" | "academicHisto
     if (error && (
       error.message.includes("father_occupation") ||
       error.message.includes("mother_occupation") ||
+      error.message.includes("guardian_occupation") ||
       error.message.includes("board_registration_no") ||
-      error.message.includes("board_roll_no")
+      error.message.includes("board_roll_no") ||
+      error.message.includes("kanyashree_id") ||
+      error.message.includes("caste_certificate_no")
     )) {
       delete (dbInput as any).father_occupation;
       delete (dbInput as any).mother_occupation;
+      delete (dbInput as any).guardian_occupation;
       delete (dbInput as any).board_registration_no;
       delete (dbInput as any).board_roll_no;
+      delete (dbInput as any).kanyashree_id;
+      delete (dbInput as any).caste_certificate_no;
       continue;
     }
     // If unique constraint violation on school_id (code 23505), regenerate and retry
@@ -746,6 +794,7 @@ export async function dbUpdateStudent(
   if (updates.dob !== undefined) dbUpdates.dob = updates.dob;
   if (updates.gender !== undefined) dbUpdates.gender = updates.gender;
   if (updates.socialCategory !== undefined) dbUpdates.social_category = toNullableString(updates.socialCategory);
+  if (updates.casteCertificateNo !== undefined) dbUpdates.caste_certificate_no = toNullableString(updates.casteCertificateNo);
   if (updates.religion !== undefined) dbUpdates.religion = toNullableString(updates.religion);
   if (updates.fatherName !== undefined) dbUpdates.father_name = updates.fatherName;
   if (updates.fatherOccupation !== undefined) dbUpdates.father_occupation = toNullableString(updates.fatherOccupation);
@@ -800,8 +849,12 @@ export async function dbUpdateStudent(
   if (updates.academicYear !== undefined) dbUpdates.academic_year = toNullableString(updates.academicYear);
   if (updates.mediumOfInstruction !== undefined) dbUpdates.medium_of_instruction = toNullableString(updates.mediumOfInstruction);
   if (updates.presentClassAdmissionDate !== undefined) dbUpdates.present_class_admission_date = toNullableDate(updates.presentClassAdmissionDate);
-  if (updates.boardRegistrationNo !== undefined) dbUpdates.board_registration_no = toNullableString(updates.boardRegistrationNo);
-  if (updates.boardRollNo !== undefined) dbUpdates.board_roll_no = toNullableString(updates.boardRollNo);
+  if (updates.boardRegistrationNo !== undefined || (updates as any).wbbseRegNo !== undefined || (updates as any).wbchseRegNo !== undefined) {
+    dbUpdates.board_registration_no = toNullableString(updates.boardRegistrationNo ?? (updates as any).wbbseRegNo ?? (updates as any).wbchseRegNo);
+  }
+  if (updates.boardRollNo !== undefined || (updates as any).wbbseRollNo !== undefined || (updates as any).wbchseRollNo !== undefined) {
+    dbUpdates.board_roll_no = toNullableString(updates.boardRollNo ?? (updates as any).wbbseRollNo ?? (updates as any).wbchseRollNo);
+  }
   if (updates.languageGroup !== undefined) dbUpdates.language_group = updates.languageGroup || [];
   if (updates.foreignLanguage !== undefined) dbUpdates.foreign_language = toNullableString(updates.foreignLanguage);
   if (updates.mandatorySubjects !== undefined) dbUpdates.mandatory_subjects = updates.mandatorySubjects || [];
@@ -873,13 +926,19 @@ export async function dbUpdateStudent(
   if (error && (
     error.message.includes("father_occupation") ||
     error.message.includes("mother_occupation") ||
+    error.message.includes("guardian_occupation") ||
     error.message.includes("board_registration_no") ||
-    error.message.includes("board_roll_no")
+    error.message.includes("board_roll_no") ||
+    error.message.includes("kanyashree_id") ||
+    error.message.includes("caste_certificate_no")
   )) {
     delete dbUpdates.father_occupation;
     delete dbUpdates.mother_occupation;
+    delete dbUpdates.guardian_occupation;
     delete dbUpdates.board_registration_no;
     delete dbUpdates.board_roll_no;
+    delete dbUpdates.kanyashree_id;
+    delete dbUpdates.caste_certificate_no;
     const retry = await supabase
       .from("students")
       .update(dbUpdates)

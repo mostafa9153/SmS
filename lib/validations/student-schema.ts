@@ -49,6 +49,7 @@ export const studentCreateSchema = z.object({
   motherOccupation: z.string().optional().nullable(),
   guardianName: z.string().optional().nullable(),
   relationshipWithGuardian: z.string().optional().nullable(),
+  guardianOccupation: z.string().optional().nullable(),
   guardianQualification: z.string().optional().nullable(),
   annualFamilyIncome: z.coerce.number().optional().nullable(),
 
@@ -88,8 +89,22 @@ export const studentCreateSchema = z.object({
   admissionYear: z.coerce.number().int().min(1900).max(2100).optional().nullable(),
   academicStream: z.string().optional().nullable(),
   boardRegistrationNo: z.string().optional().nullable(),
+  wbbseRegNo: z.string().optional().nullable(),
+  wbchseRegNo: z.string().optional().nullable(),
   boardRollNo: z.string().optional().nullable(),
-  currentStatus: z.enum(["Continuing", "Drop Out", "Passed Out", "Sent Up M.P.", "C.C.H.S."]).optional().default("Continuing"),
+  wbbseRollNo: z.string().optional().nullable(),
+  wbchseRollNo: z.string().optional().nullable(),
+  currentStatus: z.enum([
+    "Continuing",
+    "Drop Out",
+    "Passed Out",
+    "Sent Up M.P.",
+    "10th test fail",
+    "exam fail - C.C",
+    "Sent Up H.S.",
+    "12th test fail",
+    "C.C.H.S."
+  ]).optional().default("Continuing"),
   previousSchool: z.string().optional().nullable(),
 
   // Subjects / Groups
@@ -148,6 +163,7 @@ export const studentCreateSchema = z.object({
   diseCode: z.string().optional().nullable(),
   healthId: z.string().optional().nullable(),
   studentUniqueCode: z.string().optional().nullable(),
+  kanyashreeId: z.string().optional().nullable(),
   aadhaar: z
     .string()
     .optional()

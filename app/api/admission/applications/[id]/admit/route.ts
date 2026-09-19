@@ -69,7 +69,7 @@ export async function POST(
       presentClass: assignedClass,
       presentSection: assignedSection,
       presentRoll: assignedRoll,
-      admissionNo: body.admissionNo || app.application_no?.replace(/^APP-?/i, "") || String(assignedRoll).padStart(2, "0"),
+      admissionNo: body.admissionNo || undefined,
       currentStatus: "Continuing" as StudentStatus,
       admissionYear: currentYear,
       admissionDate: new Date().toISOString().split("T")[0],

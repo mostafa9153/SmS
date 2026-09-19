@@ -216,7 +216,7 @@ export function PhotoStudioModal({
   }, [isOpen, activeTab, imageSource, cameraActive, captureCameraSnapshot]);
 
   // -------------------------------------------------------------
-  // HTML5 Canvas 3:4 Passport Crop & < 40KB Auto-Compression
+  // HTML5 Canvas 3:4 Passport Crop & Smart Compression (20 KB – 40 KB)
   // Target: 300px width x 400px height (Strict 3:4 Ratio)
   // -------------------------------------------------------------
   const generateOptimizedCrop = useCallback(async () => {
@@ -233,58 +233,87 @@ export function PhotoStudioModal({
         img.onerror = () => reject(new Error("Failed to load image"));
       });
 
-      const targetW = 300;
-      const targetH = 400; // 3:4 aspect ratio
+      const MIN_SIZE_BYTES = 20 * 1024; // 20 KB
+      const MAX_SIZE_BYTES = 40 * 1024; // 40 KB
+
+      // Test canvas resolution tiers to land strictly between 20 KB and 40 KB
+      const resolutions = [
+        { w: 450, h: 600 },
+        { w: 400, h: 533 },
+        { w: 360, h: 480 },
+        { w: 300, h: 400 },
+      ];
 
       const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Fill crisp white background
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, targetW, targetH);
+      let finalBlob: Blob | null = null;
 
-      // Apply transformations centered in canvas
-      ctx.save();
-      ctx.translate(targetW / 2, targetH / 2);
-      ctx.rotate((rotation * Math.PI) / 180);
-      ctx.scale(zoom, zoom);
-      ctx.translate(panOffset.x, panOffset.y);
+      for (const res of resolutions) {
+        canvas.width = res.w;
+        canvas.height = res.h;
 
-      // Draw image centered
-      const drawW = targetW;
-      const drawH = (img.height / img.width) * targetW;
-      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
-      ctx.restore();
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, res.w, res.h);
 
-      // Dynamic quality titration to strictly guarantee file size < 40 KB
-      let quality = 0.82;
-      let blob: Blob | null = null;
+        ctx.save();
+        ctx.translate(res.w / 2, res.h / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panOffset.x, panOffset.y);
 
-      while (quality >= 0.35) {
-        blob = await new Promise<Blob | null>((res) => {
-          canvas.toBlob((b) => res(b), "image/webp", quality);
-        });
+        const drawW = res.w;
+        const drawH = (img.height / img.width) * res.w;
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
 
-        if (blob && blob.size <= 40 * 1024) {
-          // Success: within 40KB threshold!
+        // Step down quality from 0.95 to 0.40
+        for (let q = 0.95; q >= 0.40; q -= 0.05) {
+          const testBlob = await new Promise<Blob | null>((resFn) => {
+            canvas.toBlob((b) => resFn(b), "image/webp", q);
+          });
+
+          if (testBlob) {
+            finalBlob = testBlob;
+            if (testBlob.size >= MIN_SIZE_BYTES && testBlob.size <= MAX_SIZE_BYTES) {
+              // Perfect fit in 20 KB - 40 KB target window!
+              break;
+            }
+          }
+        }
+
+        if (finalBlob && finalBlob.size >= MIN_SIZE_BYTES && finalBlob.size <= MAX_SIZE_BYTES) {
           break;
         }
-        quality -= 0.08;
       }
 
-      // Fallback if browser doesn't support WebP export
-      if (!blob || (blob.type !== "image/webp" && blob.size > 40 * 1024)) {
-        blob = await new Promise<Blob | null>((res) => {
-          canvas.toBlob((b) => res(b), "image/jpeg", 0.75);
+      // Fallback if browser doesn't support WebP or blob is under 20KB
+      if (!finalBlob || finalBlob.size < MIN_SIZE_BYTES || finalBlob.size > MAX_SIZE_BYTES) {
+        // Force fallback JPEG with high quality
+        canvas.width = 360;
+        canvas.height = 480;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 360, 480);
+        ctx.save();
+        ctx.translate(180, 240);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panOffset.x, panOffset.y);
+        ctx.drawImage(img, -180, -((img.height / img.width) * 360) / 2, 360, (img.height / img.width) * 360);
+        ctx.restore();
+
+        const fallbackJpeg = await new Promise<Blob | null>((resFn) => {
+          canvas.toBlob((b) => resFn(b), "image/jpeg", 0.85);
         });
+        if (fallbackJpeg) {
+          finalBlob = fallbackJpeg;
+        }
       }
 
-      if (blob) {
-        setOptimizedBlob(blob);
-        setOptimizedSizeKb(Math.round((blob.size / 1024) * 10) / 10);
+      if (finalBlob) {
+        setOptimizedBlob(finalBlob);
+        setOptimizedSizeKb(Math.round((finalBlob.size / 1024) * 10) / 10);
       }
     } catch (err) {
       console.error("Optimization error:", err);
@@ -404,7 +433,7 @@ export function PhotoStudioModal({
                 Passport Photo Studio
               </DialogTitle>
               <p className="text-xs text-muted-foreground mt-1">
-                Student: <span className="font-semibold text-foreground">{studentName}</span> (3:4 Ratio, Max 40 KB)
+                Student: <span className="font-semibold text-foreground">{studentName}</span> (3:4 Ratio, 20 KB – 40 KB)
               </p>
             </div>
           </div>
@@ -465,7 +494,7 @@ export function PhotoStudioModal({
                       Select file, drag & drop, or press <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-foreground font-semibold">Ctrl + V</kbd> to paste
                     </p>
                     <p className="text-[11px] text-muted-foreground/80 mt-1 font-mono">
-                      Auto-compressed to WebP (&lt; 40 KB)
+                      Auto-compressed to WebP (20 KB – 40 KB)
                     </p>
                   </div>
                   <input
@@ -554,7 +583,7 @@ export function PhotoStudioModal({
                 {optimizedSizeKb != null && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-mono font-semibold">
                     <Sparkles className="h-3 w-3" />
-                    {optimizedSizeKb} KB (Target &lt; 40KB) ✅
+                    {optimizedSizeKb} KB (Target 20 KB – 40 KB) ✅
                   </span>
                 )}
               </div>
@@ -694,7 +723,7 @@ export function PhotoStudioModal({
                 {isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading (&lt;40KB)...
+                    Uploading (20–40KB)...
                   </>
                 ) : (
                   <>

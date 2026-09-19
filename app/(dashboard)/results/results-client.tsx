@@ -56,6 +56,8 @@ const EXAMS = [
   "1st Summative Evaluation",
   "2nd Summative Evaluation",
   "3rd Summative Evaluation",
+  "Sem I",
+  "Sem II",
   "Selection Test",
   "Annual Examination",
 ];

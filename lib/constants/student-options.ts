@@ -61,3 +61,21 @@ export const RELIGION_DEFAULT_PRESET_OPTIONS: OptionItem[] = [
   { label: "Jainism", value: "Jainism" },
   { label: "None (No Default)", value: "None" },
 ];
+
+export const MEDIUM_OF_INSTRUCTION_OPTIONS: OptionItem[] = [
+  { label: "Bengali", value: "Bengali" },
+  { label: "English", value: "English" },
+  { label: "Hindi", value: "Hindi" },
+  { label: "Urdu", value: "Urdu" },
+  { label: "Nepali", value: "Nepali" },
+  { label: "Other", value: "Other" },
+];
+
+export const MEDIUM_OF_INSTRUCTION_DEFAULT_PRESET_OPTIONS: OptionItem[] = [
+  { label: "Bengali", value: "Bengali" },
+  { label: "English", value: "English" },
+  { label: "Hindi", value: "Hindi" },
+  { label: "Urdu", value: "Urdu" },
+  { label: "Nepali", value: "Nepali" },
+  { label: "None (No Default)", value: "None" },
+];

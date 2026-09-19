@@ -201,7 +201,7 @@ export function SeatCard({
     return (
       <div
         onClick={swapModeActive ? handleClick : undefined}
-        className={`w-[88px] sm:w-[94px] h-[78px] rounded-xl p-2 border-2 border-dashed transition-all flex items-center justify-center text-center select-none shrink-0 ${
+        className={`w-[102px] sm:w-[114px] h-[82px] rounded-xl p-2 border-2 border-dashed transition-all flex items-center justify-center text-center select-none shrink-0 ${
           isSwapSource
             ? "border-amber-500 ring-4 ring-amber-400/40 bg-amber-500/10"
             : swapModeActive
@@ -216,17 +216,17 @@ export function SeatCard({
 
   const regVal = (seat.studentRegNo || "").trim();
   const regFontSize =
-    regVal.length > 10
-      ? "text-[9.5px] sm:text-[10.5px] tracking-tighter"
-      : regVal.length > 7
-      ? "text-[11px] sm:text-xs tracking-tight"
-      : "text-xs sm:text-sm tracking-tight";
+    regVal.length > 11
+      ? "text-[9px] sm:text-[10px] tracking-tighter font-extrabold"
+      : regVal.length > 8
+      ? "text-[10px] sm:text-[11.5px] tracking-tight font-black"
+      : "text-[11px] sm:text-[12.5px] tracking-tight font-black";
 
   return (
     <>
       <div
         onClick={handleClick}
-        className={`w-[88px] sm:w-[94px] h-[78px] rounded-xl p-1.5 border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex flex-col justify-between items-center text-center select-none shrink-0 ${
+        className={`w-[102px] sm:w-[114px] h-[82px] rounded-xl p-1 border transition-all duration-200 cursor-pointer shadow-2xs hover:shadow-md flex flex-col justify-between items-center text-center select-none shrink-0 ${
           colorTheme?.border || "border-border"
         } ${colorTheme?.bg || "bg-card"} ${
           isSearchMatch
@@ -242,7 +242,7 @@ export function SeatCard({
       >
         {/* 1. Class & Sec / Stream */}
         <Badge
-          className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-xs leading-none ${
+          className={`text-[9px] sm:text-[9.5px] font-bold px-1.5 py-0.5 rounded-md shadow-xs leading-none ${
             colorTheme?.badgeBg || "bg-primary text-white"
           }`}
         >
@@ -250,19 +250,26 @@ export function SeatCard({
         </Badge>
 
         {/* 2. Roll / Board Reg No */}
-        <div className="my-0.5 w-full px-0.5">
+        <div className="my-0.5 w-full px-0.5 overflow-hidden">
           {isHs ? (
             <span
-              className={`block font-black leading-none truncate ${regFontSize} ${
+              className={`block leading-none ${regFontSize} ${
                 colorTheme?.textRoll || "text-foreground"
               }`}
               title={regVal ? `Reg No: ${regVal}` : undefined}
             >
-              {regVal ? `Reg: ${regVal}` : `Roll ${seat.studentRoll !== undefined ? String(seat.studentRoll).padStart(2, "0") : "--"}`}
+              {regVal ? (
+                <span className="inline-flex items-center justify-center gap-0.5 max-w-full">
+                  <span className="text-[8.5px] sm:text-[9.5px] font-semibold opacity-75 shrink-0">Reg:</span>
+                  <span className="truncate">{regVal}</span>
+                </span>
+              ) : (
+                `Roll ${seat.studentRoll !== undefined ? String(seat.studentRoll).padStart(2, "0") : "--"}`
+              )}
             </span>
           ) : (
             <span
-              className={`text-sm sm:text-base font-black tracking-tight leading-none ${
+              className={`text-xs sm:text-sm font-black tracking-tight leading-none ${
                 colorTheme?.textRoll || "text-foreground"
               }`}
             >
@@ -273,7 +280,7 @@ export function SeatCard({
 
         {/* 3. Student Name */}
         <span
-          className="text-[9px] sm:text-[10px] font-medium text-foreground/80 truncate max-w-[78px] sm:max-w-[84px] leading-tight block"
+          className="text-[9.5px] sm:text-[10.5px] font-medium text-foreground/85 truncate max-w-[94px] sm:max-w-[104px] leading-tight block"
           title={seat.studentName}
         >
           {seat.studentName || "Student"}

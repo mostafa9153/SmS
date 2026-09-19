@@ -889,6 +889,8 @@ function BulkUploadPageContent() {
                         { label: "1st Summative Evaluation", value: "1st Summative Evaluation" },
                         { label: "2nd Summative Evaluation", value: "2nd Summative Evaluation" },
                         { label: "3rd Summative Evaluation / Annual", value: "3rd Summative Evaluation" },
+                        { label: "Sem I", value: "Sem I" },
+                        { label: "Sem II", value: "Sem II" },
                         { label: "Selection Test (Pre-Board)", value: "Selection Test" },
                         { label: "Unit Test", value: "Unit Test" },
                       ]}
@@ -1234,7 +1236,7 @@ function BulkUploadPageContent() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
-                Total Rows: {isResultsMode ? mappedResultRows.length : mappedRows.length}
+                Total Std.: {isResultsMode ? mappedResultRows.length : mappedRows.length}
               </Badge>
               {errorIssues.length > 0 && (
                 <Badge variant="destructive" className="text-xs">
