@@ -3,7 +3,7 @@
 import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
-import { formatRoomName } from "@/lib/ems/ems-config-loader";
+import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
 export interface EmsAdmitCardPrintableProps {
@@ -94,15 +94,24 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
 
   // Sort students by Room, Class, and RegNo/Roll
   students.sort((a, b) => {
-    if (a.roomNumber !== b.roomNumber) return a.roomNumber.localeCompare(b.roomNumber);
-    if (a.studentClass !== b.studentClass) return a.studentClass.localeCompare(b.studentClass);
+    if (a.roomNumber !== b.roomNumber) {
+      return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+    }
+    if (a.studentClass !== b.studentClass) {
+      return (
+        getClassNumericRank(a.studentClass) - getClassNumericRank(b.studentClass) ||
+        a.studentClass.localeCompare(b.studentClass, undefined, { numeric: true })
+      );
+    }
     if (isHigherSecondaryClass(a.studentClass)) {
       const regA = (a.studentRegNo || "").trim() || `${a.studentRoll}`;
       const regB = (b.studentRegNo || "").trim() || `${b.studentRoll}`;
       return regA.localeCompare(regB, undefined, { numeric: true });
     }
-    if (a.studentSection !== b.studentSection) return a.studentSection.localeCompare(b.studentSection);
-    return a.studentRoll - b.studentRoll;
+    if (a.studentSection !== b.studentSection) {
+      return a.studentSection.localeCompare(b.studentSection);
+    }
+    return (a.studentRoll || 0) - (b.studentRoll || 0);
   });
 
   // Chunk students into pages of 21 (3 columns x 7 rows)

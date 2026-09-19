@@ -4,6 +4,7 @@ import React from "react";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
+import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 
 export interface EmsAttendanceSheetPrintableProps {
   rooms: AllocatedRoom[];
@@ -63,14 +64,14 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           const isHs = isHigherSecondaryClass(s.studentClass);
           const streamText = s.studentStream || (s.studentSection ? toShortStream(s.studentSection) : "") || "Sci";
           const key = isHs
-            ? `${s.studentClass || "XI"} - ${streamText}`
-            : `${s.studentClass || "Class"}-${s.studentSection || "A"}`;
+            ? `${s.studentClass || "XI"}${streamText ? ` - ${streamText}` : ""}`
+            : `${s.studentClass || "Class"}${s.studentSection ? ` - ${s.studentSection}` : ""}`;
 
           if (!classMap.has(key)) {
             classMap.set(key, []);
           }
           classMap.get(key)!.push({
-            roll: s.studentRoll || 1,
+            roll: s.studentRoll !== undefined && s.studentRoll !== null ? s.studentRoll : 1,
             name: s.studentName || "Student",
             studentClass: s.studentClass || "",
             section: s.studentSection || "",
@@ -89,17 +90,22 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
             });
           } else {
-            list.sort((a, b) => a.roll - b.roll);
+            list.sort((a, b) => (a.roll || 0) - (b.roll || 0));
           }
         });
 
-        const classKeys = Array.from(classMap.keys());
+        // Sort classKeys in grade sequence: V -> VI -> VII -> ... -> XI -> XII
+        const classKeys = Array.from(classMap.keys()).sort((a, b) => {
+          return getClassNumericRank(a) - getClassNumericRank(b) || a.localeCompare(b, undefined, { numeric: true });
+        });
+        const classLabel = classKeys.length > 0 ? `Class: ${classKeys.join(", ")}` : "";
 
         // Prepare rows for the table
         type RowData =
           | { type: "header"; title: string; isHs: boolean }
           | { type: "student"; student: StudentRowItem; index: number }
           | { type: "total_present"; className: string }
+          | { type: "total_absent"; className: string }
           | { type: "invigilator_sign"; className: string }
           | { type: "empty" };
 
@@ -109,8 +115,9 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           const isHs = students.length > 0 && students[0].isHs;
           allRows.push({ type: "header", title: `CLASS: ${key}`, isHs });
           students.forEach((s, i) => allRows.push({ type: "student", student: s, index: i }));
-          // Total Present and Invigilator Sign at the end of each class
+          // Summary rows at the end of each class: Total Present, Total Absent, Invigilator Sign
           allRows.push({ type: "total_present", className: key });
+          allRows.push({ type: "total_absent", className: key });
           allRows.push({ type: "invigilator_sign", className: key });
         });
 
@@ -118,15 +125,14 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           allRows.push({ type: "empty" });
         }
 
-        // Chunk rows into pages (up to 52 rows per page)
-        const MAX_ROWS_PER_PAGE = 52;
+        // Chunk rows into pages (up to 48 rows per page for clean A4 fit)
+        const MAX_ROWS_PER_PAGE = 48;
         const pages: RowData[][] = [];
         for (let i = 0; i < allRows.length; i += MAX_ROWS_PER_PAGE) {
           pages.push(allRows.slice(i, i + MAX_ROWS_PER_PAGE));
         }
 
-        const cleanRoom = room.roomNumber.replace(/^Room\s*/i, "").trim();
-        const displayRoom = cleanRoom ? `Room ${cleanRoom}` : "Room";
+        const displayRoom = formatRoomName(room.roomNumber);
 
         return pages.map((pageRows, pageIdx) => {
           return (
@@ -202,9 +208,17 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                       </div>
                     </div>
 
-                    {/* Sub-Header Row: Center Exam Title & Room Total Info */}
+                    {/* Sub-Header Row: Class Info + Exam Title + Half + Room Total Info */}
                     <div className="grid grid-cols-12 border-t-[1.2px] border-black mt-1 pt-1 text-[9.5px] font-bold items-center">
                       <div className="col-span-12 text-center truncate flex items-center justify-center gap-2">
+                        {classLabel && (
+                          <>
+                            <span className="text-black font-black tracking-wide uppercase">
+                              {classLabel}
+                            </span>
+                            <span className="text-neutral-400">•</span>
+                          </>
+                        )}
                         <span className="text-black font-black tracking-wide uppercase">
                           {examType} - {academicYear}
                         </span>
@@ -224,20 +238,26 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                     </div>
                   </div>
 
-                  {/* REGISTER TABLE: Multi-Subject Dynamic Columns */}
+                  {/* REGISTER TABLE: Multi-Subject Dynamic Columns with Separate Roll and Reg No */}
                   <div className="flex flex-col h-full flex-1 min-h-0 mt-0.5">
                     <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
                       <thead>
                         <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[72px] text-center font-black p-1 text-[8.5px] shrink-0"
+                            className="border-r-[1.5px] border-black w-[34px] text-center font-black p-1 text-[8.5px] shrink-0"
                           >
-                            Roll / Reg
+                            Roll
                           </th>
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[170px] text-left font-black p-1 pl-2 text-[9px] truncate shrink-0"
+                            className="border-r-[1.5px] border-black w-[72px] text-center font-black p-1 text-[8.5px] shrink-0"
+                          >
+                            Reg No
+                          </th>
+                          <th
+                            rowSpan={2}
+                            className="border-r-[1.5px] border-black w-[145px] text-left font-black p-1 pl-2 text-[9px] truncate shrink-0"
                           >
                             Student Name
                           </th>
@@ -246,7 +266,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             <th
                               key={`th-subject-${i}`}
                               className="border-r border-black font-black text-center p-1 text-[8.5px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                              style={{ width: `calc((100% - 242px) / ${numCols})` }}
+                              style={{ width: `calc((100% - 251px) / ${numCols})` }}
                             >
                               {headerText}
                             </th>
@@ -285,7 +305,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.2mm" }}
                               >
                                 <td
-                                  colSpan={2 + numCols}
+                                  colSpan={3 + numCols}
                                   className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5"
                                 >
                                   {row.title}
@@ -302,14 +322,37 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.2mm" }}
                               >
                                 <td
-                                  colSpan={2}
+                                  colSpan={3}
                                   className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
                                 >
                                   TOTAL PRESENT:
                                 </td>
                                 {columns.map((_, colI) => (
                                   <td
-                                    key={`total-${idx}-${colI}`}
+                                    key={`total-p-${idx}-${colI}`}
+                                    className="border-r border-black/80 bg-white text-center p-0"
+                                  />
+                                ))}
+                              </tr>
+                            );
+                          }
+
+                          if (row.type === "total_absent") {
+                            return (
+                              <tr
+                                key={`row-${idx}`}
+                                className="border-b border-black bg-neutral-100 font-bold"
+                                style={{ height: "5.2mm" }}
+                              >
+                                <td
+                                  colSpan={3}
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                >
+                                  TOTAL ABSENT:
+                                </td>
+                                {columns.map((_, colI) => (
+                                  <td
+                                    key={`total-a-${idx}-${colI}`}
                                     className="border-r border-black/80 bg-white text-center p-0"
                                   />
                                 ))}
@@ -325,7 +368,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
-                                  colSpan={2}
+                                  colSpan={3}
                                   className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8px] text-neutral-900"
                                 >
                                   INVIGILATOR SIGN:
@@ -350,8 +393,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               className="border-b border-black/70 hover:bg-neutral-50/50"
                               style={{ height: "4.7mm" }}
                             >
-                              <td className="border-r-[1.5px] border-black text-center font-black text-[8.5px] p-0 leading-none truncate px-1">
-                                {student ? (student.isHs && regVal ? regVal : String(student.roll).padStart(2, "0")) : ""}
+                              <td className="border-r-[1.5px] border-black text-center font-black text-[8.5px] p-0 leading-none truncate px-0.5">
+                                {student ? String(student.roll).padStart(2, "0") : ""}
+                              </td>
+                              <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[8px] p-0 leading-none truncate px-0.5">
+                                {regVal || "-"}
                               </td>
                               <td className="border-r-[1.5px] border-black px-2 font-black text-[9.5px] uppercase truncate text-neutral-950 leading-none">
                                 {student ? student.name : ""}
@@ -367,13 +413,14 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           );
                         })}
 
-                        {/* Fill remaining space if less than 50 rows on the page */}
+                        {/* Fill remaining space if less than 48 rows on the page */}
                         {Array.from({ length: Math.max(0, 48 - pageRows.length) }).map((_, emptyI) => (
                           <tr
                             key={`filler-${emptyI}`}
                             className="border-b border-neutral-200"
                             style={{ height: "4.7mm" }}
                           >
+                            <td className="border-r-[1.5px] border-black text-center p-0" />
                             <td className="border-r-[1.5px] border-black text-center p-0" />
                             <td className="border-r-[1.5px] border-black p-0" />
                             {columns.map((_, colI) => (

@@ -4,6 +4,7 @@ import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
+import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 
 export interface EmsBenchSlipsPrintableProps {
   rooms: AllocatedRoom[];
@@ -43,30 +44,48 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   // Extract all occupied seats
   const slips: StudentBenchSlipItem[] = [];
   activeRooms.forEach((r) => {
-    // Sort seats in logical room order: by column, then bench, then seat position
-    const sortedSeats = [...r.seats]
+    r.seats
       .filter((s) => !s.isVacant && s.studentName)
-      .sort((a, b) => {
-        if (a.columnIndex !== b.columnIndex) return a.columnIndex - b.columnIndex;
-        if (a.benchIndex !== b.benchIndex) return a.benchIndex - b.benchIndex;
-        return a.seatPosition - b.seatPosition;
+      .forEach((s) => {
+        slips.push({
+          studentName: s.studentName || "Student",
+          studentRoll: s.studentRoll || 1,
+          studentClass: s.studentClass || "VIII",
+          studentSection: s.studentSection || "A",
+          studentRegNo: s.studentRegNo,
+          studentStream: s.studentStream,
+          roomNumber: r.roomNumber,
+          columnIndex: s.columnIndex,
+          benchIndex: s.benchIndex,
+          seatPosition: s.seatPosition,
+          globalSeatNumber: s.globalSeatNumber,
+        });
       });
+  });
 
-    sortedSeats.forEach((s) => {
-      slips.push({
-        studentName: s.studentName || "Student",
-        studentRoll: s.studentRoll || 1,
-        studentClass: s.studentClass || "VIII",
-        studentSection: s.studentSection || "A",
-        studentRegNo: s.studentRegNo,
-        studentStream: s.studentStream,
-        roomNumber: r.roomNumber,
-        columnIndex: s.columnIndex,
-        benchIndex: s.benchIndex,
-        seatPosition: s.seatPosition,
-        globalSeatNumber: s.globalSeatNumber,
-      });
-    });
+  // Sort bench slips in the exact same logical order as Admit Cards:
+  // 1. Room number (natural alphanumeric)
+  // 2. Class (standard grade rank via getClassNumericRank, then natural alphanumeric)
+  // 3. If Higher Secondary: Reg No (or Roll); else: Section, then Roll
+  slips.sort((a, b) => {
+    if (a.roomNumber !== b.roomNumber) {
+      return a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+    }
+    if (a.studentClass !== b.studentClass) {
+      return (
+        getClassNumericRank(a.studentClass) - getClassNumericRank(b.studentClass) ||
+        a.studentClass.localeCompare(b.studentClass, undefined, { numeric: true })
+      );
+    }
+    if (isHigherSecondaryClass(a.studentClass)) {
+      const regA = (a.studentRegNo || "").trim() || `${a.studentRoll}`;
+      const regB = (b.studentRegNo || "").trim() || `${b.studentRoll}`;
+      return regA.localeCompare(regB, undefined, { numeric: true });
+    }
+    if (a.studentSection !== b.studentSection) {
+      return a.studentSection.localeCompare(b.studentSection);
+    }
+    return (a.studentRoll || 0) - (b.studentRoll || 0);
   });
 
   // Chunk slips into pages of 57 (3 columns x 19 rows)
@@ -99,8 +118,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             {/* 3 Columns x 19 Rows Grid = 57 Slips */}
             <div className="grid grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm] h-full w-full">
               {pageSlips.map((item, idx) => {
-                const cleanRoom = item.roomNumber.replace(/^Room\s*/i, "").trim();
-                const displayRoom = cleanRoom ? `Room ${cleanRoom}` : "Room";
+                const displayRoom = formatRoomName(item.roomNumber);
                 const isHs = isHigherSecondaryClass(item.studentClass);
                 const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
                 const regVal = (item.studentRegNo || "").trim();
