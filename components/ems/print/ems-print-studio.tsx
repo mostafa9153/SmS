@@ -73,6 +73,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
 }) => {
   const [activeDoc, setActiveDoc] = useState<PrintDocType>(defaultDoc);
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [zoom, setZoom] = useState<number>(0.85);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
   const [isRoomPopoverOpen, setIsRoomPopoverOpen] = useState<boolean>(false);
@@ -231,8 +232,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     0
   );
 
-  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / 21) || 1;
-  const totalPagesSlips = Math.ceil(totalOccupiedStudents / 57) || 1;
+  const cardsPerPage = orientation === "landscape" ? 20 : 21;
+  const slipsPerPage = orientation === "landscape" ? 56 : 57;
+
+  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / cardsPerPage) || 1;
+  const totalPagesSlips = Math.ceil(totalOccupiedStudents / slipsPerPage) || 1;
   const totalPagesAttendance =
     selectedRooms.reduce((acc, r) => {
       const studentCount = r.seats.filter((s) => !s.isVacant && s.studentName).length;
@@ -338,6 +342,38 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Orientation Switcher (Portrait / Landscape) for Admit Cards & Bench Slips */}
+          {(activeDoc === "admit" || activeDoc === "slips") && (
+            <div className="inline-flex p-0.5 rounded-xl bg-muted/80 border border-border/80 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setOrientation("portrait")}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                  orientation === "portrait"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title={activeDoc === "admit" ? "Portrait (3×7 • 21 Cards)" : "Portrait (3×19 • 57 Slips)"}
+              >
+                Portrait
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrientation("landscape")}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                  orientation === "landscape"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title={activeDoc === "admit" ? "Landscape (4×5 • 20 Cards)" : "Landscape (4×14 • 56 Slips)"}
+              >
+                Landscape
+              </button>
+            </div>
+          )}
+
           {/* 1st Half / 2nd Half Switcher (Placed right before Print Document) */}
           <div className="inline-flex p-0.5 rounded-xl bg-muted/80 border border-border/80 shadow-2xs">
             <button
@@ -422,7 +458,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   activeDoc === "admit" ? "bg-indigo-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                21/A4
+                {orientation === "landscape" ? "20/A4" : "21/A4"}
               </span>
             </button>
 
@@ -447,7 +483,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                57/A4
+                {orientation === "landscape" ? "56/A4" : "57/A4"}
               </span>
             </button>
 
@@ -672,6 +708,44 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between text-foreground">
                     <span className="font-bold text-xs flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Orientation</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                      {orientation === "landscape" ? "4×5 Grid (20/A4)" : "3×7 Grid (21/A4)"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("portrait")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "portrait"
+                          ? "bg-background text-indigo-600 dark:text-indigo-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Portrait (21)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("landscape")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "landscape"
+                          ? "bg-background text-indigo-600 dark:text-indigo-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Landscape (20)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-foreground">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-indigo-500" />
                       <span>Issue Date</span>
                     </span>
@@ -711,13 +785,6 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                     />
                     <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
                   </label>
-                </div>
-
-                <div className="p-3 bg-card rounded-xl border border-border/90 flex items-center gap-2.5 text-xs text-muted-foreground shadow-2xs">
-                  <Info className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span className="text-[11px] leading-relaxed">
-                    21 mini cards / A4 sheet (3×7 grid) with school watermark, student roll & desk location.
-                  </span>
                 </div>
               </div>
             )}
@@ -831,11 +898,51 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
 
             {/* FOR BENCH SLIPS */}
             {activeDoc === "slips" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-foreground">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-foreground">
+                <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-foreground">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Orientation</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      {orientation === "landscape" ? "4×14 Grid (56/A4)" : "3×19 Grid (57/A4)"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("portrait")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "portrait"
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Portrait (57)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("landscape")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "landscape"
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Landscape (56)
+                    </button>
+                  </div>
+                </div>
+
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1 shadow-2xs">
                   <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>57 Desk Slips / A4 Sheet (3×19 Grid)</span>
+                    <span>
+                      {orientation === "landscape" ? "56 Desk Slips / A4 Sheet (4×14 Grid)" : "57 Desk Slips / A4 Sheet (3×19 Grid)"}
+                    </span>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
                     Designed for rapid scissor cutting with micro cut lines, institutional crest, and student roll numbers.
@@ -891,9 +998,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           <div className="flex items-center gap-2 text-xs">
             <span className="px-2.5 py-1 rounded-lg bg-background text-foreground font-mono text-xs border border-border font-bold shadow-2xs">
               {activeDoc === "admit"
-                ? "Mini Admit Cards (21/Page)"
+                ? `Mini Admit Cards (${orientation === "landscape" ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page"})`
                 : activeDoc === "slips"
-                  ? "Desk Bench Slips (30/Page)"
+                  ? `Desk Bench Slips (${orientation === "landscape" ? "4×14 Landscape • 56/Page" : "3×19 Portrait • 57/Page"})`
                   : activeDoc === "attendance"
                     ? "Room Attendance Sheet"
                     : "Room Gate Notice"}
@@ -970,6 +1077,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 targetRoomId={targetRoomId}
                 showSignature={showAdmitSignature}
                 examHalf={examHalf}
+                orientation={orientation}
               />
             )}
 
@@ -980,6 +1088,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 examType={allocation.examType}
                 schoolProfile={schoolProfile}
                 targetRoomId={targetRoomId}
+                orientation={orientation}
               />
             )}
 
@@ -1014,8 +1123,15 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
       {/* 4. DEDICATED DIRECT-TO-BODY PRINT PORTAL                        */}
       {/* Completely isolated from zoom, flex, and transforms            */}
       {/* ============================================================== */}
-      {mounted && typeof document !== "undefined" && createPortal(
-        <div id="ems-print-isolated-portal">
+      {mounted && typeof document !== "undefined" && !document.querySelector('[data-ems-dialog-portal="true"]') && createPortal(
+        <div
+          id="ems-print-isolated-portal"
+          className={cn(
+            orientation === "landscape" &&
+              (activeDoc === "admit" || activeDoc === "slips") &&
+              "ems-orientation-landscape"
+          )}
+        >
           {activeDoc === "admit" && (
             <EmsAdmitCardPrintable
               rooms={allocation.roomAllocations || []}
@@ -1026,6 +1142,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               targetRoomId={targetRoomId}
               showSignature={showAdmitSignature}
               examHalf={examHalf}
+              orientation={orientation}
             />
           )}
 
@@ -1036,6 +1153,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               examType={allocation.examType}
               schoolProfile={schoolProfile}
               targetRoomId={targetRoomId}
+              orientation={orientation}
             />
           )}
 

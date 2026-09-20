@@ -305,6 +305,19 @@
   margin: 0;
 }
 
+@page landscape-sheet {
+  size: 297mm 210mm;
+  margin: 0;
+}
+
+.ems-orientation-landscape {
+  page: landscape-sheet;
+}
+
+.ems-grid-column-flow {
+  grid-auto-flow: column !important;
+}
+
 #ems-print-isolated-portal {
   display: none;
 }
@@ -337,6 +350,11 @@
     overflow: visible !important;
   }
 
+  body:has(#ems-print-isolated-portal.ems-orientation-landscape),
+  body:has(#ems-print-isolated-portal .ems-orientation-landscape) {
+    width: 297mm !important;
+  }
+
   #ems-print-isolated-portal {
     display: block !important;
     position: static !important;
@@ -345,6 +363,11 @@
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
+  }
+
+  #ems-print-isolated-portal.ems-orientation-landscape,
+  #ems-print-isolated-portal:has(.ems-orientation-landscape) {
+    width: 297mm !important;
   }
 
   #ems-print-isolated-portal,
@@ -370,6 +393,19 @@
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     background: #ffffff !important;
+  }
+
+  /* Landscape Sheet Model: 297mm x 200mm ensures zero overflow on A4 landscape paper */
+  .ems-admit-sheet.landscape,
+  .ems-slips-sheet.landscape {
+    width: 297mm !important;
+    height: 200mm !important;
+    max-height: 200mm !important;
+    padding: 2mm 3.5mm !important;
+  }
+
+  .ems-slips-sheet.landscape {
+    padding: 1mm 3mm !important;
   }
 
   .ems-print-page-break {

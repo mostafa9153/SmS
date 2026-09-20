@@ -60,6 +60,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
 }) => {
   const [activeDoc, setActiveDoc] = useState<PrintDocType>(defaultDoc);
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
@@ -153,8 +154,11 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     0
   );
 
-  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / 21) || 1;
-  const totalPagesSlips = Math.ceil(totalOccupiedStudents / 30) || 1;
+  const cardsPerPage = orientation === "landscape" ? 20 : 21;
+  const slipsPerPage = orientation === "landscape" ? 56 : 57;
+
+  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / cardsPerPage) || 1;
+  const totalPagesSlips = Math.ceil(totalOccupiedStudents / slipsPerPage) || 1;
   const totalPagesAttendance = selectedRooms.length || 1;
   const totalPagesGate = selectedRooms.length || 1;
 
@@ -330,6 +334,14 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 >
                   <div className="flex items-center justify-between w-full">
                     <FileText className={cn("w-4 h-4", activeDoc === "admit" ? "text-white" : "text-indigo-600 dark:text-indigo-400")} />
+                    <span
+                      className={cn(
+                        "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold",
+                        activeDoc === "admit" ? "bg-indigo-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      )}
+                    >
+                      {orientation === "landscape" ? "20/A4" : "21/A4"}
+                    </span>
                   </div>
                   <div>
                     <span className="block text-xs font-bold leading-tight">Admit Cards</span>
@@ -352,6 +364,14 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 >
                   <div className="flex items-center justify-between w-full">
                     <Tag className={cn("w-4 h-4", activeDoc === "slips" ? "text-white" : "text-emerald-600 dark:text-emerald-400")} />
+                    <span
+                      className={cn(
+                        "text-[9px] font-mono px-1.5 py-0.5 rounded font-bold",
+                        activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                      )}
+                    >
+                      {orientation === "landscape" ? "56/A4" : "57/A4"}
+                    </span>
                   </div>
                   <div>
                     <span className="block text-xs font-bold leading-tight">Bench Slips</span>
@@ -519,9 +539,47 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </span>
               </span>
 
-              {/* Admit Cards: Issue Date & Headmaster Signature */}
+              {/* Admit Cards: Orientation, Issue Date & Headmaster Signature */}
               {activeDoc === "admit" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {/* Page Orientation Selector */}
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 sm:col-span-2">
+                    <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                      <span className="font-semibold text-xs flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Page Orientation & Grid
+                      </span>
+                      <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                        {orientation === "landscape" ? "4×5 Grid (20 Cards/A4)" : "3×7 Grid (21 Cards/A4)"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 dark:bg-slate-900 p-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("portrait")}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          orientation === "portrait"
+                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>Portrait (3×7 • 21 Cards)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("landscape")}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          orientation === "landscape"
+                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>Landscape (4×5 • 20 Cards)</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
                     <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                       <span className="font-semibold text-xs flex items-center gap-1">
@@ -757,16 +815,57 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </div>
               )}
 
-              {/* Bench Slips: Layout Specifications */}
+              {/* Bench Slips: Orientation & Layout Specifications */}
               {activeDoc === "slips" && (
-                <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
-                  <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>30 Desk Slips / A4 Sheet (Standard 3×10 Grid)</span>
+                <div className="space-y-2">
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                      <span className="font-semibold text-xs flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-emerald-500" /> Page Orientation & Grid
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        {orientation === "landscape" ? "4×14 Grid (56 Slips/A4)" : "3×19 Grid (57 Slips/A4)"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 dark:bg-slate-900 p-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("portrait")}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          orientation === "portrait"
+                            ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>Portrait (3×19 • 57 Slips)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("landscape")}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          orientation === "landscape"
+                            ? "bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>Landscape (4×14 • 56 Slips)</span>
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Pre-aligned scissor cutting lines, dual school logos, bold student roll numbers, and anti-copying desk placement.
-                  </p>
+
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>
+                        {orientation === "landscape" ? "56 Desk Slips / A4 Sheet (4×14 Grid)" : "57 Desk Slips / A4 Sheet (3×19 Grid)"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Pre-aligned scissor cutting lines, school watermark, bold student roll numbers, and column-bench desk placement.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
@@ -789,7 +888,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
                   <span>Paper Output:</span>
                   <span className="font-bold text-indigo-600 dark:text-indigo-400 font-mono">
-                    A4 ({currentTotalPages} Page{currentTotalPages > 1 ? "s" : ""})
+                    A4 {orientation === "landscape" && (activeDoc === "admit" || activeDoc === "slips") ? "Landscape" : "Portrait"} ({currentTotalPages} Page{currentTotalPages > 1 ? "s" : ""})
                   </span>
                 </div>
               </div>
@@ -858,12 +957,54 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-2xl shrink-0 print:hidden shadow-xs relative z-10">
               <div className="flex items-center gap-2 text-xs">
                 <span className="px-2.5 py-1 rounded-lg bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-slate-800 dark:text-neutral-200 font-mono text-xs border border-white/80 dark:border-neutral-700 font-bold shadow-2xs">
-                  {activeDoc === "admit" ? "Mini Admit Cards (21/Page)" : activeDoc === "slips" ? "Desk Bench Slips (30/Page)" : "Room Attendance Sheet"}
+                  {activeDoc === "admit"
+                    ? `Mini Admit Cards (${orientation === "landscape" ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page"})`
+                    : activeDoc === "slips"
+                      ? `Desk Bench Slips (${orientation === "landscape" ? "4×14 Landscape • 56/Page" : "3×19 Portrait • 57/Page"})`
+                      : activeDoc === "attendance"
+                        ? "Room Attendance Sheet"
+                        : "Room Gate Notice"}
                 </span>
                 <span className="text-slate-500 dark:text-neutral-400 text-xs hidden sm:inline font-medium">
                   • {totalOccupiedStudents} students ({currentTotalPages} A4 Page{currentTotalPages > 1 ? "s" : ""})
                 </span>
               </div>
+
+              {/* Orientation Switcher for Admit & Slips in Preview Header */}
+              {(activeDoc === "admit" || activeDoc === "slips") && (
+                <div className="hidden sm:inline-flex p-0.5 rounded-xl bg-slate-200/70 dark:bg-slate-800/70 border border-slate-300/80 dark:border-slate-700 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setOrientation("portrait")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                      orientation === "portrait"
+                        ? activeDoc === "admit"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                    title={activeDoc === "admit" ? "Portrait (3×7 • 21 Cards)" : "Portrait (3×19 • 57 Slips)"}
+                  >
+                    Portrait {activeDoc === "admit" ? "(21)" : "(57)"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrientation("landscape")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                      orientation === "landscape"
+                        ? activeDoc === "admit"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-emerald-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    )}
+                    title={activeDoc === "admit" ? "Landscape (4×5 • 20 Cards)" : "Landscape (4×14 • 56 Slips)"}
+                  >
+                    Landscape {activeDoc === "admit" ? "(20)" : "(56)"}
+                  </button>
+                </div>
+              )}
 
               {/* Zoom Controls & Prominent Close Button */}
               <div className="flex items-center gap-2">
@@ -930,6 +1071,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     targetRoomId={targetRoomId}
                     showSignature={showAdmitSignature}
                     examHalf={examHalf}
+                    orientation={orientation}
                   />
                 )}
 
@@ -940,6 +1082,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     examType={allocation.examType}
                     schoolProfile={schoolProfile}
                     targetRoomId={targetRoomId}
+                    orientation={orientation}
                   />
                 )}
 
@@ -978,7 +1121,15 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     {/* Completely isolated from dialog zoom, flex, and transforms     */}
     {/* ============================================================== */}
     {mounted && open && typeof document !== "undefined" && createPortal(
-      <div id="ems-print-isolated-portal">
+      <div
+        id="ems-print-isolated-portal"
+        data-ems-dialog-portal="true"
+        className={cn(
+          orientation === "landscape" &&
+            (activeDoc === "admit" || activeDoc === "slips") &&
+            "ems-orientation-landscape"
+        )}
+      >
         {activeDoc === "admit" && (
           <EmsAdmitCardPrintable
             rooms={allocation.roomAllocations || []}
@@ -989,6 +1140,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             targetRoomId={targetRoomId}
             showSignature={showAdmitSignature}
             examHalf={examHalf}
+            orientation={orientation}
           />
         )}
 
@@ -999,6 +1151,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             examType={allocation.examType}
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
+            orientation={orientation}
           />
         )}
 

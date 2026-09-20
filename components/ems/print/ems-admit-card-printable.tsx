@@ -5,6 +5,7 @@ import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
+import { cn } from "@/lib/utils";
 
 export interface EmsAdmitCardPrintableProps {
   rooms: AllocatedRoom[];
@@ -15,6 +16,7 @@ export interface EmsAdmitCardPrintableProps {
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   showSignature?: boolean;
+  orientation?: "portrait" | "landscape";
 }
 
 interface StudentAdmitItem {
@@ -54,6 +56,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   schoolProfile,
   targetRoomId = "ALL",
   showSignature = true,
+  orientation = "portrait",
 }) => {
   // Resolve school head signature URL
   const headSignatureSrc =
@@ -114,8 +117,9 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
     return (a.studentRoll || 0) - (b.studentRoll || 0);
   });
 
-  // Chunk students into pages of 21 (3 columns x 7 rows)
-  const CARDS_PER_PAGE = 21;
+  // Chunk students into pages: 20 for landscape (4 columns x 5 rows) or 21 for portrait (3 columns x 7 rows)
+  const isLandscape = orientation === "landscape";
+  const CARDS_PER_PAGE = isLandscape ? 20 : 21;
   const pages: StudentAdmitItem[][] = [];
   for (let i = 0; i < students.length; i += CARDS_PER_PAGE) {
     pages.push(students.slice(i, i + CARDS_PER_PAGE));
@@ -127,7 +131,22 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   }
 
   return (
-    <div className="ems-print-admit-wrapper w-full bg-white text-neutral-900 font-sans print:p-0 print:m-0">
+    <div
+      className={cn(
+        "ems-print-admit-wrapper w-full bg-white text-neutral-900 font-sans print:p-0 print:m-0",
+        isLandscape ? "ems-orientation-landscape" : "ems-orientation-portrait"
+      )}
+    >
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: ${isLandscape ? "297mm 210mm" : "210mm 297mm"};
+              margin: 0;
+            }
+          `,
+        }}
+      />
       {pages.map((pageStudents, pageIndex) => (
         <div key={`admit-page-wrap-${pageIndex}`} className="ems-print-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center">
           {/* Visual Page Counter in Screen Preview */}
@@ -136,14 +155,29 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
               Page {pageIndex + 1} of {pages.length}
             </span>
             <span>•</span>
-            <span>{pageStudents.length} Admit Cards</span>
+            <span>
+              {pageStudents.length} Admit Cards ({isLandscape ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page"})
+            </span>
           </div>
 
           <div
-            className="ems-admit-sheet w-[210mm] h-[278mm] max-h-[278mm] mx-auto p-[2mm_4mm] box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
+            className={cn(
+              "ems-admit-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
+              isLandscape
+                ? "landscape w-[297mm] h-[200mm] max-h-[200mm] p-[2mm_3.5mm]"
+                : "portrait w-[210mm] h-[278mm] max-h-[278mm] p-[2mm_4mm]"
+            )}
           >
-            {/* 3 Columns x 7 Rows Grid = 21 Cards */}
-            <div className="grid grid-cols-3 grid-rows-7 gap-x-[2mm] gap-y-[1.2mm] h-full w-full">
+            {/* Grid: 4 cols x 5 rows in Landscape or 3 cols x 7 rows in Portrait (Top-to-Bottom, Left-to-Right Column-Major Order) */}
+            <div
+              className={cn(
+                "h-full w-full ems-grid-column-flow",
+                isLandscape
+                  ? "grid grid-flow-col grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                  : "grid grid-flow-col grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+              )}
+              style={{ gridAutoFlow: "column" }}
+            >
               {pageStudents.map((item, idx) => (
                 <div
                   key={`card-${pageIndex}-${idx}`}
