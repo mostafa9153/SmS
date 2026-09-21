@@ -111,7 +111,7 @@ export function SubjectMultiSelect({
         </div>
       ) : (
         <div className="p-3 rounded-xl border border-dashed border-border text-center text-xs text-muted-foreground">
-          No teaching subjects assigned yet. Select or type a subject below and click "Add Subject".
+          No teaching subjects assigned yet. Select or type a subject below and click &quot;Add Subject&quot;.
         </div>
       )}
 

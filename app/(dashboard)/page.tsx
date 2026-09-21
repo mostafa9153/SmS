@@ -1,141 +1,129 @@
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { GraduationCap, Sparkles, ShieldCheck, Award, Upload, ArrowRight, UserPlus } from "lucide-react";
+import { GraduationCap, Sparkles, ShieldCheck, Award } from "lucide-react";
+import { TopMobileHeader } from "@/components/dashboard/top-mobile-header";
+import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar";
 import { StatCards } from "@/components/dashboard/stat-cards";
+import { AppleActivityRings } from "@/components/dashboard/apple-activity-rings";
 import { WelfareSchemesVisual } from "@/components/dashboard/welfare-schemes-visual";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const StatusChart = nextDynamic(
   () => import("@/components/dashboard/status-chart").then((m) => m.StatusChart),
-  { loading: () => <Skeleton className="h-[300px] w-full rounded-2xl" /> }
+  { loading: () => <Skeleton className="h-[300px] w-full rounded-3xl" /> }
 );
 const ClassStrengthChart = nextDynamic(
   () => import("@/components/dashboard/class-strength-chart").then((m) => m.ClassStrengthChart),
-  { loading: () => <Skeleton className="h-[300px] w-full rounded-2xl" /> }
+  { loading: () => <Skeleton className="h-[300px] w-full rounded-3xl" /> }
 );
 const CategoryDistributionChart = nextDynamic(
   () => import("@/components/dashboard/category-distribution-chart").then((m) => m.CategoryDistributionChart),
-  { loading: () => <Skeleton className="h-[300px] w-full rounded-2xl" /> }
+  { loading: () => <Skeleton className="h-[300px] w-full rounded-3xl" /> }
 );
 
 export const dynamic = "force-dynamic";
 
 export default function DashboardPage() {
-  const currentYear = new Date().getFullYear();
-
   return (
-    <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-      {/* Hero Welcome Header */}
-      <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-600/10 via-indigo-600/10 to-violet-600/10 border border-primary/15 p-4 sm:p-6 shadow-xs relative overflow-hidden">
-        <div className="absolute right-0 top-0 -mt-8 -mr-8 h-48 w-48 rounded-full bg-gradient-to-br from-primary/10 to-transparent blur-2xl pointer-events-none" />
-        
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold text-primary ring-1 ring-primary/30">
-                <Sparkles className="h-3.5 w-3.5" /> Session {currentYear} Active
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-              MHS School Dashboard
-            </h1>
-          </div>
+    <div className="p-3.5 sm:p-6 space-y-5 max-w-7xl mx-auto">
+      {/* 1. Top Mobile Header */}
+      <TopMobileHeader />
 
-          <div className="flex flex-wrap items-center gap-2 self-stretch sm:self-auto">
-            <Link
-              href="/generate"
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border border-purple-500/25 bg-background/80 px-3.5 py-2 text-xs font-semibold hover:bg-purple-500/10 hover:border-purple-500/40 text-foreground transition-all duration-150 active:scale-95 shadow-2xs"
-            >
-              <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-              Generate
-            </Link>
-            <Link
-              href="/admission"
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:from-blue-700 hover:to-indigo-700 transition-all duration-150 active:scale-95 shadow-xs"
-            >
-              <GraduationCap className="h-4 w-4" />
-              Admission
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* 2. Horizontal Scrollable Touch Quick Action Glass Pills */}
+      <QuickActionsBar />
 
-      {/* 1. Stat Cards */}
+      {/* 3. Bento Grid Metric Cards (Neon Cyber Amber & Emerald Highlights) */}
       <StatCards />
 
-      {/* 2. Class Strength & Welfare Visual Analytics */}
+      {/* 4. Activity Rings (SVG rings for Attendance, Fees, Syllabus) */}
+      <AppleActivityRings />
+
+      {/* 5. Class Strength & Welfare Visual Analytics */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <ClassStrengthChart />
         <WelfareSchemesVisual />
       </div>
 
-      {/* 3. Category & Enrolment Status Breakdown */}
+      {/* 6. Category & Enrolment Status Breakdown */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <CategoryDistributionChart />
         <StatusChart />
       </div>
 
-      {/* Quick Action Hub */}
+      {/* 7. Quick Action Hub (Glass Cards) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-bold tracking-tight text-foreground">
-            Quick Action Modules
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-600 dark:bg-[#FACC15]" />
+            Core Academic Modules
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Link
             href="/admission"
-            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-emerald-500/40 hover:bg-emerald-50/20 dark:hover:bg-emerald-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+            className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-emerald-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] cursor-pointer"
           >
-            <div className="rounded-xl bg-emerald-500/10 p-2 sm:p-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-emerald-500/20 shrink-0">
-              <GraduationCap className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/25 p-2.5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform duration-200 shrink-0">
+              <GraduationCap className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 transition-colors">
+              <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                 Admission Portal
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                New intake & AI scanner
               </p>
             </div>
           </Link>
 
           <Link
             href="/results"
-            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-amber-500/40 hover:bg-amber-50/20 dark:hover:bg-amber-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+            className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-amber-500/40 dark:hover:border-[#FACC15]/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(250,204,21,0.15)] cursor-pointer"
           >
-            <div className="rounded-xl bg-amber-500/10 p-2 sm:p-2.5 text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-amber-500/20 shrink-0">
-              <Award className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-2xl bg-amber-500/15 border border-amber-500/30 p-2.5 text-amber-800 dark:text-[#FACC15] group-hover:scale-110 transition-transform duration-200 shrink-0">
+              <Award className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-amber-600 transition-colors">
+              <p className="text-xs font-bold text-foreground group-hover:text-amber-800 dark:group-hover:text-[#FACC15] transition-colors">
                 Results & Marks
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Tabulation & marksheets
               </p>
             </div>
           </Link>
 
           <Link
             href="/generate"
-            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-purple-500/40 hover:bg-purple-50/20 dark:hover:bg-purple-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+            className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-purple-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(168,85,247,0.15)] cursor-pointer"
           >
-            <div className="rounded-xl bg-purple-500/10 p-2 sm:p-2.5 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-purple-500/20 shrink-0">
-              <Sparkles className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-2xl bg-purple-500/10 border border-purple-500/25 p-2.5 text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform duration-200 shrink-0">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-purple-600 transition-colors">
-                Generate Hub
+              <p className="text-xs font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                Document Hub
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                ID cards & certificates
               </p>
             </div>
           </Link>
 
           <Link
             href="/settings/users"
-            className="group flex flex-col sm:flex-row items-start sm:items-center gap-2.5 sm:gap-3.5 rounded-2xl border bg-card/90 p-3.5 sm:p-4 hover:border-rose-500/40 hover:bg-rose-50/20 dark:hover:bg-rose-950/20 transition-all duration-200 hover:-translate-y-1 hover:shadow-md cursor-pointer"
+            className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-rose-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] cursor-pointer"
           >
-            <div className="rounded-xl bg-rose-500/10 p-2 sm:p-2.5 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform duration-200 ring-1 ring-rose-500/20 shrink-0">
-              <ShieldCheck className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+            <div className="rounded-2xl bg-rose-500/10 border border-rose-500/25 p-2.5 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform duration-200 shrink-0">
+              <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-rose-600 transition-colors">
+              <p className="text-xs font-bold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
                 Admin Roles
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Security & privileges
               </p>
             </div>
           </Link>

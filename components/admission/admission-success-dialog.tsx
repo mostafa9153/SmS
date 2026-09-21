@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Printer, Check, FileText, ArrowRight, X } from "lucide-react";
@@ -39,8 +39,8 @@ export function AdmissionSuccessDialog({
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const currentYear = new Date().getFullYear();
 
-  const invoiceData: InvoiceData = {
-    invoiceNumber: receiptNo || `REC-${Date.now().toString().slice(-6)}`,
+  const invoiceData: InvoiceData = useMemo(() => ({
+    invoiceNumber: receiptNo || `REC-${Math.abs(roll * 1000 + (feeAmount || 0)).toString().padStart(6, "0")}`,
     issueDate: new Date().toISOString().split("T")[0],
     issueTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
     academicSession: `${currentYear} – ${currentYear + 1}`,
@@ -60,7 +60,7 @@ export function AdmissionSuccessDialog({
     paymentMode: "Cash",
     paymentStatus: feeAmount > 0 ? "Paid" : "Paid",
     remarks: `New Admission (${currentYear}) - Staging Queue`,
-  };
+  }), [receiptNo, roll, feeAmount, currentYear, studentName, className, section, guardianName, contactNumber, stream]);
 
   const handlePrintNow = () => {
     setShowPrintModal(true);

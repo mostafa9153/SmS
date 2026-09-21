@@ -32,6 +32,23 @@ interface AuditLogEntry {
 
 const FILTER_OPTIONS = ["All", "CREATE", "UPDATE", "DELETE", "SYSTEM_CONFIG"];
 
+function getRelativeTime(dateStr: string): string {
+  try {
+    const logDate = new Date(dateStr);
+    const diffMs = Math.max(0, Date.now() - logDate.getTime());
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    if (diffDays > 0) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffHours > 0) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffMinutes > 0) return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""} ago`;
+    return "Just now";
+  } catch {
+    return "Recently";
+  }
+}
+
 export function AuditLogsTab() {
   const searchParams = useSearchParams();
   const filterParam = searchParams.get("filter") || searchParams.get("tab");
@@ -119,17 +136,7 @@ export function AuditLogsTab() {
                   else if (log.action.includes("CREATE")) borderColor = "border-emerald-500";
                   else if (log.action.includes("SYSTEM") || log.action.includes("CONFIG")) borderColor = "border-blue-500";
 
-                  // Human readable relative time
-                  const logDate = new Date(log.createdAt);
-                  const diffMs = Date.now() - logDate.getTime();
-                  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-                  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-                  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-                  
-                  let relativeTime = "Just now";
-                  if (diffDays > 0) relativeTime = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-                  else if (diffHours > 0) relativeTime = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-                  else if (diffMinutes > 0) relativeTime = `${diffMinutes} min${diffMinutes > 1 ? 's' : ''} ago`;
+                  const relativeTime = getRelativeTime(log.createdAt);
 
                   return (
                     <div 
@@ -221,7 +228,7 @@ export function AuditLogsTab() {
             {selectedLog?.metadata && (
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Action Metadata</span>
-                <pre className="p-2 border rounded-md bg-slate-900 text-slate-100 font-mono text-[10px] overflow-x-auto max-h-40">
+                <pre className="p-2 border border-border/80 rounded-md bg-muted/70 text-foreground dark:bg-slate-950 dark:text-slate-100 font-mono text-[10px] overflow-x-auto max-h-40">
                   {JSON.stringify(selectedLog.metadata, null, 2)}
                 </pre>
               </div>
@@ -232,7 +239,7 @@ export function AuditLogsTab() {
                 {selectedLog.oldValues && (
                   <div className="space-y-1">
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Previous State</span>
-                    <pre className="p-2 border rounded-md bg-slate-900 text-slate-100 font-mono text-[10px] overflow-x-auto max-h-48">
+                    <pre className="p-2 border border-border/80 rounded-md bg-muted/70 text-foreground dark:bg-slate-950 dark:text-slate-100 font-mono text-[10px] overflow-x-auto max-h-48">
                       {JSON.stringify(selectedLog.oldValues, null, 2)}
                     </pre>
                   </div>
@@ -240,7 +247,7 @@ export function AuditLogsTab() {
                 {selectedLog.newValues && (
                   <div className="space-y-1">
                     <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">New State</span>
-                    <pre className="p-2 border rounded-md bg-slate-900 text-slate-100 font-mono text-[10px] overflow-x-auto max-h-48">
+                    <pre className="p-2 border border-border/80 rounded-md bg-muted/70 text-foreground dark:bg-slate-950 dark:text-slate-100 font-mono text-[10px] overflow-x-auto max-h-48">
                       {JSON.stringify(selectedLog.newValues, null, 2)}
                     </pre>
                   </div>

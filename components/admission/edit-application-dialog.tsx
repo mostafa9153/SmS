@@ -75,14 +75,17 @@ const RELIGION_OPTIONS = [
   { value: "Other", label: "Other" },
 ];
 
-export function EditApplicationDialog({
+function EditApplicationDialogInner({
   open,
   onOpenChange,
   application,
   onSaved,
-}: EditApplicationDialogProps) {
-  if (!application) return null;
-
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  application: AdmissionApplication;
+  onSaved: () => void;
+}) {
   // Form states
   const [studentName, setStudentName] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
@@ -393,7 +396,7 @@ export function EditApplicationDialog({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
-                    Father's Name
+                    Father&apos;s Name
                   </label>
                   <Input
                     value={fatherName}
@@ -404,7 +407,7 @@ export function EditApplicationDialog({
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
-                    Mother's Name
+                    Mother&apos;s Name
                   </label>
                   <Input
                     value={motherName}
@@ -415,7 +418,7 @@ export function EditApplicationDialog({
                 </div>
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
-                    Guardian's Name
+                    Guardian&apos;s Name
                   </label>
                   <Input
                     value={guardianName}
@@ -699,4 +702,9 @@ export function EditApplicationDialog({
       />
     </>
   );
+}
+
+export function EditApplicationDialog(props: EditApplicationDialogProps) {
+  if (!props.application) return null;
+  return <EditApplicationDialogInner {...props} application={props.application} />;
 }

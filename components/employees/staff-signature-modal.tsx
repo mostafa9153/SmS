@@ -60,17 +60,6 @@ export function StaffSignatureModal({
   const [inkColor, setInkColor] = useState<string>("#1e3a8a"); // Official Blue ink
   const [penWidth, setPenWidth] = useState<number>(3);
 
-  // Reset when dialog opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setSelectedFile(null);
-      setFilePreviewUrl(null);
-      setHasDrawn(false);
-      // clear canvas next tick if open
-      setTimeout(clearCanvas, 50);
-    }
-  }, [isOpen]);
-
   // Canvas drawing functions
   const getCoordinates = (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
@@ -143,6 +132,17 @@ export function StaffSignatureModal({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasDrawn(false);
   };
+
+  // Reset when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
+      setHasDrawn(false);
+      // clear canvas next tick if open
+      setTimeout(clearCanvas, 50);
+    }
+  }, [isOpen]);
 
   // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

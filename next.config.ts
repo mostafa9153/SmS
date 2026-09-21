@@ -3,6 +3,13 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Allow mobile testing and local network devices during development
+  allowedDevOrigins: [
+    "192.168.1.5",
+    "192.168.1.5:3000",
+    "localhost",
+    "127.0.0.1",
+  ],
   images: {
     remotePatterns: [
       {

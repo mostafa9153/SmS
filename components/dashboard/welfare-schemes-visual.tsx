@@ -25,10 +25,10 @@ export function WelfareSchemesVisual() {
 
   if (isLoading || !stats) {
     return (
-      <Card className="p-5 flex flex-col gap-3 rounded-2xl border bg-card/90 shadow-xs">
-        <Skeleton className="h-4 w-44" />
-        <Skeleton className="h-52 w-full rounded-xl" />
-      </Card>
+      <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-border/60 dark:border-white/10 flex flex-col gap-3 shadow-sm dark:shadow-none">
+        <Skeleton className="h-4 w-44 bg-muted/80 dark:bg-white/10" />
+        <Skeleton className="h-56 w-full rounded-2xl bg-muted/80 dark:bg-white/10" />
+      </div>
     );
   }
 
@@ -115,46 +115,47 @@ export function WelfareSchemesVisual() {
   ];
 
   return (
-    <Card className="p-5 rounded-2xl border bg-card/90 shadow-xs flex flex-col justify-between h-full">
+    <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none flex flex-col justify-between h-full transition-all duration-300 hover:border-pink-500/30">
       {/* Card Header */}
-      <div className="flex items-center justify-between mb-3 pb-1 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <div className="rounded-xl p-2 bg-pink-500/10 text-pink-600 ring-1 ring-pink-500/20">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-border/40">
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-xl p-2 bg-pink-500/10 text-pink-600 dark:text-pink-400 border border-pink-500/20">
             <HeartHandshake className="h-4 w-4" />
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Welfare & Schemes Overview</p>
+            <p className="text-[10px] text-muted-foreground">State & central benefit coverages</p>
           </div>
         </div>
         <Link
           href="/students"
-          className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5"
+          className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5 group"
         >
-          View All <ArrowUpRight className="h-3.5 w-3.5" />
+          View All <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
         </Link>
       </div>
 
-      {/* Grid of 6 Clean Scheme Metric Cards (Stretching to fill full height) */}
-      <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 grid-rows-2 gap-3.5 min-h-[160px]">
+      {/* Grid of Clean Scheme Metric Cards */}
+      <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 min-h-[160px] pt-1">
         {schemeItems.map((item) => (
           <Link
             key={item.title}
             href={item.link}
-            className="group flex flex-col justify-between p-3.5 sm:p-4 rounded-xl border bg-background/70 hover:bg-muted/60 hover:border-primary/40 transition-all duration-200 shadow-2xs hover:shadow-xs"
+            className="group flex flex-col justify-between p-3 rounded-2xl border border-border/60 dark:border-white/5 bg-card/70 dark:bg-white/[0.03] hover:bg-muted/80 dark:hover:bg-white/[0.08] hover:border-primary/40 transition-all duration-200 shadow-2xs hover:shadow-xs active:scale-[0.98]"
           >
             {/* Top row: Icon + Title */}
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="p-1.5 rounded-lg bg-muted/80 group-hover:scale-110 transition-transform shrink-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="p-1 rounded-lg bg-muted/80 dark:bg-white/10 group-hover:scale-110 transition-transform shrink-0">
                 {item.icon}
               </span>
-              <span className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+              <span className="text-[11px] font-bold text-foreground truncate group-hover:text-primary transition-colors">
                 {item.title}
               </span>
             </div>
 
             {/* Middle: Prominent Count */}
-            <div className="my-auto py-1 flex items-baseline justify-between">
-              <span className="font-mono font-extrabold text-xl sm:text-2xl text-foreground tracking-tight">
+            <div className="my-auto py-1.5 flex items-baseline justify-between">
+              <span className="font-mono font-extrabold text-xl text-foreground tracking-tight">
                 {item.count}
               </span>
               <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -163,7 +164,7 @@ export function WelfareSchemesVisual() {
             </div>
 
             {/* Bottom: Progress Bar */}
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-auto">
+            <div className="h-1.5 w-full bg-muted dark:bg-white/10 rounded-full overflow-hidden mt-auto">
               <div
                 className={`h-full rounded-full transition-all duration-500 ${item.accent}`}
                 style={{ width: `${Math.max(item.percent, item.count > 0 ? 10 : 0)}%` }}
@@ -172,6 +173,6 @@ export function WelfareSchemesVisual() {
           </Link>
         ))}
       </div>
-    </Card>
+    </div>
   );
 }

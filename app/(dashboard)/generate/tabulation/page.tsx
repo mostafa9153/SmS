@@ -38,6 +38,7 @@ import {
   ArrowLeft,
   Eye,
 } from "lucide-react";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
 export default function TabulationGeneratorPage() {
   const router = useRouter();
@@ -213,6 +214,12 @@ export default function TabulationGeneratorPage() {
     }));
   }, [dbMatchedStudents, manualCount]);
 
+  const handlePrint = () => {
+    setTimeout(() => {
+      window.print();
+    }, 60);
+  };
+
   // Keyboard shortcut: Ctrl + P to trigger print
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -224,12 +231,6 @@ export default function TabulationGeneratorPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
-
-  const handlePrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 60);
-  };
 
   // Determine subjects to render
   const subjectsToRender = isAllSubjectsMode
@@ -557,17 +558,17 @@ export default function TabulationGeneratorPage() {
             </div>
           </div>
 
-          {/* Canvas Wrapper */}
-          <div
-            id="tabulation-printable-canvas"
-            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-6 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block"
+          {/* Canvas Wrapper with Touch Pinch-to-Zoom */}
+          <PinchZoomViewer
+            scale={zoom}
+            onScaleChange={setZoom}
+            minScale={0.4}
+            maxScale={2.0}
+            showControls={false}
+            canvasClassName="bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-6"
           >
             <div
-              style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: "center top",
-                transition: "transform 0.15s ease-out",
-              }}
+              id="tabulation-printable-canvas"
               className="shrink-0 m-auto shadow-2xl print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 print:block"
             >
               {subjectsToRender.map((sub, sIdx) => (
@@ -592,7 +593,7 @@ export default function TabulationGeneratorPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </PinchZoomViewer>
         </div>
       </div>
 

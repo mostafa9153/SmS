@@ -8,6 +8,7 @@ import {
 } from "@/lib/supabase/db-students";
 
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { studentUpdateSchema } from "@/lib/validations/student-schema";
 
 // Helper to determine user role
 async function getUserRole(): Promise<string> {
@@ -57,8 +58,6 @@ export async function GET(
     return NextResponse.json({ error: error.message || "Failed to fetch student details" }, { status: 500 });
   }
 }
-
-import { studentUpdateSchema } from "@/lib/validations/student-schema";
 
 // PATCH /api/students/[id] - Update student
 export async function PATCH(

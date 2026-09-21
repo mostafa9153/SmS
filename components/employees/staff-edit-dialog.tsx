@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
-import { Loader2, Save, Briefcase, User, MapPin, GraduationCap, BookOpen, Layers } from "lucide-react";
+import { Loader2, Save, Briefcase, User, MapPin, GraduationCap, BookOpen } from "lucide-react";
 import { ClassMultiSelectDropdown, DEFAULT_SCHOOL_CLASSES } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 
@@ -486,7 +486,7 @@ export function StaffEditDialog({
             <TabsContent value="personal" className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Father's Name</Label>
+                  <Label className="text-xs font-medium">Father&apos;s Name</Label>
                   <Input
                     value={formData.father_name}
                     onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
@@ -494,7 +494,7 @@ export function StaffEditDialog({
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs font-medium">Mother's Name</Label>
+                  <Label className="text-xs font-medium">Mother&apos;s Name</Label>
                   <Input
                     value={formData.mother_name}
                     onChange={(e) => setFormData({ ...formData, mother_name: e.target.value })}

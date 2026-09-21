@@ -343,38 +343,41 @@ function ReAdmissionDashboardContent() {
         <div className="flex items-center gap-3">
           <Link
             href="/admission"
-            className="p-2.5 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            className="p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl border border-border/80 bg-card hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer active:scale-90 shadow-2xs"
             title="Back to Admission Portal"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+            <h1 className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
               Re-Admission Tracker
             </h1>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Promotion mapping &bull; Fee vasul collection &bull; Batch invoice generation
+            </p>
           </div>
         </div>
 
-        {/* Action Shortcuts */}
+        {/* Action Shortcuts: 2-Column Mobile Grid, Flex Row on Desktop */}
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Link
             href="/admission/invoices"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs sm:text-sm font-extrabold shadow-sm transition-all active:scale-95 cursor-pointer text-center"
           >
-            <Printer className="h-4 w-4" />
-            <span>Class Invoice Queue</span>
+            <Printer className="h-4 w-4 shrink-0" />
+            <span className="truncate">Invoice Queue</span>
             {queuedForInvoice.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-md bg-white/20 text-white text-xs font-mono font-bold">
+              <span className="px-1.5 py-0.5 rounded-md bg-white/20 text-white text-[10px] font-mono font-bold">
                 {queuedForInvoice.length}
               </span>
             )}
           </Link>
           <Link
             href="/admission/new"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl border hover:bg-muted text-foreground text-xs sm:text-sm font-bold transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-2xl border border-border/80 bg-card hover:bg-muted text-foreground text-xs sm:text-sm font-extrabold transition-all active:scale-95 cursor-pointer text-center shadow-2xs"
           >
-            <UserPlus className="h-4 w-4 text-emerald-600" />
-            <span>New Admission Tracker</span>
+            <UserPlus className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="truncate">New Admission</span>
           </Link>
         </div>
       </div>

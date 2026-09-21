@@ -418,11 +418,11 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
               </CardHeader>
               <CardContent className="space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-2 border-b border-border/50 pb-2">
-                  <span className="text-muted-foreground font-medium">Father's Name</span>
+                  <span className="text-muted-foreground font-medium">Father&apos;s Name</span>
                   <span className="font-bold text-foreground text-right">{currentStaff.father_name || "N/A"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 border-b border-border/50 pb-2">
-                  <span className="text-muted-foreground font-medium">Mother's Name</span>
+                  <span className="text-muted-foreground font-medium">Mother&apos;s Name</span>
                   <span className="font-medium text-foreground text-right">{currentStaff.mother_name || "N/A"}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2 border-b border-border/50 pb-2">
@@ -648,7 +648,7 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
                     </div>
                   ) : (
                     <p className="text-muted-foreground italic text-xs py-1">
-                      No subjects have been assigned yet. Click "Edit Profile" to add teaching subjects.
+                      No subjects have been assigned yet. Click &quot;Edit Profile&quot; to add teaching subjects.
                     </p>
                   )}
                 </div>
@@ -680,7 +680,7 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
                     </div>
                   ) : (
                     <p className="text-muted-foreground italic text-xs py-1">
-                      No classes have been assigned yet. Click "Edit Profile" to select the classes from the dropdown.
+                      No classes have been assigned yet. Click &quot;Edit Profile&quot; to select the classes from the dropdown.
                     </p>
                   )}
                 </div>

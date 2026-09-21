@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Printer,
@@ -978,41 +979,20 @@ function MarksheetGeneratorContent() {
                 </span>
               </div>
 
-              {/* Zoom Scale Controls */}
-              <div className="flex items-center gap-1.5 bg-background border border-border/80 px-2 py-1 rounded-xl shadow-2xs">
-                <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-                {[0.55, 0.75, 0.85, 1.0].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setPreviewScale(s)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
-                      previewScale === s
-                        ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                        : "bg-background hover:bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {Math.round(s * 100)}%
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* Scrollable Canvas for Single Preview */}
-            <div
-              id="printable-marksheet-canvas"
-              className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent min-h-[460px] sm:min-h-[580px]"
-            >
-              <div
-                style={{
-                  transform: `scale(${previewScale})`,
-                  transformOrigin: "center top",
-                  transition: "transform 0.15s ease-out",
-                }}
-                className="shrink-0 m-auto"
+            {/* Scrollable Canvas for Single Preview with Pinch-to-Zoom */}
+            <div id="printable-marksheet-canvas">
+              <PinchZoomViewer
+                initialScale={1.0}
+                minScale={0.55}
+                maxScale={2.5}
+                scale={previewScale}
+                onScaleChange={setPreviewScale}
+                canvasClassName="min-h-[460px] sm:min-h-[580px]"
               >
                 <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} />
-              </div>
+              </PinchZoomViewer>
             </div>
           </div>
         </div>
@@ -1207,41 +1187,20 @@ function MarksheetGeneratorContent() {
                 )}
               </div>
 
-              {/* Zoom Scale Controls */}
-              <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
-                <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-                {[0.75, 0.85, 1.0].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setPreviewScale(s)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
-                      previewScale === s
-                        ? "bg-primary text-primary-foreground font-bold shadow-2xs"
-                        : "bg-background hover:bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {Math.round(s * 100)}%
-                  </button>
-                ))}
-              </div>
             </div>
 
-            {/* Scrollable Canvas for Batch Preview */}
-            <div
-              id="printable-marksheet-canvas"
-              className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent"
-            >
-              <div
-                style={{
-                  transform: `scale(${previewScale})`,
-                  transformOrigin: "center top",
-                  transition: "transform 0.15s ease-out",
-                }}
-                className="shrink-0 m-auto"
+            {/* Scrollable Canvas for Batch Preview with Pinch-to-Zoom */}
+            <div id="printable-marksheet-canvas">
+              <PinchZoomViewer
+                initialScale={1.0}
+                minScale={0.55}
+                maxScale={2.5}
+                scale={previewScale}
+                onScaleChange={setPreviewScale}
+                canvasClassName="min-h-[460px] sm:min-h-[580px]"
               >
                 <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} />
-              </div>
+              </PinchZoomViewer>
             </div>
           </div>
         </div>

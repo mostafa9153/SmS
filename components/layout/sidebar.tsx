@@ -242,14 +242,14 @@ function NavSubGroup({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          "group flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer",
+          "group flex w-full items-center justify-between rounded-xl px-2.5 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer active:scale-[0.98]",
           isSubGroupActive
-            ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold"
+            ? "bg-primary/10 text-primary dark:bg-[#FACC15]/15 dark:text-[#FACC15] font-bold border border-primary/20 dark:border-[#FACC15]/20 shadow-2xs"
             : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
         )}
       >
         <div className="flex items-center gap-2">
-          {subItem.icon || <Award className="h-3.5 w-3.5 text-amber-500" />}
+          {subItem.icon || <Award className="h-3.5 w-3.5 text-primary dark:text-[#FACC15]" />}
           <span>{subItem.label}</span>
         </div>
         <ChevronDown
@@ -261,7 +261,7 @@ function NavSubGroup({
       </button>
 
       {open && subItem.children && (
-        <div className="ml-3 pl-3 border-l-2 border-amber-500/30 flex flex-col gap-1 py-0.5 transition-all duration-200">
+        <div className="ml-3.5 pl-3 border-l-2 border-primary/25 dark:border-[#FACC15]/30 flex flex-col gap-1 py-0.5 transition-all duration-200">
           {subItem.children.map((subChild) => {
             const isChildActive =
               pathname === subChild.href || pathname.startsWith(subChild.href + "/");
@@ -271,14 +271,14 @@ function NavSubGroup({
                 href={subChild.href}
                 onClick={onNavigate}
                 className={cn(
-                  "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 relative truncate",
+                  "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 relative truncate active:scale-[0.98]",
                   isChildActive
-                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 font-semibold shadow-2xs"
+                    ? "bg-primary/10 text-primary dark:bg-[#FACC15]/15 dark:text-[#FACC15] font-bold shadow-2xs"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
                 )}
               >
                 {isChildActive && (
-                  <span className="absolute -left-[14px] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-amber-500 ring-3 ring-amber-500/20" />
+                  <span className="absolute -left-[15px] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#FACC15] ring-2 ring-primary/20 dark:ring-[#FACC15]/30" />
                 )}
                 {subChild.label}
               </Link>
@@ -375,13 +375,13 @@ function NavGroup({
             }
           }}
           className={cn(
-            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none",
+            "group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none active:scale-[0.98]",
             isGroupActive
-              ? "bg-primary/10 text-primary font-semibold shadow-2xs"
+              ? "bg-primary/10 text-primary dark:bg-[#FACC15]/15 dark:text-[#FACC15] font-bold border border-primary/25 dark:border-[#FACC15]/30 shadow-xs"
               : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
           )}
         >
-          <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200", item.iconBg)}>
+          <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 shrink-0", item.iconBg)}>
             {item.icon}
           </div>
           <span className="flex-1 text-left text-xs font-semibold tracking-tight">{item.label}</span>
@@ -392,7 +392,7 @@ function NavGroup({
               e.stopPropagation();
               setOpen((o) => !o);
             }}
-            className="p-1 rounded-md hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md hover:bg-accent/80 text-muted-foreground hover:text-foreground transition-colors active:scale-95"
           >
             <ChevronDown
               className={cn(
@@ -404,7 +404,7 @@ function NavGroup({
         </div>
 
         {open && (
-          <div className="ml-5 pl-4 border-l-2 border-primary/20 flex flex-col gap-1 py-1 transition-all duration-300">
+          <div className="ml-5 pl-3 border-l-2 border-primary/20 dark:border-[#FACC15]/20 flex flex-col gap-1 py-1 transition-all duration-300">
             {item.children.map((child) => {
               if (child.children && child.children.length > 0) {
                 return (
@@ -423,14 +423,14 @@ function NavGroup({
                   href={child.href!}
                   onClick={onNavigate}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 relative truncate",
+                    "rounded-lg px-3 py-1.5 text-xs font-medium transition-all duration-150 relative truncate active:scale-[0.98]",
                     isChildActive
-                      ? "bg-primary/15 text-primary font-semibold shadow-2xs"
+                      ? "bg-primary/10 text-primary dark:bg-[#FACC15]/15 dark:text-[#FACC15] font-bold shadow-2xs"
                       : "text-muted-foreground hover:text-foreground hover:bg-accent/60"
                   )}
                 >
                   {isChildActive && (
-                    <span className="absolute -left-[18px] top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-primary ring-4 ring-primary/20" />
+                    <span className="absolute -left-[17px] top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#FACC15] ring-2 ring-primary/20 dark:ring-[#FACC15]/30" />
                   )}
                   {child.label}
                 </Link>
@@ -463,18 +463,18 @@ function NavGroup({
       href={item.href!}
       onClick={onNavigate}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 relative",
+        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 relative active:scale-[0.98]",
         isActive
-          ? "bg-gradient-to-r from-primary/15 via-primary/8 to-transparent text-primary font-semibold shadow-2xs border-l-3 border-primary"
+          ? "bg-primary/10 text-primary dark:bg-[#FACC15]/15 dark:text-[#FACC15] font-bold border border-primary/25 dark:border-[#FACC15]/30 shadow-xs"
           : "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
       )}
     >
-      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200", item.iconBg)}>
+      <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 shrink-0", item.iconBg)}>
         {item.icon}
       </div>
       <span className="text-xs font-semibold tracking-tight">{item.label}</span>
       {isActive && (
-        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />
+        <span className="ml-auto h-2 w-2 rounded-full bg-primary dark:bg-[#FACC15] shadow-xs dark:shadow-[0_0_8px_#FACC15]" />
       )}
     </Link>
   );
@@ -534,23 +534,26 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "flex h-full flex-col bg-sidebar/95 backdrop-blur-md border-sidebar-border transition-all duration-300",
-        mobile ? "w-72" : "w-full"
+        "flex h-full flex-col bg-card/75 dark:bg-[#07090E]/90 backdrop-blur-2xl transition-all duration-300",
+        mobile ? "w-72 border-r border-border/60 dark:border-white/10" : "w-full"
       )}
     >
       {/* Brand Logo Header */}
-      <div className="flex h-16 items-center justify-between border-b border-sidebar-border/60 px-4">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden shadow-sm border border-primary/20 bg-background/80 transition-transform duration-300 hover:scale-105 shrink-0">
-            <Image src="/logo.png" alt="Logo" width={40} height={40} className="h-full w-full object-contain p-0.5" />
+      <div className="flex h-16 items-center justify-between border-b border-border/60 dark:border-white/10 px-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl overflow-hidden shadow-xs border border-border/80 dark:border-white/10 bg-card/80 p-1 transition-transform duration-300 hover:scale-105 shrink-0">
+            <Image src="/logo.png" alt="Logo" width={36} height={36} className="h-full w-full object-contain" />
           </div>
           <div className="flex flex-col min-w-0">
             <p className="text-sm font-bold tracking-tight text-foreground leading-tight truncate">
               Marigachi HS
             </p>
-            <span className="text-[10px] text-muted-foreground font-medium">
-              SMS Portal
-            </span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                Portal 2026
+              </span>
+            </div>
           </div>
         </div>
 
@@ -631,11 +634,11 @@ export function Sidebar({
       </nav>
 
       {/* Footer Profile Dropdown */}
-      <div className="border-t border-sidebar-border/60 p-3">
+      <div className="border-t border-border/60 dark:border-white/10 p-3">
         <DropdownMenu>
           <DropdownMenuTrigger render={
             <button 
-              className="w-full rounded-xl bg-gradient-to-br from-primary/5 via-primary/10 to-transparent hover:from-primary/10 hover:via-primary/15 hover:to-primary/5 border border-primary/10 hover:border-primary/25 p-2.5 flex items-center justify-between transition-all duration-200 group text-left outline-none cursor-pointer shadow-2xs" 
+              className="w-full rounded-2xl bg-card/80 hover:bg-card border border-border/70 dark:border-white/10 p-2.5 flex items-center justify-between transition-all duration-200 group text-left outline-none cursor-pointer shadow-xs active:scale-[0.98]" 
               aria-label="User menu"
             />
           }>

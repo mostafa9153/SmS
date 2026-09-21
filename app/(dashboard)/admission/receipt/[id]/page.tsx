@@ -200,12 +200,12 @@ export default function ApplicationReceiptPage({
         </div>
 
         {/* Verification Instructions Banner */}
-        <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-1.5">
-          <p className="font-bold flex items-center gap-1.5 text-amber-900">
+        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-amber-950 dark:text-amber-200 text-xs space-y-1.5">
+          <p className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-300">
             <ShieldCheck className="h-4 w-4" />
             <span>Instructions for Admission Confirmation:</span>
           </p>
-          <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+          <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800 dark:text-amber-300">
             <li>
               Please submit this <strong>Receipt Slip</strong> at the school admission counter along with 2 passport photographs.
             </li>

@@ -6,6 +6,8 @@ import { dbSearchStudents, maskAadhaar } from "@/lib/supabase/db-students";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import type { Student } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 function applyAadhaarMasking(students: Student[], role: string): Student[] {
   if (role === "Admin") return students;
   return students.map((s) => ({

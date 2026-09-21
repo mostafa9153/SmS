@@ -14,6 +14,7 @@ import {
   schoolProfileToSchoolInfo,
 } from "@/components/admission-form/types";
 import { getSavedSchoolProfile } from "@/lib/utils/school-profile";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
 interface ViewApplicationFormDialogProps {
   open: boolean;
@@ -193,15 +194,21 @@ export function ViewApplicationFormDialog({
           </div>
         </DialogHeader>
 
-        {/* Form Container */}
-        <div className="bg-slate-100 dark:bg-slate-900/50 p-2 sm:p-4 rounded-2xl overflow-x-auto flex justify-center print:bg-white print:p-0">
-          <div className="bg-white shadow-xl rounded-xl overflow-hidden print:shadow-none print:m-0 print:p-0">
-            {isClassXIorXII ? (
-              <AdmissionFormXIPrintableView data={formXIData} school={schoolInfo} activePage="all" />
-            ) : (
-              <AdmissionFormVIxPrintableView data={formVIxData} school={schoolInfo} activePage="all" />
-            )}
-          </div>
+        {/* Form Container with Pinch Zoom */}
+        <div className="p-2 sm:p-4 rounded-2xl overflow-hidden flex justify-center print:bg-white print:p-0">
+          <PinchZoomViewer
+            minScale={0.5}
+            maxScale={2.5}
+            canvasClassName="bg-slate-100 dark:bg-slate-900/50 p-2 sm:p-4 rounded-2xl"
+          >
+            <div className="bg-white shadow-xl rounded-xl overflow-hidden print:shadow-none print:m-0 print:p-0">
+              {isClassXIorXII ? (
+                <AdmissionFormXIPrintableView data={formXIData} school={schoolInfo} activePage="all" />
+              ) : (
+                <AdmissionFormVIxPrintableView data={formVIxData} school={schoolInfo} activePage="all" />
+              )}
+            </div>
+          </PinchZoomViewer>
         </div>
       </DialogContent>
     </Dialog>

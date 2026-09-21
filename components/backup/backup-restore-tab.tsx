@@ -544,7 +544,7 @@ export function BackupRestoreTab() {
                     <Cloud className="h-4 w-4 text-primary" />
                     Available Cloud Snapshots ({backups.length})
                   </h3>
-                  <span className="text-xs text-muted-foreground">Click "Restore" to recover any state</span>
+                  <span className="text-xs text-muted-foreground">Click &quot;Restore&quot; to recover any state</span>
                 </div>
 
                 {backups.length === 0 ? (
@@ -552,7 +552,7 @@ export function BackupRestoreTab() {
                     <CloudOff className="h-8 w-8 text-muted-foreground mx-auto" />
                     <p className="text-xs font-semibold text-foreground">No Cloud Backups Found</p>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                      Click the "Back Up Now" button above to upload your first snapshot to Google Drive.
+                      Click the &quot;Back Up Now&quot; button above to upload your first snapshot to Google Drive.
                     </p>
                   </div>
                 ) : (

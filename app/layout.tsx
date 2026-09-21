@@ -43,7 +43,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} notranslate`}
+      className={`${manrope.variable} dark notranslate`}
       translate="no"
       data-scroll-behavior="smooth"
       suppressHydrationWarning
@@ -55,6 +55,20 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem("sms-theme");
+                if (theme === "light") {
+                  document.documentElement.classList.remove("dark");
+                } else if (theme === "dark") {
+                  document.documentElement.classList.add("dark");
+                }
+              } catch (e) {}
+            `,
+          }}
         />
       </head>
       <body

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -388,13 +389,13 @@ export default function ResultsClient() {
             <RotateCw className={cn("h-3.5 w-3.5 text-muted-foreground", rankMutation.isPending && "animate-spin")} />
             Recalculate Ranks
           </button>
-          <a
+          <Link
             href="/students/bulk-upload"
             className="flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold hover:bg-muted transition-colors shadow-2xs active:scale-95"
           >
             <Upload className="h-3.5 w-3.5 text-muted-foreground" />
             Bulk Upload Marks
-          </a>
+          </Link>
           <button
             onClick={handleExportExcel}
             disabled={!summary || summary.results.length === 0}

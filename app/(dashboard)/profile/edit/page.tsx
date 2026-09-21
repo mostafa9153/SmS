@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "Comprehensive institutional form for editing your faculty / staff profile.",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function ProfileEditPage() {
   const supabase = await createClient();
   const {
@@ -29,12 +31,13 @@ export default async function ProfileEditPage() {
   // 1. Fetch user role to find staff_id
   const { data: roleRow } = await adminClient
     .from("user_roles")
-    .select("*")
+    .select("role, staff_id, full_name")
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let staff: any = null;
+  let staff = null;
 
+  // Primary: match by assigned staff_id in user_roles
   if (roleRow?.staff_id) {
     const { data: staffData } = await adminClient
       .from("staff_profiles")
@@ -56,7 +59,8 @@ export default async function ProfileEditPage() {
 
   // If still no staff record exists (e.g. brand new Admin), create one seamlessly
   if (!staff) {
-    const adminUniqueId = `ADM${Math.floor(1000 + Math.random() * 9000)}`;
+    const cleanIdSuffix = user.id.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4).toUpperCase() || "1001";
+    const adminUniqueId = `ADM${cleanIdSuffix}`;
     const adminName = roleRow?.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Administrator";
     const isAdmin = roleRow?.role === "Admin";
 

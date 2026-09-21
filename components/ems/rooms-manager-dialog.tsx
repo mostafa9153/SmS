@@ -124,7 +124,7 @@ export function RoomsManagerDialog({
               <div>
                 <h4 className="font-bold text-sm">No Classrooms Configured</h4>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Click 'Add Room' to configure your first examination room.
+                  Click &apos;Add Room&apos; to configure your first examination room.
                 </p>
               </div>
               <Button

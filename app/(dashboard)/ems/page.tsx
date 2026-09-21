@@ -709,8 +709,8 @@ function EmsMasterPageContent() {
 
     const isHs = isHigherSecondaryClass(nextClass);
     let newSections: ClassGroupSectionConfig[] = [];
-    let initialStream = "ALL";
-    let initialGender = "ALL";
+    const initialStream = "ALL";
+    const initialGender = "ALL";
     let initialRegFrom = "";
     let initialRegTo = "";
 

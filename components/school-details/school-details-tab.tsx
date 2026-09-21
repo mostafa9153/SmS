@@ -108,7 +108,7 @@ export function isHigherSecondaryClass(code?: string, name?: string): boolean {
 export function getNextAvailableLetter(existing: string[]): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const set = new Set(existing.map((x) => x.trim().toUpperCase()));
-  for (let char of alphabet) {
+  for (const char of alphabet) {
     if (!set.has(char)) return char;
   }
   return "+";

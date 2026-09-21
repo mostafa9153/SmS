@@ -4,7 +4,7 @@ import { Suspense, useState, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { MobileBottomBar } from "@/components/layout/mobile-bottom-bar";
+import { MobileBottomDock } from "@/components/layout/mobile-bottom-dock";
 import { SidebarProvider, useSidebar } from "@/components/layout/sidebar-context";
 import { cn } from "@/lib/utils";
 
@@ -12,21 +12,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { isOpen, width, setWidth, resetWidth } = useSidebar();
   const [isResizing, setIsResizing] = useState(false);
-
-  // Secure public portal isolation: hide admin shell for student/parent routes
-  const isPublicPortal =
-    pathname?.startsWith("/admission/new/apply") ||
-    pathname?.startsWith("/admission/receipt");
-
-  if (isPublicPortal) {
-    return (
-      <div className="min-h-screen bg-muted/20 text-foreground">
-        <main className="min-h-screen">
-          {children}
-        </main>
-      </div>
-    );
-  }
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -57,6 +42,21 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     };
   }, [isResizing, setWidth]);
 
+  // Secure public portal isolation: hide admin shell for student/parent routes
+  const isPublicPortal =
+    pathname?.startsWith("/admission/new/apply") ||
+    pathname?.startsWith("/admission/receipt");
+
+  if (isPublicPortal) {
+    return (
+      <div className="min-h-screen bg-muted/20 text-foreground">
+        <main className="min-h-screen">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-muted/30 print:h-auto print:overflow-visible print:bg-white">
       {/* Desktop resizable sidebar container */}
@@ -65,7 +65,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         className={cn(
           "hidden md:flex flex-shrink-0 relative overflow-hidden bg-background print:hidden",
           isResizing ? "transition-none select-none" : "transition-[width,opacity] duration-300 ease-in-out",
-          isOpen ? "opacity-100 border-r" : "border-r-0 opacity-0"
+          isOpen ? "opacity-100 border-r border-border/60 dark:border-white/10" : "border-r-0 opacity-0"
         )}
       >
         <div className="w-full h-full">
@@ -96,10 +96,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <div className="print:hidden">
           <Topbar />
         </div>
-        <main className="flex-1 overflow-y-auto min-w-0 pb-16 md:pb-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
+        <main className="flex-1 overflow-y-auto min-w-0 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0 custom-scrollbar animate-fade-in-up print:overflow-visible print:h-auto print:p-0 print:m-0">
           {children}
         </main>
-        <MobileBottomBar />
+        <MobileBottomDock />
       </div>
     </div>
   );

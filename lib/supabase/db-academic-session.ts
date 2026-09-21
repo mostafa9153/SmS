@@ -289,7 +289,7 @@ export async function dbExecuteSessionTransition(
   let promotedCount = 0;
   let sentToMpCount = 0;
   let detainedCount = 0;
-  let passedOutCount = 0;
+  const passedOutCount = 0;
   const historyInserts: any[] = [];
   const studentUpdates: { id: string; dbUpdates: any }[] = [];
 
@@ -665,7 +665,7 @@ export async function dbExecuteSessionTransitionHS(
   let promotedCount = 0;
   let sentToMpCount = 0; // Means "Sent Up H.S."
   let detainedCount = 0;
-  let passedOutCount = 0;
+  const passedOutCount = 0;
   const historyInserts: any[] = [];
   const studentUpdates: { id: string; dbUpdates: any }[] = [];
   const targetCohortGroups = new Map<string, { student: any; isPromoted: boolean; isDetained: boolean }[]>();

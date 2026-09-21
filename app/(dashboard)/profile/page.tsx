@@ -464,11 +464,11 @@ export default function UniversalProfilePage() {
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                   <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                    <span className="text-muted-foreground block text-[10px] font-semibold uppercase">Father's Name</span>
+                    <span className="text-muted-foreground block text-[10px] font-semibold uppercase">Father&apos;s Name</span>
                     <span className="font-bold text-foreground text-sm mt-0.5 block">{staff?.father_name || "—"}</span>
                   </div>
                   <div className="p-3 rounded-xl bg-muted/40 border border-border/60">
-                    <span className="text-muted-foreground block text-[10px] font-semibold uppercase">Mother's Name</span>
+                    <span className="text-muted-foreground block text-[10px] font-semibold uppercase">Mother&apos;s Name</span>
                     <span className="font-bold text-foreground text-sm mt-0.5 block">{staff?.mother_name || "—"}</span>
                   </div>
                   <div className="p-3 rounded-xl bg-muted/40 border border-border/60">

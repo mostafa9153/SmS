@@ -51,10 +51,10 @@ export function ClassStrengthChart() {
 
   if (isLoading || !stats) {
     return (
-      <Card className="p-5 flex flex-col gap-3 rounded-2xl border bg-card/90 shadow-xs">
-        <Skeleton className="h-4 w-36" />
-        <Skeleton className="h-48 w-full rounded-xl" />
-      </Card>
+      <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-border/60 dark:border-white/10 flex flex-col gap-3 shadow-sm dark:shadow-none">
+        <Skeleton className="h-4 w-36 bg-muted/80 dark:bg-white/10" />
+        <Skeleton className="h-56 w-full rounded-2xl bg-muted/80 dark:bg-white/10" />
+      </div>
     );
   }
 
@@ -65,22 +65,23 @@ export function ClassStrengthChart() {
   }));
 
   return (
-    <Card className="p-5 rounded-2xl border bg-card/90 shadow-xs flex flex-col justify-between h-full">
+    <div className="glass-panel rounded-3xl p-5 sm:p-6 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none flex flex-col justify-between h-full transition-all duration-300 hover:border-blue-500/30">
       {/* Card Header */}
-      <div className="flex items-center justify-between mb-3 pb-1 border-b border-border/40">
-        <div className="flex items-center gap-2">
-          <div className="rounded-xl p-2 bg-blue-500/10 text-blue-600 ring-1 ring-blue-500/20">
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-border/40">
+        <div className="flex items-center gap-2.5">
+          <div className="rounded-xl p-2 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
             <BarChart3 className="h-4 w-4" />
           </div>
           <div>
             <p className="text-sm font-bold text-foreground">Class-wise Student Distribution</p>
+            <p className="text-[10px] text-muted-foreground">Enrolled strength across grades</p>
           </div>
         </div>
         <Link
           href="/students"
-          className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5"
+          className="text-xs text-primary font-semibold hover:underline flex items-center gap-0.5 group"
         >
-          View All <ArrowUpRight className="h-3.5 w-3.5" />
+          View All <ArrowUpRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
         </Link>
       </div>
 
@@ -90,21 +91,23 @@ export function ClassStrengthChart() {
             data={chartData}
             margin={{ top: 15, right: 10, left: -20, bottom: 0 }}
           >
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border/40" />
             <XAxis
               dataKey="class"
-              tick={{ fontSize: 11, fill: "#64748b" }}
+              tick={{ fontSize: 11, fill: "currentColor" }}
+              className="text-muted-foreground"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              tick={{ fontSize: 11, fill: "#64748b" }}
+              tick={{ fontSize: 11, fill: "currentColor" }}
+              className="text-muted-foreground"
               tickLine={false}
               axisLine={false}
               allowDecimals={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0, 0, 0, 0.03)" }} />
-            <Bar dataKey="students" radius={[4, 4, 0, 0]} maxBarSize={40}>
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: "currentColor", opacity: 0.05 }} />
+            <Bar dataKey="students" radius={[6, 6, 0, 0]} maxBarSize={42}>
               {chartData.map((_, idx) => (
                 <Cell
                   key={idx}
@@ -115,6 +118,6 @@ export function ClassStrengthChart() {
           </BarChart>
         </ResponsiveContainer>
       </div>
-    </Card>
+    </div>
   );
 }

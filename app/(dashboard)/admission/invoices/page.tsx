@@ -20,6 +20,7 @@ import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1047,25 +1048,31 @@ export default function BulkInvoicesPage() {
             </div>
           </DialogHeader>
 
-          {/* Printable Scrollable Canvas */}
+          {/* Printable Scrollable Canvas with Pinch-to-Zoom */}
           <div
             id="bulk-invoice-preview-viewport"
-            className="flex-1 overflow-auto bg-slate-100/90 dark:bg-slate-900/70 rounded-2xl p-4 sm:p-6 flex flex-col items-center custom-scrollbar print:p-0 print:m-0 print:bg-transparent print:overflow-visible"
+            className="flex-1 overflow-y-auto max-h-[75vh] custom-scrollbar p-1"
           >
-            <div
-              id="bulk-invoice-print-container"
-              style={{
-                transform: `scale(${previewZoom})`,
-                transformOrigin: "top center",
-              }}
-              className="transition-transform duration-150 ease-out print:transform-none print:m-0 print:p-0 flex justify-center w-full"
+            <PinchZoomViewer
+              initialScale={0.75}
+              minScale={0.4}
+              maxScale={2.0}
+              scale={previewZoom}
+              onScaleChange={setPreviewZoom}
+              showControls={false}
+              canvasClassName="min-h-[460px] bg-slate-100/90 dark:bg-slate-900/70"
             >
-              <InvoicePrintableBatchView
-                invoices={currentBatchInvoices}
-                copyType={printCopyType}
-                schoolProfile={schoolProfile}
-              />
-            </div>
+              <div
+                id="bulk-invoice-print-container"
+                className="flex justify-center w-full"
+              >
+                <InvoicePrintableBatchView
+                  invoices={currentBatchInvoices}
+                  copyType={printCopyType}
+                  schoolProfile={schoolProfile}
+                />
+              </div>
+            </PinchZoomViewer>
           </div>
         </DialogContent>
       </Dialog>

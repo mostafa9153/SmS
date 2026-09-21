@@ -419,7 +419,7 @@ export function arrangeRoomInterleaved(
     let s1Class = "";
     let s2Class = "";
     let s3Class = "";
-    let overflowClass = colAssign?.overflowClassCode || "";
+    const overflowClass = colAssign?.overflowClassCode || "";
 
     if (colAssign?.s1ClassCode) {
       // New per-seat config
@@ -702,7 +702,7 @@ export function arrangeRoomFixedU(
     let s1Class = "";
     let s2Class = "";
     let s3Class = "";
-    let overflowClass = colAssign?.overflowClassCode || "";
+    const overflowClass = colAssign?.overflowClassCode || "";
 
     if (colAssign?.s1ClassCode) {
       s1Class = colAssign.s1ClassCode;

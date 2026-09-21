@@ -106,6 +106,8 @@ export function QRScannerModal({
     [stopCamera, onScanSuccess, onOpenChange]
   );
 
+  const scanVideoFrameRef = useRef<() => void>(() => {});
+
   // Continuous frame scanner
   const scanVideoFrame = useCallback(() => {
     if (!videoRef.current || !canvasRef.current) return;
@@ -135,8 +137,14 @@ export function QRScannerModal({
       }
     }
 
-    animFrameId.current = requestAnimationFrame(scanVideoFrame);
+    animFrameId.current = requestAnimationFrame(() => {
+      scanVideoFrameRef.current();
+    });
   }, [handleDetected]);
+
+  useEffect(() => {
+    scanVideoFrameRef.current = scanVideoFrame;
+  }, [scanVideoFrame]);
 
   // Start camera stream
   const startCamera = useCallback(async () => {

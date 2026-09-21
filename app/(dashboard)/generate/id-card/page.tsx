@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import {
   Printer,
   ArrowLeft,
@@ -568,41 +569,20 @@ function StudentIDCardStudioContent() {
                 </Button>
               )}
 
-              {/* Zoom controls */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPreviewScale((s) => Math.max(0.8, s - 0.1))}
-                  className="h-7 w-7 rounded-lg border flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-[11px] font-mono font-bold text-muted-foreground w-10 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPreviewScale((s) => Math.min(1.5, s + 0.1))}
-                  className="h-7 w-7 rounded-lg border flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              {/* Single card preview actions */}
             </div>
 
-            {/* Live Visual Canvas */}
-            <div className="w-full flex items-center justify-center min-h-[580px] p-4 bg-muted/40 border border-dashed rounded-3xl overflow-hidden">
+            {/* Live Visual Canvas with Pinch-to-Zoom */}
+            <PinchZoomViewer
+              initialScale={1.35}
+              minScale={0.75}
+              maxScale={2.8}
+              scale={previewScale}
+              onScaleChange={setPreviewScale}
+              canvasClassName="min-h-[580px] bg-muted/40 border border-dashed rounded-3xl"
+            >
               {currentPreviewStudent ? (
-                <div
-                  style={{
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: "center top",
-                    transition: "transform 0.15s ease",
-                  }}
-                  className="shadow-2xl rounded-2xl"
-                >
+                <div className="shadow-2xl rounded-2xl">
                   <StudentIDCardPrintableView
                     student={currentPreviewStudent}
                     schoolProfile={schoolProfile}
@@ -617,7 +597,7 @@ function StudentIDCardStudioContent() {
                   <p className="text-xs mt-1">Select at least one student from the left panel to preview.</p>
                 </div>
               )}
-            </div>
+            </PinchZoomViewer>
 
             {/* Printing Format Notice */}
             <div className="text-center text-xs text-muted-foreground max-w-md">

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -634,54 +635,30 @@ function KanyashreeCertificateGeneratorContent() {
           </Card>
         </div>
 
-        {/* RIGHT COLUMN: Live Print-Ready Certificate Preview */}
-        <div className="xl:col-span-7 space-y-4 print:w-full print:m-0 print:p-0">
+        {/* RIGHT COLUMN: Kanyashree Certificate Preview */}
+        <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
           <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                Preview
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
+              <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <span className="text-sm font-bold text-foreground">Kanyashree Certificate Preview</span>
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/40 font-normal">
                 A5 Portrait
-              </span>
-            </div>
-
-            {/* Scale slider */}
-            <div className="flex items-center gap-1.5 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
-              <span className="text-[11px] text-muted-foreground font-semibold">Scale:</span>
-              {[0.6, 0.75, 0.9, 1.0, 1.1].map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setPreviewScale(s)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono border transition-colors cursor-pointer ${
-                    previewScale === s
-                      ? "bg-purple-600 text-white font-bold shadow-2xs"
-                      : "bg-background hover:bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {Math.round(s * 100)}%
-                </button>
-              ))}
+              </Badge>
             </div>
           </div>
 
-          {/* Certificate Canvas */}
-          <div
-            id="printable-kanyashree-canvas"
-            className="w-full overflow-x-auto rounded-xl border bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-4 flex justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[460px] sm:min-h-[580px]"
-          >
-            <div
-              style={{
-                transform: `scale(${previewScale})`,
-                transformOrigin: "center top",
-                transition: "transform 0.15s ease-out",
-              }}
-              className="shrink-0 m-auto print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
+          {/* Certificate Canvas with Pinch-to-Zoom */}
+          <div id="printable-kanyashree-canvas">
+            <PinchZoomViewer
+              initialScale={1.0}
+              minScale={0.6}
+              maxScale={2.2}
+              scale={previewScale}
+              onScaleChange={setPreviewScale}
+              canvasClassName="min-h-[460px] sm:min-h-[580px]"
             >
               <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
-            </div>
+            </PinchZoomViewer>
           </div>
         </div>
       </div>

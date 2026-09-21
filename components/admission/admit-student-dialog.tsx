@@ -83,14 +83,17 @@ const DOCUMENT_CHECKLIST = [
   { id: "bank_passbook", label: "Bank Passbook Copy (Front Page)" },
 ];
 
-export function AdmitStudentDialog({
+function AdmitStudentDialogInner({
   open,
   onOpenChange,
   application,
   onAdmitSuccess,
-}: AdmitStudentDialogProps) {
-  if (!application) return null;
-
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  application: AdmissionApplication;
+  onAdmitSuccess: AdmitStudentDialogProps["onAdmitSuccess"];
+}) {
   const currentYear = new Date().getFullYear();
 
   // Assignment states
@@ -581,4 +584,9 @@ export function AdmitStudentDialog({
       />
     </>
   );
+}
+
+export function AdmitStudentDialog(props: AdmitStudentDialogProps) {
+  if (!props.application) return null;
+  return <AdmitStudentDialogInner {...props} application={props.application} />;
 }

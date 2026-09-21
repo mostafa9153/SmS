@@ -370,7 +370,7 @@ export function SeatArrangementEditor({
       }
     };
 
-    let updatedConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+    const updatedConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
 
     if (applyScope === "ALL_ROOMS") {
       effectiveRooms.forEach((r) => {
@@ -455,7 +455,7 @@ export function SeatArrangementEditor({
       ];
     };
 
-    let newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+    const newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
 
     if (applyScope === "ALL_ROOMS") {
       effectiveRooms.forEach((r) => {
@@ -493,7 +493,7 @@ export function SeatArrangementEditor({
   // Bulk update column assignments (atomic single-batch update for Single or All Rooms)
   const handleBulkColumnAssignmentChange = (newCols: ColumnClassAllocationConfig[]) => {
     pushHistorySnapshot();
-    let newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
+    const newConfigs: Record<string, RoomArrangementConfig> = { ...roomConfigs };
 
     if (applyScope === "ALL_ROOMS") {
       effectiveRooms.forEach((r) => {

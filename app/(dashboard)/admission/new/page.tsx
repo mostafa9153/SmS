@@ -406,9 +406,9 @@ function NewAdmissionDashboardContent() {
       {/* Top Header & Fast Navigation */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 print:hidden">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <UserPlus className="h-6 w-6 text-purple-600" />
+              <UserPlus className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               <span>New Admission Lifecycle &amp; Staging</span>
             </h1>
             <span className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs font-black px-2.5 py-0.5 rounded-full">
@@ -420,32 +420,32 @@ function NewAdmissionDashboardContent() {
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Action Buttons: 2-Column Mobile Grid, Flex Row on Desktop */}
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
           <Link
             href="/admission/new/apply"
             target="_blank"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95 cursor-pointer text-center col-span-2 sm:col-span-1"
           >
             <Globe className="h-4 w-4" />
-            <span>Online Application Form</span>
+            <span className="truncate">Online Application Form</span>
             <ExternalLink className="h-3 w-3 opacity-75" />
           </Link>
 
           <Link
             href="/admission/new/offline"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs font-bold transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer text-center"
           >
             <Printer className="h-4 w-4" />
-            <span>Offline Center</span>
+            <span className="truncate">Offline Center</span>
           </Link>
 
           <Link
             href="/admission/invoices"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition-all cursor-pointer"
+            className="inline-flex items-center justify-center gap-1.5 min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition-all active:scale-95 cursor-pointer text-center"
           >
             <FileText className="h-4 w-4" />
-            <span>Invoices Desk</span>
+            <span className="truncate">Invoices Desk</span>
           </Link>
         </div>
       </div>
@@ -466,49 +466,49 @@ function NewAdmissionDashboardContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto shrink-0">
           <Button
             size="sm"
             variant="outline"
             onClick={handleCopyLink}
-            className="h-8 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+            className="min-h-[40px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer active:scale-95"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
-            <span>{copied ? "Copied Link" : "Copy Link"}</span>
+            <span>{copied ? "Copied" : "Copy Link"}</span>
           </Button>
 
           <Button
             size="sm"
             variant="outline"
             onClick={handleDownloadQr}
-            className="h-8 rounded-xl text-xs font-bold gap-1.5 cursor-pointer"
+            className="min-h-[40px] rounded-xl text-xs font-bold gap-1.5 cursor-pointer active:scale-95"
           >
             <QrCode className="h-3.5 w-3.5" />
-            <span>Download QR Poster</span>
+            <span>QR Poster</span>
           </Button>
         </div>
       </div>
 
-      {/* 3 Core Workflow Tabs */}
-      <div className="flex items-center gap-2 border-b pb-2 flex-wrap">
+      {/* 3 Core Workflow Tabs: Native Segmented Control */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-muted/70 border border-border/80 shadow-2xs">
         <button
           type="button"
           onClick={() => setActiveMainTab("pending")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer",
+            "flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer active:scale-95",
             activeMainTab === "pending"
-              ? "bg-purple-600 text-white shadow-md"
-              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "bg-background text-foreground shadow-xs border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
           )}
         >
-          <Clock className="h-4 w-4" />
-          <span>1. Pending Applicants</span>
+          <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+          <span className="truncate">Pending Applicants</span>
           <span
             className={cn(
-              "text-[10px] font-black px-2 py-0.5 rounded-full ml-1",
+              "text-[10px] font-black px-2 py-0.5 rounded-full shrink-0",
               activeMainTab === "pending"
-                ? "bg-white text-purple-700"
-                : "bg-purple-500/20 text-purple-700 dark:text-purple-300"
+                ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                : "bg-muted text-muted-foreground"
             )}
           >
             {totalPendingCount}
@@ -519,20 +519,20 @@ function NewAdmissionDashboardContent() {
           type="button"
           onClick={() => setActiveMainTab("admitted")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer",
+            "flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer active:scale-95",
             activeMainTab === "admitted"
-              ? "bg-purple-600 text-white shadow-md"
-              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "bg-background text-foreground shadow-xs border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
           )}
         >
-          <CheckCircle2 className="h-4 w-4" />
-          <span>2. Admitted Students (Session {currentYear})</span>
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+          <span className="truncate">Admitted ({currentYear})</span>
           <span
             className={cn(
-              "text-[10px] font-black px-2 py-0.5 rounded-full ml-1",
+              "text-[10px] font-black px-2 py-0.5 rounded-full shrink-0",
               activeMainTab === "admitted"
-                ? "bg-white text-purple-700"
-                : "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                : "bg-muted text-muted-foreground"
             )}
           >
             {totalAdmittedCount}
@@ -543,14 +543,14 @@ function NewAdmissionDashboardContent() {
           type="button"
           onClick={() => setActiveMainTab("history")}
           className={cn(
-            "flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer",
+            "flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer active:scale-95",
             activeMainTab === "history"
-              ? "bg-purple-600 text-white shadow-md"
-              : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+              ? "bg-background text-foreground shadow-xs border border-border/60"
+              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
           )}
         >
-          <History className="h-4 w-4" />
-          <span>3. Permanent Admission History</span>
+          <History className="h-4 w-4 text-purple-500 shrink-0" />
+          <span className="truncate">Admission History</span>
         </button>
       </div>
 

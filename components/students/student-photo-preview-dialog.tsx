@@ -137,7 +137,7 @@ export function StudentPhotoPreviewDialog({
                     No passport photo uploaded
                   </p>
                   <p className="text-xs text-muted-foreground/70 mt-1 max-w-[220px]">
-                    Click "Upload Photo" below to snap with webcam or upload picture.
+                    Click &quot;Upload Photo&quot; below to snap with webcam or upload picture.
                   </p>
                 </div>
               )}
@@ -152,7 +152,7 @@ export function StudentPhotoPreviewDialog({
             <div className="w-full grid grid-cols-2 gap-2 text-xs">
               <div className="bg-muted/40 p-2.5 rounded-xl border border-border/40 space-y-0.5">
                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider block">
-                  Father's Name
+                  Father&apos;s Name
                 </span>
                 <span className="font-semibold text-foreground truncate block">
                   {student.fatherName || "—"}

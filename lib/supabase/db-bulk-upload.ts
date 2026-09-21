@@ -99,7 +99,7 @@ export async function dbProcessBulkUpload(
 
   let skippedCount = 0;
   let errorCount = 0;
-  let warningCount = 0;
+  const warningCount = 0;
   const skippedList: Array<{ rowNumber?: number; name?: string; schoolId?: string; reason: string }> = [];
   const errorsList: Array<{ rowNumber: number; name?: string; message: string }> = [];
   const createdList: Array<{ name: string; schoolId: string }> = [];
@@ -727,9 +727,9 @@ export async function dbProcessResultsBulkUpload(
   const skippedList: Array<{ name: string; reason: string }> = [];
   const errorsList: Array<{ rowNumber: number; name?: string; message: string }> = [];
 
-  let skippedCount = 0;
+  const skippedCount = 0;
   let errorCount = 0;
-  let warningCount = 0;
+  const warningCount = 0;
 
   // Pre-fetch all existing results for matched students in one query
   const allCandidateStudentIds: string[] = [];

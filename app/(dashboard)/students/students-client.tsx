@@ -190,77 +190,89 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
       />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => router.back()}
               title="Back"
-              className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
+              className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-90 cursor-pointer border border-border/60 bg-card shadow-2xs"
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-lg font-bold tracking-tight">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
                 {mode === "active" ? "Active Students Register" : "Student Directory"}
               </h1>
               <span
                 className={cn(
-                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
+                  "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all duration-200",
                   hasFilters
                     ? "bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs"
-                    : "bg-muted/80 text-muted-foreground border-border"
+                    : "bg-muted/80 text-muted-foreground border-border/70"
                 )}
               >
                 {isLoading ? (
-                  <span className="flex items-center gap-1 text-xs">
+                  <span className="flex items-center gap-1.5 text-xs">
                     <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     <span>Counting...</span>
                   </span>
                 ) : (
                   <>
-                    <span className="font-mono text-xs">{totalCount.toLocaleString()}</span>
+                    <span className="font-mono font-bold text-xs">{totalCount.toLocaleString()}</span>
                     <span className="text-[11px] font-medium opacity-85">
-                      {hasFilters ? "students found" : mode === "active" ? "active students" : "total students"}
+                      {hasFilters ? "found" : mode === "active" ? "active" : "total"}
                     </span>
                   </>
                 )}
               </span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {filters.class && (
-              <div className="flex items-center gap-1.5">
-                <Link
-                  href={`/generate/invoice?mode=bulk&class=${encodeURIComponent(filters.class)}${filters.section ? `&section=${encodeURIComponent(filters.section)}` : ""}`}
-                  className="flex items-center gap-1 rounded-xl border bg-card px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
-                  title={`Generate bulk fee invoices for Class ${filters.class}`}
-                >
-                  <FileText className="h-3.5 w-3.5 text-teal-600" />
-                  <span>Class {filters.class} Invoices</span>
-                </Link>
-                <Link
-                  href={`/generate/marksheet?mode=bulk&class=${encodeURIComponent(filters.class)}`}
-                  className="flex items-center gap-1 rounded-xl border bg-card px-2.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs"
-                  title={`Generate bulk marksheets for Class ${filters.class}`}
-                >
-                  <Award className="h-3.5 w-3.5 text-amber-600" />
-                  <span>Class {filters.class} Marksheets</span>
-                </Link>
-              </div>
-            )}
-            <button
-              onClick={() => setExportOpen(true)}
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1.5 rounded-xl border bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-2xs active:scale-95 cursor-pointer"
-            >
-              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              Report
-            </button>
+
+          {/* Action Buttons: Native Phone App Stack on Mobile, Flex Row on Desktop */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+            {/* Secondary Action Grid on Mobile */}
+            <div className={cn(
+              "grid gap-2 w-full sm:w-auto sm:flex sm:items-center",
+              filters.class ? "grid-cols-2 sm:flex" : "grid-cols-1 sm:flex"
+            )}>
+              {filters.class && (
+                <>
+                  <Link
+                    href={`/generate/invoice?mode=bulk&class=${encodeURIComponent(filters.class)}${filters.section ? `&section=${encodeURIComponent(filters.section)}` : ""}`}
+                    className="flex items-center justify-center gap-1.5 min-h-[42px] sm:min-h-[38px] rounded-xl border border-border/80 bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-all shadow-2xs active:scale-95 text-center"
+                    title={`Generate bulk fee invoices for Class ${filters.class}`}
+                  >
+                    <FileText className="h-4 w-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <span className="truncate">Class {filters.class} Invoices</span>
+                  </Link>
+                  <Link
+                    href={`/generate/marksheet?mode=bulk&class=${encodeURIComponent(filters.class)}`}
+                    className="flex items-center justify-center gap-1.5 min-h-[42px] sm:min-h-[38px] rounded-xl border border-border/80 bg-card px-3 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-all shadow-2xs active:scale-95 text-center"
+                    title={`Generate bulk marksheets for Class ${filters.class}`}
+                  >
+                    <Award className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="truncate">Class {filters.class} Marksheets</span>
+                  </Link>
+                </>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                className="flex items-center justify-center gap-1.5 min-h-[42px] sm:min-h-[38px] rounded-xl border border-border/80 bg-card px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-muted transition-all shadow-2xs active:scale-95 cursor-pointer text-center"
+              >
+                <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Export Report</span>
+              </button>
+            </div>
+
+            {/* Primary Action Button */}
             <Link
               href="/admission/new/ai-scan"
-              className="flex-1 sm:flex-none justify-center flex items-center gap-1 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-2xs active:scale-95"
+              className="flex items-center justify-center gap-2 min-h-[44px] sm:min-h-[38px] rounded-xl sm:rounded-xl bg-primary px-4 py-2.5 text-xs sm:text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-95 text-center shrink-0"
             >
-              <Plus className="h-3.5 w-3.5" />
-              Add Student
+              <Plus className="h-4 w-4" />
+              <span>Add Student</span>
             </Link>
           </div>
         </div>

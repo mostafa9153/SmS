@@ -99,22 +99,22 @@ export function StudentFiltersBar({
   return (
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2 sm:py-3 shadow-2xs space-y-2">
       {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
-      <div className="flex sm:hidden items-center gap-2">
+      <div className="flex sm:hidden items-center gap-2.5">
         <div className="relative flex-1 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
           <input
             type="text"
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             placeholder="Search students..."
-            className="w-full rounded-xl border border-border/90 bg-card hover:bg-background pl-9 pr-3 py-2 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
+            className="w-full h-11 min-h-[44px] rounded-2xl border border-border/90 bg-card hover:bg-background pl-10 pr-9 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
           />
           {localQuery && (
             <button
               onClick={() => setLocalQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
@@ -123,16 +123,16 @@ export function StudentFiltersBar({
           type="button"
           onClick={() => setMobileFilterOpen(true)}
           className={cn(
-            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold shrink-0 transition-all active:scale-95 cursor-pointer min-h-[40px]",
+            "flex items-center justify-center gap-2 rounded-2xl border px-4 py-2 text-xs font-bold shrink-0 transition-all active:scale-95 cursor-pointer h-11 min-h-[44px]",
             activeFilterCount > 0
-              ? "bg-primary text-primary-foreground border-primary shadow-xs"
-              : "bg-card hover:bg-muted text-foreground border-border"
+              ? "bg-primary text-primary-foreground border-primary shadow-sm ring-2 ring-primary/20"
+              : "bg-card hover:bg-muted text-foreground border-border/80 shadow-2xs"
           )}
         >
           <SlidersHorizontal className="h-4 w-4" />
           <span>Filters</span>
           {activeFilterCount > 0 && (
-            <span className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-background text-primary text-[10px] font-bold">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-background text-primary text-[11px] font-black shadow-2xs">
               {activeFilterCount}
             </span>
           )}
@@ -141,50 +141,65 @@ export function StudentFiltersBar({
 
       {/* Mobile Active Filter Badges */}
       {hasFilters && (
-        <div className="flex sm:hidden items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar text-xs">
+        <div className="flex sm:hidden items-center gap-2 overflow-x-auto pb-1 custom-scrollbar text-xs">
           {filters.class && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               Class {filters.class}
-              <button onClick={() => onChange({ ...filters, class: undefined, section: undefined })}>
-                <X className="h-3 w-3" />
+              <button
+                onClick={() => onChange({ ...filters, class: undefined, section: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
               </button>
             </span>
           )}
           {filters.section && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               Sec {filters.section}
-              <button onClick={() => onChange({ ...filters, section: undefined })}>
-                <X className="h-3 w-3" />
+              <button
+                onClick={() => onChange({ ...filters, section: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
               </button>
             </span>
           )}
           {filters.status && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               {filters.status}
-              <button onClick={() => onChange({ ...filters, status: undefined })}>
-                <X className="h-3 w-3" />
+              <button
+                onClick={() => onChange({ ...filters, status: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
               </button>
             </span>
           )}
           {filters.scheme && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               Scheme: {filters.scheme}
-              <button onClick={() => onChange({ ...filters, scheme: undefined })}>
-                <X className="h-3 w-3" />
+              <button
+                onClick={() => onChange({ ...filters, scheme: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
               </button>
             </span>
           )}
           {filters.gender && (
-            <span className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 font-semibold text-primary shrink-0">
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               {filters.gender}
-              <button onClick={() => onChange({ ...filters, gender: undefined })}>
-                <X className="h-3 w-3" />
+              <button
+                onClick={() => onChange({ ...filters, gender: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
               </button>
             </span>
           )}
           <button
             onClick={clearAll}
-            className="text-[11px] font-bold text-rose-500 hover:underline shrink-0 px-1"
+            className="text-xs font-bold text-rose-500 hover:text-rose-600 active:scale-95 shrink-0 px-2 py-1 bg-rose-500/10 rounded-xl border border-rose-500/20"
           >
             Clear all
           </button>
@@ -193,41 +208,101 @@ export function StudentFiltersBar({
 
       {/* Mobile Filter Sheet Drawer */}
       <Sheet open={mobileFilterOpen} onOpenChange={setMobileFilterOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-3xl p-5 overflow-y-auto space-y-4 border-t border-border shadow-2xl">
-          <SheetHeader className="p-0 flex flex-row items-center justify-between border-b pb-3">
-            <SheetTitle className="text-base font-bold">Filter Students</SheetTitle>
+        <SheetContent side="bottom" className="max-h-[85vh] rounded-t-[2.25rem] p-5 overflow-y-auto space-y-4 border-t border-border shadow-2xl pb-safe">
+          <div className="w-12 h-1.5 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2" />
+          <SheetHeader className="p-0 flex flex-row items-center justify-between border-b pb-3 text-left">
+            <SheetTitle className="text-base font-extrabold text-foreground flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-primary" />
+              Filter Students
+            </SheetTitle>
             {hasFilters && (
               <button
                 type="button"
                 onClick={clearAll}
-                className="text-xs font-bold text-rose-500 hover:underline cursor-pointer"
+                className="text-xs font-bold text-rose-500 hover:underline cursor-pointer px-2 py-1 rounded-lg hover:bg-rose-500/10 active:scale-95"
               >
                 Reset all
               </button>
             )}
           </SheetHeader>
 
-          <div className="grid grid-cols-2 gap-3 py-2">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Class</label>
-              <FilterSelect
-                value={filters.class ?? ""}
-                onChange={(v) => onChange({ ...filters, class: v || undefined, section: undefined })}
-                placeholder="Class"
-                options={sortedClasses.map((c) => ({ label: `Class ${c}`, value: c }))}
-              />
+          {/* Quick Touch Class Pills */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Select Class</label>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => onChange({ ...filters, class: undefined, section: undefined })}
+                className={cn(
+                  "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                  !filters.class
+                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                    : "bg-card border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+              >
+                All
+              </button>
+              {sortedClasses.map((c) => {
+                const isSelected = filters.class === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => onChange({ ...filters, class: isSelected ? undefined : c, section: undefined })}
+                    className={cn(
+                      "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                        : "bg-card border-border/80 text-foreground hover:bg-muted"
+                    )}
+                  >
+                    Class {c}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-muted-foreground">Section</label>
-              <FilterSelect
-                value={filters.section ?? ""}
-                onChange={(v) => onChange({ ...filters, section: v || undefined })}
-                placeholder="Section"
-                options={sections.map((s) => ({ label: `Section ${s}`, value: s }))}
-              />
+          {/* Quick Touch Section Pills */}
+          {sections.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Select Section</label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...filters, section: undefined })}
+                  className={cn(
+                    "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                    !filters.section
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-card border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  All
+                </button>
+                {sections.map((s) => {
+                  const isSelected = filters.section === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => onChange({ ...filters, section: isSelected ? undefined : s })}
+                      className={cn(
+                        "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-card border-border/80 text-foreground hover:bg-muted"
+                      )}
+                    >
+                      Sec {s}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+          )}
 
+          <div className="grid grid-cols-2 gap-3 py-1">
             <div className="space-y-1 col-span-2">
               <label className="text-xs font-semibold text-muted-foreground">Welfare Scheme</label>
               <FilterSelect
@@ -339,14 +414,14 @@ export function StudentFiltersBar({
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 sticky bottom-0 bg-background pb-2">
             <button
               type="button"
               onClick={() => setMobileFilterOpen(false)}
-              className="w-full h-11 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-md hover:bg-primary/90 transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full h-12 min-h-[48px] rounded-2xl bg-primary text-primary-foreground font-extrabold text-sm shadow-md hover:bg-primary/90 transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
             >
               <span>Apply Filters</span>
-              {totalCount !== undefined && <span className="opacity-80 font-normal">({totalCount} students)</span>}
+              {totalCount !== undefined && <span className="opacity-90 font-mono font-normal text-xs">({totalCount} students)</span>}
             </button>
           </div>
         </SheetContent>
@@ -571,7 +646,7 @@ function FilterSelect({
 
       {/* Floating Animated Menu — Solid opaque background to prevent background bleed-through */}
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-[240px] sm:w-[270px] rounded-2xl border border-border/90 bg-card dark:bg-slate-900 bg-white p-2 shadow-2xl z-[100] animate-in fade-in-0 zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-1.5 w-[240px] sm:w-[270px] rounded-2xl border border-border/90 bg-popover text-popover-foreground p-2 shadow-2xl z-[100] animate-in fade-in-0 zoom-in-95 duration-150">
           <div className="px-2.5 py-1.5 mb-1.5 border-b border-border/60 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 rounded-xl">
             <span className="flex items-center gap-1.5">
               {isAgeGroup && <span>🎂</span>}

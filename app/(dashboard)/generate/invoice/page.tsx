@@ -27,6 +27,7 @@ import {
   InvoicePrintableA4Sheet,
 } from "@/components/invoice/invoice-printable-view";
 import { InvoiceTrackerModal } from "@/components/invoice/invoice-tracker-modal";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
@@ -1475,64 +1476,28 @@ function InvoiceGeneratorContent() {
                   </button>
                 </div>
               </div>
-
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.max(0.4, Number((prev - 0.05).toFixed(2))))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-xs font-mono font-bold w-12 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.min(1.2, Number((prev + 0.05).toFixed(2))))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewScale(0.75)}
-                  className="h-8 text-xs font-semibold rounded-lg px-2 cursor-pointer"
-                >
-                  Fit
-                </Button>
-              </div>
             </div>
 
-            {/* Printable Canvas Viewport with ZERO horizontal scrollbar */}
-            <div className="relative overflow-hidden bg-muted/40 p-4 sm:p-6 rounded-2xl border border-border/80 flex justify-center custom-scrollbar print:p-0 print:border-none print:bg-transparent print:w-full print:block min-h-[460px]">
-              <div
-                style={{
-                  width: `${210 * previewScale}mm`,
-                  height: `${146 * previewScale}mm`,
-                  overflow: "visible",
-                }}
-                className="shrink-0 transition-all duration-150"
+            {/* Printable Canvas Viewport with Touch Pinch-Zoom & Pan */}
+            <div id="printable-invoice-canvas">
+              <PinchZoomViewer
+                initialScale={0.75}
+                minScale={0.4}
+                maxScale={2.0}
+                scale={previewScale}
+                onScaleChange={setPreviewScale}
+                canvasClassName="min-h-[460px]"
               >
                 <div
-                  id="printable-invoice-canvas"
                   style={{
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: "top left",
                     width: "210mm",
                     height: "146mm",
                   }}
-                  className="transition-transform duration-150 origin-top-left"
+                  className="shrink-0"
                 >
                   <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
                 </div>
-              </div>
+              </PinchZoomViewer>
             </div>
           </div>
         </div>
@@ -1811,7 +1776,7 @@ function InvoiceGeneratorContent() {
                           )}
                         />
                         <p className="text-[10px] text-muted-foreground">
-                          Slips will be tracked under this teacher's name in Track &amp; Verify.
+                          Slips will be tracked under this teacher&apos;s name in Track &amp; Verify.
                         </p>
                       </div>
                     </div>
@@ -2212,61 +2177,25 @@ function InvoiceGeneratorContent() {
                   </div>
                 )
               )}
-
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.max(0.3, Number((prev - 0.05).toFixed(2))))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-xs font-mono font-bold w-12 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.min(1.2, Number((prev + 0.05).toFixed(2))))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewScale(isA4FourUp ? 0.52 : 0.75)}
-                  className="h-8 text-xs font-semibold rounded-lg px-2 cursor-pointer"
-                >
-                  Fit
-                </Button>
-              </div>
             </div>
 
-            {/* Scaled Preview Viewport (Zero horizontal scrollbar) */}
-            <div className="relative overflow-hidden bg-muted/40 p-4 sm:p-6 rounded-2xl border border-border/80 flex justify-center custom-scrollbar print:hidden min-h-[460px]">
-              {bulkInvoices.length > 0 ? (
-                <div
-                  style={{
-                    width: `${210 * previewScale}mm`,
-                    height: `${(isA4FourUp ? 295 : 146) * previewScale}mm`,
-                    overflow: "visible",
-                  }}
-                  className="shrink-0 transition-all duration-150"
+            {/* Scaled Preview Viewport with Touch Pinch-Zoom */}
+            {bulkInvoices.length > 0 ? (
+              <div id="printable-invoice-canvas">
+                <PinchZoomViewer
+                  initialScale={isA4FourUp ? 0.52 : 0.75}
+                  minScale={0.35}
+                  maxScale={2.0}
+                  scale={previewScale}
+                  onScaleChange={setPreviewScale}
+                  canvasClassName="min-h-[460px]"
                 >
                   <div
-                    id="printable-invoice-canvas"
                     style={{
-                      transform: `scale(${previewScale})`,
-                      transformOrigin: "top left",
                       width: "210mm",
                       height: isA4FourUp ? "295mm" : "146mm",
                     }}
-                    className="transition-transform duration-150 origin-top-left"
+                    className="shrink-0"
                   >
                     {isA4FourUp ? (
                       <div
@@ -2287,14 +2216,14 @@ function InvoiceGeneratorContent() {
                       />
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="py-24 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2">
-                  <Users className="h-8 w-8 text-muted-foreground/40" />
-                  <p className="font-medium">Please select at least 1 student from the left roster to preview invoice.</p>
-                </div>
-              )}
-            </div>
+                </PinchZoomViewer>
+              </div>
+            ) : (
+              <div className="py-24 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2 border border-border/80 rounded-2xl bg-muted/40 min-h-[460px]">
+                <Users className="h-8 w-8 text-muted-foreground/40" />
+                <p className="font-medium">Please select at least 1 student from the left roster to preview invoice.</p>
+              </div>
+            )}
           </div>
         </div>
       )}

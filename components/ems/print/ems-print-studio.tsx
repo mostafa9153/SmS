@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
 export interface EmsPrintStudioProps {
   allocation: ExamAllocation;
@@ -203,6 +204,12 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     }
   }, [defaultDoc]);
 
+  const handlePrint = () => {
+    setTimeout(() => {
+      window.print();
+    }, 120);
+  };
+
   // Keyboard shortcut: Ctrl + P to trigger print
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -267,12 +274,6 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
       (r.building && r.building.toLowerCase().includes(q))
     );
   });
-
-  const handlePrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 120);
-  };
 
   const handleHeaderChange = (index: number, val: string) => {
     const updated = [...examHeaders];
@@ -1056,66 +1057,77 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           </div>
         </div>
 
-        {/* Scrollable Canvas Viewport */}
-        <div className="flex-1 overflow-auto p-4 sm:p-8 flex justify-center items-start bg-muted/10 print:p-0 print:m-0 print:overflow-visible print:bg-white relative">
-          <div
-            id="ems-printable-canvas"
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: "top center",
-              transition: "transform 0.15s ease-out",
-            }}
-            className="shadow-[0_20px_50px_-15px_rgba(0,0,0,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
+        {/* Scrollable Canvas Viewport with Touch Pinch-to-Zoom & Photo Lightbox */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4 pb-36 bg-muted/10 print:p-0 print:m-0 print:overflow-visible print:bg-white relative custom-scrollbar">
+          <PinchZoomViewer
+            initialScale={0.85}
+            minScale={0.3}
+            maxScale={3.0}
+            title={
+              activeDoc === "admit"
+                ? "EMS Admit Cards"
+                : activeDoc === "slips"
+                  ? "EMS Desk Slips"
+                  : activeDoc === "attendance"
+                    ? "EMS Attendance Sheet"
+                    : "EMS Gate Notice"
+            }
+            canvasClassName="bg-transparent border-0 p-0 sm:p-4 shadow-none justify-center"
           >
-            {activeDoc === "admit" && (
-              <EmsAdmitCardPrintable
-                rooms={allocation.roomAllocations || []}
-                academicYear={allocation.academicYear}
-                examType={allocation.examType}
-                issueDate={issueDate}
-                schoolProfile={schoolProfile}
-                targetRoomId={targetRoomId}
-                showSignature={showAdmitSignature}
-                examHalf={examHalf}
-                orientation={orientation}
-              />
-            )}
+            <div
+              id="ems-printable-canvas"
+              className="shadow-[0_20px_50px_-15px_rgba(0,0,0,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
+            >
+              {activeDoc === "admit" && (
+                <EmsAdmitCardPrintable
+                  rooms={allocation.roomAllocations || []}
+                  academicYear={allocation.academicYear}
+                  examType={allocation.examType}
+                  issueDate={issueDate}
+                  schoolProfile={schoolProfile}
+                  targetRoomId={targetRoomId}
+                  showSignature={showAdmitSignature}
+                  examHalf={examHalf}
+                  orientation={orientation}
+                />
+              )}
 
-            {activeDoc === "slips" && (
-              <EmsBenchSlipsPrintable
-                rooms={allocation.roomAllocations || []}
-                academicYear={allocation.academicYear}
-                examType={allocation.examType}
-                schoolProfile={schoolProfile}
-                targetRoomId={targetRoomId}
-                orientation={orientation}
-              />
-            )}
+              {activeDoc === "slips" && (
+                <EmsBenchSlipsPrintable
+                  rooms={allocation.roomAllocations || []}
+                  academicYear={allocation.academicYear}
+                  examType={allocation.examType}
+                  schoolProfile={schoolProfile}
+                  targetRoomId={targetRoomId}
+                  orientation={orientation}
+                />
+              )}
 
-            {activeDoc === "attendance" && (
-              <EmsAttendanceSheetPrintable
-                rooms={allocation.roomAllocations || []}
-                academicYear={allocation.academicYear}
-                examType={allocation.examType}
-                schoolProfile={schoolProfile}
-                targetRoomId={targetRoomId}
-                examHeaders={examHeaders}
-                examDates={examDates}
-                examHalf={examHalf}
-              />
-            )}
+              {activeDoc === "attendance" && (
+                <EmsAttendanceSheetPrintable
+                  rooms={allocation.roomAllocations || []}
+                  academicYear={allocation.academicYear}
+                  examType={allocation.examType}
+                  schoolProfile={schoolProfile}
+                  targetRoomId={targetRoomId}
+                  examHeaders={examHeaders}
+                  examDates={examDates}
+                  examHalf={examHalf}
+                />
+              )}
 
-            {activeDoc === "gate" && (
-              <EmsGateNoticePrintable
-                rooms={allocation.roomAllocations || []}
-                academicYear={allocation.academicYear}
-                examType={allocation.examType}
-                schoolProfile={schoolProfile}
-                targetRoomId={targetRoomId}
-                examHalf={examHalf}
-              />
-            )}
-          </div>
+              {activeDoc === "gate" && (
+                <EmsGateNoticePrintable
+                  rooms={allocation.roomAllocations || []}
+                  academicYear={allocation.academicYear}
+                  examType={allocation.examType}
+                  schoolProfile={schoolProfile}
+                  targetRoomId={targetRoomId}
+                  examHalf={examHalf}
+                />
+              )}
+            </div>
+          </PinchZoomViewer>
         </div>
       </div>
 

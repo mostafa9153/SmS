@@ -8,6 +8,7 @@ import { Menu, Search, PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationPanel } from "@/components/layout/notification-panel";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/components/layout/sidebar-context";
 
@@ -54,7 +55,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="flex h-13 sm:h-12 items-center gap-1.5 sm:gap-3 border-b border-border/60 bg-background/85 backdrop-blur-md px-2.5 sm:px-4 sticky top-0 z-30 transition-all">
+    <header className="flex h-[calc(3.25rem+env(safe-area-inset-top,0px))] pt-[env(safe-area-inset-top,0px)] sm:h-12 sm:pt-0 items-center gap-1.5 sm:gap-3 border-b border-border/60 bg-background/85 backdrop-blur-md px-2.5 sm:px-4 sticky top-0 z-30 transition-all">
       {/* Mobile menu trigger */}
       <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
         <SheetTrigger render={
@@ -65,8 +66,8 @@ export function Topbar() {
         }>
           <Menu className="h-5 w-5" />
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-[290px] sm:w-72 border-r border-sidebar-border" showCloseButton={false}>
-          <Suspense fallback={<div className="w-[290px] sm:w-72 h-full bg-sidebar/95" />}>
+        <SheetContent side="left" className="p-0 w-[290px] sm:w-72 border-r border-border/60 dark:border-white/10 bg-background" showCloseButton={false}>
+          <Suspense fallback={<div className="w-[290px] sm:w-72 h-full bg-background" />}>
             <Sidebar mobile onClose={() => setIsMobileOpen(false)} />
           </Suspense>
         </SheetContent>
@@ -106,6 +107,9 @@ export function Topbar() {
 
       {/* Right controls */}
       <div className="ml-auto flex items-center gap-1 sm:gap-2">
+        {/* Theme Toggle (Dark / Light Mode) */}
+        <ThemeToggle />
+
         {/* Notification Panel */}
         <NotificationPanel />
 

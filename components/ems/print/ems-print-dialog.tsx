@@ -42,6 +42,7 @@ import {
   formatRoomName,
 } from "@/lib/ems/ems-config-loader";
 import { cn } from "@/lib/utils";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
 export interface EmsPrintDialogProps {
   open: boolean;
@@ -124,6 +125,12 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     }
   }, [defaultRoomId]);
 
+  const handlePrint = () => {
+    setTimeout(() => {
+      window.print();
+    }, 120);
+  };
+
   // Keyboard shortcut: Ctrl + P to trigger print, Escape to close
   useEffect(() => {
     if (!open) return;
@@ -186,12 +193,6 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     );
   });
 
-  const handlePrint = () => {
-    setTimeout(() => {
-      window.print();
-    }, 120);
-  };
-
   const handleHeaderChange = (index: number, val: string) => {
     const updated = [...examHeaders];
     updated[index] = val;
@@ -227,7 +228,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     const d = new Date();
     d.setDate(d.getDate() + startOffset);
     const newDates: string[] = [];
-    let cur = new Date(d);
+    const cur = new Date(d);
     while (newDates.length < examHeaders.length) {
       if (cur.getDay() !== 0) {
         const day = String(cur.getDate()).padStart(2, "0");
@@ -1050,66 +1051,70 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
               </div>
             </div>
 
-            {/* Document Canvas Container with Full Height & Smooth Zoom */}
+            {/* Document Canvas Container with Full Height & Smooth Touch Pinch Zoom */}
             <div className="flex-1 overflow-auto p-3 sm:p-6 flex justify-center items-start print:p-0 print:m-0 print:overflow-visible print:bg-white relative z-0">
-              <div
-                id="ems-printable-canvas"
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                  transition: "transform 0.15s ease-out",
-                }}
-                className="shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
+              <PinchZoomViewer
+                scale={zoom}
+                onScaleChange={setZoom}
+                minScale={0.4}
+                maxScale={2.0}
+                showControls={false}
+                canvasClassName="p-0 border-none bg-transparent shadow-none"
               >
-                {activeDoc === "admit" && (
-                  <EmsAdmitCardPrintable
-                    rooms={allocation.roomAllocations || []}
-                    academicYear={allocation.academicYear}
-                    examType={allocation.examType}
-                    issueDate={issueDate}
-                    schoolProfile={schoolProfile}
-                    targetRoomId={targetRoomId}
-                    showSignature={showAdmitSignature}
-                    examHalf={examHalf}
-                    orientation={orientation}
-                  />
-                )}
+                <div
+                  id="ems-printable-canvas"
+                  className="shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
+                >
+                  {activeDoc === "admit" && (
+                    <EmsAdmitCardPrintable
+                      rooms={allocation.roomAllocations || []}
+                      academicYear={allocation.academicYear}
+                      examType={allocation.examType}
+                      issueDate={issueDate}
+                      schoolProfile={schoolProfile}
+                      targetRoomId={targetRoomId}
+                      showSignature={showAdmitSignature}
+                      examHalf={examHalf}
+                      orientation={orientation}
+                    />
+                  )}
 
-                {activeDoc === "slips" && (
-                  <EmsBenchSlipsPrintable
-                    rooms={allocation.roomAllocations || []}
-                    academicYear={allocation.academicYear}
-                    examType={allocation.examType}
-                    schoolProfile={schoolProfile}
-                    targetRoomId={targetRoomId}
-                    orientation={orientation}
-                  />
-                )}
+                  {activeDoc === "slips" && (
+                    <EmsBenchSlipsPrintable
+                      rooms={allocation.roomAllocations || []}
+                      academicYear={allocation.academicYear}
+                      examType={allocation.examType}
+                      schoolProfile={schoolProfile}
+                      targetRoomId={targetRoomId}
+                      orientation={orientation}
+                    />
+                  )}
 
-                {activeDoc === "attendance" && (
-                  <EmsAttendanceSheetPrintable
-                    rooms={allocation.roomAllocations || []}
-                    academicYear={allocation.academicYear}
-                    examType={allocation.examType}
-                    schoolProfile={schoolProfile}
-                    targetRoomId={targetRoomId}
-                    examHeaders={examHeaders}
-                    examDates={examDates}
-                    examHalf={examHalf}
-                  />
-                )}
+                  {activeDoc === "attendance" && (
+                    <EmsAttendanceSheetPrintable
+                      rooms={allocation.roomAllocations || []}
+                      academicYear={allocation.academicYear}
+                      examType={allocation.examType}
+                      schoolProfile={schoolProfile}
+                      targetRoomId={targetRoomId}
+                      examHeaders={examHeaders}
+                      examDates={examDates}
+                      examHalf={examHalf}
+                    />
+                  )}
 
-                {activeDoc === "gate" && (
-                  <EmsGateNoticePrintable
-                    rooms={allocation.roomAllocations || []}
-                    academicYear={allocation.academicYear}
-                    examType={allocation.examType}
-                    schoolProfile={schoolProfile}
-                    targetRoomId={targetRoomId}
-                    examHalf={examHalf}
-                  />
-                )}
-              </div>
+                  {activeDoc === "gate" && (
+                    <EmsGateNoticePrintable
+                      rooms={allocation.roomAllocations || []}
+                      academicYear={allocation.academicYear}
+                      examType={allocation.examType}
+                      schoolProfile={schoolProfile}
+                      targetRoomId={targetRoomId}
+                      examHalf={examHalf}
+                    />
+                  )}
+                </div>
+              </PinchZoomViewer>
             </div>
           </div>
         </div>

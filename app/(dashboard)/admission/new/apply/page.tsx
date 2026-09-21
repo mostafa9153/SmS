@@ -254,6 +254,37 @@ export function ApplyPageContent({
   const [bplNo, setBplNo] = useState<string>("");
   const [cwsnStatus, setCwsnStatus] = useState<"YES" | "NO">("NO");
   const [disabilityType, setDisabilityType] = useState<string>("");
+  const [academicYear, setAcademicYear] = useState<string>("2026");
+
+  // Handle Class change for V-IX: auto set previous class
+  const handlePresentClassChange = (cls: string) => {
+    setPresentClass(cls);
+    const mapping: Record<string, string> = {
+      V: "IV",
+      VI: "V",
+      VII: "VI",
+      VIII: "VII",
+      IX: "VIII",
+    };
+    if (mapping[cls]) {
+      setPreviousClass(mapping[cls]);
+    }
+  };
+
+  // Helper: auto-capitalize words in English names
+  const toTitleCase = (str: string) => {
+    return str.replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  // Helper: Aadhaar auto-spacing (XXXX XXXX XXXX)
+  const handleAadhaarChange = (raw: string) => {
+    const digits = raw.replace(/\D/g, "").slice(0, 12);
+    const parts = [];
+    for (let i = 0; i < digits.length; i += 4) {
+      parts.push(digits.slice(i, i + 4));
+    }
+    setAadhaarNo(parts.join(" "));
+  };
 
   // Populate from AI Extracted Data
   useEffect(() => {
@@ -300,7 +331,7 @@ export function ApplyPageContent({
     }
     if (ext.previousClass) setPreviousClass(ext.previousClass);
     if (ext.previousRoll) setPreviousRoll(ext.previousRoll);
-  }, [aiExtractedData]);
+  }, [aiExtractedData, relationship]);
 
   // Sync profile defaults when loaded
   useEffect(() => {
@@ -308,47 +339,28 @@ export function ApplyPageContent({
       if (p.defaultReligion && p.defaultReligion !== "None") {
         setReligion(p.defaultReligion);
       }
+      if (p.defaultGuardianRelationship && p.defaultGuardianRelationship !== "None") {
+        setRelationship(p.defaultGuardianRelationship);
+      }
     });
-  }, []);
 
-  // Sync school profile details
-  useEffect(() => {
-    if (schoolProfile) {
-      if (schoolProfile.district && !district) setDistrict(schoolProfile.district);
-      if (schoolProfile.pincode && !pinCode) setPinCode(schoolProfile.pincode);
-      if (schoolProfile.policeStation && !policeStation) setPoliceStation(schoolProfile.policeStation);
+    if (schoolProfile?.district) {
+      setDistrict(schoolProfile.district);
+      setGDistrict(schoolProfile.district);
+    }
+    if (schoolProfile?.pincode) {
+      setPinCode(schoolProfile.pincode);
+      setGPinCode(schoolProfile.pincode);
+    }
+    if (schoolProfile?.postOffice) {
+      setPostOffice(schoolProfile.postOffice);
+      setGPostOffice(schoolProfile.postOffice);
+    }
+    if (schoolProfile?.policeStation) {
+      setPoliceStation(schoolProfile.policeStation);
+      setGPoliceStation(schoolProfile.policeStation);
     }
   }, [schoolProfile]);
-
-  // Handle Class change for V-IX: auto set previous class
-  const handlePresentClassChange = (cls: string) => {
-    setPresentClass(cls);
-    const mapping: Record<string, string> = {
-      V: "IV",
-      VI: "V",
-      VII: "VI",
-      VIII: "VII",
-      IX: "VIII",
-    };
-    if (mapping[cls]) {
-      setPreviousClass(mapping[cls]);
-    }
-  };
-
-  // Helper: auto-capitalize words in English names
-  const toTitleCase = (str: string) => {
-    return str.replace(/\b\w/g, (c) => c.toUpperCase());
-  };
-
-  // Helper: Aadhaar auto-spacing (XXXX XXXX XXXX)
-  const handleAadhaarChange = (raw: string) => {
-    const digits = raw.replace(/\D/g, "").slice(0, 12);
-    const parts = [];
-    for (let i = 0; i < digits.length; i += 4) {
-      parts.push(digits.slice(i, i + 4));
-    }
-    setAadhaarNo(parts.join(" "));
-  };
 
   // Helper: Relationship selector auto-sync
   const handleRelationshipSelect = (rel: string) => {

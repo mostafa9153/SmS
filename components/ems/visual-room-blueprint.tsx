@@ -20,6 +20,7 @@ import {
   DoorOpen,
   Edit3,
 } from "lucide-react";
+import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
 interface VisualRoomBlueprintProps {
   room: AllocatedRoom;
@@ -214,12 +215,19 @@ export function VisualRoomBlueprint({
         </div>
       )}
 
-      {/* Canvas / 2D Seating Floor Plan */}
-      <div className="relative overflow-x-auto overflow-y-auto p-2.5 sm:p-6 bg-slate-950/5 dark:bg-slate-950/40 rounded-2xl border border-border/50 min-h-[380px] sm:min-h-[440px] flex justify-center custom-scrollbar touch-pan-x touch-pan-y">
-        <div
-          style={{ transform: `scale(${zoomLevel})`, transformOrigin: "top center" }}
-          className="transition-transform duration-150 flex flex-col items-center min-w-max px-4 py-2"
-        >
+      {/* Canvas / 2D Seating Floor Plan with Pinch-to-Zoom & Pan */}
+      <PinchZoomViewer
+        initialScale={zoomLevel}
+        minScale={0.5}
+        maxScale={2.5}
+        title={`Room ${room.roomNumber} - Seating Blueprint`}
+        className="w-full"
+        canvasClassName="min-h-[380px] sm:min-h-[440px] bg-slate-950/5 dark:bg-slate-950/40 p-2.5 sm:p-6"
+        showControls={false}
+        scale={zoomLevel}
+        onScaleChange={setZoomLevel}
+      >
+        <div className="flex flex-col items-center min-w-max px-4 py-2">
           {/* ======================================================== */}
           {/* FRONT: BLACKBOARD                                        */}
           {/* ======================================================== */}
@@ -298,7 +306,7 @@ export function VisualRoomBlueprint({
             </div>
           </div>
         </div>
-      </div>
+      </PinchZoomViewer>
     </div>
   );
 }

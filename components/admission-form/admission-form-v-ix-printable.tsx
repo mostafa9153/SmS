@@ -567,13 +567,13 @@ export function AdmissionFormVIxPrintableView({
             {/* E. Guardian's Details */}
             <div className="pt-0.5">
               <div className="font-black text-[13.5px] uppercase bg-gray-100 border-2 border-black px-3 py-0.5 mb-1.5">
-                E. GUARDIAN'S DETAILS:
+                E. GUARDIAN&apos;S DETAILS:
               </div>
 
               <div className="space-y-1.5">
                 {/* 1. Father's Name */}
                 <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">1. Father's Name:</span>
+                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">1. Father&apos;s Name:</span>
                   <div className="flex-1 border-b-2 border-dotted border-black pb-0.5 font-black text-[13.5px] uppercase min-h-[22px]">
                     {data.guardianDetails.fatherNameEng || ""}
                   </div>
@@ -589,7 +589,7 @@ export function AdmissionFormVIxPrintableView({
 
                 {/* 3. Mother's Name */}
                 <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">3. Mother's Name:</span>
+                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">3. Mother&apos;s Name:</span>
                   <div className="flex-1 border-b-2 border-dotted border-black pb-0.5 font-black text-[13.5px] uppercase min-h-[22px]">
                     {data.guardianDetails.motherNameEng || ""}
                   </div>
@@ -605,7 +605,7 @@ export function AdmissionFormVIxPrintableView({
 
                 {/* 5. Guardian's Name */}
                 <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">5. Guardian's Name*:</span>
+                  <span className="font-bold text-[12.5px] w-[160px] shrink-0">5. Guardian&apos;s Name*:</span>
                   <div className="flex-1 border-b-2 border-dotted border-black pb-0.5 font-black text-[13.5px] uppercase min-h-[22px]">
                     {data.guardianDetails.guardianNameEng || ""}
                   </div>
@@ -622,7 +622,7 @@ export function AdmissionFormVIxPrintableView({
                 {/* 7. Relationship */}
                 <div className="flex items-baseline gap-2">
                   <span className="font-bold text-[12.5px] w-[230px] shrink-0">
-                    7. Relationship(with Guardian's)*:
+                    7. Relationship(with Guardian&apos;s)*:
                   </span>
                   <div className="flex-1 border-b-2 border-dotted border-black pb-0.5 font-bold text-[13px] min-h-[22px]">
                     {data.guardianDetails.relationship || ""}
@@ -638,7 +638,7 @@ export function AdmissionFormVIxPrintableView({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[12.5px] shrink-0">9. Guardian's Qualification:</span>
+                    <span className="font-bold text-[12.5px] shrink-0">9. Guardian&apos;s Qualification:</span>
                     <div className="w-56 h-[34px] border-2 border-black px-2.5 flex items-center font-bold text-[12.5px] bg-white">
                       {data.guardianDetails.guardianQualification || ""}
                     </div>
@@ -650,7 +650,7 @@ export function AdmissionFormVIxPrintableView({
             {/* F. Guardian's Contact Information */}
             <div className="pt-0.5">
               <div className="font-black text-[13.5px] uppercase bg-gray-100 border-2 border-black px-3 py-0.5 mb-1.5">
-                F. GUARDIAN'S CONTACT INFORMATION:
+                F. GUARDIAN&apos;S CONTACT INFORMATION:
               </div>
 
               {/* 1. Village & 2. Habitation/Locality */}
