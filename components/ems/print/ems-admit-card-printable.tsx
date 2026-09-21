@@ -3,7 +3,7 @@
 import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
-import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
+import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/ems/ems-config-loader";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 import { cn } from "@/lib/utils";
 
@@ -119,7 +119,9 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
 
   // Chunk students into pages: 20 for landscape (4 columns x 5 rows) or 21 for portrait (3 columns x 7 rows)
   const isLandscape = orientation === "landscape";
-  const CARDS_PER_PAGE = isLandscape ? 20 : 21;
+  const numCols = isLandscape ? 4 : 3;
+  const numRows = isLandscape ? 5 : 7;
+  const CARDS_PER_PAGE = numCols * numRows;
   const pages: StudentAdmitItem[][] = [];
   for (let i = 0; i < students.length; i += CARDS_PER_PAGE) {
     pages.push(students.slice(i, i + CARDS_PER_PAGE));
@@ -164,25 +166,34 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
             className={cn(
               "ems-admit-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
               isLandscape
-                ? "landscape w-[297mm] h-[200mm] max-h-[200mm] p-[2mm_3.5mm]"
-                : "portrait w-[210mm] h-[278mm] max-h-[278mm] p-[2mm_4mm]"
+                ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[2mm_3.5mm]"
+                : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[2mm_4mm]"
             )}
           >
-            {/* Grid: 4 cols x 5 rows in Landscape or 3 cols x 7 rows in Portrait (Top-to-Bottom, Left-to-Right Column-Major Order) */}
+            {/* Grid: 4 cols x 5 rows in Landscape or 3 cols x 7 rows in Portrait */}
             <div
               className={cn(
-                "h-full w-full ems-grid-column-flow",
+                "h-full w-full",
                 isLandscape
-                  ? "grid grid-flow-col grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
-                  : "grid grid-flow-col grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                  ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                  : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
               )}
-              style={{ gridAutoFlow: "column" }}
             >
-              {pageStudents.map((item, idx) => (
-                <div
-                  key={`card-${pageIndex}-${idx}`}
-                  className="relative border border-dashed border-neutral-300 rounded-[3px] p-[1.5mm] flex flex-col justify-between overflow-hidden bg-white h-full box-border"
-                >
+              {toColumnMajorGrid(pageStudents, numCols, numRows).map((item, slotIdx) => {
+                if (!item) {
+                  return (
+                    <div
+                      key={`empty-cell-${pageIndex}-${slotIdx}`}
+                      className="border border-dashed border-neutral-100 rounded-[3px] h-full"
+                    />
+                  );
+                }
+
+                return (
+                  <div
+                    key={`card-${pageIndex}-${slotIdx}-${item.studentRoll}`}
+                    className="relative border border-dashed border-neutral-300 rounded-[3px] p-[1.5mm] flex flex-col justify-between overflow-hidden bg-white h-full box-border"
+                  >
                   {/* Repeated subtle watermark logo */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                     <img
@@ -190,7 +201,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                       alt="Watermark"
                       loading="eager"
                       decoding="async"
-                      className="w-14 h-14 object-contain opacity-[0.06] grayscale print:filter-none print:opacity-[0.05]"
+                      className="w-14 h-14 object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]"
                     />
                   </div>
 
@@ -305,16 +316,9 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                       </span>
                     </div>
                   </div>
-                </div>
-              ))}
-
-              {/* Fill empty cells in page if less than 21 cards */}
-              {Array.from({ length: CARDS_PER_PAGE - pageStudents.length }).map((_, i) => (
-                <div
-                  key={`empty-cell-${i}`}
-                  className="border border-dashed border-neutral-100 rounded-[3px] h-full"
-                />
-              ))}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

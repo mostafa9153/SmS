@@ -4,7 +4,7 @@ import React from "react";
 import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
-import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
+import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/ems/ems-config-loader";
 import { cn } from "@/lib/utils";
 
 export interface EmsBenchSlipsPrintableProps {
@@ -93,7 +93,9 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
 
   // Chunk slips into pages: 56 for landscape (4 columns x 14 rows) or 57 for portrait (3 columns x 19 rows)
   const isLandscape = orientation === "landscape";
-  const SLIPS_PER_PAGE = isLandscape ? 56 : 57;
+  const numCols = isLandscape ? 4 : 3;
+  const numRows = isLandscape ? 14 : 19;
+  const SLIPS_PER_PAGE = numCols * numRows;
   const pages: StudentBenchSlipItem[][] = [];
   for (let i = 0; i < slips.length; i += SLIPS_PER_PAGE) {
     pages.push(slips.slice(i, i + SLIPS_PER_PAGE));
@@ -137,21 +139,29 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             className={cn(
               "ems-slips-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
               isLandscape
-                ? "landscape w-[297mm] h-[200mm] max-h-[200mm] p-[1mm_3mm]"
-                : "portrait w-[210mm] h-[287mm] max-h-[287mm] p-[1mm_3mm]"
+                ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[1mm_3mm]"
+                : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[1mm_3mm]"
             )}
           >
-            {/* 4 Columns x 14 Rows Grid in Landscape (56 Slips) OR 3 Columns x 19 Rows Grid in Portrait (57 Slips) (Top-to-Bottom, Left-to-Right Column-Major Order) */}
+            {/* 4 Columns x 14 Rows Grid in Landscape (56 Slips) OR 3 Columns x 19 Rows Grid in Portrait (57 Slips) */}
             <div
               className={cn(
-                "h-full w-full ems-grid-column-flow",
+                "h-full w-full",
                 isLandscape
-                  ? "grid grid-flow-col grid-cols-4 grid-rows-[repeat(14,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
-                  : "grid grid-flow-col grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
+                  ? "grid grid-cols-4 grid-rows-[repeat(14,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
+                  : "grid grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
               )}
-              style={{ gridAutoFlow: "column" }}
             >
-              {pageSlips.map((item, idx) => {
+              {toColumnMajorGrid(pageSlips, numCols, numRows).map((item, slotIdx) => {
+                if (!item) {
+                  return (
+                    <div
+                      key={`empty-slip-${pageIndex}-${slotIdx}`}
+                      className="border border-dashed border-neutral-100 rounded-[2px] h-full"
+                    />
+                  );
+                }
+
                 const displayRoom = formatRoomName(item.roomNumber);
                 const isHs = isHigherSecondaryClass(item.studentClass);
                 const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
@@ -159,7 +169,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
 
                 return (
                   <div
-                    key={`slip-${pageIndex}-${idx}`}
+                    key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
                     className={cn(
                       "relative border border-dashed border-neutral-300 rounded-[2px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
                       isLandscape ? "px-[1.5mm] py-[0.5mm]" : "px-[2mm] py-[0.8mm]"
@@ -177,7 +187,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                         alt="Watermark"
                         loading="eager"
                         decoding="async"
-                        className={cn("object-contain opacity-[0.06] grayscale print:filter-none print:opacity-[0.05]", isLandscape ? "w-8 h-8" : "w-9 h-9")}
+                        className={cn("object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]", isLandscape ? "w-8 h-8" : "w-9 h-9")}
                       />
                     </div>
 
@@ -186,21 +196,21 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                       {isHs ? (
                         <div
                           className={cn(
-                            "font-black text-neutral-950 tracking-tight leading-none shrink-0 truncate",
+                            "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
                             isLandscape
-                              ? regVal.length > 10 ? "text-[11px] max-w-[110px]" : regVal.length > 7 ? "text-[12px] max-w-[115px]" : "text-[13.5px] max-w-[120px]"
-                              : regVal.length > 10 ? "text-[12px] max-w-[125px]" : regVal.length > 7 ? "text-[13.5px] max-w-[125px]" : "text-[15px] max-w-[125px]"
+                              ? regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
+                              : regVal.length > 10 ? "text-[13px]" : regVal.length > 7 ? "text-[14px]" : "text-[15.5px]"
                           )}
                           title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
                         >
                           {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
                         </div>
                       ) : (
-                        <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0", isLandscape ? "text-[15px]" : "text-[17px]")}>
+                        <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono", isLandscape ? "text-[15.5px]" : "text-[17.5px]")}>
                           ROLL {String(item.studentRoll).padStart(2, "0")}
                         </div>
                       )}
-                      <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1", isLandscape ? "text-[10px]" : "text-[11.5px]")}>
+                      <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1 tracking-tight", isLandscape ? "text-[11px]" : "text-[12.5px]")}>
                         {item.studentName}
                       </div>
                     </div>
@@ -228,13 +238,6 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                 );
               })}
 
-              {/* Fill empty cells in page if less than 57 slips */}
-              {Array.from({ length: SLIPS_PER_PAGE - pageSlips.length }).map((_, i) => (
-                <div
-                  key={`empty-slip-${i}`}
-                  className="border border-dashed border-neutral-100 rounded-[2px] h-full"
-                />
-              ))}
             </div>
           </div>
         </div>

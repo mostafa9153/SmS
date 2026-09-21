@@ -54,6 +54,16 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
 
   return (
     <div className="ems-print-attendance-wrapper w-full bg-white text-neutral-950 font-sans print:p-0 print:m-0">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: 210mm 297mm;
+              margin: 0;
+            }
+          `,
+        }}
+      />
       {activeRooms.map((room, roomIdx) => {
         // Extract occupied seats for this room
         const occupiedSeats = room.seats.filter((s) => !s.isVacant && s.studentName);
@@ -174,7 +184,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               </div>
 
               <div
-                className="ems-attendance-sheet w-[210mm] h-[287mm] max-h-[287mm] mx-auto p-[1.5mm_3.5mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
+                className="ems-attendance-sheet w-[210mm] h-[294mm] max-h-[294mm] mx-auto p-[1.5mm_3.5mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0"
               >
                 {/* Subtle Large School Logo Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
@@ -183,7 +193,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                     alt="School Logo Watermark"
                     loading="eager"
                     decoding="async"
-                    className="w-96 h-96 object-contain opacity-[0.06] grayscale select-none print:filter-none print:opacity-[0.05]"
+                    className="w-96 h-96 object-contain opacity-[0.15] grayscale select-none print:filter-none print:opacity-[0.14]"
                   />
                 </div>
 

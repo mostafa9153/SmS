@@ -31,6 +31,16 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
 
   return (
     <div className="ems-print-gate-notice-wrapper w-full bg-white text-neutral-950 font-sans print:p-0 print:m-0">
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @page {
+              size: 210mm 297mm;
+              margin: 0;
+            }
+          `,
+        }}
+      />
       {activeRooms.map((room, roomIdx) => {
         const cleanRoom = room.roomNumber.replace(/^Room\s*/i, "").trim();
         const displayRoom = cleanRoom ? `Room ${cleanRoom}` : "Room";
@@ -123,7 +133,7 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
               <span>{room.occupiedSeats} Candidates Allocated</span>
             </div>
 
-            <div className="ems-gate-notice-sheet w-[210mm] h-[287mm] max-h-[287mm] mx-auto p-[2mm_3.5mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0">
+            <div className="ems-gate-notice-sheet w-[210mm] h-[294mm] max-h-[294mm] mx-auto p-[2mm_3.5mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0">
               {/* School Logo Watermark */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                 <img
@@ -131,7 +141,7 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
                   alt="School Logo Watermark"
                   loading="eager"
                   decoding="async"
-                  className="w-96 h-96 object-contain opacity-[0.05] grayscale select-none print:filter-none print:opacity-[0.04]"
+                  className="w-96 h-96 object-contain opacity-[0.15] grayscale select-none print:filter-none print:opacity-[0.14]"
                 />
               </div>
 
@@ -187,7 +197,7 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
 
                     <div className="flex items-center gap-3 text-[9.5px] font-bold text-neutral-800">
                       <span>
-                        Total Students in Room: <strong className="text-black font-mono font-black text-[11px] bg-white border border-black/40 px-1.5 py-0.5 rounded-[2px]">{room.occupiedSeats}</strong>
+                        Total Students in the Room: <strong className="text-black font-mono font-black text-[11px] bg-white border border-black/40 px-1.5 py-0.5 rounded-[2px]">{room.occupiedSeats}</strong>
                       </span>
                       <span className="text-neutral-400">•</span>
                       <span>
@@ -274,41 +284,41 @@ export const EmsGateNoticePrintable: React.FC<EmsGateNoticePrintableProps> = ({
                                         key={seat.seatId}
                                         className="border border-neutral-400 bg-white rounded-[1px] p-1 flex flex-col justify-between overflow-hidden shadow-2xs min-h-[16mm]"
                                       >
-                                        {/* Roll / Reg & Seat Pos */}
-                                        <div className="flex items-center justify-between leading-none border-b border-neutral-200 pb-0.5">
+                                        {/* Roll / Reg Header (Full Row Width, Never Clipped) */}
+                                        <div className="leading-none border-b border-neutral-200 pb-0.5 flex items-center justify-between">
                                           {isSeatHs ? (
                                             <span
-                                              className={`font-black text-neutral-950 font-mono tracking-tight leading-none truncate max-w-[85px] ${
-                                                seatRegVal.length > 10 ? "text-[11px]" : seatRegVal.length > 7 ? "text-[12.5px]" : "text-[14px]"
+                                              className={`font-black text-neutral-950 font-mono tracking-tight leading-none w-full block ${
+                                                seatRegVal.length > 11 ? "text-[11.5px]" : seatRegVal.length > 8 ? "text-[12.5px]" : "text-[13.5px]"
                                               }`}
                                               title={seatRegVal ? `Reg No: ${seatRegVal}` : `Roll ${seat.studentRoll}`}
                                             >
                                               {seatRegVal ? `REG ${seatRegVal}` : `R-${String(seat.studentRoll).padStart(2, "0")}`}
                                             </span>
                                           ) : (
-                                            <span className="text-[16px] font-black text-neutral-950 font-mono tracking-tight leading-none">
+                                            <span className="text-[15.5px] font-black text-neutral-950 font-mono tracking-tight leading-none">
                                               R-{String(seat.studentRoll).padStart(2, "0")}
                                             </span>
                                           )}
-                                          <span className="text-[11.5px] font-black bg-neutral-100 border border-neutral-400 px-1 py-0.2 rounded-[1px] text-neutral-950 leading-none">
-                                            S{seat.seatPosition}
-                                          </span>
                                         </div>
 
                                         {/* Student Name */}
                                         <div className="py-0.5 truncate leading-tight">
-                                          <span className="text-[13px] font-black uppercase text-neutral-950 truncate block tracking-tight leading-tight">
+                                          <span className="text-[12.5px] font-black uppercase text-neutral-950 truncate block tracking-tight leading-tight">
                                             {seat.studentName}
                                           </span>
                                         </div>
 
-                                        {/* Class & Section / Stream */}
+                                        {/* Class & Section / Stream (Left) & Seat Pos (Right) */}
                                         <div className="leading-none pt-0.5 border-t border-neutral-100 flex items-center justify-between text-[11px] font-bold text-neutral-700">
                                           <span className="truncate">
                                             Cl:{" "}
-                                            <strong className="font-black text-neutral-950 text-[12px]">
+                                            <strong className="font-black text-neutral-950 text-[11.5px]">
                                               {isSeatHs ? `${seat.studentClass} - ${seatStreamText}` : `${seat.studentClass}-${seat.studentSection}`}
                                             </strong>
+                                          </span>
+                                          <span className="text-[10.5px] font-black bg-neutral-100 border border-neutral-400 px-1 py-0.2 rounded-[1px] text-neutral-950 leading-none shrink-0 ml-1">
+                                            S{seat.seatPosition}
                                           </span>
                                         </div>
                                       </div>

@@ -314,10 +314,6 @@
   page: landscape-sheet;
 }
 
-.ems-grid-column-flow {
-  grid-auto-flow: column !important;
-}
-
 #ems-print-isolated-portal {
   display: none;
 }
@@ -378,16 +374,20 @@
     text-shadow: none !important;
   }
 
-  /* Exact A4 Sheet Box Model: 278mm height ensures zero overflow on 297mm paper */
+  @page {
+    margin: 0;
+  }
+
+  /* Exact A4 Sheet Box Model: 294mm height minimizes bottom margin while guaranteeing single-page fit on 297mm paper */
   .ems-admit-sheet,
   .ems-slips-sheet,
   .ems-attendance-sheet,
   .ems-gate-notice-sheet {
     width: 210mm !important;
-    height: 278mm !important;
-    max-height: 278mm !important;
+    height: 294mm !important;
+    max-height: 294mm !important;
     margin: 0 auto !important;
-    padding: 2.5mm 4mm !important;
+    padding: 2mm 3.5mm !important;
     box-sizing: border-box !important;
     overflow: hidden !important;
     page-break-inside: avoid !important;
@@ -395,16 +395,12 @@
     background: #ffffff !important;
   }
 
-  /* Landscape Sheet Model: 297mm x 200mm ensures zero overflow on A4 landscape paper */
+  /* Landscape Sheet Model: 297mm x 206mm ensures zero overflow and minimal bottom margin on A4 landscape paper */
   .ems-admit-sheet.landscape,
   .ems-slips-sheet.landscape {
     width: 297mm !important;
-    height: 200mm !important;
-    max-height: 200mm !important;
-    padding: 2mm 3.5mm !important;
-  }
-
-  .ems-slips-sheet.landscape {
+    height: 206mm !important;
+    max-height: 206mm !important;
     padding: 1mm 3mm !important;
   }
 

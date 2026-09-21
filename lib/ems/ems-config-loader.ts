@@ -275,3 +275,29 @@ export function formatRoomName(rawName: string): string {
   return cleaned;
 }
 
+/**
+ * Rearranges items into column-major order for rendering in a row-major CSS grid.
+ * In a grid with `numRows` and `numCols`, items fill top-to-bottom down column 0, then column 1, etc.
+ * This is crucial for cut-and-stack printing strips (e.g. Admit Cards, Bench Slips).
+ * Slot (r, c) in the CSS grid receives item at source index `c * numRows + r`.
+ */
+export function toColumnMajorGrid<T>(
+  items: T[],
+  numCols: number,
+  numRows: number
+): (T | null)[] {
+  const totalSlots = numCols * numRows;
+  const result: (T | null)[] = new Array(totalSlots).fill(null);
+
+  for (let r = 0; r < numRows; r++) {
+    for (let c = 0; c < numCols; c++) {
+      const targetGridIndex = r * numCols + c;
+      const sourceIndex = c * numRows + r;
+      result[targetGridIndex] = sourceIndex < items.length ? items[sourceIndex] : null;
+    }
+  }
+
+  return result;
+}
+
+
