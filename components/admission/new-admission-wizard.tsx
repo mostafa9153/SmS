@@ -75,7 +75,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
   ];
 
   return (
-    <div className="w-full max-w-[1500px] mx-auto border rounded-xl bg-card shadow-xs overflow-hidden">
+    <div className="w-full max-w-[1500px] mx-auto border rounded-xl bg-card shadow-xs relative">
       {/* Header */}
       <div className="flex justify-between items-center px-6 py-4 border-b bg-muted/20">
         <div>

@@ -877,7 +877,7 @@ export function AdmissionApplicationForm({
         const lineProgress = Math.min(100, (savedCount / (SECTION_ORDER.length - 1)) * 100);
 
         return (
-          <div className="sticky top-1 sm:top-3 z-40 bg-card/95 dark:bg-card/95 backdrop-blur-xl px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-border/90 shadow-lg shadow-black/5 mb-4 transition-all duration-300">
+          <div className="sticky top-0 sm:top-2 z-40 bg-card/95 dark:bg-card/95 backdrop-blur-xl px-3.5 sm:px-5 py-2.5 sm:py-3 rounded-2xl border border-border/90 shadow-lg shadow-black/5 mb-4 transition-all duration-300">
             {/* Top Row: Active Section Info & Colorful Progress */}
             <div className="flex items-center justify-between gap-2 mb-2.5">
               <div className="flex items-center gap-2 min-w-0">
