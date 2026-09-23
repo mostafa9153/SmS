@@ -205,98 +205,115 @@ export default function PublicOnlineApplyPage() {
               </div>
             </div>
 
-            {/* Receipt Body */}
-            <div className="p-5 sm:p-7 space-y-5">
-              <div className="grid sm:grid-cols-[1fr_130px] gap-6 items-start">
-                {/* Student Info Table */}
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:text-sm">
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">আবেদনকারীর নাম:</div>
-                    <div className="font-bold text-foreground print:text-black uppercase">
-                      {submittedData?.studentName || "N/A"}
-                    </div>
+            {/* Receipt Body with School Watermark */}
+            <div className="p-5 sm:p-7 space-y-5 relative overflow-hidden">
+              {/* Subtle Centered School Logo Watermark */}
+              {profile?.schoolLogoUrl ? (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] print:opacity-[0.08] z-0 select-none">
+                  <img
+                    src={profile.schoolLogoUrl}
+                    alt="Watermark"
+                    className="w-72 h-72 sm:w-80 sm:h-80 object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.04] print:opacity-[0.06] z-0 select-none text-slate-700 dark:text-slate-300">
+                  <School className="w-64 h-64" />
+                </div>
+              )}
 
-                    {submittedData?.studentNameBengali && (
-                      <>
-                        <div className="text-muted-foreground print:text-gray-600 font-medium">নাম (বাংলায়):</div>
-                        <div className="font-bold text-foreground print:text-black">
-                          {submittedData.studentNameBengali}
-                        </div>
-                      </>
-                    )}
+              <div className="relative z-10 space-y-5">
+                <div className="grid sm:grid-cols-[1fr_130px] gap-6 items-start">
+                  {/* Student Info Table */}
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs sm:text-sm">
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">আবেদনকারীর নাম:</div>
+                      <div className="font-bold text-foreground print:text-black uppercase">
+                        {submittedData?.studentName || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">আবেদিত শ্রেণি:</div>
-                    <div className="font-bold text-blue-700 dark:text-blue-400 print:text-black">
-                      Class {submittedData?.presentClass || "N/A"}
-                    </div>
+                      {submittedData?.studentNameBengali && (
+                        <>
+                          <div className="text-muted-foreground print:text-gray-600 font-medium">নাম (বাংলায়):</div>
+                          <div className="font-bold text-foreground print:text-black">
+                            {submittedData.studentNameBengali}
+                          </div>
+                        </>
+                      )}
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">পিতার নাম:</div>
-                    <div className="font-medium text-foreground print:text-black uppercase">
-                      {submittedData?.fatherName || "N/A"}
-                    </div>
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">আবেদিত শ্রেণি:</div>
+                      <div className="font-bold text-blue-700 dark:text-blue-400 print:text-black">
+                        Class {submittedData?.presentClass || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">মাতার নাম:</div>
-                    <div className="font-medium text-foreground print:text-black uppercase">
-                      {submittedData?.motherName || "N/A"}
-                    </div>
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">পিতার নাম:</div>
+                      <div className="font-medium text-foreground print:text-black uppercase">
+                        {submittedData?.fatherName || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">জন্ম তারিখ:</div>
-                    <div className="font-medium text-foreground print:text-black font-mono">
-                      {submittedData?.dob || "N/A"}
-                    </div>
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">মাতার নাম:</div>
+                      <div className="font-medium text-foreground print:text-black uppercase">
+                        {submittedData?.motherName || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">মোবাইল নম্বর:</div>
-                    <div className="font-bold text-foreground print:text-black font-mono">
-                      {submittedData?.studentContact || "N/A"}
-                    </div>
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">জন্ম তারিখ:</div>
+                      <div className="font-medium text-foreground print:text-black font-mono">
+                        {submittedData?.dob || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">ঠিকানা:</div>
-                    <div className="font-medium text-foreground print:text-black text-xs">
-                      {submittedData?.presentVillage}, {submittedData?.presentPostOffice}, {submittedData?.presentDistrict} - {submittedData?.presentPincode}
-                    </div>
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">মোবাইল নম্বর:</div>
+                      <div className="font-bold text-foreground print:text-black font-mono">
+                        {submittedData?.studentContact || "N/A"}
+                      </div>
 
-                    <div className="text-muted-foreground print:text-gray-600 font-medium">জমা দেওয়ার তারিখ ও সময়:</div>
-                    <div className="font-medium text-foreground print:text-black text-xs font-mono">
-                      {new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">ঠিকানা:</div>
+                      <div className="font-medium text-foreground print:text-black text-xs">
+                        {submittedData?.presentVillage}, {submittedData?.presentPostOffice}, {submittedData?.presentDistrict} - {submittedData?.presentPincode}
+                      </div>
+
+                      <div className="text-muted-foreground print:text-gray-600 font-medium">জমা দেওয়ার তারিখ ও সময়:</div>
+                      <div className="font-medium text-foreground print:text-black text-xs font-mono">
+                        {new Date().toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* QR Code & Status Stamp */}
+                  <div className="flex flex-col items-center justify-center p-3 bg-slate-50/90 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-center space-y-2 print:bg-transparent print:border print:border-black">
+                    <div className="p-2 bg-white rounded-lg shadow-2xs">
+                      <QRCode value={appNo} size={105} />
+                    </div>
+                    <span className="text-[10px] font-bold text-muted-foreground print:text-black font-mono">
+                      {appNo}
+                    </span>
+                    <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-bold uppercase tracking-wider print:border-black print:text-black">
+                      Pending Verification
+                    </Badge>
                   </div>
                 </div>
 
-                {/* QR Code & Status Stamp */}
-                <div className="flex flex-col items-center justify-center p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-center space-y-2 print:bg-transparent print:border print:border-black">
-                  <div className="p-2 bg-white rounded-lg shadow-2xs">
-                    <QRCode value={appNo} size={105} />
+                {/* Important Instructions Box */}
+                <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 rounded-xl text-xs space-y-1.5 border border-amber-200 dark:border-amber-800/60 print:bg-white print:text-black print:border-black">
+                  <p className="font-bold flex items-center gap-1.5 text-[12.5px] text-amber-900 dark:text-amber-300 print:text-black">
+                    <FileText className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 print:text-black" />
+                    গুরুত্বপূর্ণ নির্দেশাবলী (Important Instructions for Verification):
+                  </p>
+                  <ol className="list-decimal pl-4 space-y-1 text-[11px] sm:text-xs text-amber-900/90 dark:text-amber-300/90 print:text-black">
+                    <li>এই রসিদটির একটি প্রিন্ট কপি নিয়ে বিদ্যালয় অফিসে যোগাযোগ করুন।</li>
+                    <li>আবেদনকারীর আসল জন্ম শংসাপত্র (Birth Certificate) ও আধার কার্ড সঙ্গে আনবেন।</li>
+                    <li>পূর্ববর্তী বিদ্যালয়ের ছাড়পত্র (Transfer Certificate/Marksheet) প্রযোজ্য হলে সঙ্গে আনবেন।</li>
+                    <li>পাসপোর্ট সাইজের রঙিন ছবি (২ কপি) জমা দিতে হবে।</li>
+                  </ol>
+                </div>
+
+                {/* Signatures for Print */}
+                <div className="pt-8 grid grid-cols-2 gap-4 text-center text-xs font-bold text-muted-foreground print:text-black">
+                  <div className="border-t border-dashed border-slate-300 dark:border-slate-700 print:border-black pt-2">
+                    অভিভাবকের স্বাক্ষর (Guardian Signature)
                   </div>
-                  <span className="text-[10px] font-bold text-muted-foreground print:text-black font-mono">
-                    {appNo}
-                  </span>
-                  <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300 font-bold uppercase tracking-wider print:border-black print:text-black">
-                    Pending Verification
-                  </Badge>
-                </div>
-              </div>
-
-              {/* Important Instructions Box */}
-              <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 rounded-xl text-xs space-y-1.5 border border-amber-200 dark:border-amber-800/60 print:bg-white print:text-black print:border-black">
-                <p className="font-bold flex items-center gap-1.5 text-[12.5px] text-amber-900 dark:text-amber-300 print:text-black">
-                  <FileText className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 print:text-black" />
-                  গুরুত্বপূর্ণ নির্দেশাবলী (Important Instructions for Verification):
-                </p>
-                <ol className="list-decimal pl-4 space-y-1 text-[11px] sm:text-xs text-amber-900/90 dark:text-amber-300/90 print:text-black">
-                  <li>এই রসিদটির একটি প্রিন্ট কপি নিয়ে বিদ্যালয় অফিসে যোগাযোগ করুন।</li>
-                  <li>আবেদনকারীর আসল জন্ম শংসাপত্র (Birth Certificate) ও আধার কার্ড সঙ্গে আনবেন।</li>
-                  <li>পূর্ববর্তী বিদ্যালয়ের ছাড়পত্র (Transfer Certificate/Marksheet) প্রযোজ্য হলে সঙ্গে আনবেন।</li>
-                  <li>পাসপোর্ট সাইজের রঙিন ছবি (২ কপি) জমা দিতে হবে।</li>
-                </ol>
-              </div>
-
-              {/* Signatures for Print */}
-              <div className="pt-8 grid grid-cols-2 gap-4 text-center text-xs font-bold text-muted-foreground print:text-black">
-                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 print:border-black pt-2">
-                  অভিভাবকের স্বাক্ষর (Guardian Signature)
-                </div>
-                <div className="border-t border-dashed border-slate-300 dark:border-slate-700 print:border-black pt-2">
-                  প্রধান শিক্ষক / ভেরিফায়ার স্বাক্ষর (Headmaster Signature)
+                  <div className="border-t border-dashed border-slate-300 dark:border-slate-700 print:border-black pt-2">
+                    প্রধান শিক্ষক / ভেরিফায়ার স্বাক্ষর (Headmaster Signature)
+                  </div>
                 </div>
               </div>
             </div>
