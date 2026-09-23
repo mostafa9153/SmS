@@ -131,10 +131,8 @@ export function AdmissionFormVIxPrintableView({
                   {data.customHeaderTitle
                     ? data.customHeaderTitle
                     : data.admissionType === "re"
-                    ? "RE-ADMISSION APPLICATION FORM"
-                    : data.admissionType === "new"
-                    ? "NEW ADMISSION APPLICATION FORM"
-                    : "APPLICATION FORM"}
+                    ? "RE-ADMISSION"
+                    : "NEW ADMISSION"}
                 </h3>
               </div>
 

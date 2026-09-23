@@ -120,6 +120,7 @@ export async function GET(req: Request) {
       isBlankParam === "true" ? true : isBlankParam === "false" ? false : null;
     const generatorMode = (searchParams.get("generatorMode") as "single" | "bulk") || null;
     const studentClass = searchParams.get("class") || null;
+    const academicSession = searchParams.get("session") || searchParams.get("academicSession") || null;
     const limit = parseInt(searchParams.get("limit") || "50", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
@@ -128,6 +129,7 @@ export async function GET(req: Request) {
       isBlank,
       generatorMode,
       studentClass,
+      academicSession,
       limit,
       offset,
     });

@@ -133,7 +133,7 @@ export function SmartBankInput({
               <Input
                 value={customBankName}
                 onChange={(e) => setCustomBankName(e.target.value)}
-                placeholder="Bank name & branch (optional)"
+                placeholder="যেমন: State Bank of India, Domkal Branch"
                 className="text-xs h-8 rounded-lg bg-background border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/20"
               />
             </div>
@@ -157,7 +157,7 @@ export function SmartBankInput({
             value={ifscValue}
             onChange={(e) => onIfscChange(e.target.value.toUpperCase())}
             maxLength={11}
-            placeholder="e.g. SBIN0001234"
+            placeholder="যেমন: SBIN0001234"
             className="text-xs h-9 rounded-xl bg-background border-border/80 font-mono tracking-wider font-semibold uppercase"
           />
           {ifscError && <p className="text-xs text-destructive font-medium">{ifscError}</p>}
@@ -172,7 +172,7 @@ export function SmartBankInput({
             id={`ac-${uid}`}
             value={accountNumberValue}
             onChange={(e) => onAccountNumberChange(e.target.value)}
-            placeholder="Enter Bank Account Number"
+            placeholder="যেমন: 123456789012"
             className="text-xs h-9 rounded-xl bg-background border-border/80 font-mono font-medium"
           />
           {accountNumberError && (

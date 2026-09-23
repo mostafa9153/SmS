@@ -13,6 +13,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  BarChart3,
 } from "lucide-react";
 
 export default function AdmissionHubPage() {
@@ -72,6 +73,14 @@ export default function AdmissionHubPage() {
         </div>
 
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto">
+          <Link
+            href="/generate/admission-form?tab=tracker"
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-3.5 py-2.5 rounded-2xl bg-blue-600/10 hover:bg-blue-600/20 text-blue-700 dark:text-blue-300 border border-blue-500/25 text-xs sm:text-sm font-extrabold transition-all active:scale-95 shadow-2xs text-center"
+          >
+            <BarChart3 className="h-4 w-4 shrink-0" />
+            <span className="truncate">Form Tracker</span>
+          </Link>
+
           <Link
             href="/admission/invoices"
             className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-2xl bg-purple-600/10 hover:bg-purple-600/20 text-purple-700 dark:text-purple-300 border border-purple-500/25 text-xs sm:text-sm font-extrabold transition-all active:scale-95 shadow-2xs text-center"

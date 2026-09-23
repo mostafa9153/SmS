@@ -93,8 +93,10 @@ export function PresetAddressesTab() {
   // 1. Address Presets State
   const [addressConfig, setAddressConfig] = useState<AddressPresetsConfig>(DEFAULT_ADDRESS_PRESETS_CONFIG);
   const [newVillage, setNewVillage] = useState("");
+  const [newGp, setNewGp] = useState("");
   const [newPoName, setNewPoName] = useState("");
   const [newPoPin, setNewPoPin] = useState("");
+  const [newBlock, setNewBlock] = useState("");
   const [newPs, setNewPs] = useState("");
   const [newDist, setNewDist] = useState("");
 
@@ -232,6 +234,27 @@ export function PresetAddressesTab() {
     }));
   };
 
+  const addGramPanchayat = () => {
+    const trimmed = newGp.trim();
+    if (!trimmed) return;
+    if ((addressConfig.gramPanchayats || []).includes(trimmed)) {
+      showToast({ title: "Gram Panchayat already exists", type: "info" });
+      return;
+    }
+    setAddressConfig((prev) => ({
+      ...prev,
+      gramPanchayats: [...(prev.gramPanchayats || []), trimmed],
+    }));
+    setNewGp("");
+  };
+
+  const removeGramPanchayat = (gp: string) => {
+    setAddressConfig((prev) => ({
+      ...prev,
+      gramPanchayats: (prev.gramPanchayats || []).filter((item) => item !== gp),
+    }));
+  };
+
   const addPostOffice = () => {
     const name = newPoName.trim();
     const pin = newPoPin.trim();
@@ -252,6 +275,27 @@ export function PresetAddressesTab() {
     setAddressConfig((prev) => ({
       ...prev,
       postOffices: prev.postOffices.filter((item) => item.name !== name),
+    }));
+  };
+
+  const addBlock = () => {
+    const trimmed = newBlock.trim();
+    if (!trimmed) return;
+    if ((addressConfig.blocks || []).includes(trimmed)) {
+      showToast({ title: "Block already exists", type: "info" });
+      return;
+    }
+    setAddressConfig((prev) => ({
+      ...prev,
+      blocks: [...(prev.blocks || []), trimmed],
+    }));
+    setNewBlock("");
+  };
+
+  const removeBlock = (blk: string) => {
+    setAddressConfig((prev) => ({
+      ...prev,
+      blocks: (prev.blocks || []).filter((item) => item !== blk),
     }));
   };
 
@@ -709,7 +753,7 @@ export function PresetAddressesTab() {
 
       {/* SECTION 1: Address Presets */}
       {activeSection === "address" && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 animate-in fade-in-50 duration-200">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-in fade-in-50 duration-200">
           {/* 1. Villages (Vill) */}
           <Card className="rounded-2xl border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b bg-muted/20">
@@ -760,7 +804,57 @@ export function PresetAddressesTab() {
             </CardContent>
           </Card>
 
-          {/* 2. Post Offices (P.O) + Pincode */}
+          {/* 2. Gram Panchayats (G.P) */}
+          <Card className="rounded-2xl border border-border/80 shadow-xs">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Landmark className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                <div>
+                  <CardTitle className="text-sm font-bold">Gram Panchayats (G.P)</CardTitle>
+                  <CardDescription className="text-xs">Pre-saved Gram Panchayat names for dropdown</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={newGp}
+                  onChange={(e) => setNewGp(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addGramPanchayat()}
+                  placeholder="Enter G.P name..."
+                  className="text-xs h-9 rounded-xl bg-background"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addGramPanchayat}
+                  className="h-9 px-3 text-xs font-semibold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shrink-0 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pt-1">
+                {(addressConfig.gramPanchayats || []).map((gp) => (
+                  <span
+                    key={gp}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-teal-50 dark:bg-teal-950/40 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800/40"
+                  >
+                    {gp}
+                    <button
+                      type="button"
+                      onClick={() => removeGramPanchayat(gp)}
+                      className="text-teal-600 hover:text-destructive transition-colors ml-0.5 cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 3. Post Offices (P.O) + Pincode */}
           <Card className="rounded-2xl border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
@@ -822,7 +916,57 @@ export function PresetAddressesTab() {
             </CardContent>
           </Card>
 
-          {/* 3. Police Stations (P.S) */}
+          {/* 4. Blocks / Municipalities */}
+          <Card className="rounded-2xl border border-border/80 shadow-xs">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <div>
+                  <CardTitle className="text-sm font-bold">Blocks / Municipalities</CardTitle>
+                  <CardDescription className="text-xs">Pre-saved Block / Municipality names</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  value={newBlock}
+                  onChange={(e) => setNewBlock(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addBlock()}
+                  placeholder="e.g. Mathurapur-I, Mandirbazar..."
+                  className="text-xs h-9 rounded-xl bg-background"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={addBlock}
+                  className="h-9 px-3 text-xs font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pt-1">
+                {(addressConfig.blocks || []).map((b) => (
+                  <span
+                    key={b}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/40"
+                  >
+                    {b}
+                    <button
+                      type="button"
+                      onClick={() => removeBlock(b)}
+                      className="text-indigo-600 hover:text-destructive transition-colors ml-0.5 cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 5. Police Stations (P.S) */}
           <Card className="rounded-2xl border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
@@ -872,7 +1016,7 @@ export function PresetAddressesTab() {
             </CardContent>
           </Card>
 
-          {/* 4. Districts (Dist) */}
+          {/* 6. Districts (Dist) */}
           <Card className="rounded-2xl border border-border/80 shadow-xs">
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">

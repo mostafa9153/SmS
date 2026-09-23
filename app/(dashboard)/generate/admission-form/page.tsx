@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Printer,
   ArrowLeft,
@@ -40,6 +41,7 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Hash,
   ListOrdered,
   Package,
@@ -51,11 +53,13 @@ import {
   Filter,
   ArrowLeftRight,
   RotateCcw,
+  BarChart3,
 } from "lucide-react";
 import { cn, getClassRank } from "@/lib/utils";
 import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
+import { AdmissionFormTrackerModal } from "@/components/admission-form/admission-form-tracker";
 
 export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -65,10 +69,19 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
   const formTypeParam = searchParams.get("type"); // 'v-ix' or 'xi'
   const categoryParam = searchParams.get("category"); // 'new' or 're'
 
-  // Admission category: regular (standard) vs new admission vs re-admission
-  const [admissionCategory, setAdmissionCategory] = useState<"regular" | "new" | "re">(
-    categoryParam === "re" ? "re" : categoryParam === "new" ? "new" : "regular"
+  // Admission category: New Admission vs Re-Admission
+  const [admissionCategory, setAdmissionCategory] = useState<"new" | "re">(
+    categoryParam === "re" ? "re" : "new"
   );
+
+  // Tracker Modal State (Opens as a dialog popup like Invoice Tracker)
+  const [isTrackerOpen, setIsTrackerOpen] = useState(
+    searchParams.get("tab") === "tracker"
+  );
+
+  // Target Class selection for form Office Use auto-population
+  const [selectedFormClass, setSelectedFormClass] = useState<string>("V");
+  const effectiveFormClass = selectedFormClass;
 
   const studentIdParam = searchParams.get("studentId");
 
@@ -447,6 +460,15 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
     return list.sort((a: any, b: any) => getClassRank(a.code) - getClassRank(b.code));
   }, [dynamicClasses, activeTab]);
 
+  // Options for Format Class Selection Dropdown strictly based on configured classes
+  const formatClassOptions = useMemo(() => {
+    return availableClasses.map((c: any) => {
+      const code = c.code.toUpperCase();
+      const label = code.startsWith("CLASS") ? code : `Class ${code}`;
+      return { label, value: code };
+    });
+  }, [availableClasses]);
+
   // Dynamic sections strictly for the currently selected class from Settings + actual student DB records
   const availableSections = useMemo(() => {
     const currentClassObj = dynamicClasses.find(
@@ -617,7 +639,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
           serials: [currentSingleFormNo],
           academicYear: String(currentYear),
           admissionType: admissionCategory,
-          targetClass: activeTab === "xi" ? "XI" : "V",
+          targetClass: effectiveFormClass || (activeTab === "xi" ? "XI" : "V"),
         })
       }).catch(err => console.error("Failed to log blank form", err));
     }
@@ -648,7 +670,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
         classInfo:
           formMode === "prefilled"
             ? `Class ${bulkClass} (Sec ${bulkSection})`
-            : `Blank Batch (${activeTab.toUpperCase()})`,
+            : `Blank Batch (${effectiveFormClass ? `Class ${effectiveFormClass}` : activeTab.toUpperCase()})`,
       },
       currentYear
     );
@@ -674,7 +696,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
           serials: bulkSerialList,
           academicYear: String(currentYear),
           admissionType: admissionCategory,
-          targetClass: activeTab === "xi" ? "XI" : "V",
+          targetClass: effectiveFormClass || (activeTab === "xi" ? "XI" : "V"),
         })
       }).catch(err => console.error("Failed to log bulk blank forms", err));
     }
@@ -699,14 +721,22 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
         ...formVIx,
         admissionType: admissionCategory,
         formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formVIx.formNo) : formVIx.formNo,
+        officeUse: {
+          ...formVIx.officeUse,
+          class: effectiveFormClass,
+        },
       },
       formXI: {
         ...formXI,
         admissionType: admissionCategory,
         formNo: generationMode === "bulk" ? (bulkSerialList[previewBulkIndex] || formXI.formNo) : formXI.formNo,
+        officeUse: {
+          ...formXI.officeUse,
+          class: effectiveFormClass || "XI",
+        },
       },
     };
-  }, [generationMode, formMode, classRoster, previewBulkIndex, serialPrefix, startSerial, paddingDigits, formVIx, formXI, bulkSerialList, admissionCategory]);
+  }, [generationMode, formMode, classRoster, previewBulkIndex, serialPrefix, startSerial, paddingDigits, formVIx, formXI, bulkSerialList, admissionCategory, effectiveFormClass]);
 
   return (
     <>
@@ -840,6 +870,10 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
                         ...formVIx,
                         admissionType: admissionCategory,
                         formNo: serial,
+                        officeUse: {
+                          ...formVIx.officeUse,
+                          class: effectiveFormClass,
+                        },
                       }}
                       school={schoolInfo}
                       activePage="all"
@@ -851,6 +885,10 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
                         ...formXI,
                         admissionType: admissionCategory,
                         formNo: serial,
+                        officeUse: {
+                          ...formXI.officeUse,
+                          class: effectiveFormClass || "XI",
+                        },
                       }}
                       school={schoolInfo}
                       activePage="all"
@@ -912,50 +950,25 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
                   </h1>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-xs text-muted-foreground font-semibold mr-1">Header Stamp:</span>
-                <button
-                  type="button"
-                  onClick={() => setAdmissionCategory("new")}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                    admissionCategory === "new"
-                      ? "bg-emerald-600 text-white shadow-2xs"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  NEW ADMISSION
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdmissionCategory("re")}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                    admissionCategory === "re"
-                      ? "bg-orange-600 text-white shadow-2xs"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  RE-ADMISSION
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAdmissionCategory("regular")}
-                  className={cn(
-                    "px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                    admissionCategory === "regular"
-                      ? "bg-primary text-primary-foreground shadow-2xs"
-                      : "bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  STANDARD
-                </button>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Print blank or prefilled admission forms for Class V–IX & Class XI with automatic serial tracking
+              </p>
             </div>
           </div>
 
           {/* Quick Actions Header Buttons */}
           <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTrackerOpen(true)}
+              title="Track online & offline admission form sales and receipts"
+              className="flex items-center justify-center gap-1.5 text-xs font-semibold h-10 sm:h-9.5 px-3 rounded-xl border-teal-300 dark:border-teal-700 bg-teal-500/10 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 cursor-pointer shadow-2xs"
+            >
+              <BarChart3 className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+              <span>Form Tracker</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -1024,48 +1037,121 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
           {/* LEFT COLUMN: CONTROLS & SETTINGS (Hidden in Print) */}
           {/* ======================================================= */}
           <div className="xl:col-span-4 space-y-5 print:hidden">
-            {/* Tab Selection (Class V-IX vs Class XI) */}
+            {/* Tab Selection (Class V-X vs Class XI-XII) & Class Selection */}
             <Card className="shadow-xs border-border/80 rounded-2xl overflow-hidden">
               <CardHeader className="p-4 pb-3 bg-muted/40 border-b">
-                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-primary" />
-                  Select Admission Format
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span>Admission Type & Format</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono font-bold text-primary border-primary/30 bg-primary/5">
+                    Class {effectiveFormClass || "V"}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("v-ix")}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center cursor-pointer",
-                      activeTab === "v-ix"
-                        ? "border-primary bg-primary/10 text-primary font-bold shadow-xs scale-[1.02]"
-                        : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <BookOpen className="h-5 w-5 mb-1.5" />
-                    <span className="text-xs font-bold">Class V – IX</span>
-                    <span className="text-[10px] opacity-80 mt-0.5">5th to 9th Standard</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("xi")}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center cursor-pointer",
-                      activeTab === "xi"
-                        ? "border-primary bg-primary/10 text-primary font-bold shadow-xs scale-[1.02]"
-                        : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <GraduationCap className="h-5 w-5 mb-1.5" />
-                    <span className="text-xs font-bold">Class XI</span>
-                    <span className="text-[10px] opacity-80 mt-0.5">11th Standard Form</span>
-                  </button>
+              <CardContent className="p-3.5 space-y-3.5">
+                {/* Admission Type: New Admission vs Re-Admission */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-bold text-foreground">Admission Type</Label>
+                    <span className="text-[10px] text-muted-foreground font-medium">Header Stamp</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAdmissionCategory("new")}
+                      className={cn(
+                        "py-2 px-3 text-xs font-bold rounded-xl border-2 transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                        admissionCategory === "new"
+                          ? "border-emerald-600 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold shadow-2xs scale-[1.01]"
+                          : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className={cn("h-2 w-2 rounded-full", admissionCategory === "new" ? "bg-emerald-600" : "bg-muted-foreground/40")} />
+                      <span>New Admission</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdmissionCategory("re")}
+                      className={cn(
+                        "py-2 px-3 text-xs font-bold rounded-xl border-2 transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+                        admissionCategory === "re"
+                          ? "border-orange-600 bg-orange-500/15 text-orange-700 dark:text-orange-300 font-bold shadow-2xs scale-[1.01]"
+                          : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <span className={cn("h-2 w-2 rounded-full", admissionCategory === "re" ? "bg-orange-600" : "bg-muted-foreground/40")} />
+                      <span>Re-Admission</span>
+                    </button>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+                  {/* 2 Format Cards */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("v-ix");
+                        if (selectedFormClass === "XI" || selectedFormClass === "XII") {
+                          setSelectedFormClass("V");
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center cursor-pointer",
+                        activeTab === "v-ix"
+                          ? "border-primary bg-primary/10 text-primary font-bold shadow-xs scale-[1.01]"
+                          : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <BookOpen className="h-5 w-5 mb-1.5" />
+                      <span className="text-xs font-bold">Class V – IX</span>
+                      <span className="text-[10px] opacity-80 mt-0.5">Junior &amp; High School</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab("xi");
+                        if (selectedFormClass !== "XI" && selectedFormClass !== "XII") {
+                          setSelectedFormClass("XI");
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all duration-200 text-center cursor-pointer",
+                        activeTab === "xi"
+                          ? "border-primary bg-primary/10 text-primary font-bold shadow-xs scale-[1.01]"
+                          : "border-border/60 hover:bg-muted text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <GraduationCap className="h-5 w-5 mb-1.5" />
+                      <span className="text-xs font-bold">Class XI</span>
+                      <span className="text-[10px] opacity-80 mt-0.5">Higher Secondary</span>
+                    </button>
+                  </div>
+
+                  {/* Dynamic Class Dropdown from School Database Configuration */}
+                  <div className="pt-2.5 border-t border-border/60 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-bold text-foreground flex items-center gap-1.5">
+                        <GraduationCap className="h-3.5 w-3.5 text-primary" />
+                        <span>
+                          {activeTab === "v-ix" ? "Select Class (V – IX):" : "Select Class (XI – XII):"}
+                        </span>
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground font-medium">Prints in Office Use</span>
+                    </div>
+
+                    <CustomSelect
+                      value={selectedFormClass}
+                      onChange={(val) => setSelectedFormClass(String(val))}
+                      options={formatClassOptions}
+                      searchable={false}
+                      placeholder={`Class ${selectedFormClass}`}
+                      triggerClassName="h-9 text-xs font-bold rounded-xl bg-background border-border/80 text-foreground"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
 
             {/* Print Quantity Mode (Bulk vs Single) & Pre-filled Settings */}
             <Card className="shadow-xs border-border/80 rounded-2xl">
@@ -1659,6 +1745,11 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
           </div>
         </div>
       </div>
+
+      <AdmissionFormTrackerModal
+        isOpen={isTrackerOpen}
+        onClose={() => setIsTrackerOpen(false)}
+      />
 
       <PrintHistoryModal
         isOpen={isHistoryOpen}

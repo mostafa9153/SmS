@@ -7,3 +7,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Project Guidelines & Rules
+
+## Strict UI Minimalism & Zero Filler Subtitles
+- **Zero Fluff**: NEVER add explanatory subtitles, helper paragraphs, or descriptive text below page titles, card headers, section titles, or buttons.
+- **Purely Functional**: Keep all cards, forms, wizards, dialogs, and headers compact, minimal, and directly usable without wordy filler notes.

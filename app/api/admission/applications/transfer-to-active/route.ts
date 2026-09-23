@@ -51,6 +51,8 @@ export async function POST(req: Request) {
     const currentYear = new Date().getFullYear();
 
     for (const app of admittedApps) {
+      const extra = app.ai_extracted_data && typeof app.ai_extracted_data === "object" ? app.ai_extracted_data : {};
+      
       // Validation of mandatory fields
       const studentName = app.student_name?.trim();
       const guardianName = app.guardian_name?.trim() || app.father_name?.trim() || app.mother_name?.trim();
@@ -85,8 +87,15 @@ export async function POST(req: Request) {
           gender: (gender as "Male" | "Female" | "Other") || "Male",
           dob: dob,
           fatherName: app.father_name || guardianName,
+          fatherOccupation: extra.fatherOccupation || undefined,
           motherName: app.mother_name || "N/A",
+          motherOccupation: extra.motherOccupation || undefined,
           guardianName: guardianName,
+          relationshipWithGuardian: extra.relationshipWithGuardian || undefined,
+          guardianOccupation: extra.guardianOccupation || undefined,
+          guardianQualification: extra.guardianQualification || undefined,
+          annualFamilyIncome: extra.annualFamilyIncome ? Number(extra.annualFamilyIncome) : undefined,
+
           studentContact: app.student_contact || undefined,
           altMobile: app.alt_mobile || undefined,
           email: app.email || undefined,
@@ -95,17 +104,60 @@ export async function POST(req: Request) {
           religion: app.religion || "Islam",
           socialCategory: app.social_category || "General",
           casteCertificateNo: app.caste_certificate_no || undefined,
-          aadhaar: app.aadhaar || undefined,
-          bloodGroup: app.blood_group || undefined,
-          previousSchool: app.previous_school || undefined,
+          minorityGroup: extra.minorityGroup || undefined,
+          isAay: !!extra.isAay,
+          isEws: !!extra.isEws,
+          isOutOfSchool: !!extra.isOutOfSchool,
+          mainstreamedDate: extra.mainstreamedDate || undefined,
+
+          isCwsn: !!extra.isCwsn,
+          impairmentType: extra.impairmentType || undefined,
+          hasDisabilityCertificate: !!extra.hasDisabilityCertificate,
+          disabilityPercentage: extra.disabilityPercentage ? Number(extra.disabilityPercentage) : undefined,
+          sldType: extra.sldType || undefined,
+          motherTongue: extra.motherTongue || "Bengali",
+          indianNationality: extra.indianNationality !== false,
+          bloodGroup: app.blood_group || extra.bloodGroup || undefined,
+          heightCm: extra.heightCm ? Number(extra.heightCm) : undefined,
+          weightKg: extra.weightKg ? Number(extra.weightKg) : undefined,
+          birthRegistrationNo: extra.birthRegistrationNo || undefined,
+          identificationMark: extra.identificationMark || undefined,
+
+          aadhaar: app.aadhaar || extra.aadhaar || undefined,
+          nameAsPerAadhaar: extra.nameAsPerAadhaar || undefined,
+          pen: extra.pen || undefined,
+          diseCode: extra.diseCode || undefined,
+          healthId: extra.healthId || undefined,
+          studentUniqueCode: extra.studentUniqueCode || undefined,
+          kanyashreeId: app.kanyashree_id || extra.kanyashreeId || undefined,
+
+          previousSchool: app.previous_school || extra.previousSchool || undefined,
+          previousClass: app.previous_class || extra.previousClass || undefined,
+          previousSection: extra.previousSection || undefined,
+          previousStream: extra.previousStream || undefined,
+          previousRollNo: extra.previousRollNo ? Number(extra.previousRollNo) : undefined,
+          previousAppearedForExams: !!extra.previousAppearedForExams,
+          previousResult: extra.previousResult || undefined,
+          previousMarksPercent: extra.previousMarksPercent ? Number(extra.previousMarksPercent) : undefined,
+          previousDaysAttended: extra.previousDaysAttended ? Number(extra.previousDaysAttended) : undefined,
+          rteSection12C: !!extra.rteSection12C,
+          rteAmountClaimed: extra.rteAmountClaimed ? Number(extra.rteAmountClaimed) : undefined,
+
+          facilitiesProvided: extra.facilitiesProvided || undefined,
+          cwsnFacilities: extra.cwsnFacilities || undefined,
+          ncc: !!extra.ncc,
+          nss: !!extra.nss,
+          scoutsGuides: !!extra.scoutsGuides,
+          distanceToSchool: extra.distanceToSchool ? Number(extra.distanceToSchool) : undefined,
+          highestEducationParents: extra.highestEducationParents || undefined,
 
           presentClass: assignedClass,
           presentSection: assignedSection,
           presentRoll: assignedRoll,
-          academicStream: app.stream || undefined,
-          bankAccountNo: app.bank_account_no || undefined,
-          bankIfsc: app.bank_ifsc || undefined,
-          kanyashreeId: app.kanyashree_id || undefined,
+          mediumOfInstruction: extra.mediumOfInstruction || "Bengali",
+          academicStream: app.stream || extra.academicStream || undefined,
+          bankAccountNo: app.bank_account_no || extra.bankAccountNo || undefined,
+          bankIfsc: app.bank_ifsc || extra.bankIfsc || undefined,
 
           currentStatus: "Continuing" as StudentStatus,
           admissionYear: Number(app.academic_year) || currentYear,

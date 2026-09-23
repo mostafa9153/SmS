@@ -89,6 +89,9 @@ function InvoiceGeneratorContent() {
   const [copyType, setCopyType] = useState<"both" | "student" | "school">("both");
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [singleClass, setSingleClass] = useState<string>(classParam?.toUpperCase() || "IX");
+  const [singleSection, setSingleSection] = useState<string>(sectionParam?.toUpperCase() || "ALL");
+  const [isLoadingFullStudent, setIsLoadingFullStudent] = useState<boolean>(false);
   const [autoDateTime, setAutoDateTime] = useState(true);
   const [previewScale, setPreviewScale] = useState<number>(0.75);
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
@@ -328,9 +331,19 @@ function InvoiceGeneratorContent() {
   const debouncedSearch = useDebounce(studentSearch, 300);
 
   const { data: searchResults, isLoading: isSearchLoading } = useQuery({
-    queryKey: ["students", "search", debouncedSearch],
-    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
-    enabled: debouncedSearch.length > 0 && generatorMode === "single",
+    queryKey: ["students", "search", debouncedSearch, singleClass, singleSection],
+    queryFn: () =>
+      searchStudents(
+        {
+          query: debouncedSearch,
+          class: singleClass || undefined,
+          section: singleSection !== "ALL" ? singleSection : undefined,
+        },
+        1,
+        10,
+        "summary"
+      ),
+    enabled: debouncedSearch.length > 0 && generatorMode === "single" && !!singleClass,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -395,6 +408,29 @@ function InvoiceGeneratorContent() {
     getFeeCategoryForClass(classParam?.toUpperCase() || "IX")
   );
 
+  // Available sections for the currently selected singleClass
+  const availableSectionsForSingleClass = useMemo(() => {
+    if (!singleClass) return ["A", "B", "C", "D"];
+    const normClass = singleClass.toUpperCase().trim();
+    const matched = dynamicClasses.find(
+      (c) => c.code.toUpperCase().trim() === normClass || c.name.toUpperCase().trim() === normClass
+    );
+    if (matched && Array.isArray(matched.sections) && matched.sections.length > 0) {
+      return matched.sections;
+    }
+    return ["A", "B", "C", "D"];
+  }, [dynamicClasses, singleClass]);
+
+  const singleSectionOptions = useMemo(() => {
+    return [
+      { label: "All Sections", value: "ALL" },
+      ...availableSectionsForSingleClass.map((s) => ({
+        label: `Section ${s}`,
+        value: s,
+      })),
+    ];
+  }, [availableSectionsForSingleClass]);
+
   // Available sections for the currently selected bulkClass
   const availableSectionsForSelectedClass = useMemo(() => {
     if (!bulkClass) return ["A", "B", "C", "D"];
@@ -426,6 +462,12 @@ function InvoiceGeneratorContent() {
     }
   }, [bulkClass, availableSectionsForSelectedClass, bulkSection]);
 
+  useEffect(() => {
+    if (singleSection !== "ALL" && !availableSectionsForSingleClass.includes(singleSection)) {
+      setSingleSection("ALL");
+    }
+  }, [singleClass, availableSectionsForSingleClass, singleSection]);
+
   // Load student by query param if provided
   useEffect(() => {
     if (directStudentData) {
@@ -433,16 +475,36 @@ function InvoiceGeneratorContent() {
     }
   }, [directStudentData]);
 
-  // Handle choosing a student in Single Mode (with existing invoice auto-sync)
-  async function handleSelectStudent(student: Student) {
-    setSelectedStudent(student);
-    const category = getFeeCategoryForClass(student.presentClass);
+  // Handle choosing a student in Single Mode (with full student fetch & existing invoice auto-sync)
+  async function handleSelectStudent(studentSummary: Student) {
+    setIsLoadingFullStudent(true);
+    let fullStudent = studentSummary;
+    try {
+      const fetched = await getStudentById(studentSummary.id);
+      if (fetched) {
+        fullStudent = fetched;
+      }
+    } catch (err) {
+      console.warn("Could not fetch full student details, using summary:", err);
+    } finally {
+      setIsLoadingFullStudent(false);
+    }
+
+    setSelectedStudent(fullStudent);
+    const category = getFeeCategoryForClass(fullStudent.presentClass);
     setActiveFeeCategory(category);
     const defaultFeeItems = getSavedFeeStructure(category);
 
+    if (fullStudent.presentClass) {
+      setSingleClass(fullStudent.presentClass.toUpperCase());
+    }
+    if (fullStudent.presentSection) {
+      setSingleSection(fullStudent.presentSection.toUpperCase());
+    }
+
     // 1. Check if an invoice was already generated/registered for this student in DB
     try {
-      const studentIdToSearch = student.schoolId || student.id;
+      const studentIdToSearch = fullStudent.schoolId || fullStudent.id;
       const res = await fetch(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
       const data = await res.json();
       if (res.ok && Array.isArray(data?.data) && data.data.length > 0) {
@@ -451,14 +513,14 @@ function InvoiceGeneratorContent() {
           ...prev,
           invoiceNumber: existingInv.invoice_number,
           academicSession: existingInv.academic_session || prev.academicSession,
-          studentId: student.schoolId || student.id,
-          studentName: student.name,
-          studentClass: student.presentClass,
-          section: student.presentSection || "A",
-          rollNo: String(student.presentRoll || "01"),
-          guardianName: student.guardianName || student.fatherName || "",
-          contactNumber: student.studentContact || student.altMobile || "",
-          penNumber: student.pen || "",
+          studentId: fullStudent.schoolId || fullStudent.id,
+          studentName: fullStudent.name,
+          studentClass: fullStudent.presentClass,
+          section: fullStudent.presentSection || "A",
+          rollNo: String(fullStudent.presentRoll || "01"),
+          guardianName: fullStudent.guardianName || fullStudent.fatherName || "",
+          contactNumber: fullStudent.studentContact || fullStudent.altMobile || "",
+          penNumber: fullStudent.pen || "",
           feeItems: Array.isArray(existingInv.fee_items) && existingInv.fee_items.length > 0
             ? existingInv.fee_items
             : defaultFeeItems,
@@ -469,7 +531,7 @@ function InvoiceGeneratorContent() {
         showToast({
           type: "success",
           title: "Registered Invoice Loaded",
-          description: `Loaded ${student.name} with registered Invoice #${existingInv.invoice_number}`,
+          description: `Loaded ${fullStudent.name} with registered Invoice #${existingInv.invoice_number}`,
         });
         return;
       }
@@ -480,20 +542,20 @@ function InvoiceGeneratorContent() {
     // 2. Default fresh invoice for student
     setInvoice((prev) => ({
       ...prev,
-      studentId: student.schoolId || student.id,
-      studentName: student.name,
-      studentClass: student.presentClass,
-      section: student.presentSection || "A",
-      rollNo: String(student.presentRoll || "01"),
-      guardianName: student.guardianName || student.fatherName || "",
-      contactNumber: student.studentContact || student.altMobile || "",
-      penNumber: student.pen || "",
+      studentId: fullStudent.schoolId || fullStudent.id,
+      studentName: fullStudent.name,
+      studentClass: fullStudent.presentClass,
+      section: fullStudent.presentSection || "A",
+      rollNo: String(fullStudent.presentRoll || "01"),
+      guardianName: fullStudent.guardianName || fullStudent.fatherName || "",
+      contactNumber: fullStudent.studentContact || fullStudent.altMobile || "",
+      penNumber: fullStudent.pen || "",
       feeItems: defaultFeeItems,
     }));
     showToast({
       type: "success",
       title: "Student Loaded",
-      description: `Loaded ${student.name} (${student.presentClass}-${student.presentSection || "A"})`,
+      description: `Loaded ${fullStudent.name} (${fullStudent.presentClass}-${fullStudent.presentSection || "A"})`,
     });
   }
 
@@ -537,12 +599,21 @@ function InvoiceGeneratorContent() {
     }));
   }
 
-  // Filter students based on search (Single Mode)
+  // Filter students based on search (Single Mode - School ID, PEN ID, Name, Roll)
   const filteredStudents = useMemo(() => {
     if (directStudentData && !studentSearch) {
       return [directStudentData];
     }
-    return searchResults?.data || [];
+    const raw = searchResults?.data || [];
+    if (!studentSearch.trim()) return raw;
+    const q = studentSearch.toLowerCase().trim();
+    return raw.filter((s) => {
+      const matchName = s.name ? s.name.toLowerCase().includes(q) : false;
+      const matchSchoolId = s.schoolId ? s.schoolId.toLowerCase().includes(q) : false;
+      const matchPen = s.pen ? s.pen.toLowerCase().includes(q) : false;
+      const matchRoll = s.presentRoll ? String(s.presentRoll).toLowerCase().includes(q) : false;
+      return matchName || matchSchoolId || matchPen || matchRoll;
+    });
   }, [directStudentData, searchResults, studentSearch]);
 
   // Bulk Mode: Filter class roster & sort by Roll No ascending
@@ -1026,47 +1097,99 @@ function InvoiceGeneratorContent() {
 
             {/* Card 1: Student Selection */}
             <Card className="border border-border/80 shadow-xs rounded-2xl overflow-hidden">
-              <CardHeader className="p-4 border-b bg-muted/20">
+              <CardHeader className="p-4 border-b bg-muted/20 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-bold flex items-center gap-2 text-foreground">
                   <User className="h-3.5 w-3.5 text-primary" />
                   <span>Student Information</span>
                 </CardTitle>
+                {isLoadingFullStudent && (
+                  <Badge variant="outline" className="text-[10px] animate-pulse text-amber-600 bg-amber-50 border-amber-300">
+                    Loading Details...
+                  </Badge>
+                )}
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                {/* Search Existing Student */}
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Search student by name, ID, roll..."
-                    value={studentSearch}
-                    onChange={(e) => setStudentSearch(e.target.value)}
-                    className="pl-8 text-xs h-8"
-                  />
-                  {filteredStudents.length > 0 && (
-                    <div className="absolute z-20 top-9 left-0 right-0 bg-popover border rounded-lg shadow-lg divide-y text-xs overflow-hidden">
-                      {filteredStudents.map((s) => (
-                        <div
-                          key={s.id}
-                          onClick={() => {
-                            handleSelectStudent(s);
-                            setStudentSearch("");
-                          }}
-                          className="p-2 hover:bg-muted/60 cursor-pointer flex items-center justify-between"
-                        >
-                          <div>
-                            <p className="font-bold text-foreground">{s.name}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              Class {s.presentClass} ({s.presentSection || "A"}) • Roll:{" "}
-                              {s.presentRoll || "01"}
-                            </p>
+                {/* 1. Class & Section Selectors (Required prior to searching) */}
+                <div className="grid grid-cols-2 gap-2.5 p-2.5 rounded-xl bg-muted/30 border border-border/50">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                      Select Class *
+                    </Label>
+                    <CustomSelect
+                      value={singleClass}
+                      onChange={(val) => {
+                        setSingleClass(val);
+                        updateInvoiceClass(val);
+                      }}
+                      options={classOptions}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                      Select Section *
+                    </Label>
+                    <CustomSelect
+                      value={singleSection}
+                      onChange={(val) => {
+                        setSingleSection(val);
+                        setInvoice((prev) => ({
+                          ...prev,
+                          section: val === "ALL" ? "A" : val,
+                        }));
+                      }}
+                      options={singleSectionOptions}
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Search Existing Student in Selected Class & Section */}
+                <div className="relative space-y-1">
+                  <Label className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between">
+                    <span>Search Student</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      Class {singleClass} ({singleSection === "ALL" ? "All Sections" : `Section ${singleSection}`})
+                    </span>
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by Name, School ID, PEN, or Roll..."
+                      value={studentSearch}
+                      onChange={(e) => setStudentSearch(e.target.value)}
+                      className="pl-8 text-xs h-8"
+                    />
+                    {isSearchLoading && (
+                      <div className="absolute right-2.5 top-2 text-[10px] text-muted-foreground animate-pulse">
+                        Searching...
+                      </div>
+                    )}
+                    {filteredStudents.length > 0 && (
+                      <div className="absolute z-20 top-9 left-0 right-0 bg-popover border rounded-lg shadow-lg divide-y text-xs overflow-hidden max-h-60 overflow-y-auto">
+                        {filteredStudents.map((s) => (
+                          <div
+                            key={s.id}
+                            onClick={() => {
+                              handleSelectStudent(s);
+                              setStudentSearch("");
+                            }}
+                            className="p-2 hover:bg-muted/60 cursor-pointer flex items-center justify-between"
+                          >
+                            <div>
+                              <p className="font-bold text-foreground">{s.name}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                Class {s.presentClass} ({s.presentSection || "A"}) • Roll:{" "}
+                                {s.presentRoll || "01"}
+                                {s.pen ? ` • PEN: ${s.pen}` : ""}
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono">
+                              {s.schoolId || s.pen || "ID"}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className="text-[10px] font-mono">
-                            {s.schoolId || "ID"}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Student Fields */}

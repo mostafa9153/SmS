@@ -60,9 +60,14 @@ export interface Student {
 
   // --- NEW FIELDS ---
   // A. General / Personal Information
+  studentNameBengali?: string;
+  fatherNameBengali?: string;
+  motherNameBengali?: string;
   guardianName?: string;
   nameAsPerAadhaar?: string;
   pincode?: string;
+  gramPanchayat?: string;
+  block?: string;
   altMobile?: string;
   email?: string;
   motherTongue?: string;
@@ -70,9 +75,12 @@ export interface Student {
   minorityGroup?: string;
   isAay?: boolean;
   isEws?: boolean;
+  bplStatus?: string;
+  bplNo?: string;
   isCwsn?: boolean;
   impairmentType?: string;
   hasDisabilityCertificate?: boolean;
+  disabilityCertificateNo?: string;
   disabilityPercentage?: number;
   sldType?: string;
   indianNationality?: boolean;
@@ -91,6 +99,8 @@ export interface Student {
   relationshipWithGuardian?: string;
   guardianOccupation?: string;
   guardianQualification?: string;
+  bankName?: string;
+  bankBranch?: string;
   bankIfsc?: string;
   bankAccountNo?: string;
 
@@ -106,6 +116,15 @@ export interface Student {
   boardRollNo?: string;         // Board Exam Roll Number
   wbbseRollNo?: string;         // Alias for WBBSE Board Roll Number
   wbchseRollNo?: string;        // Alias for WBCHSE Board Roll Number
+  bengaliMarks?: number;
+  englishMarks?: number;
+  mathMarks?: number;
+  lifeSciMarks?: number;
+  phySciMarks?: number;
+  historyMarks?: number;
+  geoMarks?: number;
+  totalMadhyamikMarks?: number;
+  percentageMadhyamik?: number;
   languageGroup?: string[];
   foreignLanguage?: string;
   mandatorySubjects?: string[];

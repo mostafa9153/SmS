@@ -34,18 +34,26 @@ export interface DBStudent {
 
   // --- NEW COLUMNS ---
   // A. General / Personal Details
+  student_name_bengali?: string | null;
+  father_name_bengali?: string | null;
+  mother_name_bengali?: string | null;
   guardian_name: string | null;
   name_as_per_aadhaar: string | null;
   pincode: string | null;
+  gram_panchayat?: string | null;
+  block?: string | null;
   alt_mobile: string | null;
   email: string | null;
   mother_tongue: string | null;
   minority_group: string | null;
   is_aay: boolean;
   is_ews: boolean;
+  bpl_status?: string | null;
+  bpl_no?: string | null;
   is_cwsn: boolean;
   impairment_type: string | null;
   has_disability_certificate: boolean;
+  disability_certificate_no?: string | null;
   disability_percentage: number | null;
   sld_type: string | null;
   indian_nationality: boolean;
@@ -66,6 +74,8 @@ export interface DBStudent {
   guardian_qualification: string | null;
   father_occupation?: string | null;
   mother_occupation?: string | null;
+  bank_name?: string | null;
+  bank_branch?: string | null;
   bank_ifsc: string | null;
   bank_account_no: string | null;
 
@@ -77,6 +87,15 @@ export interface DBStudent {
   present_class_admission_date: string | null;
   board_registration_no?: string | null;
   board_roll_no?: string | null;
+  bengali_marks?: number | null;
+  english_marks?: number | null;
+  math_marks?: number | null;
+  life_sci_marks?: number | null;
+  phy_sci_marks?: number | null;
+  history_marks?: number | null;
+  geo_marks?: number | null;
+  total_madhyamik_marks?: number | null;
+  percentage_madhyamik?: number | null;
   language_group: string[] | null;
   foreign_language: string | null;
   mandatory_subjects: string[] | null;
@@ -170,18 +189,26 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
 
     // --- NEW FIELDS ---
     // A. General / Personal Info
+    studentNameBengali: (db as any).student_name_bengali || undefined,
+    fatherNameBengali: (db as any).father_name_bengali || undefined,
+    motherNameBengali: (db as any).mother_name_bengali || undefined,
     guardianName: db.guardian_name || undefined,
     nameAsPerAadhaar: db.name_as_per_aadhaar || undefined,
     pincode: db.pincode || undefined,
+    gramPanchayat: (db as any).gram_panchayat || undefined,
+    block: (db as any).block || undefined,
     altMobile: db.alt_mobile || undefined,
     email: db.email || undefined,
     motherTongue: db.mother_tongue || undefined,
     minorityGroup: db.minority_group || undefined,
     isAay: db.is_aay,
     isEws: db.is_ews,
+    bplStatus: (db as any).bpl_status || undefined,
+    bplNo: (db as any).bpl_no || undefined,
     isCwsn: db.is_cwsn,
     impairmentType: db.impairment_type || undefined,
     hasDisabilityCertificate: db.has_disability_certificate,
+    disabilityCertificateNo: (db as any).disability_certificate_no || undefined,
     disabilityPercentage: db.disability_percentage != null ? Number(db.disability_percentage) : undefined,
     sldType: db.sld_type || undefined,
     indianNationality: db.indian_nationality,
@@ -200,6 +227,8 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     relationshipWithGuardian: db.relationship_with_guardian || undefined,
     guardianOccupation: (db as any).guardian_occupation || (db.relationship_with_guardian?.toLowerCase() === "father" ? (db as any).father_occupation : db.relationship_with_guardian?.toLowerCase() === "mother" ? (db as any).mother_occupation : undefined) || undefined,
     guardianQualification: db.guardian_qualification || undefined,
+    bankName: (db as any).bank_name || undefined,
+    bankBranch: (db as any).bank_branch || undefined,
     bankIfsc: db.bank_ifsc || undefined,
     bankAccountNo: db.bank_account_no || undefined,
 
@@ -211,6 +240,15 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     presentClassAdmissionDate: db.present_class_admission_date || undefined,
     boardRegistrationNo: db.board_registration_no || (db as any).board_reg_no || undefined,
     boardRollNo: db.board_roll_no || undefined,
+    bengaliMarks: (db as any).bengali_marks != null ? Number((db as any).bengali_marks) : undefined,
+    englishMarks: (db as any).english_marks != null ? Number((db as any).english_marks) : undefined,
+    mathMarks: (db as any).math_marks != null ? Number((db as any).math_marks) : undefined,
+    lifeSciMarks: (db as any).life_sci_marks != null ? Number((db as any).life_sci_marks) : undefined,
+    phySciMarks: (db as any).phy_sci_marks != null ? Number((db as any).phy_sci_marks) : undefined,
+    historyMarks: (db as any).history_marks != null ? Number((db as any).history_marks) : undefined,
+    geoMarks: (db as any).geo_marks != null ? Number((db as any).geo_marks) : undefined,
+    totalMadhyamikMarks: (db as any).total_madhyamik_marks != null ? Number((db as any).total_madhyamik_marks) : undefined,
+    percentageMadhyamik: (db as any).percentage_madhyamik != null ? Number((db as any).percentage_madhyamik) : undefined,
     languageGroup: db.language_group || [],
     foreignLanguage: db.foreign_language || undefined,
     mandatorySubjects: db.mandatory_subjects || [],
@@ -282,18 +320,26 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
 
     // --- NEW FIELDS ---
     // A. General / Personal Info
+    student_name_bengali: toNullableString(student.studentNameBengali),
+    father_name_bengali: toNullableString(student.fatherNameBengali),
+    mother_name_bengali: toNullableString(student.motherNameBengali),
     guardian_name: toNullableString(student.guardianName),
     name_as_per_aadhaar: toNullableString(student.nameAsPerAadhaar),
     pincode: toNullableString(student.pincode),
+    gram_panchayat: toNullableString(student.gramPanchayat),
+    block: toNullableString(student.block),
     alt_mobile: toNullableString(student.altMobile),
     email: toNullableString(student.email),
     mother_tongue: toNullableString(student.motherTongue),
     minority_group: toNullableString(student.minorityGroup),
     is_aay: !!student.isAay,
     is_ews: !!student.isEws,
+    bpl_status: toNullableString(student.bplStatus),
+    bpl_no: toNullableString(student.bplNo),
     is_cwsn: !!student.isCwsn,
     impairment_type: toNullableString(student.impairmentType),
     has_disability_certificate: !!student.hasDisabilityCertificate,
+    disability_certificate_no: toNullableString(student.disabilityCertificateNo),
     disability_percentage: toNullableNumber(student.disabilityPercentage),
     sld_type: toNullableString(student.sldType),
     indian_nationality: student.indianNationality !== false, // default true
@@ -312,6 +358,8 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     relationship_with_guardian: toNullableString(student.relationshipWithGuardian),
     guardian_occupation: toNullableString(student.guardianOccupation),
     guardian_qualification: toNullableString(student.guardianQualification),
+    bank_name: toNullableString(student.bankName),
+    bank_branch: toNullableString(student.bankBranch),
     bank_ifsc: toNullableString(student.bankIfsc),
     bank_account_no: toNullableString(student.bankAccountNo),
 
@@ -323,6 +371,15 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     present_class_admission_date: toNullableDate(student.presentClassAdmissionDate),
     board_registration_no: toNullableString(student.boardRegistrationNo),
     board_roll_no: toNullableString(student.boardRollNo),
+    bengali_marks: toNullableNumber(student.bengaliMarks),
+    english_marks: toNullableNumber(student.englishMarks),
+    math_marks: toNullableNumber(student.mathMarks),
+    life_sci_marks: toNullableNumber(student.lifeSciMarks),
+    phy_sci_marks: toNullableNumber(student.phySciMarks),
+    history_marks: toNullableNumber(student.historyMarks),
+    geo_marks: toNullableNumber(student.geoMarks),
+    total_madhyamik_marks: toNullableNumber(student.totalMadhyamikMarks),
+    percentage_madhyamik: toNullableNumber(student.percentageMadhyamik),
     language_group: student.languageGroup || [],
     foreign_language: toNullableString(student.foreignLanguage),
     mandatory_subjects: student.mandatorySubjects || [],
@@ -541,13 +598,17 @@ export async function dbSearchStudents(
     const q = filters.query.trim();
     const searchFields = [
       `name.ilike.%${q}%`,
-      `father_name.ilike.%${q}%`,
-      `mother_name.ilike.%${q}%`,
       `school_id.ilike.%${q}%`,
       `pen.ilike.%${q}%`,
+      `father_name.ilike.%${q}%`,
+      `mother_name.ilike.%${q}%`,
       `student_unique_code.ilike.%${q}%`,
       `admission_no.ilike.%${q}%`,
     ];
+    const parsedNum = parseInt(q, 10);
+    if (!isNaN(parsedNum) && parsedNum > 0) {
+      searchFields.push(`present_roll.eq.${parsedNum}`);
+    }
     // Only Admin accounts are permitted to query by full Aadhaar
     if (userRole === "Admin") {
       searchFields.push(`aadhaar.ilike.%${q}%`);

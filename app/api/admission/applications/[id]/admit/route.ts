@@ -39,8 +39,17 @@ export async function POST(
     const assignedClass = body.class || app.target_class || "V";
     const feeAmount = body.feeAmount !== undefined ? parseFloat(body.feeAmount) : (app.fee_amount || 0);
     const feePaid = body.feePaid !== undefined ? !!body.feePaid : true;
-    const paymentReceiptNo = (body.paymentReceiptNo || app.payment_receipt_no || `REC-${Date.now().toString().slice(-6)}`).trim();
     const currentYear = new Date().getFullYear();
+    const yearSuffix = String(currentYear).slice(-2);
+    let paymentReceiptNo = (body.paymentReceiptNo || app.payment_receipt_no || "").trim();
+    if (!paymentReceiptNo || paymentReceiptNo.startsWith("REC-")) {
+      const { count } = await supabase
+        .from("admission_applications")
+        .select("*", { count: "exact", head: true })
+        .eq("academic_year", String(currentYear));
+      const nextNum = (count || 0) + 1;
+      paymentReceiptNo = `MHS/AF/${yearSuffix}/${String(nextNum).padStart(4, "0")}`;
+    }
     const assignedStream = body.stream || app.stream || null;
     const photoUrl = body.photoUrl || app.photo_url || null;
 

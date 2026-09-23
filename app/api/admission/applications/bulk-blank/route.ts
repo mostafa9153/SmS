@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     const { error } = await supabase
       .from("admission_applications")
-      .insert(insertPayloads);
+      .upsert(insertPayloads, { onConflict: "application_no", ignoreDuplicates: false });
 
     if (error) {
       console.error("Error bulk inserting blank forms:", error);

@@ -22,6 +22,7 @@ import {
 import type { AdmissionApplication, Gender } from "@/lib/types";
 import { editAdmissionApplication, checkDuplicateApplicant } from "@/lib/data/admission";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
+import { formatAadhaarNumber } from "@/components/admission/admission-application-form";
 
 interface EditApplicationDialogProps {
   open: boolean;
@@ -356,11 +357,11 @@ function EditApplicationDialogInner({
                       Aadhaar Number (12 digits)
                     </label>
                     <Input
-                      value={aadhaar}
+                      value={formatAadhaarNumber(aadhaar)}
                       onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, "").slice(0, 12))}
-                      placeholder="12 digit Aadhaar"
-                      maxLength={12}
-                      className="h-9 rounded-xl font-mono"
+                      placeholder="XXXX XXXX XXXX"
+                      maxLength={14}
+                      className="h-9 rounded-xl font-mono tracking-widest text-sm font-semibold"
                     />
                   </div>
                   <div>

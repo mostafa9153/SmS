@@ -41,6 +41,7 @@ import {
   LayoutDashboard,
   Filter,
   Printer,
+  ArrowRight,
 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,110 @@ function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
     paymentStatus: (inv.payment_status as any) || "Paid",
     remarks: inv.remarks || undefined,
   };
+}
+
+export function getInvoiceCategoryAndMode(inv: DBInvoiceRow): {
+  isReadmission: boolean;
+  isOnline: boolean;
+  label: "New-Ad. Online" | "New-Ad. Offline" | "Re-Ad. Online" | "Re-Ad. Offline";
+  key: "NEW_ONLINE" | "NEW_OFFLINE" | "RE_ONLINE" | "RE_OFFLINE";
+} {
+  const remarks = (inv.remarks || "").toLowerCase();
+  const paymentMode = (inv.payment_mode || "").toLowerCase();
+  const extraType = ((inv as any).admission_type || "").toLowerCase();
+
+  const isReadmission =
+    Boolean((inv as any).is_readmission) ||
+    extraType.includes("re") ||
+    remarks.includes("re-admission") ||
+    remarks.includes("readmission") ||
+    remarks.includes("re admission");
+
+  const isOnline =
+    paymentMode === "online" ||
+    paymentMode === "upi" ||
+    paymentMode === "netbanking" ||
+    paymentMode === "card" ||
+    paymentMode === "bank" ||
+    (paymentMode !== "cash" && paymentMode !== "" && paymentMode !== "offline") ||
+    remarks.includes("online");
+
+  if (isReadmission) {
+    return isOnline
+      ? { isReadmission: true, isOnline: true, label: "Re-Ad. Online", key: "RE_ONLINE" }
+      : { isReadmission: true, isOnline: false, label: "Re-Ad. Offline", key: "RE_OFFLINE" };
+  } else {
+    return isOnline
+      ? { isReadmission: false, isOnline: true, label: "New-Ad. Online", key: "NEW_ONLINE" }
+      : { isReadmission: false, isOnline: false, label: "New-Ad. Offline", key: "NEW_OFFLINE" };
+  }
+}
+
+export type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "THIS_MONTH" | "CUSTOM";
+
+export function isDateInRange(
+  inv: DBInvoiceRow,
+  preset: DatePreset,
+  customStart: string,
+  customEnd: string
+): boolean {
+  if (preset === "ALL") return true;
+
+  let invDate: Date | null = null;
+  if (inv.issue_date) {
+    if (inv.issue_date.includes("/")) {
+      const parts = inv.issue_date.split("/");
+      if (parts.length === 3) {
+        invDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      }
+    } else {
+      invDate = new Date(inv.issue_date);
+    }
+  }
+  if (!invDate || isNaN(invDate.getTime())) {
+    if (inv.created_at) invDate = new Date(inv.created_at);
+  }
+  if (!invDate || isNaN(invDate.getTime())) return true;
+
+  const now = new Date();
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+
+  const todayStart = startOfDay(now);
+  const todayEnd = endOfDay(now);
+
+  if (preset === "TODAY") {
+    return invDate >= todayStart && invDate <= todayEnd;
+  }
+  if (preset === "YESTERDAY") {
+    const yStart = new Date(todayStart);
+    yStart.setDate(yStart.getDate() - 1);
+    const yEnd = new Date(todayEnd);
+    yEnd.setDate(yEnd.getDate() - 1);
+    return invDate >= yStart && invDate <= yEnd;
+  }
+  if (preset === "LAST_7_DAYS") {
+    const l7Start = new Date(todayStart);
+    l7Start.setDate(l7Start.getDate() - 7);
+    return invDate >= l7Start && invDate <= todayEnd;
+  }
+  if (preset === "THIS_MONTH") {
+    const mStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    return invDate >= mStart && invDate <= todayEnd;
+  }
+  if (preset === "CUSTOM") {
+    if (customStart) {
+      const cStart = startOfDay(new Date(customStart));
+      if (invDate < cStart) return false;
+    }
+    if (customEnd) {
+      const cEnd = endOfDay(new Date(customEnd));
+      if (invDate > cEnd) return false;
+    }
+    return true;
+  }
+
+  return true;
 }
 
 interface InvoiceTrackerModalProps {
@@ -128,11 +233,20 @@ export function InvoiceTrackerModal({
 
   // Filters for Registry Dashboard
   const [tableSearch, setTableSearch] = useState("");
+  const [sessionFilter, setSessionFilter] = useState<string>("2026");
   const [typeFilter, setTypeFilter] = useState<"ALL" | "FILLED" | "BLANK">("ALL");
-  const [modeFilter, setModeFilter] = useState<"ALL" | "BULK" | "SINGLE">("ALL");
+  const [admissionCategoryFilter, setAdmissionCategoryFilter] = useState<
+    "ALL" | "NEW_ONLINE" | "NEW_OFFLINE" | "RE_ONLINE" | "RE_OFFLINE"
+  >("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "CANCELLED">("ALL");
+  const [modeFilter, setModeFilter] = useState<string>("ALL");
+  const [dateFilterPreset, setDateFilterPreset] = useState<DatePreset>("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [hasProceeded, setHasProceeded] = useState(Boolean(initialInvoiceNumber));
   const [currentPage, setCurrentPage] = useState(1);
+  const [isPrintingLedger, setIsPrintingLedger] = useState(false);
 
   // Teacher Settlement State
   const [settlementTeachers, setSettlementTeachers] = useState<string[]>([]);
@@ -152,6 +266,7 @@ export function InvoiceTrackerModal({
       setSearchNumber(initialInvoiceNumber);
       handleVerify(initialInvoiceNumber);
       setActiveTab("verify");
+      setHasProceeded(true);
     }
   }, [initialInvoiceNumber, isOpen]);
 
@@ -174,7 +289,18 @@ export function InvoiceTrackerModal({
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [tableSearch, typeFilter, modeFilter, classFilter, statusFilter]);
+  }, [
+    tableSearch,
+    sessionFilter,
+    typeFilter,
+    admissionCategoryFilter,
+    classFilter,
+    statusFilter,
+    modeFilter,
+    dateFilterPreset,
+    startDate,
+    endDate,
+  ]);
 
   function computeTeacherSettlements(invoices: DBInvoiceRow[]): {
     teachers: string[];
@@ -369,32 +495,139 @@ export function InvoiceTrackerModal({
     });
   }
 
-  // Dynamic class counts for Class Distribution chips
+  // Options for Academic Session / Year Dropdown
+  const sessionOptions = useMemo(() => {
+    const set = new Set<string>(["2026", "2025", "2024", "2023"]);
+    invoicesList.forEach((inv) => {
+      if (inv.academic_session?.trim()) {
+        set.add(inv.academic_session.trim());
+      }
+    });
+    const sorted = Array.from(set).sort((a, b) => b.localeCompare(a));
+    return [
+      { label: "All Sessions", value: "ALL" },
+      ...sorted.map((s) => ({
+        label: s === "2026" ? `${s} (Current)` : `Session ${s}`,
+        value: s,
+      })),
+    ];
+  }, [invoicesList]);
+
+  // Dynamic stats calculation based on selected Academic Session
+  const displayedStats = useMemo(() => {
+    const pool =
+      sessionFilter === "ALL"
+        ? invoicesList
+        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter);
+
+    if (pool.length === 0 && stats && sessionFilter === "ALL") {
+      return stats;
+    }
+
+    const totalFilled = pool.filter((i) => !i.is_blank).length;
+    const totalBlank = pool.filter((i) => i.is_blank).length;
+    const totalBulk = pool.filter((i) => i.generator_mode === "bulk").length;
+    const totalSingle = pool.filter((i) => i.generator_mode !== "bulk").length;
+    const totalCancelled = pool.filter((i) => (i as any).invoice_status === "cancelled").length;
+    const totalActive = pool.filter(
+      (i) => (i as any).invoice_status === "active" || (!i.is_blank && !(i as any).invoice_status)
+    ).length;
+    const totalAmount = pool.reduce(
+      (sum, i) => ((i as any).invoice_status !== "cancelled" ? sum + (Number(i.total_amount) || 0) : sum),
+      0
+    );
+
+    return {
+      totalInvoices: pool.length,
+      totalFilled,
+      totalBlank,
+      totalActive,
+      totalCancelled,
+      totalBulk,
+      totalSingle,
+      totalAmount,
+      byClass: {},
+    };
+  }, [invoicesList, stats, sessionFilter]);
+
+  // Dynamic class counts for Class Distribution within selected session
   const classCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    invoicesList.forEach((inv) => {
+    const pool =
+      sessionFilter === "ALL"
+        ? invoicesList
+        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter);
+
+    pool.forEach((inv) => {
       const cls = (inv.student_class || "").trim().toUpperCase();
       if (cls) {
         counts[cls] = (counts[cls] || 0) + 1;
       }
     });
     return counts;
-  }, [invoicesList]);
+  }, [invoicesList, sessionFilter]);
+
+  // Options for Class Select Dropdown
+  const classSelectOptions = useMemo(() => {
+    const poolLength =
+      sessionFilter === "ALL"
+        ? invoicesList.length
+        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter).length;
+
+    return [
+      { label: `All Classes (${poolLength})`, value: "ALL" },
+      ...CLASS_LIST.filter((cls) => cls !== "ALL").map((cls) => {
+        const count = classCounts[cls] || 0;
+        return { label: `Class ${cls} (${count})`, value: cls };
+      }),
+    ];
+  }, [invoicesList, sessionFilter, classCounts]);
+
+  // Options for Admission Category & Mode Select Dropdown
+  const admissionCategoryOptions = useMemo(() => {
+    return [
+      { label: "All Categories", value: "ALL" },
+      { label: "New-Ad. Online", value: "NEW_ONLINE" },
+      { label: "New-Ad. Offline", value: "NEW_OFFLINE" },
+      { label: "Re-Ad. Online", value: "RE_ONLINE" },
+      { label: "Re-Ad. Offline", value: "RE_OFFLINE" },
+    ];
+  }, []);
+
+  // Options for Date Preset Select Dropdown
+  const datePresetOptions = useMemo(() => {
+    return [
+      { label: "All Dates", value: "ALL" },
+      { label: "Today", value: "TODAY" },
+      { label: "Yesterday", value: "YESTERDAY" },
+      { label: "Last 7 Days", value: "LAST_7_DAYS" },
+      { label: "This Month", value: "THIS_MONTH" },
+      { label: "Custom Range...", value: "CUSTOM" },
+    ];
+  }, []);
 
   // Filtered list for Registry Dashboard
   const filteredList = useMemo(() => {
     return invoicesList.filter((inv) => {
+      if (sessionFilter !== "ALL" && (inv.academic_session || "2026").trim() !== sessionFilter) return false;
+
       if (typeFilter === "FILLED" && inv.is_blank) return false;
       if (typeFilter === "BLANK" && !inv.is_blank) return false;
 
-      if (modeFilter === "BULK" && inv.generator_mode !== "bulk") return false;
-      if (modeFilter === "SINGLE" && inv.generator_mode === "bulk") return false;
+      if (classFilter !== "ALL" && (inv.student_class || "").trim().toUpperCase() !== classFilter) return false;
 
-      if (classFilter !== "ALL" && inv.student_class !== classFilter) return false;
+      if (admissionCategoryFilter !== "ALL") {
+        const cat = getInvoiceCategoryAndMode(inv);
+        if (cat.key !== admissionCategoryFilter) return false;
+      }
+
+      if (modeFilter !== "ALL" && (inv.payment_mode || "Cash") !== modeFilter) return false;
 
       const st = (inv as any).invoice_status;
       if (statusFilter === "ACTIVE" && st === "cancelled") return false;
       if (statusFilter === "CANCELLED" && st !== "cancelled") return false;
+
+      if (!isDateInRange(inv, dateFilterPreset, startDate, endDate)) return false;
 
       if (tableSearch.trim()) {
         const q = tableSearch.toLowerCase().trim();
@@ -411,7 +644,19 @@ export function InvoiceTrackerModal({
 
       return true;
     });
-  }, [invoicesList, typeFilter, modeFilter, classFilter, statusFilter, tableSearch]);
+  }, [
+    invoicesList,
+    sessionFilter,
+    typeFilter,
+    classFilter,
+    admissionCategoryFilter,
+    modeFilter,
+    statusFilter,
+    dateFilterPreset,
+    startDate,
+    endDate,
+    tableSearch,
+  ]);
 
   // Pagination for ledger
   const totalPages = Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
@@ -419,6 +664,21 @@ export function InvoiceTrackerModal({
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredList.slice(start, start + PAGE_SIZE);
   }, [filteredList, currentPage]);
+
+  // Trigger A4 Full Audit Ledger Print
+  const handlePrintLedger = useCallback(() => {
+    if (filteredList.length === 0) {
+      showToast({ type: "info", title: "No Data", description: "No invoice records match filter to print." });
+      return;
+    }
+    setIsPrintingLedger(true);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setIsPrintingLedger(false);
+      }, 500);
+    }, 120);
+  }, [filteredList.length]);
 
   // Copy invoice number helper
   const handleCopyInvoice = useCallback((num: string, e?: React.MouseEvent) => {
@@ -667,21 +927,25 @@ export function InvoiceTrackerModal({
   // Filter count active check
   const isFiltered =
     Boolean(tableSearch.trim()) ||
+    sessionFilter !== "2026" ||
     typeFilter !== "ALL" ||
     modeFilter !== "ALL" ||
     classFilter !== "ALL" ||
-    statusFilter !== "ALL";
+    statusFilter !== "ALL" ||
+    admissionCategoryFilter !== "ALL" ||
+    dateFilterPreset !== "ALL" ||
+    Boolean(startDate) ||
+    Boolean(endDate);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       {/* 
-        FIXED PARTICULAR SIZE CONTAINER:
-        Modal retains the exact same dimensions regardless of tab or search state.
-        Never grows or shrinks abruptly.
+        EXPANDED EXTRA LARGE MODAL CONTAINER:
+        Spacious modern layout with fixed height ratio for comfortable audit work.
       */}
-      <DialogContent className="w-[96vw] max-w-5xl h-[88vh] max-h-[820px] min-h-[580px] p-0 flex flex-col gap-0 overflow-hidden rounded-3xl border border-border/80 shadow-2xl bg-background">
+      <DialogContent className="w-[98vw] max-w-[1400px] h-[92vh] max-h-[920px] min-h-[640px] p-0 flex flex-col gap-0 overflow-hidden rounded-3xl border border-border/80 shadow-2xl bg-background">
         {/* FIXED MODAL HEADER */}
-        <DialogHeader className="p-4 sm:px-6 sm:py-4 border-b border-border/70 shrink-0 bg-muted/20 space-y-3 pr-12">
+        <DialogHeader className="p-4 sm:px-6 sm:py-3.5 border-b border-border/70 shrink-0 bg-muted/20 space-y-3 pr-12">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center ring-1 ring-primary/20 shrink-0 shadow-2xs">
@@ -695,22 +959,37 @@ export function InvoiceTrackerModal({
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Comprehensive audit ledger, real-time fee collection, blank slip tracking, and verification.
+                  Comprehensive audit ledger, multi-year historical tracking, real-time fee collection, and verification.
                 </DialogDescription>
               </div>
             </div>
 
-            {/* Refresh Live Data */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={loadRegistryData}
-              disabled={isLoadingList}
-              className="h-8 text-xs font-semibold gap-1.5 cursor-pointer rounded-xl self-start sm:self-auto shrink-0 border-border/80 hover:bg-muted shadow-2xs"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5 text-primary", isLoadingList && "animate-spin")} />
-              <span>{isLoadingList ? "Syncing..." : "Refresh"}</span>
-            </Button>
+            {/* Header Action Buttons: Print Ledger & Refresh Live Data */}
+            <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+              {activeTab === "analytics" && (
+                <Button
+                  size="sm"
+                  onClick={handlePrintLedger}
+                  disabled={!hasProceeded || filteredList.length === 0}
+                  className="h-8 px-3.5 text-xs font-bold rounded-xl cursor-pointer bg-purple-600 hover:bg-purple-700 text-white shadow-2xs flex items-center gap-1.5"
+                  title="Print A4 Official Invoice Audit Ledger"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Ledger</span>
+                </Button>
+              )}
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadRegistryData}
+                disabled={isLoadingList}
+                className="h-8 text-xs font-semibold gap-1.5 cursor-pointer rounded-xl border-border/80 hover:bg-muted shadow-2xs"
+              >
+                <RefreshCw className={cn("h-3.5 w-3.5 text-primary", isLoadingList && "animate-spin")} />
+                <span>{isLoadingList ? "Syncing..." : "Refresh"}</span>
+              </Button>
+            </div>
           </div>
 
           {/* TAB SWITCHER: Registry & Statistics FIRST, then Verify Invoice, then Teacher Settlement */}
@@ -729,9 +1008,9 @@ export function InvoiceTrackerModal({
               >
                 <FileText className="h-3.5 w-3.5 text-primary" />
                 <span>Registry &amp; Statistics</span>
-                {stats && stats.totalInvoices > 0 && (
+                {displayedStats && displayedStats.totalInvoices > 0 && (
                   <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-primary/10 text-primary font-mono font-bold">
-                    {stats.totalInvoices}
+                    {displayedStats.totalInvoices}
                   </span>
                 )}
               </button>
@@ -786,39 +1065,43 @@ export function InvoiceTrackerModal({
                 {/* 1. Total Generated Receipts */}
                 <div className="p-3.5 rounded-2xl border border-border/80 bg-card space-y-1.5 shadow-2xs relative overflow-hidden">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-muted-foreground">Total Invoices</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Total Invoices {sessionFilter !== "ALL" ? `(${sessionFilter})` : ""}
+                    </span>
                     <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                       <Receipt className="h-4 w-4" />
                     </div>
                   </div>
                   <p className="text-2xl font-bold font-mono text-foreground">
-                    {stats?.totalInvoices || 0}
+                    {displayedStats?.totalInvoices || 0}
                   </p>
                   <div className="flex items-center gap-1.5 text-[10.5px] text-muted-foreground font-medium">
-                    <span className="text-emerald-600 font-semibold">{stats?.totalActive || 0} active</span>
+                    <span className="text-emerald-600 font-semibold">{displayedStats?.totalActive || 0} active</span>
                     <span>&bull;</span>
-                    <span className="text-rose-600 font-semibold">{stats?.totalCancelled || 0} void</span>
+                    <span className="text-rose-600 font-semibold">{displayedStats?.totalCancelled || 0} void</span>
                   </div>
                 </div>
 
                 {/* 2. Total Revenue Collection */}
                 <div className="p-3.5 rounded-2xl border border-border/80 bg-card space-y-1.5 shadow-2xs relative overflow-hidden">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-muted-foreground">Total Fee Collection</span>
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Total Fee Collection {sessionFilter !== "ALL" ? `(${sessionFilter})` : ""}
+                    </span>
                     <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                       <IndianRupee className="h-4 w-4" />
                     </div>
                   </div>
                   <p className="text-xl sm:text-2xl font-bold font-mono text-emerald-700 dark:text-emerald-400 truncate">
-                    ₹{(stats?.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                    ₹{(displayedStats?.totalAmount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                   </p>
                   <div className="text-[10px] text-muted-foreground truncate">
-                    {stats && stats.totalInvoices > 0 ? (
+                    {displayedStats && displayedStats.totalInvoices > 0 ? (
                       <span>
-                        Avg: ₹{Math.round((stats.totalAmount || 0) / (stats.totalActive || 1))} / invoice
+                        Avg: ₹{Math.round((displayedStats.totalAmount || 0) / (displayedStats.totalActive || 1))} / invoice
                       </span>
                     ) : (
-                      "All recorded receipts"
+                      "Session receipts total"
                     )}
                   </div>
                 </div>
@@ -833,12 +1116,12 @@ export function InvoiceTrackerModal({
                   </div>
                   <div className="flex items-baseline gap-1.5 text-sm font-bold">
                     <span className="text-teal-700 dark:text-teal-400 font-mono text-lg">
-                      {stats?.totalFilled || 0}
+                      {displayedStats?.totalFilled || 0}
                     </span>
                     <span className="text-muted-foreground text-[11px] font-normal">roster</span>
                     <span className="text-muted-foreground">&bull;</span>
                     <span className="text-amber-700 dark:text-amber-400 font-mono text-lg">
-                      {stats?.totalBlank || 0}
+                      {displayedStats?.totalBlank || 0}
                     </span>
                     <span className="text-muted-foreground text-[11px] font-normal">blank</span>
                   </div>
@@ -847,7 +1130,9 @@ export function InvoiceTrackerModal({
                     <div
                       style={{
                         width: `${
-                          stats && stats.totalInvoices > 0 ? (stats.totalFilled / stats.totalInvoices) * 100 : 50
+                          displayedStats && displayedStats.totalInvoices > 0
+                            ? (displayedStats.totalFilled / displayedStats.totalInvoices) * 100
+                            : 50
                         }%`,
                       }}
                       className="bg-teal-500 h-full transition-all"
@@ -856,7 +1141,9 @@ export function InvoiceTrackerModal({
                     <div
                       style={{
                         width: `${
-                          stats && stats.totalInvoices > 0 ? (stats.totalBlank / stats.totalInvoices) * 100 : 50
+                          displayedStats && displayedStats.totalInvoices > 0
+                            ? (displayedStats.totalBlank / displayedStats.totalInvoices) * 100
+                            : 50
                         }%`,
                       }}
                       className="bg-amber-500 h-full transition-all"
@@ -875,74 +1162,26 @@ export function InvoiceTrackerModal({
                   </div>
                   <div className="flex items-baseline gap-1.5 text-sm font-bold">
                     <span className="text-blue-700 dark:text-blue-400 font-mono text-lg">
-                      {stats?.totalBulk || 0}
+                      {displayedStats?.totalBulk || 0}
                     </span>
                     <span className="text-muted-foreground text-[11px] font-normal">batch</span>
                     <span className="text-muted-foreground">&bull;</span>
-                    <span className="text-foreground font-mono text-lg">{stats?.totalSingle || 0}</span>
+                    <span className="text-foreground font-mono text-lg">{displayedStats?.totalSingle || 0}</span>
                     <span className="text-muted-foreground text-[11px] font-normal">single</span>
                   </div>
                   <div className="text-[10px] text-muted-foreground truncate">
-                    {stats && stats.totalInvoices > 0
-                      ? `${Math.round(((stats.totalBulk || 0) / stats.totalInvoices) * 100)}% printed in batch`
+                    {displayedStats && displayedStats.totalInvoices > 0
+                      ? `${Math.round(((displayedStats.totalBulk || 0) / displayedStats.totalInvoices) * 100)}% printed in batch`
                       : "Batch generator mode"}
                   </div>
                 </div>
               </div>
 
-              {/* CLASS DISTRIBUTION QUICK SELECTOR PILLS */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
-                    <SlidersHorizontal className="h-3 w-3" />
-                    Filter by Class Distribution:
-                  </span>
-                  {classFilter !== "ALL" && (
-                    <button
-                      type="button"
-                      onClick={() => setClassFilter("ALL")}
-                      className="text-[10.5px] text-primary hover:underline font-semibold cursor-pointer"
-                    >
-                      Reset Class
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                  {CLASS_LIST.map((cls) => {
-                    const count = cls === "ALL" ? invoicesList.length : classCounts[cls] || 0;
-                    const isSelected = classFilter === cls;
-                    return (
-                      <button
-                        key={cls}
-                        type="button"
-                        onClick={() => setClassFilter(cls)}
-                        className={cn(
-                          "px-2.5 py-1 rounded-xl font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 border text-xs",
-                          isSelected
-                            ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                            : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/80"
-                        )}
-                      >
-                        <span>{cls === "ALL" ? "All Classes" : `Class ${cls}`}</span>
-                        <span
-                          className={cn(
-                            "text-[10px] px-1.5 py-0.2 rounded-full font-mono",
-                            isSelected ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted/80 text-foreground"
-                          )}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* TOOLBAR: SEARCH & ADVANCED FILTERS & EXPORT */}
+              {/* TOOLBAR: SEARCH & PROPORTIONAL DROPDOWN FILTERS & PROCEED BUTTON */}
               <div className="p-3 rounded-2xl border border-border/80 bg-muted/20 space-y-2.5">
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                <div className="flex flex-wrap items-center gap-2">
                   {/* Search input */}
-                  <div className="relative sm:col-span-4">
+                  <div className="relative min-w-[180px] flex-1">
                     <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       placeholder="Search receipt, student, roll, ID..."
@@ -952,80 +1191,150 @@ export function InvoiceTrackerModal({
                     />
                   </div>
 
-                  {/* Type Filter */}
-                  <div className="sm:col-span-3">
+                  {/* 0. Academic Session / Year Dropdown Selector */}
+                  <div className="w-[140px] shrink-0">
+                    <CustomSelect
+                      value={sessionFilter}
+                      onChange={(val) => setSessionFilter(String(val))}
+                      options={sessionOptions}
+                      searchable={false}
+                      placeholder="Session: 2026"
+                      triggerClassName="h-8 text-xs font-semibold rounded-xl bg-background border-primary/40 text-primary"
+                    />
+                  </div>
+
+                  {/* 1. Class Dropdown Selector */}
+                  <div className="w-[140px] shrink-0">
+                    <CustomSelect
+                      value={classFilter}
+                      onChange={(val) => setClassFilter(String(val))}
+                      options={classSelectOptions}
+                      searchable={false}
+                      placeholder="Class: All"
+                      triggerClassName="h-8 text-xs font-semibold rounded-xl bg-background"
+                    />
+                  </div>
+
+                  {/* 2. Admission Category & Mode Filter */}
+                  <div className="w-[160px] shrink-0">
+                    <CustomSelect
+                      value={admissionCategoryFilter}
+                      onChange={(val) => setAdmissionCategoryFilter(val as any)}
+                      options={admissionCategoryOptions}
+                      searchable={false}
+                      placeholder="Category: All"
+                      triggerClassName="h-8 text-xs font-semibold rounded-xl bg-background"
+                    />
+                  </div>
+
+                  {/* 3. Date Range Preset Filter */}
+                  <div className="w-[135px] shrink-0">
+                    <CustomSelect
+                      value={dateFilterPreset}
+                      onChange={(val) => setDateFilterPreset(val as DatePreset)}
+                      options={datePresetOptions}
+                      searchable={false}
+                      placeholder="Date: All"
+                      triggerClassName="h-8 text-xs font-semibold rounded-xl bg-background"
+                    />
+                  </div>
+
+                  {/* 4. Slip Type Filter */}
+                  <div className="w-[120px] shrink-0">
                     <CustomSelect
                       value={typeFilter}
                       onChange={(val) => setTypeFilter(val as any)}
                       options={[
                         { label: "All Types", value: "ALL" },
-                        { label: "Pre-Filled Roster", value: "FILLED" },
+                        { label: "Pre-Filled", value: "FILLED" },
                         { label: "Blank Slips", value: "BLANK" },
                       ]}
                       searchable={false}
+                      placeholder="Type: All"
                       triggerClassName="h-8 text-xs rounded-xl bg-background"
                     />
                   </div>
 
-                  {/* Mode Filter */}
-                  <div className="sm:col-span-2">
-                    <CustomSelect
-                      value={modeFilter}
-                      onChange={(val) => setModeFilter(val as any)}
-                      options={[
-                        { label: "All Modes", value: "ALL" },
-                        { label: "Batch Mode", value: "BULK" },
-                        { label: "Single Mode", value: "SINGLE" },
-                      ]}
-                      searchable={false}
-                      triggerClassName="h-8 text-xs rounded-xl bg-background"
-                    />
-                  </div>
-
-                  {/* Status Filter */}
-                  <div className="sm:col-span-3 flex items-center gap-1.5">
+                  {/* 5. Status Filter */}
+                  <div className="w-[115px] shrink-0">
                     <CustomSelect
                       value={statusFilter}
                       onChange={(val) => setStatusFilter(val as any)}
                       options={[
                         { label: "All Status", value: "ALL" },
-                        { label: "Active Only", value: "ACTIVE" },
-                        { label: "Cancelled Only", value: "CANCELLED" },
+                        { label: "Active", value: "ACTIVE" },
+                        { label: "Cancelled", value: "CANCELLED" },
                       ]}
                       searchable={false}
-                      triggerClassName="h-8 text-xs rounded-xl bg-background flex-1"
+                      placeholder="Status: All"
+                      triggerClassName="h-8 text-xs rounded-xl bg-background"
                     />
-
-                    {/* Export CSV Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleExportCSV}
-                      disabled={filteredList.length === 0}
-                      className="h-8 px-2.5 text-xs font-semibold rounded-xl shrink-0 cursor-pointer border-border/80 hover:bg-background"
-                      title="Export filtered records to CSV"
-                    >
-                      <Download className="h-3.5 w-3.5 mr-1" />
-                      <span className="hidden sm:inline">CSV</span>
-                    </Button>
                   </div>
+
+                  {/* 6. Proceed / Apply Filters Button */}
+                  <Button
+                    size="sm"
+                    onClick={() => setHasProceeded(true)}
+                    className="h-8 px-4 text-xs font-bold rounded-xl shrink-0 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs flex items-center gap-1.5"
+                  >
+                    <span>Proceed</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
+
+                {/* Custom Date Inputs Row when Custom Range is selected */}
+                {dateFilterPreset === "CUSTOM" && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-border/50 text-xs">
+                    <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5 text-primary" /> Custom Range:
+                    </span>
+                    <Input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="h-7 text-xs w-[140px] rounded-lg bg-background"
+                      placeholder="Start Date"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="h-7 text-xs w-[140px] rounded-lg bg-background"
+                      placeholder="End Date"
+                    />
+                  </div>
+                )}
 
                 {/* Filter Summary & Quick Reset */}
                 {isFiltered && (
                   <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/60">
                     <span>
-                      Filtered: <strong className="text-foreground">{filteredList.length}</strong> of{" "}
-                      {invoicesList.length} invoices
+                      {hasProceeded ? (
+                        <>
+                          Filtered: <strong className="text-foreground">{filteredList.length}</strong> of{" "}
+                          {invoicesList.length} invoices
+                          {sessionFilter !== "ALL" && (
+                            <> (Session: <strong className="text-primary">{sessionFilter}</strong>)</>
+                          )}
+                        </>
+                      ) : (
+                        <>Filters selected. Click <strong>Proceed</strong> to load results.</>
+                      )}
                     </span>
                     <button
                       type="button"
                       onClick={() => {
                         setTableSearch("");
+                        setSessionFilter("2026");
                         setTypeFilter("ALL");
-                        setModeFilter("ALL");
+                        setAdmissionCategoryFilter("ALL");
                         setClassFilter("ALL");
                         setStatusFilter("ALL");
+                        setModeFilter("ALL");
+                        setDateFilterPreset("ALL");
+                        setStartDate("");
+                        setEndDate("");
                       }}
                       className="text-primary hover:underline font-semibold cursor-pointer"
                     >
@@ -1035,208 +1344,235 @@ export function InvoiceTrackerModal({
                 )}
               </div>
 
-              {/* STANDARD INVOICES REGISTRY TABLE */}
-              <div className="rounded-2xl border border-border/80 overflow-hidden bg-card shadow-2xs">
-                {/* Table Header Row (Desktop) */}
-                <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-2 bg-muted/50 border-b text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                  <div className="col-span-3">Invoice # / Type</div>
-                  <div className="col-span-4">Student &amp; Guardian Info</div>
-                  <div className="col-span-2">Class &amp; Roll</div>
-                  <div className="col-span-2 text-right">Fee Amount</div>
-                  <div className="col-span-1 text-center">Action</div>
+              {/* CONDITIONAL TABLE RENDERING: PROCEED FIRST OR VIEW TABLE */}
+              {!hasProceeded ? (
+                <div className="rounded-2xl border border-dashed border-border/80 bg-card p-10 text-center space-y-3.5 shadow-2xs">
+                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto ring-1 ring-primary/20">
+                    <Filter className="h-6 w-6" />
+                  </div>
+                  <div className="max-w-md mx-auto space-y-1">
+                    <h3 className="font-bold text-foreground text-sm">Select Filters &amp; Click Proceed</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Configure your class, admission category, date range, or slip type filters above, then click Proceed to load matching invoice records.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setHasProceeded(true)}
+                    className="h-8 px-5 text-xs font-bold rounded-xl cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs inline-flex items-center gap-1.5"
+                  >
+                    <span>Proceed &amp; Load Records</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
+              ) : (
+                /* STANDARD INVOICES REGISTRY TABLE */
+                <div className="rounded-2xl border border-border/80 overflow-hidden bg-card shadow-2xs">
+                  {/* Table Header Row (Desktop) */}
+                  <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-2 bg-muted/50 border-b text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <div className="col-span-3">Invoice # / Type</div>
+                    <div className="col-span-4">Student &amp; Guardian Info</div>
+                    <div className="col-span-2">Class &amp; Roll</div>
+                    <div className="col-span-2 text-right">Fee Amount</div>
+                    <div className="col-span-1 text-center">Action</div>
+                  </div>
 
-                {/* Table Content List */}
-                <div className="divide-y divide-border/60 max-h-[380px] overflow-y-auto text-xs">
-                  {filteredList.length === 0 ? (
-                    <div className="p-10 text-center text-muted-foreground space-y-2">
-                      <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground/60 border border-border/60">
-                        <FileText className="h-6 w-6" />
+                  {/* Table Content List */}
+                  <div className="divide-y divide-border/60 max-h-[380px] overflow-y-auto text-xs">
+                    {filteredList.length === 0 ? (
+                      <div className="p-10 text-center text-muted-foreground space-y-2">
+                        <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground/60 border border-border/60">
+                          <FileText className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-foreground text-sm">No matching invoices found in registry</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 max-w-sm mx-auto">
+                            {invoicesList.length > 0
+                              ? "Try adjusting your search keywords, date range, or clearing active filters."
+                              : "Generated and printed invoices will automatically populate this central audit ledger."}
+                          </p>
+                        </div>
+                        {isFiltered && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setTableSearch("");
+                              setTypeFilter("ALL");
+                              setAdmissionCategoryFilter("ALL");
+                              setModeFilter("ALL");
+                              setClassFilter("ALL");
+                              setStatusFilter("ALL");
+                              setDateFilterPreset("ALL");
+                              setStartDate("");
+                              setEndDate("");
+                            }}
+                            className="h-8 text-xs mt-2 rounded-xl cursor-pointer"
+                          >
+                            Clear All Filters
+                          </Button>
+                        )}
                       </div>
-                      <div>
-                        <p className="font-semibold text-foreground text-sm">No matching invoices found in registry</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 max-w-sm mx-auto">
-                          {invoicesList.length > 0
-                            ? "Try adjusting your search keywords or clearing active filters."
-                            : "Generated and printed invoices will automatically populate this central audit ledger."}
-                        </p>
-                      </div>
-                      {isFiltered && (
+                    ) : (
+                      paginatedList.map((inv) => {
+                        const isCancelled = (inv as any).invoice_status === "cancelled";
+                        return (
+                          <div
+                            key={inv.id || inv.invoice_number}
+                            className={cn(
+                              "p-3 sm:px-3 sm:py-2.5 sm:grid sm:grid-cols-12 gap-2 items-center hover:bg-muted/40 transition-colors",
+                              isCancelled && "opacity-60 bg-rose-500/5"
+                            )}
+                          >
+                            {/* Col 1: Invoice # & Type */}
+                            <div className="col-span-3 space-y-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono font-bold text-foreground text-xs select-all">
+                                  {inv.invoice_number}
+                                </span>
+                                <button
+                                  type="button"
+                                  title="Copy invoice number"
+                                  onClick={(e) => handleCopyInvoice(inv.invoice_number, e)}
+                                  className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded hover:bg-muted"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-[9px] px-1.5 py-0 rounded-md font-semibold",
+                                    inv.is_blank
+                                      ? "border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/20"
+                                      : "border-teal-400 text-teal-700 bg-teal-50 dark:bg-teal-950/20"
+                                  )}
+                                >
+                                  {inv.is_blank ? "Blank Slip" : "Pre-Filled"}
+                                </Badge>
+                                <span className="text-[9.5px] text-muted-foreground font-mono">
+                                  {inv.generator_mode === "bulk" ? "Batch" : "Single"}
+                                </span>
+                                {isCancelled && (
+                                  <Badge className="text-[9px] px-1 py-0 bg-rose-500/10 text-rose-600 border border-rose-400/30">
+                                    Cancelled
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Col 2: Student & Guardian Info */}
+                            <div className="col-span-4 min-w-0">
+                              <p className="font-semibold text-foreground truncate">
+                                {inv.student_name || (
+                                  <span className="text-muted-foreground italic font-normal">
+                                    [Blank Student Write-in]
+                                  </span>
+                                )}
+                              </p>
+                              <div className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
+                                {inv.guardian_name ? (
+                                  <span>G: {inv.guardian_name}</span>
+                                ) : inv.assigned_to ? (
+                                  <span className="text-amber-600 dark:text-amber-400">
+                                    Teacher: {inv.assigned_to}
+                                  </span>
+                                ) : null}
+                                {inv.student_id && (
+                                  <span className="font-mono">({inv.student_id})</span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Col 3: Class & Roll & Issue Date */}
+                            <div className="col-span-2">
+                              <p className="font-mono font-bold text-foreground">
+                                Class {inv.student_class}
+                                {inv.section ? `-${inv.section}` : ""}
+                                {inv.roll_no ? ` • Roll: ${inv.roll_no}` : ""}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground font-mono">
+                                {inv.issue_date} {inv.issue_time || ""}
+                              </p>
+                            </div>
+
+                            {/* Col 4: Amount */}
+                            <div className="col-span-2 text-left sm:text-right mt-1 sm:mt-0">
+                              <span className="font-mono font-bold text-sm text-foreground">
+                                ₹{Number(inv.total_amount).toFixed(2)}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">
+                                {inv.payment_mode || "Cash"}
+                              </span>
+                            </div>
+
+                            {/* Col 5: Actions */}
+                            <div className="col-span-1 flex items-center justify-end sm:justify-center gap-1 mt-2 sm:mt-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDirectVerify(inv.invoice_number)}
+                                className="h-7 text-[11px] px-2 font-semibold text-primary hover:text-primary hover:bg-primary/10 rounded-lg cursor-pointer"
+                                title="Verify full particulars and fee heads"
+                              >
+                                <span>Verify</span>
+                                <ChevronRight className="h-3 w-3 ml-0.5" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handlePrintStudentCopy(inv);
+                                }}
+                                className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer shrink-0 border-border/70"
+                                title="1-Click Reprint Student Copy"
+                              >
+                                <Printer className="h-3.5 w-3.5 text-emerald-600" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* PAGINATION FOOTER */}
+                  {filteredList.length > 0 && (
+                    <div className="p-2.5 px-4 bg-muted/30 border-t flex items-center justify-between text-xs text-muted-foreground">
+                      <span>
+                        Showing {(currentPage - 1) * PAGE_SIZE + 1}–
+                        {Math.min(currentPage * PAGE_SIZE, filteredList.length)} of {filteredList.length} records
+                      </span>
+                      <div className="flex items-center gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => {
-                            setTableSearch("");
-                            setTypeFilter("ALL");
-                            setModeFilter("ALL");
-                            setClassFilter("ALL");
-                            setStatusFilter("ALL");
-                          }}
-                          className="h-8 text-xs mt-2 rounded-xl cursor-pointer"
+                          disabled={currentPage <= 1}
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          className="h-7 w-7 p-0 rounded-lg cursor-pointer"
                         >
-                          Clear All Filters
+                          <ChevronLeft className="h-3.5 w-3.5" />
                         </Button>
-                      )}
-                    </div>
-                  ) : (
-                    paginatedList.map((inv) => {
-                      const isCancelled = (inv as any).invoice_status === "cancelled";
-                      return (
-                        <div
-                          key={inv.id || inv.invoice_number}
-                          className={cn(
-                            "p-3 sm:px-3 sm:py-2.5 sm:grid sm:grid-cols-12 gap-2 items-center hover:bg-muted/40 transition-colors",
-                            isCancelled && "opacity-60 bg-rose-500/5"
-                          )}
+                        <span className="text-[11px] font-mono font-bold px-2">
+                          {currentPage} / {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          className="h-7 w-7 p-0 rounded-lg cursor-pointer"
                         >
-                          {/* Col 1: Invoice # & Type */}
-                          <div className="col-span-3 space-y-1">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-mono font-bold text-foreground text-xs select-all">
-                                {inv.invoice_number}
-                              </span>
-                              <button
-                                type="button"
-                                title="Copy invoice number"
-                                onClick={(e) => handleCopyInvoice(inv.invoice_number, e)}
-                                className="text-muted-foreground hover:text-foreground cursor-pointer p-0.5 rounded hover:bg-muted"
-                              >
-                                <Copy className="h-3 w-3" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[9px] px-1.5 py-0 rounded-md font-semibold",
-                                  inv.is_blank
-                                    ? "border-amber-400 text-amber-700 bg-amber-50 dark:bg-amber-950/20"
-                                    : "border-teal-400 text-teal-700 bg-teal-50 dark:bg-teal-950/20"
-                                )}
-                              >
-                                {inv.is_blank ? "Blank Slip" : "Pre-Filled"}
-                              </Badge>
-                              <span className="text-[9.5px] text-muted-foreground font-mono">
-                                {inv.generator_mode === "bulk" ? "Batch" : "Single"}
-                              </span>
-                              {isCancelled && (
-                                <Badge className="text-[9px] px-1 py-0 bg-rose-500/10 text-rose-600 border border-rose-400/30">
-                                  Cancelled
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Col 2: Student & Guardian Info */}
-                          <div className="col-span-4 min-w-0">
-                            <p className="font-semibold text-foreground truncate">
-                              {inv.student_name || (
-                                <span className="text-muted-foreground italic font-normal">
-                                  [Blank Student Write-in]
-                                </span>
-                              )}
-                            </p>
-                            <div className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
-                              {inv.guardian_name ? (
-                                <span>G: {inv.guardian_name}</span>
-                              ) : inv.assigned_to ? (
-                                <span className="text-amber-600 dark:text-amber-400">
-                                  Teacher: {inv.assigned_to}
-                                </span>
-                              ) : null}
-                              {inv.student_id && (
-                                <span className="font-mono">({inv.student_id})</span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Col 3: Class & Roll & Issue Date */}
-                          <div className="col-span-2">
-                            <p className="font-mono font-bold text-foreground">
-                              Class {inv.student_class}
-                              {inv.section ? `-${inv.section}` : ""}
-                              {inv.roll_no ? ` • Roll: ${inv.roll_no}` : ""}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground font-mono">
-                              {inv.issue_date} {inv.issue_time || ""}
-                            </p>
-                          </div>
-
-                          {/* Col 4: Amount */}
-                          <div className="col-span-2 text-left sm:text-right mt-1 sm:mt-0">
-                            <span className="font-mono font-bold text-sm text-foreground">
-                              ₹{Number(inv.total_amount).toFixed(2)}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground">
-                              {inv.payment_mode || "Cash"}
-                            </span>
-                          </div>
-
-                          {/* Col 5: Actions */}
-                          <div className="col-span-1 flex items-center justify-end sm:justify-center gap-1 mt-2 sm:mt-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDirectVerify(inv.invoice_number)}
-                              className="h-7 text-[11px] px-2 font-semibold text-primary hover:text-primary hover:bg-primary/10 rounded-lg cursor-pointer"
-                              title="Verify full particulars and fee heads"
-                            >
-                              <span>Verify</span>
-                              <ChevronRight className="h-3 w-3 ml-0.5" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handlePrintStudentCopy(inv);
-                              }}
-                              className="h-7 w-7 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer shrink-0 border-border/70"
-                              title="1-Click Reprint Student Copy"
-                            >
-                              <Printer className="h-3.5 w-3.5 text-emerald-600" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
-
-                {/* PAGINATION FOOTER */}
-                {filteredList.length > 0 && (
-                  <div className="p-2.5 px-4 bg-muted/30 border-t flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                      {Math.min(currentPage * PAGE_SIZE, filteredList.length)} of {filteredList.length} records
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={currentPage <= 1}
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        className="h-7 w-7 p-0 rounded-lg cursor-pointer"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      </Button>
-                      <span className="text-[11px] font-mono font-bold px-2">
-                        {currentPage} / {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={currentPage >= totalPages}
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        className="h-7 w-7 p-0 rounded-lg cursor-pointer"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
           )}
 
@@ -1797,7 +2133,7 @@ export function InvoiceTrackerModal({
           )}
         </div>
 
-        {/* Scoped print CSS for 1-Click Student Copy Reprint */}
+        {/* Scoped print CSS for 1-Click Student Copy Reprint & A4 Ledger Portal */}
         <style jsx global>{`
           @media print {
             body:has(#single-invoice-reprint-portal) > *:not(#single-invoice-reprint-portal) {
@@ -1824,25 +2160,178 @@ export function InvoiceTrackerModal({
               background: #ffffff !important;
               overflow: visible !important;
             }
+
+            body:has(#ledger-print-portal) > *:not(#ledger-print-portal) {
+              display: none !important;
+            }
+            body:has(#ledger-print-portal) {
+              background: #ffffff !important;
+              color: #000000 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              overflow: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            #ledger-print-portal {
+              display: block !important;
+              width: 210mm !important;
+              min-height: 297mm !important;
+              margin: 0 auto !important;
+              padding: 8mm !important;
+              background: #ffffff !important;
+            }
             @page {
-              size: 210mm 148mm;
-              margin: 0;
+              size: A4 portrait;
+              margin: 5mm;
             }
           }
         `}</style>
 
-        {/* Portal Target in body: Renders only when active for zero DOM clutter */}
-        {mounted && (reprintInvoice || verificationResult.invoice) &&
-          createPortal(
-            <div id="single-invoice-reprint-portal" className="hidden print:flex items-center justify-center">
-              <InvoicePrintableView
-                data={dbRowToInvoiceData(reprintInvoice || verificationResult.invoice!)}
-                copyType="student"
-                schoolProfile={schoolProfile}
-              />
+        {/* Portal 1: Single Student Copy Reprint */}
+        {mounted && (reprintInvoice || verificationResult.invoice) && !isPrintingLedger
+          ? createPortal(
+              <div id="single-invoice-reprint-portal" className="hidden print:flex items-center justify-center">
+                <InvoicePrintableView
+                  data={dbRowToInvoiceData(reprintInvoice || verificationResult.invoice!)}
+                  copyType="student"
+                  schoolProfile={schoolProfile}
+                />
+              </div>,
+              document.body
+            )
+          : null}
+
+        {/* Portal 2: Full A4 Audit Ledger & Fee Registry Print */}
+        {mounted && isPrintingLedger
+          ? createPortal(
+              <div id="ledger-print-portal" className="hidden print:block bg-white text-black p-6 font-sans">
+              {/* Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {schoolProfile?.schoolLogoUrl ? (
+                    <img src={schoolProfile.schoolLogoUrl} alt="Logo" className="h-14 w-14 object-contain" />
+                  ) : null}
+                  <div>
+                    <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
+                      {schoolProfile?.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
+                    </h1>
+                    <p className="text-[11px] font-semibold text-slate-600">
+                      ESTD: {schoolProfile?.establishedYear || "1965"} • UDISE: {schoolProfile?.udiseCode || "19111305602"}
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      {schoolProfile?.schoolAddress || "Marigachi, Mathurapur II, South 24 Parganas, West Bengal - 743349"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right border-l pl-4 border-slate-300">
+                  <h2 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                    Official Invoice Audit Ledger
+                  </h2>
+                  <p className="text-[10px] font-bold text-slate-600 mt-0.5">
+                    Academic Session: {sessionFilter === "ALL" ? "All Sessions" : sessionFilter}
+                  </p>
+                  <p className="text-[9.5px] font-mono text-slate-500">
+                    Date: {new Date().toLocaleDateString("en-GB")} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter Summary Banner */}
+              <div className="bg-slate-100 p-2.5 rounded-lg border border-slate-300 text-[10px] font-semibold mb-4 flex items-center justify-between">
+                <div className="space-x-2">
+                  <span>Session: <strong className="text-slate-900">{sessionFilter === "ALL" ? "All Sessions" : sessionFilter}</strong></span>
+                  <span>•</span>
+                  <span>Class: <strong className="text-slate-900">{classFilter === "ALL" ? "All Classes" : `Class ${classFilter}`}</strong></span>
+                  <span>•</span>
+                  <span>Category/Mode: <strong className="text-slate-900">
+                    {admissionCategoryFilter === "ALL" ? "All Categories" : admissionCategoryFilter.replace("_", " ")}
+                  </strong></span>
+                  <span>•</span>
+                  <span>Status: <strong className="text-slate-900">{statusFilter}</strong></span>
+                </div>
+                <div>
+                  <span>Total Records: <strong className="text-slate-900">{filteredList.length}</strong></span>
+                  <span className="mx-2">•</span>
+                  <span>Total Amount: <strong className="text-slate-900">₹{(filteredList.reduce((sum, i) => (i as any).invoice_status !== 'cancelled' ? sum + (Number(i.total_amount) || 0) : sum, 0)).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</strong></span>
+                </div>
+              </div>
+
+              {/* Table */}
+              <table className="w-full border-collapse text-[10px] text-slate-800">
+                <thead>
+                  <tr className="bg-slate-900 text-white font-bold text-left">
+                    <th className="p-1.5 border border-slate-900 w-8 text-center">#</th>
+                    <th className="p-1.5 border border-slate-900">Invoice No</th>
+                    <th className="p-1.5 border border-slate-900">Date &amp; Time</th>
+                    <th className="p-1.5 border border-slate-900">Student &amp; Guardian Info</th>
+                    <th className="p-1.5 border border-slate-900">Class &amp; Roll</th>
+                    <th className="p-1.5 border border-slate-900">Category &amp; Mode</th>
+                    <th className="p-1.5 border border-slate-900 text-right">Amount (₹)</th>
+                    <th className="p-1.5 border border-slate-900 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredList.map((inv, idx) => {
+                    const cat = getInvoiceCategoryAndMode(inv);
+                    const isCancelled = (inv as any).invoice_status === "cancelled";
+                    return (
+                      <tr
+                        key={inv.id || inv.invoice_number}
+                        className={`border-b border-slate-300 ${idx % 2 === 1 ? "bg-slate-50" : "bg-white"} ${
+                          isCancelled ? "line-through text-slate-400" : ""
+                        }`}
+                      >
+                        <td className="p-1 border border-slate-300 text-center font-mono">{idx + 1}</td>
+                        <td className="p-1 border border-slate-300 font-mono font-bold">{inv.invoice_number}</td>
+                        <td className="p-1 border border-slate-300 whitespace-nowrap">
+                          {inv.issue_date} {inv.issue_time || ""}
+                        </td>
+                        <td className="p-1 border border-slate-300 font-medium">
+                          <div>{inv.student_name || "[Blank Slip Write-in]"}</div>
+                          {inv.guardian_name && (
+                            <div className="text-[9px] text-slate-500">G: {inv.guardian_name}</div>
+                          )}
+                        </td>
+                        <td className="p-1 border border-slate-300 font-semibold">
+                          {inv.student_class
+                            ? `Class ${inv.student_class} ${inv.section ? `- ${inv.section}` : ""} (Roll: ${
+                                inv.roll_no || "-"
+                              })`
+                            : "N/A"}
+                        </td>
+                        <td className="p-1 border border-slate-300 font-semibold">
+                          <span>{cat.label}</span> ({inv.payment_mode || "Cash"})
+                        </td>
+                        <td className="p-1 border border-slate-300 text-right font-mono font-bold">
+                          ₹{Number(inv.total_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="p-1 border border-slate-300 text-center font-bold">
+                          {isCancelled ? "CANCELLED" : "ACTIVE"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
+              {/* Signature Footer */}
+              <div className="mt-14 pt-6 border-t border-slate-400 flex items-end justify-between text-[11px] font-bold text-slate-800">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  Accountant / Cashier
+                </div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">
+                  Teacher In-Charge
+                </div>
+                <div className="text-center w-52 border-t border-slate-400 pt-1">
+                  Headmaster / Principal (Seal)
+                </div>
+              </div>
             </div>,
             document.body
-          )}
+          )
+        : null}
       </DialogContent>
     </Dialog>
   );

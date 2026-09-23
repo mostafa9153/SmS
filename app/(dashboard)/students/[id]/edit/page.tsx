@@ -22,6 +22,7 @@ import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constan
 const studentSchema = z.object({
   // Identity
   name: z.string().min(2, "Name is required"),
+  studentNameBengali: z.string().optional(),
   schoolId: z
     .string()
     .min(1, "School ID is required")
@@ -50,6 +51,8 @@ const studentSchema = z.object({
   minorityGroup: z.string().optional(),
   isAay: z.coerce.boolean().optional(),
   isEws: z.coerce.boolean().optional(),
+  bplStatus: z.string().optional(),
+  bplNo: z.string().optional(),
   isOutOfSchool: z.coerce.boolean().optional(),
   mainstreamedDate: z.string().optional(),
 
@@ -57,13 +60,16 @@ const studentSchema = z.object({
   isCwsn: z.coerce.boolean().optional(),
   impairmentType: z.string().optional(),
   hasDisabilityCertificate: z.coerce.boolean().optional(),
+  disabilityCertificateNo: z.string().optional(),
   disabilityPercentage: z.coerce.number().optional().nullable(),
   sldType: z.string().optional(),
 
   // Family Info
   fatherName: z.string().min(2, "Father's name is required"),
+  fatherNameBengali: z.string().optional(),
   fatherOccupation: z.string().optional(),
   motherName: z.string().min(2, "Mother's name is required"),
+  motherNameBengali: z.string().optional(),
   motherOccupation: z.string().optional(),
   guardianName: z.string().optional(),
   relationshipWithGuardian: z.string().optional(),
@@ -71,11 +77,13 @@ const studentSchema = z.object({
   guardianQualification: z.string().optional(),
   annualFamilyIncome: z.coerce.number().optional().nullable(),
 
-  // Contact
+  // Contact & Address
   studentContact: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
   altMobile: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
   email: z.string().optional().refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email"),
   address: z.string().optional(),
+  gramPanchayat: z.string().optional(),
+  block: z.string().optional(),
   pincode: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{6}$/.test(v.trim()), "Pincode must be 6 digits"),
 
   // Academic Enrolment
@@ -92,6 +100,13 @@ const studentSchema = z.object({
   academicStream: z.string().optional(),
   boardRegistrationNo: z.string().optional().nullable(),
   boardRollNo: z.string().optional().nullable(),
+  bengaliMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  englishMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  mathMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  lifeSciMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  phySciMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  historyMarks: z.coerce.number().min(0).max(100).optional().nullable(),
+  geoMarks: z.coerce.number().min(0).max(100).optional().nullable(),
 
   // Language studied (comma separated)
   languageGroupInput: z.string().optional(),
@@ -126,6 +141,8 @@ const studentSchema = z.object({
   highestEducationParents: z.string().optional(),
 
   // Bank
+  bankName: z.string().optional(),
+  bankBranch: z.string().optional(),
   bankIfsc: z.string().optional(),
   bankAccountNo: z.string().optional(),
 
@@ -217,6 +234,7 @@ export default function EditStudentPage() {
     values: student
       ? {
         name: student.name,
+        studentNameBengali: student.studentNameBengali ?? "",
         schoolId: student.schoolId,
         dob: student.dob,
         gender: student.gender,
@@ -234,18 +252,23 @@ export default function EditStudentPage() {
         minorityGroup: student.minorityGroup ?? "",
         isAay: !!student.isAay,
         isEws: !!student.isEws,
+        bplStatus: student.bplStatus ?? "NO",
+        bplNo: student.bplNo ?? "",
         isOutOfSchool: !!student.isOutOfSchool,
         mainstreamedDate: student.mainstreamedDate ?? "",
 
         isCwsn: !!student.isCwsn,
         impairmentType: student.impairmentType ?? "",
         hasDisabilityCertificate: !!student.hasDisabilityCertificate,
+        disabilityCertificateNo: student.disabilityCertificateNo ?? "",
         disabilityPercentage: student.disabilityPercentage,
         sldType: student.sldType ?? "",
 
         fatherName: student.fatherName,
+        fatherNameBengali: student.fatherNameBengali ?? "",
         fatherOccupation: student.fatherOccupation ?? "",
         motherName: student.motherName,
+        motherNameBengali: student.motherNameBengali ?? "",
         motherOccupation: student.motherOccupation ?? "",
         guardianName: student.guardianName ?? "",
         relationshipWithGuardian: student.relationshipWithGuardian ?? "",
@@ -257,6 +280,8 @@ export default function EditStudentPage() {
         altMobile: student.altMobile ?? "",
         email: student.email ?? "",
         address: student.address ?? "",
+        gramPanchayat: student.gramPanchayat ?? "",
+        block: student.block ?? "",
         pincode: student.pincode ?? "",
 
         presentClass: student.presentClass,
@@ -272,6 +297,13 @@ export default function EditStudentPage() {
         academicStream: student.academicStream ?? "",
         boardRegistrationNo: student.boardRegistrationNo ?? "",
         boardRollNo: student.boardRollNo ?? "",
+        bengaliMarks: student.bengaliMarks,
+        englishMarks: student.englishMarks,
+        mathMarks: student.mathMarks,
+        lifeSciMarks: student.lifeSciMarks,
+        phySciMarks: student.phySciMarks,
+        historyMarks: student.historyMarks,
+        geoMarks: student.geoMarks,
 
         languageGroupInput: student.languageGroup ? student.languageGroup.join(", ") : "",
         mandatorySubjectsInput: student.mandatorySubjects ? student.mandatorySubjects.join(", ") : "",
@@ -300,6 +332,8 @@ export default function EditStudentPage() {
         distanceToSchool: student.distanceToSchool,
         highestEducationParents: student.highestEducationParents ?? "",
 
+        bankName: student.bankName ?? "",
+        bankBranch: student.bankBranch ?? "",
         bankIfsc: student.bankIfsc ?? "",
         bankAccountNo: student.bankAccountNo ?? "",
 
@@ -316,6 +350,7 @@ export default function EditStudentPage() {
 
   const isOutOfSchoolChecked = watch("isOutOfSchool");
   const watchSocialCategory = watch("socialCategory");
+  const watchBplStatus = watch("bplStatus");
   const isCwsnChecked = watch("isCwsn");
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
@@ -333,6 +368,16 @@ export default function EditStudentPage() {
   const relationshipWatched = watch("relationshipWithGuardian");
   const studentContactWatched = watch("studentContact");
   const altMobileWatched = watch("altMobile");
+
+  const mBengali = Number(watch("bengaliMarks")) || 0;
+  const mEnglish = Number(watch("englishMarks")) || 0;
+  const mMath = Number(watch("mathMarks")) || 0;
+  const mLifeSci = Number(watch("lifeSciMarks")) || 0;
+  const mPhySci = Number(watch("phySciMarks")) || 0;
+  const mHistory = Number(watch("historyMarks")) || 0;
+  const mGeo = Number(watch("geoMarks")) || 0;
+  const madhyamikTotal = mBengali + mEnglish + mMath + mLifeSci + mPhySci + mHistory + mGeo;
+  const madhyamikPercent = ((madhyamikTotal / 700) * 100).toFixed(2);
 
   // Auto-sync admission year when admission date is chosen
   useEffect(() => {
@@ -481,6 +526,9 @@ export default function EditStudentPage() {
           <FormGrid>
             <FormField label="Full Name *" error={errors.name?.message}>
               <input {...register("name")} />
+            </FormField>
+            <FormField label="Student Name in Bengali (ছাত্রের নাম বাংলায়)" error={errors.studentNameBengali?.message}>
+              <input {...register("studentNameBengali")} placeholder="ছাত্রের পুরো নাম বাংলায় লিখুন" />
             </FormField>
             <FormField label="School ID *" error={errors.schoolId?.message}>
               <Controller
@@ -658,6 +706,27 @@ export default function EditStudentPage() {
                 )}
               />
             </FormField>
+            <FormField label="BPL Status (বিপিএল তালিকাভুক্ত কি?)" error={errors.bplStatus?.message}>
+              <Controller
+                control={control}
+                name="bplStatus"
+                render={({ field }) => (
+                  <CustomSelect
+                    value={field.value ?? "NO"}
+                    onChange={field.onChange}
+                    options={[
+                      { label: "No (না)", value: "NO" },
+                      { label: "Yes (হ্যাঁ)", value: "YES" },
+                    ]}
+                  />
+                )}
+              />
+            </FormField>
+            {watchBplStatus === "YES" && (
+              <FormField label="BPL Card Number (বিপিএল কার্ড নং)" error={errors.bplNo?.message}>
+                <input {...register("bplNo")} placeholder="Enter BPL card number" />
+              </FormField>
+            )}
             <FormField label="Out-of-School Child?" error={errors.isOutOfSchool?.message}>
               <Controller
                 control={control}
@@ -723,9 +792,14 @@ export default function EditStudentPage() {
                   />
                 </FormField>
                 {hasDisabilityCertChecked && (
-                  <FormField label="Disability Percentage (%)" error={errors.disabilityPercentage?.message}>
-                    <input {...register("disabilityPercentage")} type="number" />
-                  </FormField>
+                  <>
+                    <FormField label="Disability Certificate Number (সার্টিফিকেট নম্বর)" error={errors.disabilityCertificateNo?.message}>
+                      <input {...register("disabilityCertificateNo")} placeholder="Enter certificate number" />
+                    </FormField>
+                    <FormField label="Disability Percentage (%)" error={errors.disabilityPercentage?.message}>
+                      <input {...register("disabilityPercentage")} type="number" />
+                    </FormField>
+                  </>
                 )}
               </>
             )}
@@ -740,6 +814,9 @@ export default function EditStudentPage() {
           <FormGrid>
             <FormField label="Father's Name *" error={errors.fatherName?.message}>
               <input {...register("fatherName")} />
+            </FormField>
+            <FormField label="Father's Name in Bengali (পিতার নাম বাংলায়)" error={errors.fatherNameBengali?.message}>
+              <input {...register("fatherNameBengali")} placeholder="পিতার পুরো নাম বাংলায়" />
             </FormField>
             <FormField label="Father's Occupation" error={errors.fatherOccupation?.message}>
               <Controller
@@ -765,6 +842,9 @@ export default function EditStudentPage() {
             </FormField>
             <FormField label="Mother's Name *" error={errors.motherName?.message}>
               <input {...register("motherName")} />
+            </FormField>
+            <FormField label="Mother's Name in Bengali (মাতার নাম বাংলায়)" error={errors.motherNameBengali?.message}>
+              <input {...register("motherNameBengali")} placeholder="মাতার পুরো নাম বাংলায়" />
             </FormField>
             <FormField label="Mother's Occupation" error={errors.motherOccupation?.message}>
               <Controller
@@ -871,8 +951,14 @@ export default function EditStudentPage() {
                 onChange={(addr) => setValue("address", addr, { shouldValidate: true })}
                 pincodeValue={watch("pincode") || ""}
                 onPincodeChange={(pin) => setValue("pincode", pin, { shouldValidate: true })}
+                gramPanchayatValue={watch("gramPanchayat") || ""}
+                onGramPanchayatChange={(gp) => setValue("gramPanchayat", gp, { shouldValidate: true })}
+                blockValue={watch("block") || ""}
+                onBlockChange={(blk) => setValue("block", blk, { shouldValidate: true })}
                 error={errors.address?.message}
                 pincodeError={errors.pincode?.message}
+                gramPanchayatError={errors.gramPanchayat?.message}
+                blockError={errors.block?.message}
               />
             </div>
           </FormGrid>
@@ -904,7 +990,7 @@ export default function EditStudentPage() {
                     value={field.value ?? ""}
                     onChange={field.onChange}
                     placeholder="Select section..."
-                    options={["A", "B", "C"].map((s) => ({ label: `Section ${s}`, value: s }))}
+                    options={["A", "B", "C", "D"].map((s) => ({ label: `Section ${s}`, value: s }))}
                   />
                 )}
               />
@@ -998,6 +1084,47 @@ export default function EditStudentPage() {
                     />
                   </FormField>
                 </>
+              );
+            })()}
+            {(() => {
+              const normalizedClass = (watchPresentClass || "").toUpperCase().replace(/^CLASS\s*/i, "").trim();
+              const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
+              if (!isHs) return null;
+              return (
+                <div className="sm:col-span-2 md:col-span-3 space-y-2 pt-3 border-t">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <p className="text-xs font-semibold text-foreground">Madhyamik (Class 10) Examination Marks (মাধ্যমিক পরীক্ষার প্রাপ্ত নম্বর)</p>
+                    {madhyamikTotal > 0 && (
+                      <div className="flex items-center gap-3 text-xs bg-primary/10 text-primary px-3 py-1 rounded-full font-semibold">
+                        <span>Total: {madhyamikTotal} / 700</span>
+                        <span>Percentage: {madhyamikPercent}%</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    <FormField label="1. Bengali" error={errors.bengaliMarks?.message}>
+                      <input {...register("bengaliMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="2. English" error={errors.englishMarks?.message}>
+                      <input {...register("englishMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="3. Mathematics" error={errors.mathMarks?.message}>
+                      <input {...register("mathMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="4. Life Sci" error={errors.lifeSciMarks?.message}>
+                      <input {...register("lifeSciMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="5. Phys Sci" error={errors.phySciMarks?.message}>
+                      <input {...register("phySciMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="6. History" error={errors.historyMarks?.message}>
+                      <input {...register("historyMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                    <FormField label="7. Geography" error={errors.geoMarks?.message}>
+                      <input {...register("geoMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
+                    </FormField>
+                  </div>
+                </div>
               );
             })()}
           </FormGrid>
@@ -1180,6 +1307,14 @@ export default function EditStudentPage() {
 
         {/* Section 8: Bank Details */}
         <FormSection title="H. Bank Details">
+          <FormGrid>
+            <FormField label="Bank Name (ব্যাংকের নাম)" error={errors.bankName?.message}>
+              <input {...register("bankName")} placeholder="যেমন: State Bank of India" />
+            </FormField>
+            <FormField label="Branch Name (শাখার নাম)" error={errors.bankBranch?.message}>
+              <input {...register("bankBranch")} placeholder="যেমন: Bongaon Branch" />
+            </FormField>
+          </FormGrid>
           <SmartBankInput
             accountNumberValue={watch("bankAccountNo") || ""}
             onAccountNumberChange={(val) => setValue("bankAccountNo", val, { shouldValidate: true })}

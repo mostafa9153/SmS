@@ -110,7 +110,7 @@ export function SmartPreviousSchoolInput({
             autoFocus
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="Type custom school name..."
+            placeholder="আগের স্কুলের নাম"
             className="text-xs h-8 rounded-lg bg-background border-blue-500/60 focus:border-blue-500 focus:ring-blue-500/20 text-foreground"
           />
         </div>

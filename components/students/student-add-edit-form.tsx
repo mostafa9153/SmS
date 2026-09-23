@@ -26,13 +26,7 @@ import {
 const studentSchema = z.object({
   // Identity
   name: z.string().min(2, "Name is required"),
-  schoolId: z
-    .string()
-    .min(1, "School ID is required")
-    .regex(
-      /^[A-Z0-9/_-]+$/i,
-      "School ID format: MHS/CLASS/YEAR/REG (e.g. MHS/IX/2024/105)"
-    ),
+  schoolId: z.string().optional(),
   dob: z.string().refine((v) => {
     if (!v) return false;
     const d = new Date(v);
@@ -80,6 +74,8 @@ const studentSchema = z.object({
   altMobile: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "Contact must be 10 digits"),
   email: z.string().optional().refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email"),
   address: z.string().optional(),
+  gramPanchayat: z.string().optional(),
+  block: z.string().optional(),
   pincode: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{6}$/.test(v.trim()), "Pincode must be 6 digits"),
 
   // Academic Enrolment
@@ -197,13 +193,19 @@ const STREAM_OPTIONS = [
 
 export interface StudentAddEditFormProps {
   aiExtractedData?: Record<string, any>;
+  initialData?: Record<string, any>;
   onSuccess?: (student: Student) => void;
+  onSubmitData?: (formData: any) => void;
+  submitButtonText?: string;
   isEmbedded?: boolean;
 }
 
 export function StudentAddEditForm({
   aiExtractedData,
+  initialData,
   onSuccess,
+  onSubmitData,
+  submitButtonText,
   isEmbedded = false,
 }: StudentAddEditFormProps) {
   const router = useRouter();
@@ -244,6 +246,7 @@ export function StudentAddEditForm({
       fatherOccupation: "",
       motherOccupation: "",
       mediumOfInstruction: "Bengali",
+      ...(initialData || {}),
     },
   });
 
@@ -458,6 +461,10 @@ export function StudentAddEditForm({
   });
 
   function onSubmit(data: FormData) {
+    if (onSubmitData) {
+      onSubmitData(data);
+      return;
+    }
     mutation.mutate(data);
   }
 
@@ -841,8 +848,14 @@ export function StudentAddEditForm({
                 onChange={(addr) => setValue("address", addr, { shouldValidate: true })}
                 pincodeValue={watch("pincode") || ""}
                 onPincodeChange={(pin) => setValue("pincode", pin, { shouldValidate: true })}
+                gramPanchayatValue={watch("gramPanchayat") || ""}
+                onGramPanchayatChange={(gp) => setValue("gramPanchayat", gp, { shouldValidate: true })}
+                blockValue={watch("block") || ""}
+                onBlockChange={(blk) => setValue("block", blk, { shouldValidate: true })}
                 error={errors.address?.message}
                 pincodeError={errors.pincode?.message}
+                gramPanchayatError={errors.gramPanchayat?.message}
+                blockError={errors.block?.message}
               />
             </div>
           </FormGrid>
@@ -1214,7 +1227,7 @@ export function StudentAddEditForm({
             className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors shadow-sm cursor-pointer"
           >
             {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-            {mutation.isPending ? "Saving Record…" : "Save Student Record"}
+            {mutation.isPending ? "Saving Record…" : (submitButtonText || "Save Student Record")}
           </button>
           {!isEmbedded && (
             <button

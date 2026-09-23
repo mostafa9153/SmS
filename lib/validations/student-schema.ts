@@ -3,6 +3,7 @@ import { z } from "zod";
 export const studentCreateSchema = z.object({
   // Identity
   name: z.string().min(1, "Name is required").trim(),
+  studentNameBengali: z.string().optional().nullable(),
   photoUrl: z.string().optional().nullable(),
   schoolId: z
     .string()
@@ -32,6 +33,8 @@ export const studentCreateSchema = z.object({
   minorityGroup: z.string().optional().nullable(),
   isAay: z.coerce.boolean().optional().default(false),
   isEws: z.coerce.boolean().optional().default(false),
+  bplStatus: z.string().optional().nullable(),
+  bplNo: z.string().optional().nullable(),
   isOutOfSchool: z.coerce.boolean().optional().default(false),
   mainstreamedDate: z.string().optional().nullable(),
 
@@ -39,13 +42,16 @@ export const studentCreateSchema = z.object({
   isCwsn: z.coerce.boolean().optional().default(false),
   impairmentType: z.string().optional().nullable(),
   hasDisabilityCertificate: z.coerce.boolean().optional().default(false),
+  disabilityCertificateNo: z.string().optional().nullable(),
   disabilityPercentage: z.coerce.number().optional().nullable(),
   sldType: z.string().optional().nullable(),
 
   // Family Info
   fatherName: z.string().min(1, "Father's name is required").trim(),
+  fatherNameBengali: z.string().optional().nullable(),
   fatherOccupation: z.string().optional().nullable(),
   motherName: z.string().min(1, "Mother's name is required").trim(),
+  motherNameBengali: z.string().optional().nullable(),
   motherOccupation: z.string().optional().nullable(),
   guardianName: z.string().optional().nullable(),
   relationshipWithGuardian: z.string().optional().nullable(),
@@ -53,7 +59,7 @@ export const studentCreateSchema = z.object({
   guardianQualification: z.string().optional().nullable(),
   annualFamilyIncome: z.coerce.number().optional().nullable(),
 
-  // Contact
+  // Contact & Address
   studentContact: z
     .string()
     .optional()
@@ -70,6 +76,8 @@ export const studentCreateSchema = z.object({
     .nullable()
     .refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email format"),
   address: z.string().optional().nullable(),
+  gramPanchayat: z.string().optional().nullable(),
+  block: z.string().optional().nullable(),
   pincode: z
     .string()
     .optional()
@@ -94,6 +102,15 @@ export const studentCreateSchema = z.object({
   boardRollNo: z.string().optional().nullable(),
   wbbseRollNo: z.string().optional().nullable(),
   wbchseRollNo: z.string().optional().nullable(),
+  bengaliMarks: z.coerce.number().optional().nullable(),
+  englishMarks: z.coerce.number().optional().nullable(),
+  mathMarks: z.coerce.number().optional().nullable(),
+  lifeSciMarks: z.coerce.number().optional().nullable(),
+  phySciMarks: z.coerce.number().optional().nullable(),
+  historyMarks: z.coerce.number().optional().nullable(),
+  geoMarks: z.coerce.number().optional().nullable(),
+  totalMadhyamikMarks: z.coerce.number().optional().nullable(),
+  percentageMadhyamik: z.coerce.number().optional().nullable(),
   currentStatus: z.enum([
     "Continuing",
     "Drop Out",
@@ -155,6 +172,8 @@ export const studentCreateSchema = z.object({
   competitionsOlympiads: z.array(z.string()).optional().nullable(),
 
   // Bank
+  bankName: z.string().optional().nullable(),
+  bankBranch: z.string().optional().nullable(),
   bankIfsc: z.string().optional().nullable(),
   bankAccountNo: z.string().optional().nullable(),
 

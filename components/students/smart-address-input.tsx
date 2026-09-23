@@ -20,8 +20,14 @@ interface SmartAddressInputProps {
   onChange: (val: string) => void;
   pincodeValue: string;
   onPincodeChange: (pin: string) => void;
+  gramPanchayatValue?: string;
+  onGramPanchayatChange?: (gp: string) => void;
+  blockValue?: string;
+  onBlockChange?: (blk: string) => void;
   error?: string;
   pincodeError?: string;
+  gramPanchayatError?: string;
+  blockError?: string;
 }
 
 export function SmartAddressInput({
@@ -29,8 +35,14 @@ export function SmartAddressInput({
   onChange,
   pincodeValue,
   onPincodeChange,
+  gramPanchayatValue,
+  onGramPanchayatChange,
+  blockValue,
+  onBlockChange,
   error,
   pincodeError,
+  gramPanchayatError,
+  blockError,
 }: SmartAddressInputProps) {
   const uid = useId();
   const [config, setConfig] = useState<AddressPresetsConfig>(DEFAULT_ADDRESS_PRESETS_CONFIG);
@@ -38,13 +50,17 @@ export function SmartAddressInput({
 
   // Structured address fields
   const [village, setVillage] = useState("");
+  const [gramPanchayat, setGramPanchayat] = useState(gramPanchayatValue || "");
   const [postOffice, setPostOffice] = useState("");
+  const [block, setBlock] = useState(blockValue || "");
   const [policeStation, setPoliceStation] = useState("");
   const [district, setDistrict] = useState("");
 
   // Custom write-in toggle states
   const [villageIsCustom, setVillageIsCustom] = useState(false);
+  const [gpIsCustom, setGpIsCustom] = useState(false);
   const [poIsCustom, setPoIsCustom] = useState(false);
+  const [blockIsCustom, setBlockIsCustom] = useState(false);
   const [psIsCustom, setPsIsCustom] = useState(false);
   const [distIsCustom, setDistIsCustom] = useState(false);
 
@@ -67,22 +83,47 @@ export function SmartAddressInput({
     };
   }, []);
 
+  // Sync prop changes for gramPanchayat and block
+  useEffect(() => {
+    if (gramPanchayatValue !== undefined && gramPanchayatValue !== gramPanchayat) {
+      setGramPanchayat(gramPanchayatValue);
+    }
+  }, [gramPanchayatValue]);
+
+  useEffect(() => {
+    if (blockValue !== undefined && blockValue !== block) {
+      setBlock(blockValue);
+    }
+  }, [blockValue]);
+
   // Parse incoming raw address on initial load or reset
   useEffect(() => {
     if (value) {
       const parsed = parseAddressString(value);
-      if (parsed.village || parsed.postOffice || parsed.policeStation || parsed.district) {
+      if (parsed.village || parsed.postOffice || parsed.policeStation || parsed.district || parsed.gramPanchayat || parsed.block) {
         setVillage(parsed.village);
         setPostOffice(parsed.postOffice);
         setPoliceStation(parsed.policeStation);
         setDistrict(parsed.district);
 
+        const gpVal = gramPanchayatValue || parsed.gramPanchayat;
+        if (gpVal) setGramPanchayat(gpVal);
+
+        const blkVal = blockValue || parsed.block;
+        if (blkVal) setBlock(blkVal);
+
         // Check if values match existing presets
         if (parsed.village && !config.villages.some((v) => v.toLowerCase() === parsed.village.toLowerCase())) {
           setVillageIsCustom(true);
         }
+        if (gpVal && !config.gramPanchayats?.some((g) => g.toLowerCase() === gpVal.toLowerCase())) {
+          setGpIsCustom(true);
+        }
         if (parsed.postOffice && !config.postOffices.some((p) => p.name.toLowerCase() === parsed.postOffice.toLowerCase())) {
           setPoIsCustom(true);
+        }
+        if (blkVal && !config.blocks?.some((b) => b.toLowerCase() === blkVal.toLowerCase())) {
+          setBlockIsCustom(true);
         }
         if (parsed.policeStation && !config.policeStations.some((ps) => ps.toLowerCase() === parsed.policeStation.toLowerCase())) {
           setPsIsCustom(true);
@@ -97,7 +138,9 @@ export function SmartAddressInput({
   // Sync back to parent when any structured field changes (in auto mode)
   const updateAddress = (
     newVillage: string,
+    newGp: string,
     newPo: string,
+    newBlock: string,
     newPs: string,
     newDist: string
   ) => {
@@ -105,7 +148,9 @@ export function SmartAddressInput({
 
     const compiled = compileAddressString({
       village: newVillage,
+      gramPanchayat: newGp,
       postOffice: newPo,
+      block: newBlock,
       policeStation: newPs,
       district: newDist,
     });
@@ -115,22 +160,34 @@ export function SmartAddressInput({
 
   const handleVillageChange = (val: string) => {
     setVillage(val);
-    updateAddress(val, postOffice, policeStation, district);
+    updateAddress(val, gramPanchayat, postOffice, block, policeStation, district);
+  };
+
+  const handleGramPanchayatChange = (val: string) => {
+    setGramPanchayat(val);
+    if (onGramPanchayatChange) onGramPanchayatChange(val);
+    updateAddress(village, val, postOffice, block, policeStation, district);
   };
 
   const handlePostOfficeChange = (val: string) => {
     setPostOffice(val);
-    updateAddress(village, val, policeStation, district);
+    updateAddress(village, gramPanchayat, val, block, policeStation, district);
+  };
+
+  const handleBlockChange = (val: string) => {
+    setBlock(val);
+    if (onBlockChange) onBlockChange(val);
+    updateAddress(village, gramPanchayat, postOffice, val, policeStation, district);
   };
 
   const handlePoliceStationChange = (val: string) => {
     setPoliceStation(val);
-    updateAddress(village, postOffice, val, district);
+    updateAddress(village, gramPanchayat, postOffice, block, val, district);
   };
 
   const handleDistrictChange = (val: string) => {
     setDistrict(val);
-    updateAddress(village, postOffice, policeStation, val);
+    updateAddress(village, gramPanchayat, postOffice, block, policeStation, val);
   };
 
   const toggleManualOverride = () => {
@@ -138,7 +195,9 @@ export function SmartAddressInput({
       setIsManualOverride(false);
       const compiled = compileAddressString({
         village,
+        gramPanchayat,
         postOffice,
+        block,
         policeStation,
         district,
       });
@@ -158,6 +217,17 @@ export function SmartAddressInput({
     return list;
   }, [config.villages, village]);
 
+  // Gram Panchayat Options
+  const gpSelectOptions = useMemo(() => {
+    const gpList = config.gramPanchayats || [];
+    const list = gpList.map((gp) => ({ label: gp, value: gp }));
+    if (gramPanchayat && !list.some((o) => o.value.toLowerCase() === gramPanchayat.toLowerCase())) {
+      list.push({ label: `✏️ Custom: ${gramPanchayat}`, value: gramPanchayat });
+    }
+    list.push({ label: "✏️ Other (Write Custom...)", value: "__other__" });
+    return list;
+  }, [config.gramPanchayats, gramPanchayat]);
+
   // Post Office Options
   const poSelectOptions = useMemo(() => {
     const list = config.postOffices.map((po) => ({
@@ -170,6 +240,17 @@ export function SmartAddressInput({
     list.push({ label: "✏️ Other (Write Custom...)", value: "__other__" });
     return list;
   }, [config.postOffices, postOffice]);
+
+  // Block Options
+  const blockSelectOptions = useMemo(() => {
+    const bList = config.blocks || [];
+    const list = bList.map((b) => ({ label: b, value: b }));
+    if (block && !list.some((o) => o.value.toLowerCase() === block.toLowerCase())) {
+      list.push({ label: `✏️ Custom: ${block}`, value: block });
+    }
+    list.push({ label: "✏️ Other (Write Custom...)", value: "__other__" });
+    return list;
+  }, [config.blocks, block]);
 
   // Police Station Options
   const psSelectOptions = useMemo(() => {
@@ -197,13 +278,13 @@ export function SmartAddressInput({
       <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-border/50">
         <div className="flex items-center gap-2">
           <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          <span className="text-xs font-bold text-foreground">Address Details</span>
+          <span className="text-xs font-bold text-foreground">Address Details (ঠিকানার বিবরণ ও প্রিসেট)</span>
         </div>
 
         <div className="flex items-center gap-1.5">
           {/* Settings Icon: Directly navigates to Presets Settings tab */}
           <a
-            href="/settings/presets"
+            href="/settings/presets?section=address"
             target="_blank"
             rel="noopener noreferrer"
             title="Configure Address Presets in Settings"
@@ -234,8 +315,8 @@ export function SmartAddressInput({
       </div>
 
       {!isManualOverride ? (
-        /* 4 Unified CustomSelect Dropdowns with Preset Options + Write-in Field */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-start">
+        /* 6 Unified CustomSelect Dropdowns with Preset Options + Write-in Field */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
           {/* 1. Village (Vill) */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground">
@@ -270,7 +351,41 @@ export function SmartAddressInput({
             )}
           </div>
 
-          {/* 2. Post Office (P.O) */}
+          {/* 2. Gram Panchayat (G.P) */}
+          <div className="space-y-1.5">
+            <Label className="text-[11px] font-semibold text-muted-foreground">
+              Gram Panchayat (G.P)
+            </Label>
+            <CustomSelect
+              value={gpIsCustom ? "__other__" : gramPanchayat}
+              onChange={(val) => {
+                if (val === "__other__") {
+                  setGpIsCustom(true);
+                  handleGramPanchayatChange("");
+                } else {
+                  setGpIsCustom(false);
+                  handleGramPanchayatChange(val);
+                }
+              }}
+              options={gpSelectOptions}
+              placeholder="-- Select Gram Panchayat --"
+              searchable={gpSelectOptions.length > 5}
+              triggerClassName="h-9 py-1 text-xs rounded-xl"
+            />
+            {gpIsCustom && (
+              <div className="pt-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                <Input
+                  autoFocus
+                  value={gramPanchayat}
+                  onChange={(e) => handleGramPanchayatChange(e.target.value)}
+                  placeholder="Type custom Gram Panchayat..."
+                  className="text-xs h-8 rounded-lg bg-background border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/20 text-foreground placeholder:text-muted-foreground/60"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 3. Post Office (P.O) */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground">
               Post Office (P.O) <span className="text-destructive">*</span>
@@ -312,7 +427,41 @@ export function SmartAddressInput({
             )}
           </div>
 
-          {/* 3. Police Station (P.S) */}
+          {/* 4. Block / Municipality */}
+          <div className="space-y-1.5">
+            <Label className="text-[11px] font-semibold text-muted-foreground">
+              Block / Municipality
+            </Label>
+            <CustomSelect
+              value={blockIsCustom ? "__other__" : block}
+              onChange={(val) => {
+                if (val === "__other__") {
+                  setBlockIsCustom(true);
+                  handleBlockChange("");
+                } else {
+                  setBlockIsCustom(false);
+                  handleBlockChange(val);
+                }
+              }}
+              options={blockSelectOptions}
+              placeholder="-- Select Block / Municipality --"
+              searchable={blockSelectOptions.length > 5}
+              triggerClassName="h-9 py-1 text-xs rounded-xl"
+            />
+            {blockIsCustom && (
+              <div className="pt-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                <Input
+                  autoFocus
+                  value={block}
+                  onChange={(e) => handleBlockChange(e.target.value)}
+                  placeholder="Type custom Block / Municipality..."
+                  className="text-xs h-8 rounded-lg bg-background border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/20 text-foreground placeholder:text-muted-foreground/60"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 5. Police Station (P.S) */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground">
               Police Station (P.S) <span className="text-destructive">*</span>
@@ -346,7 +495,7 @@ export function SmartAddressInput({
             )}
           </div>
 
-          {/* 4. District (Dist) */}
+          {/* 6. District (Dist) */}
           <div className="space-y-1.5">
             <Label className="text-[11px] font-semibold text-muted-foreground">
               District (Dist) <span className="text-destructive">*</span>
@@ -390,7 +539,7 @@ export function SmartAddressInput({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             rows={2}
-            placeholder="e.g. Vill- ..., P.O- ..., P.S- ..., Dist- ..."
+            placeholder="e.g. Vill- ..., G.P- ..., P.O- ..., Block- ..., P.S- ..., Dist- ..."
             className="w-full text-xs rounded-xl bg-background border border-border/80 p-2.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all resize-none text-foreground"
           />
         </div>
@@ -429,6 +578,8 @@ export function SmartAddressInput({
 
       {/* Validation Errors */}
       {error && <p className="text-xs text-destructive font-medium">{error}</p>}
+      {gramPanchayatError && <p className="text-xs text-destructive font-medium">{gramPanchayatError}</p>}
+      {blockError && <p className="text-xs text-destructive font-medium">{blockError}</p>}
       {pincodeError && <p className="text-xs text-destructive font-medium">{pincodeError}</p>}
     </div>
   );

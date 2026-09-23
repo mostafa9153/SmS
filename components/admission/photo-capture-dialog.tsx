@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Camera, Upload, RotateCcw, Check, Sparkles, X, RefreshCw } from "lucide-react";
+import { Camera, Upload, RotateCcw, Check, Sparkles, X, RefreshCw, CameraOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 
@@ -27,6 +27,7 @@ export function PhotoCaptureDialog({
   const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
   const [cameraActive, setCameraActive] = useState<boolean>(false);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [permissionDenied, setPermissionDenied] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -38,22 +39,37 @@ export function PhotoCaptureDialog({
         const s = videoRef.current.srcObject as MediaStream;
         s.getTracks().forEach((t) => t.stop());
       }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 640 },
-          height: { ideal: 640 },
-        },
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facingMode },
+            width: { ideal: 640 },
+            height: { ideal: 640 },
+          },
+        });
+      } catch (e) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
+      setPermissionDenied(false);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        videoRef.current.setAttribute("playsinline", "true");
+        videoRef.current.muted = true;
+        await videoRef.current.play().catch(() => {});
         setCameraActive(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Camera access failed:", err);
-      showToast("Webcam unavailable. Switching to file upload mode.", "info");
-      setMode("upload");
+      const isDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
+      if (isDenied) {
+        setPermissionDenied(true);
+        showToast("Camera permission denied. Please allow camera access in browser settings.", "error");
+      } else {
+        showToast("Webcam unavailable. Switching to file upload mode.", "info");
+        setMode("upload");
+      }
     }
   };
 
@@ -205,40 +221,55 @@ export function PhotoCaptureDialog({
               </div>
             </div>
           ) : mode === "camera" ? (
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-2 border-border shadow-inner bg-black flex flex-col items-center justify-center">
-              <video
-                ref={videoRef}
-                playsInline
-                muted
-                className="w-full h-full object-cover"
-              />
-              <canvas ref={canvasRef} className="hidden" />
-
-              {/* Passport Guidelines Overlay */}
-              <div className="absolute inset-0 pointer-events-none border border-white/25 rounded-2xl m-3 flex items-center justify-center">
-                <div className="w-24 h-32 border border-dashed border-white/40 rounded-full" />
+            permissionDenied ? (
+              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 flex flex-col items-center justify-center text-center space-y-2">
+                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center shadow-xs">
+                  <CameraOff className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-foreground block">Camera Blocked</span>
+                  <span className="text-[10px] text-muted-foreground block">Allow camera access in address bar</span>
+                </div>
+                <Button size="sm" onClick={() => startCamera()} className="h-7 text-xs gap-1 bg-purple-600 hover:bg-purple-700 text-white mt-1">
+                  <RefreshCw className="w-3 h-3" /> Allow & Retry
+                </Button>
               </div>
+            ) : (
+              <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-2 border-border shadow-inner bg-black flex flex-col items-center justify-center">
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
+                <canvas ref={canvasRef} className="hidden" />
 
-              {/* Camera Switch button */}
-              <button
-                type="button"
-                onClick={() => setFacingMode((prev) => (prev === "user" ? "environment" : "user"))}
-                className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-md cursor-pointer"
-                title="Switch Camera"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-              </button>
+                {/* Passport Guidelines Overlay */}
+                <div className="absolute inset-0 pointer-events-none border border-white/25 rounded-2xl m-3 flex items-center justify-center">
+                  <div className="w-24 h-32 border border-dashed border-white/40 rounded-full" />
+                </div>
 
-              {/* Take snapshot trigger */}
-              <button
-                type="button"
-                onClick={takeSnapshot}
-                className="absolute bottom-2 h-10 w-10 rounded-full bg-white text-slate-900 hover:bg-slate-200 shadow-xl border-2 border-purple-500 flex items-center justify-center cursor-pointer active:scale-95"
-                title="Capture Photo"
-              >
-                <Camera className="h-5 w-5 text-purple-700" />
-              </button>
-            </div>
+                {/* Camera Switch button */}
+                <button
+                  type="button"
+                  onClick={() => setFacingMode((prev) => (prev === "user" ? "environment" : "user"))}
+                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-md cursor-pointer"
+                  title="Switch Camera"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Take snapshot trigger */}
+                <button
+                  type="button"
+                  onClick={takeSnapshot}
+                  className="absolute bottom-2 h-10 w-10 rounded-full bg-white text-slate-900 hover:bg-slate-200 shadow-xl border-2 border-purple-500 flex items-center justify-center cursor-pointer active:scale-95"
+                  title="Capture Photo"
+                >
+                  <Camera className="h-5 w-5 text-purple-700" />
+                </button>
+              </div>
+            )
           ) : (
             <label className="w-48 h-48 sm:w-56 sm:h-56 border-2 border-dashed border-purple-300 dark:border-purple-800 hover:border-purple-500 rounded-2xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-colors bg-purple-50/50 dark:bg-purple-950/20">
               <Upload className="h-8 w-8 text-purple-600 dark:text-purple-400 mb-2" />

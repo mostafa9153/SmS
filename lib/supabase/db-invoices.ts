@@ -235,7 +235,9 @@ export async function dbVerifyInvoice(
 // ─────────────────────────────────────────────────────────────
 // Aggregate statistics (cancelled excluded from net amount)
 // ─────────────────────────────────────────────────────────────
-export async function dbGetInvoiceStats(): Promise<{ stats: InvoiceStats; error?: string }> {
+export async function dbGetInvoiceStats(
+  academicSession?: string | null
+): Promise<{ stats: InvoiceStats; error?: string }> {
   const defaultStats: InvoiceStats = {
     totalInvoices: 0,
     totalFilled: 0,
@@ -254,17 +256,29 @@ export async function dbGetInvoiceStats(): Promise<{ stats: InvoiceStats; error?
       return { stats: defaultStats, error: "Database client unavailable" };
     }
 
-    // Select base columns only — invoice_status may not exist yet (pre-migration)
-    const { data, error } = await supabase
+    // Select base columns
+    let query = supabase
       .from("admission_invoices")
-      .select("is_blank, generator_mode, total_amount, student_class, invoice_status");
+      .select("is_blank, generator_mode, total_amount, student_class, invoice_status, academic_session");
+
+    if (academicSession && academicSession !== "ALL") {
+      query = query.eq("academic_session", academicSession);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       // Fallback: select without invoice_status if column not found
       if (error.message?.includes("invoice_status") || error.code === "42703") {
-        const { data: fallbackData, error: fallbackError } = await supabase
+        let fallbackQuery = supabase
           .from("admission_invoices")
-          .select("is_blank, generator_mode, total_amount, student_class");
+          .select("is_blank, generator_mode, total_amount, student_class, academic_session");
+
+        if (academicSession && academicSession !== "ALL") {
+          fallbackQuery = fallbackQuery.eq("academic_session", academicSession);
+        }
+
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
 
         if (fallbackError) {
           console.error("Error fetching invoice stats (fallback):", fallbackError);
@@ -337,6 +351,7 @@ export async function dbSearchInvoices(params: {
   invoiceStatus?: "active" | "blank_assigned" | "cancelled" | null;
   generatorMode?: "single" | "bulk" | null;
   studentClass?: string | null;
+  academicSession?: string | null;
   assignedTo?: string | null;
   limit?: number;
   offset?: number;
@@ -351,6 +366,10 @@ export async function dbSearchInvoices(params: {
       .from("admission_invoices")
       .select("*", { count: "exact" })
       .order("created_at", { ascending: false });
+
+    if (params.academicSession && params.academicSession !== "ALL") {
+      q = q.eq("academic_session", params.academicSession);
+    }
 
     if (params.isBlank !== undefined && params.isBlank !== null) {
       q = q.eq("is_blank", params.isBlank);

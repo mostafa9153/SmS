@@ -133,8 +133,8 @@ export function AdmissionFormXIPrintableView({
                   {data.customHeaderTitle
                     ? data.customHeaderTitle
                     : data.admissionType === "re"
-                    ? "Re-admission Application Form - XI"
-                    : "Admission Application Form - XI"}
+                    ? "RE-ADMISSION - XI"
+                    : "NEW ADMISSION - XI"}
                 </h3>
               </div>
 
