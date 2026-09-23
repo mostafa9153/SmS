@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { DEFAULT_TEACHER_PERMISSIONS } from "@/lib/types/teacher";
 
-// GET /api/teachers - List all teaching staff with their account, permissions, and assigned classes
+// GET /api/teachers - List all teaching staff with their account, permissions, active grants, and assigned classes
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -18,7 +18,7 @@ export async function GET() {
     // 1. Fetch all teaching staff from staff_profiles
     const { data: staffList, error: staffError } = await adminClient
       .from("staff_profiles")
-      .select("id, unique_id, full_name, designation, email, mobile, status, profile_picture_url")
+      .select("id, unique_id, full_name, designation, email, mobile, status, profile_picture_url, primary_meta")
       .eq("employee_type", "TEACHING")
       .order("full_name");
 
@@ -42,10 +42,21 @@ export async function GET() {
       .select("*")
       .eq("academic_year", currentYear);
 
-    // 4. Map everything together cleanly
+    // 4. Fetch active temporary permission grants
+    const nowIso = new Date().toISOString();
+    const { data: activeGrants } = await adminClient
+      .from("teacher_permission_grants")
+      .select("*")
+      .eq("is_active", true)
+      .gt("expires_at", nowIso);
+
+    // 5. Map everything together cleanly
     const staffMap = (staffList || []).map((staff) => {
       const linkedRole = userRoles?.find((r) => r.staff_id === staff.id);
       const assignments = (classAssignments || []).filter((a) => a.teacher_id === staff.id);
+      const grants = (activeGrants || []).filter(
+        (g) => (linkedRole?.user_id && g.user_id === linkedRole.user_id) || g.teacher_id === staff.id
+      );
 
       return {
         id: staff.id,
@@ -56,10 +67,13 @@ export async function GET() {
         mobile: staff.mobile,
         status: staff.status,
         profilePictureUrl: staff.profile_picture_url,
+        appointedSubject: staff.primary_meta?.appointed_subject || "",
+        primaryMeta: staff.primary_meta || {},
         hasLogin: !!linkedRole,
         userId: linkedRole?.user_id || null,
         role: linkedRole?.role || null,
         permissions: linkedRole?.permissions || DEFAULT_TEACHER_PERMISSIONS,
+        activeGrants: grants,
         assignments,
       };
     });
@@ -85,9 +99,12 @@ export async function POST(req: Request) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (currentRole?.role !== "Admin") {
+    const roleName = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleName === "admin" || roleName === "super admin" || roleName === "super_admin";
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
 
@@ -173,7 +190,7 @@ export async function POST(req: Request) {
     if (insertRoleError) {
       const isColError = insertRoleError.message.includes("staff_id") || insertRoleError.message.includes("permissions");
       const userMessage = isColError
-        ? "Database migration missing: Please run 20260916_teacher_management_system.sql in Supabase SQL editor to add staff_id and permissions columns."
+        ? "Database migration missing: Please run teacher management migrations in Supabase SQL editor."
         : insertRoleError.message;
       return NextResponse.json({ error: userMessage }, { status: 500 });
     }
@@ -201,7 +218,7 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH /api/teachers - Update permissions or reset teacher password
+// PATCH /api/teachers - Update permissions, temporary grants, or reset teacher password
 export async function PATCH(req: Request) {
   try {
     const supabase = await createClient();
@@ -215,31 +232,76 @@ export async function PATCH(req: Request) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (currentRole?.role !== "Admin") {
+    const roleName = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleName === "admin" || roleName === "super admin" || roleName === "super_admin";
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
 
     const body = await req.json();
-    const { userId, staffId, teacherId, permissions, password } = body;
+    const {
+      userId,
+      staffId,
+      teacherId,
+      permissions,
+      password,
+      appointedSubject,
+      temporaryGrant, // { permissionKey, expiresAt, taskId }
+    } = body;
 
+    let targetStaffId = staffId || teacherId;
     let targetUserId = userId;
-    if (!targetUserId && (staffId || teacherId)) {
+
+    if (!targetStaffId && targetUserId) {
+      const { data: foundRole } = await adminClient
+        .from("user_roles")
+        .select("staff_id")
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+      targetStaffId = foundRole?.staff_id;
+    }
+
+    if (!targetUserId && targetStaffId) {
       const { data: foundRole } = await adminClient
         .from("user_roles")
         .select("user_id")
-        .eq("staff_id", staffId || teacherId)
-        .single();
+        .eq("staff_id", targetStaffId)
+        .maybeSingle();
       targetUserId = foundRole?.user_id;
     }
 
-    if (!targetUserId) {
+    if (!targetUserId && !targetStaffId) {
       return NextResponse.json({ error: "Target userId or staffId is required." }, { status: 400 });
     }
 
-    // 1. If password reset requested
-    if (password) {
+    // 1. If appointedSubject updated for teacher
+    if (appointedSubject !== undefined && targetStaffId) {
+      const { data: currentStaff } = await adminClient
+        .from("staff_profiles")
+        .select("primary_meta")
+        .eq("id", targetStaffId)
+        .single();
+
+      const updatedMeta = {
+        ...(currentStaff?.primary_meta || {}),
+        appointed_subject: appointedSubject,
+      };
+
+      const { error: staffUpdateError } = await adminClient
+        .from("staff_profiles")
+        .update({ primary_meta: updatedMeta })
+        .eq("id", targetStaffId);
+
+      if (staffUpdateError) {
+        return NextResponse.json({ error: staffUpdateError.message }, { status: 500 });
+      }
+    }
+
+    // 2. If password reset requested
+    if (password && targetUserId) {
       if (password.length < 6) {
         return NextResponse.json({ error: "Password must be at least 6 characters." }, { status: 400 });
       }
@@ -249,8 +311,8 @@ export async function PATCH(req: Request) {
       }
     }
 
-    // 2. If permissions updated
-    if (permissions) {
+    // 3. If permissions updated
+    if (permissions && targetUserId) {
       const { error: permError } = await adminClient
         .from("user_roles")
         .update({ permissions })
@@ -260,6 +322,41 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: permError.message }, { status: 500 });
       }
       clearUserRoleCache(targetUserId);
+    }
+
+    // 4. If temporary grant added
+    if (temporaryGrant && targetUserId) {
+      const { permissionKey, expiresAt, taskId } = temporaryGrant;
+      if (permissionKey && expiresAt) {
+        await adminClient.from("teacher_permission_grants").insert({
+          user_id: targetUserId,
+          teacher_id: targetStaffId || null,
+          permission_key: permissionKey,
+          task_id: taskId || null,
+          granted_by: user.id,
+          expires_at: expiresAt,
+          is_active: true,
+        });
+
+        // Temporarily activate in user_roles.permissions
+        const { data: uRole } = await adminClient
+          .from("user_roles")
+          .select("permissions")
+          .eq("user_id", targetUserId)
+          .single();
+
+        const updatedPerms = {
+          ...(uRole?.permissions || DEFAULT_TEACHER_PERMISSIONS),
+          [permissionKey]: true,
+        };
+
+        await adminClient
+          .from("user_roles")
+          .update({ permissions: updatedPerms })
+          .eq("user_id", targetUserId);
+
+        clearUserRoleCache(targetUserId);
+      }
     }
 
     return NextResponse.json({ success: true, message: "Teacher account updated successfully" });

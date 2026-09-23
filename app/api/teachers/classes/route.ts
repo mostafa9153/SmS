@@ -65,9 +65,12 @@ export async function POST(req: Request) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (currentRole?.role !== "Admin") {
+    const roleName = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleName === "admin" || roleName === "super admin" || roleName === "super_admin";
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
 
@@ -146,9 +149,12 @@ export async function DELETE(req: Request) {
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (currentRole?.role !== "Admin") {
+    const roleName = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleName === "admin" || roleName === "super admin" || roleName === "super_admin";
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
 

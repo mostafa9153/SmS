@@ -194,3 +194,116 @@ export interface AdminTeacherPerformanceItem {
   permissions?: TeacherPermissions;
   class_assignments?: TeacherClassAssignment[];
 }
+
+export interface TeacherItem {
+  id: string;
+  uniqueId: string;
+  fullName: string;
+  designation?: string;
+  email?: string;
+  mobile?: string;
+  status: string;
+  profilePictureUrl?: string;
+  appointedSubject?: string;
+  primaryMeta?: Record<string, any>;
+  hasLogin: boolean;
+  userId?: string | null;
+  role?: string | null;
+  permissions?: TeacherPermissions;
+  assignments?: TeacherClassAssignment[];
+}
+
+export interface TeacherMetadataResponse {
+  classes: string[];
+  sections: string[];
+  subjects: string[];
+}
+
+export interface TeacherPermissionGrant {
+  id: string;
+  user_id: string;
+  teacher_id?: string | null;
+  permission_key: keyof TeacherPermissions | string;
+  task_id?: string | null;
+  granted_by?: string | null;
+  expires_at: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface TeacherChatMessage {
+  id: string;
+  user_id: string;
+  teacher_id?: string | null;
+  sender_name: string;
+  message: string;
+  is_edited: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherAbsence {
+  id: string;
+  teacher_id: string;
+  user_id?: string | null;
+  teacher_name: string;
+  start_date: string;
+  end_date: string;
+  dates: string[];
+  reason?: string | null;
+  status: "RECORDED" | "APPROVED" | "CANCELLED";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentMark {
+  id: string;
+  academic_year: number;
+  student_id: string;
+  student_name?: string;
+  roll_no?: string;
+  class_name: string;
+  section: string;
+  subject: string;
+  exam_type: "S1" | "S2" | "S3" | string;
+  full_marks: number;
+  marks_obtained: number | null;
+  grade?: string | null;
+  remarks?: string | null;
+  entered_by?: string | null;
+  teacher_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TeacherPushSubscription {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherRoutineSlot {
+  id: string;
+  teacher_id?: string | null;
+  user_id?: string | null;
+  day_of_week: string;
+  period_number: number;
+  start_time?: string | null;
+  end_time?: string | null;
+  class_name: string;
+  section: string;
+  subject: string;
+  room_no?: string | null;
+  academic_year: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+

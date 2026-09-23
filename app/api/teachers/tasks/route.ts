@@ -2,6 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
+import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
+
+// Mapping of task types to required permissions
+const TASK_PERMISSION_MAP: Record<string, string> = {
+  RE_ADMISSION: "can_handle_readmission",
+  MARKSHEET: "can_enter_results",
+  INVOICE_COLLECTION: "can_generate_invoices",
+};
 
 // GET /api/teachers/tasks - List tasks
 export async function GET(req: Request) {
@@ -19,7 +27,8 @@ export async function GET(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    const isAdmin = currentRole?.role === "Admin";
+    const roleLower = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleLower === "admin" || roleLower === "super admin" || roleLower === "super_admin";
 
     if (isAdmin) {
       // Admin gets all tasks with all assignees
@@ -121,7 +130,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST /api/teachers/tasks - Admin creates and assigns a task to 1 or more teachers
+// POST /api/teachers/tasks - Admin creates and assigns a task to 1 or more teachers with permission handling
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -137,7 +146,10 @@ export async function POST(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    if (currentRole?.role !== "Admin") {
+    const roleLower = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleLower === "admin" || roleLower === "super admin" || roleLower === "super_admin";
+
+    if (!isAdmin) {
       return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
     }
 
@@ -150,6 +162,8 @@ export async function POST(req: Request) {
       targetSection,
       dueDate,
       teacherIds, // Array of staff_profiles.id
+      autoGrantPermissions = true, // Auto-grant required permissions for due_date + 7 days
+      expiryDays = 7,
     } = body;
 
     if (!title || !teacherIds || !Array.isArray(teacherIds) || teacherIds.length === 0) {
@@ -159,7 +173,50 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Create task entry
+    // 1. Fetch linked user_id and permissions for each teacher
+    const { data: linkedRoles } = await adminClient
+      .from("user_roles")
+      .select("user_id, staff_id, full_name, permissions")
+      .in("staff_id", teacherIds);
+
+    const requiredPermission = TASK_PERMISSION_MAP[taskType];
+
+    // If autoGrantPermissions is false, verify all assigned teachers possess required permission
+    if (requiredPermission && !autoGrantPermissions) {
+      const nowIso = new Date().toISOString();
+      const userIds = (linkedRoles || []).map((r) => r.user_id).filter(Boolean);
+
+      const { data: activeGrants } = await adminClient
+        .from("teacher_permission_grants")
+        .select("user_id, permission_key")
+        .in("user_id", userIds)
+        .eq("permission_key", requiredPermission)
+        .eq("is_active", true)
+        .gt("expires_at", nowIso);
+
+      const missingTeachers: string[] = [];
+      for (const tid of teacherIds) {
+        const roleRow = linkedRoles?.find((r) => r.staff_id === tid);
+        const hasDirect = roleRow?.permissions?.[requiredPermission];
+        const hasGrant = activeGrants?.some((g) => g.user_id === roleRow?.user_id);
+        if (!hasDirect && !hasGrant) {
+          missingTeachers.push(roleRow?.full_name || `Teacher ID ${tid}`);
+        }
+      }
+
+      if (missingTeachers.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Permission missing: ${missingTeachers.join(", ")} do not have "${requiredPermission}". Please enable Auto-Grant Permissions to automatically provide time-bound access.`,
+            missingPermission: requiredPermission,
+            missingTeachers,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. Create task entry
     const { data: task, error: taskError } = await adminClient
       .from("teacher_tasks")
       .insert({
@@ -179,12 +236,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: taskError?.message || "Failed to create task" }, { status: 500 });
     }
 
-    // 2. Fetch linked user_id for each teacher
-    const { data: linkedRoles } = await adminClient
-      .from("user_roles")
-      .select("user_id, staff_id")
-      .in("staff_id", teacherIds);
-
+    // 3. Insert assignees
     const assigneesToInsert = teacherIds.map((tid) => {
       const linked = linkedRoles?.find((r) => r.staff_id === tid);
       return {
@@ -203,19 +255,65 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: assignError.message }, { status: 500 });
     }
 
-    // 3. Dispatch notifications to all assignees who have user accounts
+    // 4. Permission verification & Auto-Granting
+    let grantedCount = 0;
+
+    if (requiredPermission && autoGrantPermissions) {
+      // Calculate expiry date: task due date + expiryDays (default 7), or today + expiryDays
+      const baseDate = dueDate ? new Date(dueDate) : new Date();
+      baseDate.setDate(baseDate.getDate() + Number(expiryDays));
+      const expiresAtIso = baseDate.toISOString();
+
+      for (const roleRow of (linkedRoles || [])) {
+        if (!roleRow.user_id) continue;
+        const currentPerms = roleRow.permissions || {};
+        const alreadyHasPerm = !!currentPerms[requiredPermission];
+
+        // Insert grant record into teacher_permission_grants
+        await adminClient.from("teacher_permission_grants").insert({
+          user_id: roleRow.user_id,
+          teacher_id: roleRow.staff_id,
+          permission_key: requiredPermission,
+          task_id: task.id,
+          granted_by: user.id,
+          expires_at: expiresAtIso,
+          is_active: true,
+        });
+
+        // Activate permission in user_roles if not already permanently enabled
+        if (!alreadyHasPerm) {
+          const updated = {
+            ...currentPerms,
+            [requiredPermission]: true,
+          };
+          await adminClient
+            .from("user_roles")
+            .update({ permissions: updated })
+            .eq("user_id", roleRow.user_id);
+
+          clearUserRoleCache(roleRow.user_id);
+          grantedCount++;
+        }
+      }
+    }
+
+    // 4. Dispatch notifications to all assignees who have user accounts
     for (const assignee of assigneesToInsert) {
       if (assignee.user_id) {
         await dispatchTeacherNotification({
           userId: assignee.user_id,
-          title: `New Task Assigned: ${task.title}`,
-          message: `You have been assigned to: ${task.title}. ${task.description || ""}`,
+          title: `New Task: ${task.title}`,
+          message: `You have been assigned: "${task.title}". ${task.description || ""}`,
           link: "/teacher",
         });
       }
     }
 
-    return NextResponse.json({ success: true, task });
+    return NextResponse.json({
+      success: true,
+      task,
+      grantedPermissionsCount: grantedCount,
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
@@ -237,7 +335,8 @@ export async function PATCH(req: Request) {
       .eq("user_id", user.id)
       .single();
 
-    const isAdmin = currentRole?.role === "Admin";
+    const roleLower = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleLower === "admin" || roleLower === "super admin" || roleLower === "super_admin";
     const body = await req.json();
     const { taskId, assigneeId, status, completionReport } = body;
 
