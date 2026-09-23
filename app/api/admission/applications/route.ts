@@ -137,6 +137,32 @@ export async function GET(req: Request) {
   }
 }
 
+function parseToPostgresDate(dobVal: any): string | null {
+  if (!dobVal || typeof dobVal !== "string" || dobVal.trim() === "") return null;
+  const s = dobVal.trim();
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // DD-MM-YYYY or DD/MM/YYYY
+  const ddmmyyyy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, d, m, y] = ddmmyyyy;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  // YYYY/MM/DD
+  const yyyymmdd = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (yyyymmdd) {
+    const [, y, m, d] = yyyymmdd;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  try {
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split("T")[0];
+    }
+  } catch (_) {}
+  return null;
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = createAdminClient();
@@ -250,13 +276,13 @@ export async function POST(req: Request) {
       form_method: body.formMethod || "online",
       target_class: targetClass,
       target_section: body.targetSection || body.presentSection || "A",
-      target_roll: body.targetRoll || body.presentRoll ? parseInt(body.targetRoll || body.presentRoll) : null,
+      target_roll: body.targetRoll || body.presentRoll ? parseInt(body.targetRoll || body.presentRoll, 10) || null : null,
       status: "pending",
 
       student_name: body.studentName?.trim() || "Applicant",
       photo_url: body.photoUrl || null,
       gender: body.gender || "Male",
-      date_of_birth: body.dob || null,
+      date_of_birth: parseToPostgresDate(body.dob || body.dateOfBirth),
       father_name: body.fatherName || null,
       mother_name: body.motherName || null,
       guardian_name: body.guardianName || body.fatherName || null,
@@ -275,7 +301,7 @@ export async function POST(req: Request) {
       social_category: body.socialCategory || "General",
       caste_certificate_no: body.casteCertificateNo || null,
       aadhaar: body.aadhaar || null,
-      bloodGroup: body.bloodGroup || null,
+      blood_group: body.bloodGroup || null,
 
       previous_school: body.previousSchool || null,
       previous_class: body.previousClass || null,
