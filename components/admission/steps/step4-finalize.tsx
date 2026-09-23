@@ -30,6 +30,41 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Restore Step 4 draft on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_new_admission_step4_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.targetClass) setTargetClass(parsed.targetClass);
+          if (parsed.section) setSection(parsed.section);
+          if (parsed.rollNo) setRollNo(parsed.rollNo);
+          if (parsed.stream) setStream(parsed.stream);
+          if (parsed.photoUrl) setPhotoUrl(parsed.photoUrl);
+          if (parsed.feePaid !== undefined) setFeePaid(parsed.feePaid);
+          if (parsed.paymentMode) setPaymentMode(parsed.paymentMode);
+        }
+      } catch (e) {
+        console.warn("Could not restore step4 draft:", e);
+      }
+    }
+  }, []);
+
+  // Save Step 4 draft
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "sms_new_admission_step4_draft",
+          JSON.stringify({ targetClass, section, rollNo, stream, photoUrl, feePaid, paymentMode })
+        );
+      } catch (e) {
+        console.warn("Could not save step4 draft:", e);
+      }
+    }
+  }, [targetClass, section, rollNo, stream, photoUrl, feePaid, paymentMode]);
+
   // Auto-calculate roll whenever class or section changes
   useEffect(() => {
     let active = true;

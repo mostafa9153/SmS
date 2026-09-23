@@ -386,13 +386,15 @@ export function AdmissionApplicationForm({
     }
 
     // 2. Mark section as saved
-    setSavedSections((prev) => ({ ...prev, [currentSec]: true }));
+    const updatedSaved = { ...savedSections, [currentSec]: true };
+    setSavedSections(updatedSaved);
 
     // 3. Real-time draft save
     if (typeof window !== "undefined") {
       try {
         const data = getValues();
         localStorage.setItem("sms_admission_apply_draft", JSON.stringify(data));
+        localStorage.setItem("sms_admission_saved_sections", JSON.stringify(updatedSaved));
       } catch (e) {
         console.warn("Could not save draft:", e);
       }
@@ -833,6 +835,20 @@ export function AdmissionApplicationForm({
               if (parsed[k] !== undefined && parsed[k] !== null && parsed[k] !== "") {
                 setValue(k as any, parsed[k]);
               }
+            });
+          }
+        }
+
+        const savedSecs = localStorage.getItem("sms_admission_saved_sections");
+        if (savedSecs) {
+          const parsedSecs = JSON.parse(savedSecs);
+          if (parsedSecs && typeof parsedSecs === "object") {
+            setSavedSections(parsedSecs);
+            // Open the first unsaved section or active section
+            const nextUnsaved = SECTION_ORDER.find((s) => !parsedSecs[s]) || "A";
+            setOpenSections({
+              A: false, B: false, C: false, D: false, E: false, F: false, G: false, H: false, I: false,
+              [nextUnsaved]: true,
             });
           }
         }

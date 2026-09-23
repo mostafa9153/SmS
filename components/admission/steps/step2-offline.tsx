@@ -33,6 +33,36 @@ export function Step2Offline({ onNext, onBack }: Step2OfflineProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Restore offline entry draft on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_new_admission_offline_entry_draft");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.entryMethod) setEntryMethod(parsed.entryMethod);
+          if (parsed.aiExtractedData) setAiExtractedData(parsed.aiExtractedData);
+        }
+      } catch (e) {
+        console.warn("Could not restore offline draft:", e);
+      }
+    }
+  }, []);
+
+  // Save offline entry draft
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "sms_new_admission_offline_entry_draft",
+          JSON.stringify({ entryMethod, aiExtractedData })
+        );
+      } catch (e) {
+        console.warn("Could not save offline draft:", e);
+      }
+    }
+  }, [entryMethod, aiExtractedData]);
+
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [cameraPermissionDenied, setCameraPermissionDenied] = useState(false);
 

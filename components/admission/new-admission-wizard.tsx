@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Step1ModeSelect } from "./steps/step1-mode-select";
 import { Step2Online } from "./steps/step2-online";
 import { Step2Offline } from "./steps/step2-offline";
@@ -17,6 +17,42 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
   const [appData, setAppData] = useState<any>(null);
   const [admissionResult, setAdmissionResult] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Restore wizard state on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_new_admission_wizard_state");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.step) setStep(parsed.step);
+          if (parsed.mode) setMode(parsed.mode);
+          if (parsed.appData) setAppData(parsed.appData);
+          if (parsed.admissionResult) setAdmissionResult(parsed.admissionResult);
+          if (parsed.showSuccessModal) setShowSuccessModal(parsed.showSuccessModal);
+        }
+      } catch (e) {
+        console.warn("Could not restore wizard state:", e);
+      } finally {
+        setIsLoaded(true);
+      }
+    }
+  }, []);
+
+  // Save wizard state on change
+  useEffect(() => {
+    if (isLoaded && typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "sms_new_admission_wizard_state",
+          JSON.stringify({ step, mode, appData, admissionResult, showSuccessModal })
+        );
+      } catch (e) {
+        console.warn("Could not save wizard state:", e);
+      }
+    }
+  }, [step, mode, appData, admissionResult, showSuccessModal, isLoaded]);
 
   const handleRestart = () => {
     setStep(1);
@@ -24,6 +60,11 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
     setAppData(null);
     setAdmissionResult(null);
     setShowSuccessModal(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sms_new_admission_wizard_state");
+      localStorage.removeItem("sms_admission_apply_draft");
+      localStorage.removeItem("sms_admission_saved_sections");
+    }
   };
 
   const steps = [

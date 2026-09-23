@@ -91,6 +91,7 @@ export default function PublicOnlineApplyPage() {
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("sms_admission_apply_draft");
+          localStorage.removeItem("sms_admission_saved_sections");
         } catch (_) {}
       }
 
@@ -112,6 +113,12 @@ export default function PublicOnlineApplyPage() {
     setIsSubmitted(false);
     setSubmittedData(null);
     setApplicationResult(null);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("sms_admission_apply_draft");
+        localStorage.removeItem("sms_admission_saved_sections");
+      } catch (_) {}
+    }
   };
 
   // SUCCESSFUL SUBMISSION RECEIPT VIEW
