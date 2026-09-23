@@ -269,7 +269,7 @@ export async function POST(req: Request) {
       ...(body.aiExtractedData || {}),
     };
 
-    const insertPayload = {
+    const corePayload: Record<string, any> = {
       application_no: applicationNo,
       academic_year: academicYear,
       admission_type: body.admissionType || "new",
@@ -313,40 +313,61 @@ export async function POST(req: Request) {
       payment_receipt_no: body.paymentReceiptNo || null,
       payment_mode: body.paymentMode || "Cash",
 
-      stream: body.academicStream || body.stream || null,
-      bank_account_no: body.bankAccountNo || null,
-      bank_ifsc: body.bankIfsc || null,
-      bank_name: body.bankName || null,
-      kanyashree_id: body.kanyashreeId || null,
-      verified_documents: body.verifiedDocuments || [],
-      subject_combinations: body.subjectCombinations || [],
-
       ai_extracted_data: extraProfileData,
       scanned_image_url: body.scannedImageUrl || null,
       remarks: body.remarks || null,
     };
 
-    const { data, error } = await supabase
+    let insertedData: any = null;
+    let insertError: any = null;
+
+    // 1. Try full insert with optional extended columns
+    const fullPayload = {
+      ...corePayload,
+      stream: body.academicStream || body.stream || null,
+      bank_account_no: body.bankAccountNo || null,
+      bank_ifsc: body.bankIfsc || null,
+      bank_name: body.bankName || null,
+      kanyashree_id: body.kanyashreeId || null,
+      verified_documents: Array.isArray(body.verifiedDocuments) ? body.verifiedDocuments : [],
+      subject_combinations: Array.isArray(body.subjectCombinations) ? body.subjectCombinations : [],
+    };
+
+    const res1 = await supabase
       .from("admission_applications")
-      .insert([insertPayload])
+      .insert([fullPayload])
       .select()
       .single();
 
-    if (error) {
-      console.error("Error inserting admission application:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (res1.error) {
+      console.warn("Full payload insert failed, falling back to core payload:", res1.error.message);
+      const res2 = await supabase
+        .from("admission_applications")
+        .insert([corePayload])
+        .select()
+        .single();
+
+      insertedData = res2.data;
+      insertError = res2.error;
+    } else {
+      insertedData = res1.data;
+    }
+
+    if (insertError || !insertedData) {
+      console.error("Error inserting admission application:", insertError);
+      return NextResponse.json({ error: insertError?.message || "Failed to save application record in database" }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
       application: {
-        id: data.id,
-        applicationNo: data.application_no,
-        studentName: data.student_name,
-        targetClass: data.target_class,
-        status: data.status,
+        id: insertedData.id,
+        applicationNo: insertedData.application_no,
+        studentName: insertedData.student_name,
+        targetClass: insertedData.target_class,
+        status: insertedData.status,
         ...extraProfileData,
-        ...data,
+        ...insertedData,
       },
     });
   } catch (err: any) {

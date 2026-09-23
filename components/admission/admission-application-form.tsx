@@ -137,12 +137,14 @@ export const DEFAULT_HS_SUBJECTS = [
 
 const admissionFormSchema = z.object({
   // A. Student Demographics
-  studentName: z.string().min(2, "Student Name is required"),
+  studentName: z.string().min(1, "Student Name is required"),
   studentNameBengali: z.string().optional(),
-  dob: z.string().refine((v) => {
-    if (!v) return false;
-    const d = new Date(v);
-    return !isNaN(d.getTime()) && d < new Date();
+  dob: z.string().min(1, "Date of birth is required").refine((v) => {
+    if (!v || v.trim() === "") return false;
+    const s = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s) || /^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}$/.test(s)) return true;
+    const d = new Date(s);
+    return !isNaN(d.getTime());
   }, "Valid date of birth required"),
   gender: z.string().min(1, "Gender is required"),
   motherTongue: z.string().min(1, "Mother tongue is required"),
@@ -169,21 +171,28 @@ const admissionFormSchema = z.object({
   sldType: z.string().optional(),
 
   // D. Family & Contacts
-  fatherName: z.string().min(2, "Father's Name is required"),
+  fatherName: z.string().min(1, "Father's Name is required"),
   fatherNameBengali: z.string().optional(),
   fatherOccupation: z.string().min(1, "Father's occupation is required"),
-  motherName: z.string().min(2, "Mother's Name is required"),
+  motherName: z.string().min(1, "Mother's Name is required"),
   motherNameBengali: z.string().optional(),
   motherOccupation: z.string().min(1, "Mother's occupation is required"),
-  guardianName: z.string().min(2, "Guardian's Name is required"),
+  guardianName: z.string().min(1, "Guardian's Name is required"),
   relationshipWithGuardian: z.string().min(1, "Relationship with guardian is required"),
   guardianOccupation: z.string().min(1, "Guardian's occupation is required"),
   guardianQualification: z.string().min(1, "Guardian's qualification is required"),
   annualFamilyIncome: z.coerce.number().optional().nullable(),
 
   // Contact Details
-  studentContact: z.string().min(1, "Mobile Number is required").refine((v) => /^\d{10}$/.test(v.trim()), "10-digit mobile number required"),
-  altMobile: z.string().optional().refine((v) => !v || v.trim() === "" || /^\d{10}$/.test(v.trim()), "10-digit mobile number required"),
+  studentContact: z.string().min(1, "Mobile Number is required").refine((v) => {
+    const digits = (v || "").replace(/\D/g, "");
+    return digits.length === 10;
+  }, "10-digit mobile number required"),
+  altMobile: z.string().optional().refine((v) => {
+    if (!v || v.trim() === "") return true;
+    const digits = v.replace(/\D/g, "");
+    return digits.length === 10;
+  }, "10-digit mobile number required"),
   email: z.string().optional().refine((v) => !v || v.trim() === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()), "Invalid email address"),
 
   // Present Address
@@ -193,7 +202,10 @@ const admissionFormSchema = z.object({
   presentPostOffice: z.string().min(1, "Post Office is required"),
   presentPoliceStation: z.string().min(1, "Police Station is required"),
   presentDistrict: z.string().min(1, "District is required"),
-  presentPincode: z.string().min(1, "PIN Code is required").refine((v) => /^\d{6}$/.test(v.trim()), "6-digit PIN required"),
+  presentPincode: z.string().min(1, "PIN Code is required").refine((v) => {
+    const digits = (v || "").replace(/\D/g, "");
+    return digits.length === 6;
+  }, "6-digit PIN required"),
 
   // Permanent Address
   sameAsPresentAddress: z.coerce.boolean().optional(),
@@ -863,7 +875,22 @@ export function AdmissionApplicationForm({
     if (keys.length > 0) {
       const first = keys[0];
       const err = formErrors[first]?.message || "Please check the required fields.";
-      toast.error(`${first}: ${err}`);
+      toast.error(`Please check: ${err}`);
+
+      // Auto-open and scroll to the section that contains the error
+      for (const [sec, fields] of Object.entries(SECTION_FIELDS)) {
+        if ((fields as string[]).includes(first)) {
+          setOpenSections({
+            A: false, B: false, C: false, D: false, E: false, F: false, G: false, H: false, I: false,
+            [sec]: true,
+          });
+          setTimeout(() => {
+            const el = document.getElementById(`section-card-${sec}`);
+            if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+          break;
+        }
+      }
     }
   };
 
