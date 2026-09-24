@@ -4,7 +4,8 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
-import type { Student } from "@/lib/types";
+import { getAdmissionApplications } from "@/lib/data/admission";
+import type { Student, AdmissionApplication } from "@/lib/types";
 import {
   type InvoiceData,
   type FeeItem,
@@ -47,24 +48,43 @@ import {
   Unlock,
   Clock,
   Layers,
+  UserPlus,
+  FileText,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+export interface UnifiedQueueCandidate {
+  id: string;
+  name: string;
+  schoolId?: string;
+  presentClass: string;
+  presentSection: string;
+  presentRoll: number;
+  guardianName?: string;
+  studentContact?: string;
+  pen?: string;
+  feeAmount?: number;
+  feePaid?: boolean;
+  paymentReceiptNo?: string;
+  admissionSource: "new_admission" | "re_admission";
+  formMethod?: "online" | "offline" | "ai_scan";
+  formNo?: string;
+  applicationNo?: string;
+  admittedAt?: string;
+  rawRecord?: any;
+}
 
 interface ClassSectionGroup {
   key: string;
   class: string;
   section: string;
-  students: Student[];
+  students: UnifiedQueueCandidate[];
   totalCount: number;
 }
 
-function getStudentQueuedTime(student: Student): { dateStr: string; timeStr: string } {
-  const ts =
-    student.reAdmittedAt ||
-    student.presentClassAdmissionDate ||
-    student.admissionDate ||
-    student.createdAt ||
-    student.updatedAt;
+function getCandidateQueuedTime(candidate: UnifiedQueueCandidate): { dateStr: string; timeStr: string } {
+  const ts = candidate.admittedAt || candidate.rawRecord?.created_at || candidate.rawRecord?.createdAt;
 
   if (ts) {
     try {
@@ -97,9 +117,12 @@ export default function AdmissionQueuePage() {
   const { profile: schoolProfile } = useSchoolProfile();
   const currentYear = new Date().getFullYear();
 
+  // Queue Section Tab State: "new" | "re" | "all"
+  const [queueTab, setQueueTab] = useState<"new" | "re" | "all">("new");
+
   // Print modal state
   const [activePrintGroup, setActivePrintGroup] = useState<ClassSectionGroup | null>(null);
-  const [activeSingleStudent, setActiveSingleStudent] = useState<Student | null>(null);
+  const [activeSingleStudent, setActiveSingleStudent] = useState<UnifiedQueueCandidate | null>(null);
   const [printCopyType, setPrintCopyType] = useState<"both" | "student" | "school">("student");
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<number>(0.95);
@@ -170,12 +193,12 @@ export default function AdmissionQueuePage() {
     syncSequenceFromDatabase();
   }, [syncSequenceFromDatabase]);
 
-  // Fetch students live
+  // 1. Fetch Re-admission students live
   const {
     data: allStudents = [],
     isLoading: loadingStudents,
-    isFetching,
-    refetch,
+    isFetching: isFetchingStudents,
+    refetch: refetchStudents,
   } = useQuery({
     queryKey: ["students"],
     queryFn: () => getStudents("summary"),
@@ -184,37 +207,105 @@ export default function AdmissionQueuePage() {
     refetchOnWindowFocus: true,
   });
 
-  // Filter students who are ready in the active admission invoice queue
-  const queuedStudents = useMemo(() => {
-    return allStudents.filter((s) => {
-      if (s.currentStatus !== "Continuing") return false;
-      const queued = Boolean(s.isInvoiceQueued);
-      const admittedPending =
-        s.reAdmissionStatus === "admitted" && s.isInvoiceQueued !== false && !s.invoicePrintedAt;
-      const newAdmitQueued = s.admissionYear === currentYear && queued && !s.invoicePrintedAt;
-      return queued || admittedPending || newAdmitQueued;
-    });
-  }, [allStudents, currentYear]);
+  // 2. Fetch New Admission applications live
+  const {
+    data: admittedApplications = [],
+    isLoading: loadingApplications,
+    isFetching: isFetchingApps,
+    refetch: refetchApps,
+  } = useQuery({
+    queryKey: ["admission_applications_admitted"],
+    queryFn: () => getAdmissionApplications({ status: "admitted", admissionType: "new" }),
+    staleTime: 5 * 1000,
+    refetchInterval: 6000,
+    refetchOnWindowFocus: true,
+  });
+
+  const refetchAll = () => {
+    refetchStudents();
+    refetchApps();
+    syncSequenceFromDatabase();
+  };
+
+  // Convert Re-admitted students into Unified Candidates
+  const reAdmittedCandidates = useMemo<UnifiedQueueCandidate[]>(() => {
+    return allStudents
+      .filter((s) => {
+        if (s.currentStatus !== "Continuing") return false;
+        const queued = Boolean(s.isInvoiceQueued);
+        const admittedPending =
+          s.reAdmissionStatus === "admitted" && s.isInvoiceQueued !== false && !s.invoicePrintedAt;
+        return queued || admittedPending;
+      })
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        schoolId: s.schoolId || `STU-${s.id.slice(0, 6)}`,
+        presentClass: s.presentClass || "V",
+        presentSection: s.presentSection || "A",
+        presentRoll: s.presentRoll || 1,
+        guardianName: s.fatherName || s.guardianName,
+        studentContact: s.studentContact || s.altMobile,
+        pen: s.pen,
+        feeAmount: undefined,
+        feePaid: true,
+        admissionSource: "re_admission",
+        admittedAt: s.reAdmittedAt || s.presentClassAdmissionDate || s.admissionDate || s.createdAt,
+        rawRecord: s,
+      }));
+  }, [allStudents]);
+
+  // Convert New Admission applications into Unified Candidates
+  const newAdmissionCandidates = useMemo<UnifiedQueueCandidate[]>(() => {
+    return admittedApplications.map((app) => ({
+      id: app.id,
+      name: app.studentName,
+      schoolId: app.schoolId || app.applicationNo,
+      presentClass: app.admittedClass || app.targetClass || "V",
+      presentSection: app.admittedSection || app.targetSection || "A",
+      presentRoll: app.admittedRoll || app.targetRoll || 1,
+      guardianName: app.guardianName || app.fatherName,
+      studentContact: app.studentContact || app.altMobile,
+      feeAmount: app.feeAmount || 600,
+      feePaid: app.feePaid !== false,
+      paymentReceiptNo: app.paymentReceiptNo,
+      admissionSource: "new_admission",
+      formMethod: app.formMethod || "offline",
+      formNo: (app as any).formNo || (app as any).form_no || app.applicationNo,
+      applicationNo: app.applicationNo,
+      admittedAt: app.admittedAt || app.createdAt,
+      rawRecord: app,
+    }));
+  }, [admittedApplications]);
+
+  // Unified candidates filtered by active Queue Tab
+  const tabCandidates = useMemo<UnifiedQueueCandidate[]>(() => {
+    if (queueTab === "new") return newAdmissionCandidates;
+    if (queueTab === "re") return reAdmittedCandidates;
+    return [...newAdmissionCandidates, ...reAdmittedCandidates];
+  }, [queueTab, newAdmissionCandidates, reAdmittedCandidates]);
 
   // Filtered by Search Query
-  const searchFilteredStudents = useMemo(() => {
-    if (!searchQuery.trim()) return queuedStudents;
+  const searchFilteredCandidates = useMemo(() => {
+    if (!searchQuery.trim()) return tabCandidates;
     const q = searchQuery.toLowerCase().trim();
-    return queuedStudents.filter((s) => {
+    return tabCandidates.filter((s) => {
       const nameMatch = s.name?.toLowerCase().includes(q);
       const rollMatch = String(s.presentRoll).includes(q);
       const idMatch = s.schoolId?.toLowerCase().includes(q);
+      const appMatch = s.applicationNo?.toLowerCase().includes(q);
+      const formMatch = s.formNo?.toLowerCase().includes(q);
       const penMatch = s.pen?.toLowerCase().includes(q);
       const classMatch = s.presentClass?.toLowerCase().includes(q);
-      return nameMatch || rollMatch || idMatch || penMatch || classMatch;
+      return nameMatch || rollMatch || idMatch || appMatch || formMatch || penMatch || classMatch;
     });
-  }, [queuedStudents, searchQuery]);
+  }, [tabCandidates, searchQuery]);
 
   // Group by Class and Section
   const groupedByClassSection = useMemo(() => {
-    const map = new Map<string, { class: string; section: string; students: Student[] }>();
+    const map = new Map<string, { class: string; section: string; students: UnifiedQueueCandidate[] }>();
 
-    searchFilteredStudents.forEach((student) => {
+    searchFilteredCandidates.forEach((student) => {
       const cls = student.presentClass || "Unassigned";
       const sec = student.presentSection || "A";
       const key = `${cls}-${sec}`;
@@ -247,7 +338,7 @@ export default function AdmissionQueuePage() {
       if (a.class !== b.class) return a.class.localeCompare(b.class);
       return a.section.localeCompare(b.section);
     });
-  }, [searchFilteredStudents]);
+  }, [searchFilteredCandidates]);
 
   // Filter groups by class tab
   const displayedGroups = useMemo(() => {
@@ -255,10 +346,10 @@ export default function AdmissionQueuePage() {
     return groupedByClassSection.filter((g) => g.class === selectedClassFilter);
   }, [groupedByClassSection, selectedClassFilter]);
 
-  // All distinct classes in queue
+  // All distinct classes in active queue tab
   const availableClassesInQueue = useMemo(() => {
     const set = new Set<string>();
-    queuedStudents.forEach((s) => {
+    tabCandidates.forEach((s) => {
       if (s.presentClass) set.add(s.presentClass);
     });
     const order = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -268,7 +359,7 @@ export default function AdmissionQueuePage() {
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
       return a.localeCompare(b);
     });
-  }, [queuedStudents]);
+  }, [tabCandidates]);
 
   function toggleGroupExpand(key: string) {
     setExpandedGroupKeys((prev) => {
@@ -314,15 +405,22 @@ export default function AdmissionQueuePage() {
       const existing = existingInvoicesMap.get(sId);
 
       const invoiceNumber =
+        student.paymentReceiptNo ||
         existing?.invoice_number ||
         generateInvoiceNumber(invoiceSeq + autoSeqOffset++, currentYear);
+
       const feeItems =
         Array.isArray(existing?.fee_items) && existing.fee_items.length > 0
           ? existing.fee_items
           : defaultFeeItems;
+
       const paymentMode = (existing?.payment_mode as any) || "Cash";
       const paymentStatus = (existing?.payment_status as any) || "Paid";
-      const remarks = existing?.remarks || `Admission Fee ${selectedSession}`;
+      const remarks =
+        existing?.remarks ||
+        (student.admissionSource === "new_admission"
+          ? `New Admission Fee ${selectedSession}`
+          : `Re-admission Fee ${selectedSession}`);
 
       return {
         invoiceNumber,
@@ -340,7 +438,7 @@ export default function AdmissionQueuePage() {
         studentClass: customClass || student.presentClass,
         section: student.presentSection || "A",
         rollNo: String(student.presentRoll || idx + 1),
-        guardianName: student.fatherName || student.guardianName || "N/A",
+        guardianName: student.guardianName || "N/A",
         contactNumber: student.studentContact || "",
         penNumber: student.pen || "",
         feeItems,
@@ -402,7 +500,7 @@ export default function AdmissionQueuePage() {
   }
 
   // Open single student print modal
-  async function handleSingleStudentPrint(student: Student) {
+  async function handleSingleStudentPrint(student: UnifiedQueueCandidate) {
     setActivePrintGroup(null);
     setActiveSingleStudent(student);
     await syncSequenceFromDatabase();
@@ -502,12 +600,14 @@ export default function AdmissionQueuePage() {
   };
 
   const clearQueueMutation = useMutation({
-    mutationFn: async (students: Student[]) => {
-      const studentIds = students.map((s) => s.id);
+    mutationFn: async (candidates: UnifiedQueueCandidate[]) => {
+      const studentIds = candidates.filter((c) => c.admissionSource === "re_admission").map((c) => c.id);
+      const applicationIds = candidates.filter((c) => c.admissionSource === "new_admission").map((c) => c.id);
+
       const res = await fetch("/api/admission/invoices/mark-printed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentIds }),
+        body: JSON.stringify({ studentIds, applicationIds }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -517,6 +617,7 @@ export default function AdmissionQueuePage() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["admission_applications_admitted"] });
       showToast(
         `${data.clearedCount || "All"} invoices marked as printed. Queue updated.`,
         "success"
@@ -527,6 +628,8 @@ export default function AdmissionQueuePage() {
       showToast(err.message || "Failed to update queue", "error");
     },
   });
+
+  const totalQueuedCount = newAdmissionCandidates.length + reAdmittedCandidates.length;
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -542,7 +645,7 @@ export default function AdmissionQueuePage() {
           </Link>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Printer className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <Printer className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               <span>Admission Queue</span>
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -556,17 +659,14 @@ export default function AdmissionQueuePage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              refetch();
-              syncSequenceFromDatabase();
-            }}
-            disabled={isFetching || isSyncingSeq}
+            onClick={refetchAll}
+            disabled={isFetchingStudents || isFetchingApps || isSyncingSeq}
             className="h-9 px-3 rounded-xl text-xs font-semibold cursor-pointer flex items-center gap-1.5"
           >
             <RefreshCw
               className={cn(
-                "h-3.5 w-3.5 text-purple-600",
-                (isFetching || isSyncingSeq) && "animate-spin"
+                "h-3.5 w-3.5 text-emerald-600",
+                (isFetchingStudents || isFetchingApps || isSyncingSeq) && "animate-spin"
               )}
             />
             <span className="hidden sm:inline">Refresh</span>
@@ -605,8 +705,8 @@ export default function AdmissionQueuePage() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
         <div className="bg-card border rounded-2xl p-4 shadow-2xs">
           <span className="text-[11px] font-semibold text-muted-foreground">Queued Invoices</span>
-          <p className="text-2xl font-black mt-1 text-purple-600 dark:text-purple-400">
-            {queuedStudents.length}
+          <p className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
+            {tabCandidates.length}
           </p>
         </div>
         <div className="bg-card border rounded-2xl p-4 shadow-2xs">
@@ -627,10 +727,85 @@ export default function AdmissionQueuePage() {
         </div>
         <div className="bg-card border rounded-2xl p-4 shadow-2xs">
           <span className="text-[11px] font-semibold text-muted-foreground">Print Engine</span>
-          <p className="text-2xl font-black mt-1 text-emerald-600 dark:text-emerald-400">
+          <p className="text-2xl font-black mt-1 text-teal-600 dark:text-teal-400">
             A4 4-Up / A5 Dual
           </p>
         </div>
+      </div>
+
+      {/* Dedicated Primary Queue Tabs: New Admission vs Re-Admission */}
+      <div className="flex rounded-2xl bg-muted/80 p-1.5 border border-border/80 shadow-xs print:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            setQueueTab("new");
+            setSelectedClassFilter("ALL");
+          }}
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+            queueTab === "new"
+              ? "bg-background text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/20"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <UserPlus className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>New Admission Queue</span>
+          <span
+            className={cn(
+              "px-2 py-0.5 rounded-full text-[10px] font-black",
+              queueTab === "new"
+                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {newAdmissionCandidates.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setQueueTab("re");
+            setSelectedClassFilter("ALL");
+          }}
+          className={cn(
+            "flex-1 py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 cursor-pointer",
+            queueTab === "re"
+              ? "bg-background text-purple-600 dark:text-purple-400 shadow-sm border border-purple-500/20"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <RotateCcw className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+          <span>Re-Admission Queue</span>
+          <span
+            className={cn(
+              "px-2 py-0.5 rounded-full text-[10px] font-black",
+              queueTab === "re"
+                ? "bg-purple-500/15 text-purple-700 dark:text-purple-300"
+                : "bg-muted text-muted-foreground"
+            )}
+          >
+            {reAdmittedCandidates.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setQueueTab("all");
+            setSelectedClassFilter("ALL");
+          }}
+          className={cn(
+            "py-2.5 px-3.5 sm:px-4 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+            queueTab === "all"
+              ? "bg-background text-foreground shadow-sm border"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <Layers className="w-4 h-4" />
+          <span className="hidden sm:inline">All</span>
+          <span>({totalQueuedCount})</span>
+        </button>
       </div>
 
       {/* Search and Filters Bar */}
@@ -639,7 +814,7 @@ export default function AdmissionQueuePage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search candidate by name, roll, student ID, or PEN..."
+            placeholder="Search candidate by name, roll, student ID, form no, or PEN..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 h-10 text-xs rounded-xl"
@@ -664,14 +839,16 @@ export default function AdmissionQueuePage() {
               className={cn(
                 "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
                 selectedClassFilter === "ALL"
-                  ? "bg-purple-600 text-white shadow-2xs"
+                  ? queueTab === "new"
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : "bg-purple-600 text-white shadow-2xs"
                   : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
               )}
             >
-              All Classes ({queuedStudents.length})
+              All Classes ({tabCandidates.length})
             </button>
             {availableClassesInQueue.map((cls) => {
-              const count = queuedStudents.filter((s) => s.presentClass === cls).length;
+              const count = tabCandidates.filter((s) => s.presentClass === cls).length;
               return (
                 <button
                   key={cls}
@@ -680,7 +857,9 @@ export default function AdmissionQueuePage() {
                   className={cn(
                     "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap",
                     selectedClassFilter === cls
-                      ? "bg-purple-600 text-white shadow-2xs"
+                      ? queueTab === "new"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "bg-purple-600 text-white shadow-2xs"
                       : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
                   )}
                 >
@@ -723,29 +902,39 @@ export default function AdmissionQueuePage() {
 
       {/* Main Queue Content */}
       <div className="print:hidden">
-        {loadingStudents ? (
+        {loadingStudents || loadingApplications ? (
           <div className="p-12 text-center text-xs text-muted-foreground animate-pulse">
-            Loading admission queue...
+            Loading {queueTab === "new" ? "New Admission" : queueTab === "re" ? "Re-Admission" : "Admission"} invoice queue...
           </div>
         ) : displayedGroups.length === 0 ? (
           <div className="bg-card border rounded-3xl p-12 text-center space-y-3">
-            <div className="h-14 w-14 rounded-full bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto">
+            <div
+              className={cn(
+                "h-14 w-14 rounded-full flex items-center justify-center mx-auto",
+                queueTab === "new" ? "bg-emerald-500/10 text-emerald-600" : "bg-purple-500/10 text-purple-600"
+              )}
+            >
               <CheckCheck className="h-7 w-7" />
             </div>
-            <h3 className="text-base font-bold text-foreground">No Pending Invoices</h3>
+            <h3 className="text-base font-bold text-foreground">
+              No Pending Invoices in {queueTab === "new" ? "New Admission" : queueTab === "re" ? "Re-Admission" : "Queue"}
+            </h3>
             <div className="pt-2 flex items-center justify-center gap-3">
-              <Link
-                href="/admission/re"
-                className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all"
-              >
-                Re-admission Desk
-              </Link>
-              <Link
-                href="/admission/new"
-                className="px-4 py-2 rounded-xl border hover:bg-muted text-xs font-bold transition-all"
-              >
-                New Admission
-              </Link>
+              {queueTab === "new" ? (
+                <Link
+                  href="/admission/new"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all"
+                >
+                  New Admission Wizard
+                </Link>
+              ) : (
+                <Link
+                  href="/admission/re"
+                  className="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all"
+                >
+                  Re-admission Desk
+                </Link>
+              )}
             </div>
           </div>
         ) : viewMode === "list" ? (
@@ -757,21 +946,36 @@ export default function AdmissionQueuePage() {
               const maxRoll =
                 group.students[group.students.length - 1]?.presentRoll || group.totalCount;
 
+              const isNewAd = queueTab === "new" || group.students.some((s) => s.admissionSource === "new_admission");
+
               return (
                 <div
                   key={group.key}
-                  className="bg-card border border-border/80 rounded-2xl shadow-2xs hover:border-purple-300 dark:hover:border-purple-800 transition-all overflow-hidden"
+                  className="bg-card border border-border/80 rounded-2xl shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-all overflow-hidden"
                 >
                   <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="px-3.5 py-2 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 font-black text-sm sm:text-base shrink-0">
+                      <div
+                        className={cn(
+                          "px-3.5 py-2 rounded-xl font-black text-sm sm:text-base shrink-0 border",
+                          isNewAd
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                            : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                        )}
+                      >
                         {group.class} - {group.section}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-base sm:text-lg font-black text-foreground">
                             Class {group.class} - {group.section}{" "}
-                            <span className="text-purple-600 dark:text-purple-400">
+                            <span
+                              className={cn(
+                                isNewAd
+                                  ? "text-emerald-600 dark:text-emerald-400"
+                                  : "text-purple-600 dark:text-purple-400"
+                              )}
+                            >
                               ({group.totalCount})
                             </span>
                           </h3>
@@ -802,7 +1006,12 @@ export default function AdmissionQueuePage() {
 
                       <Button
                         onClick={() => handleOneClickPrint(group)}
-                        className="flex-1 md:flex-initial bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs sm:text-sm h-10 px-5 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.02]"
+                        className={cn(
+                          "flex-1 md:flex-initial text-white font-bold text-xs sm:text-sm h-10 px-5 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.02]",
+                          isNewAd
+                            ? "bg-emerald-600 hover:bg-emerald-700"
+                            : "bg-purple-600 hover:bg-purple-700"
+                        )}
                       >
                         <Printer className="h-4 w-4" />
                         <span>Batch Print ({group.totalCount})</span>
@@ -814,20 +1023,28 @@ export default function AdmissionQueuePage() {
                     <div className="border-t border-border/70 bg-muted/20 p-4 space-y-2">
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                         {group.students.map((student) => {
-                          const timeInfo = getStudentQueuedTime(student);
+                          const timeInfo = getCandidateQueuedTime(student);
+                          const isNew = student.admissionSource === "new_admission";
                           return (
                             <div
                               key={student.id}
-                              className="flex items-center justify-between p-3 rounded-xl bg-background border border-border/80 text-xs gap-2 shadow-2xs hover:border-purple-300 dark:hover:border-purple-800 transition-colors"
+                              className="flex items-center justify-between p-3 rounded-xl bg-background border border-border/80 text-xs gap-2 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-800 transition-colors"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <span className="font-mono font-bold text-[11px] w-6 text-muted-foreground shrink-0">
                                   #{student.presentRoll}
                                 </span>
                                 <div className="truncate min-w-0">
-                                  <p className="font-bold text-foreground truncate">{student.name}</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-bold text-foreground truncate">{student.name}</p>
+                                    {isNew && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 shrink-0">
+                                        New
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-[10px] text-muted-foreground font-mono truncate">
-                                    {student.schoolId || student.id.slice(0, 8)}
+                                    {student.schoolId || student.formNo || student.id.slice(0, 8)}
                                   </p>
                                   <span className="text-[9.5px] text-muted-foreground font-mono flex items-center gap-1 pt-0.5">
                                     <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
@@ -840,7 +1057,12 @@ export default function AdmissionQueuePage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => handleSingleStudentPrint(student)}
-                                  className="h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1 cursor-pointer hover:bg-purple-50 text-purple-700 border-purple-200"
+                                  className={cn(
+                                    "h-7 px-2.5 text-[11px] font-bold rounded-lg gap-1 cursor-pointer",
+                                    isNew
+                                      ? "hover:bg-emerald-50 text-emerald-700 border-emerald-200"
+                                      : "hover:bg-purple-50 text-purple-700 border-purple-200"
+                                  )}
                                 >
                                   <Printer className="w-3 h-3" />
                                   <span>Print</span>
@@ -859,69 +1081,97 @@ export default function AdmissionQueuePage() {
         ) : (
           /* GRID VIEW */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {displayedGroups.map((group) => (
-              <div
-                key={group.key}
-                className="bg-card border border-border/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between border-b pb-3.5 mb-3.5">
-                    <span className="px-3 py-1 rounded-xl bg-purple-500/10 text-purple-700 dark:text-purple-300 font-black text-sm border border-purple-500/20">
-                      Class {group.class} - {group.section}
-                    </span>
-                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Users className="h-3.5 w-3.5" />
-                      <span>({group.totalCount})</span>
-                    </span>
-                  </div>
+            {displayedGroups.map((group) => {
+              const isNewAd = queueTab === "new" || group.students.some((s) => s.admissionSource === "new_admission");
 
-                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
-                    {group.students.map((student) => {
-                      const timeInfo = getStudentQueuedTime(student);
-                      return (
-                        <div
-                          key={student.id}
-                          className="flex items-center justify-between text-xs py-2 px-2.5 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors gap-2"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="font-mono font-bold text-[10px] w-6 text-muted-foreground shrink-0">
-                              #{student.presentRoll}
-                            </span>
-                            <div className="truncate min-w-0">
-                              <span className="font-medium text-foreground truncate block">
-                                {student.name}
-                              </span>
-                              <span className="text-[9.5px] text-muted-foreground font-mono flex items-center gap-1">
-                                <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                <span>{timeInfo.dateStr}, {timeInfo.timeStr}</span>
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSingleStudentPrint(student)}
-                            className="h-6 px-2 text-[10px] font-bold rounded cursor-pointer hover:bg-purple-100 text-purple-700"
+              return (
+                <div
+                  key={group.key}
+                  className="bg-card border border-border/80 rounded-3xl p-5 shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between border-b pb-3.5 mb-3.5">
+                      <span
+                        className={cn(
+                          "px-3 py-1 rounded-xl font-black text-sm border",
+                          isNewAd
+                            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                            : "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/20"
+                        )}
+                      >
+                        Class {group.class} - {group.section}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1",
+                          isNewAd
+                            ? "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40"
+                            : "text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40"
+                        )}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        <span>({group.totalCount})</span>
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+                      {group.students.map((student) => {
+                        const timeInfo = getCandidateQueuedTime(student);
+                        return (
+                          <div
+                            key={student.id}
+                            className="flex items-center justify-between text-xs py-2 px-2.5 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors gap-2"
                           >
-                            <Printer className="w-3 h-3 mr-0.5" /> Print
-                          </Button>
-                        </div>
-                      );
-                    })}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="font-mono font-bold text-[10px] w-6 text-muted-foreground shrink-0">
+                                #{student.presentRoll}
+                              </span>
+                              <div className="truncate min-w-0">
+                                <span className="font-medium text-foreground truncate block">
+                                  {student.name}
+                                </span>
+                                <span className="text-[9.5px] text-muted-foreground font-mono flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                  <span>{timeInfo.dateStr}, {timeInfo.timeStr}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSingleStudentPrint(student)}
+                              className={cn(
+                                "h-6 px-2 text-[10px] font-bold rounded cursor-pointer",
+                                isNewAd
+                                  ? "hover:bg-emerald-100 text-emerald-700"
+                                  : "hover:bg-purple-100 text-purple-700"
+                              )}
+                            >
+                              <Printer className="w-3 h-3 mr-0.5" /> Print
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-4 border-t border-border/60">
+                    <Button
+                      onClick={() => handleOneClickPrint(group)}
+                      className={cn(
+                        "w-full text-white font-bold text-xs h-10 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2",
+                        isNewAd
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : "bg-purple-600 hover:bg-purple-700"
+                      )}
+                    >
+                      <Printer className="h-4 w-4" />
+                      <span>Batch Print ({group.totalCount})</span>
+                    </Button>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-4 border-t border-border/60">
-                  <Button
-                    onClick={() => handleOneClickPrint(group)}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs h-10 rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Printer className="h-4 w-4" />
-                    <span>Batch Print ({group.totalCount})</span>
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -956,7 +1206,7 @@ export default function AdmissionQueuePage() {
           <DialogHeader className="shrink-0 border-b border-border/70 pb-4 pr-10 sm:pr-12 print:hidden">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-500/20">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
                   <Printer className="h-5 w-5" />
                 </div>
                 <div>
@@ -970,7 +1220,7 @@ export default function AdmissionQueuePage() {
                         Batch Invoices: Class {activePrintGroup?.class} – Section {activePrintGroup?.section}
                       </span>
                     )}
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                       {currentBatchInvoices.length} {currentBatchInvoices.length === 1 ? "slip" : "slips"}
                     </span>
                   </DialogTitle>
@@ -1065,7 +1315,7 @@ export default function AdmissionQueuePage() {
                         Receipt:
                       </span>
                       {isInvoiceNoLocked ? (
-                        <span className="font-mono font-bold text-purple-700 dark:text-purple-300">
+                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">
                           {formattedStartReceipt}{" "}
                           {currentBatchInvoices.length > 1 ? `→ ${formattedEndReceipt}` : ""}
                         </span>
@@ -1107,7 +1357,7 @@ export default function AdmissionQueuePage() {
                         className={cn(
                           "px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all",
                           printCopyType === "student"
-                            ? "bg-purple-600 text-white"
+                            ? "bg-emerald-600 text-white"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
@@ -1119,7 +1369,7 @@ export default function AdmissionQueuePage() {
                         className={cn(
                           "px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all",
                           printCopyType === "both"
-                            ? "bg-purple-600 text-white"
+                            ? "bg-emerald-600 text-white"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
@@ -1133,11 +1383,11 @@ export default function AdmissionQueuePage() {
               {/* Zoom & Action Buttons */}
               <div className="flex items-center gap-2.5 flex-wrap">
                 {printCopyType === "student" || printCopyType === "school" ? (
-                  <div className="flex items-center px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-bold font-mono">
+                  <div className="flex items-center px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold font-mono">
                     A4 Pages: {Math.ceil(currentBatchInvoices.length / 4)}
                   </div>
                 ) : (
-                  <div className="flex items-center px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-bold font-mono">
+                  <div className="flex items-center px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold font-mono">
                     A5 Sheets: {currentBatchInvoices.length}
                   </div>
                 )}
@@ -1145,7 +1395,7 @@ export default function AdmissionQueuePage() {
                 <Button
                   onClick={() => handleExecutePrint(true)}
                   disabled={clearQueueMutation.isPending}
-                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 px-4 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
                 >
                   <Printer className="h-4 w-4" />
                   <span>Print &amp; Clear Queue</span>
