@@ -5,7 +5,8 @@ export type CertificateType =
   | "character-certificate"
   | "pass-certificate"
   | "transfer-certificate"
-  | "kanyashree";
+  | "kanyashree"
+  | "bonafide-certificate";
 
 export interface DBCertificateRow {
   id: string;

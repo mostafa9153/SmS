@@ -217,6 +217,72 @@ export async function checkDuplicateApplicant(params: {
   return res.json();
 }
 
+export async function getReAdmissionDashboardStats(params: {
+  targetClass: string;
+  section?: string;
+  year?: string;
+}): Promise<{
+  stats: {
+    class: string;
+    section: string;
+    currentYear: number;
+    previousYear: number;
+    totalEligible: number;
+    admittedCount: number;
+    pendingCount: number;
+    notAdmittedCount: number;
+    reAdmissionRate: number;
+    online: {
+      totalSubmitted: number;
+      admitted: number;
+      pending: number;
+    };
+    offline: {
+      admitted: number;
+      pending: number;
+    };
+    previousYearHistory: {
+      year: number;
+      totalCount: number;
+    };
+  };
+  students: any[];
+  onlineApplications: any[];
+}> {
+  const q = new URLSearchParams();
+  q.append("class", params.targetClass);
+  if (params.section && params.section !== "all") q.append("section", params.section);
+  if (params.year) q.append("year", params.year);
+
+  const res = await fetch(`/api/admission/re-admission/stats?${q.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to fetch re-admission dashboard stats");
+  }
+  return res.json();
+}
+
+export async function getReAdmissionCandidates(filters: {
+  targetClass: string;
+  section?: string;
+  search?: string;
+  status?: string;
+}): Promise<Student[]> {
+  const params = new URLSearchParams();
+  params.append("class", filters.targetClass);
+  if (filters.section && filters.section !== "all") params.append("section", filters.section);
+  if (filters.search) params.append("search", filters.search);
+  if (filters.status) params.append("status", filters.status);
+
+  const res = await fetch(`/api/admission/re-admission/candidates?${params.toString()}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to fetch re-admission candidates");
+  }
+  const data = await res.json();
+  return data.candidates || [];
+}
+
 export async function updateReAdmissionStatus(
   studentId: string,
   payload: {
@@ -227,8 +293,11 @@ export async function updateReAdmissionStatus(
     feePaid?: boolean;
     feeAmount?: number;
     paymentReceiptNo?: string;
+    photoUrl?: string;
+    updatedProfile?: Record<string, any>;
+    applicationId?: string;
   }
-): Promise<{ success: boolean; student: Student; message?: string }> {
+): Promise<{ success: boolean; student: Student; message?: string; targetClass?: string; targetSection?: string; targetRoll?: number; schoolId?: string; receiptNo?: string }> {
   const res = await fetch("/api/admission/re-admission/admit", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

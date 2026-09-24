@@ -34,6 +34,7 @@ import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
 import { getClassColorStyle } from "@/components/ems/seat-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import {
   DoorOpen,
   Sparkles,
@@ -320,6 +321,11 @@ export function SeatArrangementEditor({
       columnAssignments: [],
       startDirection: "top-to-bottom",
     };
+  const activeRoomLabel = activeRoom?.roomNumber
+    ? (activeRoom.roomNumber.toLowerCase().startsWith("room")
+        ? activeRoom.roomNumber
+        : `Room ${activeRoom.roomNumber}`)
+    : "Room";
 
   // Update pattern for room(s) based on applyScope
   const handlePatternChange = (newPattern: ArrangementPattern) => {
@@ -791,43 +797,6 @@ export function SeatArrangementEditor({
 
   return (
     <div className="space-y-4">
-      {/* Missing Roll Notice Banner (if any database rolls are missing in range) */}
-      {missingRollsReport.length > 0 && (
-        <div className="p-3.5 sm:p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0 mt-0.5">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h4 className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">
-                  Missing Roll Numbers Detected
-                </h4>
-                <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-mono">
-                  {totalMissingRollsCount} Missing in DB
-                </Badge>
-              </div>
-              <p className="text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                Active students have been seated continuously without leaving empty gaps for skipped rolls.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {missingRollsReport.map((m, idx) => (
-                  <div
-                    key={idx}
-                    className="text-[11px] font-mono bg-background/90 border border-amber-500/30 rounded-lg px-2.5 py-1 text-foreground flex items-center gap-1.5 shadow-2xs"
-                  >
-                    <span className="font-bold text-primary">Class {m.class}-{m.section}:</span>
-                    <span className="text-muted-foreground">Missing:</span>
-                    <span className="font-bold text-amber-700 dark:text-amber-400">{m.missingFormatted}</span>
-                    <span className="text-[10px] text-muted-foreground/80">({m.foundCount}/{m.expectedCount} active)</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ──────────────────────────────────────────────────────────── */}
       {/* ROOM CONFIGURATION PANEL: Algorithm & Column Assignments     */}
       {/* ──────────────────────────────────────────────────────────── */}
@@ -865,8 +834,58 @@ export function SeatArrangementEditor({
               </div>
             </div>
 
-            {/* Highlighted Column Edit Button */}
+            {/* Warning Button & Highlighted Column Edit Button */}
             <div className="flex items-center gap-2">
+              {missingRollsReport.length > 0 && (
+                <Popover>
+                  <PopoverTrigger
+                    className="h-8 text-xs font-bold inline-flex items-center gap-1.5 px-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20 shadow-2xs cursor-pointer active:scale-95 transition-all select-none"
+                    title="View missing roll numbers detected in database"
+                  >
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Warning</span>
+                    <Badge className="h-4.5 px-1.5 py-0 text-[10px] font-mono bg-amber-500/25 text-amber-900 dark:text-amber-200 border-amber-500/30">
+                      {totalMissingRollsCount}
+                    </Badge>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    side="bottom"
+                    sideOffset={8}
+                    className="w-80 sm:w-96 p-3.5 rounded-2xl shadow-xl border border-amber-500/30 bg-popover/95 backdrop-blur-md"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-500" />
+                          <h4 className="text-xs font-bold text-foreground">Missing Rolls Detected</h4>
+                        </div>
+                        <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-mono">
+                          {totalMissingRollsCount} Missing in DB
+                        </Badge>
+                      </div>
+                      <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                        {missingRollsReport.map((m, idx) => (
+                          <div
+                            key={idx}
+                            className="text-[11px] font-mono bg-muted/50 border border-border/70 rounded-lg p-2 text-foreground space-y-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-primary">Class {m.class}-{m.section}</span>
+                              <span className="text-[10px] text-muted-foreground">({m.foundCount}/{m.expectedCount} active)</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-baseline gap-1">
+                              <span>Missing:</span>
+                              <span className="font-bold text-amber-700 dark:text-amber-400 break-all">{m.missingFormatted}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
               <Button
                 type="button"
                 variant="outline"
@@ -907,31 +926,23 @@ export function SeatArrangementEditor({
                 columnAssignments={activeConfig.columnAssignments}
                 onAssignmentChange={handleColumnAssignmentChange}
                 onBulkAssignmentChange={handleBulkColumnAssignmentChange}
-                onApplyToAllRooms={handleApplyTemplateToAllRooms}
+                roomNumber={activeRoomLabel}
+                scope={applyScope}
+                onScopeChange={handleScopeChange}
                 pattern={activeConfig.pattern}
               />
 
-              {/* Action Row: Auto-Arrange & Reset Room */}
-              <div className="pt-3 border-t border-border/60 flex flex-wrap items-center justify-between gap-2">
+              {/* Action Row: Reset Room Seats */}
+              <div className="pt-3 border-t border-border/60 flex items-center justify-end">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleResetActiveRoom}
-                  className="h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1.5 cursor-pointer border-rose-200 dark:border-rose-900"
+                  className="h-8 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 gap-1.5 cursor-pointer border-rose-200 dark:border-rose-900 shadow-2xs active:scale-95"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Reset {activeRoom.roomNumber} Seats</span>
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleAutoArrangeActiveRoom}
-                  className="h-8 text-xs font-bold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs cursor-pointer px-3.5"
-                >
-                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-                  <span>Re-apply Arrangement to {activeRoom.roomNumber}</span>
+                  <span>Reset {activeRoomLabel} Seats</span>
                 </Button>
               </div>
             </div>
@@ -953,7 +964,10 @@ export function SeatArrangementEditor({
           return (
             <button
               key={room.id}
-              onClick={() => setActiveRoomId(room.id)}
+              onClick={() => {
+                setActiveRoomId(room.id);
+                setApplyScope("SINGLE_ROOM");
+              }}
               className={cn(
                 "px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-2.5 cursor-pointer shrink-0 border",
                 isSelected

@@ -139,8 +139,11 @@ export function Step4SuccessDialog({
 
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-2xl sm:text-3xl font-black tracking-tight text-foreground bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">
-              Admission Confirmed
+              Admission Confirmed!
             </DialogTitle>
+            <p className="text-xs text-muted-foreground font-medium">
+              শিক্ষার্থীর ভর্তি তথ্য সফলভাবে সংরক্ষিত ও ইনভয়েস কিউতে যুক্ত হয়েছে
+            </p>
           </DialogHeader>
 
           {/* Student Receipt Summary Card */}

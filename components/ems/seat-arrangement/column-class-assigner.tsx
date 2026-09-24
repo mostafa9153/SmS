@@ -43,7 +43,6 @@ interface ColumnClassAssignerProps {
     secondaryClass?: string
   ) => void;
   onBulkAssignmentChange?: (newAssignments: ColumnClassAllocationConfig[]) => void;
-  onApplyToAllRooms?: () => void;
   roomNumber?: string;
   scope?: "ALL_ROOMS" | "SINGLE_ROOM";
   onScopeChange?: (scope: "ALL_ROOMS" | "SINGLE_ROOM") => void;
@@ -57,7 +56,6 @@ export function ColumnClassAssigner({
   columnAssignments,
   onAssignmentChange,
   onBulkAssignmentChange,
-  onApplyToAllRooms,
   roomNumber,
   scope = "ALL_ROOMS",
   onScopeChange,
@@ -216,18 +214,18 @@ export function ColumnClassAssigner({
               </>
             )}
 
-            {/* Proper 2-Option Segmented Switch Button: [Room Number] | [All Rooms] */}
-            {onScopeChange ? (
+            {/* Segmented Scope Switch: [Room Number] | [All Rooms] */}
+            {onScopeChange && (
               <div className="inline-flex items-center p-0.5 rounded-xl bg-muted/80 dark:bg-muted/50 border border-border/70 shadow-2xs">
                 <button
                   type="button"
                   onClick={() => !disabled && onScopeChange("SINGLE_ROOM")}
                   disabled={disabled}
                   className={cn(
-                    "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none",
+                    "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none active:scale-95",
                     scope === "SINGLE_ROOM"
                       ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                   title={`Apply changes only to ${roomNumber || "this room"}`}
                 >
@@ -238,27 +236,17 @@ export function ColumnClassAssigner({
                   onClick={() => !disabled && onScopeChange("ALL_ROOMS")}
                   disabled={disabled}
                   className={cn(
-                    "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none",
+                    "px-3 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none active:scale-95",
                     scope === "ALL_ROOMS"
                       ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                   )}
                   title="Apply changes to all examination rooms"
                 >
                   All Rooms
                 </button>
               </div>
-            ) : onApplyToAllRooms && !disabled ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={onApplyToAllRooms}
-                className="h-7 text-[11px] font-bold gap-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white cursor-pointer shadow-2xs px-2.5"
-                title="Apply this room's configuration to all examination rooms"
-              >
-                <span>Apply to All Rooms</span>
-              </Button>
-            ) : null}
+            )}
           </div>
         </div>
 

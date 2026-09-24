@@ -12,6 +12,7 @@ export type DocumentType =
   | "pass-certificate"
   | "transfer-certificate"
   | "kanyashree"
+  | "bonafide-certificate"
   | "admission-form";
 
 export const DOC_CONFIG: Record<
@@ -45,6 +46,11 @@ export const DOC_CONFIG: Record<
   kanyashree: {
     storagePrefix: "sms_kanyashree_cert_seq",
     codePrefix: "MHS/KP",
+    padLength: 4,
+  },
+  "bonafide-certificate": {
+    storagePrefix: "sms_bonafide_cert_seq",
+    codePrefix: "MHS/BC",
     padLength: 4,
   },
   "admission-form": {
@@ -104,26 +110,34 @@ export function saveDocumentSequence(docType: DocumentType, nextSeq: number, yea
  * - kanyashree: MHS/KP/2026/0001
  * - admission-form: MHS/AF/26/0001
  */
-export function formatDocumentNumber(docType: DocumentType, seqNo?: number, year?: number): string {
+export function formatDocumentNumber(
+  docType: DocumentType,
+  seqNo?: number,
+  year?: number,
+  schoolCode?: string
+): string {
   const y = year || new Date().getFullYear();
   const num = seqNo !== undefined && seqNo >= 1 ? seqNo : getDocumentSequence(docType, y);
-  const pad = DOC_CONFIG[docType].padLength;
+  const pad = DOC_CONFIG[docType]?.padLength || 4;
   const seqStr = String(num).padStart(pad, "0");
+  const code = (schoolCode || "MHS").split("-")[0].toUpperCase();
 
   switch (docType) {
     case "invoice":
-      return `MHS/${y}/ADM-${seqStr}`;
+      return `${code}/${y}/ADM-${seqStr}`;
     case "character-certificate":
-      return `MHS/CC/${y}/${seqStr}`;
+      return `${code}/CC/${y}/${seqStr}`;
     case "pass-certificate":
-      return `MHS/POC/${y}/${seqStr}`;
+      return `${code}/POC/${y}/${seqStr}`;
     case "transfer-certificate":
-      return `MHS/TC/${y}/${seqStr}`;
+      return `${code}/TC/${y}/${seqStr}`;
     case "kanyashree":
-      return `MHS/KP/${y}/${seqStr}`;
+      return `${code}/KP/${y}/${seqStr}`;
+    case "bonafide-certificate":
+      return `${code}/${y}/${seqStr}`;
     case "admission-form": {
       const yearSuffix = String(y).slice(-2);
-      return `MHS/AF/${yearSuffix}/${seqStr}`;
+      return `${code}/AF/${yearSuffix}/${seqStr}`;
     }
     default:
       return seqStr;

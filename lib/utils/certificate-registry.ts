@@ -8,6 +8,7 @@ import type { CharacterCertificateData } from "@/components/certificate/certific
 import type { PassCertificateData } from "@/components/certificate/pass-certificate-printable-view";
 import type { TransferCertificateData } from "@/components/certificate/transfer-certificate-printable-view";
 import type { KanyashreeCertificateData } from "@/components/certificate/kanyashree-certificate-printable-view";
+import type { BonafideCertificateData } from "@/components/certificate/bonafide-certificate-printable-view";
 
 const LOCAL_CERT_REGISTRY_KEY = "sms_cached_certificates_registry_v1";
 
@@ -274,6 +275,44 @@ export function buildKanyashreeCertInsert(
       policeStation: data.policeStation,
       district: data.district,
       pincode: data.pincode,
+      remarks: data.remarks,
+    },
+  };
+}
+
+/**
+ * Adapter: Bonafide Certificate
+ */
+export function buildBonafideCertInsert(
+  data: BonafideCertificateData,
+  academicSession: string
+): DBCertificateInsert {
+  return {
+    certificate_no: data.certificateNo,
+    certificate_type: "bonafide-certificate",
+    academic_session: academicSession,
+    issue_date: data.issueDate,
+    student_id: data.studentId || null,
+    student_name: data.studentName || "Unnamed Student",
+    gender: data.gender || "Male",
+    father_name: data.fatherName || null,
+    mother_name: data.motherName || null,
+    student_class: data.presentClass || "X",
+    section: data.presentSection || null,
+    roll_no: data.presentRoll || null,
+    date_of_birth: data.dateOfBirth || null,
+    copy_type: data.copyType || "Original",
+    status: "Valid",
+    metadata: {
+      pen: data.pen,
+      purpose: data.purpose,
+      conduct: data.conduct,
+      village: data.village,
+      postOffice: data.postOffice,
+      policeStation: data.policeStation,
+      district: data.district,
+      pincode: data.pincode,
+      dateOfBirthWords: data.dateOfBirthWords,
       remarks: data.remarks,
     },
   };

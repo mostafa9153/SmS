@@ -30,6 +30,8 @@ import {
   SlidersHorizontal,
   Contact,
   Loader2,
+  FileText,
+  FileCheck,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -164,6 +166,39 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     accentBorder: "hover:border-rose-500/50 hover:shadow-rose-500/10",
     gradientGlow: "from-rose-500/10 via-transparent to-transparent",
     highlights: ["Kanyashree Beneficiary ID Auto-fetch", "Govt Declaration Clause", "Institutional Seal & Signatures", "Zero-Waste Layout"],
+  },
+  {
+    id: "blank-pad",
+    title: "Official Blank Pad",
+    category: "certificates",
+    categoryLabel: "Certificates & Stationery",
+    formatBadge: "A4 / A5 Portrait",
+    formatVariant: "amber",
+    description:
+      "Official institutional blank letterhead and memo pad with school crest, registration details, toggleable watermark, and custom layout.",
+    href: "/generate/blank-pad",
+    icon: FileText,
+    iconBg: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    accentBorder: "hover:border-amber-500/50 hover:shadow-amber-500/10",
+    gradientGlow: "from-amber-500/10 via-transparent to-transparent",
+    highlights: ["A4 & A5 Dynamic Sizing", "Official School Crest & Details", "Toggleable Ref. No. & Date", "Instant Single-Page Print"],
+  },
+  {
+    id: "bonafide-certificate",
+    title: "Bonafide Certificate",
+    category: "certificates",
+    categoryLabel: "Certificates",
+    formatBadge: "A5 / A4 Portrait",
+    formatVariant: "emerald",
+    description:
+      "Official institutional bonafide & study certificate with class/section selector, multi-field search (School ID, PEN, Roll, Name), and batch printing.",
+    href: "/generate/bonafide",
+    trackerHref: "/generate/certificate-tracker?type=bonafide-certificate",
+    icon: FileCheck,
+    iconBg: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    accentBorder: "hover:border-emerald-500/50 hover:shadow-emerald-500/10",
+    gradientGlow: "from-emerald-500/10 via-transparent to-transparent",
+    highlights: ["Class & Section Chooser", "Filter by ID, PEN, Name & Roll", "Single & Bulk Batch Print", "Anti-Tamper QR Verification"],
   },
   {
     id: "cce-marksheet",
@@ -732,7 +767,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Certificates (4)
+            Certificates ({GENERATOR_MODULES.filter((m) => m.category === "certificates").length})
           </button>
           <button
             type="button"

@@ -616,7 +616,7 @@ export default function TeacherDashboardPage() {
 
       // Redirect directly to the appropriate module with preselected filters
       if (task.taskType === "RE_ADMISSION") {
-        router.push(`/admission/re-admission?class=${task.targetClass || ""}&section=${task.targetSection || ""}`);
+        router.push(`/admission/re?class=${task.targetClass || ""}&section=${task.targetSection || ""}`);
       } else if (task.taskType === "MARKSHEET") {
         router.push(`/generate/marksheet?class=${task.targetClass || ""}`);
       } else if (task.taskType === "INVOICE_COLLECTION") {
@@ -1060,7 +1060,7 @@ export default function TeacherDashboardPage() {
           </button>
 
           <Link
-            href="/admission/re-admission"
+            href="/admission/re"
             className="p-3.5 rounded-xl bg-muted/40 hover:bg-blue-500/10 border border-border/70 hover:border-blue-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
           >
             <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
