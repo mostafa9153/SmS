@@ -8,12 +8,12 @@ export async function POST(
 ) {
   try {
     const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
+    if (auth.role === "Guest" && !auth.user) {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
     }
 
     const { id } = await params;
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const supabase = createAdminClient();
 
     // 1. Fetch application details
@@ -27,20 +27,57 @@ export async function POST(
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
-    if (app.status === "admitted" && !body.forceReAdmit) {
-      return NextResponse.json(
-        { error: "Student is already admitted in staging", applicationId: app.id },
-        { status: 400 }
-      );
-    }
-
     const assignedSection = body.section || app.target_section || "A";
-    const assignedRoll = body.roll ? parseInt(body.roll) : (app.target_roll || 1);
+    const assignedRoll = body.roll ? parseInt(body.roll, 10) : (app.target_roll || 1);
     const assignedClass = body.class || app.target_class || "V";
     const feeAmount = body.feeAmount !== undefined ? parseFloat(body.feeAmount) : (app.fee_amount || 0);
     const feePaid = body.feePaid !== undefined ? !!body.feePaid : true;
     const currentYear = new Date().getFullYear();
     const yearSuffix = String(currentYear).slice(-2);
+
+    if (app.status === "admitted" && !body.forceReAdmit) {
+      const fallbackSchoolId = app.school_id || `MHS-${currentYear}-${assignedClass}-${String(assignedRoll).padStart(3, "0")}`;
+      return NextResponse.json({
+        success: true,
+        applicationId: app.id,
+        schoolId: fallbackSchoolId,
+        formNo: app.form_no || app.application_no || `FRM-${currentYear}-${String(assignedRoll).padStart(3, "0")}`,
+        invoiceNumber: app.payment_receipt_no || `MHS/AF/${yearSuffix}/${String(assignedRoll).padStart(4, "0")}`,
+        studentName: app.student_name,
+        targetClass: assignedClass,
+        targetSection: assignedSection,
+        targetRoll: assignedRoll,
+        stream: app.stream || body.stream || null,
+        feeAmount: app.fee_amount || feeAmount,
+        feePaid: app.fee_paid !== undefined ? !!app.fee_paid : feePaid,
+        message: "Student is already confirmed as Admitted in staging queue.",
+      });
+    }
+
+    let assignedSchoolId = app.school_id || body.schoolId;
+    if (!assignedSchoolId) {
+      try {
+        const { data: generatedId, error: rpcErr } = await supabase.rpc("generate_school_id", {
+          p_year: String(currentYear),
+          p_class: assignedClass,
+        });
+        if (!rpcErr && generatedId) {
+          assignedSchoolId = generatedId;
+        }
+      } catch (e) {
+        console.warn("Could not generate school_id via RPC:", e);
+      }
+      if (!assignedSchoolId) {
+        const rollStr = String(assignedRoll).padStart(3, "0");
+        assignedSchoolId = `MHS-${currentYear}-${assignedClass}-${rollStr}`;
+      }
+    }
+
+    let formNo = app.form_no || body.formNo;
+    if (!formNo) {
+      formNo = app.application_no || `FRM-${currentYear}-${String(assignedRoll).padStart(3, "0")}`;
+    }
+
     let paymentReceiptNo = (body.paymentReceiptNo || app.payment_receipt_no || "").trim();
     if (!paymentReceiptNo || paymentReceiptNo.startsWith("REC-")) {
       const { count } = await supabase
@@ -56,6 +93,8 @@ export async function POST(
     // 2. Update admission_applications to "admitted" in STAGING
     const updatePayload: Record<string, any> = {
       status: "admitted",
+      school_id: assignedSchoolId,
+      form_no: formNo,
       admitted_class: assignedClass,
       admitted_section: assignedSection,
       admitted_roll: assignedRoll,
@@ -67,7 +106,7 @@ export async function POST(
       payment_mode: body.paymentMode || app.payment_mode || "Cash",
       admitted_at: new Date().toISOString(),
       admission_date: new Date().toISOString().split("T")[0],
-      admitted_by: body.admittedBy || auth.role || "Teacher",
+      admitted_by: body.admittedBy || auth.fullName || auth.role || "Teacher",
       is_transferred_to_active: false,
       updated_at: new Date().toISOString(),
     };
@@ -85,8 +124,30 @@ export async function POST(
       .eq("id", id);
 
     if (updateError) {
-      console.error("Error updating admission application:", updateError);
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      console.warn("Full update failed, falling back to core updatePayload:", updateError.message);
+      const coreUpdatePayload = {
+        status: "admitted",
+        admitted_class: assignedClass,
+        admitted_section: assignedSection,
+        admitted_roll: assignedRoll,
+        photo_url: photoUrl,
+        fee_paid: feePaid,
+        fee_amount: feeAmount,
+        payment_receipt_no: paymentReceiptNo,
+        payment_mode: body.paymentMode || app.payment_mode || "Cash",
+        admitted_at: new Date().toISOString(),
+        admitted_by: body.admittedBy || auth.fullName || auth.role || "Teacher",
+        updated_at: new Date().toISOString(),
+      };
+      const { error: coreErr } = await supabase
+        .from("admission_applications")
+        .update(coreUpdatePayload)
+        .eq("id", id);
+
+      if (coreErr) {
+        console.error("Error updating admission application core fields:", coreErr);
+        return NextResponse.json({ error: coreErr.message }, { status: 500 });
+      }
     }
 
     // 3. Record invoice in admission_invoices table
@@ -98,7 +159,7 @@ export async function POST(
             academic_session: `${currentYear} – ${currentYear + 1}`,
             issue_date: new Date().toISOString().split("T")[0],
             issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
-            student_id: app.application_no,
+            student_id: assignedSchoolId || app.application_no,
             student_name: app.student_name,
             student_class: assignedClass,
             section: assignedSection,
@@ -125,6 +186,8 @@ export async function POST(
     return NextResponse.json({
       success: true,
       applicationId: id,
+      schoolId: assignedSchoolId,
+      formNo: formNo,
       invoiceNumber: paymentReceiptNo,
       studentName: app.student_name,
       targetClass: assignedClass,

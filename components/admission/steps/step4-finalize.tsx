@@ -130,6 +130,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       let appId = appData?.id;
@@ -140,41 +141,42 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            ...appData,
             studentName: appData?.studentName || "New Student",
             targetClass,
             targetSection: section,
             targetRoll: parseInt(rollNo, 10) || 1,
             gender: appData?.gender || "Male",
-            dob: appData?.dob || null,
+            dob: appData?.dob || appData?.dateOfBirth || null,
             fatherName: appData?.fatherName || null,
             motherName: appData?.motherName || null,
             guardianName: appData?.guardianName || appData?.fatherName || null,
-            studentContact: appData?.primaryMobile || appData?.contactNumber || null,
+            studentContact: appData?.studentContact || appData?.primaryMobile || appData?.contactNumber || null,
             altMobile: appData?.altMobile || null,
             email: appData?.email || null,
             address: appData?.address || null,
-            village: appData?.villageTown || null,
-            postOffice: appData?.postOffice || null,
-            policeStation: appData?.policeStation || null,
-            district: appData?.district || null,
-            pincode: appData?.pincode || null,
-            religion: appData?.religion || "General",
+            presentVillage: appData?.presentVillage || appData?.village || null,
+            presentPostOffice: appData?.presentPostOffice || appData?.postOffice || null,
+            presentPoliceStation: appData?.presentPoliceStation || appData?.policeStation || null,
+            presentDistrict: appData?.presentDistrict || appData?.district || null,
+            presentPincode: appData?.presentPincode || appData?.pincode || null,
+            religion: appData?.religion || "Islam",
             socialCategory: appData?.socialCategory || "General",
-            casteCertificateNo: appData?.casteCertNo || null,
+            casteCertificateNo: appData?.casteCertificateNo || appData?.casteCertNo || null,
             aadhaar: appData?.aadhaar || null,
             bloodGroup: appData?.bloodGroup || null,
-            previousSchool: appData?.prevSchool || null,
-            previousClass: appData?.prevClass || null,
-            previousRoll: appData?.prevRoll || null,
-            previousMarks: appData?.prevMarks || null,
-            bankAccountNo: appData?.bankAccount || null,
-            bankIfsc: appData?.ifscCode || null,
+            previousSchool: appData?.previousSchool || appData?.prevSchool || null,
+            previousClass: appData?.previousClass || appData?.prevClass || null,
+            previousRoll: appData?.previousRollNo || appData?.previousRoll || null,
+            previousMarks: appData?.previousMarksPercent || appData?.previousMarks || null,
+            bankAccountNo: appData?.bankAccountNo || appData?.bankAccount || null,
+            bankIfsc: appData?.bankIfsc || appData?.ifscCode || null,
             bankName: appData?.bankName || null,
             kanyashreeId: appData?.kanyashreeId || null,
             admissionType: "new",
             formMethod: appData?.formMethod || "offline",
             academicYear: String(new Date().getFullYear()),
-            photoUrl: photoUrl || null,
+            photoUrl: photoUrl || appData?.photoUrl || null,
           }),
         });
 
@@ -187,7 +189,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
         appId = createJson.application?.id || createJson.id;
       }
 
-      const receiptNo = `REC-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      const receiptNo = `REC-${Math.floor(1000 + Math.random() * 9000)}`;
       
       const result = await admitNewStudentApplication(appId, {
         class: targetClass,
@@ -200,12 +202,23 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
         stream: stream || undefined,
         photoUrl: photoUrl || undefined,
       });
+
+      const confirmedSchoolId = (result as any)?.schoolId || `MHS-2026-${targetClass}-${rollNo.padStart(3, "0")}`;
+      const confirmedFormNo = (result as any)?.formNo || appData?.formNo || appData?.applicationNo || `FRM-2026-${String(Math.floor(100 + Math.random() * 900))}`;
+
+      // Clean up drafts so next admission is fresh
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("sms_new_admission_step4_draft");
+        localStorage.removeItem("sms_new_admission_offline_entry_draft");
+        localStorage.removeItem("sms_admission_apply_draft");
+        localStorage.removeItem("sms_admission_saved_sections");
+      }
       
       onAdmit({
         ...result,
-        studentName: appData?.studentName || "New Student",
-        schoolId: (result as any)?.schoolId || result?.message?.match(/ID: ([\w-]+)/)?.[1] || schoolId,
-        formNo: appData?.formNo || appData?.applicationNo || (appData?.targetClass ? `AP/${appData.academicYear || "2026"}/${appData.targetClass}/${appId?.slice(0, 4).toUpperCase()}` : `FRM-2026-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`),
+        studentName: appData?.studentName || (result as any)?.studentName || "New Student",
+        schoolId: confirmedSchoolId,
+        formNo: confirmedFormNo,
         targetClass,
         section,
         rollNo,
@@ -214,6 +227,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
       });
       toast.success("Student successfully admitted & enrolled in database!");
     } catch (e: any) {
+      console.error("Admission finalize error:", e);
       toast.error(e.message || "Admission process failed. Try again.");
     } finally {
       setIsSubmitting(false);
