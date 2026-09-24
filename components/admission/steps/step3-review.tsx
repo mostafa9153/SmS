@@ -48,79 +48,79 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
   };
 
   const checklistBlock = (
-    <div className="rounded-2xl border bg-card p-4 sm:p-5 space-y-3.5 shadow-xs">
+    <div className="rounded-2xl border bg-card p-3.5 sm:p-5 space-y-3 shadow-xs">
       <p className="text-xs sm:text-sm font-bold border-b pb-2 text-foreground">
-        J. Physical Document Verification Checklist (আসল নথিপত্র যাচাইকরণ ও জমা)
+        Document Verification Checklist
       </p>
-      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-aadhaar"
             checked={checklist.checkAadhaar}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkAadhaar: c }))}
           />
-          <span className="text-xs font-medium leading-none">আধার কার্ড (Aadhaar Card)</span>
+          <span className="text-xs font-medium leading-none">Aadhaar Card</span>
         </label>
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-bank"
             checked={checklist.checkBankPassbook}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkBankPassbook: c }))}
           />
-          <span className="text-xs font-medium leading-none">ব্যাংক পাসবুক (Bank Passbook)</span>
+          <span className="text-xs font-medium leading-none">Bank Passbook</span>
         </label>
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-voter"
             checked={checklist.checkMotherVoter}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkMotherVoter: c }))}
           />
-          <span className="text-xs font-medium leading-none">মায়ের ভোটার আইডি (Mother&apos;s Voter ID)</span>
+          <span className="text-xs font-medium leading-none">Mother&apos;s Voter ID</span>
         </label>
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer transition-colors">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer transition-colors">
           <Checkbox
             id="doc-tc-marks"
             checked={checklist.checkOriginalTcMarksheet}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkOriginalTcMarksheet: c }))}
           />
-          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 leading-none">আসল TC ও মার্কশিট জমা (Original TC)</span>
+          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 leading-none">Original TC & Marksheet</span>
         </label>
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-birth"
             checked={checklist.checkBirthCert}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkBirthCert: c }))}
           />
-          <span className="text-xs font-medium leading-none">জন্ম শংসাপত্র (Birth Certificate)</span>
+          <span className="text-xs font-medium leading-none">Birth Certificate</span>
         </label>
-        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+        <label className="flex items-center space-x-2.5 p-2.5 sm:p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-photo"
             checked={checklist.checkPhoto}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkPhoto: c }))}
           />
-          <span className="text-xs font-medium leading-none">পাসপোর্ট ছবি ২ কপি (2 Photos)</span>
+          <span className="text-xs font-medium leading-none">2 Passport Photos</span>
         </label>
       </div>
     </div>
   );
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className="flex flex-col gap-4 sm:gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0">
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold tracking-tight">Review & Verify Application</h2>
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">Review & Verify Application</h2>
             {appData?.applicationNo && (
-              <Badge variant="secondary" className="font-mono text-xs">
+              <Badge variant="secondary" className="font-mono text-[11px]">
                 {appData.applicationNo}
               </Badge>
             )}
             {appData?.id && !appData?.applicationNo && (
-              <Badge variant="secondary" className="font-mono text-xs">
+              <Badge variant="secondary" className="font-mono text-[11px]">
                 {appData.id.slice(0, 8)}
               </Badge>
             )}

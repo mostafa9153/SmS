@@ -235,18 +235,16 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
   };
 
   return (
-    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} disabled={isSubmitting}>
+    <div className="flex flex-col gap-4 sm:gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Button variant="ghost" size="icon" onClick={onBack} disabled={isSubmitting} className="h-8 w-8 shrink-0">
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div>
-          <h2 className="text-lg font-bold tracking-tight">Finalize Admission</h2>
-        </div>
+        <h2 className="text-base sm:text-lg font-bold tracking-tight">Finalize Admission</h2>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
+      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Academic Placement */}
           <Card>
             <CardHeader className="pb-4">

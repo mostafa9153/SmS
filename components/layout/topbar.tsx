@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationPanel } from "@/components/layout/notification-panel";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { SoundToggle } from "@/components/ui/sound-toggle";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/components/layout/sidebar-context";
 
@@ -106,7 +107,10 @@ export function Topbar() {
       </form>
 
       {/* Right controls */}
-      <div className="ml-auto flex items-center gap-1 sm:gap-2">
+      <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+        {/* Sound Feedback Toggle */}
+        <SoundToggle />
+
         {/* Theme Toggle (Dark / Light Mode) */}
         <ThemeToggle />
 

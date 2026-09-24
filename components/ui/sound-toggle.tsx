@@ -18,7 +18,16 @@ export function SoundToggle({ className }: SoundToggleProps) {
     setEnabled(isSoundEnabled());
   }, []);
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <div
+        className={cn(
+          "h-8 w-8 rounded-lg bg-muted/40 animate-pulse",
+          className
+        )}
+      />
+    );
+  }
 
   const handleToggle = () => {
     const newState = toggleSound();
@@ -29,18 +38,18 @@ export function SoundToggle({ className }: SoundToggleProps) {
     <button
       type="button"
       onClick={handleToggle}
-      title={enabled ? "Tactile Sound: Enabled (Click to mute)" : "Tactile Sound: Muted (Click to enable)"}
+      title={enabled ? "Sound: Enabled (Click to mute)" : "Sound: Muted (Click to enable)"}
       aria-label="Toggle sound feedback"
       className={cn(
-        "relative p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all duration-150 active:scale-95 focus:outline-none",
-        enabled ? "text-indigo-600 bg-indigo-50/50" : "text-slate-400 opacity-70",
+        "flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-150 active:scale-95 cursor-pointer focus:outline-none",
+        enabled ? "text-primary" : "text-muted-foreground/60 opacity-80",
         className
       )}
     >
       {enabled ? (
-        <Volume2 className="w-4 h-4 text-indigo-600 animate-in fade-in" />
+        <Volume2 className="h-4.5 w-4.5 text-primary transition-transform duration-200 hover:scale-105" />
       ) : (
-        <VolumeX className="w-4 h-4 text-slate-400 animate-in fade-in" />
+        <VolumeX className="h-4.5 w-4.5 text-muted-foreground/60 transition-transform duration-200 hover:scale-105" />
       )}
     </button>
   );
