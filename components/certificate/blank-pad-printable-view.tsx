@@ -377,16 +377,12 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                       {data.structuredLetter.signoffPrefix && (
                         <p className="font-semibold mb-6">{data.structuredLetter.signoffPrefix}</p>
                       )}
-                      {data.structuredLetter.signoffDesignation && (
-                        <p className="font-bold border-t border-slate-800 pt-1">
-                          ({data.structuredLetter.signoffDesignation})
-                        </p>
-                      )}
-                      {data.structuredLetter.signoffInstitution && (
-                        <p className={`text-slate-700 ${isA4 ? "text-[12px]" : "text-[10px]"}`}>
-                          {data.structuredLetter.signoffInstitution}
-                        </p>
-                      )}
+                      <p className="font-bold border-t border-slate-800 pt-1">
+                        ({data.structuredLetter.signoffDesignation || effectiveHeadTitle})
+                      </p>
+                      <p className={`text-slate-700 ${isA4 ? "text-[12px]" : "text-[10px]"}`}>
+                        {data.structuredLetter.signoffInstitution || profile.schoolName}
+                      </p>
                     </div>
                   </div>
                 )}

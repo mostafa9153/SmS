@@ -1095,12 +1095,12 @@ function BlankPadGeneratorContent() {
                     />
                   </div>
 
-                  {/* Section 6: Signoff / Designation Block (When bottom signature is off) */}
+                  {/* Section 6: Signoff / Closing (When bottom signature is off) */}
                   {!padData.showSignature && (
                     <div className="space-y-1.5 pt-1 border-t">
                       <div className="flex items-center justify-between">
                         <Label className="text-[11px] font-semibold text-foreground">
-                          6. Signoff / Footer (স্বাক্ষর ও পদমর্যাদা)
+                          6. Signoff / Closing (স্বাক্ষর ও সমাপ্তি)
                         </Label>
                         <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
                           <button
@@ -1147,43 +1147,17 @@ function BlankPadGeneratorContent() {
                           </button>
                         </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Input
-                          value={structuredLetter.signoffPrefix ?? ""}
-                          onChange={(e) =>
-                            setStructuredLetter((prev) => ({
-                              ...prev,
-                              signoffPrefix: e.target.value,
-                            }))
-                          }
-                          placeholder="Prefix (Yours faithfully, / বিনীত,)"
-                          className="h-8 text-xs font-serif"
-                        />
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <Input
-                            value={structuredLetter.signoffDesignation ?? ""}
-                            onChange={(e) =>
-                              setStructuredLetter((prev) => ({
-                                ...prev,
-                                signoffDesignation: e.target.value,
-                              }))
-                            }
-                            placeholder="Designation (e.g. Teacher-in-Charge)"
-                            className="h-8 text-xs font-serif"
-                          />
-                          <Input
-                            value={structuredLetter.signoffInstitution ?? ""}
-                            onChange={(e) =>
-                              setStructuredLetter((prev) => ({
-                                ...prev,
-                                signoffInstitution: e.target.value,
-                              }))
-                            }
-                            placeholder="Institution Name"
-                            className="h-8 text-xs font-serif"
-                          />
-                        </div>
-                      </div>
+                      <Input
+                        value={structuredLetter.signoffPrefix ?? ""}
+                        onChange={(e) =>
+                          setStructuredLetter((prev) => ({
+                            ...prev,
+                            signoffPrefix: e.target.value,
+                          }))
+                        }
+                        placeholder="Prefix (e.g. Yours faithfully, / বিনীত, / ভবদীয়,)"
+                        className="h-8 text-xs font-serif"
+                      />
                     </div>
                   )}
                 </div>
