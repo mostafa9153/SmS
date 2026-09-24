@@ -136,15 +136,15 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
       {/* INNER CONTENT WRAPPER */}
       <div className="relative z-10 flex flex-col justify-between h-full">
         {/* =================================================================== */}
-        {/* 1. INSTITUTIONAL HEADER                                             */}
+        {/* 1. INSTITUTIONAL HEADER (Enlarged +10%)                             */}
         {/* =================================================================== */}
         <div>
-          <div className="border-b-2 border-[#14206b] pb-3 pt-1">
+          <div className="border-b-2 border-[#14206b] pb-3.5 pt-1.5">
             <div className="flex items-center justify-between gap-3">
               {/* School Logo */}
               <div
                 className={`shrink-0 flex items-center justify-center ${
-                  isA4 ? "w-[92px] h-[92px]" : "w-[74px] h-[74px]"
+                  isA4 ? "w-[102px] h-[102px]" : "w-[82px] h-[82px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -160,10 +160,10 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 <h1
                   className={`uppercase leading-tight whitespace-nowrap overflow-visible ${
                     fontStyle === "3d"
-                      ? `${isA4 ? "text-[23.5px] sm:text-[24px]" : "text-[17px] sm:text-[17.5px]"} font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-tight [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_0px_#101736,_4px_4px_3px_rgba(0,0,0,0.35)]`
+                      ? `${isA4 ? "text-[26px] sm:text-[26.5px]" : "text-[19px] sm:text-[19.5px]"} font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-tight [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_0px_#101736,_4px_4px_3px_rgba(0,0,0,0.35)]`
                       : fontStyle === "stylish"
-                      ? `${isA4 ? "text-[24px] sm:text-[25px]" : "text-[18px]"} font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.08em] drop-shadow-xs`
-                      : `${isA4 ? "text-[26px] sm:text-[27px]" : "text-[19px] sm:text-[20px]"} font-black text-[#14206b] font-serif tracking-normal`
+                      ? `${isA4 ? "text-[26.5px] sm:text-[27.5px]" : "text-[20px]"} font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.08em] drop-shadow-xs`
+                      : `${isA4 ? "text-[28.5px] sm:text-[29.5px]" : "text-[21px] sm:text-[22px]"} font-black text-[#14206b] font-serif tracking-normal`
                   }`}
                 >
                   {mainName}
@@ -171,7 +171,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 {suffix && (
                   <div
                     className={`uppercase leading-none whitespace-nowrap ${
-                      isA4 ? "text-[16px]" : "text-[13px]"
+                      isA4 ? "text-[17.5px]" : "text-[14.5px]"
                     } ${
                       fontStyle === "3d"
                         ? "font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-wider [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_2px_rgba(0,0,0,0.3)]"
@@ -185,7 +185,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 )}
                 <p
                   className={`font-semibold text-slate-700 leading-snug pt-0.5 whitespace-nowrap text-center ${
-                    isA4 ? "text-[12.5px]" : "text-[10px]"
+                    isA4 ? "text-[13.8px]" : "text-[11px]"
                   }`}
                 >
                   {profile.village ? `Vill.: ${profile.village}, ` : ""}
@@ -196,7 +196,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 </p>
                 <p
                   className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug whitespace-nowrap ${
-                    isA4 ? "text-[11.5px]" : "text-[9.5px]"
+                    isA4 ? "text-[12.7px]" : "text-[10.5px]"
                   }`}
                 >
                   Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} • H.S. Code: {profile.hsCode || "102298"} • UDISE: {profile.udiseCode || "19111305602"}
@@ -204,7 +204,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 {(displayPhone || displayEmail) && (
                   <p
                     className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug flex items-center justify-center flex-wrap gap-x-2 whitespace-nowrap ${
-                      isA4 ? "text-[11.5px]" : "text-[9.5px]"
+                      isA4 ? "text-[12.7px]" : "text-[10.5px]"
                     }`}
                   >
                     {displayPhone && <span>Phone: {displayPhone}</span>}
@@ -217,7 +217,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
               {/* Symmetry placeholder / right crest or blank balancer */}
               <div
                 className={`shrink-0 flex items-center justify-center opacity-0 pointer-events-none ${
-                  isA4 ? "w-[92px] h-[92px]" : "w-[74px] h-[74px]"
+                  isA4 ? "w-[102px] h-[102px]" : "w-[82px] h-[82px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
