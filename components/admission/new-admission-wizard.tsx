@@ -93,11 +93,11 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
   return (
     <div className="w-full max-w-[1500px] mx-auto border rounded-xl bg-card shadow-xs relative">
       {/* Header */}
-      <div className="flex justify-between items-center px-6 py-4 border-b bg-muted/20">
+      <div className="flex justify-between items-center px-4 sm:px-6 py-3.5 sm:py-4 border-b bg-muted/20">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">New Admission</h1>
+          <h1 className="text-base sm:text-xl font-bold tracking-tight text-foreground">New Admission</h1>
         </div>
-        <Button onClick={onOpenDashboard} variant="outline" size="sm" className="gap-2 rounded-lg h-8 px-3 text-xs font-semibold shadow-2xs hover:bg-muted">
+        <Button onClick={onOpenDashboard} variant="outline" size="sm" className="gap-1.5 sm:gap-2 rounded-lg h-8 px-2.5 sm:px-3 text-xs font-semibold shadow-2xs hover:bg-muted cursor-pointer">
           <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
           <span>Dashboard</span>
         </Button>
@@ -105,7 +105,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
       
       {/* Connected Line Stepper Bar */}
       {step < 5 && (
-        <div className="bg-muted/10 px-4 sm:px-8 py-4 border-b">
+        <div className="bg-muted/10 px-2 sm:px-8 py-3 sm:py-4 border-b">
           <div className="max-w-2xl mx-auto flex items-center justify-between">
             {steps.map((s, idx) => {
               const isCompleted = step > s.num;
@@ -115,10 +115,10 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
               return (
                 <React.Fragment key={s.num}>
                   {/* Step Node */}
-                  <div className="flex flex-col items-center gap-1.5 group min-w-[50px] sm:min-w-[70px] text-center">
+                  <div className="flex flex-col items-center gap-1 group min-w-[38px] sm:min-w-[70px] text-center">
                     <div
                       className={cn(
-                        "w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-xs sm:text-sm transition-all duration-200",
+                        "w-6 h-6 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-bold text-[10px] sm:text-sm transition-all duration-200",
                         isCompleted
                           ? "bg-emerald-600 text-white shadow-xs"
                           : isCurrent
@@ -126,12 +126,12 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
                           : "bg-muted text-muted-foreground border"
                       )}
                     >
-                      {isCompleted ? <Check className="w-4 h-4 stroke-[2.5]" /> : s.num}
+                      {isCompleted ? <Check className="w-3.5 h-3.5 stroke-[2.5]" /> : s.num}
                     </div>
 
                     <span
                       className={cn(
-                        "text-xs font-semibold transition-colors",
+                        "text-[9px] sm:text-xs font-semibold transition-colors",
                         isCurrent ? "text-primary font-bold" : isCompleted ? "text-foreground" : "text-muted-foreground"
                       )}
                     >
@@ -141,8 +141,8 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
 
                   {/* Connecting Line between steps */}
                   {hasNext && (
-                    <div className="flex-1 mx-2 sm:mx-3 -mt-5 flex items-center">
-                      <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
+                    <div className="flex-1 mx-1 sm:mx-3 -mt-3 sm:-mt-5 flex items-center">
+                      <div className="w-full h-0.5 sm:h-1 bg-muted rounded-full overflow-hidden">
                         <div
                           className={cn(
                             "h-full transition-all duration-300 ease-out",
@@ -159,7 +159,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         </div>
       )}
 
-      <div className="p-4 sm:p-6 lg:p-8">
+      <div className="p-3 sm:p-6 lg:p-8 pb-28 sm:pb-8">
         {step === 1 && (
           <Step1ModeSelect
             onNext={(m) => {
