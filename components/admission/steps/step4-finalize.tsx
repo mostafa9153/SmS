@@ -382,17 +382,21 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
                     onClick={() => setIsCaptureDialogOpen(true)}
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    <span>Camera</span>
+                    <span>Camera / Studio</span>
                   </Button>
-                  <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-input bg-background hover:bg-muted text-xs font-medium cursor-pointer shadow-2xs">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    className="flex-1 text-xs gap-1.5 cursor-pointer shadow-2xs"
+                    onClick={() => setIsCaptureDialogOpen(true)}
+                  >
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Upload</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
-                  </label>
+                    <span>Upload File</span>
+                  </Button>
                 </div>
               </div>
 
-              {/* Real Photo Capture Dialog from Student Profile */}
+              {/* Passport Photo Studio Dialog (exact match to student profile) */}
               <PhotoCaptureDialog
                 open={isCaptureDialogOpen}
                 onOpenChange={setIsCaptureDialogOpen}
@@ -402,7 +406,11 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
                   setIsCaptureDialogOpen(false);
                   toast.success("Student photo updated successfully!");
                 }}
-                studentName={appData.studentName || "Student"}
+                onPhotoRemoved={() => {
+                  setPhotoUrl(null);
+                  toast.info("Student photo removed");
+                }}
+                studentName={appData?.studentName || "Student"}
               />
             </CardContent>
           </Card>

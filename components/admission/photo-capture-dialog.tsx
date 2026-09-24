@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Camera, Upload, RotateCcw, Check, Sparkles, X, RefreshCw, CameraOff } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Loader2, Trash2, Image as ImageIcon } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
 
 interface PhotoCaptureDialogProps {
@@ -12,6 +10,7 @@ interface PhotoCaptureDialogProps {
   onOpenChange: (open: boolean) => void;
   currentPhotoUrl?: string;
   onPhotoSaved: (photoUrl: string) => void;
+  onPhotoRemoved?: () => void;
   studentName?: string;
 }
 
@@ -20,313 +19,675 @@ export function PhotoCaptureDialog({
   onOpenChange,
   currentPhotoUrl,
   onPhotoSaved,
-  studentName,
+  onPhotoRemoved,
+  studentName = "Student",
 }: PhotoCaptureDialogProps) {
-  const [mode, setMode] = useState<"camera" | "upload">("camera");
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
-  const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [permissionDenied, setPermissionDenied] = useState<boolean>(false);
+  // Navigation tabs: 'upload' | 'camera'
+  const [activeTab, setActiveTab] = useState<"upload" | "camera">("camera");
+  const [imageSource, setImageSource] = useState<string | null>(null);
 
+  // Camera state
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<"user" | "environment">("user");
 
-  // Start live webcam stream
-  const startCamera = async () => {
+  // Crop / Transform state
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0); // 0, 90, 180, 270
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+
+  // Optimization & Processing state
+  const [optimizedBlob, setOptimizedBlob] = useState<Blob | null>(null);
+  const [optimizedDataUrl, setOptimizedDataUrl] = useState<string | null>(null);
+  const [optimizedSizeKb, setOptimizedSizeKb] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Hidden file input ref
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Stop camera helper
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  }, []);
+
+  // Start camera helper
+  const startCamera = useCallback(async (facing: "user" | "environment" = "user") => {
+    setCameraError(null);
+    stopCamera();
     try {
-      if (videoRef.current?.srcObject) {
-        const s = videoRef.current.srcObject as MediaStream;
-        s.getTracks().forEach((t) => t.stop());
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera API not supported on this browser or connection.");
       }
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: facingMode },
-            width: { ideal: 640 },
-            height: { ideal: 640 },
-          },
-        });
-      } catch (e) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      }
-
-      setPermissionDenied(false);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing,
+          width: { ideal: 1280 },
+          height: { ideal: 960 },
+        },
+        audio: false,
+      });
+      streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.setAttribute("playsinline", "true");
-        videoRef.current.muted = true;
-        await videoRef.current.play().catch(() => {});
-        setCameraActive(true);
+        await videoRef.current.play();
       }
+      setCameraActive(true);
     } catch (err: any) {
-      console.warn("Camera access failed:", err);
-      const isDenied = err.name === "NotAllowedError" || err.name === "PermissionDeniedError";
-      if (isDenied) {
-        setPermissionDenied(true);
-        showToast("Camera permission denied. Please allow camera access in browser settings.", "error");
-      } else {
-        showToast("Webcam unavailable. Switching to file upload mode.", "info");
-        setMode("upload");
-      }
-    }
-  };
-
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const s = videoRef.current.srcObject as MediaStream;
-      s.getTracks().forEach((t) => t.stop());
-      videoRef.current.srcObject = null;
+      console.warn("Camera start failure:", err);
+      setCameraError(
+        err?.message?.includes("Permission") || err?.name === "NotAllowedError"
+          ? "Camera permission denied. Please allow camera access or upload an image file."
+          : "Unable to open camera on this device. Please select an image file instead."
+      );
       setCameraActive(false);
     }
-  };
+  }, [stopCamera]);
 
+  // Clean up camera on modal close or unmount
   useEffect(() => {
-    if (open && mode === "camera" && !capturedImage) {
-      startCamera();
+    if (!open) {
+      stopCamera();
+      setImageSource(null);
+      setOptimizedBlob(null);
+      setOptimizedDataUrl(null);
+      setZoom(1);
+      setRotation(0);
+      setPanOffset({ x: 0, y: 0 });
+    }
+  }, [open, stopCamera]);
+
+  // Manage tab changes
+  useEffect(() => {
+    if (open && activeTab === "camera" && !imageSource) {
+      startCamera(facingMode);
     } else {
       stopCamera();
     }
-    return () => stopCamera();
-  }, [open, mode, facingMode, capturedImage]);
+  }, [open, activeTab, imageSource, facingMode, startCamera, stopCamera]);
 
-  // Reset image when opened with current photo
-  useEffect(() => {
-    if (open) {
-      setCapturedImage(currentPhotoUrl || null);
-    }
-  }, [open, currentPhotoUrl]);
-
-  // Capture square snapshot
-  const takeSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    const size = Math.min(video.videoWidth || 480, video.videoHeight || 480);
-    const startX = ((video.videoWidth || 480) - size) / 2;
-    const startY = ((video.videoHeight || 480) - size) / 2;
-
-    canvas.width = 400;
-    canvas.height = 400;
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.drawImage(video, startX, startY, size, size, 0, 0, 400, 400);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-      setCapturedImage(dataUrl);
-      stopCamera();
-    }
-  };
-
-  // Handle image upload from file
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const size = Math.min(img.width, img.height);
-        const startX = (img.width - size) / 2;
-        const startY = (img.height - size) / 2;
-        canvas.width = 400;
-        canvas.height = 400;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(img, startX, startY, size, size, 0, 0, 400, 400);
-          setCapturedImage(canvas.toDataURL("image/jpeg", 0.9));
-        }
-      };
-      img.src = event.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSave = () => {
-    if (!capturedImage) {
-      showToast("Please capture or upload a passport photo first.", "error");
+  // Process image file or blob helper
+  const processImageFile = useCallback((file: File | Blob) => {
+    if (!file.type.startsWith("image/")) {
+      showToast({ type: "error", title: "Invalid File", description: "Please select an image file (JPG, PNG, WebP)." });
       return;
     }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageSource(reader.result as string);
+      setZoom(1);
+      setRotation(0);
+      setPanOffset({ x: 0, y: 0 });
+      stopCamera();
+    };
+    reader.readAsDataURL(file);
+  }, [stopCamera]);
+
+  // Handle file select
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file);
+  };
+
+  // Clipboard Paste (Ctrl+V) listener
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            processImageFile(file);
+            showToast({
+              type: "success",
+              title: "Photo Pasted",
+              description: "Loaded scanned photo from clipboard!",
+            });
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [open, processImageFile]);
+
+  // Capture snapshot from live camera feed
+  const captureCameraSnapshot = useCallback(() => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 960;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Draw video frame to canvas
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+    setImageSource(dataUrl);
+    setZoom(1);
+    setRotation(0);
+    setPanOffset({ x: 0, y: 0 });
+    stopCamera();
+  }, [stopCamera]);
+
+  // Keyboard shortcut: Press Spacebar to trigger camera capture
+  useEffect(() => {
+    if (!open || activeTab !== "camera" || imageSource || !cameraActive) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" || e.key === " ") {
+        if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
+          return;
+        }
+        e.preventDefault();
+        captureCameraSnapshot();
+        showToast({
+          type: "success",
+          title: "Photo Captured",
+          description: "Captured photo using Spacebar shortcut!",
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, activeTab, imageSource, cameraActive, captureCameraSnapshot]);
+
+  // -------------------------------------------------------------
+  // HTML5 Canvas 3:4 Passport Crop & Smart Compression (20 KB – 40 KB)
+  // Target: 300px width x 400px height (Strict 3:4 Ratio)
+  // -------------------------------------------------------------
+  const generateOptimizedCrop = useCallback(async () => {
+    if (!imageSource) return;
     setIsProcessing(true);
-    onPhotoSaved(capturedImage);
-    setIsProcessing(false);
+
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = imageSource;
+
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Failed to load image"));
+      });
+
+      const MIN_SIZE_BYTES = 20 * 1024; // 20 KB
+      const MAX_SIZE_BYTES = 40 * 1024; // 40 KB
+
+      // Test canvas resolution tiers to land strictly between 20 KB and 40 KB
+      const resolutions = [
+        { w: 450, h: 600 },
+        { w: 400, h: 533 },
+        { w: 360, h: 480 },
+        { w: 300, h: 400 },
+      ];
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      let finalBlob: Blob | null = null;
+      let finalDataUrl: string | null = null;
+
+      for (const res of resolutions) {
+        canvas.width = res.w;
+        canvas.height = res.h;
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, res.w, res.h);
+
+        ctx.save();
+        ctx.translate(res.w / 2, res.h / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panOffset.x, panOffset.y);
+
+        const drawW = res.w;
+        const drawH = (img.height / img.width) * res.w;
+        ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+        ctx.restore();
+
+        // Step down quality from 0.95 to 0.40
+        for (let q = 0.95; q >= 0.40; q -= 0.05) {
+          const testBlob = await new Promise<Blob | null>((resFn) => {
+            canvas.toBlob((b) => resFn(b), "image/webp", q);
+          });
+
+          if (testBlob) {
+            finalBlob = testBlob;
+            finalDataUrl = canvas.toDataURL("image/webp", q);
+            if (testBlob.size >= MIN_SIZE_BYTES && testBlob.size <= MAX_SIZE_BYTES) {
+              break;
+            }
+          }
+        }
+
+        if (finalBlob && finalBlob.size >= MIN_SIZE_BYTES && finalBlob.size <= MAX_SIZE_BYTES) {
+          break;
+        }
+      }
+
+      // Fallback if blob is outside 20-40KB or webp fallback
+      if (!finalBlob || finalBlob.size < MIN_SIZE_BYTES || finalBlob.size > MAX_SIZE_BYTES) {
+        canvas.width = 360;
+        canvas.height = 480;
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 360, 480);
+        ctx.save();
+        ctx.translate(180, 240);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.scale(zoom, zoom);
+        ctx.translate(panOffset.x, panOffset.y);
+        ctx.drawImage(img, -180, -((img.height / img.width) * 360) / 2, 360, (img.height / img.width) * 360);
+        ctx.restore();
+
+        const fallbackJpeg = await new Promise<Blob | null>((resFn) => {
+          canvas.toBlob((b) => resFn(b), "image/jpeg", 0.85);
+        });
+        if (fallbackJpeg) {
+          finalBlob = fallbackJpeg;
+          finalDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        }
+      }
+
+      if (finalBlob && finalDataUrl) {
+        setOptimizedBlob(finalBlob);
+        setOptimizedDataUrl(finalDataUrl);
+        setOptimizedSizeKb(Math.round((finalBlob.size / 1024) * 10) / 10);
+      }
+    } catch (err) {
+      console.error("Optimization error:", err);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [imageSource, zoom, rotation, panOffset]);
+
+  // Debounced auto-generate when crop parameters change
+  useEffect(() => {
+    if (imageSource) {
+      const timer = setTimeout(() => {
+        generateOptimizedCrop();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [imageSource, zoom, rotation, panOffset, generateOptimizedCrop]);
+
+  // Pointer drag for panning
+  const handlePointerDown = (e: React.PointerEvent) => {
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX - panOffset.x, y: e.clientY - panOffset.y };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDragging) return;
+    setPanOffset({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+  };
+
+  const handlePointerUp = () => setIsDragging(false);
+
+  // Save photo and pass optimized data URL back
+  const handleSavePhoto = async () => {
+    if (!optimizedDataUrl && !imageSource) return;
+    setIsSaving(true);
+    try {
+      const finalUrl = optimizedDataUrl || imageSource!;
+      onPhotoSaved(finalUrl);
+      showToast({
+        type: "success",
+        title: "Photo Attached Successfully",
+        description: `Passport photo (${optimizedSizeKb || 30} KB, 3:4 ratio) attached.`,
+      });
+      onOpenChange(false);
+    } catch (err: any) {
+      showToast({
+        type: "error",
+        title: "Attach Failed",
+        description: err.message || "Could not attach photo.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemove = () => {
+    if (onPhotoRemoved) {
+      onPhotoRemoved();
+    }
+    setImageSource(null);
+    setOptimizedBlob(null);
+    setOptimizedDataUrl(null);
     onOpenChange(false);
-    showToast("Passport photo attached successfully!", "success");
+    showToast({
+      type: "success",
+      title: "Photo Removed",
+      description: "Student photo was cleared.",
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md w-[95vw] p-5 sm:p-6 rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-black flex items-center gap-2 text-foreground">
-            <Camera className="h-5 w-5 text-purple-600" />
-            <span>Passport Photo Capture</span>
-          </DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            {studentName ? `Photo for: ${studentName}` : "Capture or upload passport-sized square photo"}
-          </p>
+      <DialogContent className="max-w-md sm:max-w-lg p-0 overflow-hidden rounded-2xl bg-card border shadow-xl">
+        {/* Header */}
+        <DialogHeader className="p-4 sm:p-5 pr-12 border-b bg-muted/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                <Camera className="h-5 w-5 text-primary" />
+                Passport Photo Studio
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                Student: <span className="font-semibold text-foreground">{studentName}</span> (3:4 Ratio, 20 KB – 40 KB)
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
-        {/* Mode Switcher */}
-        <div className="flex items-center justify-center bg-muted p-1 rounded-xl my-2">
-          <button
-            type="button"
-            onClick={() => {
-              setMode("camera");
-              setCapturedImage(null);
-            }}
-            className={cn(
-              "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-              mode === "camera"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Camera className="h-3.5 w-3.5" />
-            <span>Live Camera</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode("upload");
-              stopCamera();
-            }}
-            className={cn(
-              "flex-1 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
-              mode === "upload"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Upload className="h-3.5 w-3.5" />
-            <span>File Upload</span>
-          </button>
-        </div>
+        {/* Content Body */}
+        <div className="p-4 sm:p-6 space-y-4">
+          {!imageSource ? (
+            <div>
+              {/* Tabs: Upload / Scanner vs Live Camera */}
+              <div className="flex rounded-lg bg-muted p-1 mb-4">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("upload")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    activeTab === "upload" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload or Scan File
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("camera")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    activeTab === "camera" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                  Live Camera / Webcam
+                </button>
+              </div>
 
-        {/* Viewport Box */}
-        <div className="flex flex-col items-center justify-center my-2">
-          {capturedImage ? (
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-2 border-purple-500 shadow-md bg-black">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={capturedImage}
-                alt="Captured Student"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-xs">
-                Square Crop
+              {/* Upload Tab View */}
+              {activeTab === "upload" && (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      processImageFile(file);
+                    }
+                  }}
+                  className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/60 rounded-xl p-8 text-center cursor-pointer transition-all bg-muted/10 hover:bg-primary/5 flex flex-col items-center justify-center space-y-3 group"
+                >
+                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <ImageIcon className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Click to select scanned photo or document</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Select file, drag & drop, or press <kbd className="px-1.5 py-0.5 rounded bg-muted border font-mono text-[10px] text-foreground font-semibold">Ctrl + V</kbd> to paste
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80 mt-1 font-mono">
+                      Auto-compressed to WebP (20 KB – 40 KB)
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </div>
+              )}
+
+              {/* Live Camera Tab View */}
+              {activeTab === "camera" && (
+                <div className="space-y-3">
+                  <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-black flex items-center justify-center border">
+                    {cameraError ? (
+                      <div className="p-5 text-center text-rose-400 space-y-2">
+                        <AlertCircle className="h-8 w-8 mx-auto" />
+                        <p className="text-xs">{cameraError}</p>
+                        <button
+                          type="button"
+                          onClick={() => startCamera(facingMode)}
+                          className="mt-2 text-xs px-3 py-1 bg-white/10 hover:bg-white/20 rounded-md text-white font-medium"
+                        >
+                          Retry Camera
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover"
+                        />
+                        {/* 3:4 Passport Oval / Box Guide */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-36 h-48 sm:w-44 sm:h-56 border-2 border-primary border-dashed rounded-lg shadow-2xl bg-primary/5 relative">
+                            <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-primary bg-background/90 px-2 py-0.5 rounded-full border shadow-xs whitespace-nowrap">
+                              Fit Face Here (3:4)
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {cameraActive && (
+                    <div className="flex items-center justify-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = facingMode === "user" ? "environment" : "user";
+                          setFacingMode(next);
+                          startCamera(next);
+                        }}
+                        className="p-2.5 rounded-full border bg-background hover:bg-muted text-muted-foreground transition-colors cursor-pointer"
+                        title="Switch Camera (Front/Back)"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={captureCameraSnapshot}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-semibold text-xs sm:text-sm hover:bg-primary/90 shadow-md active:scale-95 transition-all cursor-pointer"
+                        title="Click or press Spacebar on keyboard to capture"
+                      >
+                        <Camera className="h-4 w-4" />
+                        <span>Capture Photo</span>
+                        <kbd className="hidden sm:inline-block px-1.5 py-0.5 ml-1 text-[10px] font-mono bg-primary-foreground/20 rounded text-primary-foreground font-bold">Space</kbd>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* 3:4 Passport Crop & Alignment View */
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Adjust & Center Face in 3:4 Frame
+                </span>
+                {optimizedSizeKb != null && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-mono font-semibold">
+                    <Sparkles className="h-3 w-3" />
+                    {optimizedSizeKb} KB (Target 20 KB – 40 KB) ✅
+                  </span>
+                )}
+              </div>
+
+              {/* Viewport: 3:4 Aspect Ratio Frame */}
+              <div className="flex justify-center">
+                <div
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  className="relative w-48 h-64 sm:w-56 sm:h-[298px] rounded-lg overflow-hidden border-2 border-primary bg-muted/40 cursor-grab active:cursor-grabbing shadow-inner select-none touch-none flex items-center justify-center"
+                >
+                  <img
+                    src={imageSource}
+                    alt="Passport Preview"
+                    draggable={false}
+                    style={{
+                      transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+                      transformOrigin: "center center",
+                      transition: isDragging ? "none" : "transform 0.1s ease-out",
+                    }}
+                    className="max-w-none w-full pointer-events-none object-contain select-none"
+                  />
+
+                  {/* 3:4 Grid watermark lines */}
+                  <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none border border-white/20">
+                    <div className="border-r border-white/20" />
+                    <div className="border-r border-white/20" />
+                    <div />
+                  </div>
+                </div>
+              </div>
+
+              {/* Adjustment Sliders & Controls */}
+              <div className="space-y-3 bg-muted/20 p-3 rounded-xl border">
+                <div className="flex items-center gap-3">
+                  <ZoomOut className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <input
+                    type="range"
+                    min="0.6"
+                    max="3.0"
+                    step="0.05"
+                    value={zoom}
+                    onChange={(e) => setZoom(parseFloat(e.target.value))}
+                    className="w-full accent-primary cursor-pointer h-1.5 bg-muted rounded-lg"
+                  />
+                  <ZoomIn className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-[11px] font-mono text-muted-foreground w-10 text-right">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setRotation((r) => (r + 90) % 360)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-background hover:bg-muted text-foreground transition-colors cursor-pointer"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" />
+                    Rotate 90°
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(1);
+                      setRotation(0);
+                      setPanOffset({ x: 0, y: 0 });
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Reset
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageSource(null);
+                      setOptimizedBlob(null);
+                      setOptimizedDataUrl(null);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    Re-take
+                  </button>
+                </div>
               </div>
             </div>
-          ) : mode === "camera" ? (
-            permissionDenied ? (
-              <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl border-2 border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20 p-4 flex flex-col items-center justify-center text-center space-y-2">
-                <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-600 flex items-center justify-center shadow-xs">
-                  <CameraOff className="w-5 h-5" />
-                </div>
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold text-foreground block">Camera Blocked</span>
-                  <span className="text-[10px] text-muted-foreground block">Allow camera access in address bar</span>
-                </div>
-                <Button size="sm" onClick={() => startCamera()} className="h-7 text-xs gap-1 bg-purple-600 hover:bg-purple-700 text-white mt-1">
-                  <RefreshCw className="w-3 h-3" /> Allow & Retry
-                </Button>
-              </div>
-            ) : (
-              <div className="relative w-48 h-48 sm:w-56 sm:h-56 rounded-2xl overflow-hidden border-2 border-border shadow-inner bg-black flex flex-col items-center justify-center">
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-                <canvas ref={canvasRef} className="hidden" />
-
-                {/* Passport Guidelines Overlay */}
-                <div className="absolute inset-0 pointer-events-none border border-white/25 rounded-2xl m-3 flex items-center justify-center">
-                  <div className="w-24 h-32 border border-dashed border-white/40 rounded-full" />
-                </div>
-
-                {/* Camera Switch button */}
-                <button
-                  type="button"
-                  onClick={() => setFacingMode((prev) => (prev === "user" ? "environment" : "user"))}
-                  className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors backdrop-blur-md cursor-pointer"
-                  title="Switch Camera"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                </button>
-
-                {/* Take snapshot trigger */}
-                <button
-                  type="button"
-                  onClick={takeSnapshot}
-                  className="absolute bottom-2 h-10 w-10 rounded-full bg-white text-slate-900 hover:bg-slate-200 shadow-xl border-2 border-purple-500 flex items-center justify-center cursor-pointer active:scale-95"
-                  title="Capture Photo"
-                >
-                  <Camera className="h-5 w-5 text-purple-700" />
-                </button>
-              </div>
-            )
-          ) : (
-            <label className="w-48 h-48 sm:w-56 sm:h-56 border-2 border-dashed border-purple-300 dark:border-purple-800 hover:border-purple-500 rounded-2xl flex flex-col items-center justify-center p-4 text-center cursor-pointer transition-colors bg-purple-50/50 dark:bg-purple-950/20">
-              <Upload className="h-8 w-8 text-purple-600 dark:text-purple-400 mb-2" />
-              <span className="text-xs font-bold text-foreground">
-                Upload Image
-              </span>
-              <span className="text-[10px] text-muted-foreground mt-1">
-                Square passport size JPEG/PNG
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-          )}
-
-          {capturedImage && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setCapturedImage(null);
-                if (mode === "camera") startCamera();
-              }}
-              className="mt-3 h-8 text-xs font-semibold rounded-xl"
-            >
-              <RotateCcw className="h-3.5 w-3.5 mr-1" />
-              <span>Retake / Change</span>
-            </Button>
           )}
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between gap-2 pt-2 border-t mt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              stopCamera();
-              onOpenChange(false);
-            }}
-            className="rounded-xl text-xs"
-          >
-            Cancel
-          </Button>
+        {/* Footer Actions */}
+        <div className="p-4 sm:px-6 sm:py-4 border-t bg-muted/20 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            {currentPhotoUrl && !imageSource && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg border border-rose-200 dark:border-rose-900/60 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Remove Photo</span>
+              </button>
+            )}
+          </div>
 
-          <Button
-            onClick={handleSave}
-            disabled={!capturedImage || isProcessing}
-            size="sm"
-            className="rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1.5 cursor-pointer"
-          >
-            <Check className="h-3.5 w-3.5" />
-            <span>Use This Photo</span>
-          </Button>
-        </DialogFooter>
+          <div className="flex items-center gap-2.5 ml-auto">
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              disabled={isSaving}
+              className="px-4 py-2 text-xs sm:text-sm font-medium rounded-lg border bg-background hover:bg-muted transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+            >
+              Cancel
+            </button>
+
+            {imageSource && (
+              <button
+                type="button"
+                onClick={handleSavePhoto}
+                disabled={isSaving || isProcessing || !optimizedDataUrl}
+                className="flex items-center gap-2 px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4" />
+                    Save Photo
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
