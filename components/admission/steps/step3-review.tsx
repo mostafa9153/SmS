@@ -17,8 +17,11 @@ interface Step3ReviewProps {
 export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
   const [checklist, setChecklist] = useState({
     checkAadhaar: false,
+    checkBankPassbook: false,
+    checkMotherVoter: false,
+    checkOriginalTcMarksheet: false,
     checkBirthCert: false,
-    checkMarksheet: false,
+    checkPhoto: false,
   });
 
   const handleFormSubmit = (data: AdmissionFormData) => {
@@ -35,8 +38,11 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
       pincode: data.presentPincode,
       verifiedDocuments: [
         checklist.checkAadhaar ? "Aadhaar Card" : null,
+        checklist.checkBankPassbook ? "Bank Passbook" : null,
+        checklist.checkMotherVoter ? "Mother's Voter ID" : null,
+        checklist.checkOriginalTcMarksheet ? "Original TC & Marksheet" : null,
         checklist.checkBirthCert ? "Birth Certificate" : null,
-        checklist.checkMarksheet ? "Marksheet / TC" : null,
+        checklist.checkPhoto ? "Passport Photos (2 Copies)" : null,
       ].filter(Boolean),
     });
   };
@@ -44,16 +50,40 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
   const checklistBlock = (
     <div className="rounded-2xl border bg-card p-4 sm:p-5 space-y-3.5 shadow-xs">
       <p className="text-xs sm:text-sm font-bold border-b pb-2 text-foreground">
-        J. Physical Document Verification Checklist (আসল নথিপত্র যাচাইকরণ)
+        J. Physical Document Verification Checklist (আসল নথিপত্র যাচাইকরণ ও জমা)
       </p>
-      <div className="grid sm:grid-cols-3 gap-3">
+      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
         <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
             id="doc-aadhaar"
             checked={checklist.checkAadhaar}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkAadhaar: c }))}
           />
-          <span className="text-xs font-medium leading-none">Aadhaar Card Verified</span>
+          <span className="text-xs font-medium leading-none">আধার কার্ড (Aadhaar Card)</span>
+        </label>
+        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+          <Checkbox
+            id="doc-bank"
+            checked={checklist.checkBankPassbook}
+            onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkBankPassbook: c }))}
+          />
+          <span className="text-xs font-medium leading-none">ব্যাংক পাসবুক (Bank Passbook)</span>
+        </label>
+        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
+          <Checkbox
+            id="doc-voter"
+            checked={checklist.checkMotherVoter}
+            onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkMotherVoter: c }))}
+          />
+          <span className="text-xs font-medium leading-none">মায়ের ভোটার আইডি (Mother&apos;s Voter ID)</span>
+        </label>
+        <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20 cursor-pointer transition-colors">
+          <Checkbox
+            id="doc-tc-marks"
+            checked={checklist.checkOriginalTcMarksheet}
+            onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkOriginalTcMarksheet: c }))}
+          />
+          <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 leading-none">আসল TC ও মার্কশিট জমা (Original TC)</span>
         </label>
         <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
@@ -61,15 +91,15 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
             checked={checklist.checkBirthCert}
             onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkBirthCert: c }))}
           />
-          <span className="text-xs font-medium leading-none">Birth Certificate Verified</span>
+          <span className="text-xs font-medium leading-none">জন্ম শংসাপত্র (Birth Certificate)</span>
         </label>
         <label className="flex items-center space-x-2.5 p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 cursor-pointer transition-colors">
           <Checkbox
-            id="doc-marks"
-            checked={checklist.checkMarksheet}
-            onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkMarksheet: c }))}
+            id="doc-photo"
+            checked={checklist.checkPhoto}
+            onCheckedChange={(c: boolean) => setChecklist((prev) => ({ ...prev, checkPhoto: c }))}
           />
-          <span className="text-xs font-medium leading-none">Marksheet / TC Verified</span>
+          <span className="text-xs font-medium leading-none">পাসপোর্ট ছবি ২ কপি (2 Photos)</span>
         </label>
       </div>
     </div>

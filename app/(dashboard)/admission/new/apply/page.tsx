@@ -293,16 +293,18 @@ export default function PublicOnlineApplyPage() {
                 </div>
 
                 {/* Important Instructions Box */}
-                <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 rounded-xl text-xs space-y-1.5 border border-amber-200 dark:border-amber-800/60 print:bg-white print:text-black print:border-black">
+                <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 rounded-xl text-xs space-y-2 border border-amber-200 dark:border-amber-800/60 print:bg-white print:text-black print:border-black">
                   <p className="font-bold flex items-center gap-1.5 text-[12.5px] text-amber-900 dark:text-amber-300 print:text-black">
                     <FileText className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 print:text-black" />
-                    গুরুত্বপূর্ণ নির্দেশাবলী (Important Instructions for Verification):
+                    ভর্তির সময় সঙ্গে আনার প্রয়োজনীয় নথিপত্র (Required Documents for Verification):
                   </p>
-                  <ol className="list-decimal pl-4 space-y-1 text-[11px] sm:text-xs text-amber-900/90 dark:text-amber-300/90 print:text-black">
-                    <li>এই রসিদটির একটি প্রিন্ট কপি নিয়ে বিদ্যালয় অফিসে যোগাযোগ করুন।</li>
-                    <li>আবেদনকারীর আসল জন্ম শংসাপত্র (Birth Certificate) ও আধার কার্ড সঙ্গে আনবেন।</li>
-                    <li>পূর্ববর্তী বিদ্যালয়ের ছাড়পত্র (Transfer Certificate/Marksheet) প্রযোজ্য হলে সঙ্গে আনবেন।</li>
-                    <li>পাসপোর্ট সাইজের রঙিন ছবি (২ কপি) জমা দিতে হবে।</li>
+                  <ol className="list-decimal pl-4 space-y-1 text-[11px] sm:text-xs text-amber-900/90 dark:text-amber-300/90 print:text-black leading-relaxed">
+                    <li>এই আবেদন প্রাপ্তিস্বীকার রসিদটির (Application Receipt) প্রিন্ট কপি।</li>
+                    <li>আবেদনকারী ও অভিভাবকের <strong>আধার কার্ড</strong> (আসল ও জেরক্স কপি)।</li>
+                    <li>আবেদনকারীর সক্রিয় <strong>ব্যাংক পাসবুক</strong> (Bank Passbook জেরক্স কপি)।</li>
+                    <li>ছাত্র/ছাত্রীর <strong>মায়ের ভোটার আইডি কার্ড</strong> (Mother&apos;s Voter ID Card জেরক্স কপি)।</li>
+                    <li>পূর্ববর্তী বিদ্যালয়ের <strong>আসল ছাড়পত্র (Original Transfer Certificate / TC) ও মার্কশিট (Marksheet) — স্কুলে আসল জমা নেওয়া হবে</strong>।</li>
+                    <li>আবেদনকারীর আসল <strong>জন্ম শংসাপত্র (Birth Certificate)</strong> এবং পাসপোর্ট সাইজ রঙিন ছবি (২ কপি)।</li>
                   </ol>
                 </div>
 
