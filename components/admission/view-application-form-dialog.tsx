@@ -32,66 +32,89 @@ export function ViewApplicationFormDialog({
   const schoolProfile = getSavedSchoolProfile();
   const schoolInfo = schoolProfileToSchoolInfo(schoolProfile);
 
-  const targetClass = application.admittedClass || application.targetClass || "V";
+  const targetClass = application.admittedClass || (application as any).admitted_class || application.targetClass || (application as any).target_class || "V";
   const isClassXIorXII = targetClass === "XI" || targetClass === "XII" || targetClass === "11" || targetClass === "12";
+
+  const formNumber = (application as any).formNo || (application as any).form_no || application.applicationNo || (application as any).application_no || "MHS/AF/26/0001";
+  const studentName = application.studentName || (application as any).student_name || "";
+  const fatherName = application.fatherName || (application as any).father_name || "";
+  const motherName = application.motherName || (application as any).mother_name || "";
+  const guardianName = application.guardianName || (application as any).guardian_name || fatherName || motherName || "";
+  const studentContact = application.studentContact || (application as any).student_contact || (application as any).contact_number || (application as any).primary_mobile || application.altMobile || "";
+  const studentDob = application.dob || (application as any).date_of_birth || "";
+  const studentGender = (application.gender || (application as any).gender || "Male").toUpperCase();
+  const studentAadhaar = application.aadhaar || (application as any).aadhaar_no || "";
+  const studentSchoolId = application.schoolId || (application as any).school_id || application.admittedStudentId || (application as any).admitted_student_id || (application as any).student_id || "";
+  const studentClass = application.admittedClass || (application as any).admitted_class || application.targetClass || (application as any).target_class || "";
+  const studentSection = application.admittedSection || (application as any).admitted_section || application.targetSection || (application as any).target_section || "";
+  const studentRoll = application.admittedRoll || (application as any).admitted_roll || application.targetRoll || (application as any).target_roll ? String(application.admittedRoll || (application as any).admitted_roll || application.targetRoll || (application as any).target_roll) : "";
+  const studentVillage = application.village || (application as any).present_village || application.address || "";
+  const studentDistrict = application.district || (application as any).present_district || "SOUTH 24 PARGANAS";
+  const studentPostOffice = application.postOffice || (application as any).present_post_office || (application as any).post_office || "";
+  const studentPoliceStation = application.policeStation || (application as any).present_police_station || (application as any).police_station || "";
+  const studentPincode = application.pincode || (application as any).present_pincode || "";
+  const studentBankName = application.bankName || (application as any).bank_name || "";
+  const studentBankIfsc = application.bankIfsc || (application as any).bank_ifsc || (application as any).ifsc_code || "";
+  const studentBankAccount = application.bankAccountNo || (application as any).bank_account_no || (application as any).bank_account || "";
+  const studentPhoto = application.photoUrl || (application as any).photo_url || (application as any).photo || "";
 
   // Map application to Form V-IX data
   const formVIxData: AdmissionFormVIxData = {
-    formNo: application.applicationNo || "MHS/AF/26/0001",
-    academicYear: application.academicYear || "2026",
-    admissionType: application.admissionType || "new",
+    formNo: formNumber,
+    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
-      slNo: application.applicationNo,
-      class: application.admittedClass || application.targetClass || "",
-      sec: application.admittedSection || application.targetSection || "",
-      rollNo: application.admittedRoll ? String(application.admittedRoll) : application.targetRoll ? String(application.targetRoll) : "",
+      slNo: formNumber,
+      class: studentClass,
+      sec: studentSection,
+      rollNo: studentRoll,
     },
     basicInfo: {
-      nameEng: application.studentName || "",
-      dob: application.dob || "",
-      gender: (application.gender?.toUpperCase() as any) || "MALE",
-      socialCategory: application.socialCategory || "General",
-      religion: application.religion || "Islam",
+      nameEng: studentName,
+      dob: studentDob,
+      gender: studentGender as any,
+      socialCategory: application.socialCategory || (application as any).social_category || "General",
+      religion: application.religion || (application as any).religion || "Islam",
       nationality: "INDIAN",
-      aadhaarNo: application.aadhaar || "",
-      bloodGroup: application.bloodGroup || "",
-      studentId: application.schoolId || application.admittedStudentId || "",
+      aadhaarNo: studentAadhaar,
+      bloodGroup: application.bloodGroup || (application as any).blood_group || "",
+      studentId: studentSchoolId,
     },
     educationalInfo: {
-      presentClass: application.admittedClass || application.targetClass || "",
-      presentSection: application.admittedSection || application.targetSection || "",
-      presentRoll: application.admittedRoll ? String(application.admittedRoll) : application.targetRoll ? String(application.targetRoll) : "",
-      previousSchool: application.previousSchool || "",
-      previousClass: application.previousClass || "",
-      previousRoll: application.previousRoll || "",
+      presentClass: studentClass,
+      presentSection: studentSection,
+      presentRoll: studentRoll,
+      previousSchool: application.previousSchool || (application as any).previous_school || (application as any).prev_school || "",
+      previousClass: application.previousClass || (application as any).previous_class || (application as any).prev_class || "",
+      previousRoll: application.previousRoll || (application as any).previous_roll_no || (application as any).previous_roll || "",
     } as any,
     contactInfo: {
-      village: application.village || application.address || "",
-      district: application.district || "SOUTH 24 PARGANAS",
-      postOffice: application.postOffice || "",
-      policeStation: application.policeStation || "",
-      pinCode: application.pincode || "",
-      contactNo: application.studentContact || application.altMobile || "",
+      village: studentVillage,
+      district: studentDistrict,
+      postOffice: studentPostOffice,
+      policeStation: studentPoliceStation,
+      pinCode: studentPincode,
+      contactNo: studentContact,
       email: application.email || "",
     },
     bankDetails: {
-      bankName: application.bankName || "",
-      ifsc: application.bankIfsc || "",
-      accountNumber: application.bankAccountNo || "",
+      bankName: studentBankName,
+      ifsc: studentBankIfsc,
+      accountNumber: studentBankAccount,
     },
     guardianDetails: {
-      fatherNameEng: application.fatherName || "",
-      motherNameEng: application.motherName || "",
-      guardianNameEng: application.guardianName || application.fatherName || "",
-      relationship: application.guardianName === application.fatherName ? "Father" : application.guardianName === application.motherName ? "Mother" : "Guardian",
+      fatherNameEng: fatherName,
+      motherNameEng: motherName,
+      guardianNameEng: guardianName,
+      relationship: guardianName === fatherName ? "Father" : guardianName === motherName ? "Mother" : "Guardian",
     },
     guardianContact: {
-      village: application.village || application.address || "",
-      district: application.district || "SOUTH 24 PARGANAS",
-      postOffice: application.postOffice || "",
-      policeStation: application.policeStation || "",
-      pinCode: application.pincode || "",
-      contactNo: application.studentContact || application.altMobile || "",
+      village: studentVillage,
+      district: studentDistrict,
+      postOffice: studentPostOffice,
+      policeStation: studentPoliceStation,
+      pinCode: studentPincode,
+      contactNo: studentContact,
       email: application.email || "",
     },
     otherInfo: {
@@ -102,58 +125,58 @@ export function ViewApplicationFormDialog({
 
   // Map application to Form XI data
   const formXIData: AdmissionFormXIData = {
-    formNo: application.applicationNo || "MHS/AF/26/0001",
-    academicYear: application.academicYear || "2026",
-    admissionType: application.admissionType || "new",
+    formNo: formNumber,
+    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
       doa: application.admissionDate || (application.admittedAt ? application.admittedAt.split("T")[0] : ""),
-      slNo: application.applicationNo,
-      class: application.admittedClass || application.targetClass || "XI",
-      sec: application.admittedSection || application.targetSection || "A",
-      rollNo: application.admittedRoll ? String(application.admittedRoll) : application.targetRoll ? String(application.targetRoll) : "",
+      slNo: formNumber,
+      class: studentClass || "XI",
+      sec: studentSection || "A",
+      rollNo: studentRoll,
     },
     basicInfo: {
-      nameEng: application.studentName || "",
-      dob: application.dob || "",
-      gender: (application.gender?.toUpperCase() as any) || "MALE",
-      socialCategory: application.socialCategory || "General",
-      religion: application.religion || "Islam",
+      nameEng: studentName,
+      dob: studentDob,
+      gender: studentGender as any,
+      socialCategory: application.socialCategory || (application as any).social_category || "General",
+      religion: application.religion || (application as any).religion || "Islam",
       nationality: "INDIAN",
-      aadhaarNo: application.aadhaar || "",
-      bloodGroup: application.bloodGroup || "",
-      studentId: application.schoolId || application.admittedStudentId || "",
+      aadhaarNo: studentAadhaar,
+      bloodGroup: application.bloodGroup || (application as any).blood_group || "",
+      studentId: studentSchoolId,
     },
     educationalInfo: {
-      previousSchoolName: application.previousSchool || "",
-      marksObtained: application.previousMarks || "",
+      previousSchoolName: application.previousSchool || (application as any).previous_school || (application as any).prev_school || "",
+      marksObtained: application.previousMarks || (application as any).previous_marks_percent || (application as any).previous_marks || "",
     },
     contactInfo: {
-      village: application.village || application.address || "",
-      district: application.district || "SOUTH 24 PARGANAS",
-      postOffice: application.postOffice || "",
-      policeStation: application.policeStation || "",
-      pinCode: application.pincode || "",
-      contactNo: application.studentContact || application.altMobile || "",
+      village: studentVillage,
+      district: studentDistrict,
+      postOffice: studentPostOffice,
+      policeStation: studentPoliceStation,
+      pinCode: studentPincode,
+      contactNo: studentContact,
       email: application.email || "",
     },
     bankDetails: {
-      bankName: application.bankName || "",
-      ifsc: application.bankIfsc || "",
-      accountNumber: application.bankAccountNo || "",
+      bankName: studentBankName,
+      ifsc: studentBankIfsc,
+      accountNumber: studentBankAccount,
     },
     guardianDetails: {
-      fatherNameEng: application.fatherName || "",
-      motherNameEng: application.motherName || "",
-      guardianNameEng: application.guardianName || application.fatherName || "",
-      relationship: application.guardianName === application.fatherName ? "Father" : application.guardianName === application.motherName ? "Mother" : "Guardian",
+      fatherNameEng: fatherName,
+      motherNameEng: motherName,
+      guardianNameEng: guardianName,
+      relationship: guardianName === fatherName ? "Father" : guardianName === motherName ? "Mother" : "Guardian",
     },
     guardianContact: {
-      village: application.village || application.address || "",
-      district: application.district || "SOUTH 24 PARGANAS",
-      postOffice: application.postOffice || "",
-      policeStation: application.policeStation || "",
-      pinCode: application.pincode || "",
-      contactNo: application.studentContact || application.altMobile || "",
+      village: studentVillage,
+      district: studentDistrict,
+      postOffice: studentPostOffice,
+      policeStation: studentPoliceStation,
+      pinCode: studentPincode,
+      contactNo: studentContact,
       email: application.email || "",
     },
     otherInfo: {

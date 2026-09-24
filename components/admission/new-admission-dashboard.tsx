@@ -3,17 +3,19 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Users, Clock, CheckCircle, Search, Banknote } from "lucide-react";
+import { X, Users, Clock, CheckCircle, Search, Banknote, Eye, FileText } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ViewApplicationFormDialog } from "./view-application-form-dialog";
 import { format } from "date-fns";
 
 export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<any[]>([]);
+  const [selectedApp, setSelectedApp] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -171,20 +173,28 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                   <TableHead>School ID</TableHead>
                   <TableHead>Fee Status</TableHead>
                   <TableHead className="text-right">Date</TableHead>
+                  <TableHead className="w-[90px] text-center">Form</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8">Loading data...</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="text-center py-8">Loading data...</TableCell></TableRow>
                 ) : filteredApps.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No applications found</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">No applications found</TableCell></TableRow>
                 ) : (
                   filteredApps.map(app => (
-                    <TableRow key={app.id}>
+                    <TableRow 
+                      key={app.id}
+                      onClick={() => setSelectedApp(app)}
+                      className="cursor-pointer hover:bg-muted/70 transition-colors group"
+                      title="Click to open filled admission form"
+                    >
                       <TableCell className="font-medium text-xs font-mono">
                         {app.applicationNo || app.formNo || (app.targetClass ? `AP/${app.academicYear || "2026"}/${app.targetClass}/${app.id.slice(0, 4).toUpperCase()}` : app.id)}
                       </TableCell>
-                      <TableCell>{app.studentName}</TableCell>
+                      <TableCell className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {app.studentName}
+                      </TableCell>
                       <TableCell>{app.admittedClass || app.targetClass} {app.admittedSection ? `- ${app.admittedSection}` : ""}</TableCell>
                       <TableCell>{app.admittedRoll || "-"}</TableCell>
                       <TableCell>
@@ -204,6 +214,16 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                       <TableCell className="text-right text-xs text-muted-foreground">
                         {app.createdAt ? format(new Date(app.createdAt), "dd MMM yyyy") : "-"}
                       </TableCell>
+                      <TableCell className="text-center" onClick={(e) => { e.stopPropagation(); setSelectedApp(app); }}>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-7 px-2 text-xs font-semibold text-primary hover:bg-primary/10 gap-1 rounded-lg cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -212,6 +232,13 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* 1-Click Filled Admission Form Dialog */}
+      <ViewApplicationFormDialog
+        open={!!selectedApp}
+        onOpenChange={(open) => !open && setSelectedApp(null)}
+        application={selectedApp}
+      />
     </div>
   );
 }
