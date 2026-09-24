@@ -26,11 +26,21 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         const saved = localStorage.getItem("sms_new_admission_wizard_state");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.step) setStep(parsed.step);
-          if (parsed.mode) setMode(parsed.mode);
-          if (parsed.appData) setAppData(parsed.appData);
-          if (parsed.admissionResult) setAdmissionResult(parsed.admissionResult);
-          if (parsed.showSuccessModal) setShowSuccessModal(parsed.showSuccessModal);
+          // If the previous state had an admission result, success modal, or was step 4, do NOT restore it
+          if (parsed.admissionResult || parsed.showSuccessModal || parsed.step === 4) {
+            localStorage.removeItem("sms_new_admission_wizard_state");
+            localStorage.removeItem("sms_new_admission_step4_draft");
+            localStorage.removeItem("sms_new_admission_offline_entry_draft");
+            setStep(1);
+            setMode(null);
+            setAppData(null);
+            setAdmissionResult(null);
+            setShowSuccessModal(false);
+          } else {
+            if (parsed.step) setStep(parsed.step);
+            if (parsed.mode) setMode(parsed.mode);
+            if (parsed.appData) setAppData(parsed.appData);
+          }
         }
       } catch (e) {
         console.warn("Could not restore wizard state:", e);
@@ -40,14 +50,18 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
     }
   }, []);
 
-  // Save wizard state on change
+  // Save wizard state on change (only save active pre-admission progress)
   useEffect(() => {
     if (isLoaded && typeof window !== "undefined") {
       try {
-        localStorage.setItem(
-          "sms_new_admission_wizard_state",
-          JSON.stringify({ step, mode, appData, admissionResult, showSuccessModal })
-        );
+        if (!admissionResult && !showSuccessModal && step > 1 && step < 4) {
+          localStorage.setItem(
+            "sms_new_admission_wizard_state",
+            JSON.stringify({ step, mode, appData })
+          );
+        } else if (step === 1 || admissionResult || showSuccessModal) {
+          localStorage.removeItem("sms_new_admission_wizard_state");
+        }
       } catch (e) {
         console.warn("Could not save wizard state:", e);
       }
@@ -62,6 +76,8 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
     setShowSuccessModal(false);
     if (typeof window !== "undefined") {
       localStorage.removeItem("sms_new_admission_wizard_state");
+      localStorage.removeItem("sms_new_admission_step4_draft");
+      localStorage.removeItem("sms_new_admission_offline_entry_draft");
       localStorage.removeItem("sms_admission_apply_draft");
       localStorage.removeItem("sms_admission_saved_sections");
     }
@@ -187,6 +203,12 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
             onAdmit={(res) => {
               setAdmissionResult(res);
               setShowSuccessModal(true);
+              if (typeof window !== "undefined") {
+                localStorage.removeItem("sms_new_admission_wizard_state");
+                localStorage.removeItem("sms_new_admission_step4_draft");
+                localStorage.removeItem("sms_new_admission_offline_entry_draft");
+                localStorage.removeItem("sms_admission_apply_draft");
+              }
             }}
           />
         )}
