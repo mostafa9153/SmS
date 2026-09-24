@@ -8,12 +8,15 @@ import { Step3Review } from "./steps/step3-review";
 import { Step4Finalize } from "./steps/step4-finalize";
 import { Step4SuccessDialog } from "./steps/step4-success";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, Check } from "lucide-react";
+import { LayoutDashboard, Check, Calendar } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () => void }) {
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState<"online" | "offline" | null>(null);
+  const [academicYear, setAcademicYear] = useState<string>("2026");
   const [appData, setAppData] = useState<any>(null);
   const [admissionResult, setAdmissionResult] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -26,6 +29,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         const saved = localStorage.getItem("sms_new_admission_wizard_state");
         if (saved) {
           const parsed = JSON.parse(saved);
+          if (parsed.academicYear) setAcademicYear(parsed.academicYear);
           // If the previous state had an admission result, success modal, or was step 4, do NOT restore it
           if (parsed.admissionResult || parsed.showSuccessModal || parsed.step === 4) {
             localStorage.removeItem("sms_new_admission_wizard_state");
@@ -57,7 +61,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         if (!admissionResult && !showSuccessModal && step > 1 && step < 4) {
           localStorage.setItem(
             "sms_new_admission_wizard_state",
-            JSON.stringify({ step, mode, appData })
+            JSON.stringify({ step, mode, academicYear, appData })
           );
         } else if (step === 1 || admissionResult || showSuccessModal) {
           localStorage.removeItem("sms_new_admission_wizard_state");
@@ -66,7 +70,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         console.warn("Could not save wizard state:", e);
       }
     }
-  }, [step, mode, appData, admissionResult, showSuccessModal, isLoaded]);
+  }, [step, mode, academicYear, appData, admissionResult, showSuccessModal, isLoaded]);
 
   const handleRestart = () => {
     setStep(1);
@@ -94,13 +98,38 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
     <div className="w-full max-w-[1500px] mx-auto border rounded-xl bg-card shadow-xs relative">
       {/* Header */}
       <div className="flex justify-between items-center px-4 sm:px-6 py-3.5 sm:py-4 border-b bg-muted/20">
-        <div>
+        <div className="flex items-center gap-2 sm:gap-3">
           <h1 className="text-base sm:text-xl font-bold tracking-tight text-foreground">New Admission</h1>
         </div>
-        <Button onClick={onOpenDashboard} variant="outline" size="sm" className="gap-1.5 sm:gap-2 rounded-lg h-8 px-2.5 sm:px-3 text-xs font-semibold shadow-2xs hover:bg-muted cursor-pointer">
-          <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
-          <span>Dashboard</span>
-        </Button>
+
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Academic Year Selector Dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">Session:</span>
+            <Select value={academicYear} onValueChange={(val) => val && setAcademicYear(val)}>
+              <SelectTrigger className="h-8 w-[125px] sm:w-[155px] text-xs font-bold bg-background shadow-2xs border-border/80 cursor-pointer">
+                <Calendar className="w-3.5 h-3.5 text-primary shrink-0 mr-1" />
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="2026" className="text-xs font-medium cursor-pointer">
+                  2026 (Current)
+                </SelectItem>
+                <SelectItem value="2027" className="text-xs font-medium cursor-pointer">
+                  2027 (Next Year)
+                </SelectItem>
+                <SelectItem value="2025" className="text-xs font-medium cursor-pointer">
+                  2025 (Previous)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button onClick={onOpenDashboard} variant="outline" size="sm" className="gap-1.5 sm:gap-2 rounded-lg h-8 px-2.5 sm:px-3 text-xs font-semibold shadow-2xs hover:bg-muted cursor-pointer">
+            <LayoutDashboard className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Button>
+        </div>
       </div>
       
       {/* Connected Line Stepper Bar */}
@@ -170,35 +199,38 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         )}
         {step === 2 && mode === "online" && (
           <Step2Online
+            academicYear={academicYear}
             onBack={() => setStep(1)}
             onNext={(data) => {
-              setAppData(data);
+              setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(3);
             }}
           />
         )}
         {step === 2 && mode === "offline" && (
           <Step2Offline
+            academicYear={academicYear}
             onBack={() => setStep(1)}
             onNext={(data) => {
-              setAppData(data);
+              setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(3);
             }}
           />
         )}
         {step === 3 && (
           <Step3Review
-            appData={appData}
+            appData={{ ...appData, academicYear: appData?.academicYear || academicYear }}
             onBack={() => setStep(2)}
             onNext={(data) => {
-              setAppData(data);
+              setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(4);
             }}
           />
         )}
         {step === 4 && (
           <Step4Finalize
-            appData={appData}
+            appData={{ ...appData, academicYear: appData?.academicYear || academicYear }}
+            academicYear={academicYear}
             onBack={() => setStep(3)}
             onAdmit={(res) => {
               setAdmissionResult(res);

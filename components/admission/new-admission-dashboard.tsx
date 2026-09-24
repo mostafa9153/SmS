@@ -20,6 +20,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
   const [sourceFilter, setSourceFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [classFilter, setClassFilter] = useState("All");
+  const [yearFilter, setYearFilter] = useState("All");
 
   useEffect(() => {
     let active = true;
@@ -40,6 +41,10 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
   }, []);
 
   const filteredApps = applications.filter(a => {
+    if (yearFilter !== "All") {
+      const yr = a.academicYear || a.academic_year || "2026";
+      if (yr !== yearFilter) return false;
+    }
     if (sourceFilter !== "All") {
       const isOnline = a.formMethod === "online";
       if (sourceFilter === "Online" && !isOnline) return false;
@@ -127,8 +132,20 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
               />
             </div>
 
-            {/* 3-Dropdown Grid for seamless mobile alignment */}
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+            {/* 4-Dropdown Grid for seamless alignment */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
+              <Select value={yearFilter} onValueChange={v => v && setYearFilter(v)}>
+                <SelectTrigger className="h-8 sm:h-9 text-[11px] sm:text-xs bg-background px-2 sm:px-3">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All Years</SelectItem>
+                  <SelectItem value="2026">2026 (Current)</SelectItem>
+                  <SelectItem value="2027">2027 (Next)</SelectItem>
+                  <SelectItem value="2025">2025 (Prev)</SelectItem>
+                </SelectContent>
+              </Select>
+
               <Select value={sourceFilter} onValueChange={v => v && setSourceFilter(v)}>
                 <SelectTrigger className="h-8 sm:h-9 text-[11px] sm:text-xs bg-background px-2 sm:px-3">
                   <SelectValue placeholder="Source" />

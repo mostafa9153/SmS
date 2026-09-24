@@ -15,9 +15,10 @@ import QRCode from "react-qr-code";
 interface Step2OnlineProps {
   onNext: (appData: any) => void;
   onBack: () => void;
+  academicYear?: string;
 }
 
-export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
+export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [origin, setOrigin] = useState("");
@@ -29,7 +30,11 @@ export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
     const fetchApplications = async () => {
       setLoading(true);
       try {
-        const apps = await getAdmissionApplications({ status: "pending", admissionType: "new" });
+        const apps = await getAdmissionApplications({ 
+          status: "pending", 
+          admissionType: "new",
+          academicYear: academicYear || undefined 
+        });
         setApplications(apps);
       } catch (e) {
         toast.error("Failed to load applications");
@@ -39,7 +44,7 @@ export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
       }
     };
     fetchApplications();
-  }, []);
+  }, [academicYear]);
 
   const publicUrl = `${origin}/admission/new/apply`;
 

@@ -17,9 +17,11 @@ interface Step4FinalizeProps {
   onBack: () => void;
   onAdmit: (result: any) => void;
   appData?: any;
+  academicYear?: string;
 }
 
-export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizeProps) {
+export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: Step4FinalizeProps) {
+  const currentYear = academicYear || appData?.academicYear || "2026";
   const [targetClass, setTargetClass] = useState(appData.targetClass || "V");
   const [section, setSection] = useState("A");
   const [rollNo, setRollNo] = useState("01");
@@ -65,12 +67,12 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
     }
   }, [targetClass, section, rollNo, stream, photoUrl, feePaid, paymentMode]);
 
-  // Auto-calculate roll whenever class or section changes
+  // Auto-calculate roll whenever class, section or academic year changes
   useEffect(() => {
     let active = true;
     const fetchRoll = async () => {
       try {
-        const roll = await getNextAvailableRoll(targetClass, section, "2026");
+        const roll = await getNextAvailableRoll(targetClass, section, currentYear);
         if (active) {
           setRollNo(String(roll).padStart(2, '0'));
         }
@@ -80,9 +82,9 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
     };
     fetchRoll();
     return () => { active = false; };
-  }, [targetClass, section]);
+  }, [targetClass, section, currentYear]);
 
-  const schoolId = `MHS-2026-${targetClass}-${rollNo.padStart(3, '0')}`;
+  const schoolId = `MHS-${currentYear}-${targetClass}-${rollNo.padStart(3, '0')}`;
   
   const feeCategory = getFeeCategoryForClass(targetClass);
   const feeItems = getSavedFeeStructure(feeCategory);
@@ -175,7 +177,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
             kanyashreeId: appData?.kanyashreeId || null,
             admissionType: "new",
             formMethod: appData?.formMethod || "offline",
-            academicYear: String(new Date().getFullYear()),
+            academicYear: currentYear,
             photoUrl: photoUrl || appData?.photoUrl || null,
           }),
         });
@@ -203,8 +205,8 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
         photoUrl: photoUrl || undefined,
       });
 
-      const confirmedSchoolId = (result as any)?.schoolId || `MHS-2026-${targetClass}-${rollNo.padStart(3, "0")}`;
-      const confirmedFormNo = (result as any)?.formNo || appData?.formNo || appData?.applicationNo || `FRM-2026-${String(Math.floor(100 + Math.random() * 900))}`;
+      const confirmedSchoolId = (result as any)?.schoolId || `MHS-${currentYear}-${targetClass}-${rollNo.padStart(3, "0")}`;
+      const confirmedFormNo = (result as any)?.formNo || appData?.formNo || appData?.applicationNo || `FRM-${currentYear}-${String(Math.floor(100 + Math.random() * 900))}`;
 
       // Clean up drafts so next admission is fresh
       if (typeof window !== "undefined") {
@@ -235,16 +237,18 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
   };
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="flex items-center gap-2 sm:gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} disabled={isSubmitting} className="h-8 w-8 shrink-0">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} disabled={isSubmitting}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h2 className="text-base sm:text-lg font-bold tracking-tight">Finalize Admission</h2>
+        <div>
+          <h2 className="text-lg font-bold tracking-tight">Finalize Admission</h2>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="space-y-4 sm:space-y-6">
+      <div className="grid lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {/* Academic Placement */}
           <Card>
             <CardHeader className="pb-4">
@@ -419,7 +423,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {} }: Step4FinalizePr
               <span className="font-bold text-sm flex items-center gap-2">
                 <Receipt className="w-4 h-4" /> Admission Invoice Preview
               </span>
-              <span className="text-xs font-semibold opacity-90">2026–2027</span>
+              <span className="text-xs font-semibold opacity-90">{currentYear}–{Number(currentYear) + 1}</span>
             </div>
             <CardContent className="p-4 space-y-3 bg-gradient-to-b from-card to-muted/20 text-xs">
               <div className="flex justify-between items-center pb-2 border-b">

@@ -23,9 +23,10 @@ import { toast } from "sonner";
 interface Step2OfflineProps {
   onNext: (appData: any) => void;
   onBack: () => void;
+  academicYear?: string;
 }
 
-export function Step2Offline({ onNext, onBack }: Step2OfflineProps) {
+export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps) {
   const [entryMethod, setEntryMethod] = useState<"manual" | "ai">("manual");
   const [isScanning, setIsScanning] = useState(false);
   const [useCamera, setUseCamera] = useState(false);
@@ -204,6 +205,7 @@ export function Step2Offline({ onNext, onBack }: Step2OfflineProps) {
       ...data,
       studentName: data.studentName,
       targetClass: data.presentClass,
+      academicYear: academicYear || "2026",
       formMethod: aiExtractedData ? "ai_scan" : "offline",
       // Address standard flattened format
       address: `${data.presentVillage}, ${data.presentPostOffice}, ${data.presentPoliceStation}, ${data.presentDistrict} - ${data.presentPincode}`,
