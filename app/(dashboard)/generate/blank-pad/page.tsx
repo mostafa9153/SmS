@@ -138,7 +138,19 @@ function BlankPadGeneratorContent() {
     bodyContent: "",
   });
 
+  const [mobileTab, setMobileTab] = useState<"form" | "preview">("form");
+
   const [previewScale, setPreviewScale] = useState<number>(0.85);
+
+  // Auto-fit scale on mobile screen size on initial load
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        setPreviewScale(padData.paperSize === "A4" ? 0.44 : 0.58);
+      }
+    }
+  }, [padData.paperSize]);
 
   const handlePrint = () => {
     const nextSeq = padSeq + 1;
@@ -221,20 +233,20 @@ function BlankPadGeneratorContent() {
   const isA4 = padData.paperSize === "A4";
 
   return (
-    <div className="p-3.5 sm:p-6 max-w-[1700px] mx-auto space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
+    <div className="p-2 sm:p-4 md:p-6 max-w-[1700px] mx-auto space-y-3 sm:space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Studio Header: Hidden in Print */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border rounded-2xl p-4 shadow-2xs print:hidden">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 bg-card border rounded-2xl p-3 sm:p-4 shadow-2xs print:hidden">
+        <div className="flex items-center gap-2.5 sm:gap-3">
           <Link
             href="/generate"
-            className="p-2 rounded-xl border bg-muted/40 hover:bg-muted text-foreground transition-all"
+            className="p-2 rounded-xl border bg-muted/40 hover:bg-muted text-foreground transition-all shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-foreground">
-                Blank Pad & Letterhead Studio
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                Blank Pad & Letterhead
               </h1>
               <Badge variant="outline" className="text-[10px] font-mono uppercase font-semibold">
                 {padData.paperSize} Portrait
@@ -243,12 +255,12 @@ function BlankPadGeneratorContent() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <Button
             variant="outline"
             size="sm"
             onClick={handleReset}
-            className="h-9 rounded-xl text-xs gap-1.5"
+            className="h-9 flex-1 sm:flex-none rounded-xl text-xs gap-1.5 cursor-pointer"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
@@ -257,7 +269,7 @@ function BlankPadGeneratorContent() {
           <Button
             size="sm"
             onClick={handlePrint}
-            className="h-9 rounded-xl text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs"
+            className="h-9 flex-1 sm:flex-none rounded-xl text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-xs cursor-pointer"
           >
             <Printer className="h-3.5 w-3.5" />
             Print Pad
@@ -265,10 +277,43 @@ function BlankPadGeneratorContent() {
         </div>
       </div>
 
+      {/* Mobile Tab Switcher: Visible only on mobile/tablet (< xl) */}
+      <div className="flex xl:hidden border rounded-2xl p-1 bg-muted/40 shadow-2xs gap-1 print:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab("form")}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            mobileTab === "form"
+              ? "bg-background text-primary shadow-xs"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <PenTool className="h-3.5 w-3.5 text-primary" />
+          <span>Editor & Settings</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setMobileTab("preview");
+            if (previewScale > 0.6) {
+              setPreviewScale(padData.paperSize === "A4" ? 0.44 : 0.58);
+            }
+          }}
+          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            mobileTab === "preview"
+              ? "bg-background text-primary shadow-xs"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5 text-primary" />
+          <span>Sheet Preview</span>
+        </button>
+      </div>
+
       {/* Main Studio Grid: Unwraps in Print */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 print:block print:w-full print:m-0 print:p-0">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5 print:block print:w-full print:m-0 print:p-0">
         {/* Left Form Controls: Hidden in Print */}
-        <div className="xl:col-span-4 space-y-4 print:hidden">
+        <div className={`xl:col-span-4 space-y-4 print:hidden ${mobileTab === "preview" ? "hidden xl:block" : "block"}`}>
           {/* 1. Paper Format & Border */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
@@ -283,7 +328,7 @@ function BlankPadGeneratorContent() {
                   type="button"
                   onClick={() => {
                     setPadData((prev) => ({ ...prev, paperSize: "A4" }));
-                    setPreviewScale(0.85);
+                    setPreviewScale(typeof window !== "undefined" && window.innerWidth < 768 ? 0.44 : 0.85);
                   }}
                   className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                     padData.paperSize === "A4"
@@ -299,7 +344,7 @@ function BlankPadGeneratorContent() {
                   type="button"
                   onClick={() => {
                     setPadData((prev) => ({ ...prev, paperSize: "A5" }));
-                    setPreviewScale(1.0);
+                    setPreviewScale(typeof window !== "undefined" && window.innerWidth < 768 ? 0.58 : 1.0);
                   }}
                   className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                     padData.paperSize === "A5"
@@ -412,7 +457,7 @@ function BlankPadGeneratorContent() {
                 </div>
 
                 {padData.showRefDate && (
-                  <div className="grid grid-cols-2 gap-2 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                     {/* Ref No Input with Lock/Unlock */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -530,9 +575,9 @@ function BlankPadGeneratorContent() {
                 </div>
 
                 {padData.showWatermark && (
-                  <div className="flex items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
                     <Label className="text-[10px] text-muted-foreground shrink-0">Opacity</Label>
-                    <div className="flex items-center gap-1.5 flex-1 max-w-[200px]">
+                    <div className="flex items-center gap-1.5 flex-1 max-w-full sm:max-w-[200px]">
                       <input
                         type="range"
                         min="0.03"
@@ -604,7 +649,7 @@ function BlankPadGeneratorContent() {
           {/* 3. Letter Mode Switcher & Content Area */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-primary" />
                   Letter Composer
@@ -742,7 +787,7 @@ function BlankPadGeneratorContent() {
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-1.5">
                       <Input
                         value={structuredLetter.recipientPrefix ?? ""}
                         onChange={(e) =>
@@ -752,9 +797,9 @@ function BlankPadGeneratorContent() {
                           }))
                         }
                         placeholder="Prefix (To,)"
-                        className="h-8 text-xs font-serif"
+                        className="h-8 text-xs font-serif sm:col-span-1"
                       />
-                      <div className="col-span-3">
+                      <div className="sm:col-span-3">
                         <Textarea
                           value={structuredLetter.recipientText ?? ""}
                           onChange={(e) =>
@@ -773,7 +818,7 @@ function BlankPadGeneratorContent() {
 
                   {/* Section 2: Subject */}
                   <div className="space-y-1.5 pt-1 border-t">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <Label className="text-[11px] font-semibold text-foreground">
                         2. Subject (বিষয়)
                       </Label>
@@ -860,7 +905,7 @@ function BlankPadGeneratorContent() {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-1.5">
                       <Input
                         value={structuredLetter.subjectPrefix ?? "Sub:"}
                         onChange={(e) =>
@@ -870,7 +915,7 @@ function BlankPadGeneratorContent() {
                           }))
                         }
                         placeholder="Sub:"
-                        className="h-8 text-xs font-serif"
+                        className="h-8 text-xs font-serif sm:col-span-1"
                       />
                       <Input
                         value={structuredLetter.subjectText ?? ""}
@@ -881,7 +926,7 @@ function BlankPadGeneratorContent() {
                           }))
                         }
                         placeholder="Subject line of the letter / notice..."
-                        className="h-8 text-xs font-serif col-span-3"
+                        className="h-8 text-xs font-serif sm:col-span-3"
                       />
                     </div>
                   </div>
@@ -938,11 +983,11 @@ function BlankPadGeneratorContent() {
 
                   {/* Section 4: Body Content & Font Size */}
                   <div className="space-y-1.5 pt-1 border-t">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <Label className="text-[11px] font-semibold text-foreground">
                         4. Body Content (মূল বক্তব্য)
                       </Label>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {/* Font size stepper */}
                         <div className="flex items-center gap-1">
                           <Button
@@ -1165,7 +1210,7 @@ function BlankPadGeneratorContent() {
                 /* FREEFORM / BLANK PAD MODE */
                 <div className="space-y-3">
                   {/* Body Font Size & Alignment Controls */}
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {/* Font Size Adjuster */}
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
@@ -1265,10 +1310,10 @@ function BlankPadGeneratorContent() {
         </div>
 
         {/* Right Preview Column: Full width in Print */}
-        <div className="xl:col-span-8 print:w-full print:m-0 print:p-0">
+        <div className={`xl:col-span-8 print:w-full print:m-0 print:p-0 ${mobileTab === "form" ? "hidden xl:block" : "block"}`}>
           <div className="sticky top-4 space-y-3">
-            <div className="flex items-center justify-between print:hidden px-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between flex-wrap gap-2 print:hidden px-1">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="text-xs font-mono">
                   {isA4 ? "A4: 210mm × 297mm" : "A5: 148mm × 210mm"}
                 </Badge>
@@ -1277,33 +1322,48 @@ function BlankPadGeneratorContent() {
                 </Badge>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.max(0.4, Number((s - 0.1).toFixed(2))))}
+                  onClick={() => setPreviewScale((s) => Math.max(0.3, Number((s - 0.05).toFixed(2))))}
                   className="h-7 w-7 p-0 text-xs"
+                  title="Zoom Out"
                 >
                   -
                 </Button>
-                <span className="text-[11px] font-mono text-muted-foreground w-12 text-center">
+                <span className="text-[11px] font-mono text-muted-foreground w-11 text-center">
                   {Math.round(previewScale * 100)}%
                 </span>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.min(1.5, Number((s + 0.1).toFixed(2))))}
+                  onClick={() => setPreviewScale((s) => Math.min(1.5, Number((s + 0.05).toFixed(2))))}
                   className="h-7 w-7 p-0 text-xs"
+                  title="Zoom In"
                 >
                   +
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setPreviewScale(isA4 ? 0.85 : 1.0)}
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      const isMobile = window.innerWidth < 768;
+                      setPreviewScale(isMobile ? (isA4 ? 0.44 : 0.58) : (isA4 ? 0.85 : 1.0));
+                    }
+                  }}
                   className="h-7 px-2 text-[10px]"
                 >
-                  Reset
+                  Fit Width
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handlePrint}
+                  className="h-7 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex xl:hidden items-center gap-1 cursor-pointer"
+                >
+                  <Printer className="h-3 w-3" />
+                  Print
                 </Button>
               </div>
             </div>
@@ -1311,7 +1371,7 @@ function BlankPadGeneratorContent() {
             {/* Printable Canvas Container */}
             <div
               id="printable-pad-canvas"
-              className="w-full overflow-auto bg-muted/20 border rounded-2xl p-4 sm:p-8 flex justify-center items-start shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block print:shadow-none"
+              className="w-full overflow-x-auto bg-muted/20 border rounded-2xl p-2 sm:p-4 md:p-8 flex justify-center items-start shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block print:shadow-none"
             >
               <div
                 style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
