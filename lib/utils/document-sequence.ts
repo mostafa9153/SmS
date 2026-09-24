@@ -13,7 +13,8 @@ export type DocumentType =
   | "transfer-certificate"
   | "kanyashree"
   | "bonafide-certificate"
-  | "admission-form";
+  | "admission-form"
+  | "blank-pad";
 
 export const DOC_CONFIG: Record<
   DocumentType,
@@ -57,6 +58,11 @@ export const DOC_CONFIG: Record<
     storagePrefix: "sms_admission_form_last_serial",
     codePrefix: "MHS/AF",
     padLength: 4,
+  },
+  "blank-pad": {
+    storagePrefix: "sms_blank_pad_seq",
+    codePrefix: "MHS/NOT",
+    padLength: 2,
   },
 };
 
@@ -138,6 +144,10 @@ export function formatDocumentNumber(
     case "admission-form": {
       const yearSuffix = String(y).slice(-2);
       return `${code}/AF/${yearSuffix}/${seqStr}`;
+    }
+    case "blank-pad": {
+      const yearSuffix = String(y).slice(-2);
+      return `${code}/NOT/${yearSuffix}/${seqStr}`;
     }
     default:
       return seqStr;

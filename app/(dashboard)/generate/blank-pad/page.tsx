@@ -5,6 +5,9 @@ import Link from "next/link";
 import {
   BlankPadPrintableView,
   BlankPadData,
+  BlankPadFontStyle,
+  LetterMode,
+  StructuredLetterData,
 } from "@/components/certificate/blank-pad-printable-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { CustomSelect } from "@/components/ui/custom-select";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -23,11 +24,29 @@ import {
   SlidersHorizontal,
   Layers,
   ChevronDown,
+  Lock,
+  Unlock,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Bold,
+  Underline,
+  Minus,
+  Plus,
+  Sparkles,
+  PenTool,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import {
+  getDocumentSequence,
+  saveDocumentSequence,
+  formatDocumentNumber,
+} from "@/lib/utils/document-sequence";
 
 function BlankPadGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
+  const currentYear = new Date().getFullYear();
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -37,11 +56,79 @@ function BlankPadGeneratorContent() {
     });
   }
 
+  const [padSeq, setPadSeq] = useState<number>(() =>
+    getDocumentSequence("blank-pad", currentYear)
+  );
+  const [isRefLocked, setIsRefLocked] = useState<boolean>(true);
+  const [isDateLocked, setIsDateLocked] = useState<boolean>(true);
+  const [customRefNo, setCustomRefNo] = useState<string>("");
+  const [customDate, setCustomDate] = useState<string>("");
+
+  const [letterMode, setLetterMode] = useState<LetterMode>("structured");
+
+  const [fontStyle, setFontStyle] = useState<BlankPadFontStyle>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sms_blank_pad_font_style");
+      if (saved === "classic" || saved === "3d" || saved === "stylish") {
+        return saved as BlankPadFontStyle;
+      }
+    }
+    return "classic";
+  });
+
+  const handleFontStyleChange = (newStyle: BlankPadFontStyle) => {
+    setFontStyle(newStyle);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sms_blank_pad_font_style", newStyle);
+    }
+  };
+
+  const [bodyFontSize, setBodyFontSize] = useState<number>(15);
+  const [bodyLineHeight, setBodyLineHeight] = useState<"normal" | "relaxed" | "loose">("relaxed");
+  const [bodyAlign, setBodyAlign] = useState<"left" | "justify" | "center">("left");
+
+  const autoRefNo = formatDocumentNumber(
+    "blank-pad",
+    padSeq,
+    currentYear,
+    schoolProfile?.schoolCode
+  );
+  const liveDate = getLiveDate();
+
+  const effectiveRefNo = isRefLocked ? autoRefNo : customRefNo;
+  const effectiveDate = isDateLocked ? liveDate : customDate;
+
+  const [structuredLetter, setStructuredLetter] = useState<StructuredLetterData>({
+    recipientPrefix: "",
+    recipientText: "",
+    recipientAlign: "left",
+    subjectPrefix: "Sub:",
+    subjectText: "",
+    subjectAlign: "center",
+    subjectBold: true,
+    subjectUnderline: true,
+    salutationText: "",
+    salutationAlign: "left",
+    bodyText: "",
+    bodyAlign: "justify",
+    thankingText: "",
+    thankingAlign: "left",
+    signoffPrefix: "",
+    signoffDesignation: "",
+    signoffInstitution: "",
+    signoffAlign: "right",
+  });
+
   const [padData, setPadData] = useState<BlankPadData>({
     paperSize: "A4",
+    fontStyle: "classic",
+    letterMode: "structured",
+    bodyFontSize: 15,
+    bodyLineHeight: "relaxed",
+    bodyAlign: "left",
     showRefDate: true,
-    refNo: "",
-    issueDate: getLiveDate(),
+    refNo: autoRefNo,
+    issueDate: liveDate,
     showWatermark: true,
     watermarkOpacity: 0.08,
     borderStyle: "ornate",
@@ -54,14 +141,72 @@ function BlankPadGeneratorContent() {
   const [previewScale, setPreviewScale] = useState<number>(0.85);
 
   const handlePrint = () => {
-    window.print();
+    const nextSeq = padSeq + 1;
+    saveDocumentSequence("blank-pad", nextSeq, currentYear);
+
+    let hasAdvanced = false;
+    const advanceToNext = () => {
+      if (hasAdvanced) return;
+      hasAdvanced = true;
+      window.removeEventListener("afterprint", advanceToNext);
+      setPadSeq(nextSeq);
+      if (isRefLocked) {
+        setCustomRefNo("");
+      }
+    };
+
+    window.addEventListener("afterprint", advanceToNext, { once: true });
+
+    setTimeout(() => {
+      window.print();
+      advanceToNext();
+    }, 60);
   };
 
   const handleReset = () => {
+    const seq = getDocumentSequence("blank-pad", currentYear);
+    setPadSeq(seq);
+    setIsRefLocked(true);
+    setIsDateLocked(true);
+    setCustomRefNo("");
+    setCustomDate("");
+    setFontStyle("classic");
+    setLetterMode("structured");
+    setBodyFontSize(15);
+    setBodyLineHeight("relaxed");
+    setBodyAlign("left");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sms_blank_pad_font_style", "classic");
+    }
+    setStructuredLetter({
+      recipientPrefix: "",
+      recipientText: "",
+      recipientAlign: "left",
+      subjectPrefix: "Sub:",
+      subjectText: "",
+      subjectAlign: "center",
+      subjectBold: true,
+      subjectUnderline: true,
+      salutationText: "",
+      salutationAlign: "left",
+      bodyText: "",
+      bodyAlign: "justify",
+      thankingText: "",
+      thankingAlign: "left",
+      signoffPrefix: "",
+      signoffDesignation: "",
+      signoffInstitution: "",
+      signoffAlign: "right",
+    });
     setPadData({
       paperSize: "A4",
+      fontStyle: "classic",
+      letterMode: "structured",
+      bodyFontSize: 15,
+      bodyLineHeight: "relaxed",
+      bodyAlign: "left",
       showRefDate: true,
-      refNo: "",
+      refNo: formatDocumentNumber("blank-pad", seq, currentYear, schoolProfile?.schoolCode),
       issueDate: getLiveDate(),
       showWatermark: true,
       watermarkOpacity: 0.08,
@@ -187,6 +332,58 @@ function BlankPadGeneratorContent() {
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 </div>
               </div>
+
+              {/* School Name Typography Style (3 Styles: Classic Serif, 3D Embossed, Modern Stylish) */}
+              <div className="space-y-1.5 pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold">School Name Style</Label>
+                  <span className="text-[10px] text-muted-foreground uppercase font-mono">{fontStyle}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleFontStyleChange("classic")}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      fontStyle === "classic"
+                        ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-xs font-serif font-black">Serif</span>
+                    <span className="text-[9px] opacity-75">Classic</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleFontStyleChange("3d")}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      fontStyle === "3d"
+                        ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-xs font-black [font-family:'Cinzel_Decorative','Cinzel',serif] [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#101736] text-[#14206b]">
+                      3D Chisel
+                    </span>
+                    <span className="text-[9px] opacity-75">Architectural</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleFontStyleChange("stylish")}
+                    className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+                      fontStyle === "stylish"
+                        ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                        : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="text-xs font-extrabold [font-family:'Cinzel',serif] tracking-wider text-slate-800">
+                      Modern
+                    </span>
+                    <span className="text-[9px] opacity-75">Royal</span>
+                  </button>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -216,26 +413,101 @@ function BlankPadGeneratorContent() {
 
                 {padData.showRefDate && (
                   <div className="grid grid-cols-2 gap-2 pt-1">
+                    {/* Ref No Input with Lock/Unlock */}
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Ref No (Blank for dotted line)</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-semibold text-muted-foreground">
+                          Ref No
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isRefLocked) {
+                              setCustomRefNo(autoRefNo);
+                              setIsRefLocked(false);
+                            } else {
+                              setIsRefLocked(true);
+                            }
+                          }}
+                          className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                            isRefLocked
+                              ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                              : "text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
+                          }`}
+                          title={isRefLocked ? "Auto-locked (Click to edit)" : "Unlocked (Click to lock auto sequence)"}
+                        >
+                          {isRefLocked ? (
+                            <>
+                              <Lock className="h-3 w-3" />
+                              <span>Auto</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="h-3 w-3" />
+                              <span>Custom</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <Input
-                        placeholder="e.g. MHS/NOT/2026/01"
-                        value={padData.refNo}
-                        onChange={(e) =>
-                          setPadData((prev) => ({ ...prev, refNo: e.target.value }))
-                        }
-                        className="h-8 text-xs font-mono"
+                        value={isRefLocked ? autoRefNo : customRefNo}
+                        readOnly={isRefLocked}
+                        onChange={(e) => setCustomRefNo(e.target.value)}
+                        placeholder="e.g. MHS/NOT/26/01"
+                        className={`h-8 text-xs font-mono ${
+                          isRefLocked
+                            ? "bg-muted/50 cursor-not-allowed font-semibold text-foreground select-all"
+                            : "bg-background border-amber-500/50 focus:border-amber-500"
+                        }`}
                       />
                     </div>
+
+                    {/* Date Input with Lock/Unlock */}
                     <div className="space-y-1">
-                      <Label className="text-[10px] text-muted-foreground">Date (Blank for dotted line)</Label>
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-semibold text-muted-foreground">
+                          Date
+                        </Label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isDateLocked) {
+                              setCustomDate(liveDate);
+                              setIsDateLocked(false);
+                            } else {
+                              setIsDateLocked(true);
+                            }
+                          }}
+                          className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded cursor-pointer transition-all ${
+                            isDateLocked
+                              ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
+                              : "text-amber-700 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20"
+                          }`}
+                          title={isDateLocked ? "Auto-locked (Click to edit)" : "Unlocked (Click to lock live date)"}
+                        >
+                          {isDateLocked ? (
+                            <>
+                              <Lock className="h-3 w-3" />
+                              <span>Live</span>
+                            </>
+                          ) : (
+                            <>
+                              <Unlock className="h-3 w-3" />
+                              <span>Custom</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                       <Input
+                        value={isDateLocked ? liveDate : customDate}
+                        readOnly={isDateLocked}
+                        onChange={(e) => setCustomDate(e.target.value)}
                         placeholder="DD/MM/YYYY"
-                        value={padData.issueDate}
-                        onChange={(e) =>
-                          setPadData((prev) => ({ ...prev, issueDate: e.target.value }))
-                        }
-                        className="h-8 text-xs font-mono"
+                        className={`h-8 text-xs font-mono ${
+                          isDateLocked
+                            ? "bg-muted/50 cursor-not-allowed font-semibold text-foreground"
+                            : "bg-background border-amber-500/50 focus:border-amber-500"
+                        }`}
                       />
                     </div>
                   </div>
@@ -329,35 +601,691 @@ function BlankPadGeneratorContent() {
             </CardContent>
           </Card>
 
-          {/* 3. Optional Typing / Notice Content Area */}
+          {/* 3. Letter Mode Switcher & Content Area */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-primary" />
-                  Optional Body Content
+                  Letter Composer
                 </CardTitle>
-                {padData.bodyContent && (
-                  <button
-                    type="button"
-                    onClick={() => setPadData((prev) => ({ ...prev, bodyContent: "" }))}
-                    className="text-[10px] text-muted-foreground hover:text-foreground underline cursor-pointer"
-                  >
-                    Clear Text
-                  </button>
-                )}
+                <div className="flex items-center gap-1">
+                  {letterMode === "structured" &&
+                    (structuredLetter.recipientText ||
+                      structuredLetter.recipientPrefix ||
+                      structuredLetter.subjectText ||
+                      structuredLetter.salutationText ||
+                      structuredLetter.bodyText ||
+                      structuredLetter.thankingText ||
+                      structuredLetter.signoffPrefix ||
+                      structuredLetter.signoffDesignation) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStructuredLetter({
+                            recipientPrefix: "",
+                            recipientText: "",
+                            recipientAlign: "left",
+                            subjectPrefix: "Sub:",
+                            subjectText: "",
+                            subjectAlign: "center",
+                            subjectBold: true,
+                            subjectUnderline: true,
+                            salutationText: "",
+                            salutationAlign: "left",
+                            bodyText: "",
+                            bodyAlign: "justify",
+                            thankingText: "",
+                            thankingAlign: "left",
+                            signoffPrefix: "",
+                            signoffDesignation: "",
+                            signoffInstitution: "",
+                            signoffAlign: "right",
+                          })
+                        }
+                        className="text-[10px] text-muted-foreground hover:text-destructive underline mr-1 cursor-pointer"
+                      >
+                        Clear All
+                      </button>
+                    )}
+                  {letterMode === "freeform" && padData.bodyContent && (
+                    <button
+                      type="button"
+                      onClick={() => setPadData((prev) => ({ ...prev, bodyContent: "" }))}
+                      className="text-[10px] text-muted-foreground hover:text-destructive underline mr-1 cursor-pointer"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border">
+                    <button
+                      type="button"
+                      onClick={() => setLetterMode("structured")}
+                      className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                        letterMode === "structured"
+                          ? "bg-background text-foreground shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <PenTool className="h-3 w-3 text-primary" />
+                      Structured
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLetterMode("freeform")}
+                      className={`px-2 py-1 rounded-md text-[10px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                        letterMode === "freeform"
+                          ? "bg-background text-foreground shadow-2xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <FileText className="h-3 w-3" />
+                      Freeform
+                    </button>
+                  </div>
+                </div>
               </div>
             </CardHeader>
-            <CardContent className="p-3.5 pt-0 space-y-2">
-              <Textarea
-                placeholder="Leave completely empty for a blank pad, or type formal text/notice here..."
-                value={padData.bodyContent || ""}
-                onChange={(e) =>
-                  setPadData((prev) => ({ ...prev, bodyContent: e.target.value }))
-                }
-                rows={5}
-                className="text-xs font-serif leading-relaxed resize-y"
-              />
+
+            <CardContent className="p-3.5 pt-0 space-y-3.5">
+              {/* STRUCTURED LETTER COMPOSER MODE */}
+              {letterMode === "structured" ? (
+                <div className="space-y-3">
+                  {/* Section 1: To / Recipient */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        1. Recipient (To / প্রতি)
+                      </Label>
+                      <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, recipientAlign: "left" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            (structuredLetter.recipientAlign ?? "left") === "left"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Left"
+                        >
+                          <AlignLeft className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, recipientAlign: "center" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            structuredLetter.recipientAlign === "center"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Center"
+                        >
+                          <AlignCenter className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, recipientAlign: "right" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            structuredLetter.recipientAlign === "right"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Right"
+                        >
+                          <AlignRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <Input
+                        value={structuredLetter.recipientPrefix ?? ""}
+                        onChange={(e) =>
+                          setStructuredLetter((prev) => ({
+                            ...prev,
+                            recipientPrefix: e.target.value,
+                          }))
+                        }
+                        placeholder="Prefix (To,)"
+                        className="h-8 text-xs font-serif"
+                      />
+                      <div className="col-span-3">
+                        <Textarea
+                          value={structuredLetter.recipientText ?? ""}
+                          onChange={(e) =>
+                            setStructuredLetter((prev) => ({
+                              ...prev,
+                              recipientText: e.target.value,
+                            }))
+                          }
+                          placeholder="Recipient details, designation & address (multi-line)..."
+                          rows={2}
+                          className="text-xs font-serif min-h-[34px] resize-y"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section 2: Subject */}
+                  <div className="space-y-1.5 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        2. Subject (বিষয়)
+                      </Label>
+                      <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, subjectAlign: "center" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.subjectAlign ?? "center") === "center"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Center Align (Standard)"
+                          >
+                            <AlignCenter className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, subjectAlign: "left" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.subjectAlign === "left"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Left"
+                          >
+                            <AlignLeft className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, subjectAlign: "right" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.subjectAlign === "right"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Right"
+                          >
+                            <AlignRight className="h-3 w-3" />
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({
+                                ...prev,
+                                subjectBold: prev.subjectBold === false ? true : false,
+                              }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.subjectBold !== false
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Toggle Bold"
+                          >
+                            <Bold className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({
+                                ...prev,
+                                subjectUnderline: prev.subjectUnderline === false ? true : false,
+                              }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.subjectUnderline !== false
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Toggle Underline"
+                          >
+                            <Underline className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      <Input
+                        value={structuredLetter.subjectPrefix ?? "Sub:"}
+                        onChange={(e) =>
+                          setStructuredLetter((prev) => ({
+                            ...prev,
+                            subjectPrefix: e.target.value,
+                          }))
+                        }
+                        placeholder="Sub:"
+                        className="h-8 text-xs font-serif"
+                      />
+                      <Input
+                        value={structuredLetter.subjectText ?? ""}
+                        onChange={(e) =>
+                          setStructuredLetter((prev) => ({
+                            ...prev,
+                            subjectText: e.target.value,
+                          }))
+                        }
+                        placeholder="Subject line of the letter / notice..."
+                        className="h-8 text-xs font-serif col-span-3"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Section 3: Salutation */}
+                  <div className="space-y-1.5 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        3. Salutation (সম্বোধন)
+                      </Label>
+                      <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, salutationAlign: "left" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            (structuredLetter.salutationAlign ?? "left") === "left"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Left"
+                        >
+                          <AlignLeft className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, salutationAlign: "center" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            structuredLetter.salutationAlign === "center"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Center"
+                        >
+                          <AlignCenter className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <Input
+                      value={structuredLetter.salutationText ?? ""}
+                      onChange={(e) =>
+                        setStructuredLetter((prev) => ({
+                          ...prev,
+                          salutationText: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Respected Sir, / মাননীয় মহাশয়,"
+                      className="h-8 text-xs font-serif"
+                    />
+                  </div>
+
+                  {/* Section 4: Body Content & Font Size */}
+                  <div className="space-y-1.5 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        4. Body Content (মূল বক্তব্য)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        {/* Font size stepper */}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setBodyFontSize((s) => Math.max(10, s - 1))}
+                            className="h-6 w-6 p-0 text-xs cursor-pointer"
+                            title="Decrease text size"
+                          >
+                            <Minus className="h-2.5 w-2.5" />
+                          </Button>
+                          <span className="text-[10px] font-mono font-bold text-primary w-8 text-center">
+                            {bodyFontSize}px
+                          </span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setBodyFontSize((s) => Math.min(24, s + 1))}
+                            className="h-6 w-6 p-0 text-xs cursor-pointer"
+                            title="Increase text size"
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                          </Button>
+                        </div>
+
+                        {/* Alignment buttons */}
+                        <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, bodyAlign: "justify" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.bodyAlign ?? "justify") === "justify"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Justify (Standard Letter)"
+                          >
+                            <AlignJustify className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, bodyAlign: "left" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.bodyAlign === "left"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Left"
+                          >
+                            <AlignLeft className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, bodyAlign: "center" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.bodyAlign === "center"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Center"
+                          >
+                            <AlignCenter className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <Textarea
+                      value={structuredLetter.bodyText ?? ""}
+                      onChange={(e) =>
+                        setStructuredLetter((prev) => ({
+                          ...prev,
+                          bodyText: e.target.value,
+                        }))
+                      }
+                      placeholder="Write letter paragraphs here..."
+                      rows={6}
+                      className="text-xs font-serif leading-relaxed resize-y"
+                    />
+                  </div>
+
+                  {/* Section 5: Thanking Note */}
+                  <div className="space-y-1.5 pt-1 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        5. Thanking Note (ধন্যবাদান্তে)
+                      </Label>
+                      <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, thankingAlign: "left" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            (structuredLetter.thankingAlign ?? "left") === "left"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Left"
+                        >
+                          <AlignLeft className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, thankingAlign: "center" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            structuredLetter.thankingAlign === "center"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Center"
+                        >
+                          <AlignCenter className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setStructuredLetter((prev) => ({ ...prev, thankingAlign: "right" }))
+                          }
+                          className={`p-1 rounded text-xs cursor-pointer ${
+                            structuredLetter.thankingAlign === "right"
+                              ? "bg-background text-primary shadow-2xs font-bold"
+                              : "text-muted-foreground"
+                          }`}
+                          title="Align Right"
+                        >
+                          <AlignRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <Input
+                      value={structuredLetter.thankingText ?? ""}
+                      onChange={(e) =>
+                        setStructuredLetter((prev) => ({
+                          ...prev,
+                          thankingText: e.target.value,
+                        }))
+                      }
+                      placeholder="e.g. Thanking you, / ধন্যবাদান্তে, / By Order,"
+                      className="h-8 text-xs font-serif"
+                    />
+                  </div>
+
+                  {/* Section 6: Signoff / Designation Block (When bottom signature is off) */}
+                  {!padData.showSignature && (
+                    <div className="space-y-1.5 pt-1 border-t">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[11px] font-semibold text-foreground">
+                          6. Signoff / Footer (স্বাক্ষর ও পদমর্যাদা)
+                        </Label>
+                        <div className="flex items-center gap-0.5 border rounded-lg p-0.5 bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, signoffAlign: "right" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.signoffAlign ?? "right") === "right"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Right (Standard)"
+                          >
+                            <AlignRight className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, signoffAlign: "left" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.signoffAlign === "left"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Left"
+                          >
+                            <AlignLeft className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, signoffAlign: "center" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              structuredLetter.signoffAlign === "center"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Center"
+                          >
+                            <AlignCenter className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Input
+                          value={structuredLetter.signoffPrefix ?? ""}
+                          onChange={(e) =>
+                            setStructuredLetter((prev) => ({
+                              ...prev,
+                              signoffPrefix: e.target.value,
+                            }))
+                          }
+                          placeholder="Prefix (Yours faithfully, / বিনীত,)"
+                          className="h-8 text-xs font-serif"
+                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <Input
+                            value={structuredLetter.signoffDesignation ?? ""}
+                            onChange={(e) =>
+                              setStructuredLetter((prev) => ({
+                                ...prev,
+                                signoffDesignation: e.target.value,
+                              }))
+                            }
+                            placeholder="Designation (e.g. Teacher-in-Charge)"
+                            className="h-8 text-xs font-serif"
+                          />
+                          <Input
+                            value={structuredLetter.signoffInstitution ?? ""}
+                            onChange={(e) =>
+                              setStructuredLetter((prev) => ({
+                                ...prev,
+                                signoffInstitution: e.target.value,
+                              }))
+                            }
+                            placeholder="Institution Name"
+                            className="h-8 text-xs font-serif"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* FREEFORM / BLANK PAD MODE */
+                <div className="space-y-3">
+                  {/* Body Font Size & Alignment Controls */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Font Size Adjuster */}
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-[10px] font-semibold text-muted-foreground">
+                          Body Font Size
+                        </Label>
+                        <span className="text-[10px] font-mono font-bold text-primary">
+                          {bodyFontSize}px
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBodyFontSize((s) => Math.max(10, s - 1))}
+                          className="h-7 w-7 p-0 text-xs cursor-pointer"
+                          title="Decrease font size"
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <div className="flex-1 text-center font-mono text-xs font-semibold bg-muted/30 py-1 rounded-lg border">
+                          {bodyFontSize}px
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setBodyFontSize((s) => Math.min(24, s + 1))}
+                          className="h-7 w-7 p-0 text-xs cursor-pointer"
+                          title="Increase font size"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Text Alignment */}
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold text-muted-foreground">
+                        Alignment
+                      </Label>
+                      <div className="grid grid-cols-3 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setBodyAlign("left")}
+                          className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                            bodyAlign === "left"
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          <AlignLeft className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBodyAlign("justify")}
+                          className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                            bodyAlign === "justify"
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          <AlignJustify className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBodyAlign("center")}
+                          className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                            bodyAlign === "center"
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          <AlignCenter className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Textarea for Letter Content */}
+                  <div className="space-y-1 pt-1">
+                    <Textarea
+                      placeholder="Type official letter, notice, or correspondence body here (or leave blank for handwriting)..."
+                      value={padData.bodyContent || ""}
+                      onChange={(e) =>
+                        setPadData((prev) => ({ ...prev, bodyContent: e.target.value }))
+                      }
+                      rows={8}
+                      className="text-xs font-serif leading-relaxed resize-y"
+                    />
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -369,6 +1297,9 @@ function BlankPadGeneratorContent() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs font-mono">
                   {isA4 ? "A4: 210mm × 297mm" : "A5: 148mm × 210mm"}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  {letterMode === "structured" ? "Structured Letter" : "Freeform Mode"}
                 </Badge>
               </div>
 
@@ -412,7 +1343,20 @@ function BlankPadGeneratorContent() {
                 style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
                 className="transition-transform duration-150 print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
               >
-                <BlankPadPrintableView data={padData} schoolProfile={schoolProfile} />
+                <BlankPadPrintableView
+                  data={{
+                    ...padData,
+                    fontStyle,
+                    letterMode,
+                    structuredLetter,
+                    bodyFontSize,
+                    bodyLineHeight,
+                    bodyAlign,
+                    refNo: effectiveRefNo,
+                    issueDate: effectiveDate,
+                  }}
+                  schoolProfile={schoolProfile}
+                />
               </div>
             </div>
           </div>

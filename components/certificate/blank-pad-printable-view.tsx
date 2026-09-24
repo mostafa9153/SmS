@@ -8,8 +8,43 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 
+export type BlankPadFontStyle = "classic" | "3d" | "stylish";
+export type LetterMode = "structured" | "freeform";
+
+export interface StructuredLetterData {
+  recipientPrefix?: string;
+  recipientText?: string;
+  recipientAlign?: "left" | "center" | "right";
+  
+  subjectPrefix?: string;
+  subjectText?: string;
+  subjectAlign?: "center" | "left" | "right";
+  subjectBold?: boolean;
+  subjectUnderline?: boolean;
+
+  salutationText?: string;
+  salutationAlign?: "left" | "center" | "right";
+
+  bodyText?: string;
+  bodyAlign?: "justify" | "left" | "center";
+
+  thankingText?: string;
+  thankingAlign?: "left" | "center" | "right";
+
+  signoffPrefix?: string;
+  signoffDesignation?: string;
+  signoffInstitution?: string;
+  signoffAlign?: "right" | "left" | "center";
+}
+
 export interface BlankPadData {
   paperSize: "A4" | "A5";
+  fontStyle?: BlankPadFontStyle;
+  letterMode?: LetterMode;
+  structuredLetter?: StructuredLetterData;
+  bodyFontSize?: number;
+  bodyLineHeight?: "normal" | "relaxed" | "loose";
+  bodyAlign?: "left" | "justify" | "center";
   showRefDate: boolean;
   refNo: string;
   issueDate: string;
@@ -20,6 +55,8 @@ export interface BlankPadData {
   signatoryTitle?: string;
   includeSignatureImage?: boolean;
   bodyContent?: string;
+  customEmail?: string;
+  customPhone?: string;
 }
 
 interface BlankPadPrintableViewProps {
@@ -34,15 +71,28 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
   const signatureSrc = profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? profile.headSignatureUrl : "/hod-signature.png";
 
   const isA4 = data.paperSize === "A4";
+  const fontStyle: BlankPadFontStyle = data.fontStyle || "classic";
   const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
+
+  const displayPhone = (data.customPhone !== undefined && data.customPhone.trim() !== ""
+    ? data.customPhone
+    : (profile.schoolPhone || profile.altPhone || "")).trim();
+
+  const displayEmail = (data.customEmail !== undefined && data.customEmail.trim() !== ""
+    ? data.customEmail
+    : (profile.schoolEmail || "contact@marigachihighschool.in")).trim();
+
+  const baseFontSize = data.bodyFontSize || (isA4 ? 15 : 12.5);
+  const scaledFontSize = isA4 ? baseFontSize : Math.max(9, Math.round(baseFontSize * 0.82));
+  const lineHeightVal = data.bodyLineHeight === "loose" ? 2.0 : data.bodyLineHeight === "normal" ? 1.6 : 1.85;
 
   return (
     <div
       id="pure-blank-pad-sheet"
       className={`relative bg-[#fffdfa] text-slate-900 shadow-2xl print:shadow-none print:m-0 font-serif box-border select-none mx-auto overflow-hidden flex flex-col justify-between ${
         isA4
-          ? "w-[210mm] h-[295mm] min-w-[210mm] max-w-[210mm] min-h-[295mm] max-h-[295mm] p-7 print:p-6"
-          : "w-[148mm] h-[208mm] min-w-[148mm] max-w-[148mm] min-h-[208mm] max-h-[208mm] p-5 print:p-4"
+          ? "w-[210mm] h-[295mm] min-w-[210mm] max-w-[210mm] min-h-[295mm] max-h-[295mm] p-8 sm:p-9 print:p-8"
+          : "w-[148mm] h-[208mm] min-w-[148mm] max-w-[148mm] min-h-[208mm] max-h-[208mm] p-6 sm:p-7 print:p-6"
       } ${
         data.borderStyle === "ornate"
           ? "border-[2.5px] border-[#14206b] print:border-[2.5px] print:border-[#14206b]"
@@ -90,11 +140,11 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
         {/* =================================================================== */}
         <div>
           <div className="border-b-2 border-[#14206b] pb-3 pt-1">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-3">
               {/* School Logo */}
               <div
                 className={`shrink-0 flex items-center justify-center ${
-                  isA4 ? "w-[92px] h-[92px]" : "w-[72px] h-[72px]"
+                  isA4 ? "w-[92px] h-[92px]" : "w-[74px] h-[74px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -106,48 +156,68 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
               </div>
 
               {/* School Details */}
-              <div className="text-center flex-1 space-y-0.5">
+              <div className="text-center flex-1 space-y-0.5 overflow-hidden">
                 <h1
-                  className={`font-black tracking-normal uppercase text-[#14206b] font-serif leading-tight ${
-                    isA4 ? "text-[24px]" : "text-[18px]"
+                  className={`uppercase leading-tight whitespace-nowrap overflow-visible ${
+                    fontStyle === "3d"
+                      ? `${isA4 ? "text-[23.5px] sm:text-[24px]" : "text-[17px] sm:text-[17.5px]"} font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-tight [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_0px_#101736,_4px_4px_3px_rgba(0,0,0,0.35)]`
+                      : fontStyle === "stylish"
+                      ? `${isA4 ? "text-[24px] sm:text-[25px]" : "text-[18px]"} font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.08em] drop-shadow-xs`
+                      : `${isA4 ? "text-[26px] sm:text-[27px]" : "text-[19px] sm:text-[20px]"} font-black text-[#14206b] font-serif tracking-normal`
                   }`}
                 >
                   {mainName}
                 </h1>
                 {suffix && (
                   <div
-                    className={`font-black tracking-wider uppercase text-[#14206b] font-serif leading-none ${
-                      isA4 ? "text-[15px]" : "text-[12px]"
+                    className={`uppercase leading-none whitespace-nowrap ${
+                      isA4 ? "text-[16px]" : "text-[13px]"
+                    } ${
+                      fontStyle === "3d"
+                        ? "font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-wider [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_2px_rgba(0,0,0,0.3)]"
+                        : fontStyle === "stylish"
+                        ? "font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.16em]"
+                        : "font-black text-[#14206b] font-serif tracking-wider"
                     }`}
                   >
                     {suffix}
                   </div>
                 )}
                 <p
-                  className={`font-semibold text-slate-700 leading-tight pt-0.5 ${
-                    isA4 ? "text-[12px]" : "text-[10px]"
+                  className={`font-semibold text-slate-700 leading-snug pt-0.5 whitespace-nowrap text-center ${
+                    isA4 ? "text-[12.5px]" : "text-[10px]"
                   }`}
                 >
                   {profile.village ? `Vill.: ${profile.village}, ` : ""}
                   {profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}
                   {profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}
                   {profile.district ? `Dist.: ${profile.district}, ` : ""}
-                  PIN: {profile.pincode || "743349"}
+                  <span className="whitespace-nowrap">PIN: {profile.pincode || "743349"}</span>
                 </p>
                 <p
-                  className={`font-mono font-medium text-slate-600 pt-0.5 ${
-                    isA4 ? "text-[10px]" : "text-[8.5px]"
+                  className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug whitespace-nowrap ${
+                    isA4 ? "text-[11.5px]" : "text-[9.5px]"
                   }`}
                 >
-                  Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code: {profile.hsCode || "102298"} &bull; UDISE: {profile.udiseCode || "19111305602"}
-                  {profile.schoolPhone ? ` &bull; Phone: ${profile.schoolPhone}` : ""}
+                  Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} • H.S. Code: {profile.hsCode || "102298"} • UDISE: {profile.udiseCode || "19111305602"}
                 </p>
+                {(displayPhone || displayEmail) && (
+                  <p
+                    className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug flex items-center justify-center flex-wrap gap-x-2 whitespace-nowrap ${
+                      isA4 ? "text-[11.5px]" : "text-[9.5px]"
+                    }`}
+                  >
+                    {displayPhone && <span>Phone: {displayPhone}</span>}
+                    {displayPhone && displayEmail && <span>•</span>}
+                    {displayEmail && <span>Email: {displayEmail}</span>}
+                  </p>
+                )}
               </div>
 
               {/* Symmetry placeholder / right crest or blank balancer */}
               <div
                 className={`shrink-0 flex items-center justify-center opacity-0 pointer-events-none ${
-                  isA4 ? "w-[92px] h-[92px]" : "w-[72px] h-[72px]"
+                  isA4 ? "w-[92px] h-[92px]" : "w-[74px] h-[74px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -160,7 +230,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
           {data.showRefDate && (
             <div
               className={`flex items-center justify-between border-b border-dotted border-slate-400 py-1.5 px-1 font-serif text-slate-800 ${
-                isA4 ? "text-[12.5px]" : "text-[11px]"
+                isA4 ? "text-[15.5px]" : "text-[13.5px]"
               }`}
             >
               <div>
@@ -184,13 +254,155 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
         </div>
 
         {/* =================================================================== */}
-        {/* 2. BODY AREA (BLANK BY DEFAULT, OPTIONAL TYPED CONTENT)            */}
+        {/* 2. BODY AREA (OFFICIAL LETTER / NOTICE / CORRESPONDENCE)           */}
         {/* =================================================================== */}
-        <div className="flex-1 py-4 px-1 min-h-[120px]">
-          {data.bodyContent && data.bodyContent.trim() !== "" ? (
+        <div className="flex-1 py-5 px-3 sm:px-6 min-h-[140px]">
+          {data.letterMode === "structured" && data.structuredLetter ? (
             <div
-              className={`font-serif leading-relaxed text-slate-900 whitespace-pre-wrap ${
-                isA4 ? "text-[14px]" : "text-[12px]"
+              style={{
+                fontSize: `${scaledFontSize}px`,
+                lineHeight: lineHeightVal,
+              }}
+              className="font-serif text-slate-900 space-y-3 sm:space-y-4"
+            >
+              {/* Recipient Section (To) */}
+              {(data.structuredLetter.recipientPrefix || data.structuredLetter.recipientText) && (
+                <div
+                  className={`${
+                    data.structuredLetter.recipientAlign === "center"
+                      ? "text-center"
+                      : data.structuredLetter.recipientAlign === "right"
+                      ? "text-right"
+                      : "text-left"
+                  }`}
+                >
+                  {data.structuredLetter.recipientPrefix && (
+                    <p className="font-semibold">{data.structuredLetter.recipientPrefix}</p>
+                  )}
+                  {data.structuredLetter.recipientText && (
+                    <div className="whitespace-pre-line leading-relaxed pl-2 sm:pl-3">
+                      {data.structuredLetter.recipientText}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Subject Section */}
+              {data.structuredLetter.subjectText && (
+                <div
+                  className={`py-1 ${
+                    data.structuredLetter.subjectAlign === "left"
+                      ? "text-left"
+                      : data.structuredLetter.subjectAlign === "right"
+                      ? "text-right"
+                      : "text-center"
+                  }`}
+                >
+                  <span
+                    className={`inline-block tracking-normal ${
+                      data.structuredLetter.subjectBold !== false ? "font-bold" : "font-normal"
+                    } ${
+                      data.structuredLetter.subjectUnderline !== false
+                        ? "underline underline-offset-4 decoration-slate-900"
+                        : ""
+                    }`}
+                  >
+                    {data.structuredLetter.subjectPrefix
+                      ? `${data.structuredLetter.subjectPrefix} `
+                      : "Sub: "}
+                    {data.structuredLetter.subjectText}
+                  </span>
+                </div>
+              )}
+
+              {/* Salutation Section */}
+              {data.structuredLetter.salutationText && (
+                <div
+                  className={`${
+                    data.structuredLetter.salutationAlign === "center"
+                      ? "text-center"
+                      : data.structuredLetter.salutationAlign === "right"
+                      ? "text-right"
+                      : "text-left"
+                  } font-semibold`}
+                >
+                  {data.structuredLetter.salutationText}
+                </div>
+              )}
+
+              {/* Body Content Section */}
+              {data.structuredLetter.bodyText && (
+                <div
+                  className={`whitespace-pre-line ${
+                    data.structuredLetter.bodyAlign === "left"
+                      ? "text-left"
+                      : data.structuredLetter.bodyAlign === "center"
+                      ? "text-center"
+                      : "text-justify"
+                  }`}
+                  style={{ textIndent: data.structuredLetter.bodyAlign === "center" ? "0" : "2rem" }}
+                >
+                  {data.structuredLetter.bodyText}
+                </div>
+              )}
+
+              {/* Thanking Note Section */}
+              {data.structuredLetter.thankingText && (
+                <div
+                  className={`pt-1.5 ${
+                    data.structuredLetter.thankingAlign === "center"
+                      ? "text-center"
+                      : data.structuredLetter.thankingAlign === "right"
+                      ? "text-right"
+                      : "text-left"
+                  } font-semibold`}
+                >
+                  {data.structuredLetter.thankingText}
+                </div>
+              )}
+
+              {/* Inline Signoff Section (if bottom signature is off) */}
+              {!data.showSignature &&
+                (data.structuredLetter.signoffPrefix || data.structuredLetter.signoffDesignation) && (
+                  <div
+                    className={`pt-4 flex ${
+                      data.structuredLetter.signoffAlign === "left"
+                        ? "justify-start text-left"
+                        : data.structuredLetter.signoffAlign === "center"
+                        ? "justify-center text-center"
+                        : "justify-end text-right"
+                    }`}
+                  >
+                    <div className="inline-block text-center min-w-[200px] space-y-1">
+                      {data.structuredLetter.signoffPrefix && (
+                        <p className="font-semibold mb-6">{data.structuredLetter.signoffPrefix}</p>
+                      )}
+                      {data.structuredLetter.signoffDesignation && (
+                        <p className="font-bold border-t border-slate-800 pt-1">
+                          ({data.structuredLetter.signoffDesignation})
+                        </p>
+                      )}
+                      {data.structuredLetter.signoffInstitution && (
+                        <p className={`text-slate-700 ${isA4 ? "text-[12px]" : "text-[10px]"}`}>
+                          {data.structuredLetter.signoffInstitution}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+            </div>
+          ) : data.bodyContent && data.bodyContent.trim() !== "" ? (
+            <div
+              style={{
+                fontSize: `${scaledFontSize}px`,
+                lineHeight: lineHeightVal,
+              }}
+              className={`font-serif text-slate-900 whitespace-pre-wrap tracking-normal ${
+                data.bodyAlign === "justify"
+                  ? "text-justify"
+                  : data.bodyAlign === "center"
+                  ? "text-center"
+                  : "text-left"
               }`}
             >
               {data.bodyContent}
