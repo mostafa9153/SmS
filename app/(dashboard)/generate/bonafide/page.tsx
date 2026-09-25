@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -26,6 +27,8 @@ import {
   History,
   ChevronDown,
   Layers,
+  User,
+  MapPin,
 } from "lucide-react";
 import {
   useSchoolProfile,
@@ -90,8 +93,8 @@ function BonafideGeneratorContent() {
   const [paperSize, setPaperSize] = useState<"A5" | "A4">("A5");
 
   // Filter States - Only fetch after both class & section are chosen
-  const [selectedClass, setSelectedClass] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [selectedClass, setSelectedClass] = useState<string>("X");
+  const [selectedSection, setSelectedSection] = useState<string>("A");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const isSelectionComplete = Boolean(selectedClass && selectedSection);
@@ -104,8 +107,28 @@ function BonafideGeneratorContent() {
   const [copyType, setCopyType] = useState<"Original" | "Duplicate" | "Office Copy">("Original");
   const [purpose, setPurpose] = useState<string>(PURPOSE_PRESETS[0].value);
   const [conduct, setConduct] = useState<string>("exemplary moral character");
+  const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
   const [previewScale, setPreviewScale] = useState<number>(0.95);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Editable Student Particulars Form State
+  const [studentForm, setStudentForm] = useState({
+    studentName: "STUDENT NAME",
+    gender: "Male" as "Male" | "Female" | "Other",
+    fatherName: "Father Name",
+    studentId: `MHS-${currentYear}-0001`,
+    pen: "191113056021234",
+    presentClass: "X",
+    presentSection: "A",
+    presentRoll: "1",
+    academicSession: String(currentYear),
+    dateOfBirth: "2010-01-01",
+    village: "Marigachi",
+    postOffice: "Marigachi",
+    policeStation: "Mathurapur",
+    district: "South 24 Parganas",
+    pincode: "743349",
+  });
 
   // Print Mode: "single" | "batch"
   const [printMode, setPrintMode] = useState<"single" | "batch">("single");
@@ -162,9 +185,33 @@ function BonafideGeneratorContent() {
     return filteredStudents.find((s) => s.id === activeStudentId) || filteredStudents[0] || null;
   }, [filteredStudents, activeStudentId]);
 
+  // Auto-sync studentForm when activeStudent changes
+  useEffect(() => {
+    if (activeStudent) {
+      const addr = parseStudentAddress(activeStudent.address, schoolProfile);
+      setStudentForm({
+        studentName: activeStudent.name || "",
+        gender: (activeStudent.gender === "Female" ? "Female" : "Male") as "Male" | "Female" | "Other",
+        fatherName: activeStudent.fatherName || "",
+        studentId: activeStudent.schoolId || activeStudent.id || "",
+        pen: activeStudent.pen || "",
+        presentClass: activeStudent.presentClass || selectedClass || "X",
+        presentSection: activeStudent.presentSection || selectedSection || "A",
+        presentRoll: String(activeStudent.presentRoll || "1"),
+        academicSession: String(currentYear),
+        dateOfBirth: activeStudent.dob || "2010-01-01",
+        village: addr.village || schoolProfile?.village || "Marigachi",
+        postOffice: addr.postOffice || schoolProfile?.postOffice || "Marigachi",
+        policeStation: addr.policeStation || schoolProfile?.policeStation || "Mathurapur",
+        district: addr.district || schoolProfile?.district || "South 24 Parganas",
+        pincode: addr.pincode || schoolProfile?.pincode || "743349",
+      });
+    }
+  }, [activeStudent, schoolProfile, selectedClass, selectedSection, currentYear]);
+
   const schoolCodePrefix = (schoolProfile?.schoolCode || "MHS").split("-")[0].toUpperCase();
 
-  // Transform Student into BonafideCertificateData
+  // Transform Student into BonafideCertificateData (for batch printing)
   const buildCertificateDataForStudent = (
     student: Student | null,
     sequenceNum: number
@@ -176,25 +223,25 @@ function BonafideGeneratorContent() {
         certificateNo: certNum,
         issueDate,
         copyType,
-        academicSession: String(currentYear),
-        studentId: `MHS-${currentYear}-0001`,
-        pen: "191113056021234",
-        studentName: "Student Name",
-        gender: "Male",
-        fatherName: "Father Name",
-        motherName: "Mother Name",
-        village: schoolProfile?.village || "Marigachi",
-        postOffice: schoolProfile?.postOffice || "Marigachi",
-        policeStation: schoolProfile?.policeStation || "Mathurapur",
-        district: schoolProfile?.district || "South 24 Parganas",
-        pincode: schoolProfile?.pincode || "743349",
-        presentClass: selectedClass || "X",
-        presentSection: selectedSection || "A",
-        presentRoll: "1",
-        dateOfBirth: "2010-01-01",
+        academicSession: studentForm.academicSession || String(currentYear),
+        studentId: studentForm.studentId,
+        pen: studentForm.pen,
+        studentName: studentForm.studentName,
+        gender: studentForm.gender,
+        fatherName: studentForm.fatherName,
+        village: studentForm.village,
+        postOffice: studentForm.postOffice,
+        policeStation: studentForm.policeStation,
+        district: studentForm.district,
+        pincode: studentForm.pincode,
+        presentClass: studentForm.presentClass,
+        presentSection: studentForm.presentSection,
+        presentRoll: studentForm.presentRoll,
+        dateOfBirth: studentForm.dateOfBirth,
         conduct,
         purpose,
         headmasterTitle: schoolProfile ? getEffectiveHeadTitle(schoolProfile) : "Teacher-in-Charge",
+        includeDigitalSignature,
       };
     }
 
@@ -211,7 +258,6 @@ function BonafideGeneratorContent() {
       studentName: student.name,
       gender: student.gender || "Male",
       fatherName: student.fatherName || "Guardian",
-      motherName: student.motherName || "",
       village: addr.village,
       postOffice: addr.postOffice,
       policeStation: addr.policeStation,
@@ -224,12 +270,50 @@ function BonafideGeneratorContent() {
       conduct,
       purpose,
       headmasterTitle: schoolProfile ? getEffectiveHeadTitle(schoolProfile) : "Teacher-in-Charge",
+      includeDigitalSignature,
     };
   };
 
   const activeCertData = useMemo(() => {
-    return buildCertificateDataForStudent(activeStudent, certSeq);
-  }, [activeStudent, certSeq, issueDate, copyType, conduct, purpose, schoolProfile, currentYear, paperSize]);
+    const certNum = formatDocumentNumber("bonafide-certificate", certSeq, currentYear, schoolCodePrefix);
+    return {
+      paperSize,
+      certificateNo: certNum,
+      issueDate,
+      copyType,
+      academicSession: studentForm.academicSession || String(currentYear),
+      studentId: studentForm.studentId,
+      pen: studentForm.pen,
+      studentName: studentForm.studentName,
+      gender: studentForm.gender,
+      fatherName: studentForm.fatherName,
+      village: studentForm.village,
+      postOffice: studentForm.postOffice,
+      policeStation: studentForm.policeStation,
+      district: studentForm.district,
+      pincode: studentForm.pincode,
+      presentClass: studentForm.presentClass,
+      presentSection: studentForm.presentSection,
+      presentRoll: studentForm.presentRoll,
+      dateOfBirth: studentForm.dateOfBirth,
+      conduct,
+      purpose,
+      headmasterTitle: schoolProfile ? getEffectiveHeadTitle(schoolProfile) : "Teacher-in-Charge",
+      includeDigitalSignature,
+    };
+  }, [
+    studentForm,
+    certSeq,
+    issueDate,
+    copyType,
+    conduct,
+    purpose,
+    includeDigitalSignature,
+    schoolProfile,
+    currentYear,
+    paperSize,
+    schoolCodePrefix,
+  ]);
 
   // Selected students to be batch printed
   const studentsToPrint = useMemo(() => {
@@ -632,7 +716,194 @@ function BonafideGeneratorContent() {
             </CardContent>
           </Card>
 
-          {/* 3. Certificate Customization Card */}
+          {/* 3. Student Particulars Form Card */}
+          <Card className="rounded-2xl border shadow-2xs">
+            <CardHeader className="p-3.5 pb-2">
+              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                  Student Particulars
+                </span>
+                {activeStudent && (
+                  <Badge variant="secondary" className="text-[10px] font-mono">
+                    {studentForm.studentName ? studentForm.studentName.slice(0, 18) : "Active Student"}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-3.5 pt-0 space-y-3">
+              {/* Student Name & Gender */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="sm:col-span-2 space-y-1">
+                  <Label className="text-xs font-semibold">Student Name</Label>
+                  <Input
+                    value={studentForm.studentName}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, studentName: e.target.value }))}
+                    placeholder="Full name of student"
+                    className="h-8 text-xs font-semibold"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Gender</Label>
+                  <div className="relative">
+                    <select
+                      value={studentForm.gender}
+                      onChange={(e) =>
+                        setStudentForm((prev) => ({
+                          ...prev,
+                          gender: e.target.value as "Male" | "Female" | "Other",
+                        }))
+                      }
+                      className="w-full appearance-none rounded-xl border border-input bg-background px-2.5 py-1.5 pr-6 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
+                    >
+                      <option value="Male">Male (son of)</option>
+                      <option value="Female">Female (daughter of)</option>
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Father Name & Date of Birth */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Father's Name</Label>
+                  <Input
+                    value={studentForm.fatherName}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, fatherName: e.target.value }))}
+                    placeholder="Father / Guardian Name"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Date of Birth</Label>
+                  <Input
+                    type="date"
+                    value={studentForm.dateOfBirth}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, dateOfBirth: e.target.value }))}
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* School ID & PEN Number */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">School ID / Admission No.</Label>
+                  <Input
+                    value={studentForm.studentId}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, studentId: e.target.value }))}
+                    placeholder="e.g. MHS-2026-0001"
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold">Banglar Shiksha PEN</Label>
+                  <Input
+                    value={studentForm.pen}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, pen: e.target.value }))}
+                    placeholder="e.g. 191113056021234"
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Academic: Class, Section, Roll, Session */}
+              <div className="grid grid-cols-4 gap-1.5">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Class</Label>
+                  <Input
+                    value={studentForm.presentClass}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, presentClass: e.target.value }))}
+                    className="h-8 text-xs text-center font-bold font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Sec</Label>
+                  <Input
+                    value={studentForm.presentSection}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, presentSection: e.target.value }))}
+                    className="h-8 text-xs text-center font-bold font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Roll</Label>
+                  <Input
+                    value={studentForm.presentRoll}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, presentRoll: e.target.value }))}
+                    className="h-8 text-xs text-center font-bold font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Session</Label>
+                  <Input
+                    value={studentForm.academicSession}
+                    onChange={(e) => setStudentForm((prev) => ({ ...prev, academicSession: e.target.value }))}
+                    className="h-8 text-xs text-center font-bold font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Address Details */}
+              <div className="space-y-2 pt-2 border-t border-border/60">
+                <Label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                  <MapPin className="h-3 w-3 text-primary" />
+                  Address Details
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Village</Label>
+                    <Input
+                      value={studentForm.village}
+                      onChange={(e) => setStudentForm((prev) => ({ ...prev, village: e.target.value }))}
+                      placeholder="Village"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">Post Office (P.O.)</Label>
+                    <Input
+                      value={studentForm.postOffice}
+                      onChange={(e) => setStudentForm((prev) => ({ ...prev, postOffice: e.target.value }))}
+                      placeholder="Post Office"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">P.S.</Label>
+                    <Input
+                      value={studentForm.policeStation}
+                      onChange={(e) => setStudentForm((prev) => ({ ...prev, policeStation: e.target.value }))}
+                      placeholder="Police Station"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">District</Label>
+                    <Input
+                      value={studentForm.district}
+                      onChange={(e) => setStudentForm((prev) => ({ ...prev, district: e.target.value }))}
+                      placeholder="District"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px]">PIN Code</Label>
+                    <Input
+                      value={studentForm.pincode}
+                      onChange={(e) => setStudentForm((prev) => ({ ...prev, pincode: e.target.value }))}
+                      placeholder="743349"
+                      className="h-8 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 4. Certificate Customization Card */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -712,6 +983,18 @@ function BonafideGeneratorContent() {
                     className="h-8 text-xs font-mono bg-muted/40 font-bold"
                   />
                 </div>
+              </div>
+
+              {/* Digital Head Signature Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-semibold">Digital Head Signature</Label>
+                  <p className="text-[10px] text-muted-foreground">Print institutional digital signature</p>
+                </div>
+                <Switch
+                  checked={includeDigitalSignature}
+                  onCheckedChange={setIncludeDigitalSignature}
+                />
               </div>
             </CardContent>
           </Card>

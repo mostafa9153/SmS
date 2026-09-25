@@ -46,8 +46,9 @@ export interface BonafideCertificateData {
   purpose: string; // e.g. "Scholarship Application (OASIS / SVMCM)", "Opening a Bank Account", "Passport Verification", "Official Purpose"
   remarks?: string;
 
-  // Signatory
+  // Signatory & Features
   headmasterTitle?: string;
+  includeDigitalSignature?: boolean;
 }
 
 interface BonafideCertificatePrintableViewProps {
@@ -190,12 +191,12 @@ export function BonafideCertificatePrintableView({
         {/* 1. INSTITUTIONAL HEADER                                             */}
         {/* =================================================================== */}
         <div>
-          <div className={`border-b-2 border-[#14206b] ${isA5 ? "pt-0.5 pb-2" : "pt-1 pb-3"}`}>
-            <div className="flex items-center justify-between gap-3">
+          <div className={`border-b-2 border-[#14206b] ${isA5 ? "pt-1 pb-3 mb-1" : "pt-2 pb-4 mb-2"}`}>
+            <div className="flex items-center justify-between gap-2.5">
               {/* School Crest */}
               <div
                 className={`shrink-0 flex items-center justify-center ${
-                  isA5 ? "w-[56px] h-[56px]" : "w-[88px] h-[88px]"
+                  isA5 ? "w-[50px] h-[50px]" : "w-[80px] h-[80px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -210,37 +211,35 @@ export function BonafideCertificatePrintableView({
               {(() => {
                 const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
                 return (
-                  <div className="text-center flex-1 space-y-0.5">
+                  <div className="text-center flex-1 space-y-0.5 min-w-0">
                     <h1
-                      className={`font-black tracking-normal uppercase text-[#14206b] font-serif leading-tight ${
-                        isA5 ? "text-[19px] sm:text-[20px]" : "text-[27px]"
+                      className={`font-black tracking-normal uppercase text-[#14206b] font-serif leading-tight whitespace-nowrap ${
+                        isA5 ? "text-[15.5px] sm:text-[16px]" : "text-[23px] sm:text-[24px]"
                       }`}
                     >
-                      {mainName}
+                      {mainName}{suffix ? ` ${suffix}` : ""}
                     </h1>
-                    {suffix && (
-                      <div
-                        className={`font-black tracking-wider uppercase text-[#14206b] font-serif leading-none ${
-                          isA5 ? "text-[13px]" : "text-[17.5px]"
-                        }`}
-                      >
-                        {suffix}
-                      </div>
-                    )}
+                    <div
+                      className={`uppercase leading-none whitespace-nowrap font-serif font-bold text-[#14206b] tracking-wider ${
+                        isA5 ? "text-[9.5px]" : "text-[12.5px]"
+                      }`}
+                    >
+                      (Co-Educational)
+                    </div>
                     <p
-                      className={`font-semibold text-slate-700 leading-tight pt-0.5 ${
-                        isA5 ? "text-[10.5px]" : "text-[13px]"
+                      className={`font-semibold text-slate-700 leading-tight pt-0.5 whitespace-nowrap ${
+                        isA5 ? "text-[8.5px] tracking-tight" : "text-[11.5px] sm:text-[12px]"
                       }`}
                     >
                       {profile.village ? `Vill.: ${profile.village}, ` : ""}
                       {profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}
                       {profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}
                       {profile.district ? `Dist.: ${profile.district}, ` : ""}
-                      PIN: {profile.pincode || "743349"}
+                      <span>PIN: {profile.pincode || "743349"}</span>
                     </p>
                     <p
-                      className={`font-mono font-medium text-slate-600 pt-0.5 ${
-                        isA5 ? "text-[8.5px]" : "text-[11.5px]"
+                      className={`font-mono font-medium text-slate-600 pt-0.5 whitespace-nowrap ${
+                        isA5 ? "text-[8px] tracking-tight" : "text-[11px]"
                       }`}
                     >
                       Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} • H.S. Code: {profile.hsCode || "102298"} • UDISE: {profile.udiseCode || "19111305602"}
@@ -253,21 +252,21 @@ export function BonafideCertificatePrintableView({
               {/* Official Seal / Copy Badge */}
               <div
                 className={`shrink-0 flex items-center justify-center relative text-[#14206b] ${
-                  isA5 ? "w-[56px] h-[56px]" : "w-[84px] h-[84px]"
+                  isA5 ? "w-[50px] h-[50px]" : "w-[80px] h-[80px]"
                 }`}
               >
                 <div className="w-full h-full rounded-full border border-dashed border-[#14206b]/40 flex flex-col items-center justify-center p-0.5 relative overflow-hidden select-none bg-transparent">
                   <div className="flex flex-col items-center justify-center opacity-30 select-none pointer-events-none">
-                    <span className={`font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-600 ${isA5 ? "text-[6.5px]" : "text-[8px]"}`}>
+                    <span className={`font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-600 ${isA5 ? "text-[6px]" : "text-[8px]"}`}>
                       OFFICIAL
                     </span>
-                    <span className={`font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-600 ${isA5 ? "text-[6px]" : "text-[7.5px]"}`}>
+                    <span className={`font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-600 ${isA5 ? "text-[5.5px]" : "text-[7.5px]"}`}>
                       SEAL
                     </span>
                   </div>
 
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className={`inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold uppercase rounded font-sans tracking-wide shadow-xs ${isA5 ? "text-[7.5px] px-1 py-0.2" : "text-[9px] px-1.5 py-0.5"}`}>
+                    <span className={`inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold uppercase rounded font-sans tracking-wide shadow-xs ${isA5 ? "text-[7px] px-0.5 py-0.2" : "text-[9px] px-1.5 py-0.5"}`}>
                       [{data.copyType || "Original"}]
                     </span>
                   </div>
@@ -292,18 +291,18 @@ export function BonafideCertificatePrintableView({
             </div>
           </div>
 
-          {/* Certificate Title Header */}
-          <div className={`text-center ${isA5 ? "pt-1.5 pb-0.5" : "pt-3 pb-1"}`}>
+          {/* Certificate Title Header (23% smaller) */}
+          <div className={`text-center ${isA5 ? "pt-1 pb-0.5" : "pt-2 pb-1"}`}>
             <h2
               className={`font-black uppercase text-[#14206b] tracking-wider underline underline-offset-4 decoration-[#14206b]/50 inline-block font-serif ${
-                isA5 ? "text-[17px]" : "text-[24px]"
+                isA5 ? "text-[13px]" : "text-[18.5px]"
               }`}
             >
               BONAFIDE CERTIFICATE
             </h2>
             <p
               className={`font-serif font-bold uppercase tracking-widest text-slate-600 ${
-                isA5 ? "text-[10px] mt-0.5" : "text-[13px] mt-1"
+                isA5 ? "text-[8px] mt-0.5" : "text-[10px] mt-0.5"
               }`}
             >
               (TO WHOM IT MAY CONCERN)
@@ -328,15 +327,7 @@ export function BonafideCertificatePrintableView({
             </span>, {childOf}{" "}
             <span className="font-bold text-slate-900 border-b border-dotted border-slate-700 px-0.5">
               {data.fatherName || "________________________"}
-            </span>
-            {data.motherName ? (
-              <>
-                {" "}and{" "}
-                <span className="font-bold text-slate-900 border-b border-dotted border-slate-700 px-0.5">
-                  {data.motherName}
-                </span>
-              </>
-            ) : null}, residing at Village:{" "}
+            </span>, residing at Village:{" "}
             <span className="font-semibold text-slate-900 border-b border-dotted border-slate-700 px-0.5">
               {displayVillage}
             </span>, P.O.:{" "}
@@ -381,22 +372,21 @@ export function BonafideCertificatePrintableView({
             </span>.
           </p>
 
-          {/* Student Identifiers Strip - School ID & PEN */}
-          <div
-            className={`bg-[#14206b]/5 border border-[#14206b]/20 rounded p-1.5 my-1 flex items-center justify-around font-sans ${
-              isA5 ? "text-[11px]" : "text-[14px] p-2.5 my-2"
-            }`}
-          >
-            <div>
-              <span className="font-semibold text-slate-600">School ID: </span>
-              <span className="font-mono font-bold text-[#14206b]">{data.studentId || "N/A"}</span>
-            </div>
-            <div className="h-3.5 w-px bg-slate-300" />
-            <div>
-              <span className="font-semibold text-slate-600">PEN: </span>
-              <span className="font-mono font-bold text-[#14206b]">{data.pen || "N/A"}</span>
-            </div>
-          </div>
+          {/* Student Identifiers - Simple running text with underline (No box) */}
+          <p>
+            Institutional School ID:{" "}
+            <span className="font-mono font-bold text-slate-950 border-b border-dotted border-slate-700 px-0.5">
+              {data.studentId || "N/A"}
+            </span>
+            {data.pen && data.pen !== "N/A" ? (
+              <>
+                {" "}&bull; Student PEN:{" "}
+                <span className="font-mono font-bold text-slate-950 border-b border-dotted border-slate-700 px-0.5">
+                  {data.pen}
+                </span>
+              </>
+            ) : null}.
+          </p>
 
           <p>
             As per the official Admission Register of the school, {pronounPossessive} recorded Date of Birth is{" "}
@@ -470,7 +460,7 @@ export function BonafideCertificatePrintableView({
             {/* Right: Head of Institution Signature */}
             <div className="text-center flex flex-col items-center">
               <div className={`flex items-end justify-center ${isA5 ? "h-7 w-28" : "h-10 w-36"}`}>
-                {profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
+                {data.includeDigitalSignature !== false && profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={profile.headSignatureUrl}
@@ -479,15 +469,9 @@ export function BonafideCertificatePrintableView({
                   />
                 ) : null}
               </div>
-              <div className={`border-t border-slate-800 pt-0.5 ${isA5 ? "w-32" : "w-40"}`}>
+              <div className={`border-t border-dashed border-slate-400 pt-0.5 ${isA5 ? "w-32" : "w-40"}`}>
                 <p className={`font-bold text-slate-950 uppercase leading-tight ${isA5 ? "text-[10.5px]" : "text-[13.5px]"}`}>
-                  {effectiveHeadTitle}
-                </p>
-                <p className={`font-medium text-slate-700 leading-tight ${isA5 ? "text-[9px]" : "text-[11.5px]"}`}>
-                  {profile.schoolName}
-                </p>
-                <p className={`text-slate-500 font-sans leading-tight ${isA5 ? "text-[8px]" : "text-[10px]"}`}>
-                  {profile.policeStation ? `${profile.policeStation}, ` : ""}{profile.district || "South 24 Pgs"}
+                  ({effectiveHeadTitle})
                 </p>
               </div>
             </div>

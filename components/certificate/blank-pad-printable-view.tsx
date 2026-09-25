@@ -139,12 +139,12 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
         {/* 1. INSTITUTIONAL HEADER (Enlarged +10%)                             */}
         {/* =================================================================== */}
         <div>
-          <div className="border-b-2 border-[#14206b] pb-3.5 pt-1.5">
+          <div className="border-b-2 border-[#14206b] pb-3 pt-1.5">
             <div className="flex items-center justify-between gap-3">
               {/* School Logo */}
               <div
                 className={`shrink-0 flex items-center justify-center ${
-                  isA4 ? "w-[102px] h-[102px]" : "w-[82px] h-[82px]"
+                  isA4 ? "w-[84px] h-[84px]" : "w-[68px] h-[68px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -156,36 +156,34 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
               </div>
 
               {/* School Details */}
-              <div className="text-center flex-1 space-y-0.5 overflow-hidden">
+              <div className="text-center flex-1 space-y-0.5 min-w-0">
                 <h1
                   className={`uppercase leading-tight whitespace-nowrap overflow-visible ${
                     fontStyle === "3d"
-                      ? `${isA4 ? "text-[26px] sm:text-[26.5px]" : "text-[19px] sm:text-[19.5px]"} font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-tight [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_0px_#101736,_4px_4px_3px_rgba(0,0,0,0.35)]`
+                      ? `${isA4 ? "text-[22px] sm:text-[23.5px]" : "text-[16px] sm:text-[17px]"} font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-tight [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_0px_#101736,_4px_4px_3px_rgba(0,0,0,0.35)]`
                       : fontStyle === "stylish"
-                      ? `${isA4 ? "text-[26.5px] sm:text-[27.5px]" : "text-[20px]"} font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.08em] drop-shadow-xs`
-                      : `${isA4 ? "text-[28.5px] sm:text-[29.5px]" : "text-[21px] sm:text-[22px]"} font-black text-[#14206b] font-serif tracking-normal`
+                      ? `${isA4 ? "text-[22px] sm:text-[23.5px]" : "text-[16px] sm:text-[17px]"} font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.05em] drop-shadow-xs`
+                      : `${isA4 ? "text-[23.5px] sm:text-[24.5px]" : "text-[17px] sm:text-[18px]"} font-black text-[#14206b] font-serif tracking-normal`
                   }`}
                 >
-                  {mainName}
+                  {mainName}{suffix ? ` ${suffix}` : ""}
                 </h1>
-                {suffix && (
-                  <div
-                    className={`uppercase leading-none whitespace-nowrap ${
-                      isA4 ? "text-[17.5px]" : "text-[14.5px]"
-                    } ${
-                      fontStyle === "3d"
-                        ? "font-black text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-wider [text-shadow:_1px_1px_0px_#27387d,_2px_2px_0px_#1b2759,_3px_3px_2px_rgba(0,0,0,0.3)]"
-                        : fontStyle === "stylish"
-                        ? "font-extrabold text-[#0f172a] [font-family:'Cinzel',serif] tracking-[0.16em]"
-                        : "font-black text-[#14206b] font-serif tracking-wider"
-                    }`}
-                  >
-                    {suffix}
-                  </div>
-                )}
+                <div
+                  className={`uppercase leading-none whitespace-nowrap ${
+                    isA4 ? "text-[13px]" : "text-[10px]"
+                  } ${
+                    fontStyle === "3d"
+                      ? "font-bold text-[#14206b] [font-family:'Cinzel_Decorative','Cinzel',serif] tracking-wider"
+                      : fontStyle === "stylish"
+                      ? "font-bold text-[#0f172a] [font-family:'Cinzel',serif] tracking-wider"
+                      : "font-bold text-[#14206b] font-serif tracking-wider"
+                  }`}
+                >
+                  (Co-Educational)
+                </div>
                 <p
                   className={`font-semibold text-slate-700 leading-snug pt-0.5 whitespace-nowrap text-center ${
-                    isA4 ? "text-[13.8px]" : "text-[11px]"
+                    isA4 ? "text-[11.5px] sm:text-[12px]" : "text-[9.5px]"
                   }`}
                 >
                   {profile.village ? `Vill.: ${profile.village}, ` : ""}
@@ -196,7 +194,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 </p>
                 <p
                   className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug whitespace-nowrap ${
-                    isA4 ? "text-[12.7px]" : "text-[10.5px]"
+                    isA4 ? "text-[11px] sm:text-[11.5px]" : "text-[9px]"
                   }`}
                 >
                   Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} • H.S. Code: {profile.hsCode || "102298"} • UDISE: {profile.udiseCode || "19111305602"}
@@ -204,7 +202,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                 {(displayPhone || displayEmail) && (
                   <p
                     className={`font-mono font-medium text-slate-600 pt-0.5 leading-snug flex items-center justify-center flex-wrap gap-x-2 whitespace-nowrap ${
-                      isA4 ? "text-[12.7px]" : "text-[10.5px]"
+                      isA4 ? "text-[11px] sm:text-[11.5px]" : "text-[9px]"
                     }`}
                   >
                     {displayPhone && <span>Phone: {displayPhone}</span>}
@@ -217,7 +215,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
               {/* Symmetry placeholder / right crest or blank balancer */}
               <div
                 className={`shrink-0 flex items-center justify-center opacity-0 pointer-events-none ${
-                  isA4 ? "w-[102px] h-[102px]" : "w-[82px] h-[82px]"
+                  isA4 ? "w-[84px] h-[84px]" : "w-[68px] h-[68px]"
                 }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -229,7 +227,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
           {/* Optional Ref. No. & Date Strip */}
           {data.showRefDate && (
             <div
-              className={`flex items-center justify-between border-b border-dotted border-slate-400 py-1.5 px-1 font-serif text-slate-800 ${
+              className={`flex items-center justify-between py-1.5 px-1 font-serif text-slate-800 ${
                 isA4 ? "text-[15.5px]" : "text-[13.5px]"
               }`}
             >
@@ -355,7 +353,7 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                       : data.structuredLetter.thankingAlign === "right"
                       ? "text-right"
                       : "text-left"
-                  } font-semibold`}
+                  } font-normal`}
                 >
                   {data.structuredLetter.thankingText}
                 </div>
@@ -377,12 +375,14 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                       {data.structuredLetter.signoffPrefix && (
                         <p className="font-semibold mb-6">{data.structuredLetter.signoffPrefix}</p>
                       )}
-                      <p className="font-bold border-t border-slate-800 pt-1">
+                      <p className="font-bold border-t border-dashed border-slate-400 pt-1.5">
                         ({data.structuredLetter.signoffDesignation || effectiveHeadTitle})
                       </p>
-                      <p className={`text-slate-700 ${isA4 ? "text-[12px]" : "text-[10px]"}`}>
-                        {data.structuredLetter.signoffInstitution || profile.schoolName}
-                      </p>
+                      {data.structuredLetter.signoffInstitution ? (
+                        <p className={`text-slate-700 ${isA4 ? "text-[12px]" : "text-[10px]"}`}>
+                          {data.structuredLetter.signoffInstitution}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -427,12 +427,9 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                   </div>
                 )}
                 {!data.includeSignatureImage && <div className="h-8" />}
-                <div className="border-t border-slate-900 pt-1">
+                <div className="border-t border-dashed border-slate-400 pt-1.5">
                   <p className={`font-serif font-bold text-slate-900 ${isA4 ? "text-[13px]" : "text-[11.5px]"}`}>
-                    {effectiveHeadTitle}
-                  </p>
-                  <p className={`font-serif text-slate-700 ${isA4 ? "text-[11px]" : "text-[9.5px]"}`}>
-                    {profile.schoolName}
+                    ({effectiveHeadTitle})
                   </p>
                 </div>
               </div>

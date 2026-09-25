@@ -827,20 +827,6 @@ function BlankPadGeneratorContent() {
                           <button
                             type="button"
                             onClick={() =>
-                              setStructuredLetter((prev) => ({ ...prev, subjectAlign: "center" }))
-                            }
-                            className={`p-1 rounded text-xs cursor-pointer ${
-                              (structuredLetter.subjectAlign ?? "center") === "center"
-                                ? "bg-background text-primary shadow-2xs font-bold"
-                                : "text-muted-foreground"
-                            }`}
-                            title="Center Align (Standard)"
-                          >
-                            <AlignCenter className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
                               setStructuredLetter((prev) => ({ ...prev, subjectAlign: "left" }))
                             }
                             className={`p-1 rounded text-xs cursor-pointer ${
@@ -851,6 +837,20 @@ function BlankPadGeneratorContent() {
                             title="Align Left"
                           >
                             <AlignLeft className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, subjectAlign: "center" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.subjectAlign ?? "center") === "center"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Center Align (Standard)"
+                          >
+                            <AlignCenter className="h-3 w-3" />
                           </button>
                           <button
                             type="button"
@@ -1020,20 +1020,6 @@ function BlankPadGeneratorContent() {
                           <button
                             type="button"
                             onClick={() =>
-                              setStructuredLetter((prev) => ({ ...prev, bodyAlign: "justify" }))
-                            }
-                            className={`p-1 rounded text-xs cursor-pointer ${
-                              (structuredLetter.bodyAlign ?? "justify") === "justify"
-                                ? "bg-background text-primary shadow-2xs font-bold"
-                                : "text-muted-foreground"
-                            }`}
-                            title="Justify (Standard Letter)"
-                          >
-                            <AlignJustify className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
                               setStructuredLetter((prev) => ({ ...prev, bodyAlign: "left" }))
                             }
                             className={`p-1 rounded text-xs cursor-pointer ${
@@ -1058,6 +1044,20 @@ function BlankPadGeneratorContent() {
                             title="Align Center"
                           >
                             <AlignCenter className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, bodyAlign: "justify" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.bodyAlign ?? "justify") === "justify"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Justify (Standard Letter)"
+                          >
+                            <AlignJustify className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
@@ -1151,20 +1151,6 @@ function BlankPadGeneratorContent() {
                           <button
                             type="button"
                             onClick={() =>
-                              setStructuredLetter((prev) => ({ ...prev, signoffAlign: "right" }))
-                            }
-                            className={`p-1 rounded text-xs cursor-pointer ${
-                              (structuredLetter.signoffAlign ?? "right") === "right"
-                                ? "bg-background text-primary shadow-2xs font-bold"
-                                : "text-muted-foreground"
-                            }`}
-                            title="Align Right (Standard)"
-                          >
-                            <AlignRight className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
                               setStructuredLetter((prev) => ({ ...prev, signoffAlign: "left" }))
                             }
                             className={`p-1 rounded text-xs cursor-pointer ${
@@ -1189,6 +1175,20 @@ function BlankPadGeneratorContent() {
                             title="Align Center"
                           >
                             <AlignCenter className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setStructuredLetter((prev) => ({ ...prev, signoffAlign: "right" }))
+                            }
+                            className={`p-1 rounded text-xs cursor-pointer ${
+                              (structuredLetter.signoffAlign ?? "right") === "right"
+                                ? "bg-background text-primary shadow-2xs font-bold"
+                                : "text-muted-foreground"
+                            }`}
+                            title="Align Right (Standard)"
+                          >
+                            <AlignRight className="h-3 w-3" />
                           </button>
                         </div>
                       </div>
@@ -1267,17 +1267,6 @@ function BlankPadGeneratorContent() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setBodyAlign("justify")}
-                          className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
-                            bodyAlign === "justify"
-                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                              : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                          }`}
-                        >
-                          <AlignJustify className="h-3 w-3" />
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => setBodyAlign("center")}
                           className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
                             bodyAlign === "center"
@@ -1286,6 +1275,17 @@ function BlankPadGeneratorContent() {
                           }`}
                         >
                           <AlignCenter className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBodyAlign("justify")}
+                          className={`h-7 rounded-lg border text-xs flex items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                            bodyAlign === "justify"
+                              ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                          }`}
+                        >
+                          <AlignJustify className="h-3 w-3" />
                         </button>
                       </div>
                     </div>

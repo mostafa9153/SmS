@@ -125,19 +125,14 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
             {(() => {
               const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
               return (
-                <div className="text-center flex-1 space-y-0.5">
-                  <h1 className="text-[20px] sm:text-[21px] font-black tracking-normal uppercase text-[#14206b] font-serif leading-tight whitespace-nowrap">
-                    {mainName}
+                <div className="text-center flex-1 space-y-0.5 min-w-0">
+                  <h1 className="text-[18px] sm:text-[19px] font-black tracking-normal uppercase text-[#14206b] font-serif leading-tight whitespace-nowrap">
+                    {mainName}{suffix ? ` ${suffix}` : ""}
                   </h1>
-                  {suffix ? (
-                    <div className="text-[14px] font-black tracking-wider uppercase text-[#14206b] font-serif leading-none">
-                      {suffix}
-                    </div>
-                  ) : null}
-                  <p className="text-[10.5px] font-semibold text-slate-700 leading-tight pt-0.5">
+                  <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 leading-tight pt-0.5 whitespace-nowrap">
                     {profile.village ? `Vill.: ${profile.village}, ` : ""}{profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}{profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}{profile.district ? `Dist.: ${profile.district}, ` : ""}PIN: {profile.pincode || "743349"}
                   </p>
-                  <p className="text-[9px] font-mono font-medium text-slate-600 pt-0.5">
+                  <p className="text-[8.5px] sm:text-[9px] font-mono font-medium text-slate-600 pt-0.5 whitespace-nowrap">
                     Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code: {profile.hsCode || "102298"} &bull; UDISE: {profile.udiseCode || "19111305602"} &bull; Phone: {profile.schoolPhone || profile.altPhone || "+91 98765 43210"}
                   </p>
                 </div>
