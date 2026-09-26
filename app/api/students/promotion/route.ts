@@ -157,6 +157,8 @@ export async function POST(req: Request) {
         present_section: p.targetSection,
         present_roll: p.targetRoll,
         current_status: p.targetStatus,
+        re_admission_status: p.targetStatus === "Continuing" ? "admitted" : "pending",
+        is_invoice_queued: false,
         previous_class: existing.present_class,
         previous_section: existing.present_section,
         previous_roll_no: existing.present_roll,

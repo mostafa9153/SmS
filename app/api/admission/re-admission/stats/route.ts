@@ -32,6 +32,26 @@ export async function GET(req: Request) {
     const supabase = createAdminClient();
 
     // 1. Fetch re-admission candidate students for selected class and section
+    const cls = selectedClass.trim();
+    let classVariations = [cls];
+    if (cls === "V" || cls === "5") {
+      classVariations = ["V", "5", "Class V", "Class 5"];
+    } else if (cls === "VI" || cls === "6") {
+      classVariations = ["VI", "6", "Class VI", "Class 6"];
+    } else if (cls === "VII" || cls === "7") {
+      classVariations = ["VII", "7", "Class VII", "Class 7"];
+    } else if (cls === "VIII" || cls === "8") {
+      classVariations = ["VIII", "8", "Class VIII", "Class 8"];
+    } else if (cls === "IX" || cls === "9") {
+      classVariations = ["IX", "9", "Class IX", "Class 9"];
+    } else if (cls === "X" || cls === "10") {
+      classVariations = ["X", "10", "Class X", "Class 10"];
+    } else if (cls === "XI" || cls === "11") {
+      classVariations = ["XI", "11", "Class XI", "Class 11"];
+    } else if (cls === "XII" || cls === "12") {
+      classVariations = ["XII", "12", "Class XII", "Class 12"];
+    }
+
     let studentsQuery = supabase
       .from("students")
       .select(`
@@ -67,10 +87,10 @@ export async function GET(req: Request) {
         "exam fail - C.C",
         "C.C.H.S.",
       ])
-      .eq("present_class", selectedClass);
+      .in("present_class", classVariations);
 
     if (selectedSection && selectedSection !== "all") {
-      studentsQuery = studentsQuery.eq("present_section", selectedSection);
+      studentsQuery = studentsQuery.ilike("present_section", selectedSection);
     }
 
     studentsQuery = studentsQuery.order("present_roll", { ascending: true });
@@ -80,10 +100,10 @@ export async function GET(req: Request) {
       .from("admission_applications")
       .select("id, application_no, target_class, target_section, student_name, status, form_method, admitted_student_id, created_at")
       .eq("admission_type", "re")
-      .eq("target_class", selectedClass);
+      .in("target_class", classVariations);
 
     if (selectedSection && selectedSection !== "all") {
-      onlineAppsQuery = onlineAppsQuery.eq("target_section", selectedSection);
+      onlineAppsQuery = onlineAppsQuery.ilike("target_section", selectedSection);
     }
 
     // 3. Fetch previous year academic history count for comparison
@@ -91,10 +111,10 @@ export async function GET(req: Request) {
       .from("academic_history")
       .select("id, class, section, status", { count: "exact", head: false })
       .eq("year", prevYear)
-      .eq("class", selectedClass);
+      .in("class", classVariations);
 
     if (selectedSection && selectedSection !== "all") {
-      prevHistoryQuery = prevHistoryQuery.eq("section", selectedSection);
+      prevHistoryQuery = prevHistoryQuery.ilike("section", selectedSection);
     }
 
     // Execute queries in parallel
@@ -112,12 +132,14 @@ export async function GET(req: Request) {
 
     // Aggregate statistics
     const totalStudents = students.length;
-    const admittedStudents = students.filter((s) => s.re_admission_status === "admitted");
+    const admittedStudents = students.filter(
+      (s) => s.re_admission_status === "admitted" && s.current_status === "Continuing"
+    );
     const notAdmittedStudents = students.filter(
       (s) => s.re_admission_status === "not_admitted" || s.current_status === "Not Admitted"
     );
     const pendingStudents = students.filter(
-      (s) => (!s.re_admission_status || s.re_admission_status === "pending") && s.current_status !== "Not Admitted"
+      (s) => s.current_status !== "Continuing" && s.current_status !== "Not Admitted"
     );
 
     // Online vs Offline breakdown

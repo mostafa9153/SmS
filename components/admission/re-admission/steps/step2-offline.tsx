@@ -79,10 +79,17 @@ export function Step2Offline({
     }).catch(() => {});
   }, []);
 
-  // Fetch candidates only on clicking Proceed & Load or search
+  // Auto-fetch candidates on mount and filter changes
+  useEffect(() => {
+    if (selectedClass) {
+      fetchCandidates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, selectedSection, statusFilter]);
+
+  // Fetch candidates on filter change or click
   const fetchCandidates = async () => {
     if (!selectedClass) {
-      toast.error("Please select a class");
       return;
     }
 

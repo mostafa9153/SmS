@@ -92,17 +92,41 @@ export async function GET(req: Request) {
         is_invoice_queued,
         re_admitted_at
       `)
+    const cls = targetClass.trim();
+    let classVariations = [cls];
+    if (cls === "V" || cls === "5") {
+      classVariations = ["V", "5", "Class V", "Class 5"];
+    } else if (cls === "VI" || cls === "6") {
+      classVariations = ["VI", "6", "Class VI", "Class 6"];
+    } else if (cls === "VII" || cls === "7") {
+      classVariations = ["VII", "7", "Class VII", "Class 7"];
+    } else if (cls === "VIII" || cls === "8") {
+      classVariations = ["VIII", "8", "Class VIII", "Class 8"];
+    } else if (cls === "IX" || cls === "9") {
+      classVariations = ["IX", "9", "Class IX", "Class 9"];
+    } else if (cls === "X" || cls === "10") {
+      classVariations = ["X", "10", "Class X", "Class 10"];
+    } else if (cls === "XI" || cls === "11") {
+      classVariations = ["XI", "11", "Class XI", "Class 11"];
+    } else if (cls === "XII" || cls === "12") {
+      classVariations = ["XII", "12", "Class XII", "Class 12"];
+    }
+
+    query = query
       .in("current_status", RE_ADMISSION_CANDIDATE_STATUSES)
-      .eq("present_class", targetClass);
+      .in("present_class", classVariations);
 
     if (targetSection && targetSection !== "all") {
-      query = query.eq("present_section", targetSection);
+      query = query.ilike("present_section", targetSection);
     }
 
     if (status === "pending") {
-      query = query.or("re_admission_status.is.null,re_admission_status.eq.pending");
+      // Return students whose status is pending/transitional or whose re_admission_status is pending/null
+      query = query.or(
+        "current_status.eq.Promoted But Not Admitted,current_status.eq.Detained,current_status.eq.Supplementary,current_status.eq.Compartmental,current_status.eq.Not Admitted,current_status.eq.Sent Up M.P.,current_status.eq.10th test fail,current_status.eq.exam fail - C.C,current_status.eq.C.C.H.S.,re_admission_status.is.null,re_admission_status.eq.pending"
+      );
     } else if (status === "admitted") {
-      query = query.eq("re_admission_status", "admitted");
+      query = query.eq("re_admission_status", "admitted").eq("current_status", "Continuing");
     } else if (status === "not_admitted") {
       query = query.or("re_admission_status.eq.not_admitted,current_status.eq.Not Admitted");
     }
