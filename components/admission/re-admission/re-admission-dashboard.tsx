@@ -26,6 +26,7 @@ import {
 import { getReAdmissionDashboardStats } from "@/lib/data/admission";
 import { getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { cn, sortClasses } from "@/lib/utils";
+import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
 
 interface ReAdmissionDashboardProps {
@@ -481,11 +482,14 @@ export function ReAdmissionDashboard({
 
                         {/* Details */}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-xs text-foreground truncate">{s.name}</span>
                             <span className="px-1.5 py-0.2 rounded bg-muted text-[10px] font-mono font-bold text-foreground border">
                               Roll #{s.present_roll}
                             </span>
+                            {s.current_status && (
+                              <StatusBadge status={s.current_status} size="sm" />
+                            )}
                           </div>
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono mt-0.5">
                             <span>{s.school_id || "ID Pending"}</span>

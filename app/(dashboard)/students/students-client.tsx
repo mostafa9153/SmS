@@ -30,10 +30,11 @@ function parseUrlFilters(searchParams: URLSearchParams, mode: "active" | "all"):
   const hasAadhaar = searchParams.get("hasAadhaar") ?? undefined;
   const admissionYear = searchParams.get("admissionYear") ? Number(searchParams.get("admissionYear")) : undefined;
   const ageSlab = searchParams.get("ageSlab") ?? undefined;
+  const semester = (searchParams.get("semester") as any) ?? undefined;
 
   const hasAnyParam = q !== undefined || cls !== undefined || sec !== undefined ||
     status !== undefined || gender !== undefined || socialCategory !== undefined ||
-    scheme !== undefined || hasAadhaar !== undefined || admissionYear !== undefined || ageSlab !== undefined;
+    scheme !== undefined || hasAadhaar !== undefined || admissionYear !== undefined || ageSlab !== undefined || semester !== undefined;
 
   if (!hasAnyParam) return null;
 
@@ -48,6 +49,7 @@ function parseUrlFilters(searchParams: URLSearchParams, mode: "active" | "all"):
     hasAadhaar: hasAadhaar as any,
     admissionYear,
     ageSlab,
+    semester,
     studentType: mode === "active" ? "active" : undefined,
   };
 }
@@ -109,6 +111,7 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
     if (filters.hasAadhaar) params.set("hasAadhaar", filters.hasAadhaar);
     if (filters.admissionYear) params.set("admissionYear", String(filters.admissionYear));
     if (filters.ageSlab) params.set("ageSlab", filters.ageSlab);
+    if (filters.semester) params.set("semester", filters.semester);
 
     const queryString = params.toString();
     const newUrl = queryString ? `${window.location.pathname}?${queryString}` : window.location.pathname;
@@ -186,7 +189,7 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
         onChange={handleFilterChange}
         totalCount={totalCount}
         isLoading={isLoading}
-        hideStatusFilter={mode === "active"}
+        hideStatusFilter={false}
       />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
 

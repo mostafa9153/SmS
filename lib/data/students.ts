@@ -3,6 +3,8 @@ import type {
   StudentFilters,
   PaginatedStudents,
   StudentStatus,
+  Semester,
+  SubjectMarksMap,
 } from "@/lib/types";
 import { sortClasses } from "@/lib/utils";
 
@@ -68,6 +70,7 @@ export async function searchStudents(
   if (filters.scheme) params.append("scheme", filters.scheme);
   if (filters.hasAadhaar) params.append("hasAadhaar", filters.hasAadhaar);
   if (filters.ageSlab) params.append("ageSlab", filters.ageSlab);
+  if (filters.semester) params.append("semester", filters.semester);
   if (filters.studentType) params.append("type", filters.studentType);
   params.append("page", String(page));
   params.append("pageSize", String(pageSize));
@@ -277,19 +280,21 @@ export async function getImportBatches() {
 // ── Results & Marks Management APIs ──────────────────────────
 
 /**
- * Fetch results for an entire class/section.
+ * Fetch results for an entire class/section (with optional semester for Class XI/XII).
  */
 export async function getClassResults(
   academicYear: number,
   className: string,
   section?: string,
-  examName = "Annual Examination"
+  examName = "Annual Examination",
+  semester?: Semester
 ) {
   const params = new URLSearchParams();
   params.set("year", String(academicYear));
   params.set("class", className);
   if (section && section !== "ALL") params.set("section", section);
   params.set("exam", examName);
+  if (semester) params.set("semester", semester);
 
   const res = await fetch(`/api/results?${params.toString()}`);
   if (!res.ok) {
@@ -308,10 +313,11 @@ export async function saveStudentResult(input: {
   class: string;
   section: string;
   roll: number;
+  semester?: Semester | null;
   examName?: string;
   fullMarks?: number;
   marksObtained: number;
-  subjectMarks?: Record<string, number>;
+  subjectMarks?: SubjectMarksMap;
   remarks?: string;
 }) {
   const res = await fetch("/api/results", {
@@ -323,6 +329,38 @@ export async function saveStudentResult(input: {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to save student result");
+  }
+
+  return res.json();
+}
+
+/**
+ * Save subject-wise batch marks for all students in a class/section.
+ */
+export async function saveSubjectBatchMarks(input: {
+  academicYear: number;
+  class: string;
+  section?: string;
+  examName: string;
+  subjectName: string;
+  scores: Array<{
+    studentId: string;
+    roll: number;
+    section: string;
+    writtenMarks: number;
+    practicalMarks?: number;
+    isAbsent?: boolean;
+  }>;
+}) {
+  const res = await fetch("/api/results/subject-batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to save subject batch marks");
   }
 
   return res.json();
@@ -484,6 +522,117 @@ export async function getOldStudents(params: {
   }
 }
 
+export async function executeCohortPromotion(params: {
+  academicYear: number;
+  targetAcademicYear: number;
+  sourceClass: string;
+  rollStrategy: "rank" | "preserve" | "alphabetical";
+  examName?: string;
+  promotions: Array<{
+    studentId: string;
+    currentClass: string;
+    currentSection: string;
+    currentRoll: number;
+    currentSemester?: Semester | null;
+    currentStatus: StudentStatus;
+    targetClass: string;
+    targetSection: string;
+    targetRoll: number;
+    targetSemester?: Semester | null;
+    targetStatus: StudentStatus;
+    isOverridden?: boolean;
+    overrideReason?: string;
+    evaluationReason?: string;
+    marksObtained?: number;
+    percentage?: number;
+    failedSubjectNames?: string[];
+  }>;
+}) {
+  const res = await fetch("/api/students/promotion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
 
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Cohort promotion execution failed");
+  }
 
+  return res.json();
+}
 
+export interface BatchReAdmissionPayload {
+  studentIds: string[];
+  targetClass: string;
+  targetSection: string;
+  targetAcademicYear?: number | string;
+  rollStrategy?: "rank" | "preserve" | "alphabetical";
+  isInvoiceQueued?: boolean;
+  feePaid?: boolean;
+  feeAmount?: number;
+}
+
+export async function executeBatchReAdmission(payload: BatchReAdmissionPayload) {
+  const res = await fetch("/api/admission/re-admission/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Batch re-admission failed");
+  }
+
+  return res.json();
+}
+
+export interface StatusActionPayload {
+  action: "tc_out" | "drop_out" | "archive_stale";
+  studentIds?: string[];
+  tcDate?: string;
+  tcReason?: string;
+  tcNo?: string;
+  reason?: string;
+}
+
+export async function executeStudentStatusAction(payload: StatusActionPayload) {
+  const res = await fetch("/api/students/status-action", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Status action execution failed");
+  }
+
+  return res.json();
+}
+
+export async function issueTransferCertificate(
+  studentId: string,
+  tcData?: { tcDate?: string; tcReason?: string; tcNo?: string }
+) {
+  return executeStudentStatusAction({
+    action: "tc_out",
+    studentIds: [studentId],
+    ...tcData,
+  });
+}
+
+export async function markStudentsDropOut(studentIds: string[], reason?: string) {
+  return executeStudentStatusAction({
+    action: "drop_out",
+    studentIds,
+    reason,
+  });
+}
+
+export async function archiveStalePendingStudents() {
+  return executeStudentStatusAction({
+    action: "archive_stale",
+  });
+}

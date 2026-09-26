@@ -1,4 +1,5 @@
 import React from "react";
+import QRCode from "react-qr-code";
 import {
   MarksheetData,
   calculateMarksheetTotals,
@@ -46,6 +47,8 @@ export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintab
       ? "py-[2.6px]"
       : "py-[1.8px]";
   const tbodyFontSize = data.subjects.length >= 8 ? "text-[8.8px]" : "text-[9.2px]";
+
+  const qrPayload = `MHS-MS:${data.studentId || "N/A"}|ROLL:${data.rollNo || ""}|CLASS:${data.studentClass || ""}|SESS:${data.academicYear || "2026"}`;
 
   return (
     <div
@@ -111,14 +114,24 @@ export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintab
               </div>
             </div>
 
-            {/* Established & UDISE Badge */}
-            <div className="shrink-0 w-[110px] text-right text-[10.5px] italic space-y-0.5">
-              <div className="font-bold text-[#14206b]">Established &ndash; {profile.establishedYear || "1966"}</div>
-              <div className="text-[9px] text-neutral-600 not-italic font-mono">
-                UDISE: {profile.udiseCode || "19180201004"}
+            {/* Established, UDISE & QR Verification */}
+            <div className="shrink-0 w-[130px] flex items-center justify-end gap-2">
+              <div className="text-right text-[10px] space-y-0.5">
+                <div className="font-bold text-[#14206b] text-[9px] italic">Estd. {profile.establishedYear || "1966"}</div>
+                <div className="text-[8px] text-neutral-600 font-mono">
+                  UDISE: {profile.udiseCode || "19180201004"}
+                </div>
+                <div className="text-[7.5px] bg-[#14206b]/10 text-[#14206b] font-bold px-1.5 py-0.5 rounded-xs font-sans inline-block">
+                  {profile.boardAffiliation?.split("/")[0]?.trim() || "WBBSE"}
+                </div>
               </div>
-              <div className="text-[8.5px] bg-[#14206b]/10 text-[#14206b] font-bold px-2 py-0.5 rounded-sm inline-block not-italic font-sans">
-                {profile.boardAffiliation?.split("/")[0]?.trim() || "WBBSE"} Curriculum
+              <div className="flex flex-col items-center justify-center shrink-0">
+                <div className="p-0.5 bg-white border border-[#14206b]/40 rounded shadow-2xs">
+                  <QRCode value={qrPayload} size={38} level="M" />
+                </div>
+                <p className="font-mono text-[#14206b] tracking-wider font-semibold text-[6px] mt-0.5">
+                  VERIFY
+                </p>
               </div>
             </div>
           </div>

@@ -16,7 +16,12 @@ import { SmartAddressInput } from "@/components/students/smart-address-input";
 import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
-import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
+import {
+  OCCUPATION_OPTIONS,
+  MEDIUM_OF_INSTRUCTION_OPTIONS,
+  SEMESTER_OPTIONS,
+  STUDENT_STATUS_OPTIONS,
+} from "@/lib/constants/student-options";
 import {
   getSavedStudentEntryPresets,
   fetchStudentEntryPresetsFromDb,
@@ -27,6 +32,7 @@ const studentSchema = z.object({
   // Identity
   name: z.string().min(2, "Name is required"),
   schoolId: z.string().optional(),
+  currentStatus: z.string().optional(),
   dob: z.string().refine((v) => {
     if (!v) return false;
     const d = new Date(v);
@@ -82,6 +88,8 @@ const studentSchema = z.object({
   presentClass: z.string().min(1, "Class is required"),
   presentSection: z.string().min(1, "Section is required"),
   presentRoll: z.coerce.number().int().positive("Roll must be positive"),
+  presentSemester: z.enum(["Sem 1", "Sem 2", "Sem 3", "Sem 4"]).optional().nullable(),
+  detentionCount: z.coerce.number().int().nonnegative().optional().nullable(),
   admissionNo: z.string().optional(),
   admissionDate: z.string().optional(),
   admissionType: z.string().optional(),
@@ -242,6 +250,9 @@ export function StudentAddEditForm({
       presentClass: "V",
       presentSection: "A",
       presentRoll: 1,
+      presentSemester: null,
+      detentionCount: 0,
+      currentStatus: "Continuing",
       admissionNo: "",
       fatherOccupation: "",
       motherOccupation: "",
@@ -432,14 +443,18 @@ export function StudentAddEditForm({
         facilitiesProvided,
         cwsnFacilities,
         competitionsOlympiads,
-        currentStatus: "Continuing",
+        currentStatus: (data.currentStatus as any) || "Continuing",
+        presentSemester: data.presentSemester || undefined,
+        detentionCount: data.detentionCount ? Number(data.detentionCount) : undefined,
         academicHistory: [
           {
             year: data.admissionYear,
             class: data.presentClass,
             section: data.presentSection,
             roll: data.presentRoll,
-            status: "Continuing",
+            status: (data.currentStatus as any) || "Continuing",
+            semester: data.presentSemester || undefined,
+            detentionCount: data.detentionCount ? Number(data.detentionCount) : undefined,
           },
         ],
       } as any);
@@ -932,20 +947,46 @@ export function StudentAddEditForm({
               const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
               if (!isHs) return null;
               return (
-                <FormField label="Academic Stream (HS only)" error={errors.academicStream?.message}>
-                  <Controller
-                    control={control}
-                    name="academicStream"
-                    render={({ field }) => (
-                      <CustomSelect
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        placeholder="Select stream..."
-                        options={STREAM_OPTIONS}
-                      />
-                    )}
-                  />
-                </FormField>
+                <>
+                  <FormField label="Academic Stream (HS only)" error={errors.academicStream?.message}>
+                    <Controller
+                      control={control}
+                      name="academicStream"
+                      render={({ field }) => (
+                        <CustomSelect
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          placeholder="Select stream..."
+                          options={STREAM_OPTIONS}
+                        />
+                      )}
+                    />
+                  </FormField>
+                  <FormField label="Semester (HS only)" error={errors.presentSemester?.message}>
+                    <Controller
+                      control={control}
+                      name="presentSemester"
+                      render={({ field }) => (
+                        <CustomSelect
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          placeholder="Select semester..."
+                          options={
+                            ["XI", "11"].includes(normalizedClass)
+                              ? [
+                                  { label: "Semester 1", value: "Sem 1" },
+                                  { label: "Semester 2", value: "Sem 2" },
+                                ]
+                              : [
+                                  { label: "Semester 3", value: "Sem 3" },
+                                  { label: "Semester 4", value: "Sem 4" },
+                                ]
+                          }
+                        />
+                      )}
+                    />
+                  </FormField>
+                </>
               );
             })()}
             {(() => {

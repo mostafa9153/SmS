@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
     const supabase = createAdminClient();
 
-    // 1. Fetch continuing students for selected class and section
+    // 1. Fetch re-admission candidate students for selected class and section
     let studentsQuery = supabase
       .from("students")
       .select(`
@@ -45,15 +45,28 @@ export async function GET(req: Request) {
         student_contact,
         alt_mobile,
         re_admission_status,
+        re_admitted_session,
         photo_url,
         father_name,
         guardian_name,
         gender,
+        current_status,
         is_invoice_queued,
         re_admitted_at,
         created_at
       `)
-      .eq("current_status", "Continuing")
+      .in("current_status", [
+        "Promoted But Not Admitted",
+        "Continuing",
+        "Supplementary",
+        "Compartmental",
+        "Detained",
+        "Not Admitted",
+        "Sent Up M.P.",
+        "10th test fail",
+        "exam fail - C.C",
+        "C.C.H.S.",
+      ])
       .eq("present_class", selectedClass);
 
     if (selectedSection && selectedSection !== "all") {
@@ -100,8 +113,12 @@ export async function GET(req: Request) {
     // Aggregate statistics
     const totalStudents = students.length;
     const admittedStudents = students.filter((s) => s.re_admission_status === "admitted");
-    const notAdmittedStudents = students.filter((s) => s.re_admission_status === "not_admitted");
-    const pendingStudents = students.filter((s) => !s.re_admission_status || s.re_admission_status === "pending");
+    const notAdmittedStudents = students.filter(
+      (s) => s.re_admission_status === "not_admitted" || s.current_status === "Not Admitted"
+    );
+    const pendingStudents = students.filter(
+      (s) => (!s.re_admission_status || s.re_admission_status === "pending") && s.current_status !== "Not Admitted"
+    );
 
     // Online vs Offline breakdown
     const onlineSubmittedCount = onlineApps.length;

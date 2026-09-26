@@ -2,6 +2,19 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
+export const RE_ADMISSION_CANDIDATE_STATUSES = [
+  "Promoted But Not Admitted",
+  "Continuing",
+  "Supplementary",
+  "Compartmental",
+  "Detained",
+  "Not Admitted",
+  "Sent Up M.P.",
+  "10th test fail",
+  "exam fail - C.C",
+  "C.C.H.S.",
+];
+
 export async function GET(req: Request) {
   try {
     const auth = await getAuthenticatedUserRole();
@@ -45,6 +58,7 @@ export async function GET(req: Request) {
         alt_mobile,
         email,
         re_admission_status,
+        re_admitted_session,
         photo_url,
         father_name,
         mother_name,
@@ -78,7 +92,7 @@ export async function GET(req: Request) {
         is_invoice_queued,
         re_admitted_at
       `)
-      .eq("current_status", "Continuing")
+      .in("current_status", RE_ADMISSION_CANDIDATE_STATUSES)
       .eq("present_class", targetClass);
 
     if (targetSection && targetSection !== "all") {
@@ -90,7 +104,7 @@ export async function GET(req: Request) {
     } else if (status === "admitted") {
       query = query.eq("re_admission_status", "admitted");
     } else if (status === "not_admitted") {
-      query = query.eq("re_admission_status", "not_admitted");
+      query = query.or("re_admission_status.eq.not_admitted,current_status.eq.Not Admitted");
     }
 
     query = query.order("present_roll", { ascending: true });

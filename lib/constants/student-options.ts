@@ -79,3 +79,28 @@ export const MEDIUM_OF_INSTRUCTION_DEFAULT_PRESET_OPTIONS: OptionItem[] = [
   { label: "Nepali", value: "Nepali" },
   { label: "None (No Default)", value: "None" },
 ];
+
+export const STUDENT_STATUS_OPTIONS: OptionItem[] = [
+  { label: "Active", value: "Continuing" },
+  { label: "New Admission", value: "New Admission" },
+  { label: "Promoted (Pending)", value: "Promoted But Not Admitted" },
+  { label: "Detained (Pending)", value: "Detained" },
+  { label: "Supplementary", value: "Supplementary" },
+  { label: "Compartmental", value: "Compartmental" },
+  { label: "Not Admitted", value: "Not Admitted" },
+  { label: "Sent Up MP", value: "Sent Up M.P." },
+  { label: "10th Test Fail", value: "10th test fail" },
+  { label: "Board Fail (C.C)", value: "exam fail - C.C" },
+  { label: "Passed Out", value: "Passed Out" },
+  { label: "Board Fail (CCHS)", value: "C.C.H.S." },
+  { label: "TC Out", value: "TC Out" },
+  { label: "Suspended", value: "Suspended" },
+  { label: "Drop Out", value: "Drop Out" },
+];
+
+export const SEMESTER_OPTIONS: OptionItem[] = [
+  { label: "Semester 1", value: "Sem 1" },
+  { label: "Semester 2", value: "Sem 2" },
+  { label: "Semester 3", value: "Sem 3" },
+  { label: "Semester 4", value: "Sem 4" },
+];

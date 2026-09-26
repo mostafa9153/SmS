@@ -135,19 +135,7 @@ export function BonafideCertificatePrintableView({
 
   const dobInWords = data.dateOfBirthWords || formatDobToWords(data.dateOfBirth);
 
-  const qrPayload = JSON.stringify({
-    type: "BONAFIDE_CERTIFICATE",
-    certNo: data.certificateNo,
-    student: data.studentName,
-    schoolId: data.studentId,
-    pen: data.pen || "N/A",
-    class: data.presentClass,
-    sec: data.presentSection,
-    roll: data.presentRoll,
-    session: data.academicSession,
-    school: profile.schoolName,
-    issued: data.issueDate,
-  });
+  const qrPayload = `MHS-CERT:${data.certificateNo || "MHS/BC"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|SESS:${data.academicSession || "2026"}`;
 
   return (
     <div
@@ -249,28 +237,15 @@ export function BonafideCertificatePrintableView({
                 );
               })()}
 
-              {/* Official Seal / Copy Badge */}
+              {/* Copy Type Badge (Clean without surrounding circle) */}
               <div
-                className={`shrink-0 flex items-center justify-center relative text-[#14206b] ${
-                  isA5 ? "w-[50px] h-[50px]" : "w-[80px] h-[80px]"
+                className={`shrink-0 flex items-center justify-end ${
+                  isA5 ? "w-[50px]" : "w-[80px]"
                 }`}
               >
-                <div className="w-full h-full rounded-full border border-dashed border-[#14206b]/40 flex flex-col items-center justify-center p-0.5 relative overflow-hidden select-none bg-transparent">
-                  <div className="flex flex-col items-center justify-center opacity-30 select-none pointer-events-none">
-                    <span className={`font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-600 ${isA5 ? "text-[6px]" : "text-[8px]"}`}>
-                      OFFICIAL
-                    </span>
-                    <span className={`font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-600 ${isA5 ? "text-[5.5px]" : "text-[7.5px]"}`}>
-                      SEAL
-                    </span>
-                  </div>
-
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className={`inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold uppercase rounded font-sans tracking-wide shadow-xs ${isA5 ? "text-[7px] px-0.5 py-0.2" : "text-[9px] px-1.5 py-0.5"}`}>
-                      [{data.copyType || "Original"}]
-                    </span>
-                  </div>
-                </div>
+                <span className={`inline-block border border-slate-700 bg-white text-slate-900 font-bold uppercase rounded font-sans tracking-wide shadow-2xs ${isA5 ? "text-[8px] px-1.5 py-0.5" : "text-[10px] px-2.5 py-1"}`}>
+                  [{data.copyType || "Original"}]
+                </span>
               </div>
             </div>
           </div>
@@ -438,10 +413,10 @@ export function BonafideCertificatePrintableView({
 
             {/* Middle: Verification QR Code & Institutional Stamp */}
             <div className="flex flex-col items-center justify-center space-y-0.5">
-              <div className="p-0.5 bg-white border border-slate-300 rounded shadow-2xs">
-                <QRCode value={qrPayload} size={isA5 ? 42 : 56} />
+              <div className="p-1 bg-white border border-slate-300 rounded shadow-2xs">
+                <QRCode value={qrPayload} size={isA5 ? 44 : 56} level="M" />
               </div>
-              <p className={`font-mono text-slate-400 tracking-wider ${isA5 ? "text-[7px]" : "text-[9px]"}`}>
+              <p className={`font-mono text-slate-400 tracking-wider font-semibold ${isA5 ? "text-[7px]" : "text-[8.5px]"}`}>
                 SCAN TO VERIFY
               </p>
             </div>

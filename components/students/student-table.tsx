@@ -223,9 +223,16 @@ export function StudentTable({
           const sessionYear = s.academicYear || s.admissionYear;
           return (
             <div className="space-y-0.5">
-              <div className="text-sm font-medium">
-                Class <span className="font-bold text-foreground">{s.presentClass}</span> -{" "}
-                <span>Sec {s.presentSection}</span> -{" "}
+              <div className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+                <span>
+                  Class <span className="font-bold text-foreground">{s.presentClass}</span>
+                </span>
+                {s.presentSemester && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 text-[10px] font-mono font-bold">
+                    {s.presentSemester}
+                  </span>
+                )}
+                <span>- Sec {s.presentSection} -</span>
                 <span className="font-bold text-primary">Roll {s.presentRoll}</span>
               </div>
               {sessionYear && (
@@ -343,9 +350,15 @@ export function StudentTable({
                     </p>
                     <CopyButton text={student.name} label="Name" iconClassName="h-2.5 w-2.5" />
                   </div>
-                  <p className="text-xs font-semibold text-primary mt-0.5">
-                    Class {student.presentClass} · Sec {student.presentSection} · Roll {student.presentRoll}
-                  </p>
+                  <div className="text-xs font-semibold text-primary mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span>Class {student.presentClass}</span>
+                    {student.presentSemester && (
+                      <span className="inline-flex items-center px-1.5 py-0.2 rounded-md bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border border-indigo-500/20 text-[10px] font-mono font-bold">
+                        {student.presentSemester}
+                      </span>
+                    )}
+                    <span>· Sec {student.presentSection} · Roll {student.presentRoll}</span>
+                  </div>
                 </div>
                 <div className="flex items-center shrink-0">
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />

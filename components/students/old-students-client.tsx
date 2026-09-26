@@ -18,6 +18,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/students/status-badge";
+import type { StudentStatus } from "@/lib/types";
 import {
   Select,
   SelectContent,
@@ -211,12 +213,10 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
                       </div>
                     </div>
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className="text-[10px] font-medium shrink-0 capitalize px-2 py-0.5"
-                  >
-                    {student.status || "Passed Out"}
-                  </Badge>
+                  <StatusBadge
+                    status={student.status as StudentStatus}
+                    className="text-[10px] shrink-0"
+                  />
                 </div>
 
                 <div className="mt-2.5 pt-2.5 border-t border-border/60 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -352,12 +352,9 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant="secondary"
-                          className="text-[11px] font-medium capitalize"
-                        >
-                          {student.status || "Passed Out"}
-                        </Badge>
+                        <StatusBadge
+                          status={student.status as StudentStatus}
+                        />
                       </TableCell>
                     </TableRow>
                   );

@@ -52,9 +52,22 @@ interface Step4FinalizeProps {
 
 export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizeProps) {
   const currentClass = studentData.presentClass || studentData.present_class || "V";
-  const promotedClass = CLASS_PROMOTION_MAP[currentClass] || currentClass;
+  const currentStatus = studentData.currentStatus || studentData.current_status;
 
-  const [targetClass, setTargetClass] = useState<string>(promotedClass);
+  // If already placed in target class via Phase 3 promotion wizard, detention, or supplementary
+  const isAlreadyPlacedInTargetClass =
+    currentStatus === "Promoted But Not Admitted" ||
+    currentStatus === "Detained" ||
+    currentStatus === "Supplementary" ||
+    currentStatus === "Compartmental" ||
+    currentStatus === "Not Admitted";
+
+  const initialTargetClass =
+    studentData.targetClass ||
+    studentData.promotedClass ||
+    (isAlreadyPlacedInTargetClass ? currentClass : (CLASS_PROMOTION_MAP[currentClass] || currentClass));
+
+  const [targetClass, setTargetClass] = useState<string>(initialTargetClass);
   const [section, setSection] = useState<string>(studentData.presentSection || studentData.present_section || "A");
   const [rollNo, setRollNo] = useState<string>("1");
   const [isAutoCalculatingRoll, setIsAutoCalculatingRoll] = useState(false);
@@ -226,7 +239,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {["VI", "VII", "VIII", "IX", "X", "Sent Up M.P.", "XI", "XII", "Passed Out"].map((cls) => (
+                      {["V", "VI", "VII", "VIII", "IX", "X", "Sent Up M.P.", "XI", "XII", "Passed Out"].map((cls) => (
                         <SelectItem key={cls} value={cls} className="text-xs">
                           Class {cls}
                         </SelectItem>

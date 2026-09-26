@@ -19,7 +19,23 @@ interface HistoryTimelineProps {
 }
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const STATUSES: StudentStatus[] = ["Continuing", "Drop Out", "Passed Out", "Sent Up M.P.", "C.C.H.S."];
+const STATUSES: StudentStatus[] = [
+  "Continuing",
+  "New Admission",
+  "Promoted But Not Admitted",
+  "Detained",
+  "Supplementary",
+  "Compartmental",
+  "Not Admitted",
+  "Sent Up M.P.",
+  "10th test fail",
+  "exam fail - C.C",
+  "Passed Out",
+  "C.C.H.S.",
+  "TC Out",
+  "Suspended",
+  "Drop Out",
+];
 
 export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
   const queryClient = useQueryClient();
@@ -232,7 +248,7 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
                     value={editStatus}
                     onChange={(val) => setEditStatus((val as StudentStatus) || "Continuing")}
                     placeholder="Select Status"
-                    options={STATUSES.map((s) => ({ label: s, value: s }))}
+                    options={STATUSES.map((s) => ({ label: STATUS_STYLES[s]?.label ?? s, value: s }))}
                     disabled={mutation.isPending}
                   />
                 </div>

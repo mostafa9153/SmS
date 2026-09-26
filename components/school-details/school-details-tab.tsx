@@ -169,6 +169,8 @@ export function SchoolDetailsTab() {
   const [editScheme2ndPractical, setEditScheme2ndPractical] = useState<number>(0);
   const [editSchemeAnnualWritten, setEditSchemeAnnualWritten] = useState<number>(50);
   const [editSchemeAnnualPractical, setEditSchemeAnnualPractical] = useState<number>(0);
+  const [editSchemeOddSemMarks, setEditSchemeOddSemMarks] = useState<number>(50);
+  const [editSchemeEvenSemMarks, setEditSchemeEvenSemMarks] = useState<number>(50);
   const [editSchemeNotes, setEditSchemeNotes] = useState<string>("");
 
   // Class Subject Selection State
@@ -409,12 +411,14 @@ export function SchoolDetailsTab() {
   const handleOpenEditScheme = (scheme: ClassMarksScheme) => {
     setEditingScheme(scheme);
     setEditSchemeSubjectCount(scheme.subjectCount);
-    setEditScheme1stWritten(scheme.firstSummativeWritten);
+    setEditScheme1stWritten(scheme.firstSummativeWritten ?? 20);
     setEditScheme1stPractical(scheme.firstSummativePractical || 0);
-    setEditScheme2ndWritten(scheme.secondSummativeWritten);
+    setEditScheme2ndWritten(scheme.secondSummativeWritten ?? 30);
     setEditScheme2ndPractical(scheme.secondSummativePractical || 0);
-    setEditSchemeAnnualWritten(scheme.annualWritten);
+    setEditSchemeAnnualWritten(scheme.annualWritten ?? 50);
     setEditSchemeAnnualPractical(scheme.annualPractical || 0);
+    setEditSchemeOddSemMarks(scheme.oddSemesterMarks ?? 50);
+    setEditSchemeEvenSemMarks(scheme.evenSemesterMarks ?? 50);
     setEditSchemeNotes(scheme.notes || "");
   };
 
@@ -422,6 +426,8 @@ export function SchoolDetailsTab() {
   const handleSaveEditScheme = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingScheme) return;
+
+    const isHs = editingScheme.isSemesterSystem || editingScheme.classCode === "XI" || editingScheme.classCode === "XII";
 
     const updatedScheme: ClassMarksScheme = {
       ...editingScheme,
@@ -432,6 +438,8 @@ export function SchoolDetailsTab() {
       secondSummativePractical: Number(editScheme2ndPractical) || 0,
       annualWritten: Number(editSchemeAnnualWritten) || 0,
       annualPractical: Number(editSchemeAnnualPractical) || 0,
+      oddSemesterMarks: isHs ? (Number(editSchemeOddSemMarks) || 50) : undefined,
+      evenSemesterMarks: isHs ? (Number(editSchemeEvenSemMarks) || 50) : undefined,
       notes: editSchemeNotes.trim() || undefined,
     };
 
@@ -2077,7 +2085,7 @@ export function SchoolDetailsTab() {
       {/* ========================================================================= */}
       {subOption === "marks_scheme" && (
         <div className="space-y-4 animate-in fade-in-50 duration-200 pb-28">
-          {/* Master Evaluation Table Card */}
+          {/* 1. Secondary Classes (V - X) 3-Summative Evaluation Table Card */}
           <Card className="border bg-card shadow-xs overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2087,9 +2095,9 @@ export function SchoolDetailsTab() {
                   </div>
                   <div>
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <span>Exam Marks Distribution</span>
+                      <span>Secondary Evaluation Scheme</span>
                       <Badge variant="outline" className="text-[10px] bg-background font-mono font-medium">
-                        Class V – XII
+                        Class V – X (WBBSE 3-Summative)
                       </Badge>
                     </CardTitle>
                   </div>
@@ -2119,101 +2127,220 @@ export function SchoolDetailsTab() {
                       <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">2nd Summative</th>
                       <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">3rd / Annual Exam</th>
                       <th className="px-4 py-2.5 text-right font-bold text-foreground bg-primary/5 border-l border-r border-primary/15">
-                        Total Marks (All Evaluations)
+                        Total Marks (Annual)
                       </th>
                       <th className="px-4 py-2.5 text-right font-semibold text-muted-foreground">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {marksSchemes.map((scheme) => {
-                      const totals = computeSchemeTotals(scheme);
-                      const has1stPractical = (scheme.firstSummativePractical || 0) > 0;
-                      const has2ndPractical = (scheme.secondSummativePractical || 0) > 0;
-                      const hasAnnualPractical = (scheme.annualPractical || 0) > 0;
+                    {marksSchemes
+                      .filter((s) => s.classCode !== "XI" && s.classCode !== "XII")
+                      .map((scheme) => {
+                        const totals = computeSchemeTotals(scheme);
+                        const has1stPractical = (scheme.firstSummativePractical || 0) > 0;
+                        const has2ndPractical = (scheme.secondSummativePractical || 0) > 0;
+                        const hasAnnualPractical = (scheme.annualPractical || 0) > 0;
 
-                      return (
-                        <tr key={scheme.classCode} className="hover:bg-muted/30 transition-colors">
-                          {/* Class Name & Code */}
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="h-7 w-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary font-mono shrink-0">
-                                {scheme.classCode}
+                        return (
+                          <tr key={scheme.classCode} className="hover:bg-muted/30 transition-colors">
+                            {/* Class Name & Code */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-7 w-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary font-mono shrink-0">
+                                  {scheme.classCode}
+                                </div>
+                                <div className="font-bold text-foreground">{scheme.className}</div>
                               </div>
-                              <div className="font-bold text-foreground">{scheme.className}</div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Number of Subjects */}
-                          <td className="px-3 py-3 text-center">
-                            <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 bg-background shadow-2xs">
-                              {scheme.subjectCount} Sub
-                            </Badge>
-                          </td>
+                            {/* Number of Subjects */}
+                            <td className="px-3 py-3 text-center">
+                              <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 bg-background shadow-2xs">
+                                {scheme.subjectCount} Sub
+                              </Badge>
+                            </td>
 
-                          {/* 1st Summative */}
-                          <td className="px-4 py-3">
-                            <div className="space-y-0.5">
-                              <div className="font-bold font-mono text-foreground text-xs">
-                                {totals.firstExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                            {/* 1st Summative */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-0.5">
+                                <div className="font-bold font-mono text-foreground text-xs">
+                                  {totals.firstExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {scheme.firstSummativeWritten}
+                                  {has1stPractical && <span className="text-amber-600 font-semibold">+{scheme.firstSummativePractical}p</span>}
+                                  <span> × {scheme.subjectCount}</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {scheme.firstSummativeWritten}
-                                {has1stPractical && <span className="text-amber-600 font-semibold">+{scheme.firstSummativePractical}p</span>}
-                                <span> × {scheme.subjectCount}</span>
-                              </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* 2nd Summative */}
-                          <td className="px-4 py-3">
-                            <div className="space-y-0.5">
-                              <div className="font-bold font-mono text-foreground text-xs">
-                                {totals.secondExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                            {/* 2nd Summative */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-0.5">
+                                <div className="font-bold font-mono text-foreground text-xs">
+                                  {totals.secondExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {scheme.secondSummativeWritten}
+                                  {has2ndPractical && <span className="text-amber-600 font-semibold">+{scheme.secondSummativePractical}p</span>}
+                                  <span> × {scheme.subjectCount}</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {scheme.secondSummativeWritten}
-                                {has2ndPractical && <span className="text-amber-600 font-semibold">+{scheme.secondSummativePractical}p</span>}
-                                <span> × {scheme.subjectCount}</span>
-                              </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* 3rd / Annual */}
-                          <td className="px-4 py-3">
-                            <div className="space-y-0.5">
-                              <div className="font-bold font-mono text-emerald-700 dark:text-emerald-400 text-xs">
-                                {totals.annualExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                            {/* 3rd / Annual */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-0.5">
+                                <div className="font-bold font-mono text-emerald-700 dark:text-emerald-400 text-xs">
+                                  {totals.annualExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {scheme.annualWritten}
+                                  {hasAnnualPractical && <span className="text-amber-600 font-semibold">+{scheme.annualPractical}p</span>}
+                                  <span> × {scheme.subjectCount}</span>
+                                </div>
                               </div>
-                              <div className="text-[10px] text-muted-foreground">
-                                {scheme.annualWritten}
-                                {hasAnnualPractical && <span className="text-amber-600 font-semibold">+{scheme.annualPractical}p</span>}
-                                <span> × {scheme.subjectCount}</span>
+                            </td>
+
+                            {/* Grand Total Column */}
+                            <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-primary/5 border-l border-r border-primary/15">
+                              <span className="inline-flex items-center text-primary bg-primary/10 border border-primary/25 px-2.5 py-1 rounded-md shadow-2xs">
+                                {totals.grandTotal} Marks
+                              </span>
+                            </td>
+
+                            {/* Action Button */}
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditScheme(scheme)}
+                                className="h-7 text-xs px-2.5 gap-1.5 hover:border-primary hover:text-primary transition-all shadow-2xs"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Edit Marks</span>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 2. Higher Secondary (XI & XII) Semester Marks Scheme Table Card */}
+          <Card className="border bg-card shadow-xs overflow-hidden">
+            <CardHeader className="p-4 border-b bg-muted/20">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                      <span>Higher Secondary Semester Marks Scheme</span>
+                      <Badge variant="outline" className="text-[10px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 font-mono font-medium">
+                        Class XI & XII (WBCHSE Semester Model)
+                      </Badge>
+                    </CardTitle>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/60 border-b">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Class</th>
+                      <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Subjects</th>
+                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Odd Semester</th>
+                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Even Semester</th>
+                      <th className="px-4 py-2.5 text-right font-bold text-foreground bg-indigo-500/5 border-l border-r border-indigo-500/15">
+                        Grand Total (Per Year)
+                      </th>
+                      <th className="px-4 py-2.5 text-right font-semibold text-muted-foreground">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {marksSchemes
+                      .filter((s) => s.classCode === "XI" || s.classCode === "XII")
+                      .map((scheme) => {
+                        const totals = computeSchemeTotals(scheme);
+                        const isXI = scheme.classCode === "XI";
+                        const oddLabel = isXI ? "Semester 1" : "Semester 3";
+                        const evenLabel = isXI ? "Semester 2" : "Semester 4";
+
+                        return (
+                          <tr key={scheme.classCode} className="hover:bg-muted/30 transition-colors">
+                            {/* Class Name & Code */}
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="h-7 w-7 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-xs text-indigo-600 dark:text-indigo-400 font-mono shrink-0">
+                                  {scheme.classCode}
+                                </div>
+                                <div className="font-bold text-foreground">{scheme.className}</div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Grand Total Column */}
-                          <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-primary/5 border-l border-r border-primary/15">
-                            <span className="inline-flex items-center text-primary bg-primary/10 border border-primary/25 px-2.5 py-1 rounded-md shadow-2xs">
-                              {totals.grandTotal} Marks
-                            </span>
-                          </td>
+                            {/* Number of Subjects */}
+                            <td className="px-3 py-3 text-center">
+                              <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 bg-background shadow-2xs">
+                                {scheme.subjectCount} Sub
+                              </Badge>
+                            </td>
 
-                          {/* Action Button */}
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEditScheme(scheme)}
-                              className="h-7 text-xs px-2.5 gap-1.5 hover:border-primary hover:text-primary transition-all shadow-2xs"
-                            >
-                              <Edit2 className="h-3 w-3" />
-                              <span>Edit Marks</span>
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                            {/* Odd Semester */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-0.5">
+                                <div className="font-bold font-mono text-foreground text-xs flex items-center gap-1.5">
+                                  <span>{totals.firstExamTotal} Marks</span>
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono">{oddLabel}</Badge>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {scheme.oddSemesterMarks ?? 50} Marks × {scheme.subjectCount} Subjects
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Even Semester */}
+                            <td className="px-4 py-3">
+                              <div className="space-y-0.5">
+                                <div className="font-bold font-mono text-emerald-700 dark:text-emerald-400 text-xs flex items-center gap-1.5">
+                                  <span>{totals.secondExamTotal} Marks</span>
+                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono">{evenLabel}</Badge>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {scheme.evenSemesterMarks ?? 50} Marks × {scheme.subjectCount} Subjects
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Grand Total Column */}
+                            <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-indigo-500/5 border-l border-r border-indigo-500/15">
+                              <span className="inline-flex items-center text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-md shadow-2xs">
+                                {totals.grandTotal} Marks
+                              </span>
+                            </td>
+
+                            {/* Action Button */}
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditScheme(scheme)}
+                                className="h-7 text-xs px-2.5 gap-1.5 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-2xs"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                                <span>Edit Marks</span>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>
@@ -2393,9 +2520,6 @@ export function SchoolDetailsTab() {
                         Session & Promotion Rules
                       </Badge>
                     </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground mt-0.5">
-                      RTE Act compliance and minimum passing percentage rules for annual class transitions.
-                    </CardDescription>
                   </div>
                 </div>
                 <Button
@@ -2410,50 +2534,135 @@ export function SchoolDetailsTab() {
               </div>
             </CardHeader>
 
-            <CardContent className="p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Rule A: Class 5 to 8 Auto-Pass (RTE) */}
-                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      Classes V – VIII (RTE Auto-Promotion)
-                    </span>
-                    <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80">
-                      Right to Education Act: No detention policy up to Elementary stage.
-                    </p>
-                  </div>
+                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>Classes V – VIII (RTE Auto-Promotion)</span>
+                  </span>
                   <Badge className="bg-emerald-600 text-white text-[10px] shrink-0 font-semibold px-2.5 py-1">
                     100% Auto-Pass
                   </Badge>
                 </div>
 
-                {/* Rule B: Class 9 to 12 Minimum Pass Percentage */}
-                <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-4 flex items-center justify-between gap-3">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                      <Trophy className="h-4 w-4 text-blue-600" />
-                      Classes IX – XII Pass Cutoff
-                    </span>
-                    <p className="text-[11px] text-blue-800/80 dark:text-blue-400/80">
-                      Minimum required overall score across evaluations to be promoted.
-                    </p>
-                  </div>
+                {/* Rule B: Class IX & X Per-Subject Pass Percentage */}
+                <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-3.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                    <Trophy className="h-4 w-4 text-blue-600 shrink-0" />
+                    <span>Class IX & X Per-Subject Pass %</span>
+                  </span>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <input
                       type="number"
                       min={0}
                       max={100}
-                      value={promotionPolicy.minPassPercentage}
+                      value={promotionPolicy.subjectPassPercentage ?? 30}
                       onChange={(e) =>
                         setPromotionPolicy((prev) => ({
                           ...prev,
-                          minPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                          subjectPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
                         }))
                       }
                       className="font-mono text-sm font-bold rounded-lg border border-blue-300 bg-background px-2 py-1 w-16 text-blue-700 dark:text-blue-400 text-center"
                     />
                     <span className="text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                </div>
+
+                {/* Rule C: Theory / Written Minimum Pass Cutoff */}
+                <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 p-3.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
+                    <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
+                    <span>Theory / Written Minimum Pass %</span>
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={promotionPolicy.theoryPassPercentage ?? 30}
+                      onChange={(e) =>
+                        setPromotionPolicy((prev) => ({
+                          ...prev,
+                          theoryPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="font-mono text-sm font-bold rounded-lg border border-purple-300 bg-background px-2 py-1 w-16 text-purple-700 dark:text-purple-400 text-center"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                </div>
+
+                {/* Rule D: Practical / Project Minimum Pass Cutoff */}
+                <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                    <PenTool className="h-4 w-4 text-amber-600 shrink-0" />
+                    <span>Practical / Project Minimum Pass %</span>
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={promotionPolicy.practicalPassPercentage ?? 30}
+                      onChange={(e) =>
+                        setPromotionPolicy((prev) => ({
+                          ...prev,
+                          practicalPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      className="font-mono text-sm font-bold rounded-lg border border-amber-300 bg-background px-2 py-1 w-16 text-amber-700 dark:text-amber-400 text-center"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">%</span>
+                  </div>
+                </div>
+
+                {/* Rule E: 5-Subject Mandatory Rule */}
+                <div className="rounded-xl border border-border bg-card p-3.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <span>5-Subject Mandatory Pass Rule (WBBSE/WBCHSE)</span>
+                  </span>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={promotionPolicy.requireFiveSubjectsPass ?? true}
+                      onChange={(e) =>
+                        setPromotionPolicy((prev) => ({
+                          ...prev,
+                          requireFiveSubjectsPass: e.target.checked,
+                        }))
+                      }
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                  </label>
+                </div>
+
+                {/* Rule F: Class 11 Supplementary / Class 12 Compartmental Allowance */}
+                <div className="rounded-xl border border-border bg-card p-3.5 flex items-center justify-between gap-3">
+                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <Sliders className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>Max Allowed Supplementary / Compartmental Fails</span>
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <input
+                      type="number"
+                      min={1}
+                      max={4}
+                      value={promotionPolicy.class11MaxSupplementarySubjects ?? 2}
+                      onChange={(e) =>
+                        setPromotionPolicy((prev) => ({
+                          ...prev,
+                          class11MaxSupplementarySubjects: Math.max(1, Math.min(4, Number(e.target.value) || 2)),
+                          class12MaxCompartmentalSubjects: Math.max(1, Math.min(4, Number(e.target.value) || 2)),
+                        }))
+                      }
+                      className="font-mono text-sm font-bold rounded-lg border bg-background px-2 py-1 w-14 text-center"
+                    />
+                    <span className="text-xs font-bold text-muted-foreground">Sub</span>
                   </div>
                 </div>
               </div>
@@ -2494,117 +2703,180 @@ export function SchoolDetailsTab() {
                 />
               </div>
 
-              {/* 1st Summative Marks */}
-              <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                <div className="flex items-center justify-between border-b pb-1">
-                  <span className="text-xs font-bold text-foreground">1st Summative</span>
-                  <span className="text-[11px] font-mono font-bold text-primary">
-                    Total: {editSchemeSubjectCount * ((Number(editScheme1stWritten) || 0) + (Number(editScheme1stPractical) || 0))} Marks
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editScheme1stWritten}
-                      onChange={(e) => setEditScheme1stWritten(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
+              {/* If Class XI or XII (Semester System) */}
+              {editingScheme.isSemesterSystem || editingScheme.classCode === "XI" || editingScheme.classCode === "XII" ? (
+                <>
+                  {/* Odd Semester Marks (Sem 1 or Sem 3) */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">
+                        {editingScheme.classCode === "XI" ? "Semester 1" : "Semester 3"} Marks (per subject)
+                      </span>
+                      <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        Total: {editSchemeSubjectCount * (Number(editSchemeOddSemMarks) || 0)} Marks
+                      </span>
+                    </div>
+                    <div className="pt-0.5 space-y-0.5">
+                      <Label className="text-[10px] text-muted-foreground">Full Marks (Written/Theory + Practical)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={editSchemeOddSemMarks}
+                        onChange={(e) => setEditSchemeOddSemMarks(parseFloat(e.target.value) || 0)}
+                        className="text-xs font-mono h-8"
+                        placeholder="50"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editScheme1stPractical}
-                      onChange={(e) => setEditScheme1stPractical(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* 2nd Summative Marks */}
-              <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                <div className="flex items-center justify-between border-b pb-1">
-                  <span className="text-xs font-bold text-foreground">2nd Summative</span>
-                  <span className="text-[11px] font-mono font-bold text-primary">
-                    Total: {editSchemeSubjectCount * ((Number(editScheme2ndWritten) || 0) + (Number(editScheme2ndPractical) || 0))} Marks
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editScheme2ndWritten}
-                      onChange={(e) => setEditScheme2ndWritten(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
+                  {/* Even Semester Marks (Sem 2 or Sem 4) */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">
+                        {editingScheme.classCode === "XI" ? "Semester 2" : "Semester 4"} Marks (per subject)
+                      </span>
+                      <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                        Total: {editSchemeSubjectCount * (Number(editSchemeEvenSemMarks) || 0)} Marks
+                      </span>
+                    </div>
+                    <div className="pt-0.5 space-y-0.5">
+                      <Label className="text-[10px] text-muted-foreground">Full Marks (Written/Theory + Practical)</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={editSchemeEvenSemMarks}
+                        onChange={(e) => setEditSchemeEvenSemMarks(parseFloat(e.target.value) || 0)}
+                        className="text-xs font-mono h-8"
+                        placeholder="50"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editScheme2ndPractical}
-                      onChange={(e) => setEditScheme2ndPractical(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
-                  </div>
-                </div>
-              </div>
 
-              {/* 3rd / Annual Exam Marks */}
-              <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                <div className="flex items-center justify-between border-b pb-1">
-                  <span className="text-xs font-bold text-foreground">3rd / Annual Exam</span>
-                  <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                    Total: {editSchemeSubjectCount * ((Number(editSchemeAnnualWritten) || 0) + (Number(editSchemeAnnualPractical) || 0))} Marks
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editSchemeAnnualWritten}
-                      onChange={(e) => setEditSchemeAnnualWritten(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
+                  {/* Live Preview of Grand Total for HS */}
+                  <div className="rounded-lg p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-muted-foreground">Annual Total (Both Semesters):</span>
+                    <span className="font-mono font-extrabold text-xs text-indigo-600 dark:text-indigo-400">
+                      {editSchemeSubjectCount * ((Number(editSchemeOddSemMarks) || 0) + (Number(editSchemeEvenSemMarks) || 0))} Marks
+                    </span>
                   </div>
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={editSchemeAnnualPractical}
-                      onChange={(e) => setEditSchemeAnnualPractical(parseFloat(e.target.value) || 0)}
-                      className="text-xs font-mono h-7"
-                    />
+                </>
+              ) : (
+                <>
+                  {/* 1st Summative Marks */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">1st Summative</span>
+                      <span className="text-[11px] font-mono font-bold text-primary">
+                        Total: {editSchemeSubjectCount * ((Number(editScheme1stWritten) || 0) + (Number(editScheme1stPractical) || 0))} Marks
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editScheme1stWritten}
+                          onChange={(e) => setEditScheme1stWritten(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editScheme1stPractical}
+                          onChange={(e) => setEditScheme1stPractical(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Live Preview of Grand Total */}
-              <div className="rounded-lg p-2.5 bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
-                <span className="font-semibold text-muted-foreground">Grand Total Marks:</span>
-                <span className="font-mono font-extrabold text-xs text-primary">
-                  {editSchemeSubjectCount * (
-                    (Number(editScheme1stWritten) || 0) +
-                    (Number(editScheme1stPractical) || 0) +
-                    (Number(editScheme2ndWritten) || 0) +
-                    (Number(editScheme2ndPractical) || 0) +
-                    (Number(editSchemeAnnualWritten) || 0) +
-                    (Number(editSchemeAnnualPractical) || 0)
-                  )}{" "}
-                  Marks
-                </span>
-              </div>
+                  {/* 2nd Summative Marks */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">2nd Summative</span>
+                      <span className="text-[11px] font-mono font-bold text-primary">
+                        Total: {editSchemeSubjectCount * ((Number(editScheme2ndWritten) || 0) + (Number(editScheme2ndPractical) || 0))} Marks
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editScheme2ndWritten}
+                          onChange={(e) => setEditScheme2ndWritten(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editScheme2ndPractical}
+                          onChange={(e) => setEditScheme2ndPractical(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3rd / Annual Exam Marks */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">3rd / Annual Exam</span>
+                      <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                        Total: {editSchemeSubjectCount * ((Number(editSchemeAnnualWritten) || 0) + (Number(editSchemeAnnualPractical) || 0))} Marks
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeAnnualWritten}
+                          onChange={(e) => setEditSchemeAnnualWritten(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeAnnualPractical}
+                          onChange={(e) => setEditSchemeAnnualPractical(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Live Preview of Grand Total */}
+                  <div className="rounded-lg p-2.5 bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-muted-foreground">Grand Total Marks:</span>
+                    <span className="font-mono font-extrabold text-xs text-primary">
+                      {editSchemeSubjectCount * (
+                        (Number(editScheme1stWritten) || 0) +
+                        (Number(editScheme1stPractical) || 0) +
+                        (Number(editScheme2ndWritten) || 0) +
+                        (Number(editScheme2ndPractical) || 0) +
+                        (Number(editSchemeAnnualWritten) || 0) +
+                        (Number(editSchemeAnnualPractical) || 0)
+                      )}{" "}
+                      Marks
+                    </span>
+                  </div>
+                </>
+              )}
 
               <DialogFooter className="pt-2">
                 <Button

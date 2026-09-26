@@ -17,58 +17,100 @@ export const STATUS_STYLES: Record<
   { badge: string; dot: string; chart: string; label: string }
 > = {
   Continuing: {
-    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60",
     dot: "bg-emerald-500",
     chart: "#10b981",
-    label: "Continuing",
+    label: "Active",
   },
-  "Drop Out": {
-    badge: "bg-rose-50 text-rose-700 border border-rose-200",
+  "New Admission": {
+    badge: "bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800/60",
+    dot: "bg-teal-500",
+    chart: "#14b8a6",
+    label: "New Admission",
+  },
+  "Promoted But Not Admitted": {
+    badge: "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/60",
+    dot: "bg-amber-500",
+    chart: "#f59e0b",
+    label: "Promoted (Pending)",
+  },
+  Detained: {
+    badge: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/60",
     dot: "bg-rose-500",
     chart: "#f43f5e",
-    label: "Drop Out",
+    label: "Detained (Pending)",
+  },
+  Supplementary: {
+    badge: "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60",
+    dot: "bg-amber-600",
+    chart: "#d97706",
+    label: "Supplementary",
+  },
+  Compartmental: {
+    badge: "bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-400 dark:border-orange-800/60",
+    dot: "bg-orange-500",
+    chart: "#f97316",
+    label: "Compartmental",
+  },
+  "Not Admitted": {
+    badge: "bg-zinc-100 text-zinc-700 border border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700",
+    dot: "bg-zinc-500",
+    chart: "#71717a",
+    label: "Not Admitted",
+  },
+  "Sent Up M.P.": {
+    badge: "bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/60",
+    dot: "bg-sky-500",
+    chart: "#0284c7",
+    label: "Sent Up MP",
+  },
+  "10th test fail": {
+    badge: "bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700/60",
+    dot: "bg-rose-600",
+    chart: "#e11d48",
+    label: "10th Test Fail",
+  },
+  "exam fail - C.C": {
+    badge: "bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-700/60",
+    dot: "bg-orange-600",
+    chart: "#ea580c",
+    label: "Board Fail (C.C)",
   },
   "Passed Out": {
-    badge: "bg-sky-50 text-sky-700 border border-sky-200",
+    badge: "bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/60",
     dot: "bg-sky-500",
     chart: "#0ea5e9",
     label: "Passed Out",
   },
-  "Sent Up M.P.": {
-    badge: "bg-amber-50 text-amber-700 border border-amber-200",
-    dot: "bg-amber-500",
-    chart: "#f59e0b",
-    label: "Sent Up M.P.",
-  },
   "C.C.H.S.": {
-    badge: "bg-purple-50 text-purple-700 border border-purple-200",
+    badge: "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800/60",
     dot: "bg-purple-500",
     chart: "#a855f7",
-    label: "C.C.H.S.",
+    label: "Board Fail (CCHS)",
   },
-  "10th test fail": {
-    badge: "bg-rose-100 text-rose-800 border border-rose-300",
-    dot: "bg-rose-600",
-    chart: "#e11d48",
-    label: "10th test fail",
+  "TC Out": {
+    badge: "bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+    dot: "bg-slate-500",
+    chart: "#64748b",
+    label: "TC Out",
   },
-  "exam fail - C.C": {
-    badge: "bg-orange-50 text-orange-700 border border-orange-200",
-    dot: "bg-orange-500",
-    chart: "#f97316",
-    label: "Board Exam Fail (C.C)",
+  Suspended: {
+    badge: "bg-red-200 text-red-900 border border-red-400 dark:bg-red-950/80 dark:text-red-200 dark:border-red-600",
+    dot: "bg-red-700",
+    chart: "#b91c1c",
+    label: "Suspended",
+  },
+  "Drop Out": {
+    badge: "bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700/60",
+    dot: "bg-rose-700",
+    chart: "#be123c",
+    label: "Drop Out",
   },
   "Sent Up H.S.": {
-    badge: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+    badge: "bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400 dark:border-indigo-800/60",
     dot: "bg-indigo-500",
     chart: "#6366f1",
     label: "Sent Up H.S.",
-  },
-  "12th test fail": {
-    badge: "bg-red-50 text-red-700 border border-red-200",
-    dot: "bg-red-500",
-    chart: "#ef4444",
-    label: "12th test fail",
   },
 };
 

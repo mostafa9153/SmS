@@ -24,6 +24,7 @@ import {
   Filter,
 } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
+import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
 
 interface Step2OfflineProps {
@@ -277,6 +278,9 @@ export function Step2Offline({
                           <span className="px-1.5 py-0.2 rounded bg-muted text-[10px] font-mono font-bold text-foreground border">
                             Roll #{student.presentRoll || (student as any).present_roll}
                           </span>
+                          {(student.currentStatus || (student as any).current_status) && (
+                            <StatusBadge status={student.currentStatus || (student as any).current_status} size="sm" />
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono mt-0.5 flex-wrap">
                           <span>{student.schoolId || (student as any).school_id || "ID Pending"}</span>

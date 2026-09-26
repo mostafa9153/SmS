@@ -159,7 +159,7 @@ export async function POST(req: Request) {
           bankAccountNo: app.bank_account_no || extra.bankAccountNo || undefined,
           bankIfsc: app.bank_ifsc || extra.bankIfsc || undefined,
 
-          currentStatus: "Continuing" as StudentStatus,
+          currentStatus: (app.admission_type === "new" ? "New Admission" : "Continuing") as StudentStatus,
           admissionYear: Number(app.academic_year) || currentYear,
           admissionDate: app.admission_date || new Date().toISOString().split("T")[0],
           presentClassAdmissionDate: new Date().toISOString().split("T")[0],
@@ -174,7 +174,7 @@ export async function POST(req: Request) {
               class: assignedClass,
               section: assignedSection,
               roll: assignedRoll,
-              status: "Continuing" as StudentStatus,
+              status: (app.admission_type === "new" ? "New Admission" : "Continuing") as StudentStatus,
             },
           ],
         };

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import QRCode from "react-qr-code";
 import {
   type SchoolProfileData,
   getSavedSchoolProfile,
@@ -168,6 +169,8 @@ export function TransferCertificatePrintableView({
         data.customReason ||
         "Unavoidable change of residence.";
 
+  const qrPayload = `MHS-TC:${data.certificateNo || "TC-2026"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|CLASS:${data.readingClass || ""}`;
+
   return (
     <div
       id="pure-a5-tc-sheet"
@@ -206,9 +209,9 @@ export function TransferCertificatePrintableView({
         {/* 1. INSTITUTIONAL HEADER (MATCHING CHARACTER CERTIFICATE)          */}
         {/* ================================================================= */}
         <div className="border-b-2 border-[#1e3a8a] pt-3 pb-2.5 mt-0.5">
-          <div className="flex items-center justify-between gap-3.5">
-            {/* School Crest - Fits full header text height */}
-            <div className="w-[84px] h-[84px] shrink-0 flex items-center justify-center">
+          <div className="flex items-center justify-between gap-3">
+            {/* School Crest */}
+            <div className="w-[50px] h-[50px] shrink-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={logoSrc}
@@ -222,39 +225,27 @@ export function TransferCertificatePrintableView({
               const { mainName, suffix } = formatSchoolNameParts(profile.schoolName);
               return (
                 <div className="text-center flex-1 space-y-0.5 min-w-0">
-                  <h1 className="text-[18px] sm:text-[19px] font-black tracking-normal uppercase text-[#1e3a8a] font-serif leading-tight whitespace-nowrap">
+                  <h1 className="text-[16px] sm:text-[17px] font-black tracking-normal uppercase text-[#1e3a8a] font-serif leading-tight whitespace-nowrap">
                     {mainName}{suffix ? ` ${suffix}` : ""}
                   </h1>
-                  <p className="text-[10px] sm:text-[10.5px] font-semibold text-slate-700 leading-tight pt-0.5 whitespace-nowrap">
-                    {profile.village ? `Vill.: ${profile.village}, ` : ""}{profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}{profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}{profile.district ? `Dist.: ${profile.district}, ` : ""}PIN &ndash; {profile.pincode || "743349"} &bull; Mob &ndash; {profile.schoolPhone || profile.altPhone || "+91 98765 43210"}
+                  <div className="uppercase leading-none whitespace-nowrap font-serif font-bold text-[#1e3a8a] tracking-wider text-[9.5px]">
+                    (Co-Educational)
+                  </div>
+                  <p className="text-[8.5px] font-semibold text-slate-700 leading-tight pt-0.5 whitespace-nowrap tracking-tight">
+                    {profile.village ? `Vill.: ${profile.village}, ` : ""}{profile.postOffice ? `P.O.: ${profile.postOffice}, ` : ""}{profile.policeStation ? `P.S.: ${profile.policeStation}, ` : ""}{profile.district ? `Dist.: ${profile.district}, ` : ""}PIN: {profile.pincode || "743349"} &bull; Mob: {profile.schoolPhone || profile.altPhone || "+91 98765 43210"}
                   </p>
-                  <p className="text-[8.5px] sm:text-[9px] font-mono font-medium text-slate-600 leading-tight pt-0.5 whitespace-nowrap">
-                    Index No. {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code &ndash; {profile.hsCode || "102298"} &bull; email &ndash; {profile.schoolEmail || "contact@marigachihighschool.in"}
+                  <p className="text-[8px] font-mono font-medium text-slate-600 leading-tight pt-0.5 whitespace-nowrap tracking-tight">
+                    Index: {profile.indexNo || profile.schoolCode || "MHS-1965"} &bull; H.S. Code: {profile.hsCode || "102298"} &bull; Email: {profile.schoolEmail || "contact@marigachihighschool.in"}
                   </p>
                 </div>
               );
             })()}
 
-            {/* Symmetry seal badge with Low-Opacity Official Seal & [ORIGINAL] Badge */}
-            <div className="w-[80px] h-[80px] shrink-0 flex items-center justify-center relative text-[#1e3a8a]">
-              <div className="w-full h-full rounded-full border border-dashed border-[#1e3a8a]/35 flex flex-col items-center justify-center p-1 relative overflow-hidden select-none bg-transparent">
-                {/* Low-opacity Official Seal Text */}
-                <div className="flex flex-col items-center justify-center opacity-25 select-none pointer-events-none">
-                  <span className="text-[7.5px] font-sans font-bold uppercase tracking-widest leading-none mb-0.5 text-center text-slate-500">
-                    OFFICIAL
-                  </span>
-                  <span className="text-[7px] font-sans font-semibold uppercase tracking-wider leading-none text-center text-slate-500">
-                    SEAL
-                  </span>
-                </div>
-
-                {/* Overlay [ORIGINAL] badge */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="inline-block border border-slate-700 bg-white/95 text-slate-900 font-bold text-[8.5px] uppercase px-1.5 py-0.5 rounded font-sans tracking-wide shadow-xs">
-                    [{data.copyType || "Original"}]
-                  </span>
-                </div>
-              </div>
+            {/* Copy Type Badge (Clean without surrounding circle) */}
+            <div className="w-[50px] shrink-0 flex items-center justify-end">
+              <span className="inline-block border border-slate-700 bg-white text-slate-900 font-bold uppercase rounded font-sans tracking-wide text-[8px] px-1.5 py-0.5 shadow-2xs">
+                [{data.copyType || "Original"}]
+              </span>
             </div>
           </div>
         </div>
@@ -361,35 +352,41 @@ export function TransferCertificatePrintableView({
             {/* Left: Prepared by */}
             <div className="text-left space-y-0.5">
               <div className="h-6 flex items-end">
-                <span className="w-24 border-b border-slate-400 inline-block" />
+                <span className="w-20 border-b border-slate-400 inline-block" />
               </div>
-              <p className="text-[10.5px] font-bold text-slate-900 uppercase">
+              <p className="text-[10px] font-bold text-slate-900 uppercase">
                 PREPARED BY
               </p>
-              <p className="text-[8.5px] text-slate-500 font-sans">
+              <p className="text-[8px] text-slate-500 font-sans">
                 Office Staff
               </p>
             </div>
 
-            {/* Middle: Round Seal */}
+            {/* Middle-Left: Verification QR */}
+            <div className="flex flex-col items-center justify-center space-y-0.5">
+              <div className="p-1 bg-white border border-slate-300 rounded shadow-2xs">
+                <QRCode value={qrPayload} size={44} level="M" />
+              </div>
+              <p className="font-mono text-slate-400 tracking-wider font-semibold text-[7px]">
+                SCAN TO VERIFY
+              </p>
+            </div>
+
+            {/* Middle-Right: Round Seal */}
             <div className="text-center pb-0.5">
-              <div className="w-14 h-14 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[8px] text-slate-400 uppercase text-center p-1 leading-tight">
+              <div className="w-13 h-13 rounded-full border border-dashed border-slate-400 flex items-center justify-center font-sans font-bold text-[7.5px] text-slate-400 uppercase text-center p-0.5 leading-tight">
                 Institutional Seal
               </div>
             </div>
 
             {/* Right: Signature of HOI */}
             <div className="text-center flex flex-col items-center">
-              <div className="h-8 w-28 flex items-end justify-center" />
-              <p className="text-[11px] font-bold text-slate-950 uppercase mt-0.5 leading-tight">
-                {effectiveHoiTitle}
-              </p>
-              <p className="text-[9.5px] font-medium text-slate-700 leading-tight">
-                {profile.schoolName || "Marigachi High School (H.S.)"}
-              </p>
-              <p className="text-[8.5px] text-slate-500 font-sans leading-tight">
-                {profile.policeStation || "Mathurapur"}, {profile.district || "South 24 Parganas"}
-              </p>
+              <div className="h-7 w-28 flex items-end justify-center" />
+              <div className="border-t border-dashed border-slate-400 pt-0.5 w-32">
+                <p className="text-[10.5px] font-bold text-slate-950 uppercase leading-tight">
+                  ({effectiveHoiTitle})
+                </p>
+              </div>
             </div>
           </div>
         </div>

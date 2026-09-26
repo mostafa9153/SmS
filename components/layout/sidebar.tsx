@@ -79,6 +79,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20 group-hover:scale-110",
     children: [
       { label: "Active Students", href: "/active-students" },
+      { label: "Pending Students", href: "/pending-students" },
       { label: "Old Students", href: "/old-students" },
     ],
   },

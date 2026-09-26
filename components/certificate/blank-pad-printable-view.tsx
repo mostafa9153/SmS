@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import QRCode from "react-qr-code";
 import {
   type SchoolProfileData,
   getSavedSchoolProfile,
@@ -52,6 +53,7 @@ export interface BlankPadData {
   watermarkOpacity?: number;
   borderStyle: "ornate" | "single" | "none";
   showSignature: boolean;
+  showQRCode?: boolean;
   signatoryTitle?: string;
   includeSignatureImage?: boolean;
   bodyContent?: string;
@@ -410,29 +412,46 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
         </div>
 
         {/* =================================================================== */}
-        {/* 3. OPTIONAL SIGNATURE FOOTER                                        */}
+        {/* 3. OPTIONAL SIGNATURE FOOTER WITH QR                                */}
         {/* =================================================================== */}
-        {data.showSignature && (
+        {(data.showSignature || (data.showQRCode && (data.refNo || data.issueDate))) && (
           <div className="mt-auto pt-4 pb-1">
-            <div className="flex justify-end pr-2">
-              <div className="text-center w-56 space-y-1">
-                {data.includeSignatureImage && (
-                  <div className="h-10 flex items-center justify-center">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={signatureSrc}
-                      alt="Head Signature"
-                      className="max-h-9 object-contain"
-                    />
+            <div className="flex items-end justify-between px-2">
+              {/* Optional Verification QR Code */}
+              {data.showQRCode !== false && (data.refNo || data.issueDate) ? (
+                <div className="flex flex-col items-center justify-center space-y-0.5">
+                  <div className="p-1 bg-white border border-slate-300 rounded shadow-2xs">
+                    <QRCode value={`MHS-DOC:${data.refNo || "OFFICIAL"}|DATE:${data.issueDate || ""}`} size={isA4 ? 44 : 38} level="M" />
                   </div>
-                )}
-                {!data.includeSignatureImage && <div className="h-8" />}
-                <div className="border-t border-dashed border-slate-400 pt-1.5">
-                  <p className={`font-serif font-bold text-slate-900 ${isA4 ? "text-[13px]" : "text-[11.5px]"}`}>
-                    ({effectiveHeadTitle})
+                  <p className="font-mono text-slate-400 tracking-wider font-semibold text-[6.5px]">
+                    SCAN TO VERIFY
                   </p>
                 </div>
-              </div>
+              ) : (
+                <div />
+              )}
+
+              {/* Head Signature Block */}
+              {data.showSignature && (
+                <div className="text-center w-56 space-y-1">
+                  {data.includeSignatureImage && (
+                    <div className="h-10 flex items-center justify-center">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={signatureSrc}
+                        alt="Head Signature"
+                        className="max-h-9 object-contain"
+                      />
+                    </div>
+                  )}
+                  {!data.includeSignatureImage && <div className="h-8" />}
+                  <div className="border-t border-dashed border-slate-400 pt-1.5">
+                    <p className={`font-serif font-bold text-slate-900 ${isA4 ? "text-[13px]" : "text-[11.5px]"}`}>
+                      ({effectiveHeadTitle})
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -521,6 +521,10 @@ function StudentProfilePageContent() {
                 <InfoField label="Class" value={student.presentClass} />
                 <InfoField label="Section" value={student.presentSection} />
                 <InfoField label="Roll Number" value={String(student.presentRoll)} />
+                {student.presentSemester && <InfoField label="Semester" value={student.presentSemester} />}
+                {student.detentionCount ? <InfoField label="Detention Count" value={String(student.detentionCount)} /> : null}
+                {student.tcIssued && <InfoField label="TC Issued Date" value={student.tcDate ? formatDate(student.tcDate) : "Yes"} />}
+                {student.tcReason && <InfoField label="TC Reason" value={student.tcReason} />}
                 <InfoField label="Admission Number" value={student.admissionNo} />
                 <InfoField label="Admission Date" value={student.admissionDate ? formatDate(student.admissionDate) : undefined} />
                 <InfoField label="Admission Type" value={student.admissionType} />

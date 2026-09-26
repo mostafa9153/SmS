@@ -84,7 +84,9 @@ export async function POST(req: Request) {
       const { data: updated, error } = await supabase
         .from("students")
         .update({
+          previous_status: student.current_status,
           re_admission_status: "not_admitted",
+          current_status: "Not Admitted",
           is_invoice_queued: false,
           updated_at: new Date().toISOString(),
         })
@@ -105,9 +107,15 @@ export async function POST(req: Request) {
     }
 
     if (action === "reset") {
+      const restoredStatus =
+        student.previous_status && student.previous_status !== "Continuing"
+          ? student.previous_status
+          : "Promoted But Not Admitted";
+
       const { data: updated, error } = await supabase
         .from("students")
         .update({
+          current_status: restoredStatus,
           re_admission_status: "pending",
           is_invoice_queued: false,
           updated_at: new Date().toISOString(),
@@ -265,6 +273,8 @@ export async function POST(req: Request) {
       }
     }
 
+    updatePayload.previous_status = student.current_status;
+
     if (targetClass !== student.present_class) {
       updatePayload.previous_class = student.present_class;
       updatePayload.previous_section = student.present_section;
@@ -279,7 +289,7 @@ export async function POST(req: Request) {
       return await supabase
         .from("students")
         .update(updatePayload)
-        .eq("id", studentId)
+        .eq("id", student.id)
         .select()
         .single();
     })();
@@ -292,13 +302,13 @@ export async function POST(req: Request) {
           const { data: prevRecord } = await supabase
             .from("academic_history")
             .select("id")
-            .eq("student_id", studentId)
+            .eq("student_id", student.id)
             .eq("year", currentYear - 1)
             .maybeSingle();
 
           if (!prevRecord) {
             await supabase.from("academic_history").insert({
-              student_id: studentId,
+              student_id: student.id,
               year: currentYear - 1,
               class: student.present_class,
               section: student.present_section,
@@ -311,7 +321,7 @@ export async function POST(req: Request) {
         const { data: currRecord } = await supabase
           .from("academic_history")
           .select("id")
-          .eq("student_id", studentId)
+          .eq("student_id", student.id)
           .eq("year", currentYear)
           .maybeSingle();
 
@@ -327,7 +337,7 @@ export async function POST(req: Request) {
             .eq("id", currRecord.id);
         } else {
           await supabase.from("academic_history").insert({
-            student_id: studentId,
+            student_id: student.id,
             year: currentYear,
             class: targetClass,
             section: targetSection,

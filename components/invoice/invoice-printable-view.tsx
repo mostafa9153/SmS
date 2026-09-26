@@ -1,4 +1,5 @@
 import React from "react";
+import QRCode from "react-qr-code";
 import { type InvoiceData, calculateFeeTotal, numberToWordsINR } from "@/lib/utils/fee-config";
 import {
   type SchoolProfileData,
@@ -32,6 +33,8 @@ function CompactInvoiceSlip({
   const isBlank = Boolean(
     data.isBlankTemplate || (!data.studentName?.trim() && !data.studentId?.trim())
   );
+
+  const qrPayload = `MHS-INV:${data.invoiceNumber || "INV-001"}|ID:${data.studentId || "N/A"}|AMT:Rs.${grandTotal}|SESS:${data.academicSession || "2026"}`;
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between text-slate-900 font-sans text-xs select-none px-1">
@@ -232,21 +235,31 @@ function CompactInvoiceSlip({
         {/* ================================================================= */}
         {/* 4. FOOTER SIGNATURES                                              */}
         {/* ================================================================= */}
-        <div className="pt-1.5 border-t border-slate-300 grid grid-cols-2 items-end mt-auto">
+        <div className="pt-1.5 border-t border-slate-300 grid grid-cols-3 items-end mt-auto">
           {/* Left: Cashier / Dealing Assistant */}
           <div className="text-left space-y-0.5">
-            <div className="h-6 flex items-end">
-              <span className="w-20 border-b border-slate-400 inline-block" />
+            <div className="h-5 flex items-end">
+              <span className="w-16 border-b border-slate-400 inline-block" />
             </div>
-            <p className="text-[8.5px] font-bold text-slate-800 uppercase leading-none mt-0.5">
-              Cashier / Dealing Staff
+            <p className="text-[8px] font-bold text-slate-800 uppercase leading-none mt-0.5">
+              Cashier / Staff
             </p>
-            <p className="text-[7.5px] text-slate-500 leading-none">Office of the School</p>
+            <p className="text-[7px] text-slate-500 leading-none">Office of School</p>
+          </div>
+
+          {/* Middle: Verification QR Code */}
+          <div className="flex flex-col items-center justify-center space-y-0.5">
+            <div className="p-0.5 bg-white border border-slate-300 rounded shadow-2xs">
+              <QRCode value={qrPayload} size={34} level="M" />
+            </div>
+            <p className="font-mono text-slate-400 tracking-wider font-semibold text-[6px]">
+              VERIFY RECEIPT
+            </p>
           </div>
 
           {/* Right: Headmaster Signature */}
           <div className="text-right flex flex-col items-end space-y-0.5">
-            <div className="h-6 flex items-end justify-end relative w-24">
+            <div className="h-5 flex items-end justify-end relative w-20">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={signatureSrc}
@@ -254,10 +267,10 @@ function CompactInvoiceSlip({
                 className="max-h-5 object-contain select-none"
               />
             </div>
-            <p className="text-[8.5px] font-bold text-slate-950 uppercase leading-none mt-0.5">
+            <p className="text-[8px] font-bold text-slate-950 uppercase leading-none mt-0.5">
               {effectiveHeadTitle}
             </p>
-            <p className="text-[7.5px] text-slate-600 leading-none">{profile.schoolName || "Marigachi High School (H.S.)"}</p>
+            <p className="text-[7px] text-slate-600 leading-none truncate max-w-[110px]">{profile.schoolName || "MHS (H.S.)"}</p>
           </div>
         </div>
       </div>

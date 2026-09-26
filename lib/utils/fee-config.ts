@@ -120,7 +120,7 @@ export const FEE_SECTIONS: FeeSectionConfig[] = [
     shortLabel: "Class 11 to 12",
     classRange: "11 to 12",
     badge: "Section 3",
-    classes: ["XI", "XII", "11", "12", "Sent Up H.S.", "12th test fail", "C.C.H.S.", "Passed Out"],
+    classes: ["XI", "XII", "11", "12", "Sent Up H.S.", "C.C.H.S.", "Passed Out"],
     description: "Preset fee structure for Higher Secondary council students (Classes 11 and 12).",
     defaultItems: DEFAULT_FEE_ITEMS_XI_XII,
   },
@@ -139,7 +139,7 @@ export function getFeeCategoryForClass(className: string): FeeCategory {
   if (["IX", "X", "9", "10", "CLASS 9", "CLASS 10", "CLASS IX", "CLASS X", "SENT UP M.P.", "10TH TEST FAIL"].includes(upper)) {
     return "IX-X";
   }
-  if (["XI", "XII", "11", "12", "CLASS 11", "CLASS 12", "CLASS XI", "CLASS XII", "SENT UP H.S.", "12TH TEST FAIL", "C.C.H.S.", "PASSED OUT"].includes(upper)) {
+  if (["XI", "XII", "11", "12", "CLASS 11", "CLASS 12", "CLASS XI", "CLASS XII", "SENT UP H.S.", "C.C.H.S.", "PASSED OUT"].includes(upper)) {
     return "XI-XII";
   }
   

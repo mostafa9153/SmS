@@ -529,8 +529,7 @@ export function HigherSecondarySessionTab() {
               </p>
               <ul className="list-disc pl-4 space-y-1.5 text-foreground">
                 <li><strong>Class XI (Pass Required):</strong> ১১ থেকে ১২-এ প্রমোট হতে হলে ন্যূনতম <strong>{minPassPercentage}%</strong> নম্বর পেতে হবে (কম পেলে Class XI-এ Detained)।</li>
-                
-                <li><strong>Class XII (Pass Required):</strong> টেস্ট পরীক্ষায় ন্যূনতম <strong>{minPassPercentage}%</strong> পেয়ে পাস করলে তবেই <strong>Sent Up H.S.</strong> (C.C.H.S.) হবে (কম পেলে 12th test fail)।</li>
+                <li><strong>Class XII (Semester 4 Evaluation):</strong> সেমিস্টার ৪ উত্তীর্ণ শিক্ষার্থীরা <strong>Passed Out</strong> হবে এবং অনুত্তীর্ণরা <strong>Compartmental / C.C.H.S.</strong> তালিকায় অন্তর্ভুক্ত হবে।</li>
                 <li><strong>Detained ছাত্র-ছাত্রী:</strong> মোট {effectiveDetainedCount} জন শিক্ষার্থী বর্তমান ক্লাসে থেকে যাবে।</li>
                 <li><strong>রোল নম্বর নির্ধারণ:</strong> <strong>{rollStrategy.toUpperCase()}</strong> কৌশল অনুযায়ী নতুন রোল ধার্য হবে।</li>
                 <li><em>পঞ্চম থেকে দশম শ্রেণী এই ট্রানজিশন থেকে সম্পূর্ণ বাদ রাখা হয়েছে।</em></li>

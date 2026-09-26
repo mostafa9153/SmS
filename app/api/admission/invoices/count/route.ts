@@ -15,7 +15,7 @@ export async function GET() {
     const { data: students, error } = await supabase
       .from("students")
       .select("current_status, is_invoice_queued, re_admission_status, admission_year, invoice_printed_at")
-      .eq("current_status", "Continuing");
+      .in("current_status", ["Continuing", "New Admission", "Detained"]);
 
     if (error) {
       console.error("Error fetching students for invoice count:", error);
@@ -29,10 +29,11 @@ export async function GET() {
     const currentYearStr = currentYear.toString();
 
     const count = students.filter((s: any) => {
+      if (s.invoice_printed_at) return false;
       const queued = Boolean(s.is_invoice_queued);
       const admittedPending =
-        s.re_admission_status === "admitted" && s.is_invoice_queued !== false && !s.invoice_printed_at;
-      const newAdmitQueued = s.admission_year === currentYearStr && queued && !s.invoice_printed_at;
+        s.re_admission_status === "admitted" && s.is_invoice_queued !== false;
+      const newAdmitQueued = s.admission_year === currentYearStr && queued;
       return queued || admittedPending || newAdmitQueued;
     }).length;
 

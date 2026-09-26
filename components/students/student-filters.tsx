@@ -6,15 +6,38 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useQuery } from "@tanstack/react-query";
 import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
-import { cn, sortClasses } from "@/lib/utils";
+import { cn, sortClasses, STATUS_STYLES } from "@/lib/utils";
 
-const STATUSES: StudentStatus[] = [
+export const ACTIVE_STATUSES: StudentStatus[] = [
   "Continuing",
-  "Drop Out",
-  "Passed Out",
+  "New Admission",
+  "Suspended",
+];
+
+export const PENDING_STATUSES: StudentStatus[] = [
+  "Promoted But Not Admitted",
+  "Detained",
+  "Supplementary",
+  "Compartmental",
+  "Not Admitted",
   "Sent Up M.P.",
+  "10th test fail",
+  "exam fail - C.C",
   "C.C.H.S.",
 ];
+
+export const OLD_STATUSES: StudentStatus[] = [
+  "Passed Out",
+  "Drop Out",
+  "TC Out",
+];
+
+export const ALL_STATUSES: StudentStatus[] = [
+  ...ACTIVE_STATUSES,
+  ...PENDING_STATUSES,
+  ...OLD_STATUSES,
+];
+
 
 interface StudentFiltersBarProps {
   filters: StudentFilters;
@@ -70,6 +93,7 @@ export function StudentFiltersBar({
     !!filters.query ||
     !!filters.class ||
     !!filters.section ||
+    !!filters.semester ||
     !!filters.status ||
     !!filters.admissionYear ||
     !!filters.gender ||
@@ -80,12 +104,53 @@ export function StudentFiltersBar({
 
   const sortedClasses = sortClasses(classes);
 
+  const isClassXI = filters.class === "XI";
+  const isClassXII = filters.class === "XII";
+  const isHS = isClassXI || isClassXII;
+
+  const semesterOptions = useMemo(() => {
+    if (isClassXI) {
+      return [
+        { label: "Semester 1", value: "Sem 1" },
+        { label: "Semester 2", value: "Sem 2" },
+      ];
+    }
+    if (isClassXII) {
+      return [
+        { label: "Semester 3", value: "Sem 3" },
+        { label: "Semester 4", value: "Sem 4" },
+      ];
+    }
+    return [
+      { label: "Semester 1 (XI)", value: "Sem 1" },
+      { label: "Semester 2 (XI)", value: "Sem 2" },
+      { label: "Semester 3 (XII)", value: "Sem 3" },
+      { label: "Semester 4 (XII)", value: "Sem 4" },
+    ];
+  }, [isClassXI, isClassXII]);
+
+  const statusOptions = useMemo(() => {
+    let sourceStatuses: StudentStatus[] = ALL_STATUSES;
+    if (filters.studentType === "active") {
+      sourceStatuses = ACTIVE_STATUSES;
+    } else if (filters.studentType === "pending") {
+      sourceStatuses = PENDING_STATUSES;
+    } else if (filters.studentType === "old") {
+      sourceStatuses = OLD_STATUSES;
+    }
+    return sourceStatuses.map((s) => ({
+      label: STATUS_STYLES[s]?.label ?? s,
+      value: s,
+    }));
+  }, [filters.studentType]);
+
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (filters.class) count++;
     if (filters.section) count++;
+    if (filters.semester) count++;
     if (filters.scheme) count++;
     if (filters.socialCategory) count++;
     if (filters.gender) count++;
@@ -101,7 +166,7 @@ export function StudentFiltersBar({
       {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
       <div className="flex sm:hidden items-center gap-2.5">
         <div className="relative flex-1 group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
           <input
             type="text"
             value={localQuery}
@@ -146,7 +211,7 @@ export function StudentFiltersBar({
             <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
               Class {filters.class}
               <button
-                onClick={() => onChange({ ...filters, class: undefined, section: undefined })}
+                onClick={() => onChange({ ...filters, class: undefined, section: undefined, semester: undefined })}
                 className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
               >
                 <X className="h-3.5 w-3.5" />
@@ -164,9 +229,20 @@ export function StudentFiltersBar({
               </button>
             </span>
           )}
+          {filters.semester && (
+            <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
+              {filters.semester}
+              <button
+                onClick={() => onChange({ ...filters, semester: undefined })}
+                className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </span>
+          )}
           {filters.status && (
             <span className="inline-flex items-center gap-1.5 h-8 rounded-xl bg-primary/10 border border-primary/25 px-2.5 py-1 font-bold text-primary shrink-0 shadow-2xs">
-              {filters.status}
+              {STATUS_STYLES[filters.status]?.label ?? filters.status}
               <button
                 onClick={() => onChange({ ...filters, status: undefined })}
                 className="p-1 rounded-md hover:bg-primary/20 active:scale-90 cursor-pointer"
@@ -232,7 +308,7 @@ export function StudentFiltersBar({
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => onChange({ ...filters, class: undefined, section: undefined })}
+                onClick={() => onChange({ ...filters, class: undefined, section: undefined, semester: undefined })}
                 className={cn(
                   "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
                   !filters.class
@@ -248,7 +324,16 @@ export function StudentFiltersBar({
                   <button
                     key={c}
                     type="button"
-                    onClick={() => onChange({ ...filters, class: isSelected ? undefined : c, section: undefined })}
+                    onClick={() => {
+                      const nextClass = isSelected ? undefined : c;
+                      const nextIsHS = nextClass === "XI" || nextClass === "XII";
+                      onChange({
+                        ...filters,
+                        class: nextClass,
+                        section: undefined,
+                        semester: nextIsHS ? filters.semester : undefined,
+                      });
+                    }}
                     className={cn(
                       "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
                       isSelected
@@ -295,6 +380,50 @@ export function StudentFiltersBar({
                       )}
                     >
                       Sec {s}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Touch Semester Pills (for Class XI / XII or All) */}
+          {(!filters.class || isHS) && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Select Semester (HS)</label>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...filters, semester: undefined })}
+                  className={cn(
+                    "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                    !filters.semester
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-card border-border/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                  )}
+                >
+                  All
+                </button>
+                {semesterOptions.map((sem) => {
+                  const isSelected = filters.semester === sem.value;
+                  return (
+                    <button
+                      key={sem.value}
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...filters,
+                          semester: isSelected ? undefined : (sem.value as any),
+                        })
+                      }
+                      className={cn(
+                        "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-card border-border/80 text-foreground hover:bg-muted"
+                      )}
+                    >
+                      {sem.label}
                     </button>
                   );
                 })}
@@ -362,7 +491,7 @@ export function StudentFiltersBar({
                   value={filters.status ?? ""}
                   onChange={(v) => onChange({ ...filters, status: (v as StudentStatus) || undefined })}
                   placeholder="Status"
-                  options={STATUSES.map((s) => ({ label: s, value: s }))}
+                  options={statusOptions}
                 />
               </div>
             )}
@@ -444,7 +573,16 @@ export function StudentFiltersBar({
         {/* Class filter */}
         <FilterSelect
           value={filters.class ?? ""}
-          onChange={(v) => onChange({ ...filters, class: v || undefined, section: undefined })}
+          onChange={(v) => {
+            const nextClass = v || undefined;
+            const nextIsHS = nextClass === "XI" || nextClass === "XII";
+            onChange({
+              ...filters,
+              class: nextClass,
+              section: undefined,
+              semester: nextIsHS ? filters.semester : undefined,
+            });
+          }}
           placeholder="Class"
           options={sortedClasses.map((c) => ({ label: `Class ${c}`, value: c }))}
         />
@@ -456,6 +594,16 @@ export function StudentFiltersBar({
           placeholder="Section"
           options={sections.map((s) => ({ label: `Section ${s}`, value: s }))}
         />
+
+        {/* Semester filter (HS) */}
+        {(!filters.class || isHS) && (
+          <FilterSelect
+            value={filters.semester ?? ""}
+            onChange={(v) => onChange({ ...filters, semester: (v as any) || undefined })}
+            placeholder="Semester"
+            options={semesterOptions}
+          />
+        )}
 
         {/* Welfare Scheme filter */}
         <FilterSelect
@@ -511,7 +659,7 @@ export function StudentFiltersBar({
               onChange({ ...filters, status: (v as StudentStatus) || undefined })
             }
             placeholder="Status"
-            options={STATUSES.map((s) => ({ label: s, value: s }))}
+            options={statusOptions}
           />
         )}
 

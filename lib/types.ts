@@ -7,14 +7,23 @@
 
 export type StudentStatus =
   | "Continuing"
-  | "Drop Out"
-  | "Passed Out"
+  | "New Admission"
+  | "Promoted But Not Admitted"
+  | "Detained"
+  | "Supplementary"
+  | "Compartmental"
+  | "Not Admitted"
   | "Sent Up M.P."
   | "10th test fail"
   | "exam fail - C.C"
-  | "Sent Up H.S."
-  | "12th test fail"
-  | "C.C.H.S.";
+  | "Passed Out"
+  | "C.C.H.S."
+  | "TC Out"
+  | "Suspended"
+  | "Drop Out"
+  | "Sent Up H.S."; // Legacy compatibility
+
+export type Semester = "Sem 1" | "Sem 2" | "Sem 3" | "Sem 4";
 
 export type Gender = "Male" | "Female" | "Other";
 
@@ -24,6 +33,8 @@ export interface AcademicHistoryEntry {
   section: string;       // Section letter, e.g. "A", "B"
   roll: number;          // Roll number within class-section
   status: StudentStatus;
+  semester?: Semester | null;
+  detentionCount?: number;
 }
 
 export interface Student {
@@ -108,6 +119,11 @@ export interface Student {
   admissionNo?: string;
   admissionType?: string;
   academicYear?: string;
+  presentSemester?: Semester | null; // Semester tracking for Class 11 & 12
+  detentionCount?: number;           // Repeated detention count in same class
+  tcIssued?: boolean;                // TC issued status
+  tcDate?: string;                   // TC issue ISO date
+  tcReason?: string;                 // TC departure reason
   mediumOfInstruction?: string;
   presentClassAdmissionDate?: string;
   boardRegistrationNo?: string; // WBBSE / WBCHSE Board Registration No (Classes 9, 10, 11, 12)
@@ -185,7 +201,8 @@ export interface StudentFilters {
     | "cwsn";
   hasAadhaar?: "yes" | "no";
   ageSlab?: string;
-  studentType?: "active" | "old";
+  semester?: Semester;
+  studentType?: "active" | "old" | "pending";
 }
 
 // Pagination meta returned alongside list results
@@ -280,6 +297,18 @@ export interface BulkResultRow {
 // ---------------------------------------------------------------
 //  Results & Marks Module Types
 // ---------------------------------------------------------------
+export interface SubjectScoreDetail {
+  theory?: number;
+  practical?: number;
+  total: number;
+  supplementaryTheory?: number;
+  supplementaryPractical?: number;
+  supplementaryTotal?: number;
+  isSupplementaryCleared?: boolean;
+}
+
+export type SubjectMarksMap = Record<string, number | SubjectScoreDetail>;
+
 export interface StudentResult {
   id: string;
   studentId: string;
@@ -287,6 +316,7 @@ export interface StudentResult {
   class: string;
   section: string;
   roll: number;
+  semester?: Semester | null;
   examName: string;
   fullMarks: number;
   marksObtained: number;
@@ -294,7 +324,8 @@ export interface StudentResult {
   grade?: string;
   rankInSection?: number;
   rankInClass?: number;
-  subjectMarks?: Record<string, number>;
+  subjectMarks?: SubjectMarksMap;
+  evaluatedStatus?: StudentStatus;
   remarks?: string;
   batchId?: string;
   createdAt?: string;
@@ -306,6 +337,7 @@ export interface StudentResult {
     pen?: string;
     gender: Gender;
     studentUniqueCode?: string;
+    presentSemester?: Semester | null;
   };
 }
 
@@ -315,10 +347,12 @@ export interface ResultEntryInput {
   class: string;
   section: string;
   roll: number;
+  semester?: Semester | null;
   examName: string;
   fullMarks: number;
   marksObtained: number;
-  subjectMarks?: Record<string, number>;
+  subjectMarks?: SubjectMarksMap;
+  evaluatedStatus?: StudentStatus;
   remarks?: string;
   batchId?: string;
 }
@@ -326,6 +360,8 @@ export interface ResultEntryInput {
 export interface ClassResultsSummary {
   academicYear: number;
   class: string;
+  section?: string;
+  semester?: Semester | null;
   examName: string;
   fullMarks: number;
   totalStudents: number;

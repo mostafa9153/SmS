@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
-import type { StudentResult, ResultEntryInput, ClassResultsSummary } from "@/lib/types";
+import type { StudentResult, ResultEntryInput, ClassResultsSummary, Semester } from "@/lib/types";
+import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc";
 
 // ------------------------------------------------------------------
 // Full Marks mapping: class × exam → total full marks
@@ -62,7 +63,8 @@ export async function dbGetResultsByClass(
   academicYear: number,
   className: string,
   section?: string,
-  examName = "Annual Examination"
+  examName = "Annual Examination",
+  semester?: Semester
 ): Promise<ClassResultsSummary> {
   const supabase = await createServerClient();
   const normClass = (className || "V").toUpperCase().trim();
@@ -71,12 +73,16 @@ export async function dbGetResultsByClass(
   // 1. Fetch all students currently in this class & section
   let studentsQuery = supabase
     .from("students")
-    .select("id, name, school_id, pen, gender, present_class, present_section, present_roll, student_unique_code")
+    .select("id, name, school_id, pen, gender, present_class, present_section, present_roll, student_unique_code, present_semester")
     .eq("present_class", normClass)
     .order("present_roll", { ascending: true });
 
   if (section && section !== "ALL") {
     studentsQuery = studentsQuery.eq("present_section", section.toUpperCase().trim());
+  }
+
+  if (semester) {
+    studentsQuery = studentsQuery.ilike("present_semester", semester);
   }
 
   const { data: students, error: studErr } = await studentsQuery;
@@ -104,7 +110,7 @@ export async function dbGetResultsByClass(
     resultMap.set(r.student_id, r);
   }
 
-  // 3. Merge student roster with results
+  // 3. Merge student roster with results & evaluate status
   const mergedResults: StudentResult[] = (students || []).map((s) => {
     const existing = resultMap.get(s.id);
 
@@ -113,6 +119,18 @@ export async function dbGetResultsByClass(
       const percentage = Number(((marksObt / fullMarks) * 100).toFixed(2));
       const grade = calculateGrade(percentage);
 
+      const evaluation = evaluateStudentPromotionEligibility({
+        studentId: s.id,
+        studentName: s.name,
+        currentClass: normClass,
+        currentSemester: (s.present_semester as Semester) || semester || null,
+        academicYear,
+        examName,
+        marksObtained: marksObt,
+        fullMarks,
+        subjectMarks: existing.subject_marks || {},
+      });
+
       return {
         id: existing.id,
         studentId: s.id,
@@ -120,6 +138,7 @@ export async function dbGetResultsByClass(
         class: normClass,
         section: existing.section,
         roll: existing.roll,
+        semester: (s.present_semester as Semester) || semester || undefined,
         examName: existing.exam_name,
         fullMarks: fullMarks,
         marksObtained: marksObt,
@@ -128,6 +147,7 @@ export async function dbGetResultsByClass(
         rankInSection: existing.rank_in_section ?? undefined,
         rankInClass: existing.rank_in_class ?? undefined,
         subjectMarks: existing.subject_marks || {},
+        evaluatedStatus: evaluation.eligibleStatus,
         remarks: existing.remarks || undefined,
         createdAt: existing.created_at,
         updatedAt: existing.updated_at,
@@ -138,9 +158,22 @@ export async function dbGetResultsByClass(
           pen: s.pen || undefined,
           gender: s.gender,
           studentUniqueCode: s.student_unique_code || undefined,
+          presentSemester: s.present_semester || undefined,
         },
       };
     }
+
+    const evaluation = evaluateStudentPromotionEligibility({
+      studentId: s.id,
+      studentName: s.name,
+      currentClass: s.present_class,
+      currentSemester: (s.present_semester as Semester) || semester || null,
+      academicYear,
+      examName,
+      marksObtained: 0,
+      fullMarks,
+      subjectMarks: {},
+    });
 
     return {
       id: `virtual-${s.id}`,
@@ -149,6 +182,7 @@ export async function dbGetResultsByClass(
       class: s.present_class,
       section: s.present_section,
       roll: s.present_roll,
+      semester: (s.present_semester as Semester) || semester || undefined,
       examName,
       fullMarks,
       marksObtained: 0,
@@ -156,6 +190,7 @@ export async function dbGetResultsByClass(
       grade: undefined,
       rankInSection: undefined,
       rankInClass: undefined,
+      evaluatedStatus: evaluation.eligibleStatus,
       student: {
         id: s.id,
         name: s.name,
@@ -163,6 +198,7 @@ export async function dbGetResultsByClass(
         pen: s.pen || undefined,
         gender: s.gender,
         studentUniqueCode: s.student_unique_code || undefined,
+        presentSemester: s.present_semester || undefined,
       },
     };
   });
@@ -176,6 +212,8 @@ export async function dbGetResultsByClass(
   return {
     academicYear,
     class: normClass,
+    section: section && section !== "ALL" ? section : undefined,
+    semester: semester || undefined,
     examName,
     fullMarks,
     totalStudents: (students || []).length,
@@ -240,11 +278,23 @@ export async function dbSaveOrUpdateResult(
   // Refetch the updated record with assigned ranks
   const { data: updatedResult } = await supabase
     .from("student_results")
-    .select("*, student:students(id, name, school_id, pen, gender, student_unique_code)")
+    .select("*, student:students(id, name, school_id, pen, gender, student_unique_code, present_semester)")
     .eq("id", data.id)
     .single();
 
   const finalRecord = updatedResult || data;
+
+  const evaluation = evaluateStudentPromotionEligibility({
+    studentId: finalRecord.student_id,
+    studentName: finalRecord.student?.name,
+    currentClass: finalRecord.class,
+    currentSemester: (finalRecord.student?.present_semester as Semester) || input.semester || null,
+    academicYear: finalRecord.academic_year,
+    examName: finalRecord.exam_name,
+    marksObtained: Number(finalRecord.marks_obtained),
+    fullMarks: Number(finalRecord.full_marks),
+    subjectMarks: finalRecord.subject_marks || {},
+  });
 
   return {
     id: finalRecord.id,
@@ -253,6 +303,7 @@ export async function dbSaveOrUpdateResult(
     class: finalRecord.class,
     section: finalRecord.section,
     roll: finalRecord.roll,
+    semester: (finalRecord.student?.present_semester as Semester) || input.semester || undefined,
     examName: finalRecord.exam_name,
     fullMarks: Number(finalRecord.full_marks),
     marksObtained: Number(finalRecord.marks_obtained),
@@ -261,15 +312,11 @@ export async function dbSaveOrUpdateResult(
     rankInSection: finalRecord.rank_in_section ?? undefined,
     rankInClass: finalRecord.rank_in_class ?? undefined,
     subjectMarks: finalRecord.subject_marks || {},
+    evaluatedStatus: evaluation.eligibleStatus,
     remarks: finalRecord.remarks || undefined,
-    student: finalRecord.student ? {
-      id: finalRecord.student.id,
-      name: finalRecord.student.name,
-      schoolId: finalRecord.student.school_id,
-      pen: finalRecord.student.pen || undefined,
-      gender: finalRecord.student.gender,
-      studentUniqueCode: finalRecord.student.student_unique_code || undefined,
-    } : undefined,
+    createdAt: finalRecord.created_at,
+    updatedAt: finalRecord.updated_at,
+    student: finalRecord.student,
   };
 }
 
@@ -350,6 +397,122 @@ export async function dbCalculateAndAssignRanks(
   }
 
   return { classUpdated: allResults.length };
+}
+
+/**
+ * Batch update marks for an entire class/section for a single subject.
+ * Automatically preserves and merges other subject marks, recalculates grand total, and updates ranks.
+ */
+export interface SubjectBatchStudentScore {
+  studentId: string;
+  roll: number;
+  section: string;
+  writtenMarks: number;
+  practicalMarks?: number;
+  isAbsent?: boolean;
+}
+
+export interface SaveSubjectBatchParams {
+  academicYear: number;
+  class: string;
+  section?: string;
+  examName: string;
+  subjectName: string;
+  scores: SubjectBatchStudentScore[];
+}
+
+export async function dbSaveSubjectBatchMarks(
+  params: SaveSubjectBatchParams,
+  userId: string
+): Promise<{ success: boolean; count: number }> {
+  const supabase = await createServerClient();
+  const normClass = (params.class || "V").toUpperCase().trim();
+  const fullMarks = getClassFullMarks(normClass, params.examName);
+
+  // 1. Fetch existing student results for this class, year, and exam
+  let resultsQuery = supabase
+    .from("student_results")
+    .select("*")
+    .eq("academic_year", params.academicYear)
+    .eq("class", normClass)
+    .eq("exam_name", params.examName);
+
+  if (params.section && params.section !== "ALL") {
+    resultsQuery = resultsQuery.eq("section", params.section.toUpperCase().trim());
+  }
+
+  const { data: existingResults, error: fetchErr } = await resultsQuery;
+  if (fetchErr) console.error("Error fetching existing results for batch update:", fetchErr);
+
+  const existingMap = new Map<string, any>();
+  for (const r of existingResults || []) {
+    existingMap.set(r.student_id, r);
+  }
+
+  // 2. Prepare updated payloads
+  const payloads: any[] = [];
+
+  for (const s of params.scores) {
+    const existing = existingMap.get(s.studentId);
+    const existingSubjectMarks: Record<string, any> = existing?.subject_marks ? { ...existing.subject_marks } : {};
+
+    const written = Number(s.writtenMarks) || 0;
+    const practical = Number(s.practicalMarks) || 0;
+    const isAbsent = !!s.isAbsent;
+    const subTotal = isAbsent ? 0 : written + practical;
+
+    // Update the specific subject entry
+    existingSubjectMarks[params.subjectName] = {
+      theory: written,
+      practical: practical,
+      total: subTotal,
+      isAbsent,
+    };
+
+    // Calculate total marks across all subjects in existingSubjectMarks
+    let totalMarksSum = 0;
+    for (const [_, val] of Object.entries(existingSubjectMarks)) {
+      if (typeof val === "object" && val !== null) {
+        totalMarksSum += Number(val.total ?? (Number(val.theory ?? 0) + Number(val.practical ?? 0)));
+      } else {
+        totalMarksSum += Number(val) || 0;
+      }
+    }
+
+    const percentage = Number(((totalMarksSum / fullMarks) * 100).toFixed(2));
+    const grade = calculateGrade(percentage);
+
+    payloads.push({
+      student_id: s.studentId,
+      academic_year: params.academicYear,
+      class: normClass,
+      section: (s.section || "A").toUpperCase().trim(),
+      roll: s.roll,
+      exam_name: params.examName,
+      full_marks: fullMarks,
+      marks_obtained: totalMarksSum,
+      percentage,
+      grade,
+      subject_marks: existingSubjectMarks,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  // 3. Upsert payloads in chunks of 25
+  const CHUNK_SIZE = 25;
+  for (let i = 0; i < payloads.length; i += CHUNK_SIZE) {
+    const chunk = payloads.slice(i, i + CHUNK_SIZE);
+    const { error: upsertErr } = await supabase
+      .from("student_results")
+      .upsert(chunk, { onConflict: "student_id,academic_year,exam_name" });
+
+    if (upsertErr) throw new Error(upsertErr.message);
+  }
+
+  // 4. Trigger rank recalculation
+  await dbCalculateAndAssignRanks(params.academicYear, normClass, params.examName);
+
+  return { success: true, count: payloads.length };
 }
 
 /**

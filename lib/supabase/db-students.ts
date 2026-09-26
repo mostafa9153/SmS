@@ -130,6 +130,13 @@ export interface DBStudent {
   re_admitted_session?: string | null;
   is_invoice_queued?: boolean | null;
   invoice_printed_at?: string | null;
+
+  // E. Semester & Status Lifecycle
+  present_semester?: "Sem 1" | "Sem 2" | "Sem 3" | "Sem 4" | null;
+  detention_count?: number | null;
+  tc_issued?: boolean | null;
+  tc_date?: string | null;
+  tc_reason?: string | null;
 }
 
 export interface DBAcademicHistory {
@@ -140,6 +147,8 @@ export interface DBAcademicHistory {
   section: string;
   roll: number;
   status: StudentStatus;
+  semester?: "Sem 1" | "Sem 2" | "Sem 3" | "Sem 4" | null;
+  detention_count?: number | null;
   created_at: string;
 }
 
@@ -184,6 +193,8 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
           section: h.section,
           roll: h.roll,
           status: h.status,
+          semester: (h as any).semester || undefined,
+          detentionCount: (h as any).detention_count != null ? Number((h as any).detention_count) : undefined,
         }))
       : [],
 
@@ -236,6 +247,11 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     admissionNo: db.admission_no || undefined,
     admissionType: db.admission_type || undefined,
     academicYear: db.academic_year || undefined,
+    presentSemester: (db as any).present_semester || undefined,
+    detentionCount: (db as any).detention_count != null ? Number((db as any).detention_count) : undefined,
+    tcIssued: (db as any).tc_issued != null ? Boolean((db as any).tc_issued) : undefined,
+    tcDate: (db as any).tc_date || undefined,
+    tcReason: (db as any).tc_reason || undefined,
     mediumOfInstruction: db.medium_of_instruction || "Bengali",
     presentClassAdmissionDate: db.present_class_admission_date || undefined,
     boardRegistrationNo: db.board_registration_no || (db as any).board_reg_no || undefined,
@@ -280,6 +296,7 @@ export function mapDBStudentToStudent(db: DBStudent): Student {
     // D. Re-admission & Invoice Queue
     reAdmissionStatus: (db as any).re_admission_status || undefined,
     reAdmittedAt: (db as any).re_admitted_at || undefined,
+    reAdmittedSession: (db as any).re_admitted_session || undefined,
     isInvoiceQueued: (db as any).is_invoice_queued !== undefined ? Boolean((db as any).is_invoice_queued) : undefined,
     invoicePrintedAt: (db as any).invoice_printed_at || undefined,
     createdAt: db.created_at || undefined,
@@ -367,6 +384,11 @@ export function mapStudentToDBInput(student: Omit<Student, "id" | "academicHisto
     admission_no: toNullableString(student.admissionNo),
     admission_type: toNullableString(student.admissionType),
     academic_year: toNullableString(student.academicYear),
+    present_semester: (student.presentSemester as "Sem 1" | "Sem 2" | "Sem 3" | "Sem 4") || null,
+    detention_count: toNullableNumber(student.detentionCount),
+    tc_issued: student.tcIssued !== undefined ? !!student.tcIssued : false,
+    tc_date: toNullableDate(student.tcDate),
+    tc_reason: toNullableString(student.tcReason),
     medium_of_instruction: toNullableString(student.mediumOfInstruction),
     present_class_admission_date: toNullableDate(student.presentClassAdmissionDate),
     board_registration_no: toNullableString(student.boardRegistrationNo),
@@ -510,9 +532,15 @@ export const STUDENT_SUMMARY_COLUMNS = [
   "distance_to_school",
   "highest_education_parents",
   "re_admission_status",
+  "re_admitted_session",
   "is_invoice_queued",
   "re_admitted_at",
   "invoice_printed_at",
+  "present_semester",
+  "detention_count",
+  "tc_issued",
+  "tc_date",
+  "tc_reason",
   "created_at",
   "updated_at",
 ].join(",");
@@ -642,12 +670,42 @@ export async function dbSearchStudents(
   if (filters.section) {
     query = query.ilike("present_section", filters.section);
   }
-  if (filters.status) {
-    query = query.ilike("current_status", filters.status);
-  } else if (filters.studentType === "active") {
-    query = query.eq("current_status", "Continuing");
+  if (filters.studentType === "active") {
+    if (filters.status) {
+      query = query.ilike("current_status", filters.status);
+    } else {
+      // Active enrolled students on academic rosters
+      query = query.in("current_status", ["Continuing", "New Admission", "Suspended"]);
+    }
   } else if (filters.studentType === "old") {
-    query = query.neq("current_status", "Continuing");
+    if (filters.status) {
+      query = query.ilike("current_status", filters.status);
+    } else {
+      // Archived / departed students
+      query = query.in("current_status", ["Passed Out", "Drop Out", "TC Out"]);
+    }
+  } else if (filters.studentType === "pending") {
+    if (filters.status) {
+      query = query.ilike("current_status", filters.status);
+    } else {
+      // Pending re-admission / promotion candidates
+      query = query.in("current_status", [
+        "Promoted But Not Admitted",
+        "Detained",
+        "Supplementary",
+        "Compartmental",
+        "Not Admitted",
+        "Sent Up M.P.",
+        "10th test fail",
+        "exam fail - C.C",
+        "C.C.H.S.",
+      ]);
+    }
+  } else if (filters.status) {
+    query = query.ilike("current_status", filters.status);
+  }
+  if (filters.semester) {
+    query = query.ilike("present_semester", filters.semester);
   }
   if (filters.admissionYear) {
     query = query.eq("admission_year", filters.admissionYear);
@@ -872,18 +930,26 @@ export async function dbUpdateStudent(
   if (updates.previousSchool !== undefined) dbUpdates.previous_school = toNullableString(updates.previousSchool);
 
   // --- NEW FIELDS ---
+  if (updates.studentNameBengali !== undefined) dbUpdates.student_name_bengali = toNullableString(updates.studentNameBengali);
+  if (updates.fatherNameBengali !== undefined) dbUpdates.father_name_bengali = toNullableString(updates.fatherNameBengali);
+  if (updates.motherNameBengali !== undefined) dbUpdates.mother_name_bengali = toNullableString(updates.motherNameBengali);
   if (updates.guardianName !== undefined) dbUpdates.guardian_name = toNullableString(updates.guardianName);
   if (updates.nameAsPerAadhaar !== undefined) dbUpdates.name_as_per_aadhaar = toNullableString(updates.nameAsPerAadhaar);
   if (updates.pincode !== undefined) dbUpdates.pincode = toNullableString(updates.pincode);
+  if (updates.gramPanchayat !== undefined) dbUpdates.gram_panchayat = toNullableString(updates.gramPanchayat);
+  if (updates.block !== undefined) dbUpdates.block = toNullableString(updates.block);
   if (updates.altMobile !== undefined) dbUpdates.alt_mobile = toNullableString(updates.altMobile);
   if (updates.email !== undefined) dbUpdates.email = toNullableString(updates.email);
   if (updates.motherTongue !== undefined) dbUpdates.mother_tongue = toNullableString(updates.motherTongue);
   if (updates.minorityGroup !== undefined) dbUpdates.minority_group = toNullableString(updates.minorityGroup);
   if (updates.isAay !== undefined) dbUpdates.is_aay = !!updates.isAay;
   if (updates.isEws !== undefined) dbUpdates.is_ews = !!updates.isEws;
+  if (updates.bplStatus !== undefined) dbUpdates.bpl_status = toNullableString(updates.bplStatus);
+  if (updates.bplNo !== undefined) dbUpdates.bpl_no = toNullableString(updates.bplNo);
   if (updates.isCwsn !== undefined) dbUpdates.is_cwsn = !!updates.isCwsn;
   if (updates.impairmentType !== undefined) dbUpdates.impairment_type = toNullableString(updates.impairmentType);
   if (updates.hasDisabilityCertificate !== undefined) dbUpdates.has_disability_certificate = !!updates.hasDisabilityCertificate;
+  if (updates.disabilityCertificateNo !== undefined) dbUpdates.disability_certificate_no = toNullableString(updates.disabilityCertificateNo);
   if (updates.disabilityPercentage !== undefined) dbUpdates.disability_percentage = toNullableNumber(updates.disabilityPercentage);
   if (updates.sldType !== undefined) dbUpdates.sld_type = toNullableString(updates.sldType);
   if (updates.indianNationality !== undefined) dbUpdates.indian_nationality = updates.indianNationality !== false;
@@ -902,12 +968,19 @@ export async function dbUpdateStudent(
   if (updates.relationshipWithGuardian !== undefined) dbUpdates.relationship_with_guardian = toNullableString(updates.relationshipWithGuardian);
   if (updates.guardianOccupation !== undefined) dbUpdates.guardian_occupation = toNullableString(updates.guardianOccupation);
   if (updates.guardianQualification !== undefined) dbUpdates.guardian_qualification = toNullableString(updates.guardianQualification);
+  if (updates.bankName !== undefined) dbUpdates.bank_name = toNullableString(updates.bankName);
+  if (updates.bankBranch !== undefined) dbUpdates.bank_branch = toNullableString(updates.bankBranch);
   if (updates.bankIfsc !== undefined) dbUpdates.bank_ifsc = toNullableString(updates.bankIfsc);
   if (updates.bankAccountNo !== undefined) dbUpdates.bank_account_no = toNullableString(updates.bankAccountNo);
 
   if (updates.admissionNo !== undefined) dbUpdates.admission_no = toNullableString(updates.admissionNo);
   if (updates.admissionType !== undefined) dbUpdates.admission_type = toNullableString(updates.admissionType);
   if (updates.academicYear !== undefined) dbUpdates.academic_year = toNullableString(updates.academicYear);
+  if (updates.presentSemester !== undefined) dbUpdates.present_semester = toNullableString(updates.presentSemester);
+  if (updates.detentionCount !== undefined) dbUpdates.detention_count = toNullableNumber(updates.detentionCount);
+  if (updates.tcIssued !== undefined) dbUpdates.tc_issued = !!updates.tcIssued;
+  if (updates.tcDate !== undefined) dbUpdates.tc_date = toNullableDate(updates.tcDate);
+  if (updates.tcReason !== undefined) dbUpdates.tc_reason = toNullableString(updates.tcReason);
   if (updates.mediumOfInstruction !== undefined) dbUpdates.medium_of_instruction = toNullableString(updates.mediumOfInstruction);
   if (updates.presentClassAdmissionDate !== undefined) dbUpdates.present_class_admission_date = toNullableDate(updates.presentClassAdmissionDate);
   if (updates.boardRegistrationNo !== undefined || (updates as any).wbbseRegNo !== undefined || (updates as any).wbchseRegNo !== undefined) {
@@ -916,6 +989,15 @@ export async function dbUpdateStudent(
   if (updates.boardRollNo !== undefined || (updates as any).wbbseRollNo !== undefined || (updates as any).wbchseRollNo !== undefined) {
     dbUpdates.board_roll_no = toNullableString(updates.boardRollNo ?? (updates as any).wbbseRollNo ?? (updates as any).wbchseRollNo);
   }
+  if (updates.bengaliMarks !== undefined) dbUpdates.bengali_marks = toNullableNumber(updates.bengaliMarks);
+  if (updates.englishMarks !== undefined) dbUpdates.english_marks = toNullableNumber(updates.englishMarks);
+  if (updates.mathMarks !== undefined) dbUpdates.math_marks = toNullableNumber(updates.mathMarks);
+  if (updates.lifeSciMarks !== undefined) dbUpdates.life_sci_marks = toNullableNumber(updates.lifeSciMarks);
+  if (updates.phySciMarks !== undefined) dbUpdates.phy_sci_marks = toNullableNumber(updates.phySciMarks);
+  if (updates.historyMarks !== undefined) dbUpdates.history_marks = toNullableNumber(updates.historyMarks);
+  if (updates.geoMarks !== undefined) dbUpdates.geo_marks = toNullableNumber(updates.geoMarks);
+  if (updates.totalMadhyamikMarks !== undefined) dbUpdates.total_madhyamik_marks = toNullableNumber(updates.totalMadhyamikMarks);
+  if (updates.percentageMadhyamik !== undefined) dbUpdates.percentage_madhyamik = toNullableNumber(updates.percentageMadhyamik);
   if (updates.languageGroup !== undefined) dbUpdates.language_group = updates.languageGroup || [];
   if (updates.foreignLanguage !== undefined) dbUpdates.foreign_language = toNullableString(updates.foreignLanguage);
   if (updates.mandatorySubjects !== undefined) dbUpdates.mandatory_subjects = updates.mandatorySubjects || [];
@@ -961,6 +1043,8 @@ export async function dbUpdateStudent(
             section: entry.section,
             roll: entry.roll,
             status: entry.status,
+            semester: toNullableString(entry.semester),
+            detention_count: toNullableNumber(entry.detentionCount),
           })
           .eq("id", existingHist.id);
       } else {
@@ -971,6 +1055,8 @@ export async function dbUpdateStudent(
           section: entry.section,
           roll: entry.roll,
           status: entry.status,
+          semester: toNullableString(entry.semester),
+          detention_count: toNullableNumber(entry.detentionCount),
         });
       }
     }
@@ -991,7 +1077,12 @@ export async function dbUpdateStudent(
     error.message.includes("board_registration_no") ||
     error.message.includes("board_roll_no") ||
     error.message.includes("kanyashree_id") ||
-    error.message.includes("caste_certificate_no")
+    error.message.includes("caste_certificate_no") ||
+    error.message.includes("present_semester") ||
+    error.message.includes("detention_count") ||
+    error.message.includes("tc_issued") ||
+    error.message.includes("tc_date") ||
+    error.message.includes("tc_reason")
   )) {
     delete dbUpdates.father_occupation;
     delete dbUpdates.mother_occupation;
@@ -1000,6 +1091,11 @@ export async function dbUpdateStudent(
     delete dbUpdates.board_roll_no;
     delete dbUpdates.kanyashree_id;
     delete dbUpdates.caste_certificate_no;
+    delete dbUpdates.present_semester;
+    delete dbUpdates.detention_count;
+    delete dbUpdates.tc_issued;
+    delete dbUpdates.tc_date;
+    delete dbUpdates.tc_reason;
     const retry = await supabase
       .from("students")
       .update(dbUpdates)
@@ -1053,7 +1149,7 @@ export async function dbGetOldStudentYears(): Promise<number[]> {
     const { data: historyYears } = await supabase
       .from("academic_history")
       .select("year, status")
-      .neq("status", "Continuing");
+      .in("status", ["Passed Out", "Drop Out", "TC Out"]);
 
     const set = new Set<number>();
     (historyYears || []).forEach((h) => {
@@ -1086,10 +1182,10 @@ export async function dbGetOldStudentsByYear(params: {
     let dbQuery = supabase
       .from("students")
       .select(
-        "id, name, school_id, pen, present_class, present_section, present_roll, gender, father_name, mother_name, guardian_name, student_contact, dob, current_status, admission_year",
+        "id, name, school_id, pen, present_class, present_section, present_roll, gender, father_name, mother_name, guardian_name, mobile, dob, current_status, admission_year, tc_issued, tc_date, tc_reason",
         { count: "exact" }
       )
-      .neq("current_status", "Continuing");
+      .in("current_status", ["Passed Out", "Drop Out", "TC Out"]);
 
     if (query.trim()) {
       const q = query.trim();
@@ -1130,7 +1226,7 @@ export async function dbGetOldStudentsByYear(params: {
       fatherName: s.father_name,
       motherName: s.mother_name,
       guardianName: s.guardian_name,
-      contact: s.student_contact,
+      contact: s.mobile || s.student_contact,
       dob: s.dob,
     }));
 
