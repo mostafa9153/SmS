@@ -21,7 +21,6 @@ import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
 import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { StudentPhotoPreviewDialog } from "@/components/students/student-photo-preview-dialog";
-import { StatusBadge } from "@/components/students/status-badge";
 
 interface StudentTableProps {
   data: Student[];
@@ -74,23 +73,6 @@ export function StudentTable({
             {row.index + 1}
           </span>
         ),
-      },
-      {
-        id: "status",
-        header: "Status",
-        cell: ({ row }) => {
-          const s = row.original;
-          return (
-            <div className="flex flex-col items-start gap-1 py-0.5">
-              <StatusBadge status={s.currentStatus || "Continuing"} size="sm" />
-              {s.detentionCount && s.detentionCount > 0 ? (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700">
-                  Repeater ({s.detentionCount}x)
-                </span>
-              ) : null}
-            </div>
-          );
-        },
       },
       {
         id: "photo",
@@ -541,14 +523,13 @@ function TableSkeleton() {
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className="bg-muted/50 border-b px-4 py-2.5 flex gap-8">
-        {["Sl.", "Status", "Photo", "Name", "School ID", "Class/Sec/Roll"].map(
+        {["Sl.", "Photo", "Name", "School ID", "Class/Sec/Roll"].map(
           (h) => <Skeleton key={h} className="h-3 w-14" />
         )}
       </div>
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="border-b last:border-0 px-4 py-3 flex items-center gap-6">
           <Skeleton className="h-3 w-6" />
-          <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="h-9 w-9 rounded-full shrink-0" />
           <div className="flex flex-col gap-1.5 flex-1">
             <Skeleton className="h-3 w-32" />
