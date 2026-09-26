@@ -193,12 +193,33 @@ export async function POST(req: Request) {
     for (let i = 0; i < studentUpdates.length; i += BATCH_SIZE) {
       const batch = studentUpdates.slice(i, i + BATCH_SIZE);
       await Promise.all(
-        batch.map((item) =>
-          adminClient
+        batch.map(async (item) => {
+          const { error } = await adminClient
             .from("students")
             .update(item.dbUpdates)
-            .eq("id", item.id)
-        )
+            .eq("id", item.id);
+          if (error) {
+            console.error("Student promotion update notice:", item.id, error.message);
+            const safeUpdates = {
+              present_class: item.dbUpdates.present_class,
+              present_section: item.dbUpdates.present_section,
+              present_roll: item.dbUpdates.present_roll,
+              current_status: item.dbUpdates.current_status,
+              re_admission_status: item.dbUpdates.re_admission_status,
+              previous_class: item.dbUpdates.previous_class,
+              previous_section: item.dbUpdates.previous_section,
+              previous_roll_no: item.dbUpdates.previous_roll_no,
+              academic_year: item.dbUpdates.academic_year,
+            };
+            const { error: fallbackErr } = await adminClient
+              .from("students")
+              .update(safeUpdates)
+              .eq("id", item.id);
+            if (fallbackErr) {
+              console.error("Fallback student update error:", fallbackErr.message);
+            }
+          }
+        })
       );
     }
 

@@ -112,9 +112,14 @@ export async function GET(req: Request) {
       classVariations = ["XII", "12", "Class XII", "Class 12"];
     }
 
+    // Match either present_class or previous_class so candidates are found whether filtered by source or target class
+    const presentClassConditions = classVariations.map((c) => `present_class.eq.${c}`).join(",");
+    const previousClassConditions = classVariations.map((c) => `previous_class.eq.${c}`).join(",");
+    const orClassCondition = `${presentClassConditions},${previousClassConditions}`;
+
     query = query
       .in("current_status", RE_ADMISSION_CANDIDATE_STATUSES)
-      .in("present_class", classVariations);
+      .or(orClassCondition);
 
     if (targetSection && targetSection !== "all") {
       query = query.ilike("present_section", targetSection);
