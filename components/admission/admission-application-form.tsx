@@ -306,20 +306,41 @@ export function AdmissionApplicationForm({
   checklist,
 }: AdmissionApplicationFormProps) {
   // Accordion open/close state for all 9 sections
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    A: true,
-    B: false,
-    C: false,
-    D: false,
-    E: false,
-    F: false,
-    G: false,
-    H: false,
-    I: false,
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
+    if (mode === "review" || !!initialData) {
+      return {
+        A: true,
+        B: true,
+        C: true,
+        D: true,
+        E: true,
+        F: true,
+        G: true,
+        H: true,
+        I: true,
+      };
+    }
+    return {
+      A: true,
+      B: false,
+      C: false,
+      D: false,
+      E: false,
+      F: false,
+      G: false,
+      H: false,
+      I: false,
+    };
   });
 
   // Track which sections have been saved
-  const [savedSections, setSavedSections] = useState<Record<string, boolean>>({});
+  const [savedSections, setSavedSections] = useState<Record<string, boolean>>(() => {
+    if (mode === "review" || !!initialData) {
+      return { A: true, B: true, C: true, D: true, E: true, F: true, G: true, H: true, I: true };
+    }
+    const empty: Record<string, boolean> = {};
+    return empty;
+  });
 
   const SECTION_ORDER = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
 
@@ -365,6 +386,7 @@ export function AdmissionApplicationForm({
   };
 
   const isSectionUnlocked = (sec: string) => {
+    if (mode === "review" || !!initialData) return true;
     const idx = SECTION_ORDER.indexOf(sec);
     if (idx <= 0) return true; // Section A is always unlocked
     for (let i = 0; i < idx; i++) {

@@ -180,9 +180,10 @@ export async function POST(req: Request) {
     if (updatedProfile && typeof updatedProfile === "object") {
       const p = updatedProfile;
       if (p.name || p.studentName) updatePayload.name = p.name || p.studentName;
+      if (p.student_name_bengali || p.studentNameBengali) updatePayload.student_name_bengali = p.student_name_bengali || p.studentNameBengali;
       if (p.photo_url || p.photoUrl) updatePayload.photo_url = p.photo_url || p.photoUrl;
-      if (p.student_contact || p.contactNumber || p.studentContact) {
-        updatePayload.student_contact = p.student_contact || p.contactNumber || p.studentContact;
+      if (p.mobile || p.student_contact || p.studentContact || p.contactNumber) {
+        updatePayload.mobile = p.mobile || p.student_contact || p.studentContact || p.contactNumber;
       }
       if (p.alt_mobile !== undefined || p.altMobile !== undefined) {
         updatePayload.alt_mobile = p.alt_mobile !== undefined ? p.alt_mobile : p.altMobile;
@@ -191,16 +192,40 @@ export async function POST(req: Request) {
       if (p.father_name !== undefined || p.fatherName !== undefined) {
         updatePayload.father_name = p.father_name !== undefined ? p.father_name : p.fatherName;
       }
+      if (p.father_name_bengali !== undefined || p.fatherNameBengali !== undefined) {
+        updatePayload.father_name_bengali = p.father_name_bengali !== undefined ? p.father_name_bengali : p.fatherNameBengali;
+      }
+      if (p.father_occupation !== undefined || p.fatherOccupation !== undefined) {
+        updatePayload.father_occupation = p.father_occupation !== undefined ? p.father_occupation : p.fatherOccupation;
+      }
       if (p.mother_name !== undefined || p.motherName !== undefined) {
         updatePayload.mother_name = p.mother_name !== undefined ? p.mother_name : p.motherName;
+      }
+      if (p.mother_name_bengali !== undefined || p.motherNameBengali !== undefined) {
+        updatePayload.mother_name_bengali = p.mother_name_bengali !== undefined ? p.mother_name_bengali : p.motherNameBengali;
+      }
+      if (p.mother_occupation !== undefined || p.motherOccupation !== undefined) {
+        updatePayload.mother_occupation = p.mother_occupation !== undefined ? p.mother_occupation : p.motherOccupation;
       }
       if (p.guardian_name !== undefined || p.guardianName !== undefined) {
         updatePayload.guardian_name = p.guardian_name !== undefined ? p.guardian_name : p.guardianName;
       }
-      if (p.relationship !== undefined) updatePayload.relationship = p.relationship;
-      if (p.aadhaar_no !== undefined || p.aadhaar !== undefined || p.aadhaarNo !== undefined) {
-        updatePayload.aadhaar_no = p.aadhaar_no !== undefined ? p.aadhaar_no : (p.aadhaar !== undefined ? p.aadhaar : p.aadhaarNo);
+      if (p.guardian_occupation !== undefined || p.guardianOccupation !== undefined) {
+        updatePayload.guardian_occupation = p.guardian_occupation !== undefined ? p.guardian_occupation : p.guardianOccupation;
       }
+      if (p.guardian_qualification !== undefined || p.guardianQualification !== undefined) {
+        updatePayload.guardian_qualification = p.guardian_qualification !== undefined ? p.guardian_qualification : p.guardianQualification;
+      }
+      if (p.relationship_with_guardian !== undefined || p.relationshipWithGuardian !== undefined || p.relationship !== undefined) {
+        updatePayload.relationship_with_guardian = p.relationship_with_guardian || p.relationshipWithGuardian || p.relationship;
+      }
+      if (p.aadhaar !== undefined || p.aadhaar_no !== undefined || p.aadhaarNo !== undefined) {
+        updatePayload.aadhaar = p.aadhaar !== undefined ? p.aadhaar : (p.aadhaar_no !== undefined ? p.aadhaar_no : p.aadhaarNo);
+      }
+      if (p.name_as_per_aadhaar !== undefined || p.nameAsPerAadhaar !== undefined) {
+        updatePayload.name_as_per_aadhaar = p.name_as_per_aadhaar || p.nameAsPerAadhaar;
+      }
+      if (p.pen !== undefined) updatePayload.pen = p.pen;
       if (p.dob !== undefined || p.dateOfBirth !== undefined || p.date_of_birth !== undefined) {
         updatePayload.dob = p.dob || p.dateOfBirth || p.date_of_birth;
       }
@@ -209,26 +234,27 @@ export async function POST(req: Request) {
         updatePayload.blood_group = p.blood_group !== undefined ? p.blood_group : p.bloodGroup;
       }
       if (p.religion !== undefined) updatePayload.religion = p.religion;
-      if (p.caste !== undefined || p.socialCategory !== undefined || p.social_category !== undefined) {
-        updatePayload.caste = p.caste || p.socialCategory || p.social_category;
+      if (p.social_category !== undefined || p.socialCategory !== undefined || p.caste !== undefined) {
+        updatePayload.social_category = p.social_category || p.socialCategory || p.caste;
       }
-      if (p.address !== undefined) updatePayload.address = p.address;
-      if (p.vill_town !== undefined || p.villTown !== undefined || p.village !== undefined) {
-        updatePayload.vill_town = p.vill_town !== undefined ? p.vill_town : (p.villTown !== undefined ? p.villTown : p.village);
+      if (p.minority_group !== undefined || p.minorityGroup !== undefined) {
+        updatePayload.minority_group = p.minority_group || p.minorityGroup;
       }
-      if (p.post_office !== undefined || p.postOffice !== undefined) {
-        updatePayload.post_office = p.post_office !== undefined ? p.post_office : p.postOffice;
+      if (p.mother_tongue !== undefined || p.motherTongue !== undefined) {
+        updatePayload.mother_tongue = p.mother_tongue || p.motherTongue;
       }
-      if (p.police_station !== undefined || p.policeStation !== undefined) {
-        updatePayload.police_station = p.police_station !== undefined ? p.police_station : p.policeStation;
+      if (p.address !== undefined || p.presentVillage !== undefined || p.vill_town !== undefined || p.present_village !== undefined) {
+        updatePayload.address = p.address || p.presentVillage || p.vill_town || p.present_village;
       }
-      if (p.pin_code !== undefined || p.pinCode !== undefined || p.pincode !== undefined) {
-        updatePayload.pin_code = p.pin_code !== undefined ? p.pin_code : (p.pinCode !== undefined ? p.pinCode : p.pincode);
+      if (p.gram_panchayat !== undefined || p.presentPanchayat !== undefined || p.present_panchayat !== undefined) {
+        updatePayload.gram_panchayat = p.gram_panchayat || p.presentPanchayat || p.present_panchayat;
       }
-      if (p.dist !== undefined || p.district !== undefined) {
-        updatePayload.dist = p.dist !== undefined ? p.dist : p.district;
+      if (p.block !== undefined || p.presentBlock !== undefined || p.present_block !== undefined) {
+        updatePayload.block = p.block || p.presentBlock || p.present_block;
       }
-      if (p.state !== undefined) updatePayload.state = p.state;
+      if (p.pincode !== undefined || p.pin_code !== undefined || p.pinCode !== undefined || p.presentPincode !== undefined) {
+        updatePayload.pincode = p.pincode || p.pin_code || p.pinCode || p.presentPincode;
+      }
       if (p.bank_account_no !== undefined || p.bankAccountNo !== undefined) {
         updatePayload.bank_account_no = p.bank_account_no !== undefined ? p.bank_account_no : p.bankAccountNo;
       }
@@ -238,26 +264,32 @@ export async function POST(req: Request) {
       if (p.bank_name !== undefined || p.bankName !== undefined) {
         updatePayload.bank_name = p.bank_name !== undefined ? p.bank_name : p.bankName;
       }
+      if (p.bank_branch !== undefined || p.bankBranch !== undefined) {
+        updatePayload.bank_branch = p.bank_branch !== undefined ? p.bank_branch : p.bankBranch;
+      }
       if (p.bpl_status !== undefined || p.bplStatus !== undefined) {
         updatePayload.bpl_status = p.bpl_status !== undefined ? p.bpl_status : p.bplStatus;
+      }
+      if (p.bpl_no !== undefined || p.bplNo !== undefined) {
+        updatePayload.bpl_no = p.bpl_no !== undefined ? p.bpl_no : p.bplNo;
       }
       if (p.kanyashree_id !== undefined || p.kanyashreeId !== undefined) {
         updatePayload.kanyashree_id = p.kanyashree_id !== undefined ? p.kanyashree_id : p.kanyashreeId;
       }
-      if (p.shikshashree_id !== undefined || p.shikshashreeId !== undefined) {
-        updatePayload.shikshashree_id = p.shikshashree_id !== undefined ? p.shikshashree_id : p.shikshashreeId;
+      if (p.birth_registration_no !== undefined || p.birthRegistrationNo !== undefined) {
+        updatePayload.birth_registration_no = p.birth_registration_no || p.birthRegistrationNo;
       }
-      if (p.oasis_id !== undefined || p.oasisId !== undefined) {
-        updatePayload.oasis_id = p.oasis_id !== undefined ? p.oasis_id : p.oasisId;
+      if (p.identification_mark !== undefined || p.identificationMark !== undefined) {
+        updatePayload.identification_mark = p.identification_mark || p.identificationMark;
       }
-      if (p.aikyashree_id !== undefined || p.aikyashreeId !== undefined) {
-        updatePayload.aikyashree_id = p.aikyashree_id !== undefined ? p.aikyashree_id : p.aikyashreeId;
+      if (p.height_cm !== undefined || p.heightCm !== undefined) {
+        updatePayload.height_cm = p.height_cm || p.heightCm;
       }
-      if (p.taruner_swapna_id !== undefined || p.tarunerSwapnaId !== undefined) {
-        updatePayload.taruner_swapna_id = p.taruner_swapna_id !== undefined ? p.taruner_swapna_id : p.tarunerSwapnaId;
+      if (p.weight_kg !== undefined || p.weightKg !== undefined) {
+        updatePayload.weight_kg = p.weight_kg || p.weightKg;
       }
-      if (p.svmcs_id !== undefined || p.svmcsId !== undefined) {
-        updatePayload.svmcs_id = p.svmcs_id !== undefined ? p.svmcs_id : p.svmcsId;
+      if (p.academic_stream !== undefined || p.academicStream !== undefined) {
+        updatePayload.academic_stream = p.academic_stream || p.academicStream;
       }
     }
 

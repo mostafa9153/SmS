@@ -111,7 +111,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 group-hover:scale-110",
   },
   {
-    label: "Promotion & Transfer",
+    label: "Promotion",
     href: "/students/promotion",
     icon: <ArrowUpDown className="h-4 w-4" />,
     iconBg: "bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500/20 group-hover:scale-110",

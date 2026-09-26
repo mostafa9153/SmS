@@ -51,21 +51,11 @@ interface Step4FinalizeProps {
 }
 
 export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizeProps) {
-  const currentClass = studentData.presentClass || studentData.present_class || "V";
-  const currentStatus = studentData.currentStatus || studentData.current_status;
+  const previousClass = studentData.previous_class || studentData.previousClass;
+  const currentClass = studentData.presentClass || studentData.present_class || studentData.targetClass || "VI";
+  const studentName = studentData.studentName || studentData.name || "Student";
 
-  // If already placed in target class via Phase 3 promotion wizard, detention, or supplementary
-  const isAlreadyPlacedInTargetClass =
-    currentStatus === "Promoted But Not Admitted" ||
-    currentStatus === "Detained" ||
-    currentStatus === "Supplementary" ||
-    currentStatus === "Compartmental" ||
-    currentStatus === "Not Admitted";
-
-  const initialTargetClass =
-    studentData.targetClass ||
-    studentData.promotedClass ||
-    (isAlreadyPlacedInTargetClass ? currentClass : (CLASS_PROMOTION_MAP[currentClass] || currentClass));
+  const initialTargetClass = studentData.targetClass || currentClass;
 
   const [targetClass, setTargetClass] = useState<string>(initialTargetClass);
   const [section, setSection] = useState<string>(studentData.presentSection || studentData.present_section || "A");
@@ -161,18 +151,19 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
         applicationId: studentData.applicationId,
       });
 
-      toast.success(`${studentData.studentName || "Student"} re-admitted successfully!`);
+      toast.success(`${studentName} re-admitted successfully!`);
       onAdmit({
         ...result,
-        studentName: studentData.studentName,
+        studentName,
         targetClass,
         targetSection: section,
         targetRoll: rollNo,
-        schoolId: result.schoolId || studentData.schoolId,
+        schoolId: result.schoolId || studentData.schoolId || studentData.school_id,
         invoiceNo: invoiceNo.trim() || null,
         feeAmount: totalFee,
       });
     } catch (err: any) {
+      console.error("Re-admission error:", err);
       toast.error(err.message || "Failed to process re-admission");
     } finally {
       setIsSubmitting(false);
@@ -190,7 +181,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-foreground">Promotion & Finalize</span>
             <Badge variant="outline" className="text-[10px] font-semibold text-primary">
-              {studentData.studentName}
+              {studentName}
             </Badge>
           </div>
         </div>
@@ -199,7 +190,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
           onClick={handleConfirmAdmission}
           disabled={isSubmitting}
           size="sm"
-          className="h-8 px-4 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="h-8 px-4 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
         >
           {isSubmitting ? (
             <>
@@ -227,7 +218,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
                   <h3 className="text-xs font-bold text-foreground">Class Promotion & Placement</h3>
                 </div>
                 <Badge variant="outline" className="text-[10px] font-semibold">
-                  From Class {currentClass}
+                  {previousClass ? `From Class ${previousClass} → Class ${targetClass}` : `Enrolling to Class ${targetClass}`}
                 </Badge>
               </div>
 

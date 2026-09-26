@@ -9,7 +9,6 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { QuickReAdmitDialog } from "@/components/students/quick-re-admit-dialog";
 import { IssueTcDialog } from "@/components/students/issue-tc-dialog";
-import { BatchReAdmitModal } from "@/components/students/batch-re-admit-modal";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +98,6 @@ export function PendingStudentsClient() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [quickReAdmitStudent, setQuickReAdmitStudent] = useState<Student | null>(null);
   const [issueTcStudent, setIssueTcStudent] = useState<Student | null>(null);
-  const [batchModalOpen, setBatchModalOpen] = useState<boolean>(false);
   const [dropOutConfirmOpen, setDropOutConfirmOpen] = useState<boolean>(false);
   const [dropOutTargetStudents, setDropOutTargetStudents] = useState<Student[]>([]);
   const [archiveStaleConfirmOpen, setArchiveStaleConfirmOpen] = useState<boolean>(false);
@@ -244,24 +242,13 @@ export function PendingStudentsClient() {
 
           <Link href="/admission/re">
             <Button
-              variant="outline"
               size="sm"
               className="h-8 text-xs font-semibold gap-1.5"
             >
-              <UserCheck className="h-3.5 w-3.5 text-primary" />
+              <UserCheck className="h-3.5 w-3.5" />
               <span>Re-Admission Portal</span>
             </Button>
           </Link>
-
-          <Button
-            size="sm"
-            onClick={() => setBatchModalOpen(true)}
-            disabled={students.length === 0}
-            className="h-8 text-xs font-semibold gap-1.5"
-          >
-            <GraduationCap className="h-3.5 w-3.5" />
-            <span>{selectedIds.size > 0 ? `Batch Re-Admit (${selectedIds.size})` : "Batch Re-Admit"}</span>
-          </Button>
         </div>
       </div>
 
@@ -367,15 +354,6 @@ export function PendingStudentsClient() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => setBatchModalOpen(true)}
-              className="h-7 text-xs font-semibold gap-1"
-            >
-              <GraduationCap className="h-3 w-3" />
-              <span>Batch Re-Admit ({selectedIds.size})</span>
-            </Button>
-
             <Button
               variant="outline"
               size="sm"
@@ -641,16 +619,6 @@ export function PendingStudentsClient() {
         }}
       />
 
-      <BatchReAdmitModal
-        open={batchModalOpen}
-        onOpenChange={setBatchModalOpen}
-        selectedStudents={selectedStudents.length > 0 ? selectedStudents : students}
-        onSuccess={() => {
-          setSelectedIds(new Set());
-          queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-          queryClient.invalidateQueries({ queryKey: ["students"] });
-        }}
-      />
 
       {/* Drop Out Confirmation Dialog */}
       <Dialog open={dropOutConfirmOpen} onOpenChange={setDropOutConfirmOpen}>

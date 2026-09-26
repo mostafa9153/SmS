@@ -91,8 +91,8 @@ const HUB_ACTIONS: HubAction[] = [
     accentBg: "bg-teal-500/10 border-teal-500/20",
   },
   {
-    title: "Promotion & Transfer",
-    desc: "Academic rollover & TC records",
+    title: "Promotion",
+    desc: "Academic rollover & transitions",
     href: "/students/promotion",
     icon: ArrowUpDown,
     color: "text-purple-600 dark:text-purple-400",

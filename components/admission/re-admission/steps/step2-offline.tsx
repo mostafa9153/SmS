@@ -79,13 +79,16 @@ export function Step2Offline({
     }).catch(() => {});
   }, []);
 
-  // Auto-fetch candidates on mount and filter changes
+  // Auto-fetch candidates on mount and filter/search changes
   useEffect(() => {
-    if (selectedClass) {
-      fetchCandidates();
-    }
+    const timer = setTimeout(() => {
+      if (selectedClass) {
+        fetchCandidates();
+      }
+    }, 250);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, selectedSection, statusFilter]);
+  }, [selectedClass, selectedSection, statusFilter, searchQuery]);
 
   // Fetch candidates on filter change or click
   const fetchCandidates = async () => {
@@ -97,7 +100,7 @@ export function Step2Offline({
     try {
       if (typeof window !== "undefined") {
         localStorage.setItem("sms_readmission_class", selectedClass);
-        if (selectedSection !== "all") {
+        if (selectedSection) {
           localStorage.setItem("sms_readmission_section", selectedSection);
         }
       }
@@ -141,10 +144,11 @@ export function Step2Offline({
           <div className="flex items-center gap-1 flex-1 sm:flex-initial">
             <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground">Class:</span>
             <Select value={selectedClass} onValueChange={(v) => v && setSelectedClass(v)}>
-              <SelectTrigger className="h-8 flex-1 sm:w-24 text-xs font-semibold">
+              <SelectTrigger className="h-8 flex-1 sm:w-28 text-xs font-semibold">
                 <SelectValue placeholder="Class" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all" className="text-xs font-semibold">All Classes</SelectItem>
                 {availableClasses.map((cls) => (
                   <SelectItem key={cls} value={cls} className="text-xs">
                     Class {cls}
@@ -187,76 +191,55 @@ export function Step2Offline({
             </Select>
           </div>
 
-          {/* Proceed & Load Button */}
+          {/* Refresh Button */}
           <Button
             onClick={fetchCandidates}
             disabled={loading}
+            variant="outline"
             size="sm"
-            className="h-8 w-full sm:w-auto px-3.5 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground justify-center"
+            className="h-8 px-2.5 text-xs font-semibold gap-1.5"
+            title="Refresh list"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Loading...</span>
-              </>
-            ) : (
-              <>
-                <ArrowRight className="w-3.5 h-3.5" />
-                <span>Proceed &amp; Load</span>
-              </>
-            )}
+            <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
           </Button>
         </div>
       </div>
 
       {/* Main Content Area */}
-      {!hasLoaded ? (
-        <Card className="border shadow-xs">
-          <CardContent className="p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-              <Filter className="w-6 h-6" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold text-foreground">Select Class &amp; Section</h3>
-              <p className="text-xs text-muted-foreground">
-                Choose class and section above and click Proceed to view candidates.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {/* Search bar */}
-          <form onSubmit={handleSearchSubmit} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search candidate by name, roll, PEN, ID, or mobile..."
-                className="pl-9 h-9 text-xs font-medium rounded-xl"
-              />
-            </div>
-            <Button type="submit" size="sm" className="h-9 px-3 sm:px-4 text-xs font-semibold shrink-0">
-              Search
-            </Button>
-          </form>
+      <div className="space-y-3">
+        {/* Search bar */}
+        <form onSubmit={handleSearchSubmit} className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search candidate by name, roll, PEN, ID, or mobile..."
+              className="pl-9 h-9 text-xs font-medium rounded-xl"
+            />
+          </div>
+          <Button type="submit" size="sm" className="h-9 px-3 sm:px-4 text-xs font-semibold shrink-0">
+            Search
+          </Button>
+        </form>
 
-          {/* Candidates List */}
-          {loading ? (
-            <div className="p-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              <span className="text-xs">Loading candidates for Class {selectedClass}...</span>
-            </div>
-          ) : candidates.length === 0 ? (
-            <Card className="border shadow-xs">
-              <CardContent className="p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                <User className="w-8 h-8 opacity-40" />
-                <span className="text-xs font-medium">No candidates found for Class {selectedClass} ({selectedSection})</span>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="rounded-xl border bg-card shadow-xs overflow-hidden divide-y divide-border/60">
+        {/* Candidates List */}
+        {loading ? (
+          <div className="p-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <span className="text-xs">Loading candidates{selectedClass !== "all" ? ` for Class ${selectedClass}` : ""}...</span>
+          </div>
+        ) : candidates.length === 0 ? (
+          <Card className="border shadow-xs">
+            <CardContent className="p-8 sm:p-10 text-center flex flex-col items-center justify-center gap-2 text-muted-foreground">
+              <User className="w-8 h-8 opacity-40" />
+              <span className="text-xs font-medium">
+                No candidates found{selectedClass !== "all" ? ` for Class ${selectedClass}` : ""}{selectedSection !== "all" ? ` (${selectedSection})` : ""}
+              </span>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="rounded-xl border bg-card shadow-xs overflow-hidden divide-y divide-border/60">
               {candidates.map((student) => {
                 const isAdmitted = student.reAdmissionStatus === "admitted" || (student as any).re_admission_status === "admitted";
                 const isNotAdmitted = student.reAdmissionStatus === "not_admitted" || (student as any).re_admission_status === "not_admitted";
@@ -343,7 +326,6 @@ export function Step2Offline({
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }

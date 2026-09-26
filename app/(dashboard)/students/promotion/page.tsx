@@ -588,7 +588,7 @@ function PromotionPageContent() {
           <div>
             <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
               <GraduationCap className="h-5 w-5 text-primary" />
-              Promotion &amp; Lifecycle Desk
+              Promotion
             </h1>
           </div>
         </div>
