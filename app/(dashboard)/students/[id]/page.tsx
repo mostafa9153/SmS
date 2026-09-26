@@ -203,9 +203,15 @@ function StudentProfilePageContent() {
           {/* Left / Center: Student Details & Actions */}
           <div className="flex-1 min-w-0 space-y-3.5">
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-xl font-bold">{student.name}</h1>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{student.name}</h1>
                 <CopyButton text={student.name} label="Student Name" iconClassName="h-3.5 w-3.5" />
+                <StatusBadge status={student.currentStatus || "Continuing"} size="md" />
+                {student.presentSemester && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                    {student.presentSemester}
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-2 mt-2 items-center">
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted/80 border px-2.5 py-1 text-xs font-mono text-foreground shadow-2xs">
@@ -232,9 +238,6 @@ function StudentProfilePageContent() {
                     <span>Not Assigned</span>
                   </span>
                 )}
-              </div>
-              <div className="mt-2.5">
-                <StatusBadge status={student.currentStatus} />
               </div>
             </div>
 
@@ -359,7 +362,14 @@ function StudentProfilePageContent() {
             <p className="text-xs text-muted-foreground mb-0.5">Class / Sec / Roll</p>
             <p className="font-medium">
               {student.presentClass} - {student.presentSection} - Roll {student.presentRoll}
+              {student.presentSemester ? ` (${student.presentSemester})` : ""}
             </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-0.5">Current Status</p>
+            <div className="mt-0.5">
+              <StatusBadge status={student.currentStatus || "Continuing"} size="sm" />
+            </div>
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-0.5">Gender</p>
@@ -518,6 +528,10 @@ function StudentProfilePageContent() {
             <div>
               <SectionTitle>Present Enrolment Details</SectionTitle>
               <InfoGrid>
+                <InfoField
+                  label="Current Status"
+                  value={<StatusBadge status={student.currentStatus || "Continuing"} size="sm" />}
+                />
                 <InfoField label="Class" value={student.presentClass} />
                 <InfoField label="Section" value={student.presentSection} />
                 <InfoField label="Roll Number" value={String(student.presentRoll)} />
@@ -1296,17 +1310,22 @@ function InfoField({
   copyable,
 }: {
   label: string;
-  value?: string | number | null;
+  value?: React.ReactNode | string | number | null;
   full?: boolean;
   copyable?: boolean;
 }) {
-  const displayVal = value !== undefined && value !== null && String(value).trim() !== "" ? String(value) : "—";
+  const isReactNode = typeof value === "object" && value !== null && !Array.isArray(value);
+  const displayVal = value !== undefined && value !== null && String(value).trim() !== "" ? value : "—";
   return (
     <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
       <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
       <div className="flex items-center gap-1.5">
-        <p className="text-sm font-medium break-all">{displayVal}</p>
-        {copyable && displayVal !== "—" && (
+        {isReactNode ? (
+          <div className="text-sm font-medium">{value}</div>
+        ) : (
+          <p className="text-sm font-medium break-all">{displayVal as React.ReactNode}</p>
+        )}
+        {copyable && typeof displayVal === "string" && displayVal !== "—" && (
           <CopyButton text={displayVal} label={label} iconClassName="h-3 w-3" />
         )}
       </div>

@@ -670,39 +670,38 @@ export async function dbSearchStudents(
   if (filters.section) {
     query = query.ilike("present_section", filters.section);
   }
-  if (filters.studentType === "active") {
-    if (filters.status) {
-      query = query.ilike("current_status", filters.status);
-    } else {
-      // Active enrolled students on academic rosters
-      query = query.in("current_status", ["Continuing", "New Admission", "Suspended"]);
-    }
-  } else if (filters.studentType === "old") {
-    if (filters.status) {
-      query = query.ilike("current_status", filters.status);
-    } else {
-      // Archived / departed students
-      query = query.in("current_status", ["Passed Out", "Drop Out", "TC Out"]);
-    }
-  } else if (filters.studentType === "pending") {
-    if (filters.status) {
-      query = query.ilike("current_status", filters.status);
-    } else {
-      // Pending re-admission / promotion candidates
-      query = query.in("current_status", [
-        "Promoted But Not Admitted",
-        "Detained",
-        "Supplementary",
-        "Compartmental",
-        "Not Admitted",
-        "Sent Up M.P.",
-        "10th test fail",
-        "exam fail - C.C",
-        "C.C.H.S.",
-      ]);
-    }
-  } else if (filters.status) {
+  if (filters.status) {
     query = query.ilike("current_status", filters.status);
+  } else if (filters.studentType === "active") {
+    // Active enrolled students on academic rosters (excluding pending admission & departed archives)
+    query = query.in("current_status", [
+      "Continuing",
+      "New Admission",
+      "Sent Up M.P.",
+      "Detained",
+      "10th test fail",
+      "exam fail - C.C",
+      "C.C.H.S.",
+      "Supplementary",
+      "Compartmental",
+      "Suspended",
+    ]);
+  } else if (filters.studentType === "old") {
+    // Archived / departed students
+    query = query.in("current_status", ["Passed Out", "Drop Out", "TC Out"]);
+  } else if (filters.studentType === "pending") {
+    // Pending re-admission / promotion candidates
+    query = query.in("current_status", [
+      "Promoted But Not Admitted",
+      "Detained",
+      "Supplementary",
+      "Compartmental",
+      "Not Admitted",
+      "Sent Up M.P.",
+      "10th test fail",
+      "exam fail - C.C",
+      "C.C.H.S.",
+    ]);
   }
   if (filters.semester) {
     query = query.ilike("present_semester", filters.semester);

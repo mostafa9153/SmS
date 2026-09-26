@@ -11,6 +11,13 @@ import { cn, sortClasses, STATUS_STYLES } from "@/lib/utils";
 export const ACTIVE_STATUSES: StudentStatus[] = [
   "Continuing",
   "New Admission",
+  "Sent Up M.P.",
+  "Detained",
+  "10th test fail",
+  "exam fail - C.C",
+  "C.C.H.S.",
+  "Supplementary",
+  "Compartmental",
   "Suspended",
 ];
 
@@ -32,11 +39,9 @@ export const OLD_STATUSES: StudentStatus[] = [
   "TC Out",
 ];
 
-export const ALL_STATUSES: StudentStatus[] = [
-  ...ACTIVE_STATUSES,
-  ...PENDING_STATUSES,
-  ...OLD_STATUSES,
-];
+export const ALL_STATUSES: StudentStatus[] = Array.from(
+  new Set([...ACTIVE_STATUSES, ...PENDING_STATUSES, ...OLD_STATUSES])
+);
 
 
 interface StudentFiltersBarProps {

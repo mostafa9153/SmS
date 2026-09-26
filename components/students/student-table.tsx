@@ -21,6 +21,7 @@ import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
 import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { StudentPhotoPreviewDialog } from "@/components/students/student-photo-preview-dialog";
+import { StatusBadge } from "@/components/students/status-badge";
 
 interface StudentTableProps {
   data: Student[];
@@ -123,6 +124,17 @@ export function StudentTable({
                   {s.name}
                 </p>
                 <CopyButton text={s.name} label="Student Name" iconClassName="h-2.5 w-2.5" />
+                <StatusBadge status={s.currentStatus || "Continuing"} size="sm" />
+                {s.detentionCount && s.detentionCount > 0 ? (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700">
+                    Repeater ({s.detentionCount}x)
+                  </span>
+                ) : null}
+                {s.presentSemester && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    {s.presentSemester}
+                  </span>
+                )}
                 {s.dob && (
                   <span
                     className="inline-flex items-center gap-1 font-mono text-[11px] bg-muted/80 text-foreground px-1.5 py-0.5 rounded-md border border-border/50"

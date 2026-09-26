@@ -20,7 +20,7 @@ export const STATUS_STYLES: Record<
     badge: "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60",
     dot: "bg-emerald-500",
     chart: "#10b981",
-    label: "Active",
+    label: "Regular",
   },
   "New Admission": {
     badge: "bg-teal-50 text-teal-700 border border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800/60",
@@ -38,7 +38,7 @@ export const STATUS_STYLES: Record<
     badge: "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800/60",
     dot: "bg-rose-500",
     chart: "#f43f5e",
-    label: "Detained (Pending)",
+    label: "Detained (Repeater)",
   },
   Supplementary: {
     badge: "bg-amber-100 text-amber-800 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700/60",
@@ -68,13 +68,13 @@ export const STATUS_STYLES: Record<
     badge: "bg-rose-100 text-rose-800 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700/60",
     dot: "bg-rose-600",
     chart: "#e11d48",
-    label: "10th Test Fail",
+    label: "10th Test Fail (Repeater)",
   },
   "exam fail - C.C": {
     badge: "bg-orange-100 text-orange-800 border border-orange-300 dark:bg-orange-950/60 dark:text-orange-300 dark:border-orange-700/60",
     dot: "bg-orange-600",
     chart: "#ea580c",
-    label: "Board Fail (C.C)",
+    label: "Board Fail (Repeater C.C)",
   },
   "Passed Out": {
     badge: "bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/60",
@@ -86,7 +86,7 @@ export const STATUS_STYLES: Record<
     badge: "bg-purple-50 text-purple-700 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800/60",
     dot: "bg-purple-500",
     chart: "#a855f7",
-    label: "Board Fail (CCHS)",
+    label: "Board Fail (Repeater CCHS)",
   },
   "TC Out": {
     badge: "bg-slate-100 text-slate-700 border border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
