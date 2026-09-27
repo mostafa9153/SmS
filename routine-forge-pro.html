@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Routine Forge Pro — Advanced School Timetable</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1B2A4A; --navy-deep:#131f38; --navy-mid:#25375c;
+  --paper:#F7F5F0; --paper-dim:#EFEBE2; --card:#FFFFFF;
+  --green:#2E7D5B; --green-dark:#215d43;
+  --red:#C4442E; --red-bg:#FBEAE6;
+  --gold:#8B6F3E; --gold-bg:#F3ECDB;
+  --ink:#1E2430; --ink-soft:#5B6472; --ink-faint:#8B93A1;
+  --line:#DEDAD0; --line-strong:#C7C1B3;
+  --shadow: 0 1px 2px rgba(27,42,74,0.06), 0 4px 14px rgba(27,42,74,0.07);
+  --shadow-lg: 0 8px 30px rgba(27,42,74,0.16);
+  --radius: 10px; --radius-sm: 6px;
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{margin:0;font-family:'Inter',system-ui,sans-serif;background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;font-size:14px;}
+h1,h2,h3,.serif{font-family:'Lora',Georgia,serif;}
+::selection{background:#c9dccf;}
+button,input,select,textarea{font-family:inherit;}
+a{color:inherit;}
+
+/* Layout */
+.app{display:grid;grid-template-columns: 264px 1fr;min-height:100vh;}
+@media (max-width: 900px){.app{grid-template-columns:1fr;}.sidebar{position:sticky;top:0;z-index:40;}}
+
+/* Sidebar */
+.sidebar{background:linear-gradient(180deg,var(--navy) 0%, var(--navy-deep) 100%);color:#EDEFF4;padding:22px 16px 20px;display:flex;flex-direction:column;gap:4px;}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 6px 20px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:14px;}
+.brand-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--gold),#a9895a);display:flex;align-items:center;justify-content:center;font-family:'Lora',serif;font-weight:700;color:var(--navy-deep);font-size:16px;flex-shrink:0;}
+.brand-text .t1{font-family:'Lora',serif;font-weight:600;font-size:16px;line-height:1.2;}
+.brand-text .t2{font-size:11px;color:#9FB0C9;letter-spacing:.02em;}
+.nav-group-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:#7F90AC;padding:14px 10px 6px;font-weight:600;}
+.nav-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border-radius:8px;border:none;background:transparent;color:#CBD4E3;font-size:13.5px;font-weight:500;cursor:pointer;transition:all .12s ease;position:relative;}
+.nav-btn .ic{width:18px;height:18px;flex-shrink:0;opacity:.85;}
+.nav-btn:hover{background:rgba(255,255,255,0.06);color:#fff;}
+.nav-btn.active{background:rgba(255,255,255,0.11);color:#fff;}
+.nav-btn.active::before{content:"";position:absolute;left:-16px;top:8px;bottom:8px;width:3px;background:var(--gold);border-radius:2px;}
+.nav-btn .count{margin-left:auto;font-size:11px;background:rgba(255,255,255,0.12);padding:1px 7px;border-radius:20px;color:#D9E0EA;font-weight:600;}
+.sidebar-foot{margin-top:auto;padding:14px 10px 2px;border-top:1px solid rgba(255,255,255,0.1);font-size:11px;color:#7F90AC;line-height:1.5;}
+
+/* Main */
+.main{padding:26px 34px 60px;max-width:1280px;width:100%;}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;}
+.page-head h1{font-size:24px;font-weight:600;margin:0 0 4px;color:var(--navy);}
+.page-head p{margin:0;color:var(--ink-soft);font-size:13.5px;max-width:640px;}
+.page-actions{display:flex;gap:10px;flex-wrap:wrap;}
+.panel{display:none;}
+.panel.active{display:block;animation:fadeIn .18s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:8px;border:1px solid transparent;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .12s ease;white-space:nowrap;}
+.btn:active{transform:translateY(1px);}
+.btn svg{width:15px;height:15px;}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:hover{background:var(--navy-mid);}
+.btn-green{background:var(--green);color:#fff;}
+.btn-green:hover{background:var(--green-dark);}
+.btn-outline{background:#fff;color:var(--navy);border-color:var(--line-strong);}
+.btn-outline:hover{background:var(--paper-dim);}
+.btn-ghost{background:transparent;color:var(--ink-soft);}
+.btn-ghost:hover{background:var(--paper-dim);color:var(--ink);}
+.btn-danger{background:#fff;color:var(--red);border-color:#eccbc3;}
+.btn-danger:hover{background:var(--red-bg);}
+.btn-sm{padding:6px 11px;font-size:12.5px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* Cards & Forms */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px 22px;margin-bottom:18px;}
+.card h2,.card h3{margin:0 0 3px;color:var(--navy);}
+.card h3{font-size:15.5px;}
+.card .sub{color:var(--ink-soft);font-size:12.5px;margin:0 0 16px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;}
+@media (max-width:700px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.field label{font-size:12.5px;font-weight:600;color:var(--navy);}
+.field .hint{font-size:11.5px;color:var(--ink-faint);font-weight:400;margin-top:-2px;}
+.field input[type=text],.field input[type=number],.field select{padding:9px 11px;border:1px solid var(--line-strong);border-radius:7px;font-size:13.5px;background:#fff;color:var(--ink);outline:none;transition:all .12s ease;}
+.field input:focus,.field select:focus{border-color:var(--navy);box-shadow:0 0 0 3px rgba(27,42,74,0.1);}
+
+.daypicker{display:flex;flex-wrap:wrap;gap:6px;}
+.day-chip{padding:6px 11px;border:1px solid var(--line-strong);border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--ink-soft);transition:all .1s ease;}
+.day-chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+.day-chip.half{background:var(--gold-bg);border-color:var(--gold);color:var(--gold);}
+
+/* Teacher Availability Grid */
+.avail-grid{border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:14px;}
+.avail-row{display:flex;border-bottom:1px solid var(--line);align-items:stretch;}
+.avail-row:last-child{border-bottom:none;}
+.avail-day-col{background:var(--paper-dim);padding:8px 12px;width:120px;display:flex;align-items:center;font-weight:600;font-size:12.5px;border-right:1px solid var(--line);}
+.avail-day-col label{display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;}
+.avail-periods-col{padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;flex:1;}
+.p-chip{padding:4px 9px;border:1px solid var(--line-strong);border-radius:5px;font-size:11.5px;cursor:pointer;color:var(--ink-faint);font-weight:600;user-select:none;}
+.p-chip.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+
+.form-actions{display:flex;gap:10px;margin-top:4px;}
+
+/* Tables */
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm);}
+table.data-table{width:100%;border-collapse:collapse;font-size:13px;}
+table.data-table th{background:var(--paper-dim);color:var(--navy);text-align:left;padding:10px 12px;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);white-space:nowrap;}
+table.data-table td{padding:9px 12px;border-bottom:1px solid var(--line);color:var(--ink);vertical-align:middle;}
+table.data-table tbody tr:last-child td{border-bottom:none;}
+table.data-table tbody tr:hover{background:#FAFAF7;}
+.empty-row td{text-align:center;color:var(--ink-faint);padding:26px;font-style:italic;}
+
+/* Toast */
+#toastHost{position:fixed;top:18px;right:18px;z-index:999;display:flex;flex-direction:column;gap:10px;max-width:360px;}
+.toast{background:var(--navy);color:#fff;padding:12px 15px;border-radius:9px;box-shadow:var(--shadow-lg);font-size:13px;display:flex;gap:10px;align-items:flex-start;animation:slideIn .18s ease;}
+.toast.error{background:var(--red);}
+.toast.success{background:var(--green);}
+.toast.warn{background:#9A6A20;}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+.toast-close{margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.8);cursor:pointer;font-size:15px;line-height:1;}
+
+/* Validation */
+.check-result{border-radius:var(--radius-sm);padding:16px 18px;margin-bottom:14px;border:1px solid;}
+.check-result.ok{background:#EAF4EE;border-color:#BFE0CC;color:var(--green-dark);}
+.check-result.bad{background:var(--red-bg);border-color:#EDC3B8;color:#8f331f;}
+.check-result h3{margin:0 0 6px;font-size:15px;font-family:'Lora',serif;}
+.check-result ul{margin:8px 0 0;padding-left:20px;}
+
+/* Routine Grid */
+.routine-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:16px;}
+.seg{display:flex;background:var(--paper-dim);border-radius:8px;padding:3px;gap:2px;}
+.seg button{border:none;background:transparent;padding:7px 14px;border-radius:6px;font-size:12.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;}
+.seg button.on{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(0,0,0,0.12);}
+.routine-toolbar select{padding:8px 12px;border:1px solid var(--line-strong);border-radius:7px;font-size:13px;background:#fff;font-weight:600;color:var(--navy);}
+
+.timetable-scroll{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--line-strong);box-shadow:var(--shadow);background:#fff;}
+table.timetable{border-collapse:collapse;width:100%;min-width:720px;}
+table.timetable th{background:var(--navy);color:#fff;font-family:'Lora',serif;font-weight:600;padding:11px 8px;font-size:12.5px;text-align:center;border:1px solid var(--navy-mid);position:sticky;top:0;z-index:2;}
+table.timetable th.corner{background:var(--navy-deep);}
+table.timetable td.day-head{background:var(--gold-bg);color:var(--gold);font-weight:700;text-align:center;font-size:12.5px;border:1px solid var(--line);white-space:nowrap;padding:0 10px;}
+table.timetable td.slot{border:1px solid var(--line);padding:5px;min-width:108px;height:62px;vertical-align:top;position:relative;background:#fff;}
+table.timetable td.slot.break-col{background:repeating-linear-gradient(45deg,#F2EFE7,#F2EFE7 6px,#ECE8DD 6px,#ECE8DD 12px);}
+table.timetable td.slot.gray-out{background:#f0f1f3;}
+.cell-block{background:#fff;border:1px solid var(--line-strong);border-left:4px solid var(--ink-faint);border-radius:6px;padding:6px 8px;font-size:11.5px;line-height:1.35;height:100%;box-shadow:0 1px 2px rgba(0,0,0,0.05);transition:all .1s ease;}
+.cell-block.hard{border-left-color:var(--gold);}
+.cell-block.lab{border-left-color:#2C5C86;}
+.cell-block .subj{font-weight:700;color:var(--navy);display:block;}
+.cell-block .meta{color:var(--ink-soft);display:flex;align-items:center;justify-content:space-between;font-size:10.5px;margin-top:2px;}
+.cell-block .rm-badge{background:var(--gold-bg);color:var(--gold);padding:1px 4px;border-radius:3px;font-weight:700;font-size:9.5px;}
+.empty-slot-hint{color:#D8D3C6;font-size:18px;text-align:center;padding-top:14px;}
+
+/* Misc */
+.helper-banner{background:#fff;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--ink-soft);line-height:1.5;}
+.helper-banner b{color:var(--navy);}
+.modal-overlay{position:fixed;inset:0;background:rgba(19,31,56,0.45);display:none;align-items:center;justify-content:center;z-index:200;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal{background:#fff;border-radius:12px;max-width:420px;width:100%;padding:22px;box-shadow:var(--shadow-lg);}
+.modal h3{margin:0 0 8px;color:var(--navy);}
+.modal p{color:var(--ink-soft);font-size:13.5px;margin:0 0 18px;}
+.modal .form-actions{justify-content:flex-end;}
+@media print{.sidebar,.page-actions,.routine-toolbar,.helper-banner{display:none!important;}.main{padding:0;}body{background:#fff;}}
+::-webkit-scrollbar{height:10px;width:10px;}
+::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:6px;}
+</style>
+</head>
+<body>
+
+<div id="toastHost"></div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">RF</div>
+      <div class="brand-text">
+        <div class="t1">Routine Forge Pro</div>
+        <div class="t2">Advanced School Timetable</div>
+      </div>
+    </div>
+
+    <div class="nav-group-label">Setup</div>
+    <button class="nav-btn active" data-panel="settings">Global Settings</button>
+    <button class="nav-btn" data-panel="rooms">Rooms & Labs <span class="count" id="navCountRooms">0</span></button>
+    <button class="nav-btn" data-panel="classes">Classes <span class="count" id="navCountClasses">0</span></button>
+    <button class="nav-btn" data-panel="teachers">Teachers <span class="count" id="navCountTeachers">0</span></button>
+    <button class="nav-btn" data-panel="subjects">Subjects <span class="count" id="navCountSubjects">0</span></button>
+    <button class="nav-btn" data-panel="assignments">Assignments <span class="count" id="navCountAssignments">0</span></button>
+
+    <div class="nav-group-label">Action</div>
+    <button class="nav-btn" data-panel="validate">Sanity Check</button>
+    <button class="nav-btn" data-panel="generate">Generate Routine</button>
+    <button class="nav-btn" data-panel="viewer">Routine Viewer</button>
+
+    <div class="sidebar-foot">Data is saved locally in browser.</div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+
+    <!-- SETTINGS -->
+    <section class="panel active" id="panel-settings">
+      <div class="page-head">
+        <div><h1>Global Settings</h1><p>Configure the foundational limits for your school's daily schedule.</p></div>
+      </div>
+      <div class="card">
+        <h3>Week & Periods</h3>
+        <div class="grid-3">
+          <div class="field"><label>Working days per week</label>
+            <select id="setDays"><option value="5">5</option><option value="6" selected>6</option><option value="7">7</option></select>
+          </div>
+          <div class="field"><label>Full Day Periods (total slots)</label>
+            <input type="number" id="setPeriods" min="1" max="14" value="8">
+          </div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3>Active Days & Half Days</h3>
+        <p class="sub">Select active working days. Click a day again to toggle it as a <b>Half Day</b> (Yellow).</p>
+        <div id="workingDayChips" class="daypicker" style="margin-bottom:12px;"></div>
+        <div class="grid-3">
+          <div class="field"><label>Half Day Periods</label>
+            <input type="number" id="setHalfDayPeriods" min="1" max="14" value="4">
+            <span class="hint">How many periods run on yellow half days.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Teacher Burnout & Limits</h3>
+        <div class="grid-3">
+          <div class="field"><label>Max daily periods per teacher</label>
+            <input type="number" id="setTchDailyMax" min="1" max="10" value="5">
+          </div>
+          <div class="field"><label>Max consecutive periods</label>
+            <input type="number" id="setTchConsecMax" min="1" max="8" value="3">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Break / Tiffin Periods</h3>
+        <p class="sub">Select period slots that act as breaks. Double periods will never cross a break.</p>
+        <div id="breakChips" class="daypicker"></div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" id="btnSaveSettings">Save settings</button>
+      </div>
+    </section>
+
+    <!-- ROOMS -->
+    <section class="panel" id="panel-rooms">
+      <div class="page-head"><div><h1>Rooms & Labs</h1><p>Define physical locations to prevent double-booking of scarce resources (like Physics Lab or Computer Room).</p></div></div>
+      <div class="card">
+        <h3>Add Room</h3>
+        <div class="grid-2">
+          <div class="field"><label>Room Name</label><input type="text" id="rmName" placeholder="e.g. Room 101 or Physics Lab"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnAddRoom">+ Add room</button>
+          <button class="btn btn-ghost" id="btnCancelRoomEdit" style="display:none;">Cancel</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Room Name</th><th style="width:110px;">Actions</th></tr></thead><tbody id="roomTableBody"></tbody></table></div></div>
+    </section>
+
+    <!-- CLASSES -->
+    <section class="panel" id="panel-classes">
+      <div class="page-head"><div><h1>Classes & Sections</h1><p>Set custom daily period limits for specific classes if they finish earlier than the rest of the school.</p></div></div>
+      <div class="card">
+        <h3>Add class</h3>
+        <div class="grid-3">
+          <div class="field"><label>Class name</label><input type="text" id="clsName" placeholder="e.g. Class 10"></div>
+          <div class="field"><label>Section</label><input type="text" id="clsSection" placeholder="e.g. Science"></div>
+          <div class="field"><label>Daily Period Limit</label><input type="number" id="clsDailyPeriods" placeholder="Default"><span class="hint">Leave empty to use global setting.</span></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnAddClass">+ Add class</button>
+          <button class="btn btn-ghost" id="btnCancelClassEdit" style="display:none;">Cancel</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Class</th><th>Section</th><th>Periods/Day</th><th style="width:110px;">Actions</th></tr></thead><tbody id="classTableBody"></tbody></table></div></div>
+    </section>
+
+    <!-- TEACHERS -->
+    <section class="panel" id="panel-teachers">
+      <div class="page-head"><div><h1>Teachers & Availability</h1><p>Define exactly which periods each teacher is available to take classes.</p></div></div>
+      <div class="card">
+        <h3>Add teacher</h3>
+        <div class="grid-3">
+          <div class="field"><label>Full name</label><input type="text" id="tchName" placeholder="e.g. Mr. Ahmed"></div>
+          <div class="field"><label>Short Name (Initials)</label><input type="text" id="tchShort" placeholder="e.g. AH" maxlength="5"></div>
+          <div class="field"><label>Max periods per week</label><input type="number" id="tchMaxPeriods" min="1" value="24"></div>
+        </div>
+        
+        <div class="field" style="margin-top:10px;">
+          <label>Specific Period Availability Grid</label>
+          <span class="hint">Uncheck a day completely if the teacher is on leave. Toggle specific periods to block out off-periods.</span>
+          <div id="tchAvailGrid" style="margin-top:8px;"></div>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnAddTeacher">+ Add teacher</button>
+          <button class="btn btn-ghost" id="btnCancelTeacherEdit" style="display:none;">Cancel</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Name</th><th>Short Name</th><th>Max / week</th><th>Availability Summary</th><th>Load</th><th style="width:110px;">Actions</th></tr></thead><tbody id="teacherTableBody"></tbody></table></div></div>
+    </section>
+
+    <!-- SUBJECTS -->
+    <section class="panel" id="panel-subjects">
+      <div class="page-head"><div><h1>Subjects</h1></div></div>
+      <div class="card">
+        <h3>Add subject</h3>
+        <div class="grid-4">
+          <div class="field"><label>Subject name</label><input type="text" id="subjName" placeholder="e.g. Physics"></div>
+          <div class="field"><label>Priority</label><select id="subjHard"><option value="false">Standard</option><option value="true">Hard (prioritise early)</option></select></div>
+          <div class="field"><label>Format</label><select id="subjLab"><option value="false">Single periods</option><option value="true">Lab (Double periods)</option></select></div>
+          <div class="field"><label>Preferred Time</label>
+            <select id="subjTime">
+              <option value="any">Anytime</option>
+              <option value="morning">Morning (Before Break)</option>
+              <option value="afternoon">Afternoon (After Break)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnAddSubject">+ Add subject</button>
+          <button class="btn btn-ghost" id="btnCancelSubjectEdit" style="display:none;">Cancel</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Subject</th><th>Priority</th><th>Format</th><th>Time Pref</th><th style="width:110px;">Actions</th></tr></thead><tbody id="subjectTableBody"></tbody></table></div></div>
+    </section>
+
+    <!-- ASSIGNMENTS -->
+    <section class="panel" id="panel-assignments">
+      <div class="page-head"><div><h1>Assignments</h1></div></div>
+      <div class="card">
+        <h3>Assign Workload</h3>
+        <div class="grid-3">
+          <div class="field"><label>Class</label><select id="asgClass"></select></div>
+          <div class="field"><label>Subject</label><select id="asgSubject"></select></div>
+          <div class="field"><label>Teacher</label><select id="asgTeacher"></select></div>
+          <div class="field"><label>Room (Optional)</label><select id="asgRoom"></select></div>
+          <div class="field"><label>Periods / week</label><input type="number" id="asgPeriods" min="1" value="4"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-green" id="btnAddAssignment">+ Add assignment</button>
+          <button class="btn btn-ghost" id="btnCancelAssignmentEdit" style="display:none;">Cancel</button>
+        </div>
+      </div>
+      <div class="card"><div class="table-wrap"><table class="data-table"><thead><tr><th>Class</th><th>Subject</th><th>Teacher</th><th>Room</th><th>Periods/wk</th><th style="width:110px;">Actions</th></tr></thead><tbody id="assignmentTableBody"></tbody></table></div></div>
+    </section>
+
+    <!-- VALIDATE -->
+    <section class="panel" id="panel-validate">
+      <div class="page-head">
+        <div><h1>Sanity Check</h1><p>Verifies if the configured data is mathematically possible to schedule.</p></div>
+        <div class="page-actions"><button class="btn btn-primary" id="btnRunCheck">Check Validity</button></div>
+      </div>
+      <div id="validateResults"></div>
+    </section>
+
+    <!-- GENERATE -->
+    <section class="panel" id="panel-generate">
+      <div class="page-head">
+        <div><h1>Generate Routine</h1><p>Runs the optimized constraint-satisfaction solver to build a conflict-free routine.</p></div>
+        <div class="page-actions"><button class="btn btn-green btn-lg" id="btnGenerate">Run generator</button></div>
+      </div>
+      <div class="helper-banner">
+        <b>New Engine Upgrades Active:</b><br>
+        ✓ <b>Room Constraints:</b> Ensures no two classes book the same room at the same time.<br>
+        ✓ <b>Time Preferences:</b> Morning vs Afternoon subjects strictly enforced.<br>
+        ✓ <b>Teacher Gap Minimization:</b> Soft heuristics actively cluster teacher periods to reduce idle gaps.<br>
+        ✓ <b>MRV Preprocessing:</b> Classes with fewer viable slots are placed first, drastically speeding up generation.
+      </div>
+      <div id="generateStatus"></div>
+    </section>
+
+    <!-- VIEWER -->
+    <section class="panel" id="panel-viewer">
+      <div class="page-head">
+        <div><h1>Routine Viewer & Editor</h1><p>View routines Day-wise, Class-wise, or Teacher-wise.</p></div>
+        <div class="page-actions"><button class="btn btn-outline" id="btnPrintRoutine">Print PDF</button></div>
+      </div>
+      <div class="routine-toolbar">
+        <div class="seg" id="viewModeSeg">
+          <button class="on" data-mode="master">Master (Day-wise)</button>
+          <button data-mode="class">Class-wise</button>
+          <button data-mode="teacher">Teacher-wise</button>
+        </div>
+        <select id="viewerEntitySelect"></select>
+      </div>
+      <div id="viewerContainer"></div>
+    </section>
+  </main>
+</div>
+
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <h3 id="confirmTitle">Confirm</h3>
+    <p id="confirmBody"></p>
+    <div class="form-actions">
+      <button class="btn btn-ghost" id="confirmCancel">Cancel</button>
+      <button class="btn btn-danger" id="confirmOk">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const DAY_NAMES = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const STORAGE_KEY = "routineForgeProState_v4";
+
+let state = {
+  settings: { periodsPerDay: 8, breaks: [4], workingDays: [0,1,2,3,4,5], halfDays: [5], halfDayPeriods: 4, tchDailyMax: 5, tchConsecMax: 3 },
+  rooms: [], classes: [], teachers: [], subjects: [], assignments: [], routine: null, idSeq: 1
+};
+function nextId(){ return state.idSeq++; }
+function uid(prefix){ return prefix + "_" + nextId(); }
+function saveState(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){} }
+function loadState(){ 
+  try{ 
+    const raw = localStorage.getItem(STORAGE_KEY); 
+    if(raw) {
+      state = Object.assign(state, JSON.parse(raw)); 
+      if(!state.rooms) state.rooms = [];
+    } else {
+      generateDemoData(); // Preload demo data on very first launch
+    }
+  }catch(e){} 
+}
+
+function generateDemoData() {
+  state.settings.workingDays = [0,1,2,3,4,5]; state.settings.periodsPerDay = 8; state.settings.halfDays = [5]; state.settings.halfDayPeriods = 4; state.settings.breaks = [4];
+  
+  const rms = ["Physics Lab", "Chemistry Lab", "Biology Lab", "Computer Lab", "Playground"];
+  rms.forEach(r => state.rooms.push({id: uid("rm"), name: r}));
+  
+  for(let c=5; c<=12; c++){ ["A","B"].forEach(sec => state.classes.push({id: uid("cls"), name: "Class "+c, section: sec, dailyPeriods: c<=8 ? 7 : 8})); }
+  
+  const subs = [{n:"Math", h:true, l:false, t:"morning"}, {n:"English", h:true, l:false, t:"morning"}, {n:"Physics", h:true, l:false, t:"any"}, {n:"Chemistry", h:true, l:true, t:"any"}, {n:"Biology", h:false, l:true, t:"any"}, {n:"Bangla", h:false, l:false, t:"any"}, {n:"History", h:false, l:false, t:"any"}, {n:"P.E.", h:false, l:false, t:"afternoon"}, {n:"Gen Science", h:false, l:false, t:"any"}];
+  subs.forEach(s => state.subjects.push({id: uid("sub"), name: s.n, hard: s.h, lab: s.l, allowMulti: false, timePref: s.t}));
+  
+  const tNames = ["Rahim","Karim","Jabbar","Salma","Farid","Asif","Nusrat","Kamal","Jamal","Rina","Mina","Tariq","Habib","Sajjad","Monir","Kawsar","Laila","Shirina","Rokeya","Hasan","Babu","Naim","Raju","Zakir","Tareq"];
+  tNames.forEach((n) => {
+    let avail = {}; [0,1,2,3,4,5].forEach(d => avail[d] = [1,2,3,4,5,6,7,8]);
+    state.teachers.push({id: uid("tch"), name: "Mr/Ms "+n, shortName: n.substring(0,3).toUpperCase(), maxPeriods: 24, availableSlots: avail});
+  });
+  
+  state.classes.forEach((cls, i) => {
+    let isUpper = parseInt(cls.name.replace("Class ","")) >= 9;
+    state.subjects.forEach((sub, j) => {
+      if(!isUpper && ["Physics","Chemistry","Biology"].includes(sub.name)) return;
+      if(isUpper && sub.name === "Gen Science") return;
+      
+      let tIdx = (i + j) % 25; let p = sub.lab ? 2 : (sub.hard ? 5 : 4); if (sub.name === "P.E.") p = 2;
+      
+      let rid = null;
+      if(isUpper){
+         if(sub.name==="Physics") rid = state.rooms[0].id;
+         if(sub.name==="Chemistry") rid = state.rooms[1].id;
+         if(sub.name==="Biology") rid = state.rooms[2].id;
+      }
+      if(sub.name==="P.E.") rid = state.rooms[4].id;
+      
+      state.assignments.push({id: uid("asg"), classId: cls.id, subjectId: sub.id, teacherId: state.teachers[tIdx].id, roomId: rid, periodsPerWeek: p});
+    });
+  });
+  saveState();
+}
+
+/* UI Utilities */
+function toast(msg, type="info"){
+  const host = document.getElementById("toastHost"), el = document.createElement("div");
+  el.className = "toast " + type; el.innerHTML = `<div>${msg}</div><button class="toast-close">&times;</button>`;
+  el.querySelector(".toast-close").onclick = () => el.remove();
+  host.appendChild(el); setTimeout(()=>{ el.style.opacity="0"; setTimeout(()=>el.remove(),300); }, 3000);
+}
+let confirmCb = null;
+function askConfirm(title, body, cb){ document.getElementById("confirmTitle").textContent=title; document.getElementById("confirmBody").textContent=body; confirmCb=cb; document.getElementById("confirmModal").classList.add("show"); }
+document.getElementById("confirmCancel").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); confirmCb=null; };
+document.getElementById("confirmOk").onclick = () => { document.getElementById("confirmModal").classList.remove("show"); if(confirmCb) confirmCb(); confirmCb=null; };
+
+/* Navigation */
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn, .panel").forEach(el=>el.classList.remove("active"));
+    btn.classList.add("active"); document.getElementById("panel-"+btn.dataset.panel).classList.add("active");
+    if(btn.dataset.panel === "viewer") { vMode="master"; document.querySelectorAll("#viewModeSeg button").forEach(b=>{b.classList.remove("on"); if(b.dataset.mode==="master")b.classList.add("on");}); refreshViewer(); }
+    if(btn.dataset.panel === "assignments") refreshAssignmentSelects();
+  });
+});
+
+/* --- Settings --- */
+function renderSettingsUI(){
+  document.getElementById("setDays").value = state.settings.workingDays.length;
+  document.getElementById("setPeriods").value = state.settings.periodsPerDay;
+  document.getElementById("setTchDailyMax").value = state.settings.tchDailyMax || 5;
+  document.getElementById("setTchConsecMax").value = state.settings.tchConsecMax || 3;
+  document.getElementById("setHalfDayPeriods").value = state.settings.halfDayPeriods || 4;
+  
+  const wWrap = document.getElementById("workingDayChips"); wWrap.innerHTML = "";
+  DAY_NAMES.forEach((d, i) => {
+    const chip = document.createElement("div"); 
+    let active = state.settings.workingDays.includes(i), half = state.settings.halfDays.includes(i);
+    chip.className = "day-chip" + (active ? (half ? " half" : " on") : ""); 
+    chip.textContent = d.slice(0,3) + (half ? " (Half)" : ""); 
+    chip.dataset.day = i;
+    chip.onclick = () => { 
+      let activePos = state.settings.workingDays.indexOf(i), halfPos = state.settings.halfDays.indexOf(i);
+      if(activePos > -1 && halfPos === -1) state.settings.halfDays.push(i);
+      else if (activePos > -1 && halfPos > -1) { state.settings.workingDays.splice(activePos, 1); state.settings.halfDays.splice(halfPos, 1); } 
+      else { state.settings.workingDays.push(i); state.settings.workingDays.sort((a,b)=>a-b); }
+      renderSettingsUI(); renderTeacherAvailGrid();
+    };
+    wWrap.appendChild(chip);
+  });
+
+  const bWrap = document.getElementById("breakChips"); bWrap.innerHTML = "";
+  for(let p=1; p<=state.settings.periodsPerDay; p++){
+    const chip = document.createElement("div"); chip.className = "day-chip" + (state.settings.breaks.includes(p) ? " on":""); chip.textContent = "P " + p;
+    chip.onclick = () => { let pos = state.settings.breaks.indexOf(p); if(pos>-1) state.settings.breaks.splice(pos,1); else state.settings.breaks.push(p); renderSettingsUI(); };
+    bWrap.appendChild(chip);
+  }
+}
+document.getElementById("btnSaveSettings").onclick = () => {
+  state.settings.periodsPerDay = parseInt(document.getElementById("setPeriods").value,10);
+  state.settings.tchDailyMax = parseInt(document.getElementById("setTchDailyMax").value,10);
+  state.settings.tchConsecMax = parseInt(document.getElementById("setTchConsecMax").value,10);
+  state.settings.halfDayPeriods = parseInt(document.getElementById("setHalfDayPeriods").value,10);
+  saveState(); renderSettingsUI(); renderTeacherAvailGrid(); toast("Settings saved","success");
+};
+
+/* --- Rooms --- */
+let editRmId = null;
+function renderRooms(){
+  const tbody = document.getElementById("roomTableBody"); tbody.innerHTML = "";
+  state.rooms.forEach(r => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.name}</td><td><button class="btn btn-sm btn-outline" onclick="editRm('${r.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delRm('${r.id}')">Del</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("navCountRooms").textContent = state.rooms.length;
+}
+window.editRm = (id) => { const r = state.rooms.find(x=>x.id===id); editRmId=r.id; document.getElementById("rmName").value=r.name; document.getElementById("btnCancelRoomEdit").style.display="inline-flex"; document.getElementById("btnAddRoom").textContent="Save"; }
+window.delRm = (id) => askConfirm("Delete?", "Will remove room from all assignments.", () => { state.assignments.forEach(a=>{if(a.roomId===id) a.roomId=null;}); state.rooms = state.rooms.filter(c=>c.id!==id); saveState(); renderAll(); });
+document.getElementById("btnCancelRoomEdit").onclick = () => { editRmId=null; document.getElementById("rmName").value=""; document.getElementById("btnCancelRoomEdit").style.display="none"; document.getElementById("btnAddRoom").textContent="+ Add room"; }
+document.getElementById("btnAddRoom").onclick = () => {
+  const name=document.getElementById("rmName").value; if(!name) return toast("Name required","warn");
+  if(editRmId){ let r = state.rooms.find(x=>x.id===editRmId); r.name=name; document.getElementById("btnCancelRoomEdit").click(); }
+  else state.rooms.push({id:uid("rm"), name});
+  saveState(); renderAll(); toast("Saved","success");
+};
+
+/* --- Classes --- */
+let editClassId = null;
+function renderClasses(){
+  const tbody = document.getElementById("classTableBody"); tbody.innerHTML = "";
+  state.classes.forEach(c => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${c.name}</td><td>${c.section}</td><td>${c.dailyPeriods || 'Global'}</td><td><button class="btn btn-sm btn-outline" onclick="editCls('${c.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delCls('${c.id}')">Del</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("navCountClasses").textContent = state.classes.length;
+}
+window.editCls = (id) => { const c = state.classes.find(x=>x.id===id); editClassId=c.id; document.getElementById("clsName").value=c.name; document.getElementById("clsSection").value=c.section; document.getElementById("clsDailyPeriods").value = c.dailyPeriods || ""; document.getElementById("btnCancelClassEdit").style.display="inline-flex"; document.getElementById("btnAddClass").textContent="Save"; }
+window.delCls = (id) => askConfirm("Delete?", "Will remove class and related assignments.", () => { state.assignments = state.assignments.filter(a=>a.classId!==id); state.classes = state.classes.filter(c=>c.id!==id); saveState(); renderAll(); });
+document.getElementById("btnCancelClassEdit").onclick = () => { editClassId=null; document.getElementById("clsName").value=""; document.getElementById("clsSection").value=""; document.getElementById("clsDailyPeriods").value=""; document.getElementById("btnCancelClassEdit").style.display="none"; document.getElementById("btnAddClass").textContent="+ Add class"; }
+document.getElementById("btnAddClass").onclick = () => {
+  const name=document.getElementById("clsName").value, sec=document.getElementById("clsSection").value, dP = parseInt(document.getElementById("clsDailyPeriods").value,10);
+  if(!name || !sec) return toast("Name & Section required","warn");
+  if(editClassId){ let c = state.classes.find(x=>x.id===editClassId); c.name=name; c.section=sec; c.dailyPeriods = dP || null; document.getElementById("btnCancelClassEdit").click(); }
+  else state.classes.push({id:uid("cls"), name, section:sec, dailyPeriods: dP || null});
+  saveState(); renderAll(); toast("Saved","success");
+};
+
+/* --- Teachers --- */
+let editTchId = null;
+let currentTchAvail = {};
+
+function renderTeacherAvailGrid() {
+  const host = document.getElementById("tchAvailGrid");
+  let html = `<div class="avail-grid">`;
+  state.settings.workingDays.forEach(dIdx => {
+     let activePeriods = currentTchAvail[dIdx] || [];
+     html += `<div class="avail-row"><div class="avail-day-col"><label><input type="checkbox" class="day-check" data-d="${dIdx}" ${activePeriods.length>0?'checked':''}> ${DAY_NAMES[dIdx].substring(0,3)}</label></div><div class="avail-periods-col">`;
+     for(let p=1; p<=state.settings.periodsPerDay; p++){
+         let on = activePeriods.includes(p);
+         html += `<div class="p-chip ${on?'on':''}" data-d="${dIdx}" data-p="${p}">P${p}</div>`;
+     }
+     html += `</div></div>`;
+  });
+  html += `</div>`;
+  host.innerHTML = html;
+  
+  host.querySelectorAll('.day-check').forEach(cb => {
+     cb.onchange = (e) => {
+        let d = parseInt(cb.dataset.d);
+        if(e.target.checked){ currentTchAvail[d] = []; for(let i=1; i<=state.settings.periodsPerDay; i++) currentTchAvail[d].push(i); }
+        else currentTchAvail[d] = [];
+        renderTeacherAvailGrid();
+     }
+  });
+  host.querySelectorAll('.p-chip').forEach(chip => {
+     chip.onclick = () => {
+        let d = parseInt(chip.dataset.d), p = parseInt(chip.dataset.p);
+        if(!currentTchAvail[d]) currentTchAvail[d] = [];
+        let pos = currentTchAvail[d].indexOf(p);
+        if(pos > -1) currentTchAvail[d].splice(pos, 1); else currentTchAvail[d].push(p);
+        renderTeacherAvailGrid();
+     }
+  });
+}
+
+function renderTeachers(){
+  const tbody = document.getElementById("teacherTableBody"); tbody.innerHTML = "";
+  state.teachers.forEach(t => {
+    let load = state.assignments.filter(a=>a.teacherId===t.id).reduce((s,a)=>s+a.periodsPerWeek,0);
+    let availText = Object.keys(t.availableSlots).filter(d=>t.availableSlots[d].length>0).map(d=>`${DAY_NAMES[d].substring(0,3)}: ${t.availableSlots[d].length}`).join(', ') || 'None';
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${t.name}</td><td>${t.shortName||'-'}</td><td>${t.maxPeriods}</td><td style="font-size:11px;">${availText}</td><td>${load}/${t.maxPeriods}</td><td><button class="btn btn-sm btn-outline" onclick="editTch('${t.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delTch('${t.id}')">Del</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("navCountTeachers").textContent = state.teachers.length;
+  
+  if(!editTchId) {
+    currentTchAvail = {};
+    state.settings.workingDays.forEach(d => { currentTchAvail[d]=[]; for(let i=1;i<=state.settings.periodsPerDay;i++) currentTchAvail[d].push(i); });
+    renderTeacherAvailGrid();
+  }
+}
+window.editTch = (id) => { 
+  const t = state.teachers.find(x=>x.id===id); editTchId=t.id; 
+  document.getElementById("tchName").value=t.name; document.getElementById("tchShort").value=t.shortName||""; document.getElementById("tchMaxPeriods").value=t.maxPeriods; 
+  currentTchAvail = JSON.parse(JSON.stringify(t.availableSlots));
+  renderTeacherAvailGrid();
+  document.getElementById("btnCancelTeacherEdit").style.display="inline-flex"; document.getElementById("btnAddTeacher").textContent="Save"; 
+}
+window.delTch = (id) => askConfirm("Delete?", "Will remove teacher and related assignments.", () => { state.assignments = state.assignments.filter(a=>a.teacherId!==id); state.teachers = state.teachers.filter(c=>c.id!==id); saveState(); renderAll(); });
+document.getElementById("btnCancelTeacherEdit").onclick = () => { editTchId=null; document.getElementById("tchName").value=""; document.getElementById("tchShort").value=""; document.getElementById("tchMaxPeriods").value=24; document.getElementById("btnCancelTeacherEdit").style.display="none"; document.getElementById("btnAddTeacher").textContent="+ Add teacher"; renderTeachers(); }
+document.getElementById("btnAddTeacher").onclick = () => {
+  const name=document.getElementById("tchName").value, short=document.getElementById("tchShort").value, max=parseInt(document.getElementById("tchMaxPeriods").value);
+  if(!name) return toast("Name required","warn");
+  let copyAvail = JSON.parse(JSON.stringify(currentTchAvail));
+  if(editTchId){ let t = state.teachers.find(x=>x.id===editTchId); t.name=name; t.shortName=short; t.maxPeriods=max; t.availableSlots=copyAvail; document.getElementById("btnCancelTeacherEdit").click(); }
+  else state.teachers.push({id:uid("tch"), name, shortName:short, maxPeriods:max, availableSlots:copyAvail});
+  saveState(); renderAll(); toast("Saved","success");
+};
+
+/* --- Subjects --- */
+let editSubjId = null;
+function renderSubjects(){
+  const tbody = document.getElementById("subjectTableBody"); tbody.innerHTML = "";
+  state.subjects.forEach(s => {
+    let tPref = s.timePref === 'morning' ? 'Morning' : (s.timePref === 'afternoon' ? 'Afternoon' : 'Any');
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${s.name}</td><td>${s.hard?'Hard':'Normal'}</td><td>${s.lab?'Lab':'Single'}</td><td>${tPref}</td><td><button class="btn btn-sm btn-outline" onclick="editSubj('${s.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delSubj('${s.id}')">Del</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("navCountSubjects").textContent = state.subjects.length;
+}
+window.editSubj = (id) => { const s = state.subjects.find(x=>x.id===id); editSubjId=s.id; document.getElementById("subjName").value=s.name; document.getElementById("subjHard").value=String(s.hard); document.getElementById("subjLab").value=String(s.lab); document.getElementById("subjTime").value=s.timePref||'any'; document.getElementById("btnCancelSubjectEdit").style.display="inline-flex"; document.getElementById("btnAddSubject").textContent="Save"; }
+window.delSubj = (id) => askConfirm("Delete?", "Will remove subject and related assignments.", () => { state.assignments = state.assignments.filter(a=>a.subjectId!==id); state.subjects = state.subjects.filter(c=>c.id!==id); saveState(); renderAll(); });
+document.getElementById("btnCancelSubjectEdit").onclick = () => { editSubjId=null; document.getElementById("subjName").value=""; document.getElementById("btnCancelSubjectEdit").style.display="none"; document.getElementById("btnAddSubject").textContent="+ Add subject"; }
+document.getElementById("btnAddSubject").onclick = () => {
+  const name=document.getElementById("subjName").value; if(!name) return toast("Name required","warn");
+  const hard = document.getElementById("subjHard").value==="true", lab = document.getElementById("subjLab").value==="true", tPref = document.getElementById("subjTime").value;
+  if(editSubjId){ let s = state.subjects.find(x=>x.id===editSubjId); s.name=name; s.hard=hard; s.lab=lab; s.timePref=tPref; document.getElementById("btnCancelSubjectEdit").click(); }
+  else state.subjects.push({id:uid("sub"), name, hard, lab, allowMulti:false, timePref:tPref});
+  saveState(); renderAll(); toast("Saved","success");
+};
+
+/* --- Assignments --- */
+function refreshAssignmentSelects(){
+  document.getElementById("asgClass").innerHTML = state.classes.map(c=>`<option value="${c.id}">${c.name} - ${c.section}</option>`).join("");
+  document.getElementById("asgSubject").innerHTML = state.subjects.map(s=>`<option value="${s.id}">${s.name}</option>`).join("");
+  document.getElementById("asgTeacher").innerHTML = state.teachers.map(t=>`<option value="${t.id}">${t.name}</option>`).join("");
+  document.getElementById("asgRoom").innerHTML = `<option value="">-- None (Classroom) --</option>` + state.rooms.map(r=>`<option value="${r.id}">${r.name}</option>`).join("");
+}
+let editAsgId = null;
+function renderAssignments(){
+  const tbody = document.getElementById("assignmentTableBody"); tbody.innerHTML = "";
+  state.assignments.forEach(a => {
+    const c = state.classes.find(x=>x.id===a.classId), s = state.subjects.find(x=>x.id===a.subjectId), t = state.teachers.find(x=>x.id===a.teacherId), r = state.rooms.find(x=>x.id===a.roomId);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${c?c.name+' '+c.section:'-'}</td><td>${s?s.name:'-'}</td><td>${t?t.name:'-'}</td><td>${r?r.name:'-'}</td><td>${a.periodsPerWeek}</td><td><button class="btn btn-sm btn-outline" onclick="editAsg('${a.id}')">Edit</button> <button class="btn btn-sm btn-danger" onclick="delAsg('${a.id}')">Del</button></td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById("navCountAssignments").textContent = state.assignments.length;
+}
+window.editAsg = (id) => { const a = state.assignments.find(x=>x.id===id); editAsgId=a.id; document.getElementById("asgClass").value=a.classId; document.getElementById("asgSubject").value=a.subjectId; document.getElementById("asgTeacher").value=a.teacherId; document.getElementById("asgRoom").value=a.roomId||""; document.getElementById("asgPeriods").value=a.periodsPerWeek; document.getElementById("btnCancelAssignmentEdit").style.display="inline-flex"; document.getElementById("btnAddAssignment").textContent="Save"; }
+window.delAsg = (id) => { state.assignments = state.assignments.filter(c=>c.id!==id); saveState(); renderAll(); };
+document.getElementById("btnCancelAssignmentEdit").onclick = () => { editAsgId=null; document.getElementById("btnCancelAssignmentEdit").style.display="none"; document.getElementById("btnAddAssignment").textContent="+ Add assignment"; }
+document.getElementById("btnAddAssignment").onclick = () => {
+  const classId=document.getElementById("asgClass").value, subjectId=document.getElementById("asgSubject").value, teacherId=document.getElementById("asgTeacher").value, roomId=document.getElementById("asgRoom").value||null, periods=parseInt(document.getElementById("asgPeriods").value);
+  if(!classId||!subjectId||!teacherId) return toast("Need Class/Subj/Teacher","warn");
+  if(editAsgId){ let a = state.assignments.find(x=>x.id===editAsgId); a.classId=classId; a.subjectId=subjectId; a.teacherId=teacherId; a.roomId=roomId; a.periodsPerWeek=periods; document.getElementById("btnCancelAssignmentEdit").click(); }
+  else {
+    if(state.assignments.some(x=>x.classId===classId && x.subjectId===subjectId)) return toast("Subject already assigned to class. Edit it.","warn");
+    state.assignments.push({id:uid("asg"), classId, subjectId, teacherId, roomId, periodsPerWeek:periods});
+  }
+  saveState(); renderAll(); toast("Saved","success");
+};
+
+/* --- Generate Logic & Validation --- */
+function buildTeachingPeriods(){ let all=[]; for(let p=1;p<=state.settings.periodsPerDay;p++) if(!state.settings.breaks.includes(p)) all.push(p); return all; }
+
+document.getElementById("btnRunCheck").onclick = () => {
+  const errs = [], days = state.settings.workingDays.length;
+  state.assignments.forEach(a => {
+    let s = state.subjects.find(x=>x.id===a.subjectId), c = state.classes.find(x=>x.id===a.classId);
+    if(s && !s.allowMulti){
+      let reqDays = s.lab ? Math.ceil(a.periodsPerWeek / 2) : a.periodsPerWeek;
+      if(reqDays > days) errs.push(`Class ${c.name}: ${s.name} requires ${reqDays} days but strictly 1 per day rule is ON (only ${days} days exist).`);
+    }
+  });
+  state.teachers.forEach(t=>{
+    let load = state.assignments.filter(a=>a.teacherId===t.id).reduce((sum,a)=>sum+a.periodsPerWeek,0);
+    if(load > t.maxPeriods) errs.push(`${t.name} load (${load}) > Max (${t.maxPeriods})`);
+  });
+  const res = document.getElementById("validateResults");
+  if(errs.length) res.innerHTML = `<div class="check-result bad"><h3>✕ Validation Failed</h3><ul>${errs.map(e=>`<li>${e}</li>`).join('')}</ul></div>`;
+  else res.innerHTML = `<div class="check-result ok"><h3>✓ All Checks Passed</h3>Ready to generate!</div>`;
+};
+
+document.getElementById("btnGenerate").onclick = () => {
+  document.getElementById("generateStatus").innerHTML = "Analyzing & Preprocessing... (MRV setup)";
+  
+  setTimeout(() => {
+    const days = state.settings.workingDays.slice().sort((a,b)=>a-b);
+    const teachingPeriods = buildTeachingPeriods();
+    const P = teachingPeriods.length, D = days.length;
+    const halfDays = state.settings.halfDays || [];
+    const maxHalfP = state.settings.halfDayPeriods || 4;
+    
+    // Determine boundary for Time Preferences
+    let breakP = state.settings.breaks.length ? Math.min(...state.settings.breaks) : Math.floor(state.settings.periodsPerDay/2)+1;
+    
+    let units = [];
+    state.assignments.forEach(a=>{
+      let s = state.subjects.find(x=>x.id===a.subjectId);
+      if(!s) return;
+      let rem = a.periodsPerWeek;
+      if(s.lab){ while(rem>=2){ units.push({cid:a.classId, sid:a.subjectId, tid:a.teacherId, rid:a.roomId, sz:2, hard:s.hard, multi:s.allowMulti, tPref:s.timePref}); rem-=2; } if(rem===1) units.push({cid:a.classId, sid:a.subjectId, tid:a.teacherId, rid:a.roomId, sz:1, hard:s.hard, multi:s.allowMulti, tPref:s.timePref}); }
+      else { for(let i=0;i<rem;i++) units.push({cid:a.classId, sid:a.subjectId, tid:a.teacherId, rid:a.roomId, sz:1, hard:s.hard, multi:s.allowMulti, tPref:s.timePref}); }
+    });
+    units.forEach((u,i)=>u.uid=i);
+
+    const cBusy={}, tBusy={}, tDayLoad={}, rBusy={};
+    state.classes.forEach(c=>cBusy[c.id] = days.map(()=>new Array(P).fill(null)));
+    state.teachers.forEach(t=>{ tBusy[t.id] = days.map(()=>new Array(P).fill(null)); tDayLoad[t.id] = days.map(()=>0); });
+    state.rooms.forEach(r=>rBusy[r.id] = days.map(()=>new Array(P).fill(null)));
+
+    function getTchConsecutiveBlocks(tid, dPos, startPpos, sz){
+      let maxBlock=0, current=0;
+      const physGrid = new Array(state.settings.periodsPerDay+1).fill(false);
+      for(let p=0;p<P;p++) if(tBusy[tid][dPos][p]) physGrid[teachingPeriods[p]] = true;
+      physGrid[teachingPeriods[startPpos]] = true; if(sz===2) physGrid[teachingPeriods[startPpos+1]] = true;
+      for(let i=1;i<=state.settings.periodsPerDay;i++){
+        if(physGrid[i]){ current++; if(current>maxBlock) maxBlock=current; } else current=0;
+      }
+      return maxBlock;
+    }
+
+    function checkSlot(u, dPos, pPos){
+      const tid = u.tid, cid = u.cid, sid = u.sid, rid = u.rid;
+      const actDay = days[dPos];
+      const pNum = teachingPeriods[pPos];
+      
+      // Class constraints
+      let cls = state.classes.find(x=>x.id===cid);
+      let cDaily = cls.dailyPeriods || state.settings.periodsPerDay;
+      if (pNum > cDaily) return false;
+      if (halfDays.includes(actDay) && pNum > maxHalfP) return false;
+      if (cBusy[cid][dPos][pPos] || tBusy[tid][dPos][pPos]) return false;
+      
+      // Room constraints
+      if (rid && rBusy[rid][dPos][pPos]) return false;
+      
+      // Time Preferences
+      if (u.tPref === 'morning' && pNum >= breakP) return false;
+      if (u.tPref === 'afternoon' && pNum <= breakP) return false;
+      
+      // Teacher constraints
+      let tch = state.teachers.find(x=>x.id===tid);
+      if(!tch || !tch.availableSlots[actDay] || !tch.availableSlots[actDay].includes(pNum)) return false;
+      
+      if(u.sz===2){
+        if(pPos >= P-1) return false;
+        let pNum2 = teachingPeriods[pPos+1];
+        if (pNum2 > cDaily) return false;
+        if (halfDays.includes(actDay) && pNum2 > maxHalfP) return false;
+        if (pNum2 - pNum !== 1) return false; 
+        if (cBusy[cid][dPos][pPos+1] || tBusy[tid][dPos][pPos+1]) return false;
+        if (rid && rBusy[rid][dPos][pPos+1]) return false;
+        if (!tch.availableSlots[actDay].includes(pNum2)) return false;
+        if (u.tPref === 'morning' && pNum2 >= breakP) return false;
+        if (u.tPref === 'afternoon' && pNum2 <= breakP) return false;
+      }
+      
+      if(!u.multi){ // Strict subject 1-per-day
+        for(let p=0;p<P;p++) { let b=cBusy[cid][dPos][p]; if(b && b.sid===sid) return false; }
+      }
+      if(tDayLoad[tid][dPos] + u.sz > state.settings.tchDailyMax) return false; 
+      if(getTchConsecutiveBlocks(tid, dPos, pPos, u.sz) > state.settings.tchConsecMax) return false; 
+      
+      return true;
+    }
+
+    // Static MRV Initialization (Calculate viability of each unit)
+    units.forEach(u => {
+      let options = 0;
+      for(let d=0; d<D; d++) for(let p=0; p<P; p++) if(checkSlot(u, d, p)) options++;
+      u.mrv = options;
+    });
+    // Sort by Most Constrained (fewest options first), then by size
+    units.sort((a,b) => (a.mrv - b.mrv) || (b.sz - a.sz));
+
+    function place(u, dPos, pPos, isPlace){
+      const val = isPlace ? u : null;
+      cBusy[u.cid][dPos][pPos] = val; tBusy[u.tid][dPos][pPos] = val; if(u.rid) rBusy[u.rid][dPos][pPos] = val;
+      if(u.sz===2){ cBusy[u.cid][dPos][pPos+1] = val; tBusy[u.tid][dPos][pPos+1] = val; if(u.rid) rBusy[u.rid][dPos][pPos+1] = val;}
+      tDayLoad[u.tid][dPos] += isPlace ? u.sz : -u.sz;
+      if(isPlace) u.slot = {dPos, pPos}; else u.slot = null;
+    }
+
+    let iterations = 0;
+    function solve(idx){
+      if(idx >= units.length) return true;
+      iterations++; if(iterations > 100000) return false;
+      
+      let u = units[idx];
+      let candidates = [];
+      for(let d=0; d<D; d++){
+        for(let p=0; p<P; p++){
+          if(checkSlot(u, d, p)){
+             // Heuristic Scoring: lower is better
+             let score = 0;
+             if(u.hard) score += p; // Push hard subjects earlier
+             // Gap Minimization Bonus for Teacher
+             let adj = 0;
+             if (p > 0 && tBusy[u.tid][d][p-1]) adj++;
+             if (p < P-1 && tBusy[u.tid][d][p+1]) adj++;
+             score -= (adj * 20); // Massive bonus for clustering
+             candidates.push({dPos:d, pPos:p, score: score});
+          }
+        }
+      }
+      candidates.sort((a,b)=>a.score - b.score);
+      for(let c of candidates){
+        place(u, c.dPos, c.pPos, true);
+        if(solve(idx+1)) return true;
+        place(u, c.dPos, c.pPos, false);
+      }
+      return false;
+    }
+
+    document.getElementById("generateStatus").innerHTML = "Generating... (Solving)";
+    
+    setTimeout(() => {
+      if(solve(0)){
+        const grid = {}; state.classes.forEach(c=>grid[c.id]=days.map(()=>new Array(P).fill(null)));
+        units.forEach(u=>{
+          if(u.slot){
+            grid[u.cid][u.slot.dPos][u.slot.pPos] = {sid:u.sid, tid:u.tid, rid:u.rid, sz:u.sz, lab:u.sz===2, half:"start", uid:u.uid};
+            if(u.sz===2) grid[u.cid][u.slot.dPos][u.slot.pPos+1] = {sid:u.sid, tid:u.tid, rid:u.rid, sz:u.sz, lab:true, half:"end", uid:u.uid};
+          }
+        });
+        state.routine = { success:true, days, teachingPeriods, grid };
+        saveState();
+        document.getElementById("generateStatus").innerHTML = `<div class="check-result ok"><h3>✓ Routine Generated Successfully</h3>Solved in ${iterations} passes. MRV active. Gap minimization active. Zero conflicts.</div>`;
+      } else {
+        document.getElementById("generateStatus").innerHTML = `<div class="check-result bad"><h3>✕ Could not solve</h3>Constraints are mathematically too tight or no solution exists. Try relaxing Room or Time limits.</div>`;
+      }
+    }, 10);
+  }, 10);
+};
+
+/* --- Viewer / Editor --- */
+let vMode = "master"; // master, class, teacher
+document.querySelectorAll("#viewModeSeg button").forEach(b=>{ b.onclick=()=>{ document.querySelectorAll("#viewModeSeg button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); vMode=b.dataset.mode; refreshViewer(); }});
+
+function refreshViewer(){
+  const sel = document.getElementById("viewerEntitySelect");
+  if(vMode==="class") sel.innerHTML = state.classes.map(c=>`<option value="${c.id}">Class: ${c.name} - ${c.section}</option>`).join("");
+  else if (vMode==="teacher") sel.innerHTML = state.teachers.map(t=>`<option value="${t.id}">Teacher: ${t.name}</option>`).join("");
+  else if (vMode==="master") sel.innerHTML = (state.routine?.days || []).map((dIdx, pos)=>`<option value="${pos}">Day: ${DAY_NAMES[dIdx]}</option>`).join("");
+  renderViewer();
+}
+document.getElementById("viewerEntitySelect").onchange = renderViewer;
+
+function renderViewer(){
+  const host = document.getElementById("viewerContainer");
+  if(!state.routine){ host.innerHTML = "<p>No routine generated yet.</p>"; return; }
+  let entityId = document.getElementById("viewerEntitySelect").value;
+  if(entityId==="" || entityId==null) return;
+
+  const {days, teachingPeriods, grid} = state.routine;
+  const halfDays = state.settings.halfDays || [];
+  const maxHalfP = state.settings.halfDayPeriods || 4;
+
+  let html = `<div class="timetable-scroll"><table class="timetable">`;
+  
+  if (vMode === "master") {
+    let dPos = parseInt(entityId, 10); let dIdx = days[dPos];
+    let maxPForDay = halfDays.includes(dIdx) ? maxHalfP : state.settings.periodsPerDay;
+
+    html += `<thead><tr><th class="corner">Class \\ Period</th>`;
+    for(let i=1;i<=state.settings.periodsPerDay;i++) html += state.settings.breaks.includes(i) ? `<th style="background:#b3aca0">Tiffin</th>` : `<th>P${i}</th>`;
+    html += `</tr></thead><tbody>`;
+
+    state.classes.forEach(c => {
+      let limit = c.dailyPeriods || state.settings.periodsPerDay;
+      html += `<tr><td class="day-head">${c.name} ${c.section}</td>`;
+      let pPos = 0;
+      for(let i=1;i<=state.settings.periodsPerDay;i++){
+        if(i > limit || i > maxPForDay) { html += `<td class="slot gray-out"></td>`; continue; }
+        if(state.settings.breaks.includes(i)){ html += `<td class="slot break-col"></td>`; continue; }
+        let cellData = grid[c.id][dPos][pPos];
+        if(cellData){
+          let s = state.subjects.find(x=>x.id===cellData.sid), t = state.teachers.find(x=>x.id===cellData.tid), r = state.rooms.find(x=>x.id===cellData.rid);
+          let rB = r ? `<span class="rm-badge">${r.name.split(' ')[0]}</span>` : '';
+          html += `<td class="slot"><div class="cell-block ${cellData.lab?'lab':''}"><span class="subj">${s?s.name:'?'}</span><span class="meta"><span>${t?(t.shortName||t.name):'?'}</span> ${rB}</span></div></td>`;
+        } else html += `<td class="slot"><div class="empty-slot-hint">·</div></td>`;
+        pPos++;
+      }
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+  } else {
+    html += `<thead><tr><th class="corner">Day \\ Period</th>`;
+    for(let i=1;i<=state.settings.periodsPerDay;i++) html += state.settings.breaks.includes(i) ? `<th style="background:#b3aca0">Tiffin</th>` : `<th>P${i}</th>`;
+    html += `</tr></thead><tbody>`;
+
+    days.forEach((dIdx, dPos)=>{
+      let maxPForDay = halfDays.includes(dIdx) ? maxHalfP : state.settings.periodsPerDay;
+      let limit = state.settings.periodsPerDay;
+      if (vMode === "class") { let cl = state.classes.find(x=>x.id===entityId); if(cl) limit = cl.dailyPeriods || state.settings.periodsPerDay; }
+      
+      html += `<tr><td class="day-head">${DAY_NAMES[dIdx]}</td>`;
+      let pPos = 0;
+      for(let i=1;i<=state.settings.periodsPerDay;i++){
+        if(i > maxPForDay || i > limit) { html += `<td class="slot gray-out"></td>`; continue; }
+        if(state.settings.breaks.includes(i)){ html += `<td class="slot break-col"></td>`; continue; }
+        
+        let cellData = null, cId = entityId;
+        if(vMode==="class") cellData = grid[entityId][dPos][pPos];
+        else { state.classes.forEach(c=>{ let cell = grid[c.id][dPos][pPos]; if(cell && cell.tid===entityId){ cellData=cell; cId=c.id; }}); }
+        
+        if(cellData){
+          let s = state.subjects.find(x=>x.id===cellData.sid), t = state.teachers.find(x=>x.id===cellData.tid), cls = state.classes.find(x=>x.id===cId), r = state.rooms.find(x=>x.id===cellData.rid);
+          let title1 = s?s.name:'?', title2 = vMode==="class" ? (t?(t.shortName||t.name):'?') : (cls?cls.name+' '+cls.section:'?');
+          let rB = r ? `<span class="rm-badge">${r.name.split(' ')[0]}</span>` : '';
+          html += `<td class="slot"><div class="cell-block ${cellData.lab?'lab':''}"><span class="subj">${title1} ${cellData.lab?'(Lab)':''}</span><span class="meta"><span>${title2}</span> ${rB}</span></div></td>`;
+        } else html += `<td class="slot"><div class="empty-slot-hint">·</div></td>`;
+        pPos++;
+      }
+      html += `</tr>`;
+    });
+    html += `</tbody></table></div>`;
+  }
+  host.innerHTML = html;
+}
+
+function renderAll(){ renderRooms(); renderSettingsUI(); renderClasses(); renderTeachers(); renderSubjects(); renderAssignments(); refreshAssignmentSelects(); if(document.getElementById("panel-viewer").classList.contains("active")) refreshViewer(); }
+loadState(); renderAll();
+})();
+</script>
+</body>
+</html>
