@@ -129,7 +129,7 @@ const navItems: NavItem[] = [
     iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20 group-hover:scale-110",
   },
   {
-    label: "Routine Forge",
+    label: "Routine Maker",
     href: "/routine",
     icon: <CalendarClock className="h-4 w-4" />,
     iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20 group-hover:scale-110",

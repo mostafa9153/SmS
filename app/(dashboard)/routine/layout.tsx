@@ -50,7 +50,7 @@ export default function RoutineLayout({ children }: RoutineLayoutProps) {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-              Routine Forge Pro
+              Routine Maker
             </h1>
           </div>
         </div>

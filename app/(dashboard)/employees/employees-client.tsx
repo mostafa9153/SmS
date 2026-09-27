@@ -6,6 +6,7 @@ import { ArrowLeft, Users, Loader2, Sparkles, UserPlus } from "lucide-react";
 import { StaffFiltersBar, StaffFilters } from "@/components/employees/staff-filters-bar";
 import { StaffStatsCards } from "@/components/employees/staff-stats-cards";
 import { StaffTable, StaffProfile } from "@/components/employees/staff-table";
+import { StaffCreateDialog } from "@/components/employees/staff-create-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,14 @@ export default function EmployeesClient({
   const searchParams = useSearchParams();
   const typeParam = searchParams.get("type") || initialType || "";
 
+  const [staffList, setStaffList] = useState<StaffProfile[]>(initialStaff);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Sync if initialStaff changes
+  useEffect(() => {
+    setStaffList(initialStaff);
+  }, [initialStaff]);
+
   const [filters, setFilters] = useState<StaffFilters>({
     employeeType: typeParam || undefined,
   });
@@ -34,26 +43,26 @@ export default function EmployeesClient({
     }));
   }, [typeParam]);
 
-  // Extract unique filter options from initial data
+  // Extract unique filter options from current data
   const availableDesignations = useMemo(() => {
     const set = new Set<string>();
-    initialStaff.forEach((s) => {
+    staffList.forEach((s) => {
       if (s.designation) set.add(s.designation);
     });
     return Array.from(set).sort();
-  }, [initialStaff]);
+  }, [staffList]);
 
   const availableCastes = useMemo(() => {
     const set = new Set<string>();
-    initialStaff.forEach((s) => {
+    staffList.forEach((s) => {
       if (s.caste) set.add(s.caste);
     });
     return Array.from(set).sort();
-  }, [initialStaff]);
+  }, [staffList]);
 
   // Filtered dataset
   const filteredStaff = useMemo(() => {
-    return initialStaff.filter((staff) => {
+    return staffList.filter((staff) => {
       // 1. Employee Type filter
       if (filters.employeeType === "teaching" && staff.employee_type !== "TEACHING") {
         return false;
@@ -91,7 +100,7 @@ export default function EmployeesClient({
 
       return true;
     });
-  }, [initialStaff, filters]);
+  }, [staffList, filters]);
 
   // Compute metric stats
   const stats = useMemo(() => {
@@ -99,19 +108,19 @@ export default function EmployeesClient({
     let nonTeaching = 0;
     let active = 0;
 
-    initialStaff.forEach((s) => {
+    staffList.forEach((s) => {
       if (s.employee_type === "TEACHING") teaching++;
       if (s.employee_type === "NON_TEACHING") nonTeaching++;
       if (s.status === "ACTIVE") active++;
     });
 
     return {
-      total: initialStaff.length,
+      total: staffList.length,
       teachingCount: teaching,
       nonTeachingCount: nonTeaching,
       activeCount: active,
     };
-  }, [initialStaff]);
+  }, [staffList]);
 
   // Export to Excel handler
   const handleExport = async () => {
@@ -162,30 +171,25 @@ export default function EmployeesClient({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-                {pageTitle}
-              </h1>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
-                  hasFilters
-                    ? "bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs"
-                    : "bg-muted/80 text-muted-foreground border-border"
-                )}
-              >
-                <span className="font-mono text-xs font-bold">
-                  {filteredStaff.length}
-                </span>
-                <span className="text-[11px] font-medium opacity-85">
-                  {hasFilters ? "matching found" : "total records"}
-                </span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
+              {pageTitle}
+            </h1>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
+                hasFilters
+                  ? "bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs"
+                  : "bg-muted/80 text-muted-foreground border-border"
+              )}
+            >
+              <span className="font-mono text-xs font-bold">
+                {filteredStaff.length}
               </span>
-            </div>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Comprehensive institutional faculty, administrative, and support staff records.
-            </p>
+              <span className="text-[11px] font-medium opacity-85">
+                {hasFilters ? "matching found" : "total records"}
+              </span>
+            </span>
           </div>
         </div>
       </div>
@@ -206,12 +210,23 @@ export default function EmployeesClient({
           availableDesignations={availableDesignations}
           availableCastes={availableCastes}
           onExportClick={handleExport}
-          onAddClick={() => alert("Add Employee form is being prepared for registration.")}
+          onAddClick={() => setIsAddOpen(true)}
         />
       </div>
 
       {/* 4. Staff Data Table */}
       <StaffTable data={filteredStaff} />
+
+      {/* 5. Add Employee Dialog */}
+      <StaffCreateDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
+        defaultType={typeParam}
+        onStaffCreated={(newStaff) => {
+          setStaffList((prev) => [newStaff, ...prev]);
+        }}
+      />
     </div>
   );
 }
+
