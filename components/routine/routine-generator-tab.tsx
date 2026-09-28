@@ -31,7 +31,6 @@ import {
   Table2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 interface RoutineGeneratorTabProps {
   settings: RoutineSettings;

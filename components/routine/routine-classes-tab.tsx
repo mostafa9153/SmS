@@ -19,12 +19,11 @@ import {
   School,
   Sparkles,
   Layers,
-  Save,
   CheckCheck,
-  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
+import { isHsClass } from "@/lib/routine/routine-helpers";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -33,8 +32,6 @@ interface RoutineClassesTabProps {
   onBatchSaveClasses?: (classesList: { id?: string; className: string; section: string; dailyPeriods?: number | null }[]) => Promise<void>;
   onDeleteClass: (id: string) => Promise<void>;
 }
-
-const PRESET_STREAMS = ["General", "Science", "Arts", "Commerce", "Vocational"];
 
 function parseSectionAndStream(rawSection: string): { section: string; stream: string } {
   const trimmed = (rawSection || "").trim();
@@ -59,11 +56,6 @@ function formatSectionAndStream(sec: string, str: string): string {
     return cleanSec;
   }
   return `${cleanSec} (${cleanStr})`;
-}
-
-function isHsClass(className: string, code?: string): boolean {
-  const norm = (code || className || "").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
-  return ["XI", "XII", "11", "12"].includes(norm) || className.toUpperCase().includes("XI") || className.toUpperCase().includes("XII");
 }
 
 interface PresetClassItem {
@@ -201,10 +193,6 @@ export function RoutineClassesTab({
     });
   }, [classes]);
 
-  // In-line Period Limit tracking for each row: { [classId]: string }
-  const [rowPeriods, setRowPeriods] = useState<Record<string, string>>({});
-  const [savedRowIds, setSavedRowIds] = useState<Record<string, boolean>>({});
-
   // Batch edit bar state
   const [batchPeriodVal, setBatchPeriodVal] = useState<string>("7");
   const [isBatchApplying, setIsBatchApplying] = useState(false);
@@ -262,17 +250,8 @@ export function RoutineClassesTab({
     }
   }, [availableStreams, selectedStream]);
 
-  // Sync initial rowPeriods when classes load
-  useEffect(() => {
-    const map: Record<string, string> = {};
-    classes.forEach((c) => {
-      map[c.id] = c.dailyPeriods ? String(c.dailyPeriods) : "";
-    });
-    setRowPeriods(map);
-  }, [classes]);
-
   // When class changes, adjust section & stream
-  const handleClassChange = (newCls: string) => {
+  const handleClassChange = React.useCallback((newCls: string) => {
     setSelectedClass(newCls);
     const unaddedForNewCls = unaddedPresetItems.filter((i) => i.className === newCls);
     const newSecs = Array.from(new Set(unaddedForNewCls.map((i) => i.section)));
@@ -283,16 +262,16 @@ export function RoutineClassesTab({
       new Set(unaddedForNewCls.filter((i) => i.section === defaultSec).map((i) => i.stream))
     );
     setSelectedStream(newStreams[0] || "General");
-  };
+  }, [unaddedPresetItems]);
 
-  const handleSectionChange = (newSec: string) => {
+  const handleSectionChange = React.useCallback((newSec: string) => {
     setSelectedSection(newSec);
     const unaddedForNewSec = unaddedPresetItems.filter(
       (i) => i.className === selectedClass && i.section === newSec
     );
     const newStreams = Array.from(new Set(unaddedForNewSec.map((i) => i.stream)));
     setSelectedStream(newStreams[0] || "General");
-  };
+  }, [unaddedPresetItems, selectedClass]);
 
   // Add Single Class
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -310,33 +289,6 @@ export function RoutineClassesTab({
       setDailyPeriods("");
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  // In-line change of a specific row's daily period
-  const handleInlinePeriodChange = (id: string, val: string) => {
-    setRowPeriods((prev) => ({ ...prev, [id]: val }));
-  };
-
-  // Auto-save when leaving the input or pressing enter
-  const handleInlinePeriodBlur = async (cls: RoutineClass) => {
-    const valStr = rowPeriods[cls.id];
-    const parsed = valStr && valStr.trim() !== "" ? parseInt(valStr.trim(), 10) : null;
-    if (cls.dailyPeriods === parsed) return;
-
-    try {
-      await onSaveClass({
-        id: cls.id,
-        className: cls.className,
-        section: cls.section,
-        dailyPeriods: parsed,
-      });
-      setSavedRowIds((prev) => ({ ...prev, [cls.id]: true }));
-      setTimeout(() => {
-        setSavedRowIds((prev) => ({ ...prev, [cls.id]: false }));
-      }, 1500);
-    } catch (err) {
-      console.error("Inline save error:", err);
     }
   };
 
@@ -445,13 +397,13 @@ export function RoutineClassesTab({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {/* 1. Class Dropdown */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Class / Standard *</Label>
+            <Label className="text-xs font-semibold">Class / Standard *</Label>
             <Select
               value={selectedClass}
               onValueChange={(val) => val && handleClassChange(val)}
               disabled={isAllPresetsAdded}
             >
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder={isAllPresetsAdded ? "All Classes Added" : "Select Class"}>
                   {selectedClass || (isAllPresetsAdded ? "All Classes Added" : "Select Class")}
                 </SelectValue>
@@ -468,13 +420,13 @@ export function RoutineClassesTab({
 
           {/* 2. Section Dropdown */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Section *</Label>
+            <Label className="text-xs font-semibold">Section *</Label>
             <Select
               value={selectedSection}
               onValueChange={(val) => val && handleSectionChange(val)}
               disabled={isAllPresetsAdded || availableSections.length === 0}
             >
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder={availableSections.length === 0 ? "No Sections" : "Select Section"}>
                   {selectedSection ? `Section ${selectedSection}` : availableSections.length === 0 ? "No Sections" : "Select Section"}
                 </SelectValue>
@@ -491,13 +443,13 @@ export function RoutineClassesTab({
 
           {/* 3. Stream Dropdown */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Stream</Label>
+            <Label className="text-xs font-semibold">Stream</Label>
             <Select
               value={selectedStream}
               onValueChange={(val) => val && setSelectedStream(val)}
               disabled={isAllPresetsAdded || (availableStreams.length <= 1 && availableStreams[0] === "General")}
             >
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder="Select Stream">
                   {selectedStream || "Select Stream"}
                 </SelectValue>
@@ -514,7 +466,7 @@ export function RoutineClassesTab({
 
           {/* 4. Daily Period Override */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Daily Periods (Optional)</Label>
+            <Label className="text-xs font-semibold">Daily Periods (Optional)</Label>
             <Input
               type="number"
               min={1}
@@ -522,7 +474,7 @@ export function RoutineClassesTab({
               placeholder="Global (e.g. 8)"
               value={dailyPeriods}
               onChange={(e) => setDailyPeriods(e.target.value)}
-              className="h-9 text-xs"
+              className="h-8 text-xs font-medium"
               disabled={isAllPresetsAdded}
             />
           </div>
@@ -601,80 +553,15 @@ export function RoutineClassesTab({
                   </td>
                 </tr>
               ) : (
-                sortedClasses.map((c) => {
-                  const { section: secName, stream: strName } = parseSectionAndStream(c.section);
-                  const isSaved = savedRowIds[c.id];
-                  const currentVal =
-                    rowPeriods[c.id] !== undefined && rowPeriods[c.id].trim() !== ""
-                      ? parseInt(rowPeriods[c.id].trim(), 10)
-                      : c.dailyPeriods;
-                  const weeklyTotal = calculateWeeklyPeriods(currentVal);
-
-                  return (
-                    <tr key={c.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-2 px-4 font-semibold text-foreground">
-                        {c.className}
-                      </td>
-                      <td className="py-2 px-4 font-medium text-foreground">
-                        <Badge variant="outline" className="text-[10px] font-mono">
-                          Sec {secName}
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-4">
-                        {strName && strName !== "General" ? (
-                          <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
-                            {strName}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-[11px]">General</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-4">
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="number"
-                            min={1}
-                            max={14}
-                            placeholder="Global"
-                            value={rowPeriods[c.id] ?? ""}
-                            onChange={(e) => handleInlinePeriodChange(c.id, e.target.value)}
-                            onBlur={() => handleInlinePeriodBlur(c)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            className="h-7 w-20 text-xs font-mono px-2"
-                          />
-                          <span className="text-[11px] text-muted-foreground">periods/day</span>
-                          {isSaved && (
-                            <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 gap-0.5 animate-in fade-in">
-                              <CheckCheck className="w-3 h-3" /> Saved
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-2 px-4">
-                        <Badge
-                          variant="secondary"
-                          className="text-[11px] font-mono font-bold bg-muted/80 text-foreground border px-2 py-0.5"
-                        >
-                          {weeklyTotal} p/wk
-                        </Badge>
-                      </td>
-                      <td className="py-2 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onDeleteClass(c.id)}
-                          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })
+                sortedClasses.map((c) => (
+                  <ClassTableRow
+                    key={c.id}
+                    cls={c}
+                    calculateWeeklyPeriods={calculateWeeklyPeriods}
+                    onSaveClass={onSaveClass}
+                    onDeleteClass={onDeleteClass}
+                  />
+                ))
               )}
             </tbody>
           </table>
@@ -683,3 +570,111 @@ export function RoutineClassesTab({
     </div>
   );
 }
+
+interface ClassTableRowProps {
+  cls: RoutineClass;
+  calculateWeeklyPeriods: (dailyP: number | null | undefined) => number;
+  onSaveClass: (cls: { id?: string; className: string; section: string; dailyPeriods?: number | null }) => Promise<void>;
+  onDeleteClass: (id: string) => Promise<void>;
+}
+
+const ClassTableRow = React.memo(function ClassTableRow({
+  cls,
+  calculateWeeklyPeriods,
+  onSaveClass,
+  onDeleteClass,
+}: ClassTableRowProps) {
+  const [val, setVal] = useState<string>(cls.dailyPeriods ? String(cls.dailyPeriods) : "");
+  const [isSaved, setIsSaved] = useState(false);
+
+  useEffect(() => {
+    setVal(cls.dailyPeriods ? String(cls.dailyPeriods) : "");
+  }, [cls.dailyPeriods]);
+
+  const { section: secName, stream: strName } = parseSectionAndStream(cls.section);
+  const currentNum = val && val.trim() !== "" ? parseInt(val.trim(), 10) : cls.dailyPeriods;
+  const weeklyTotal = calculateWeeklyPeriods(currentNum);
+
+  const handleBlur = async () => {
+    const parsed = val && val.trim() !== "" ? parseInt(val.trim(), 10) : null;
+    if (cls.dailyPeriods === parsed) return;
+
+    try {
+      await onSaveClass({
+        id: cls.id,
+        className: cls.className,
+        section: cls.section,
+        dailyPeriods: parsed,
+      });
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 1500);
+    } catch (err) {
+      console.error("Inline save error:", err);
+    }
+  };
+
+  return (
+    <tr className="hover:bg-muted/30 transition-colors">
+      <td className="py-2 px-4 font-semibold text-foreground">
+        {cls.className}
+      </td>
+      <td className="py-2 px-4 font-medium text-foreground">
+        <Badge variant="outline" className="text-[10px] font-mono">
+          Sec {secName}
+        </Badge>
+      </td>
+      <td className="py-2 px-4">
+        {strName && strName !== "General" ? (
+          <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
+            {strName}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-[11px]">General</span>
+        )}
+      </td>
+      <td className="py-2 px-4">
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={1}
+            max={14}
+            placeholder="Global"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            className="h-7 w-20 text-xs font-mono px-2"
+          />
+          <span className="text-[11px] text-muted-foreground">periods/day</span>
+          {isSaved && (
+            <span className="inline-flex items-center text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 gap-0.5 animate-in fade-in">
+              <CheckCheck className="w-3 h-3" /> Saved
+            </span>
+          )}
+        </div>
+      </td>
+      <td className="py-2 px-4">
+        <Badge
+          variant="secondary"
+          className="text-[11px] font-mono font-bold bg-muted/80 text-foreground border px-2 py-0.5"
+        >
+          {weeklyTotal} p/wk
+        </Badge>
+      </td>
+      <td className="py-2 px-4 text-right">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDeleteClass(cls.id)}
+          className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </td>
+    </tr>
+  );
+});

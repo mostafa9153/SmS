@@ -19,7 +19,6 @@ import {
   School,
   Building2,
   Coffee,
-  FlaskConical,
   Sparkles,
   ArrowRight,
   Sliders,
@@ -184,7 +183,7 @@ export function RoutineViewerTab({
             <select
               value={masterDayIdx}
               onChange={(e) => setMasterDayIdx(parseInt(e.target.value, 10))}
-              className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
             >
               {activeDays.map((dIdx, pos) => (
                 <option key={pos} value={pos}>
@@ -199,7 +198,7 @@ export function RoutineViewerTab({
               <select
                 value={selectedClassId}
                 onChange={(e) => setSelectedClassId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
               >
                 {sortedClasses.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -236,7 +235,7 @@ export function RoutineViewerTab({
               <select
                 value={selectedTeacherId}
                 onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
               >
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -271,7 +270,7 @@ export function RoutineViewerTab({
             <select
               value={selectedRoomId}
               onChange={(e) => setSelectedRoomId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
             >
               {rooms.map((r) => (
                 <option key={r.id} value={r.id}>

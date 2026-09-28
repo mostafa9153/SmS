@@ -9,7 +9,6 @@ import {
   RoutineAssignment,
   RoutineSettings,
   RoutineRoom,
-  ValidationReport,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { autoBuildRoutineAssignments } from "@/lib/routine/routine-auto-assign";
@@ -27,14 +26,9 @@ import {
   Users,
   BookOpen,
   CalendarCheck2,
-  Layers,
-  HelpCircle,
-  Clock,
-  ArrowUpRight,
   Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
 
 export interface AuditIssue {
   id: string;

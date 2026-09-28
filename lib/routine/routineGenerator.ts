@@ -13,7 +13,6 @@ import {
   RoutineRoom,
   RoutineTeacher,
   RoutineAssignment,
-  RoutineCellData,
   RoutineGrid,
   GeneratedRoutine,
   ValidationReport,

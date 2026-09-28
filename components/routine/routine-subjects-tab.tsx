@@ -24,7 +24,6 @@ import {
   Clock,
   School,
   Layers,
-  ArrowRight,
   Split,
   Share2,
   Atom,
@@ -40,9 +39,19 @@ import {
   getDatabaseSubjectsForClass,
 } from "@/lib/ems/ems-config-loader";
 import {
-  getSchoolConfiguredStreams,
-  getClassStreamList,
-} from "@/lib/utils/school-profile";
+  HS_STREAM_PRESETS,
+  detectSubjectStream,
+  isHsClass,
+  getConfiguredStreamsForClass,
+} from "@/lib/routine/routine-helpers";
+
+// Re-export helpers for backward compatibility
+export {
+  HS_STREAM_PRESETS,
+  detectSubjectStream,
+  isHsClass,
+  getConfiguredStreamsForClass,
+};
 
 interface RoutineSubjectsTabProps {
   subjects: RoutineSubject[];
@@ -62,73 +71,6 @@ interface RoutineSubjectsTabProps {
     periodsPerWeek?: number | null;
   }) => Promise<void>;
   onDeleteSubject: (id: string) => Promise<void>;
-}
-
-export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts", string[]> = {
-  Common: ["Bengali", "English", "Environmental Studies", "Alternative English", "Hindi", "Urdu"],
-  Science: ["Physics", "Chemistry", "Mathematics", "Biological Sciences", "Computer Science", "Nutrition", "Statistics"],
-  Commerce: ["Accountancy", "Business Studies", "Economics", "Costing and Taxation", "Commercial Law", "Computer Application"],
-  Arts: ["History", "Geography", "Political Science", "Philosophy", "Education", "Sociology", "Sanskrit", "Arabic"],
-};
-
-export function detectSubjectStream(name: string, explicitStream?: string | null): "Common" | "Science" | "Commerce" | "Arts" | "General" {
-  if (explicitStream && ["Common", "Science", "Commerce", "Arts", "General"].includes(explicitStream)) {
-    return explicitStream as any;
-  }
-  const lower = (name || "").trim().toLowerCase();
-  if (lower.includes("bengali") || lower.includes("english") || lower.includes("environmental") || lower.includes("hindi") || lower.includes("urdu")) {
-    return "Common";
-  }
-  if (lower.includes("physics") || lower.includes("chemistry") || lower.includes("math") || lower.includes("biology") || lower.includes("biological") || lower.includes("nutrition") || lower.includes("statistics") || lower.includes("computer science")) {
-    return "Science";
-  }
-  if (lower.includes("account") || lower.includes("business") || lower.includes("costing") || lower.includes("taxation") || lower.includes("commercial law") || lower.includes("computer application")) {
-    return "Commerce";
-  }
-  if (lower.includes("history") || lower.includes("geography") || lower.includes("political") || lower.includes("philosophy") || lower.includes("education") || lower.includes("sociology") || lower.includes("sanskrit") || lower.includes("arabic") || lower.includes("music") || lower.includes("psychology") || lower.includes("journalism")) {
-    return "Arts";
-  }
-  return "General";
-}
-
-export function isHsClass(className: string): boolean {
-  const norm = (className || "").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
-  return ["XI", "XII", "11", "12"].includes(norm) || className.toUpperCase().includes("XI") || className.toUpperCase().includes("XII");
-}
-
-export function getConfiguredStreamsForClass(className: string): Array<"Science" | "Commerce" | "Arts"> {
-  if (typeof window === "undefined") return ["Science", "Commerce", "Arts"];
-  const dynamicClasses = getDynamicClassList();
-  const cleanCode = className.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
-  const target = dynamicClasses.find(
-    (c) =>
-      c.code.toUpperCase() === cleanCode ||
-      c.name.toUpperCase().includes(cleanCode) ||
-      c.name.toLowerCase() === className.toLowerCase()
-  );
-
-  let rawStreams: string[] = [];
-  if (target?.stream && target.stream.trim()) {
-    rawStreams = getClassStreamList(target.stream);
-  } else {
-    rawStreams = getSchoolConfiguredStreams();
-  }
-
-  const result: Array<"Science" | "Commerce" | "Arts"> = [];
-  rawStreams.forEach((s) => {
-    const lower = s.trim().toLowerCase();
-    if ((lower.includes("sci") || lower.includes("science")) && !result.includes("Science")) {
-      result.push("Science");
-    }
-    if ((lower.includes("com") || lower.includes("commerce")) && !result.includes("Commerce")) {
-      result.push("Commerce");
-    }
-    if ((lower.includes("art") || lower.includes("humanities")) && !result.includes("Arts")) {
-      result.push("Arts");
-    }
-  });
-
-  return result.length > 0 ? result : ["Science", "Commerce", "Arts"];
 }
 
 export function RoutineSubjectsTab({
@@ -247,21 +189,24 @@ export function RoutineSubjectsTab({
     return list;
   }, [subjects, activeClass, isCurrentClassHs, selectedStream]);
 
-  // Number of configured subjects per class
+  // Number of configured subjects per class (O(S) single-pass aggregation)
   const classSubjectCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    for (const s of subjects) {
+      if (s.className) {
+        const clsLower = s.className.toLowerCase();
+        counts[clsLower] = (counts[clsLower] || 0) + 1;
+      }
+    }
+    const result: Record<string, number> = {};
     availableClasses.forEach((cls) => {
-      const clsLower = cls.toLowerCase();
-      const count = subjects.filter(
-        (s) => s.className && s.className.toLowerCase() === clsLower
-      ).length;
-      counts[cls] = count;
+      result[cls] = counts[cls.toLowerCase()] || 0;
     });
-    return counts;
+    return result;
   }, [subjects, availableClasses]);
 
   // Handle choosing a preset subject chip
-  const handleSelectPresetChip = (subName: string) => {
+  const handleSelectPresetChip = React.useCallback((subName: string) => {
     setName(subName);
     const lower = subName.toLowerCase();
     const detected = detectSubjectStream(subName);
@@ -278,7 +223,7 @@ export function RoutineSubjectsTab({
       setIsLab(false);
       setPeriodsPerWeek(5);
     }
-  };
+  }, []);
 
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -322,7 +267,7 @@ export function RoutineSubjectsTab({
     }
   };
 
-  const handleEdit = (s: RoutineSubject) => {
+  const handleEdit = React.useCallback((s: RoutineSubject) => {
     setEditId(s.id);
     setName(s.name);
     setPeriodsPerWeek(s.periodsPerWeek || (s.isLab ? 2 : 5));
@@ -336,9 +281,9 @@ export function RoutineSubjectsTab({
     const stream = detectSubjectStream(s.name, s.stream);
     setFormStream(stream);
     setIsCommonSubject(Boolean(s.isCommon || stream === "Common"));
-  };
+  }, [availableClasses]);
 
-  const handleCancel = () => {
+  const handleCancel = React.useCallback(() => {
     setEditId(null);
     setName("");
     setPeriodsPerWeek(5);
@@ -348,7 +293,7 @@ export function RoutineSubjectsTab({
     setMaxPerDay(2);
     setFormStream("General");
     setIsCommonSubject(false);
-  };
+  }, []);
 
   // Auto-Sync Preset Subjects for Active Class
   const handleSyncActiveClass = async () => {
@@ -538,7 +483,7 @@ export function RoutineSubjectsTab({
         <div className="flex items-center justify-between gap-2 pb-2 mb-2 border-b">
           <div className="flex items-center gap-2">
             <School className="w-4 h-4 text-primary" />
-            <span className="text-xs font-bold text-foreground">Select Class to Manage Curriculum</span>
+            <span className="text-xs font-semibold text-foreground">Classes</span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -551,7 +496,7 @@ export function RoutineSubjectsTab({
               className="h-7 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
             >
               <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Auto-Sync All Classes</span>
+              <span>Auto-Sync All</span>
             </Button>
           </div>
         </div>
@@ -775,7 +720,7 @@ export function RoutineSubjectsTab({
 
         {/* Preset Subject Chips for Active Class & Selected Stream */}
         {activeClass !== "all" && (
-          <div className="p-3 bg-muted/25 border rounded-md space-y-2">
+          <div className="p-2.5 bg-muted/25 border rounded-md space-y-2">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                 <span>{activeClass} Curriculum Presets</span>
@@ -784,9 +729,6 @@ export function RoutineSubjectsTab({
                     {selectedStream === "all" ? "All Streams" : selectedStream}
                   </Badge>
                 )}
-              </span>
-              <span className="text-[11px] text-muted-foreground font-medium">
-                Click chip to load
               </span>
             </div>
 
@@ -832,12 +774,12 @@ export function RoutineSubjectsTab({
         )}
 
         {/* Form Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Subject Name *</Label>
+            <Label className="text-xs font-semibold">Subject Name *</Label>
             <Input
               type="text"
-              placeholder="e.g. Mathematics, Bengali, Physics"
+              placeholder="e.g. Mathematics, Bengali"
               value={name}
               onChange={(e) => {
                 const val = e.target.value;
@@ -848,7 +790,7 @@ export function RoutineSubjectsTab({
                   if (det === "Common") setIsCommonSubject(true);
                 }
               }}
-              className="h-9 text-xs font-medium"
+              className="h-8 text-xs font-medium"
               required
             />
           </div>
@@ -856,7 +798,7 @@ export function RoutineSubjectsTab({
           {/* Stream Selector (for HS Classes - Only showing configured streams) */}
           {isCurrentClassHs ? (
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Stream</Label>
+              <Label className="text-xs font-semibold">Stream</Label>
               <Select
                 value={formStream}
                 onValueChange={(val: any) => {
@@ -864,7 +806,7 @@ export function RoutineSubjectsTab({
                   setIsCommonSubject(val === "Common");
                 }}
               >
-                <SelectTrigger className="h-9 text-xs font-medium bg-background">
+                <SelectTrigger className="h-8 text-xs font-medium bg-background">
                   <SelectValue placeholder="Select Stream" />
                 </SelectTrigger>
                 <SelectContent>
@@ -894,14 +836,14 @@ export function RoutineSubjectsTab({
             </div>
           ) : (
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Periods / Week *</Label>
+              <Label className="text-xs font-semibold">Periods / Week *</Label>
               <Input
                 type="number"
                 min={1}
                 max={18}
                 value={periodsPerWeek}
                 onChange={(e) => setPeriodsPerWeek(parseInt(e.target.value, 10) || 1)}
-                className="h-9 text-xs font-mono font-semibold"
+                className="h-8 text-xs font-mono font-semibold"
                 required
               />
             </div>
@@ -909,26 +851,26 @@ export function RoutineSubjectsTab({
 
           {isCurrentClassHs && (
             <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Periods / Week *</Label>
+              <Label className="text-xs font-semibold">Periods / Week *</Label>
               <Input
                 type="number"
                 min={1}
                 max={18}
                 value={periodsPerWeek}
                 onChange={(e) => setPeriodsPerWeek(parseInt(e.target.value, 10) || 1)}
-                className="h-9 text-xs font-mono font-semibold"
+                className="h-8 text-xs font-mono font-semibold"
                 required
               />
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Period Format</Label>
+            <Label className="text-xs font-semibold">Period Format</Label>
             <Select
               value={isLab ? "lab" : "single"}
               onValueChange={(val) => setIsLab(val === "lab")}
             >
-              <SelectTrigger className="h-9 text-xs font-medium bg-background">
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder="Period Format">
                   {isLab ? "Practical Lab (2 Consec. Slots)" : "Single Period (1 Slot)"}
                 </SelectValue>
@@ -945,29 +887,29 @@ export function RoutineSubjectsTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Time Window Preference</Label>
+            <Label className="text-xs font-semibold">Time Window</Label>
             <Select
               value={timePref}
               onValueChange={(val) => val && setTimePref(val as "any" | "morning" | "afternoon")}
             >
-              <SelectTrigger className="h-9 text-xs font-medium bg-background">
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder="Time Window">
                   {timePref === "morning"
-                    ? "Morning Preference (Before Tiffin)"
+                    ? "Morning (Before Tiffin)"
                     : timePref === "afternoon"
-                    ? "Afternoon Preference (After Tiffin)"
-                    : "Flexible (Anytime during the day)"}
+                    ? "Afternoon (After Tiffin)"
+                    : "Flexible (Anytime)"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="any" className="text-xs">
-                  Flexible (Anytime during the day)
+                  Flexible (Anytime)
                 </SelectItem>
                 <SelectItem value="morning" className="text-xs">
-                  Morning Preference (Before Tiffin)
+                  Morning (Before Tiffin)
                 </SelectItem>
                 <SelectItem value="afternoon" className="text-xs">
-                  Afternoon Preference (After Tiffin)
+                  Afternoon (After Tiffin)
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -1114,124 +1056,15 @@ export function RoutineSubjectsTab({
                   </td>
                 </tr>
               ) : (
-                currentClassSubjects.map((s) => {
-                  const subjectStream = detectSubjectStream(s.name, s.stream);
-                  const isCommon = s.isCommon || subjectStream === "Common";
-
-                  return (
-                    <tr key={s.id} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-2.5 px-4 font-semibold text-foreground">
-                        <div className="flex items-center gap-1.5">
-                          <span>{s.name}</span>
-                          {isCommon && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] px-1 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200"
-                            >
-                              Common
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      {activeClass === "all" && (
-                        <td className="py-2.5 px-4">
-                          <Badge variant="outline" className="text-[10px] font-semibold bg-background">
-                            {s.className || "All Classes"}
-                          </Badge>
-                        </td>
-                      )}
-                      <td className="py-2.5 px-4">
-                        {isHsClass(s.className || activeClass) ? (
-                          subjectStream === "Science" ? (
-                            <Badge variant="outline" className="text-[10px] font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 gap-1">
-                              <Atom className="w-2.5 h-2.5" />
-                              Science
-                            </Badge>
-                          ) : subjectStream === "Commerce" ? (
-                            <Badge variant="outline" className="text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 gap-1">
-                              <Briefcase className="w-2.5 h-2.5" />
-                              Commerce
-                            </Badge>
-                          ) : subjectStream === "Arts" ? (
-                            <Badge variant="outline" className="text-[10px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 gap-1">
-                              <Palette className="w-2.5 h-2.5" />
-                              Arts
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 gap-1">
-                              <Share2 className="w-2.5 h-2.5" />
-                              Common Core
-                            </Badge>
-                          )
-                        ) : (
-                          <span className="text-muted-foreground text-[11px]">General</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4 font-mono font-semibold text-foreground">
-                        <Badge variant="secondary" className="text-[10px] font-mono font-bold">
-                          {s.periodsPerWeek || 5} p/wk
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        {s.isLab ? (
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 gap-1 font-medium"
-                          >
-                            <FlaskConical className="w-2.5 h-2.5 text-blue-600" />
-                            Lab (Double Slot)
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-[11px]">Single Slot</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4 capitalize text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3 opacity-60" />
-                          <span>
-                            {s.timePref === "morning"
-                              ? "Morning Preference"
-                              : s.timePref === "afternoon"
-                              ? "Afternoon Preference"
-                              : "Flexible"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2.5 px-4 text-muted-foreground">
-                        {s.allowMultiplePerDay ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 font-semibold"
-                          >
-                            Max {s.maxPerDay || 2} / Day
-                          </Badge>
-                        ) : (
-                          <span className="text-[11px]">Max 1 / Day</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(s)}
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDeleteSubject(s.id)}
-                            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                currentClassSubjects.map((s) => (
+                  <SubjectTableRow
+                    key={s.id}
+                    subject={s}
+                    activeClass={activeClass}
+                    onEdit={handleEdit}
+                    onDelete={onDeleteSubject}
+                  />
+                ))
               )}
             </tbody>
           </table>
@@ -1240,4 +1073,135 @@ export function RoutineSubjectsTab({
     </div>
   );
 }
+
+interface SubjectTableRowProps {
+  subject: RoutineSubject;
+  activeClass: string;
+  onEdit: (s: RoutineSubject) => void;
+  onDelete: (id: string) => Promise<void>;
+}
+
+const SubjectTableRow = React.memo(function SubjectTableRow({
+  subject: s,
+  activeClass,
+  onEdit,
+  onDelete,
+}: SubjectTableRowProps) {
+  const subjectStream = detectSubjectStream(s.name, s.stream);
+  const isCommon = s.isCommon || subjectStream === "Common";
+
+  return (
+    <tr className="hover:bg-muted/30 transition-colors">
+      <td className="py-2.5 px-4 font-semibold text-foreground">
+        <div className="flex items-center gap-1.5">
+          <span>{s.name}</span>
+          {isCommon && (
+            <Badge
+              variant="outline"
+              className="text-[9px] px-1 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200"
+            >
+              Common
+            </Badge>
+          )}
+        </div>
+      </td>
+      {activeClass === "all" && (
+        <td className="py-2.5 px-4">
+          <Badge variant="outline" className="text-[10px] font-semibold bg-background">
+            {s.className || "All Classes"}
+          </Badge>
+        </td>
+      )}
+      <td className="py-2.5 px-4">
+        {isHsClass(s.className || activeClass) ? (
+          subjectStream === "Science" ? (
+            <Badge variant="outline" className="text-[10px] font-semibold bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 gap-1">
+              <Atom className="w-2.5 h-2.5" />
+              Science
+            </Badge>
+          ) : subjectStream === "Commerce" ? (
+            <Badge variant="outline" className="text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 gap-1">
+              <Briefcase className="w-2.5 h-2.5" />
+              Commerce
+            </Badge>
+          ) : subjectStream === "Arts" ? (
+            <Badge variant="outline" className="text-[10px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200 gap-1">
+              <Palette className="w-2.5 h-2.5" />
+              Arts
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] font-semibold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200 gap-1">
+              <Share2 className="w-2.5 h-2.5" />
+              Common Core
+            </Badge>
+          )
+        ) : (
+          <span className="text-muted-foreground text-[11px]">General</span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 font-mono font-semibold text-foreground">
+        <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+          {s.periodsPerWeek || 5} p/wk
+        </Badge>
+      </td>
+      <td className="py-2.5 px-4">
+        {s.isLab ? (
+          <Badge
+            variant="secondary"
+            className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 gap-1 font-medium"
+          >
+            <FlaskConical className="w-2.5 h-2.5 text-blue-600" />
+            Lab (Double Slot)
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-[11px]">Single Slot</span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 capitalize text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3 opacity-60" />
+          <span>
+            {s.timePref === "morning"
+              ? "Morning Preference"
+              : s.timePref === "afternoon"
+              ? "Afternoon Preference"
+              : "Flexible"}
+          </span>
+        </div>
+      </td>
+      <td className="py-2.5 px-4 text-muted-foreground">
+        {s.allowMultiplePerDay ? (
+          <Badge
+            variant="outline"
+            className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 font-semibold"
+          >
+            Max {s.maxPerDay || 2} / Day
+          </Badge>
+        ) : (
+          <span className="text-[11px]">Max 1 / Day</span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(s)}
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(s.id)}
+            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </td>
+    </tr>
+  );
+});
 

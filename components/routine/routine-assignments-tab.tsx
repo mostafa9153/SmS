@@ -20,7 +20,6 @@ import {
   X,
   Filter,
   Layers,
-  Sparkles,
   ArrowRight,
   School,
   CalendarCheck2,
@@ -271,13 +270,13 @@ export function RoutineAssignmentsTab({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-end">
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Class Section *</Label>
+            <Label className="text-xs font-semibold">Class Section *</Label>
             <select
               value={classId}
               onChange={(e) => setClassId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
               required
             >
               {sortedClasses.length === 0 && <option value="">No classes</option>}
@@ -290,11 +289,11 @@ export function RoutineAssignmentsTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Subject *</Label>
+            <Label className="text-xs font-semibold">Subject *</Label>
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
               required
             >
               {relevantSubjects.length === 0 && <option value="">No subjects available</option>}
@@ -307,11 +306,11 @@ export function RoutineAssignmentsTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Assigned Teacher *</Label>
+            <Label className="text-xs font-semibold">Assigned Teacher *</Label>
             <select
               value={teacherId}
               onChange={(e) => setTeacherId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
               required
             >
               {teachers.length === 0 && <option value="">No teachers</option>}
@@ -327,11 +326,11 @@ export function RoutineAssignmentsTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Dedicated Room (Optional)</Label>
+            <Label className="text-xs font-semibold">Room (Optional)</Label>
             <select
               value={roomId}
               onChange={(e) => setRoomId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+              className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium"
             >
               <option value="">Default Classroom</option>
               {rooms.map((r) => (
@@ -343,14 +342,14 @@ export function RoutineAssignmentsTab({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Periods / Week *</Label>
+            <Label className="text-xs font-semibold">Periods / Week *</Label>
             <Input
               type="number"
               min={1}
               max={20}
               value={periods}
               onChange={(e) => setPeriods(parseInt(e.target.value, 10) || 1)}
-              className="h-9 text-xs font-mono"
+              className="h-8 text-xs font-mono font-semibold"
               required
             />
           </div>
@@ -391,19 +390,33 @@ export function RoutineAssignmentsTab({
       </form>
 
       {/* Filter & Search Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-card p-3 rounded-lg border shadow-xs text-xs">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-1.5 text-muted-foreground font-semibold">
-            <Filter className="h-3.5 w-3.5" />
-            <span>Filter:</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-card p-2.5 rounded-lg border shadow-xs text-xs">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="relative w-full sm:w-52">
+            <Input
+              type="text"
+              placeholder="Search assignments..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 text-xs pl-3 pr-7 font-medium"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <select
             value={filterClass}
             onChange={(e) => setFilterClass(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium w-36"
           >
-            <option value="all">All Classes ({classes.length})</option>
+            <option value="all">All Classes</option>
             {sortedClasses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.className} - {c.section}
@@ -414,23 +427,15 @@ export function RoutineAssignmentsTab({
           <select
             value={filterTeacher}
             onChange={(e) => setFilterTeacher(e.target.value)}
-            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium"
+            className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium w-36"
           >
-            <option value="all">All Teachers ({teachers.length})</option>
+            <option value="all">All Teachers</option>
             {teachers.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
-
-          <Input
-            type="text"
-            placeholder="Search assignments..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 text-xs w-44"
-          />
 
           {(filterClass !== "all" || filterTeacher !== "all" || searchQuery) && (
             <Button
@@ -451,7 +456,7 @@ export function RoutineAssignmentsTab({
 
         <div className="font-mono text-muted-foreground text-xs">
           Showing <span className="font-bold text-foreground">{filteredAssignments.length}</span> assignments (
-          <span className="font-bold text-primary">{totalFilteredPeriods}</span> periods/wk)
+          <span className="font-bold text-primary">{totalFilteredPeriods}</span> p/wk)
         </div>
       </div>
 
