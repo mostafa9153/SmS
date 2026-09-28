@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
+import { useSchoolProfile, getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -22,10 +23,12 @@ interface Step4FinalizeProps {
 
 export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: Step4FinalizeProps) {
   const currentYear = academicYear || appData?.academicYear || "2026";
+  const { profile } = useSchoolProfile();
+  const configuredStreams = getSchoolConfiguredStreams(profile);
   const [targetClass, setTargetClass] = useState(appData.targetClass || "V");
   const [section, setSection] = useState("A");
   const [rollNo, setRollNo] = useState("01");
-  const [stream, setStream] = useState("");
+  const [stream, setStream] = useState(appData.stream || (configuredStreams[0] || "Arts"));
   const [isCaptureDialogOpen, setIsCaptureDialogOpen] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(appData.photoUrl || null);
   const [feePaid, setFeePaid] = useState(true);
@@ -236,6 +239,31 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
     }
   };
 
+  const isHs = targetClass === "XI" || targetClass === "XII";
+  const activeStream = stream || (configuredStreams[0] || "Arts");
+  const availableSections = getDynamicSectionsForClassAndStream(targetClass, isHs ? activeStream : undefined);
+
+  const handleClassChange = (newClass: string) => {
+    setTargetClass(newClass);
+    const hs = newClass === "XI" || newClass === "XII";
+    const st = stream || (configuredStreams[0] || "Arts");
+    if (hs && !stream) {
+      setStream(st);
+    }
+    const secs = getDynamicSectionsForClassAndStream(newClass, hs ? st : undefined);
+    if (!secs.includes(section)) {
+      setSection(secs[0] || "A");
+    }
+  };
+
+  const handleStreamChange = (newStream: string) => {
+    setStream(newStream);
+    const secs = getDynamicSectionsForClassAndStream(targetClass, newStream);
+    if (!secs.includes(section)) {
+      setSection(secs[0] || "A");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center gap-4">
@@ -258,10 +286,10 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Class</label>
-                  <Select value={targetClass} onValueChange={(v) => v && setTargetClass(v)}>
+                  <Select value={targetClass} onValueChange={(v) => v && handleClassChange(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["V", "VI", "VII", "VIII", "IX", "XI"].map(c => (
+                      {["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"].map(c => (
                         <SelectItem key={c} value={c}>Class {c}</SelectItem>
                       ))}
                     </SelectContent>
@@ -272,7 +300,7 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
                   <Select value={section} onValueChange={(v) => v && setSection(v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {["A", "B", "C", "D"].map(s => (
+                      {availableSections.map(s => (
                         <SelectItem key={s} value={s}>Section {s}</SelectItem>
                       ))}
                     </SelectContent>
@@ -280,15 +308,15 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
                 </div>
               </div>
 
-              {(targetClass === "XI" || targetClass === "XII") && (
+              {isHs && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Stream</label>
-                  <Select value={stream} onValueChange={(v) => v && setStream(v)}>
+                  <Select value={stream || activeStream} onValueChange={(v) => v && handleStreamChange(v)}>
                     <SelectTrigger><SelectValue placeholder="Select Stream" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Arts">Arts</SelectItem>
-                      <SelectItem value="Science">Science</SelectItem>
-                      <SelectItem value="Commerce">Commerce</SelectItem>
+                      {configuredStreams.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

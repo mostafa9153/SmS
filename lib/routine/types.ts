@@ -47,6 +47,8 @@ export interface RoutineSubject {
   name: string;
   className?: string | null;
   classId?: string | null;
+  stream?: string | null; // e.g. "Science" | "Commerce" | "Arts" | "Common" | "General"
+  isCommon?: boolean; // true if common across all streams of the class (e.g. Bengali, English)
   isHard: boolean;
   isLab: boolean;
   timePref: "any" | "morning" | "afternoon";
@@ -63,6 +65,9 @@ export interface RoutineTeacher {
   availableSlots: Record<number | string, number[]>; // dayIndex -> period numbers (1-indexed)
   qualifiedClasses?: string[]; // e.g. ["Class V", "Class VI"]
   classSubjects?: Record<string, string[]>; // e.g. { "Class V": ["Bengali", "Mathematics"], "Class IX": ["Physical Science"] }
+  primarySubject?: string | null; // e.g. "Mathematics", "Bengali", etc.
+  classTeacherOf?: string | null; // e.g. "Class V - A", "Class VII", etc.
+  classTeacherFirstPeriods?: number | null; // e.g. target number of 1st periods / week in their CT class (default 3)
 }
 
 export type TeacherAvailability = RoutineTeacher;

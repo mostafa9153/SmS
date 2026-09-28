@@ -58,8 +58,18 @@ export function autoBuildRoutineAssignments(
       let chosenTeacher: RoutineTeacher | null = null;
 
       if (qualifiedTeachers.length > 0) {
-        // Pick the teacher with lowest current workload who hasn't exceeded maxPeriods
+        // Score teachers: prefer matching primarySubject, then classTeacherOf, then lowest relative load
+        const fullClassLabel = `${cls.className}${cls.section && cls.section !== "ALL" ? ` - ${cls.section}` : ""}`.toLowerCase();
+
         qualifiedTeachers.sort((a, b) => {
+          const aPrimaryMatch = a.primarySubject && a.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
+          const bPrimaryMatch = b.primarySubject && b.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
+          if (aPrimaryMatch !== bPrimaryMatch) return bPrimaryMatch - aPrimaryMatch;
+
+          const aIsClassTeacher = a.classTeacherOf && (a.classTeacherOf.toLowerCase() === fullClassLabel || a.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
+          const bIsClassTeacher = b.classTeacherOf && (b.classTeacherOf.toLowerCase() === fullClassLabel || b.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
+          if (aIsClassTeacher !== bIsClassTeacher) return bIsClassTeacher - aIsClassTeacher;
+
           const loadA = teacherLoads[a.id] || 0;
           const loadB = teacherLoads[b.id] || 0;
           const capA = a.maxPeriods || 24;

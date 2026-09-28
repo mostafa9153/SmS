@@ -30,6 +30,7 @@ import { RoutineRoomsTab } from "@/components/routine/routine-rooms-tab";
 import { RoutineClassesTab } from "@/components/routine/routine-classes-tab";
 import { RoutineTeachersTab } from "@/components/routine/routine-teachers-tab";
 import { RoutineSubjectsTab } from "@/components/routine/routine-subjects-tab";
+import { RoutineDemandAllotmentTab } from "@/components/routine/routine-demand-allotment-tab";
 import {
   Sliders,
   Building2,
@@ -39,12 +40,13 @@ import {
   RefreshCw,
   ArrowRight,
   CheckCircle2,
+  BarChart3,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type SetupTab = "settings" | "classes" | "teachers" | "subjects" | "rooms";
+type SetupTab = "settings" | "classes" | "teachers" | "subjects" | "rooms" | "demand";
 
 export default function RoutineSetupPage() {
   const [activeTab, setActiveTab] = useState<SetupTab>("settings");
@@ -143,6 +145,8 @@ export default function RoutineSetupPage() {
     name: string;
     className?: string | null;
     classId?: string | null;
+    stream?: string | null;
+    isCommon?: boolean;
     isHard?: boolean;
     isLab?: boolean;
     timePref?: "any" | "morning" | "afternoon";
@@ -158,6 +162,8 @@ export default function RoutineSetupPage() {
         name: subjData.name,
         className: subjData.className || null,
         classId: subjData.classId || null,
+        stream: subjData.stream || null,
+        isCommon: Boolean(subjData.isCommon),
         isHard: Boolean(subjData.isHard),
         isLab: Boolean(subjData.isLab),
         timePref: subjData.timePref || "any",
@@ -213,6 +219,7 @@ export default function RoutineSetupPage() {
     { id: "teachers", label: "Teachers & Availability", icon: Users, count: teachers.length },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
+    { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
   ];
 
   return (
@@ -317,6 +324,7 @@ export default function RoutineSetupPage() {
             {activeTab === "classes" && (
               <RoutineClassesTab
                 classes={classes}
+                settings={settings}
                 onSaveClass={handleSaveClass}
                 onBatchSaveClasses={handleBatchSaveClasses}
                 onDeleteClass={handleDeleteClass}
@@ -328,6 +336,8 @@ export default function RoutineSetupPage() {
                 teachers={teachers}
                 assignments={assignments}
                 settings={settings}
+                classes={classes}
+                subjects={subjects}
                 onSaveTeacher={handleSaveTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
               />
@@ -347,6 +357,16 @@ export default function RoutineSetupPage() {
                 rooms={rooms}
                 onSaveRoom={handleSaveRoom}
                 onDeleteRoom={handleDeleteRoom}
+              />
+            )}
+
+            {activeTab === "demand" && (
+              <RoutineDemandAllotmentTab
+                classes={classes}
+                subjects={subjects}
+                teachers={teachers}
+                assignments={assignments}
+                settings={settings}
               />
             )}
           </>

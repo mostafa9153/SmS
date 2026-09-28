@@ -32,6 +32,7 @@ import {
   getFeeCategoryForClass,
 } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
+import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 
 interface AdmitStudentDialogProps {
   open: boolean;
@@ -61,19 +62,6 @@ const CLASS_OPTIONS = [
   { value: "XII", label: "Class XII" },
 ];
 
-const SECTION_OPTIONS = [
-  { value: "A", label: "Section A" },
-  { value: "B", label: "Section B" },
-  { value: "C", label: "Section C" },
-  { value: "D", label: "Section D" },
-];
-
-const STREAM_OPTIONS = [
-  { value: "Arts", label: "Arts (Humanities)" },
-  { value: "Science", label: "Science" },
-  { value: "Commerce", label: "Commerce" },
-];
-
 const DOCUMENT_CHECKLIST = [
   { id: "aadhaar", label: "Aadhaar Card (Student & Guardian)" },
   { id: "birth_cert", label: "Birth Certificate (Original & Copy)" },
@@ -95,6 +83,8 @@ function AdmitStudentDialogInner({
   onAdmitSuccess: AdmitStudentDialogProps["onAdmitSuccess"];
 }) {
   const currentYear = new Date().getFullYear();
+  const { profile } = useSchoolProfile();
+  const streamOptions = getSchoolStreamOptions(profile);
 
   // Assignment states
   const [targetClass, setTargetClass] = useState("V");
@@ -269,6 +259,25 @@ function AdmitStudentDialogInner({
   };
 
   const isClassXI = targetClass === "XI" || targetClass === "XII";
+  const availableSections = getDynamicSectionsForClassAndStream(targetClass, isClassXI ? stream : undefined);
+  const dynamicSectionOptions = availableSections.map((s) => ({ value: s, label: `Section ${s}` }));
+
+  const handleClassChange = (newClass: string) => {
+    setTargetClass(newClass);
+    const isHs = newClass === "XI" || newClass === "XII";
+    const newSecs = getDynamicSectionsForClassAndStream(newClass, isHs ? stream : undefined);
+    const nextSec = newSecs.includes(section) ? section : (newSecs[0] || "A");
+    setSection(nextSec);
+    handleClassOrSectionChange(newClass, nextSec);
+  };
+
+  const handleStreamChange = (newStream: string) => {
+    setStream(newStream);
+    const newSecs = getDynamicSectionsForClassAndStream(targetClass, newStream);
+    const nextSec = newSecs.includes(section) ? section : (newSecs[0] || "A");
+    setSection(nextSec);
+    handleClassOrSectionChange(targetClass, nextSec);
+  };
 
   return (
     <>
@@ -359,13 +368,23 @@ function AdmitStudentDialogInner({
                   </label>
                   <CustomSelect
                     value={targetClass}
-                    onChange={(val) => {
-                      setTargetClass(val);
-                      handleClassOrSectionChange(val, section);
-                    }}
+                    onChange={handleClassChange}
                     options={CLASS_OPTIONS}
                   />
                 </div>
+
+                {isClassXI && (
+                  <div>
+                    <label className="text-[11px] font-bold text-purple-700 dark:text-purple-300 block mb-1">
+                      Stream Allocation *
+                    </label>
+                    <CustomSelect
+                      value={stream}
+                      onChange={handleStreamChange}
+                      options={streamOptions}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
@@ -377,7 +396,7 @@ function AdmitStudentDialogInner({
                       setSection(val);
                       handleClassOrSectionChange(targetClass, val);
                     }}
-                    options={SECTION_OPTIONS}
+                    options={dynamicSectionOptions}
                   />
                 </div>
 
@@ -399,19 +418,6 @@ function AdmitStudentDialogInner({
                     required
                   />
                 </div>
-
-                {isClassXI && (
-                  <div className="sm:col-span-3">
-                    <label className="text-[11px] font-bold text-purple-700 dark:text-purple-300 block mb-1">
-                      Stream Allocation (Class XI) *
-                    </label>
-                    <CustomSelect
-                      value={stream}
-                      onChange={setStream}
-                      options={STREAM_OPTIONS}
-                    />
-                  </div>
-                )}
               </div>
             </div>
 

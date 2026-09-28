@@ -18,6 +18,7 @@ import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
 import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
+import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 
 const studentSchema = z.object({
   // Identity
@@ -216,6 +217,8 @@ export default function EditStudentPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { profile } = useSchoolProfile();
+  const streamOptions = getSchoolStreamOptions(profile);
 
   const { data: student, isLoading } = useQuery({
     queryKey: ["student", id],
@@ -355,6 +358,7 @@ export default function EditStudentPage() {
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
   const rteSection12CChecked = watch("rteSection12C");
   const watchPresentClass = watch("presentClass");
+  const watchAcademicStream = watch("academicStream");
   const watchAdmissionYear = watch("admissionYear");
   const watchAdmissionNo = watch("admissionNo");
   const watchAdmissionDate = watch("admissionDate");
@@ -985,14 +989,20 @@ export default function EditStudentPage() {
               <Controller
                 control={control}
                 name="presentSection"
-                render={({ field }) => (
-                  <CustomSelect
-                    value={field.value ?? ""}
-                    onChange={field.onChange}
-                    placeholder="Select section..."
-                    options={["A", "B", "C", "D"].map((s) => ({ label: `Section ${s}`, value: s }))}
-                  />
-                )}
+                render={({ field }) => {
+                  const normalizedClass = (watchPresentClass || "").toUpperCase().replace(/^CLASS\s*/i, "").replace(/^STD\s*/i, "").trim();
+                  const isHs = ["XI", "11", "XII", "12"].includes(normalizedClass);
+                  const availableSections = getDynamicSectionsForClassAndStream(watchPresentClass || "V", isHs ? watchAcademicStream : undefined);
+                  const options = availableSections.map((s) => ({ label: `Section ${s}`, value: s }));
+                  return (
+                    <CustomSelect
+                      value={field.value ?? ""}
+                      onChange={field.onChange}
+                      placeholder="Select section..."
+                      options={options}
+                    />
+                  );
+                }}
               />
             </FormField>
             <FormField label="Present Roll Number *" error={errors.presentRoll?.message}>
@@ -1040,9 +1050,9 @@ export default function EditStudentPage() {
                     control={control}
                     name="academicStream"
                     render={({ field }) => {
-                      const options = field.value && !STREAM_OPTIONS.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
-                        ? [{ label: field.value, value: field.value }, ...STREAM_OPTIONS]
-                        : STREAM_OPTIONS;
+                      const options = field.value && !streamOptions.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
+                        ? [{ label: field.value, value: field.value }, ...streamOptions]
+                        : streamOptions;
                       return (
                         <CustomSelect
                           value={field.value ?? ""}
@@ -1173,9 +1183,9 @@ export default function EditStudentPage() {
                 control={control}
                 name="previousStream"
                 render={({ field }) => {
-                  const options = field.value && !STREAM_OPTIONS.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
-                    ? [{ label: field.value, value: field.value }, ...STREAM_OPTIONS]
-                    : STREAM_OPTIONS;
+                  const options = field.value && !streamOptions.some(o => o.value.toLowerCase() === field.value?.toLowerCase())
+                    ? [{ label: field.value, value: field.value }, ...streamOptions]
+                    : streamOptions;
                   return (
                     <CustomSelect
                       value={field.value ?? ""}

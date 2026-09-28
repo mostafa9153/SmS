@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { RoutineClass } from "@/lib/routine/types";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { RoutineClass, RoutineSettings } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,12 +21,14 @@ import {
   Layers,
   Save,
   CheckCheck,
+  CalendarDays,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
+  settings?: RoutineSettings;
   onSaveClass: (cls: { id?: string; className: string; section: string; dailyPeriods?: number | null }) => Promise<void>;
   onBatchSaveClasses?: (classesList: { id?: string; className: string; section: string; dailyPeriods?: number | null }[]) => Promise<void>;
   onDeleteClass: (id: string) => Promise<void>;
@@ -72,6 +74,7 @@ interface PresetClassItem {
 
 export function RoutineClassesTab({
   classes,
+  settings,
   onSaveClass,
   onBatchSaveClasses,
   onDeleteClass,
@@ -83,6 +86,28 @@ export function RoutineClassesTab({
     const list = getDynamicClassList();
     setPresetClassesList(list && list.length > 0 ? list : FALLBACK_CLASSES);
   }, []);
+
+  // Calculate Max weekly periods/classes for a class based on active schedule
+  const calculateWeeklyPeriods = useCallback(
+    (dailyP: number | null | undefined): number => {
+      const globalP = settings?.periodsPerDay || 8;
+      const dp = dailyP && dailyP > 0 ? dailyP : globalP;
+      const workingDays = settings?.workingDays || [0, 1, 2, 3, 4, 5];
+      const halfDays = settings?.halfDays || [5];
+      const halfDayPeriods = settings?.halfDayPeriods || 4;
+
+      let total = 0;
+      workingDays.forEach((d) => {
+        if (halfDays.includes(d)) {
+          total += Math.min(dp, halfDayPeriods);
+        } else {
+          total += dp;
+        }
+      });
+      return total;
+    },
+    [settings]
+  );
 
   // Compute all preset combinations for each class
   const allPresetItems: PresetClassItem[] = React.useMemo(() => {
@@ -563,13 +588,14 @@ export function RoutineClassesTab({
                 <th className="py-2.5 px-4 w-1/6">Section</th>
                 <th className="py-2.5 px-4 w-1/5">Stream</th>
                 <th className="py-2.5 px-4">Daily Period Limit (In-line Edit)</th>
+                <th className="py-2.5 px-4 w-36">Max Periods / Week</th>
                 <th className="py-2.5 px-4 text-right w-16">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {classes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     <School className="w-6 h-6 mx-auto mb-1 opacity-40" />
                     <span>No classes configured yet. Click &quot;Auto-Sync All School Preset Classes&quot; above.</span>
                   </td>
@@ -578,6 +604,11 @@ export function RoutineClassesTab({
                 sortedClasses.map((c) => {
                   const { section: secName, stream: strName } = parseSectionAndStream(c.section);
                   const isSaved = savedRowIds[c.id];
+                  const currentVal =
+                    rowPeriods[c.id] !== undefined && rowPeriods[c.id].trim() !== ""
+                      ? parseInt(rowPeriods[c.id].trim(), 10)
+                      : c.dailyPeriods;
+                  const weeklyTotal = calculateWeeklyPeriods(currentVal);
 
                   return (
                     <tr key={c.id} className="hover:bg-muted/30 transition-colors">
@@ -622,6 +653,14 @@ export function RoutineClassesTab({
                             </span>
                           )}
                         </div>
+                      </td>
+                      <td className="py-2 px-4">
+                        <Badge
+                          variant="secondary"
+                          className="text-[11px] font-mono font-bold bg-muted/80 text-foreground border px-2 py-0.5"
+                        >
+                          {weeklyTotal} p/wk
+                        </Badge>
                       </td>
                       <td className="py-2 px-4 text-right">
                         <Button

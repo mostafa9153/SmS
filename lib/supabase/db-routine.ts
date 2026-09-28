@@ -125,6 +125,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         name: s.name,
         className: s.class_name || s.className || null,
         classId: s.class_id || s.classId || null,
+        stream: s.stream || null,
+        isCommon: Boolean(s.is_common ?? s.isCommon),
         isHard: Boolean(s.is_hard),
         isLab: Boolean(s.is_lab),
         timePref: s.time_pref || "any",
@@ -180,6 +182,13 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         const rawAvail = customAvail?.available_slots || {};
         const qClasses = rawAvail._qualifiedClasses || rawAvail.qualifiedClasses || [];
         const cSubjects = rawAvail._classSubjects || rawAvail.classSubjects || {};
+        const primarySubject = customAvail?.primary_subject || rawAvail._primarySubject || rawAvail.primarySubject || null;
+        const classTeacherOf = customAvail?.class_teacher_of || rawAvail._classTeacherOf || rawAvail.classTeacherOf || null;
+        const classTeacherFirstPeriods =
+          customAvail?.class_teacher_first_periods ??
+          rawAvail._classTeacherFirstPeriods ??
+          rawAvail.classTeacherFirstPeriods ??
+          (classTeacherOf ? 3 : null);
 
         const cleanSlots: Record<number, number[]> = {};
         settings.workingDays.forEach((d) => {
@@ -203,6 +212,9 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           availableSlots: cleanSlots,
           qualifiedClasses: qClasses,
           classSubjects: cSubjects,
+          primarySubject: primarySubject,
+          classTeacherOf: classTeacherOf,
+          classTeacherFirstPeriods: classTeacherFirstPeriods,
         };
       });
     } else if (local?.teachers && local.teachers.length > 0) {
@@ -439,6 +451,8 @@ export async function upsertSubjectDb(subj: {
   name: string;
   className?: string | null;
   classId?: string | null;
+  stream?: string | null;
+  isCommon?: boolean;
   isHard?: boolean;
   isLab?: boolean;
   timePref?: "any" | "morning" | "afternoon";
@@ -460,6 +474,8 @@ export async function upsertSubjectDb(subj: {
     };
     if (subj.className !== undefined) payload.class_name = subj.className;
     if (subj.classId !== undefined) payload.class_id = subj.classId;
+    if (subj.stream !== undefined) payload.stream = subj.stream;
+    if (subj.isCommon !== undefined) payload.is_common = Boolean(subj.isCommon);
     if (subj.maxPerDay !== undefined) payload.max_per_day = subj.maxPerDay;
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
 
@@ -472,6 +488,9 @@ export async function upsertSubjectDb(subj: {
         is_lab: Boolean(subj.isLab),
         time_pref: subj.timePref || "any",
         allow_multiple_per_day: Boolean(subj.allowMultiplePerDay),
+        class_name: subj.className || null,
+        max_per_day: subj.maxPerDay ?? 1,
+        periods_per_week: subj.periodsPerWeek ?? 5,
       });
     }
   } catch (err) {
@@ -512,6 +531,9 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
         ...teacher.availableSlots,
         _qualifiedClasses: teacher.qualifiedClasses || [],
         _classSubjects: teacher.classSubjects || {},
+        _primarySubject: teacher.primarySubject || null,
+        _classTeacherOf: teacher.classTeacherOf || null,
+        _classTeacherFirstPeriods: teacher.classTeacherFirstPeriods ?? (teacher.classTeacherOf ? 3 : null),
       },
       updated_at: new Date().toISOString(),
     };

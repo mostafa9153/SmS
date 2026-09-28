@@ -33,6 +33,8 @@ interface Unit {
   multi: boolean;
   maxPerDay: number;
   timePref: 'any' | 'morning' | 'afternoon';
+  isClassTeacherUnit: boolean;
+  targetFirstPeriods: number;
   mrv: number;
   slot: { dPos: number; pPos: number } | null;
 }
@@ -228,6 +230,18 @@ export class RoutineSolver {
       if (!subj) continue;
 
       const maxDaily = subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1;
+      const tch = this.teachers.get(asg.teacherId);
+      const cls = this.classes.find((c) => c.id === asg.classId);
+      const fullClassLabel = `${cls?.className || ""}${cls?.section && cls.section !== "ALL" ? ` - ${cls.section}` : ""}`.toLowerCase();
+      const clsNameLower = (cls?.className || "").toLowerCase();
+      const isCT = Boolean(
+        tch?.classTeacherOf &&
+        (tch.classTeacherOf.toLowerCase() === fullClassLabel ||
+         tch.classTeacherOf.toLowerCase() === clsNameLower ||
+         (clsNameLower && tch.classTeacherOf.toLowerCase().includes(clsNameLower)))
+      );
+      const targetFirstPeriods = isCT ? (tch?.classTeacherFirstPeriods ?? 3) : 0;
+
       let rem = asg.periodsPerWeek;
       if (subj.isLab) {
         while (rem >= 2) {
@@ -242,6 +256,8 @@ export class RoutineSolver {
             multi: subj.allowMultiplePerDay,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
+            isClassTeacherUnit: isCT,
+            targetFirstPeriods: targetFirstPeriods,
             mrv: 0,
             slot: null,
           });
@@ -259,6 +275,8 @@ export class RoutineSolver {
             multi: subj.allowMultiplePerDay,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
+            isClassTeacherUnit: isCT,
+            targetFirstPeriods: targetFirstPeriods,
             mrv: 0,
             slot: null,
           });
@@ -276,6 +294,8 @@ export class RoutineSolver {
             multi: subj.allowMultiplePerDay,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
+            isClassTeacherUnit: isCT,
+            targetFirstPeriods: targetFirstPeriods,
             mrv: 0,
             slot: null,
           });
@@ -397,8 +417,12 @@ export class RoutineSolver {
       u.mrv = options;
     }
 
-    // MRV Ordering: most constrained units first, tie-break by size (2 before 1), then hard subjects
-    units.sort((a, b) => a.mrv - b.mrv || b.sz - a.sz || (b.hard ? 1 : 0) - (a.hard ? 1 : 0));
+    // MRV Ordering: prioritize Class Teacher units targeting Period 1, then most constrained units, tie-break by size (2 before 1), then hard subjects
+    units.sort((a, b) => {
+      if (a.isClassTeacherUnit && a.targetFirstPeriods > 0 && !(b.isClassTeacherUnit && b.targetFirstPeriods > 0)) return -1;
+      if (!(a.isClassTeacherUnit && a.targetFirstPeriods > 0) && b.isClassTeacherUnit && b.targetFirstPeriods > 0) return 1;
+      return a.mrv - b.mrv || b.sz - a.sz || (b.hard ? 1 : 0) - (a.hard ? 1 : 0);
+    });
 
     const place = (u: Unit, dPos: number, pPos: number, isPlace: boolean) => {
       const val = isPlace ? u : null;
@@ -439,6 +463,28 @@ export class RoutineSolver {
             if (p > 0 && tBusy[u.tid]?.[d]?.[p - 1]) adj++;
             if (p < P - 1 && tBusy[u.tid]?.[d]?.[p + 1]) adj++;
             score -= adj * 25;
+
+            // Class Teacher 1st Period Quota Logic: Prioritize Period 1 (p === 0) for the Class Teacher in their own class
+            if (u.isClassTeacherUnit && u.targetFirstPeriods > 0) {
+              const isFirstPeriod = p === 0;
+              let ctFirstPeriodsPlaced = 0;
+              for (let dayIdx = 0; dayIdx < D; dayIdx++) {
+                const placed = cBusy[u.cid]?.[dayIdx]?.[0];
+                if (placed && placed.tid === u.tid) {
+                  ctFirstPeriodsPlaced++;
+                }
+              }
+
+              if (isFirstPeriod) {
+                if (ctFirstPeriodsPlaced < u.targetFirstPeriods) {
+                  score -= 800; // Strong priority for Class Teacher in Period 1
+                }
+              } else {
+                if (ctFirstPeriodsPlaced < u.targetFirstPeriods) {
+                  score += 60; // Defer non-Period-1 slots until CT 1st period target is satisfied
+                }
+              }
+            }
 
             candidates.push({ dPos: d, pPos: p, score });
           }

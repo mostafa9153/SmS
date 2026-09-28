@@ -195,31 +195,76 @@ export function RoutineViewerTab({
           )}
 
           {viewMode === "class" && (
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
-            >
-              {sortedClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.className} - {c.section}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+              >
+                {sortedClasses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.className} - {c.section}
+                  </option>
+                ))}
+              </select>
+              {(() => {
+                const selectedClass = classMap.get(selectedClassId);
+                const ct = selectedClass
+                  ? teachers.find((t) => {
+                      if (!t.classTeacherOf) return false;
+                      const fullLabel = `${selectedClass.className}${selectedClass.section && selectedClass.section !== "ALL" ? ` - ${selectedClass.section}` : ""}`.toLowerCase();
+                      return (
+                        t.classTeacherOf.toLowerCase() === fullLabel ||
+                        t.classTeacherOf.toLowerCase() === selectedClass.className.toLowerCase()
+                      );
+                    })
+                  : null;
+                return ct ? (
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] font-semibold text-primary border-primary/30 bg-primary/5 hidden sm:inline-flex items-center gap-1 h-8 px-2.5"
+                  >
+                    CT: {ct.name} ({ct.shortName})
+                  </Badge>
+                ) : null;
+              })()}
+            </>
           )}
 
           {viewMode === "teacher" && (
-            <select
-              value={selectedTeacherId}
-              onChange={(e) => setSelectedTeacherId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
-            >
-              {teachers.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.shortName || "-"})
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-3 text-xs font-semibold"
+              >
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.shortName || "-"}) {t.primarySubject ? `[${t.primarySubject}]` : ""}
+                  </option>
+                ))}
+              </select>
+              {(() => {
+                const tch = teacherMap.get(selectedTeacherId);
+                return tch && (tch.primarySubject || tch.classTeacherOf) ? (
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    {tch.primarySubject && (
+                      <Badge variant="outline" className="text-[11px] font-medium h-8 px-2.5 flex items-center">
+                        {tch.primarySubject}
+                      </Badge>
+                    )}
+                    {tch.classTeacherOf && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 h-8 px-2.5 flex items-center"
+                      >
+                        CT: {tch.classTeacherOf}
+                      </Badge>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+            </>
           )}
 
           {viewMode === "room" && (
@@ -243,7 +288,7 @@ export function RoutineViewerTab({
             className="h-8 text-xs font-semibold gap-1.5 bg-background shadow-xs"
           >
             <Printer className="h-3.5 w-3.5" />
-            Print Timetable
+            <span className="hidden sm:inline">Print Timetable</span>
           </Button>
         </div>
       </div>
@@ -253,8 +298,28 @@ export function RoutineViewerTab({
         <h1 className="text-xl font-bold uppercase tracking-tight">Academic Routine & Master Timetable</h1>
         <div className="text-xs text-muted-foreground font-semibold mt-0.5">
           {viewMode === "master" && `Master Schedule — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}`}
-          {viewMode === "class" && `Class Schedule — ${classMap.get(selectedClassId)?.className || ""} ${classMap.get(selectedClassId)?.section || ""}`}
-          {viewMode === "teacher" && `Faculty Timetable — ${teacherMap.get(selectedTeacherId)?.name || ""} (${teacherMap.get(selectedTeacherId)?.shortName || ""})`}
+          {viewMode === "class" && (
+            <>
+              Class Schedule — {classMap.get(selectedClassId)?.className || ""}{" "}
+              {classMap.get(selectedClassId)?.section || ""}
+              {(() => {
+                const selectedClass = classMap.get(selectedClassId);
+                const ct = selectedClass
+                  ? teachers.find((t) => {
+                      if (!t.classTeacherOf) return false;
+                      const fullLabel = `${selectedClass.className}${selectedClass.section && selectedClass.section !== "ALL" ? ` - ${selectedClass.section}` : ""}`.toLowerCase();
+                      return (
+                        t.classTeacherOf.toLowerCase() === fullLabel ||
+                        t.classTeacherOf.toLowerCase() === selectedClass.className.toLowerCase()
+                      );
+                    })
+                  : null;
+                return ct ? ` | Class Teacher: ${ct.name} (${ct.shortName})` : "";
+              })()}
+            </>
+          )}
+          {viewMode === "teacher" &&
+            `Faculty Timetable — ${teacherMap.get(selectedTeacherId)?.name || ""} (${teacherMap.get(selectedTeacherId)?.shortName || ""})${teacherMap.get(selectedTeacherId)?.primarySubject ? ` | Subject: ${teacherMap.get(selectedTeacherId)?.primarySubject}` : ""}`}
           {viewMode === "room" && `Facility Timetable — ${roomMap.get(selectedRoomId)?.name || ""}`}
         </div>
       </div>

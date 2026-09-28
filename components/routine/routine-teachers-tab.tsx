@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { RoutineTeacher, RoutineAssignment, RoutineSettings, DAY_NAMES } from "@/lib/routine/types";
+import {
+  RoutineTeacher,
+  RoutineAssignment,
+  RoutineSettings,
+  RoutineClass,
+  RoutineSubject,
+  DAY_NAMES,
+} from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +32,8 @@ import {
   BookOpen,
   GraduationCap,
   Sparkles,
+  Award,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -40,6 +49,8 @@ interface RoutineTeachersTabProps {
   teachers: RoutineTeacher[];
   assignments: RoutineAssignment[];
   settings: RoutineSettings;
+  classes?: RoutineClass[];
+  subjects?: RoutineSubject[];
   onSaveTeacher: (teacher: RoutineTeacher) => Promise<void>;
   onDeleteTeacher?: (id: string) => Promise<void>;
 }
@@ -48,6 +59,8 @@ export function RoutineTeachersTab({
   teachers,
   assignments,
   settings,
+  classes = [],
+  subjects = [],
   onSaveTeacher,
   onDeleteTeacher,
 }: RoutineTeachersTabProps) {
@@ -86,12 +99,68 @@ export function RoutineTeachersTab({
     return map;
   }, [presetClasses]);
 
+  // Aggregated unique subjects list across configured subjects & presets
+  const availableSubjectOptions = useMemo(() => {
+    const set = new Set<string>();
+    subjects.forEach((s) => {
+      if (s.name) set.add(s.name.trim());
+    });
+    Object.values(classSubjectsDictionary).forEach((subs) => {
+      subs.forEach((s) => set.add(s.trim()));
+    });
+    // Standard default list
+    [
+      "Bengali",
+      "English",
+      "Mathematics",
+      "Physical Science",
+      "Life Science",
+      "History",
+      "Geography",
+      "Health & Physical Education",
+      "Work Education",
+      "Computer Application",
+      "Physics",
+      "Chemistry",
+      "Biology",
+      "Sanskrit",
+      "Arabic",
+    ].forEach((s) => set.add(s));
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [subjects, classSubjectsDictionary]);
+
+  // Aggregated class options for Class Teacher assignment
+  const availableClassOptions = useMemo(() => {
+    if (classes && classes.length > 0) {
+      return classes.map((c) => {
+        const label = c.section && c.section !== "ALL" ? `${c.className} - ${c.section}` : c.className;
+        return {
+          id: c.id,
+          label,
+          className: c.className,
+          section: c.section,
+        };
+      });
+    }
+    return presetClasses.map((c) => ({
+      id: c.code || c.name,
+      label: c.name,
+      className: c.name,
+      section: "A",
+    }));
+  }, [classes, presetClasses]);
+
   // Form State for Add / Edit
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [teacherName, setTeacherName] = useState("");
   const [shortName, setShortName] = useState("");
+  const [primarySubject, setPrimarySubject] = useState<string>("");
+  const [customPrimarySubject, setCustomPrimarySubject] = useState<string>("");
+  const [classTeacherOf, setClassTeacherOf] = useState<string>("");
+  const [classTeacherFirstPeriods, setClassTeacherFirstPeriods] = useState<number>(3);
   const [maxPeriods, setMaxPeriods] = useState<number>(24);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, string[]>>({});
@@ -153,6 +222,17 @@ export function RoutineTeachersTab({
     setEditingTeacherId(initialId);
     setTeacherName(initialName);
     setShortName(initialShort);
+
+    // Try auto-detecting primary subject from designation
+    const desig = defaultStaff?.designation || "";
+    const matchedSubject = availableSubjectOptions.find((s) =>
+      desig.toLowerCase().includes(s.toLowerCase())
+    );
+    setPrimarySubject(matchedSubject || "");
+    setCustomPrimarySubject("");
+    setClassTeacherOf("__none__");
+    setClassTeacherFirstPeriods(3);
+
     setMaxPeriods(24);
     setSelectedClasses([]);
     setClassSubjectsMap({});
@@ -176,6 +256,19 @@ export function RoutineTeachersTab({
     setEditingTeacherId(t.id);
     setTeacherName(t.name);
     setShortName(t.shortName || generateInitials(t.name));
+
+    const subj = t.primarySubject || "";
+    const isStandardSubj = availableSubjectOptions.includes(subj);
+    if (subj && !isStandardSubj) {
+      setPrimarySubject("__custom__");
+      setCustomPrimarySubject(subj);
+    } else {
+      setPrimarySubject(subj);
+      setCustomPrimarySubject("");
+    }
+
+    setClassTeacherOf(t.classTeacherOf || "__none__");
+    setClassTeacherFirstPeriods(t.classTeacherFirstPeriods ?? 3);
     setMaxPeriods(t.maxPeriods || 24);
 
     // Load qualified classes and subjects
@@ -210,12 +303,23 @@ export function RoutineTeachersTab({
       setEditingTeacherId(null);
       setTeacherName("");
       setShortName("");
+      setPrimarySubject("");
+      setCustomPrimarySubject("");
+      setClassTeacherOf("__none__");
     } else {
       const staff = staffList.find((s) => s.id === staffId);
       if (staff) {
         setEditingTeacherId(staff.id);
         setTeacherName(staff.full_name);
         setShortName(generateInitials(staff.full_name));
+
+        const desig = staff.designation || "";
+        const matchedSubject = availableSubjectOptions.find((s) =>
+          desig.toLowerCase().includes(s.toLowerCase())
+        );
+        if (matchedSubject) {
+          setPrimarySubject(matchedSubject);
+        }
       }
     }
   };
@@ -239,9 +343,14 @@ export function RoutineTeachersTab({
     } else {
       setSelectedClasses((prev) => [...prev, clsName]);
       const defaultSubs = classSubjectsDictionary[clsName] || [];
+      // If primary subject is selected and in this class, preselect it or default all
+      const initialSubs = primarySubject && primarySubject !== "__custom__" && defaultSubs.includes(primarySubject)
+        ? [primarySubject]
+        : [...defaultSubs];
+
       setClassSubjectsMap((prev) => ({
         ...prev,
-        [clsName]: [...defaultSubs],
+        [clsName]: initialSubs,
       }));
     }
   };
@@ -314,6 +423,9 @@ export function RoutineTeachersTab({
     setIsSubmitting(true);
     try {
       const teacherId = editingTeacherId || crypto.randomUUID();
+      const finalSubject = (primarySubject === "__custom__" ? customPrimarySubject : primarySubject).trim();
+      const finalClassTeacher = classTeacherOf && classTeacherOf !== "__none__" ? classTeacherOf.trim() : null;
+
       const payload: RoutineTeacher = {
         id: teacherId,
         name: teacherName.trim(),
@@ -322,6 +434,9 @@ export function RoutineTeachersTab({
         availableSlots: availSlots,
         qualifiedClasses: selectedClasses,
         classSubjects: classSubjectsMap,
+        primarySubject: finalSubject || null,
+        classTeacherOf: finalClassTeacher,
+        classTeacherFirstPeriods: finalClassTeacher ? Number(classTeacherFirstPeriods) || 3 : null,
       };
 
       await onSaveTeacher(payload);
@@ -348,6 +463,17 @@ export function RoutineTeachersTab({
     }
     return teacherName || "Select Teacher";
   }, [selectedStaffId, staffList, teacherName]);
+
+  // Class teacher assignments lookup for display
+  const currentClassTeacherMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    teachers.forEach((t) => {
+      if (t.classTeacherOf) {
+        map[t.classTeacherOf] = t.name;
+      }
+    });
+    return map;
+  }, [teachers]);
 
   return (
     <div className="space-y-4 w-full">
@@ -396,9 +522,10 @@ export function RoutineTeachersTab({
             </Button>
           </div>
 
+          {/* Row 1: Teacher Selection & Initials (2 fields) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             {/* 1. Saved Teacher Dropdown Selection */}
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs font-medium">Select Teacher from School Staff *</Label>
               {staffList.length > 0 ? (
                 <Select
@@ -439,9 +566,9 @@ export function RoutineTeachersTab({
               )}
             </div>
 
-            {/* Custom Teacher Name field if __custom__ selected */}
+            {/* Custom Teacher Name field if __custom__ selected, else Initials */}
             {selectedStaffId === "__custom__" ? (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label className="text-xs font-medium">Custom Teacher Name *</Label>
                 <Input
                   type="text"
@@ -453,7 +580,7 @@ export function RoutineTeachersTab({
                 />
               </div>
             ) : (
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label className="text-xs font-medium">Short Code / Initials *</Label>
                 <Input
                   type="text"
@@ -466,8 +593,109 @@ export function RoutineTeachersTab({
                 />
               </div>
             )}
+          </div>
 
-            {/* Max periods limit */}
+          {/* Row 2: Primary Subject, Class Teacher Of, (1st Period Quota if CT), Max Periods / Week */}
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-3.5",
+              classTeacherOf && classTeacherOf !== "__none__"
+                ? "sm:grid-cols-2 lg:grid-cols-4"
+                : "sm:grid-cols-3"
+            )}
+          >
+            {/* 3. Primary Subject / Specialization */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Primary Subject</Label>
+              <Select
+                value={primarySubject || "__none__"}
+                onValueChange={(val) => {
+                  if (!val || val === "__none__") {
+                    setPrimarySubject("");
+                  } else {
+                    setPrimarySubject(val);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs bg-background">
+                  <SelectValue placeholder="Select Subject">
+                    {primarySubject === "__custom__"
+                      ? "Custom Subject..."
+                      : primarySubject || "-- None / General --"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                    -- None / General --
+                  </SelectItem>
+                  {availableSubjectOptions.map((subj) => (
+                    <SelectItem key={subj} value={subj} className="text-xs">
+                      {subj}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__" className="text-xs font-medium text-primary">
+                    + Custom Subject...
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 4. Class Teacher Assignment */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Class Teacher Of</Label>
+              <Select
+                value={classTeacherOf || "__none__"}
+                onValueChange={(val) => setClassTeacherOf(val || "")}
+              >
+                <SelectTrigger className="h-9 text-xs bg-background font-medium">
+                  <SelectValue placeholder="Select Class">
+                    {classTeacherOf && classTeacherOf !== "__none__"
+                      ? classTeacherOf
+                      : "-- Not Assigned --"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                    -- Not a Class Teacher --
+                  </SelectItem>
+                  {availableClassOptions.map((c) => {
+                    const currentCt = currentClassTeacherMap[c.label];
+                    const isCurrent = editingTeacherId && currentCt === teacherName;
+                    return (
+                      <SelectItem key={c.id || c.label} value={c.label} className="text-xs">
+                        <span>{c.label}</span>
+                        {currentCt && !isCurrent && (
+                          <span className="text-[10px] text-muted-foreground ml-1 font-normal">
+                            (CT: {currentCt})
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 4b. 1st Period in CT Class (Only shown when Class Teacher is assigned) */}
+            {classTeacherOf && classTeacherOf !== "__none__" && (
+              <div className="space-y-1.5 animate-in fade-in duration-150">
+                <Label className="text-xs font-semibold text-primary flex items-center justify-between">
+                  <span>CT 1st Periods / Wk</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">(Default 3)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={6}
+                  value={classTeacherFirstPeriods}
+                  onChange={(e) => setClassTeacherFirstPeriods(parseInt(e.target.value, 10) || 1)}
+                  className="h-9 text-xs font-mono font-bold border-primary/40 bg-primary/5 focus:bg-background"
+                  required
+                />
+              </div>
+            )}
+
+            {/* 5. Max periods limit */}
             <div className="space-y-1.5">
               <Label className="text-xs font-medium">Max Periods / Week</Label>
               <Input
@@ -480,6 +708,21 @@ export function RoutineTeachersTab({
               />
             </div>
           </div>
+
+          {/* Custom Subject Input if __custom__ selected */}
+          {primarySubject === "__custom__" && (
+            <div className="p-2.5 bg-muted/40 border rounded-md space-y-1 max-w-sm">
+              <Label className="text-xs font-medium">Enter Custom Subject Name *</Label>
+              <Input
+                type="text"
+                placeholder="e.g. Sanskrit, Statistics"
+                value={customPrimarySubject}
+                onChange={(e) => setCustomPrimarySubject(e.target.value)}
+                className="h-8 text-xs bg-background"
+                required
+              />
+            </div>
+          )}
 
           {/* Class & Subject Eligibility Setup */}
           <div className="space-y-2.5 pt-1 border-t">
@@ -734,18 +977,20 @@ export function RoutineTeachersTab({
             <thead>
               <tr className="bg-muted/20 border-b text-muted-foreground font-semibold">
                 <th className="py-2.5 px-4 w-1/5">Teacher Name</th>
-                <th className="py-2.5 px-4 w-20">Code</th>
+                <th className="py-2.5 px-4 w-16">Code</th>
+                <th className="py-2.5 px-4 w-28">Subject</th>
+                <th className="py-2.5 px-4 w-32">Class Teacher</th>
                 <th className="py-2.5 px-4">Eligible Classes & Subjects</th>
-                <th className="py-2.5 px-4 w-24">Capacity</th>
-                <th className="py-2.5 px-4 w-28">Workload</th>
-                <th className="py-2.5 px-4 w-28">Availability</th>
-                <th className="py-2.5 px-4 text-right w-24">Actions</th>
+                <th className="py-2.5 px-4 w-20">Capacity</th>
+                <th className="py-2.5 px-4 w-24">Workload</th>
+                <th className="py-2.5 px-4 w-24">Availability</th>
+                <th className="py-2.5 px-4 text-right w-20">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {teachers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     <Users className="w-6 h-6 mx-auto mb-1 opacity-40" />
                     <span>No teaching staff configured. Click &quot;Add Teacher&quot; above to begin.</span>
                   </td>
@@ -765,12 +1010,46 @@ export function RoutineTeachersTab({
                   return (
                     <tr key={t.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-2.5 px-4 font-semibold text-foreground">
-                        {t.name}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span>{t.name}</span>
+                          {t.classTeacherOf && (
+                            <Badge
+                              variant="secondary"
+                              className="text-[9px] px-1.5 py-0 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200"
+                            >
+                              CT: {t.classTeacherOf}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="py-2.5 px-4">
                         <Badge variant="outline" className="font-mono text-[10px] font-bold">
                           {t.shortName || "-"}
                         </Badge>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {t.primarySubject ? (
+                          <Badge variant="secondary" className="text-[10px] font-medium bg-muted font-mono">
+                            {t.primarySubject}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-[11px]">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {t.classTeacherOf ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-semibold text-primary text-[11px] flex items-center gap-1">
+                              <Award className="w-3 h-3 text-primary" />
+                              {t.classTeacherOf}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              1st Period: {t.classTeacherFirstPeriods ?? 3}/wk
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground text-[11px]">-</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-4">
                         {qClasses.length === 0 ? (

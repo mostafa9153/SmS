@@ -51,6 +51,12 @@ import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
   HEAD_DESIGNATION_OPTIONS,
+  STANDARD_HS_STREAMS,
+  getSchoolConfiguredStreams,
+  getSchoolStreamOptions,
+  getClassStreamList,
+  getStreamSections,
+  getDynamicSectionsForClassAndStream,
   saveSchoolProfileToDb,
   formatFullSchoolAddress,
 } from "@/lib/utils/school-profile";
@@ -76,6 +82,7 @@ interface ClassItem {
   code: string;
   sections: string[];
   stream?: string;
+  streamSections?: Record<string, string[]>;
   classTeacher?: string;
   roomNo?: string;
   capacity?: number;
@@ -123,8 +130,8 @@ const DEFAULT_CLASSES: ClassItem[] = [
   { id: "c-8", name: "Class VIII", code: "VIII", sections: ["A", "B"], classTeacher: "K. Das", roomNo: "Room 104", capacity: 120, isAutoPass: true, status: "Active" },
   { id: "c-9", name: "Class IX", code: "IX", sections: ["A", "B"], classTeacher: "T. Banerjee", roomNo: "Room 201", capacity: 130, isAutoPass: false, status: "Active" },
   { id: "c-10", name: "Class X", code: "X", sections: ["A", "B"], classTeacher: "A. Halder", roomNo: "Room 202", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts / Science / Commerce", classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
-  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts / Science / Commerce", classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts / Science / Commerce", streamSections: { "Arts": ["A", "B"], "Science": ["A"], "Commerce": ["A"] }, classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts / Science / Commerce", streamSections: { "Arts": ["A", "B"], "Science": ["A"], "Commerce": ["A"] }, classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
 ];
 
 type SchoolDetailsSubTab = "profile" | "classes" | "marks_scheme";
@@ -183,6 +190,11 @@ export function SchoolDetailsTab() {
   const [newClassCode, setNewClassCode] = useState("");
   const [newSections, setNewSections] = useState<string[]>(["A", "B"]);
   const [newStream, setNewStream] = useState("Arts / Science / Commerce");
+  const [newStreamSections, setNewStreamSections] = useState<Record<string, string[]>>({
+    "Arts": ["A", "B"],
+    "Science": ["A"],
+    "Commerce": ["A"],
+  });
   const [newTeacher, setNewTeacher] = useState("");
   const [newRoom, setNewRoom] = useState("");
   const [newCapacity, setNewCapacity] = useState("120");
@@ -194,6 +206,11 @@ export function SchoolDetailsTab() {
   const [editClassCode, setEditClassCode] = useState("");
   const [editSections, setEditSections] = useState<string[]>(["A", "B"]);
   const [editStream, setEditStream] = useState("Arts / Science / Commerce");
+  const [editStreamSections, setEditStreamSections] = useState<Record<string, string[]>>({
+    "Arts": ["A", "B"],
+    "Science": ["A"],
+    "Commerce": ["A"],
+  });
   const [editTeacher, setEditTeacher] = useState("");
   const [editRoom, setEditRoom] = useState("");
   const [editCapacity, setEditCapacity] = useState("120");
@@ -557,13 +574,57 @@ export function SchoolDetailsTab() {
     });
   };
 
+  // Toggle school-level Higher Secondary streams (Arts, Science, Commerce, Vocational)
+  const handleToggleProfileStream = (streamName: string) => {
+    const current = profile.hsStreams && profile.hsStreams.length > 0
+      ? [...profile.hsStreams]
+      : ["Arts", "Science", "Commerce"];
+
+    let next: string[];
+    if (current.includes(streamName)) {
+      if (current.length <= 1) {
+        showToast({
+          type: "error",
+          title: "At least one stream required",
+          description: "School must offer at least one Higher Secondary stream.",
+        });
+        return;
+      }
+      next = current.filter((s) => s !== streamName);
+    } else {
+      next = [...current, streamName];
+    }
+
+    setProfile((prev) => ({ ...prev, hsStreams: next }));
+  };
+
   // Save Profile Handler (Syncs to DB and LocalStorage)
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
       const finalAddress = profile.schoolAddress?.trim() || formatFullSchoolAddress(profile);
-      const profileToSave = { ...profile, schoolAddress: finalAddress };
+      const activeStreams = profile.hsStreams && profile.hsStreams.length > 0
+        ? profile.hsStreams
+        : ["Arts", "Science", "Commerce"];
+
+      const profileToSave: SchoolProfileData = {
+        ...profile,
+        schoolAddress: finalAddress,
+        hsStreams: activeStreams,
+      };
       setProfile(profileToSave);
+
+      // Also ensure Class XI & XII classes reflect the active streams
+      const updatedClasses = classes.map((c) => {
+        if (isHigherSecondaryClass(c.code, c.name)) {
+          return {
+            ...c,
+            stream: activeStreams.join(" / "),
+          };
+        }
+        return c;
+      });
+      updateAndSyncClasses(updatedClasses);
 
       localStorage.setItem("sms_school_profile", JSON.stringify(profileToSave));
       const success = await saveSchoolProfileToDb(profileToSave);
@@ -573,7 +634,7 @@ export function SchoolDetailsTab() {
         type: success ? "success" : "info",
         title: success ? "Saved to Cloud Database" : "Saved Locally",
         description: success
-          ? "Institutional metadata updated in database and synchronized across all devices."
+          ? "Institutional metadata & HS stream settings synchronized across all devices."
           : "Saved in browser storage.",
       });
     } catch (e) {
@@ -599,13 +660,31 @@ export function SchoolDetailsTab() {
     }
 
     const isHs = isHigherSecondaryClass(newClassCode, newClassName);
+    let finalSections = newSections.length > 0 ? newSections : ["A"];
+    let finalStreamSections: Record<string, string[]> | undefined = undefined;
+
+    if (isHs) {
+      const activeStreamsList = getClassStreamList(newStream);
+      const cleanedStreamSections: Record<string, string[]> = {};
+      const allSecSet = new Set<string>();
+      activeStreamsList.forEach((st) => {
+        const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
+          ? newStreamSections[st]
+          : ["A"];
+        cleanedStreamSections[st] = secs;
+        secs.forEach((s) => allSecSet.add(s));
+      });
+      finalStreamSections = cleanedStreamSections;
+      finalSections = Array.from(allSecSet).sort();
+    }
 
     const newClassItem: ClassItem = {
       id: `c-${Date.now()}`,
       name: newClassName.trim(),
       code: newClassCode.trim().toUpperCase(),
-      sections: newSections.length > 0 ? newSections : ["A"],
+      sections: finalSections,
       stream: isHs ? newStream : undefined,
+      streamSections: finalStreamSections,
       classTeacher: newTeacher.trim() || undefined,
       roomNo: newRoom.trim() || undefined,
       capacity: parseInt(newCapacity, 10) || 100,
@@ -627,6 +706,11 @@ export function SchoolDetailsTab() {
     setNewClassCode("");
     setNewSections(["A", "B"]);
     setNewStream("Arts / Science / Commerce");
+    setNewStreamSections({
+      "Arts": ["A", "B"],
+      "Science": ["A"],
+      "Commerce": ["A"],
+    });
     setNewTeacher("");
     setNewRoom("");
     setNewCapacity("120");
@@ -641,13 +725,25 @@ export function SchoolDetailsTab() {
     setEditClassCode(cls.code);
     setEditSections(cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"]);
     setEditStream(cls.stream || "Arts / Science / Commerce");
+
+    const streamSecs: Record<string, string[]> = cls.streamSections
+      ? { ...cls.streamSections }
+      : {};
+    const streamsList = getClassStreamList(cls.stream || "Arts / Science / Commerce");
+    streamsList.forEach((s) => {
+      if (!streamSecs[s] || !Array.isArray(streamSecs[s]) || streamSecs[s].length === 0) {
+        streamSecs[s] = cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"];
+      }
+    });
+    setEditStreamSections(streamSecs);
+
     setEditTeacher(cls.classTeacher || "");
     setEditRoom(cls.roomNo || "");
     setEditCapacity(String(cls.capacity || 120));
     setEditAutoPass(cls.isAutoPass ? "true" : "false");
   };
 
-  // Section click-add & click-remove helpers for Edit modal
+  // Section click-add & click-remove helpers for Edit modal (General)
   const handleAddEditSection = (sectionLetter: string) => {
     const letter = sectionLetter.trim().toUpperCase();
     if (!letter || editSections.includes(letter)) return;
@@ -667,7 +763,39 @@ export function SchoolDetailsTab() {
     setEditSections((prev) => prev.filter((s) => s !== sectionToRemove));
   };
 
-  // Section click-add & click-remove helpers for Add modal
+  // Edit modal stream section helpers
+  const handleAddEditModalStreamSection = (streamName: string, letter: string) => {
+    const cleanLetter = letter.trim().toUpperCase();
+    if (!cleanLetter) return;
+    setEditStreamSections((prev) => {
+      const current = prev[streamName] || ["A"];
+      if (current.includes(cleanLetter)) return prev;
+      return {
+        ...prev,
+        [streamName]: [...current, cleanLetter].sort(),
+      };
+    });
+  };
+
+  const handleRemoveEditModalStreamSection = (streamName: string, sectionToRemove: string) => {
+    setEditStreamSections((prev) => {
+      const current = prev[streamName] || ["A"];
+      if (current.length <= 1) {
+        showToast({
+          type: "info",
+          title: "Section Required",
+          description: `${streamName} must have at least one section.`,
+        });
+        return prev;
+      }
+      return {
+        ...prev,
+        [streamName]: current.filter((s) => s !== sectionToRemove),
+      };
+    });
+  };
+
+  // Section click-add & click-remove helpers for Add modal (General)
   const handleAddNewModalSection = (sectionLetter: string) => {
     const letter = sectionLetter.trim().toUpperCase();
     if (!letter || newSections.includes(letter)) return;
@@ -687,20 +815,196 @@ export function SchoolDetailsTab() {
     setNewSections((prev) => prev.filter((s) => s !== sectionToRemove));
   };
 
+  // Add modal stream section helpers
+  const handleAddAddModalStreamSection = (streamName: string, letter: string) => {
+    const cleanLetter = letter.trim().toUpperCase();
+    if (!cleanLetter) return;
+    setNewStreamSections((prev) => {
+      const current = prev[streamName] || ["A"];
+      if (current.includes(cleanLetter)) return prev;
+      return {
+        ...prev,
+        [streamName]: [...current, cleanLetter].sort(),
+      };
+    });
+  };
+
+  const handleRemoveAddModalStreamSection = (streamName: string, sectionToRemove: string) => {
+    setNewStreamSections((prev) => {
+      const current = prev[streamName] || ["A"];
+      if (current.length <= 1) {
+        showToast({
+          type: "info",
+          title: "Section Required",
+          description: `${streamName} must have at least one section.`,
+        });
+        return prev;
+      }
+      return {
+        ...prev,
+        [streamName]: current.filter((s) => s !== sectionToRemove),
+      };
+    });
+  };
+
+  // Quick Append Section to Class directly from row (General)
+  const handleQuickAddSection = (classId: string) => {
+    const target = classes.find((c) => c.id === classId);
+    if (!target) return;
+
+    const nextSec = getNextAvailableLetter(target.sections);
+    const updated = classes.map((c) => {
+      if (c.id === classId) {
+        return { ...c, sections: [...c.sections, nextSec].sort() };
+      }
+      return c;
+    });
+
+    updateAndSyncClasses(updated);
+    showToast({
+      type: "success",
+      title: "Section Added",
+      description: `Added Section ${nextSec} to ${target.name}.`,
+    });
+  };
+
+  // Quick Remove Section from Class directly from row (General)
+  const handleQuickRemoveSection = (classId: string, sectionToRemove: string) => {
+    const target = classes.find((c) => c.id === classId);
+    if (!target) return;
+
+    if (target.sections.length <= 1) {
+      showToast({
+        type: "info",
+        title: "Cannot Remove",
+        description: "A class must have at least one active section.",
+      });
+      return;
+    }
+
+    const updated = classes.map((c) => {
+      if (c.id === classId) {
+        return { ...c, sections: c.sections.filter((s) => s !== sectionToRemove) };
+      }
+      return c;
+    });
+
+    updateAndSyncClasses(updated);
+    showToast({
+      type: "success",
+      title: "Section Removed",
+      description: `Removed Section ${sectionToRemove} from ${target.name}.`,
+    });
+  };
+
+  // Quick Add Stream Section directly from row (Higher Secondary)
+  const handleQuickAddStreamSection = (classId: string, streamName: string) => {
+    const target = classes.find((c) => c.id === classId);
+    if (!target) return;
+    const currentSections = (target.streamSections && target.streamSections[streamName]) || target.sections || ["A"];
+    const nextSec = getNextAvailableLetter(currentSections);
+    const updatedSecs = [...currentSections, nextSec].sort();
+
+    const nextStreamSections = {
+      ...(target.streamSections || {}),
+      [streamName]: updatedSecs,
+    };
+
+    const allSectionsSet = new Set<string>();
+    Object.values(nextStreamSections).forEach((arr) => arr.forEach((s) => allSectionsSet.add(s)));
+    const unionSections = Array.from(allSectionsSet).sort();
+
+    const updated = classes.map((c) => {
+      if (c.id === classId) {
+        return {
+          ...c,
+          streamSections: nextStreamSections,
+          sections: unionSections.length > 0 ? unionSections : target.sections,
+        };
+      }
+      return c;
+    });
+
+    updateAndSyncClasses(updated);
+    showToast({
+      type: "success",
+      title: "Section Added",
+      description: `Added Section ${nextSec} to ${target.name} (${streamName}).`,
+    });
+  };
+
+  // Quick Remove Stream Section directly from row (Higher Secondary)
+  const handleQuickRemoveStreamSection = (classId: string, streamName: string, sectionToRemove: string) => {
+    const target = classes.find((c) => c.id === classId);
+    if (!target) return;
+    const currentSections = (target.streamSections && target.streamSections[streamName]) || target.sections || ["A"];
+    if (currentSections.length <= 1) {
+      showToast({
+        type: "info",
+        title: "Cannot Remove",
+        description: `${streamName} must have at least one active section.`,
+      });
+      return;
+    }
+    const nextStreamSections = {
+      ...(target.streamSections || {}),
+      [streamName]: currentSections.filter((s) => s !== sectionToRemove),
+    };
+
+    const allSectionsSet = new Set<string>();
+    Object.values(nextStreamSections).forEach((arr) => arr.forEach((s) => allSectionsSet.add(s)));
+    const unionSections = Array.from(allSectionsSet).sort();
+
+    const updated = classes.map((c) => {
+      if (c.id === classId) {
+        return {
+          ...c,
+          streamSections: nextStreamSections,
+          sections: unionSections.length > 0 ? unionSections : target.sections,
+        };
+      }
+      return c;
+    });
+
+    updateAndSyncClasses(updated);
+    showToast({
+      type: "success",
+      title: "Section Removed",
+      description: `Removed Section ${sectionToRemove} from ${target.name} (${streamName}).`,
+    });
+  };
+
   // Save Edited Class Handler
   const handleSaveEditClass = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingClass) return;
 
     const isHs = isHigherSecondaryClass(editClassCode, editClassName);
+    let finalSections = editSections.length > 0 ? editSections : ["A"];
+    let finalStreamSections: Record<string, string[]> | undefined = undefined;
+
+    if (isHs) {
+      const activeStreamsList = getClassStreamList(editStream);
+      const cleanedStreamSections: Record<string, string[]> = {};
+      const allSecSet = new Set<string>();
+      activeStreamsList.forEach((st) => {
+        const secs = (editStreamSections[st] && editStreamSections[st].length > 0)
+          ? editStreamSections[st]
+          : ["A"];
+        cleanedStreamSections[st] = secs;
+        secs.forEach((s) => allSecSet.add(s));
+      });
+      finalStreamSections = cleanedStreamSections;
+      finalSections = Array.from(allSecSet).sort();
+    }
 
     const updated = classes.map((c) => {
       if (c.id === editingClass.id) {
         return {
           ...c,
-          // Preserving name and code as locked
-          sections: editSections.length > 0 ? editSections : ["A"],
+          sections: finalSections,
           stream: isHs ? editStream : undefined,
+          streamSections: finalStreamSections,
           classTeacher: editTeacher.trim() || undefined,
           roomNo: editRoom.trim() || undefined,
           capacity: parseInt(editCapacity, 10) || 100,
@@ -732,56 +1036,6 @@ export function SchoolDetailsTab() {
         description: `${name} has been removed.`,
       });
     }
-  };
-
-  // Quick Append Section to Class directly from row
-  const handleQuickAddSection = (classId: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-
-    const nextSec = getNextAvailableLetter(target.sections);
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return { ...c, sections: [...c.sections, nextSec].sort() };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Added",
-      description: `Added Section ${nextSec} to ${target.name}.`,
-    });
-  };
-
-  // Quick Remove Section from Class directly from row
-  const handleQuickRemoveSection = (classId: string, sectionToRemove: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-
-    if (target.sections.length <= 1) {
-      showToast({
-        type: "info",
-        title: "Cannot Remove",
-        description: "A class must have at least one active section.",
-      });
-      return;
-    }
-
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return { ...c, sections: c.sections.filter((s) => s !== sectionToRemove) };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Removed",
-      description: `Removed Section ${sectionToRemove} from ${target.name}.`,
-    });
   };
 
   const isAddingHs = isHigherSecondaryClass(newClassCode, newClassName);
@@ -1011,6 +1265,59 @@ export function SchoolDetailsTab() {
                       className="text-xs"
                       placeholder="Bengali / English"
                     />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Higher Secondary Streams Configuration (Class XI & XII) */}
+              <Card className="border bg-card shadow-2xs">
+                <CardHeader className="pb-3 border-b">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <GraduationCap className="h-4 w-4 text-primary" />
+                      Higher Secondary Streams (Class XI &amp; XII)
+                    </CardTitle>
+                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                      {(profile.hsStreams || ["Arts", "Science", "Commerce"]).length} Active
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4 space-y-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    {STANDARD_HS_STREAMS.map((s) => {
+                      const isSelected = (profile.hsStreams || ["Arts", "Science", "Commerce"]).includes(s);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => handleToggleProfileStream(s)}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer",
+                            isSelected
+                              ? "border-primary/50 bg-primary/10 text-primary font-bold shadow-2xs"
+                              : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/40"
+                          )}
+                        >
+                          <span className="text-xs font-semibold">{s}</span>
+                          <div
+                            className={cn(
+                              "h-4 w-4 rounded flex items-center justify-center border transition-colors",
+                              isSelected
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "border-muted-foreground/40 bg-background"
+                            )}
+                          >
+                            {isSelected && <Check className="h-3 w-3" />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                    <span>Active Streams:</span>
+                    <span className="font-semibold text-foreground">
+                      {(profile.hsStreams || ["Arts", "Science", "Commerce"]).join(" • ") || "None"}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
@@ -1593,35 +1900,83 @@ export function SchoolDetailsTab() {
                       </div>
                     </div>
 
-                    {/* Middle: Sections List with Click-to-Remove and Click-to-Add */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground mr-1">Sections:</span>
-                      {cls.sections.map((sec) => (
-                        <Badge
-                          key={sec}
-                          className="bg-accent text-foreground hover:bg-accent font-bold text-xs pl-2.5 pr-1.5 py-0.5 rounded-lg border border-border flex items-center gap-1.5 group transition-all"
-                        >
-                          <span>Section {sec}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickRemoveSection(cls.id, sec)}
-                            title={`Click to remove Section ${sec}`}
-                            className="text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-full h-3.5 w-3.5 flex items-center justify-center transition-colors cursor-pointer"
+                    {/* Middle: Sections List */}
+                    {isHs ? (
+                      <div className="flex flex-col gap-2 min-w-[280px]">
+                        {getClassStreamList(cls.stream || "Arts / Science / Commerce").map((streamName) => {
+                          const sSections = getStreamSections(cls, streamName);
+                          const nextLetter = getNextAvailableLetter(sSections);
+                          return (
+                            <div
+                              key={streamName}
+                              className="flex flex-wrap items-center gap-1.5 bg-muted/20 px-2.5 py-1.5 rounded-xl border border-border/60"
+                            >
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0"
+                              >
+                                {streamName}
+                              </Badge>
+                              <span className="text-[11px] text-muted-foreground font-medium mr-0.5">Sections:</span>
+                              {sSections.map((sec) => (
+                                <Badge
+                                  key={sec}
+                                  className="bg-accent text-foreground hover:bg-accent font-bold text-xs pl-2 pr-1 py-0.5 rounded-md border border-border flex items-center gap-1 group transition-all"
+                                >
+                                  <span>{sec}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickRemoveStreamSection(cls.id, streamName, sec)}
+                                    title={`Remove Section ${sec} from ${streamName}`}
+                                    className="text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-full h-3.5 w-3.5 flex items-center justify-center transition-colors cursor-pointer"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </Badge>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAddStreamSection(cls.id, streamName)}
+                                title={`Add Section ${nextLetter} to ${streamName}`}
+                                className="h-5 px-1.5 rounded-md border border-dashed border-primary/40 text-primary hover:bg-primary/10 flex items-center gap-0.5 text-[10px] font-semibold transition-colors cursor-pointer ml-0.5"
+                              >
+                                <Plus className="h-2.5 w-2.5" />
+                                <span>+{nextLetter}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground mr-1">Sections:</span>
+                        {cls.sections.map((sec) => (
+                          <Badge
+                            key={sec}
+                            className="bg-accent text-foreground hover:bg-accent font-bold text-xs pl-2.5 pr-1.5 py-0.5 rounded-lg border border-border flex items-center gap-1.5 group transition-all"
                           >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => handleQuickAddSection(cls.id)}
-                        title={`Click to add Section ${getNextAvailableLetter(cls.sections)}`}
-                        className="h-6 px-2 rounded-lg border border-dashed border-primary/40 text-primary hover:bg-primary/10 flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer"
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>Add Section</span>
-                      </button>
-                    </div>
+                            <span>Section {sec}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRemoveSection(cls.id, sec)}
+                              title={`Click to remove Section ${sec}`}
+                              className="text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-full h-3.5 w-3.5 flex items-center justify-center transition-colors cursor-pointer"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </Badge>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => handleQuickAddSection(cls.id)}
+                          title={`Click to add Section ${getNextAvailableLetter(cls.sections)}`}
+                          className="h-6 px-2 rounded-lg border border-dashed border-primary/40 text-primary hover:bg-primary/10 flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer"
+                        >
+                          <Plus className="h-3 w-3" />
+                          <span>Add Section</span>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Right: Teacher & Actions (Edit + Delete) */}
                     <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
@@ -1721,96 +2076,211 @@ export function SchoolDetailsTab() {
                 </div>
               </div>
 
-              {/* 2. Interactive Sections - Click ✕ to remove, Click button to add */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">
-                    Class Sections
-                  </Label>
-                  <span className="text-[10px] text-muted-foreground">
-                    Click ✕ to remove • Click button to add
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
-                  {/* Current Active Badges */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {editSections.map((sec) => (
-                      <Badge
-                        key={sec}
-                        className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                      >
-                        <span>Section {sec}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEditSection(sec)}
-                          title={`Click to remove Section ${sec}`}
-                          className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
-
-                    {/* Quick Add Next Letter Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleAddEditSection(editNextLetter)}
-                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                      title={`Add Section ${editNextLetter}`}
-                    >
-                      <Plus className="h-3 w-3" />
-                      <span>Add Section {editNextLetter}</span>
-                    </button>
+              {/* Stream option ONLY for Class XI and XII */}
+              {isEditingHs && (
+                <div className="space-y-1.5 animate-in fade-in-50">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="editStream" className="text-xs font-semibold">
+                      Academic Streams
+                    </Label>
+                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
+                      XI &amp; XII Only
+                    </Badge>
                   </div>
-
-                  {/* Quick-add letters palette */}
-                  <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                    <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                    {["A", "B", "C", "D", "E", "F"].map((letter) => {
-                      const isAlreadyAdded = editSections.includes(letter);
+                  <div className="flex flex-wrap gap-1.5">
+                    {STANDARD_HS_STREAMS.map((s) => {
+                      const isSelected = editStream.toLowerCase().includes(s.toLowerCase());
                       return (
                         <button
-                          key={letter}
+                          key={s}
                           type="button"
-                          disabled={isAlreadyAdded}
-                          onClick={() => handleAddEditSection(letter)}
+                          onClick={() => {
+                            const currentParts = editStream
+                              .split(/[\/,•|]+/)
+                              .map((p) => p.trim())
+                              .filter(Boolean);
+                            let nextParts: string[];
+                            if (currentParts.some((p) => p.toLowerCase() === s.toLowerCase())) {
+                              if (currentParts.length <= 1) return;
+                              nextParts = currentParts.filter((p) => p.toLowerCase() !== s.toLowerCase());
+                            } else {
+                              nextParts = [...currentParts, s];
+                            }
+                            setEditStream(nextParts.join(" / "));
+                          }}
                           className={cn(
-                            "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                            isAlreadyAdded
-                              ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                              : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                            "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1",
+                            isSelected
+                              ? "bg-primary/10 border-primary text-primary shadow-2xs font-bold"
+                              : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
                           )}
-                          title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
                         >
-                          +{letter}
+                          {isSelected && <Check className="h-3 w-3" />}
+                          <span>{s}</span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              </div>
-
-              {/* Stream option ONLY for Class XI and XII */}
-              {isEditingHs && (
-                <div className="space-y-1 animate-in fade-in-50">
-                  <Label htmlFor="editStream" className="text-xs flex items-center justify-between">
-                    <span>Academic Stream</span>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
-                      XI & XII Only
-                    </Badge>
-                  </Label>
-                  <CustomSelect
+                  <Input
+                    id="editStream"
                     value={editStream}
-                    onChange={(val) => setEditStream(val)}
-                    options={[
-                      { label: "Arts / Science / Commerce (Combined)", value: "Arts / Science / Commerce" },
-                      { label: "Science", value: "Science" },
-                      { label: "Arts", value: "Arts" },
-                      { label: "Commerce", value: "Commerce" },
-                      { label: "Vocational", value: "Vocational" },
-                    ]}
+                    onChange={(e) => setEditStream(e.target.value)}
+                    placeholder="e.g. Arts / Science / Commerce"
+                    className="text-xs font-medium"
                   />
+                </div>
+              )}
+
+              {/* Sections: Stream-specific for HS, General for other classes */}
+              {isEditingHs ? (
+                <div className="space-y-2 animate-in fade-in-50">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Stream-wise Section Allocation
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Click ✕ to remove • Click + to add
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {getClassStreamList(editStream).map((streamName) => {
+                      const sSections = editStreamSections[streamName] || ["A"];
+                      const nextLetter = getNextAvailableLetter(sSections);
+                      return (
+                        <div key={streamName} className="p-3 rounded-xl border bg-muted/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                              {streamName} Stream
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {sSections.length} Section{sSections.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {sSections.map((sec) => (
+                              <Badge
+                                key={sec}
+                                className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
+                              >
+                                <span>Section {sec}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveEditModalStreamSection(streamName, sec)}
+                                  title={`Remove Section ${sec} from ${streamName}`}
+                                  className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </Badge>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddEditModalStreamSection(streamName, nextLetter)}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" />
+                              <span>Add Section {nextLetter}</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                            <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
+                            {["A", "B", "C", "D", "E"].map((letter) => {
+                              const isAlreadyAdded = sSections.includes(letter);
+                              return (
+                                <button
+                                  key={letter}
+                                  type="button"
+                                  disabled={isAlreadyAdded}
+                                  onClick={() => handleAddEditModalStreamSection(streamName, letter)}
+                                  className={cn(
+                                    "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
+                                    isAlreadyAdded
+                                      ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
+                                      : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                                  )}
+                                >
+                                  +{letter}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Class Sections
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Click ✕ to remove • Click button to add
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
+                    {/* Current Active Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {editSections.map((sec) => (
+                        <Badge
+                          key={sec}
+                          className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
+                        >
+                          <span>Section {sec}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEditSection(sec)}
+                            title={`Click to remove Section ${sec}`}
+                            className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+
+                      {/* Quick Add Next Letter Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleAddEditSection(editNextLetter)}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title={`Add Section ${editNextLetter}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Add Section {editNextLetter}</span>
+                      </button>
+                    </div>
+
+                    {/* Quick-add letters palette */}
+                    <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                      <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
+                      {["A", "B", "C", "D", "E", "F"].map((letter) => {
+                        const isAlreadyAdded = editSections.includes(letter);
+                        return (
+                          <button
+                            key={letter}
+                            type="button"
+                            disabled={isAlreadyAdded}
+                            onClick={() => handleAddEditSection(letter)}
+                            className={cn(
+                              "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
+                              isAlreadyAdded
+                                ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
+                                : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                            )}
+                            title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
+                          >
+                            +{letter}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1923,93 +2393,217 @@ export function SchoolDetailsTab() {
                 </div>
               </div>
 
-              {/* Interactive Sections for Add New Class */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">
-                    Class Sections
-                  </Label>
-                  <span className="text-[10px] text-muted-foreground">
-                    Click ✕ to remove • Click button to add
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {newSections.map((sec) => (
-                      <Badge
-                        key={sec}
-                        className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                      >
-                        <span>Section {sec}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNewModalSection(sec)}
-                          title={`Click to remove Section ${sec}`}
-                          className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </Badge>
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={() => handleAddNewModalSection(newNextLetter)}
-                      className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                      title={`Add Section ${newNextLetter}`}
-                    >
-                      <Plus className="h-3 w-3" />
-                      <span>Add Section {newNextLetter}</span>
-                    </button>
+              {/* Stream option ONLY for Class XI and XII */}
+              {isAddingHs && (
+                <div className="space-y-1.5 animate-in fade-in-50">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="stream" className="text-xs font-semibold">
+                      Academic Stream
+                    </Label>
+                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
+                      XI &amp; XII Only
+                    </Badge>
                   </div>
-
-                  <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                    <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                    {["A", "B", "C", "D", "E", "F"].map((letter) => {
-                      const isAlreadyAdded = newSections.includes(letter);
+                  <div className="flex flex-wrap gap-1.5">
+                    {STANDARD_HS_STREAMS.map((s) => {
+                      const isSelected = newStream.toLowerCase().includes(s.toLowerCase());
                       return (
                         <button
-                          key={letter}
+                          key={s}
                           type="button"
-                          disabled={isAlreadyAdded}
-                          onClick={() => handleAddNewModalSection(letter)}
+                          onClick={() => {
+                            const currentParts = newStream
+                              .split(/[\/,•|]+/)
+                              .map((p) => p.trim())
+                              .filter(Boolean);
+                            let nextParts: string[];
+                            if (currentParts.some((p) => p.toLowerCase() === s.toLowerCase())) {
+                              if (currentParts.length <= 1) return;
+                              nextParts = currentParts.filter((p) => p.toLowerCase() !== s.toLowerCase());
+                            } else {
+                              nextParts = [...currentParts, s];
+                            }
+                            const updatedStr = nextParts.join(" / ");
+                            setNewStream(updatedStr);
+                            // Initialize stream section if not present
+                            setNewStreamSections((prev) => {
+                              const updated = { ...prev };
+                              nextParts.forEach((st) => {
+                                if (!updated[st]) updated[st] = ["A"];
+                              });
+                              return updated;
+                            });
+                          }}
                           className={cn(
-                            "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                            isAlreadyAdded
-                              ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                              : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                            "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1",
+                            isSelected
+                              ? "bg-primary/10 border-primary text-primary shadow-2xs font-bold"
+                              : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
                           )}
-                          title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
                         >
-                          +{letter}
+                          {isSelected && <Check className="h-3 w-3" />}
+                          <span>{s}</span>
                         </button>
                       );
                     })}
                   </div>
-                </div>
-              </div>
-
-              {/* Stream option ONLY for Class XI and XII */}
-              {isAddingHs && (
-                <div className="space-y-1 animate-in fade-in-50">
-                  <Label htmlFor="stream" className="text-xs flex items-center justify-between">
-                    <span>Academic Stream</span>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
-                      XI & XII Only
-                    </Badge>
-                  </Label>
-                  <CustomSelect
+                  <Input
+                    id="stream"
                     value={newStream}
-                    onChange={(val) => setNewStream(val)}
-                    options={[
-                      { label: "Arts / Science / Commerce (Combined)", value: "Arts / Science / Commerce" },
-                      { label: "Science", value: "Science" },
-                      { label: "Arts", value: "Arts" },
-                      { label: "Commerce", value: "Commerce" },
-                      { label: "Vocational", value: "Vocational" },
-                    ]}
+                    onChange={(e) => setNewStream(e.target.value)}
+                    placeholder="e.g. Arts / Science / Commerce"
+                    className="h-10 sm:h-9 text-base sm:text-xs"
                   />
+                </div>
+              )}
+
+              {/* Sections: Stream-specific for HS, General for other classes */}
+              {isAddingHs ? (
+                <div className="space-y-2 animate-in fade-in-50">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Stream-wise Section Allocation
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Click ✕ to remove • Click + to add
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {getClassStreamList(newStream).map((streamName) => {
+                      const sSections = newStreamSections[streamName] || ["A"];
+                      const nextLetter = getNextAvailableLetter(sSections);
+                      return (
+                        <div key={streamName} className="p-3 rounded-xl border bg-muted/30 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
+                              {streamName} Stream
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {sSections.length} Section{sSections.length > 1 ? "s" : ""}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {sSections.map((sec) => (
+                              <Badge
+                                key={sec}
+                                className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
+                              >
+                                <span>Section {sec}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAddModalStreamSection(streamName, sec)}
+                                  title={`Remove Section ${sec} from ${streamName}`}
+                                  className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </button>
+                              </Badge>
+                            ))}
+
+                            <button
+                              type="button"
+                              onClick={() => handleAddAddModalStreamSection(streamName, nextLetter)}
+                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                            >
+                              <Plus className="h-3 w-3" />
+                              <span>Add Section {nextLetter}</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                            <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
+                            {["A", "B", "C", "D", "E"].map((letter) => {
+                              const isAlreadyAdded = sSections.includes(letter);
+                              return (
+                                <button
+                                  key={letter}
+                                  type="button"
+                                  disabled={isAlreadyAdded}
+                                  onClick={() => handleAddAddModalStreamSection(streamName, letter)}
+                                  className={cn(
+                                    "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
+                                    isAlreadyAdded
+                                      ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
+                                      : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                                  )}
+                                >
+                                  +{letter}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Class Sections
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">
+                      Click ✕ to remove • Click button to add
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {newSections.map((sec) => (
+                        <Badge
+                          key={sec}
+                          className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
+                        >
+                          <span>Section {sec}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveNewModalSection(sec)}
+                            title={`Click to remove Section ${sec}`}
+                            className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
+                        </Badge>
+                      ))}
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddNewModalSection(newNextLetter)}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                        title={`Add Section ${newNextLetter}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Add Section {newNextLetter}</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+                      <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
+                      {["A", "B", "C", "D", "E", "F"].map((letter) => {
+                        const isAlreadyAdded = newSections.includes(letter);
+                        return (
+                          <button
+                            key={letter}
+                            type="button"
+                            disabled={isAlreadyAdded}
+                            onClick={() => handleAddNewModalSection(letter)}
+                            className={cn(
+                              "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
+                              isAlreadyAdded
+                                ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
+                                : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
+                            )}
+                            title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
+                          >
+                            +{letter}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
 

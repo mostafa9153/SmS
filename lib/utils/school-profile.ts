@@ -26,7 +26,10 @@ export interface SchoolProfileData {
   state: string;
   pincode: string;
   schoolMotto: string;
+  hsStreams?: string[];
 }
+
+export const STANDARD_HS_STREAMS = ["Arts", "Science", "Commerce", "Vocational"] as const;
 
 export const DEFAULT_SCHOOL_PROFILE: SchoolProfileData = {
   schoolName: "Marigachi High School (H.S.)",
@@ -56,7 +59,111 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfileData = {
   state: "West Bengal",
   pincode: "743349",
   schoolMotto: "Knowledge, Character, Excellence (আলো থেকে আলো)",
+  hsStreams: ["Arts", "Science", "Commerce"],
 };
+
+/**
+ * Returns the list of active Higher Secondary streams configured for the school.
+ * Defaults to ["Arts", "Science", "Commerce"] if not explicitly configured.
+ */
+export function getSchoolConfiguredStreams(profile?: Partial<SchoolProfileData>): string[] {
+  if (profile?.hsStreams && Array.isArray(profile.hsStreams) && profile.hsStreams.length > 0) {
+    return profile.hsStreams;
+  }
+  if (typeof window !== "undefined") {
+    try {
+      const saved = localStorage.getItem("sms_school_profile");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed?.hsStreams) && parsed.hsStreams.length > 0) {
+          return parsed.hsStreams;
+        }
+      }
+      const savedClasses = localStorage.getItem("sms_class_management");
+      if (savedClasses) {
+        const parsedClasses = JSON.parse(savedClasses);
+        if (Array.isArray(parsedClasses)) {
+          const hsClass = parsedClasses.find(
+            (c: any) =>
+              (c.code === "XI" || c.code === "XII" || c.code === "11" || c.code === "12" ||
+               (c.name && (c.name.includes("XI") || c.name.includes("XII")))) &&
+              c.stream
+          );
+          if (hsClass?.stream) {
+            const streams = hsClass.stream
+              .split(/[\/,•|]+/)
+              .map((s: string) => s.trim())
+              .filter(Boolean);
+            if (streams.length > 0) return streams;
+          }
+        }
+      }
+    } catch {}
+  }
+  return ["Arts", "Science", "Commerce"];
+}
+
+/**
+ * Returns stream options formatted for UI dropdowns/selects based on configured school streams.
+ */
+export function getSchoolStreamOptions(profile?: Partial<SchoolProfileData>): { label: string; value: string }[] {
+  const streams = getSchoolConfiguredStreams(profile);
+  return streams.map((s) => {
+    if (s.toLowerCase() === "arts") return { label: "Arts (Humanities)", value: "Arts" };
+    return { label: s, value: s };
+  });
+}
+
+/**
+ * Splits a stream string (e.g. "Arts / Science / Commerce") into an array of stream names.
+ */
+export function getClassStreamList(streamStr?: string, fallbackStreams: string[] = ["Arts", "Science", "Commerce"]): string[] {
+  if (!streamStr || !streamStr.trim()) return fallbackStreams;
+  const parts = streamStr.split(/[\/,•|]+/).map((s) => s.trim()).filter(Boolean);
+  return parts.length > 0 ? parts : fallbackStreams;
+}
+
+/**
+ * Returns the sections configured for a specific stream of a class.
+ * Falls back to general sections if no per-stream sections are defined.
+ */
+export function getStreamSections(
+  classItem?: { sections?: string[]; streamSections?: Record<string, string[]> },
+  streamName?: string
+): string[] {
+  if (!classItem) return ["A", "B"];
+  if (streamName && classItem.streamSections && Array.isArray(classItem.streamSections[streamName]) && classItem.streamSections[streamName].length > 0) {
+    return classItem.streamSections[streamName];
+  }
+  return Array.isArray(classItem.sections) && classItem.sections.length > 0
+    ? classItem.sections
+    : ["A", "B"];
+}
+
+/**
+ * Reads dynamic class management from storage and returns the sections for a specific class & stream.
+ */
+export function getDynamicSectionsForClassAndStream(classCode: string, stream?: string): string[] {
+  if (typeof window === "undefined") return ["A", "B"];
+  try {
+    const raw = localStorage.getItem("sms_class_management");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const normCode = classCode.trim().toUpperCase().replace(/^CLASS\s*/i, "");
+        const target = parsed.find(
+          (c: any) =>
+            String(c.code || "").trim().toUpperCase() === normCode ||
+            String(c.name || "").trim().toUpperCase().includes(normCode)
+        );
+        if (target) {
+          return getStreamSections(target, stream);
+        }
+      }
+    }
+  } catch {}
+  return ["A", "B"];
+}
 
 export const HEAD_DESIGNATION_OPTIONS = [
   { label: "Teacher-in-Charge (T.I.C.)", value: "Teacher-in-Charge" },

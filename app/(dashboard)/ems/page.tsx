@@ -88,6 +88,7 @@ import {
   getClassNumericRank,
   syncAllEmsConfigsFromDb,
 } from "@/lib/ems/ems-config-loader";
+import { useSchoolProfile, getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
 import {
   normalizeClassCode,
@@ -370,6 +371,8 @@ const STEPS: StepItem[] = [
 function EmsMasterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { profile } = useSchoolProfile();
+  const hsConfiguredStreams = getSchoolConfiguredStreams(profile);
 
   // Initialize step strictly from URL searchParams (guarantees identical SSR and Client initial state)
   const getInitialStep = (): number => {
@@ -1743,9 +1746,7 @@ function EmsMasterPageContent() {
                               onChange={(val) => handleUpdateHsGroup(g.id, { stream: String(val) })}
                               options={[
                                 { label: "All Streams", value: "ALL" },
-                                { label: "Science", value: "Science" },
-                                { label: "Arts", value: "Arts" },
-                                { label: "Commerce", value: "Commerce" },
+                                ...hsConfiguredStreams.map((s) => ({ label: s, value: s })),
                               ]}
                               searchable={false}
                               className="text-xs font-medium h-8"

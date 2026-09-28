@@ -23,6 +23,7 @@ import type { AdmissionApplication, Gender } from "@/lib/types";
 import { editAdmissionApplication, checkDuplicateApplicant } from "@/lib/data/admission";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { formatAadhaarNumber } from "@/components/admission/admission-application-form";
+import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 
 interface EditApplicationDialogProps {
   open: boolean;
@@ -42,23 +43,10 @@ const CLASS_OPTIONS = [
   { value: "XII", label: "Class XII" },
 ];
 
-const SECTION_OPTIONS = [
-  { value: "A", label: "Section A" },
-  { value: "B", label: "Section B" },
-  { value: "C", label: "Section C" },
-  { value: "D", label: "Section D" },
-];
-
 const GENDER_OPTIONS = [
   { value: "Male", label: "Male" },
   { value: "Female", label: "Female" },
   { value: "Other", label: "Other" },
-];
-
-const STREAM_OPTIONS = [
-  { value: "Arts", label: "Arts (Humanities)" },
-  { value: "Science", label: "Science" },
-  { value: "Commerce", label: "Commerce" },
 ];
 
 const CATEGORY_OPTIONS = [
@@ -87,6 +75,8 @@ function EditApplicationDialogInner({
   application: AdmissionApplication;
   onSaved: () => void;
 }) {
+  const { profile } = useSchoolProfile();
+  const streamOptions = getSchoolStreamOptions(profile);
   // Form states
   const [studentName, setStudentName] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
@@ -250,6 +240,25 @@ function EditApplicationDialogInner({
   };
 
   const isClassXI = targetClass === "XI" || targetClass === "XII";
+  const availableSections = getDynamicSectionsForClassAndStream(targetClass, isClassXI ? stream : undefined);
+  const dynamicSectionOptions = availableSections.map((s) => ({ value: s, label: `Section ${s}` }));
+
+  const handleClassChange = (newClass: string) => {
+    setTargetClass(newClass);
+    const isHs = newClass === "XI" || newClass === "XII";
+    const newSecs = getDynamicSectionsForClassAndStream(newClass, isHs ? stream : undefined);
+    if (!newSecs.includes(targetSection)) {
+      setTargetSection(newSecs[0] || "A");
+    }
+  };
+
+  const handleStreamChange = (newStream: string) => {
+    setStream(newStream);
+    const newSecs = getDynamicSectionsForClassAndStream(targetClass, newStream);
+    if (!newSecs.includes(targetSection)) {
+      setTargetSection(newSecs[0] || "A");
+    }
+  };
 
   return (
     <>
@@ -549,10 +558,24 @@ function EditApplicationDialogInner({
                   </label>
                   <CustomSelect
                     value={targetClass}
-                    onChange={setTargetClass}
+                    onChange={handleClassChange}
                     options={CLASS_OPTIONS}
                   />
                 </div>
+
+                {isClassXI && (
+                  <div>
+                    <label className="text-[11px] font-bold text-purple-700 dark:text-purple-300 block mb-1">
+                      Stream Allocation *
+                    </label>
+                    <CustomSelect
+                      value={stream}
+                      onChange={handleStreamChange}
+                      options={streamOptions}
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
                     Section
@@ -560,7 +583,7 @@ function EditApplicationDialogInner({
                   <CustomSelect
                     value={targetSection}
                     onChange={setTargetSection}
-                    options={SECTION_OPTIONS}
+                    options={dynamicSectionOptions}
                   />
                 </div>
                 <div>
@@ -575,19 +598,6 @@ function EditApplicationDialogInner({
                     className="h-9 rounded-xl font-bold font-mono"
                   />
                 </div>
-
-                {isClassXI && (
-                  <div className="sm:col-span-3">
-                    <label className="text-[11px] font-bold text-purple-700 dark:text-purple-300 block mb-1">
-                      Class XI Stream Selection *
-                    </label>
-                    <CustomSelect
-                      value={stream}
-                      onChange={setStream}
-                      options={STREAM_OPTIONS}
-                    />
-                  </div>
-                )}
 
                 <div className="sm:col-span-2">
                   <label className="text-[11px] font-bold text-muted-foreground block mb-1">
