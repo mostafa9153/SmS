@@ -133,8 +133,10 @@ export class RoutineSolver {
       // Check teacher availability slots
       let totalAvailSlots = 0;
       for (const d of this.settings.workingDays) {
+        const isHalf = this.settings.halfDays.includes(d);
+        const dayPeriodCap = isHalf ? this.settings.halfDayPeriods : this.settings.periodsPerDay;
         const availList = teacher.availableSlots?.[d] || (teacher.availableSlots as Record<string, number[]>)?.[String(d)] || [];
-        totalAvailSlots += availList.filter((p: number) => p <= this.settings.periodsPerDay).length;
+        totalAvailSlots += availList.filter((p: number) => p <= dayPeriodCap).length;
       }
 
       if (load > totalAvailSlots) {

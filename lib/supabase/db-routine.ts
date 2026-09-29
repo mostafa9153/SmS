@@ -420,14 +420,14 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .limit(1)
       .maybeSingle();
 
-    if (!routineError && routineRow && routineRow.generated_grid) {
+    if (!routineError && routineRow && (routineRow.grid || routineRow.generated_grid)) {
       routine = {
         id: routineRow.id,
         success: true,
         days: routineRow.metadata?.days || settings.workingDays,
         teachingPeriods: routineRow.metadata?.teachingPeriods || [],
         breaks: routineRow.metadata?.breaks || settings.breaks,
-        grid: routineRow.generated_grid,
+        grid: routineRow.grid || routineRow.generated_grid,
         iterations: routineRow.metadata?.iterations,
         executionTimeMs: routineRow.metadata?.executionTimeMs,
         generatedAt: routineRow.created_at,
@@ -585,12 +585,15 @@ export async function upsertClassDb(cls: { id?: string; className: string; secti
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_classes").upsert({
-      id,
-      class_name: cls.className,
-      section: cls.section,
-      daily_periods: cls.dailyPeriods || null,
-    });
+    await supabase.from("routine_classes").upsert(
+      {
+        id,
+        class_name: cls.className,
+        section: cls.section,
+        daily_periods: cls.dailyPeriods || null,
+      },
+      { onConflict: "class_name,section" }
+    );
   } catch (err) {
     console.warn("upsertClassDb:", err);
   }
@@ -650,7 +653,7 @@ export async function batchUpsertClassesDb(
   try {
     const { data, error } = await supabase
       .from("routine_classes")
-      .upsert(rows)
+      .upsert(rows, { onConflict: "class_name,section" })
       .select();
 
     if (!error && data) {
@@ -1032,7 +1035,9 @@ export async function upsertAssignmentDb(asg: {
   roomId?: string | null;
   periodsPerWeek: number;
 }): Promise<string> {
-  const id = asg.id || crypto.randomUUID();
+  const isUuid = (str?: string) =>
+    str ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) : false;
+  const id = isUuid(asg.id) ? asg.id! : crypto.randomUUID();
 
   const local = getLocalRoutineState() || {};
   const current = local.assignments || [];
@@ -1079,13 +1084,21 @@ export async function upsertAssignmentDb(asg: {
 export async function batchUpsertAssignmentsDb(
   asgList: RoutineAssignment[]
 ): Promise<boolean> {
-  setLocalRoutineState({ assignments: asgList });
+  const isUuid = (str?: string) =>
+    str ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) : false;
 
-  if (!asgList || asgList.length === 0) return true;
+  const validAsgList: RoutineAssignment[] = asgList.map((asg) => ({
+    ...asg,
+    id: isUuid(asg.id) ? asg.id : crypto.randomUUID(),
+  }));
+
+  setLocalRoutineState({ assignments: validAsgList });
+
+  if (!validAsgList || validAsgList.length === 0) return true;
 
   const supabase = createClient();
-  const rows = asgList.map((asg) => ({
-    id: asg.id || crypto.randomUUID(),
+  const rows = validAsgList.map((asg) => ({
+    id: asg.id,
     class_id: asg.classId,
     subject_id: asg.subjectId,
     teacher_id: asg.teacherId,
@@ -1136,7 +1149,7 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
 
   try {
     const { error } = await supabase.from("routine_generated_cache").insert({
-      generated_grid: routine.grid,
+      grid: routine.grid,
       metadata: {
         days: routine.days,
         teachingPeriods: routine.teachingPeriods,
@@ -1152,3 +1165,5 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
     return true;
   }
 }
+
+export const saveRoutineGeneratedDb = saveGeneratedRoutineDb;

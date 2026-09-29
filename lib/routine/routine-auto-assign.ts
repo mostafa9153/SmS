@@ -4,7 +4,13 @@ import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineSettings,
+  RoutineRoom,
 } from "./types";
+import {
+  isHsClass,
+  parseSectionAndStream,
+  detectSubjectStream,
+} from "./routine-helpers";
 
 /**
  * Automatically builds workload assignments connecting configured classes,
@@ -14,7 +20,8 @@ export function autoBuildRoutineAssignments(
   classes: RoutineClass[],
   subjects: RoutineSubject[],
   teachers: RoutineTeacher[],
-  settings?: RoutineSettings
+  settings?: RoutineSettings,
+  rooms: RoutineRoom[] = []
 ): RoutineAssignment[] {
   if (classes.length === 0 || subjects.length === 0 || teachers.length === 0) {
     return [];
@@ -31,11 +38,30 @@ export function autoBuildRoutineAssignments(
 
   for (const cls of sortedClasses) {
     const clsNameLower = cls.className.toLowerCase();
+    const isHs = isHsClass(cls.className);
+    const { stream: sectionStream } = parseSectionAndStream(cls.section || "");
 
-    // Find subjects for this class
-    const matchingSubjects = subjects.filter(
-      (s) => !s.className || s.className.toLowerCase() === clsNameLower
-    );
+    // Find subjects for this class and stream (for HS classes)
+    const matchingSubjects = subjects.filter((s) => {
+      if (s.className && s.className.toLowerCase() !== clsNameLower) {
+        return false;
+      }
+      if (!isHs) {
+        return true;
+      }
+      // Higher Secondary stream filtering
+      const isCommon =
+        Boolean(s.isCommon) ||
+        (s.stream && s.stream.toLowerCase() === "common") ||
+        detectSubjectStream(s.name, s.stream) === "Common";
+      if (isCommon) return true;
+
+      if (sectionStream && sectionStream.toLowerCase() !== "general" && sectionStream.toLowerCase() !== "all") {
+        const subjStream = (s.stream || detectSubjectStream(s.name, s.stream) || "General").toLowerCase();
+        return subjStream === sectionStream.toLowerCase();
+      }
+      return true;
+    });
 
     for (const subj of matchingSubjects) {
       const weeklyPeriods = subj.periodsPerWeek && subj.periodsPerWeek > 0
@@ -146,12 +172,26 @@ export function autoBuildRoutineAssignments(
             ? customTeacherPeriods
             : weeklyPeriods;
 
+        // Auto-assign lab room if subject is practical/lab
+        let assignedRoomId: string | null = null;
+        if (subj.isLab && rooms && rooms.length > 0) {
+          const labRooms = rooms.filter((r) => r.isLab);
+          if (labRooms.length > 0) {
+            const isComp = subjNameLower.includes("comp");
+            const matchingLab =
+              labRooms.find((r) =>
+                isComp ? r.name.toLowerCase().includes("comp") : !r.name.toLowerCase().includes("comp")
+              ) || labRooms[0];
+            assignedRoomId = matchingLab.id;
+          }
+        }
+
         assignments.push({
-          id: `${cls.id}_${subj.id}_${chosenTeacher.id}`,
+          id: crypto.randomUUID(),
           classId: cls.id,
           subjectId: subj.id,
           teacherId: chosenTeacher.id,
-          roomId: null,
+          roomId: assignedRoomId,
           periodsPerWeek: effectivePeriods,
         });
 

@@ -12,6 +12,11 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { autoBuildRoutineAssignments } from "@/lib/routine/routine-auto-assign";
+import {
+  isHsClass,
+  parseSectionAndStream,
+  detectSubjectStream,
+} from "@/lib/routine/routine-helpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -84,8 +89,8 @@ export function RoutineVerificationTab({
   // Compute active / effective assignments
   const activeAssignments = useMemo(() => {
     if (assignments.length > 0) return assignments;
-    return autoBuildRoutineAssignments(classes, subjects, teachers, settings);
-  }, [assignments, classes, subjects, teachers, settings]);
+    return autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
+  }, [assignments, classes, subjects, teachers, settings, rooms]);
 
   // Teacher Load Map
   const teacherLoadMap = useMemo(() => {
@@ -138,9 +143,28 @@ export function RoutineVerificationTab({
     // 3. Class by Class Curriculum & Teacher Coverage Check
     classes.forEach((cls) => {
       const clsNameLower = cls.className.toLowerCase();
-      const clsSubjects = subjects.filter(
-        (s) => !s.className || s.className.toLowerCase() === clsNameLower
-      );
+      const isHs = isHsClass(cls.className);
+      const { stream: sectionStream } = parseSectionAndStream(cls.section || "");
+
+      const clsSubjects = subjects.filter((s) => {
+        if (s.className && s.className.toLowerCase() !== clsNameLower) {
+          return false;
+        }
+        if (!isHs) {
+          return true;
+        }
+        const isCommon =
+          Boolean(s.isCommon) ||
+          (s.stream && s.stream.toLowerCase() === "common") ||
+          detectSubjectStream(s.name, s.stream) === "Common";
+        if (isCommon) return true;
+
+        if (sectionStream && sectionStream.toLowerCase() !== "general" && sectionStream.toLowerCase() !== "all") {
+          const subjStream = (s.stream || detectSubjectStream(s.name, s.stream) || "General").toLowerCase();
+          return subjStream === sectionStream.toLowerCase();
+        }
+        return true;
+      });
 
       const clsDemand = clsSubjects.reduce(
         (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : s.isLab ? 2 : 5),
@@ -238,7 +262,7 @@ export function RoutineVerificationTab({
   const handleAutoBalance = async () => {
     setIsBalancing(true);
     try {
-      const balanced = autoBuildRoutineAssignments(classes, subjects, teachers, settings);
+      const balanced = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
       if (onSaveAssignments) {
         await onSaveAssignments(balanced);
       }

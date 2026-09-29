@@ -45,6 +45,15 @@ export default function RoutineViewerPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleStateUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener("sms_routine_state_updated", handleStateUpdated);
+    return () => {
+      window.removeEventListener("sms_routine_state_updated", handleStateUpdated);
+    };
   }, []);
 
   if (loading) {

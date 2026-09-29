@@ -19,6 +19,37 @@ export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts
 export const PRESET_STREAMS = ["General", "Science", "Arts", "Commerce", "Vocational"] as const;
 
 /**
+ * Parses raw section string like "A (Science)", "Science", or "A - Science" into section and stream
+ */
+export function parseSectionAndStream(rawSection: string): { section: string; stream: string } {
+  const trimmed = (rawSection || "").trim();
+  const parenMatch = trimmed.match(/^(.*?)\s*\((.*?)\)$/);
+  if (parenMatch) {
+    return { section: parenMatch[1].trim(), stream: parenMatch[2].trim() };
+  }
+  const dashMatch = trimmed.match(/^(.*?)\s*-\s*(Science|Arts|Commerce|Vocational|General)$/i);
+  if (dashMatch) {
+    return { section: dashMatch[1].trim(), stream: dashMatch[2].trim() };
+  }
+  if (["Science", "Arts", "Commerce", "Vocational"].includes(trimmed)) {
+    return { section: "A", stream: trimmed };
+  }
+  return { section: trimmed || "A", stream: "General" };
+}
+
+/**
+ * Formats section and stream into standard display label
+ */
+export function formatSectionAndStream(sec: string, str: string): string {
+  const cleanSec = (sec || "A").trim();
+  const cleanStr = (str || "General").trim();
+  if (cleanStr === "General" || cleanStr === "None" || cleanStr === "N/A" || !cleanStr) {
+    return cleanSec;
+  }
+  return `${cleanSec} (${cleanStr})`;
+}
+
+/**
  * Checks if a class is an Higher Secondary (XI / XII / 11 / 12) class
  */
 export function isHsClass(className: string, code?: string): boolean {

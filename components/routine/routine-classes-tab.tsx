@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
-import { isHsClass } from "@/lib/routine/routine-helpers";
+import { isHsClass, parseSectionAndStream, formatSectionAndStream } from "@/lib/routine/routine-helpers";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -31,31 +31,6 @@ interface RoutineClassesTabProps {
   onSaveClass: (cls: { id?: string; className: string; section: string; dailyPeriods?: number | null }) => Promise<void>;
   onBatchSaveClasses?: (classesList: { id?: string; className: string; section: string; dailyPeriods?: number | null }[]) => Promise<void>;
   onDeleteClass: (id: string) => Promise<void>;
-}
-
-function parseSectionAndStream(rawSection: string): { section: string; stream: string } {
-  const trimmed = (rawSection || "").trim();
-  const parenMatch = trimmed.match(/^(.*?)\s*\((.*?)\)$/);
-  if (parenMatch) {
-    return { section: parenMatch[1].trim(), stream: parenMatch[2].trim() };
-  }
-  const dashMatch = trimmed.match(/^(.*?)\s*-\s*(Science|Arts|Commerce|Vocational|General)$/i);
-  if (dashMatch) {
-    return { section: dashMatch[1].trim(), stream: dashMatch[2].trim() };
-  }
-  if (["Science", "Arts", "Commerce", "Vocational"].includes(trimmed)) {
-    return { section: "A", stream: trimmed };
-  }
-  return { section: trimmed || "A", stream: "General" };
-}
-
-function formatSectionAndStream(sec: string, str: string): string {
-  const cleanSec = (sec || "A").trim();
-  const cleanStr = (str || "General").trim();
-  if (cleanStr === "General" || cleanStr === "None" || cleanStr === "N/A" || !cleanStr) {
-    return cleanSec;
-  }
-  return `${cleanSec} (${cleanStr})`;
 }
 
 interface PresetClassItem {

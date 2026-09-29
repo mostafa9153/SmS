@@ -97,6 +97,9 @@ export async function syncClassTeachersToRoutine(
   }
 
   setLocalRoutineState({ teachers });
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("sms_routine_state_updated"));
+  }
 }
 
 /**

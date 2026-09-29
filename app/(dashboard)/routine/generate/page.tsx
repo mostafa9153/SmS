@@ -52,10 +52,19 @@ export default function RoutineGeneratePage() {
 
   useEffect(() => {
     loadData();
+
+    const handleStateUpdated = () => {
+      loadData();
+    };
+
+    window.addEventListener("sms_routine_state_updated", handleStateUpdated);
+    return () => {
+      window.removeEventListener("sms_routine_state_updated", handleStateUpdated);
+    };
   }, []);
 
   const handleAutoBuildAssignments = async () => {
-    const built = autoBuildRoutineAssignments(classes, subjects, teachers, settings);
+    const built = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
     setAssignments(built);
     return built;
   };
@@ -64,14 +73,14 @@ export default function RoutineGeneratePage() {
     const activeAssignments =
       assignments.length > 0
         ? assignments
-        : autoBuildRoutineAssignments(classes, subjects, teachers, settings);
+        : autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
     return validateRoutineData(settings, classes, teachers, subjects, activeAssignments, rooms);
   };
 
   const handleGenerate = async (): Promise<GeneratedRoutine> => {
     let activeAssignments = assignments;
     if (activeAssignments.length === 0) {
-      activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings);
+      activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
       setAssignments(activeAssignments);
     }
     const result = generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms);
