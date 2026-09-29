@@ -21,11 +21,9 @@ import {
 import {
   AlertTriangle,
   CheckCircle2,
-  AlertCircle,
   Search,
   School,
   Users,
-  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
@@ -102,21 +100,20 @@ export function RoutineAllotmentOverviewTab({
   const [filterClass, setFilterClass] = useState<string>("all");
   const [issuesOnly, setIssuesOnly] = useState<boolean>(false);
 
-  // 1. Assign deterministic serial codes to teachers: T1, T2, ...
+  // 1. Assign Teacher Short Code / Initials (e.g. AK, SR, MB)
   const teacherCodeMap = useMemo(() => {
     const map = new Map<string, { code: string; index: number; teacher: RoutineTeacher }>();
     teachers.forEach((t, idx) => {
-      const code = `T${idx + 1}`;
+      const code = (t.shortName || generateInitials(t.name) || `T${idx + 1}`).trim().toUpperCase();
       map.set(t.id, { code, index: idx + 1, teacher: t });
     });
     return map;
   }, [teachers]);
 
-  // 2. Compute canonical list of subject categories / columns across configured curriculum
+  // 2. Canonical list of subject categories / columns across configured curriculum
   const distinctSubjectNames = useMemo(() => {
     const subMap = new Map<string, { name: string; priority: number }>();
 
-    // Priority ordering helper
     const getSubjectPriority = (name: string): number => {
       const n = name.toLowerCase();
       if (n.includes("bengali") || n.includes("বাংলা") || n.includes("first lang")) return 1;
@@ -126,7 +123,7 @@ export function RoutineAllotmentOverviewTab({
       if (n.includes("history") || n.includes("ইতিহাস")) return 5;
       if (n.includes("geography") || n.includes("ভূগোল")) return 6;
       if (n.includes("work") || n.includes("কর্ম") || n.includes("computer") || n.includes("phys") || n.includes("শারীর")) return 7;
-      if (n.includes("sanskrit") || n.includes("arabic") || n.includes("দর্শন")) return 8;
+      if (n.includes("sanskrit") || n.includes("arabic") || n.includes("philosophy") || n.includes("দর্শন")) return 8;
       return 9;
     };
 
@@ -139,7 +136,6 @@ export function RoutineAllotmentOverviewTab({
       }
     });
 
-    // Also scan teachers' qualified subjects
     teachers.forEach((t) => {
       if (t.classSubjects) {
         Object.values(t.classSubjects).forEach((subs) => {
@@ -155,7 +151,6 @@ export function RoutineAllotmentOverviewTab({
       }
     });
 
-    // Fallback standard subjects if nothing is configured
     if (subMap.size === 0) {
       ["Bengali", "English", "Mathematics", "Physical Science", "History", "Geography"].forEach((s) => {
         subMap.set(s, { name: s, priority: getSubjectPriority(s) });
@@ -169,7 +164,6 @@ export function RoutineAllotmentOverviewTab({
 
   // 3. Compute Chart 1 Matrix Rows (Class-wise Allotment Sheet)
   const classMatrixRows: ClassRowData[] = useMemo(() => {
-    // Sort classes by academic rank
     const sortedClasses = [...classes].sort(
       (a, b) =>
         getClassNumericRank(a.className) - getClassNumericRank(b.className) ||
@@ -184,7 +178,6 @@ export function RoutineAllotmentOverviewTab({
       let hasIssues = false;
 
       distinctSubjectNames.forEach((subName) => {
-        // Find subject demand for this class
         const matchedSubject = subjects.find(
           (s) =>
             s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
@@ -196,11 +189,9 @@ export function RoutineAllotmentOverviewTab({
             ? matchedSubject.periodsPerWeek
             : 0;
 
-        // Find teacher assignments for this class + section + subject
         const cellTeachers: TeacherAssignmentItem[] = [];
         let assignedPeriods = 0;
 
-        // Check direct assignments first
         const directAssignments = assignments.filter(
           (a) =>
             a.className.trim().toLowerCase() === cls.className.trim().toLowerCase() &&
@@ -215,14 +206,13 @@ export function RoutineAllotmentOverviewTab({
             cellTeachers.push({
               teacherId: a.teacherId,
               teacherName: t?.name || "Unknown Teacher",
-              teacherCode: tInfo?.code || (t?.shortName || "T"),
+              teacherCode: tInfo?.code || (t?.shortName || generateInitials(t?.name || "T")),
               periods: a.periodsPerWeek,
               subjectName: subName,
             });
             assignedPeriods += a.periodsPerWeek;
           });
         } else {
-          // Check teacher configured workloads
           teachers.forEach((t) => {
             const secKey = `${cls.className}::${cls.section}`;
             const isAssigned =
@@ -299,13 +289,12 @@ export function RoutineAllotmentOverviewTab({
   // 4. Compute Chart 2 Rows (Teacher Load Cross-Check)
   const teacherLoadRows: TeacherLoadRowData[] = useMemo(() => {
     return teachers.map((t, idx) => {
-      const code = `T${idx + 1}`;
+      const code = (t.shortName || generateInitials(t.name) || `T${idx + 1}`).trim().toUpperCase();
       const shortName = t.shortName || generateInitials(t.name);
       const maxPeriods = t.maxPeriods || 24;
       const assignedClasses: TeacherLoadRowData["assignedClasses"] = [];
       let totalAssignedPeriods = 0;
 
-      // Scan all classes & sections
       classes.forEach((c) => {
         const secKey = `${c.className}::${c.section}`;
         const activeSubs =
@@ -430,7 +419,6 @@ export function RoutineAllotmentOverviewTab({
     });
   }, [teacherLoadRows, issuesOnly, searchQuery]);
 
-  // Unique class names for filtering
   const uniqueClassNames = useMemo(() => {
     return Array.from(new Set(classes.map((c) => c.className))).sort(
       (a, b) => getClassNumericRank(a) - getClassNumericRank(b)
@@ -532,16 +520,16 @@ export function RoutineAllotmentOverviewTab({
         </div>
       </div>
 
-      {/* 3. CHART 1: শ্রেণি ও বিষয়ভিত্তিক শিক্ষক বণ্টন ছক (Class-wise Allotment Sheet) */}
+      {/* 3. CHART 1: Class-wise Subject & Teacher Allotment Matrix */}
       <div className="bg-card border rounded-xl shadow-xs overflow-hidden space-y-0">
         <div className="px-4 py-3 border-b bg-muted/20 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <School className="w-4 h-4 text-primary" />
-              শ্রেণি ও বিষয়ভিত্তিক শিক্ষক বণ্টন ছক (Class-wise Allotment Sheet)
+              Class-wise Subject & Teacher Allotment Matrix
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              পড়ার নিয়ম: ব্র্যাকেটের ভেতরের সংখ্যাটি হলো সাপ্তাহিক পিরিয়ড সংখ্যা / যেমন: <span className="font-mono font-bold text-foreground">T1 (4)</span> মানে শিক্ষক T1 সপ্তাহে ৪টি পিরিয়ড নেবেন।
+              Reading Guide: Number in parentheses represents weekly periods. e.g. <span className="font-mono font-bold text-foreground">AK (4)</span> indicates Teacher AK will take 4 periods/week.
             </p>
           </div>
 
@@ -564,7 +552,7 @@ export function RoutineAllotmentOverviewTab({
             <thead>
               <tr className="bg-muted/40 border-b text-muted-foreground font-semibold text-[11px]">
                 <th className="py-2.5 px-3 text-left font-bold text-foreground sticky left-0 bg-muted/90 backdrop-blur-xs z-10 w-28 border-r">
-                  শ্রেণি ও ইউনিট
+                  Class & Sec
                 </th>
                 {distinctSubjectNames.map((subName) => (
                   <th key={subName} className="py-2.5 px-2.5 text-center font-bold text-foreground whitespace-nowrap min-w-[110px] border-r">
@@ -572,7 +560,7 @@ export function RoutineAllotmentOverviewTab({
                   </th>
                 ))}
                 <th className="py-2.5 px-3 text-center font-bold text-primary sticky right-0 bg-muted/90 backdrop-blur-xs z-10 w-24">
-                  মোট ক্লাস
+                  Total Periods
                 </th>
               </tr>
             </thead>
@@ -680,7 +668,7 @@ export function RoutineAllotmentOverviewTab({
             <tfoot>
               <tr className="bg-muted/60 border-t-2 border-border font-bold text-foreground text-xs">
                 <td className="py-2.5 px-3 sticky left-0 bg-muted/95 backdrop-blur-xs z-10 border-r font-mono">
-                  মোট ক্লাস
+                  Total
                 </td>
                 {distinctSubjectNames.map((subName) => {
                   const colTotal = filteredClassMatrix.reduce((sum, r) => {
@@ -702,16 +690,16 @@ export function RoutineAllotmentOverviewTab({
         </div>
       </div>
 
-      {/* 4. CHART 2: ক্রস-চেক: শিক্ষকভিত্তিক মোট সাপ্তাহিক ক্লাস (Teacher Load Check) */}
+      {/* 4. CHART 2: Faculty Workload Cross-Check & Verification */}
       <div className="bg-card border rounded-xl shadow-xs overflow-hidden space-y-0">
         <div className="px-4 py-3 border-b bg-muted/20 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Users className="w-4 h-4 text-primary" />
-              ক্রস-চেক: শিক্ষকভিত্তিক মোট সাপ্তাহিক ক্লাস (Teacher Load Check)
+              Faculty Workload Cross-Check & Verification
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              রুটিন বোর্ডে বসানোর আগে এই সামারি মিলিয়ে নিলে কোনো শিক্ষকের লোড বেশি বা কম হবে না।
+              Cross-verify total weekly periods allocated per teacher to ensure balanced faculty workload before routine generation.
             </p>
           </div>
 
@@ -725,20 +713,20 @@ export function RoutineAllotmentOverviewTab({
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-muted/40 border-b text-muted-foreground font-semibold text-[11px]">
-                <th className="py-2.5 px-3 text-left font-bold text-foreground w-24 border-r">
-                  শিক্ষক কোড
+                <th className="py-2.5 px-3 text-left font-bold text-foreground w-28 border-r">
+                  Teacher Code
                 </th>
-                <th className="py-2.5 px-3 text-left font-bold text-foreground min-w-[140px] border-r">
-                  শিক্ষকের নাম
+                <th className="py-2.5 px-3 text-left font-bold text-foreground min-w-[150px] border-r">
+                  Faculty Name
                 </th>
                 <th className="py-2.5 px-3 text-left font-bold text-foreground min-w-[120px] border-r">
-                  মূল বিষয়
+                  Primary Subject
                 </th>
                 <th className="py-2.5 px-3 text-left font-bold text-foreground border-r">
-                  যেসব ক্লাসে ক্লাস দেওয়া হয়েছে
+                  Assigned Classes & Periods
                 </th>
                 <th className="py-2.5 px-4 text-center font-bold text-primary w-28">
-                  মোট ক্লাস
+                  Total Workload
                 </th>
               </tr>
             </thead>
@@ -777,9 +765,11 @@ export function RoutineAllotmentOverviewTab({
                       <td className="py-2.5 px-3 font-semibold text-foreground border-r">
                         <div className="flex items-center gap-1.5">
                           <span>{t.name}</span>
-                          <span className="text-[10px] text-muted-foreground font-mono font-normal">
-                            ({t.shortName})
-                          </span>
+                          {t.shortName && t.shortName !== t.teacherCode && (
+                            <span className="text-[10px] text-muted-foreground font-mono font-normal">
+                              ({t.shortName})
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -841,7 +831,7 @@ export function RoutineAllotmentOverviewTab({
             <tfoot>
               <tr className="bg-muted/60 border-t-2 border-border font-bold text-foreground text-xs">
                 <td colSpan={4} className="py-2.5 px-3 text-left font-semibold">
-                  সর্বমোট শিক্ষক লোড (Grand Total Faculty Workload)
+                  Grand Total Faculty Workload
                 </td>
                 <td className="py-2.5 px-4 text-center font-mono text-primary text-sm font-bold">
                   {grandTotalTeacherLoad}
