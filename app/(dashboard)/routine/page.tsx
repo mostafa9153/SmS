@@ -273,8 +273,8 @@ export default function RoutineSetupPage() {
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
     { id: "classes", label: "Classes", icon: School, count: classes.length },
-    { id: "teachers", label: "Teachers & Availability", icon: Users, count: teachers.length },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
+    { id: "teachers", label: "Teachers & Availability", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
     { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
   ];
@@ -300,18 +300,18 @@ export default function RoutineSetupPage() {
         </div>
 
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] font-medium text-muted-foreground">Active Faculty</span>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{teachers.length}</span>
-            <span className="text-[11px] text-muted-foreground">teachers</span>
-          </div>
-        </div>
-
-        <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
           <span className="text-[11px] font-medium text-muted-foreground">Curriculum Subjects</span>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-base font-bold text-foreground font-mono">{subjects.length}</span>
             <span className="text-[11px] text-muted-foreground">courses</span>
+          </div>
+        </div>
+
+        <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
+          <span className="text-[11px] font-medium text-muted-foreground">Active Faculty</span>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-base font-bold text-foreground font-mono">{teachers.length}</span>
+            <span className="text-[11px] text-muted-foreground">teachers</span>
           </div>
         </div>
 
@@ -388,6 +388,16 @@ export default function RoutineSetupPage() {
               />
             )}
 
+            {activeTab === "subjects" && (
+              <RoutineSubjectsTab
+                subjects={subjects}
+                classes={classes}
+                onSaveSubject={handleSaveSubject}
+                onBatchSaveSubjects={handleBatchSaveSubjects}
+                onDeleteSubject={handleDeleteSubject}
+              />
+            )}
+
             {activeTab === "teachers" && (
               <RoutineTeachersTab
                 teachers={teachers}
@@ -397,16 +407,6 @@ export default function RoutineSetupPage() {
                 subjects={subjects}
                 onSaveTeacher={handleSaveTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
-              />
-            )}
-
-            {activeTab === "subjects" && (
-              <RoutineSubjectsTab
-                subjects={subjects}
-                classes={classes}
-                onSaveSubject={handleSaveSubject}
-                onBatchSaveSubjects={handleBatchSaveSubjects}
-                onDeleteSubject={handleDeleteSubject}
               />
             )}
 
