@@ -47,6 +47,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import {
+  syncRoutineSubjectToMarksSchemes,
+  syncBatchRoutineSubjectsToMarksSchemes,
+  syncRemoveRoutineSubjectFromMarksSchemes,
+  syncAllSubjectsBidirectional,
+} from "@/lib/routine/routine-sync";
+
 type SetupTab = "settings" | "classes" | "teachers" | "subjects" | "rooms" | "demand";
 
 export default function RoutineSetupPage() {
@@ -80,6 +87,18 @@ export default function RoutineSetupPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleStateUpdate = () => {
+      loadData();
+    };
+
+    window.addEventListener("sms_routine_state_updated", handleStateUpdate);
+    window.addEventListener("sms_marks_schemes_updated", handleStateUpdate);
+
+    return () => {
+      window.removeEventListener("sms_routine_state_updated", handleStateUpdate);
+      window.removeEventListener("sms_marks_schemes_updated", handleStateUpdate);
+    };
   }, []);
 
   // Handlers for Settings
@@ -156,6 +175,7 @@ export default function RoutineSetupPage() {
     periodsPerWeek?: number | null;
   }) => {
     const id = await upsertSubjectDb(subjData);
+    syncRoutineSubjectToMarksSchemes(subjData);
     setSubjects((prev) => {
       const idx = prev.findIndex((s) => s.id === id);
       const updated: RoutineSubject = {
@@ -190,7 +210,11 @@ export default function RoutineSetupPage() {
   };
 
   const handleDeleteSubject = async (id: string) => {
+    const targetSub = subjects.find((s) => s.id === id);
     await deleteSubjectDb(id);
+    if (targetSub && targetSub.className) {
+      syncRemoveRoutineSubjectFromMarksSchemes(targetSub.className, targetSub.name);
+    }
     setSubjects((prev) => prev.filter((s) => s.id !== id));
   };
 
@@ -211,6 +235,7 @@ export default function RoutineSetupPage() {
     }[]
   ) => {
     const saved = await batchUpsertSubjectsDb(subjectsList);
+    syncBatchRoutineSubjectsToMarksSchemes(subjectsList);
     setSubjects((prev) => {
       const next = [...prev];
       saved.forEach((sub) => {

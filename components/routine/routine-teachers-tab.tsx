@@ -32,6 +32,7 @@ import {
   BookOpen,
   GraduationCap,
   Award,
+  Copy,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,11 @@ import {
 } from "@/lib/ems/ems-config-loader";
 import { generateInitials } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
+import {
+  syncRoutineTeacherToClasses,
+  parseClassSectionLabel,
+  formatClassSectionLabel,
+} from "@/lib/routine/routine-sync";
 
 interface RoutineTeachersTabProps {
   teachers: RoutineTeacher[];
@@ -129,30 +135,32 @@ export function RoutineTeachersTab({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [subjects, classSubjectsDictionary]);
 
-  // Aggregated class options for Class Teacher assignment
+  // Section-wise class options for Class Teacher assignment
   const availableClassOptions = useMemo(() => {
-    if (classes && classes.length > 0) {
-      return classes.map((c) => {
-        const label = c.section && c.section !== "ALL" ? `${c.className} - ${c.section}` : c.className;
-        return {
-          id: c.id,
+    const options: { id: string; label: string; className: string; section: string }[] = [];
+    const sourceClasses = presetClasses.length > 0 ? presetClasses : FALLBACK_CLASSES;
+
+    sourceClasses.forEach((c) => {
+      const secs = c.sections && c.sections.length > 0 ? c.sections : ["A", "B"];
+      secs.forEach((sec) => {
+        const cleanSec = sec.trim().replace(/^Section\s+/i, "");
+        const label = formatClassSectionLabel(c.name, cleanSec);
+        options.push({
+          id: `${c.name}-${cleanSec}`,
           label,
-          className: c.className,
-          section: c.section,
-        };
+          className: c.name,
+          section: cleanSec,
+        });
       });
-    }
-    return presetClasses.map((c) => ({
-      id: c.code || c.name,
-      label: c.name,
-      className: c.name,
-      section: "A",
-    }));
-  }, [classes, presetClasses]);
+    });
+
+    return options;
+  }, [presetClasses]);
 
   // Form State for Add / Edit
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  const [originalClassTeacherOf, setOriginalClassTeacherOf] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [teacherName, setTeacherName] = useState("");
   const [shortName, setShortName] = useState("");
@@ -163,8 +171,28 @@ export function RoutineTeachersTab({
   const [maxPeriods, setMaxPeriods] = useState<number>(24);
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [classSubjectsMap, setClassSubjectsMap] = useState<Record<string, string[]>>({});
+  const [sectionSubjectsMap, setSectionSubjectsMap] = useState<Record<string, string[]>>({});
+  const [classSectionsMap, setClassSectionsMap] = useState<Record<string, string[]>>({});
+  const [classPeriodsMap, setClassPeriodsMap] = useState<Record<string, number>>({});
+  const [sectionPeriodsMap, setSectionPeriodsMap] = useState<Record<string, number>>({});
+  const [subjectPeriodsMap, setSubjectPeriodsMap] = useState<Record<string, number>>({});
+  const [activeSectionTab, setActiveSectionTab] = useState<Record<string, string>>({});
   const [availSlots, setAvailSlots] = useState<Record<number, number[]>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Helper to extract configured sections for a class
+  const getClassSections = React.useCallback(
+    (clsName: string): string[] => {
+      const clsLower = clsName.trim().toLowerCase();
+      const matched = classes.filter((c) => c.className.trim().toLowerCase() === clsLower);
+      if (matched.length > 0) {
+        const secs = matched.map((c) => c.section.trim()).filter(Boolean);
+        return Array.from(new Set(secs));
+      }
+      return ["A", "B"];
+    },
+    [classes]
+  );
 
   // Compute workload per teacher
   const teacherLoadMap: Record<string, number> = useMemo(() => {
@@ -221,11 +249,18 @@ export function RoutineTeachersTab({
     setPrimarySubject(matchedSubject || "");
     setCustomPrimarySubject("");
     setClassTeacherOf("__none__");
+    setOriginalClassTeacherOf(null);
     setClassTeacherFirstPeriods(3);
 
     setMaxPeriods(24);
     setSelectedClasses([]);
     setClassSubjectsMap({});
+    setSectionSubjectsMap({});
+    setClassSectionsMap({});
+    setClassPeriodsMap({});
+    setSectionPeriodsMap({});
+    setSubjectPeriodsMap({});
+    setActiveSectionTab({});
 
     const defaultSlots: Record<number, number[]> = {};
     settings.workingDays.forEach((d) => {
@@ -258,13 +293,20 @@ export function RoutineTeachersTab({
     }
 
     setClassTeacherOf(t.classTeacherOf || "__none__");
+    setOriginalClassTeacherOf(t.classTeacherOf || null);
     setClassTeacherFirstPeriods(t.classTeacherFirstPeriods ?? 3);
     setMaxPeriods(t.maxPeriods || 24);
 
-    // Load qualified classes and subjects
+    // Load qualified classes, subjects, sections, and periods
     const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
     setSelectedClasses(qClasses);
     setClassSubjectsMap(t.classSubjects || {});
+    setSectionSubjectsMap(t.sectionSubjects || {});
+    setClassSectionsMap(t.classSections || {});
+    setClassPeriodsMap(t.classPeriods || {});
+    setSectionPeriodsMap(t.sectionPeriods || {});
+    setSubjectPeriodsMap(t.subjectPeriods || {});
+    setActiveSectionTab({});
 
     // Deep copy available slots
     const slots: Record<number, number[]> = {};
@@ -330,45 +372,370 @@ export function RoutineTeachersTab({
         delete next[clsName];
         return next;
       });
+      setClassSectionsMap((prev) => {
+        const next = { ...prev };
+        delete next[clsName];
+        return next;
+      });
+      setClassPeriodsMap((prev) => {
+        const next = { ...prev };
+        delete next[clsName];
+        return next;
+      });
+      setSectionPeriodsMap((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)) {
+            delete next[k];
+          }
+        });
+        return next;
+      });
+      setSectionSubjectsMap((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`)) {
+            delete next[k];
+          }
+        });
+        return next;
+      });
+      setSubjectPeriodsMap((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (k.startsWith(`${clsName}::`)) {
+            delete next[k];
+          }
+        });
+        return next;
+      });
     } else {
       setSelectedClasses((prev) => [...prev, clsName]);
       const defaultSubs = classSubjectsDictionary[clsName] || [];
-      // If primary subject is selected and in this class, preselect it or default all
-      const initialSubs = primarySubject && primarySubject !== "__custom__" && defaultSubs.includes(primarySubject)
-        ? [primarySubject]
-        : [...defaultSubs];
+      const initialSubs =
+        primarySubject && primarySubject !== "__custom__" && defaultSubs.includes(primarySubject)
+          ? [primarySubject]
+          : [...defaultSubs];
 
       setClassSubjectsMap((prev) => ({
         ...prev,
         [clsName]: initialSubs,
       }));
+
+      // Default all sections for this class
+      const defaultSecs = getClassSections(clsName);
+      setClassSectionsMap((prev) => ({
+        ...prev,
+        [clsName]: defaultSecs,
+      }));
+
+      // Initialize each section's subjects with initialSubs
+      setSectionSubjectsMap((prev) => {
+        const next = { ...prev };
+        defaultSecs.forEach((sec) => {
+          next[`${clsName}::${sec}`] = [...initialSubs];
+        });
+        return next;
+      });
     }
   };
 
-  // Toggle subject selection for a specific class
-  const toggleSubjectForClass = (clsName: string, subject: string) => {
-    const currentSubs = classSubjectsMap[clsName] || [];
-    const exists = currentSubs.includes(subject);
-    const updatedSubs = exists
-      ? currentSubs.filter((s) => s !== subject)
-      : [...currentSubs, subject];
+  // Toggle section selection for a specific class
+  const toggleSectionForClass = (clsName: string, section: string) => {
+    const allSecs = getClassSections(clsName);
+    const current = classSectionsMap[clsName] || allSecs;
 
-    setClassSubjectsMap((prev) => ({
+    if (section === "ALL") {
+      const isAll = current.length === allSecs.length;
+      setClassSectionsMap((prev) => ({
+        ...prev,
+        [clsName]: isAll ? [] : [...allSecs],
+      }));
+      return;
+    }
+
+    const exists = current.includes(section);
+    const next = exists ? current.filter((s) => s !== section) : [...current, section];
+    setClassSectionsMap((prev) => ({
       ...prev,
-      [clsName]: updatedSubs,
+      [clsName]: next,
     }));
   };
 
-  // Toggle all subjects for a class
-  const toggleAllSubjectsForClass = (clsName: string) => {
-    const allSubs = classSubjectsDictionary[clsName] || [];
-    const currentSubs = classSubjectsMap[clsName] || [];
-    const allSelected = allSubs.length > 0 && currentSubs.length === allSubs.length;
+  // Toggle all sections for a class
+  const toggleAllSectionsForClass = (clsName: string) => {
+    toggleSectionForClass(clsName, "ALL");
+  };
 
-    setClassSubjectsMap((prev) => ({
+  // Helper to get default weekly period for a subject in a class
+  const getSubjectDefaultPeriod = React.useCallback(
+    (clsName: string, subName: string): number => {
+      const matched = (subjects || []).find(
+        (s) =>
+          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+          (s.className ? s.className.trim().toLowerCase() === clsName.trim().toLowerCase() : true)
+      );
+      return matched?.periodsPerWeek && matched.periodsPerWeek > 0 ? matched.periodsPerWeek : 5;
+    },
+    [subjects]
+  );
+
+  // Helper to get active subjects for a specific section (or ALL)
+  const getSectionSubjects = React.useCallback(
+    (clsName: string, sec: string): string[] => {
+      if (sec === "ALL") {
+        const allSecs = getClassSections(clsName);
+        const selectedSecs = classSectionsMap[clsName] || allSecs;
+        if (selectedSecs.length === 0) return classSubjectsMap[clsName] || [];
+        const union = new Set<string>();
+        selectedSecs.forEach((s) => {
+          const subs = sectionSubjectsMap[`${clsName}::${s}`] || classSubjectsMap[clsName] || [];
+          subs.forEach((sub) => union.add(sub));
+        });
+        return Array.from(union);
+      }
+      const secKey = `${clsName}::${sec}`;
+      if (sectionSubjectsMap[secKey] !== undefined) {
+        return sectionSubjectsMap[secKey];
+      }
+      return classSubjectsMap[clsName] || [];
+    },
+    [sectionSubjectsMap, classSubjectsMap, classSectionsMap, getClassSections]
+  );
+
+  // Helper to get specific period count for a subject in a section (or ALL)
+  const getSubjectPeriod = React.useCallback(
+    (clsName: string, sec: string, subName: string): number => {
+      if (sec === "ALL") {
+        const allSecs = getClassSections(clsName);
+        const selectedSecs = classSectionsMap[clsName] || allSecs;
+        const targetSec = selectedSecs[0] || "A";
+        const secKey = `${clsName}::${targetSec}::${subName}`;
+        if (subjectPeriodsMap[secKey] !== undefined && subjectPeriodsMap[secKey] > 0) {
+          return subjectPeriodsMap[secKey];
+        }
+        const clsKey = `${clsName}::${subName}`;
+        if (subjectPeriodsMap[clsKey] !== undefined && subjectPeriodsMap[clsKey] > 0) {
+          return subjectPeriodsMap[clsKey];
+        }
+        return getSubjectDefaultPeriod(clsName, subName);
+      }
+      const secKey = `${clsName}::${sec}::${subName}`;
+      if (subjectPeriodsMap[secKey] !== undefined && subjectPeriodsMap[secKey] > 0) {
+        return subjectPeriodsMap[secKey];
+      }
+      const clsKey = `${clsName}::${subName}`;
+      if (subjectPeriodsMap[clsKey] !== undefined && subjectPeriodsMap[clsKey] > 0) {
+        return subjectPeriodsMap[clsKey];
+      }
+      return getSubjectDefaultPeriod(clsName, subName);
+    },
+    [subjectPeriodsMap, getSubjectDefaultPeriod, classSectionsMap, getClassSections]
+  );
+
+  // Calculate total weekly periods for a section automatically from its active subjects
+  const calculateSectionTotalPeriods = React.useCallback(
+    (clsName: string, sec: string): number => {
+      const secSubs = getSectionSubjects(clsName, sec);
+      return secSubs.reduce((sum, sub) => sum + getSubjectPeriod(clsName, sec, sub), 0);
+    },
+    [getSectionSubjects, getSubjectPeriod]
+  );
+
+  // Toggle subject for a specific section (or ALL)
+  const toggleSubjectForSection = (clsName: string, sec: string, subName: string) => {
+    const allSecs = getClassSections(clsName);
+    const selectedSecs = classSectionsMap[clsName] || allSecs;
+
+    if (sec === "ALL") {
+      const currentUnion = getSectionSubjects(clsName, "ALL");
+      const exists = currentUnion.includes(subName);
+
+      setSectionSubjectsMap((prev) => {
+        const next = { ...prev };
+        selectedSecs.forEach((s) => {
+          const current = next[`${clsName}::${s}`] || classSubjectsMap[clsName] || [];
+          next[`${clsName}::${s}`] = exists
+            ? current.filter((sub) => sub !== subName)
+            : Array.from(new Set([...current, subName]));
+        });
+        return next;
+      });
+
+      setClassSubjectsMap((prev) => ({
+        ...prev,
+        [clsName]: exists
+          ? (prev[clsName] || []).filter((sub) => sub !== subName)
+          : Array.from(new Set([...(prev[clsName] || []), subName])),
+      }));
+      return;
+    }
+
+    const secKey = `${clsName}::${sec}`;
+    const current = getSectionSubjects(clsName, sec);
+    const exists = current.includes(subName);
+    const updated = exists ? current.filter((s) => s !== subName) : [...current, subName];
+
+    setSectionSubjectsMap((prev) => ({
       ...prev,
-      [clsName]: allSelected ? [] : [...allSubs],
+      [secKey]: updated,
     }));
+
+    // Maintain class-level union
+    setClassSubjectsMap((prev) => {
+      const allUnion = new Set<string>();
+      allSecs.forEach((s) => {
+        const subs = s === sec ? updated : getSectionSubjects(clsName, s);
+        subs.forEach((sub) => allUnion.add(sub));
+      });
+      return {
+        ...prev,
+        [clsName]: Array.from(allUnion),
+      };
+    });
+  };
+
+  // Toggle all subjects for a specific section (or ALL)
+  const toggleAllSubjectsForSection = (clsName: string, sec: string) => {
+    const allSubs = classSubjectsDictionary[clsName] || [];
+    const allSecs = getClassSections(clsName);
+    const selectedSecs = classSectionsMap[clsName] || allSecs;
+
+    if (sec === "ALL") {
+      const currentUnion = getSectionSubjects(clsName, "ALL");
+      const allSelected = allSubs.length > 0 && currentUnion.length === allSubs.length;
+      const nextSubs = allSelected ? [] : [...allSubs];
+
+      setSectionSubjectsMap((prev) => {
+        const next = { ...prev };
+        selectedSecs.forEach((s) => {
+          next[`${clsName}::${s}`] = [...nextSubs];
+        });
+        return next;
+      });
+
+      setClassSubjectsMap((prev) => ({
+        ...prev,
+        [clsName]: [...nextSubs],
+      }));
+      return;
+    }
+
+    const current = getSectionSubjects(clsName, sec);
+    const allSelected = allSubs.length > 0 && current.length === allSubs.length;
+    const next = allSelected ? [] : [...allSubs];
+
+    const secKey = `${clsName}::${sec}`;
+    setSectionSubjectsMap((prev) => ({
+      ...prev,
+      [secKey]: next,
+    }));
+
+    setClassSubjectsMap((prev) => {
+      const allUnion = new Set<string>();
+      allSecs.forEach((s) => {
+        const subs = s === sec ? next : getSectionSubjects(clsName, s);
+        subs.forEach((sub) => allUnion.add(sub));
+      });
+      return {
+        ...prev,
+        [clsName]: Array.from(allUnion),
+      };
+    });
+  };
+
+  // Handle subject period count change (for single sec or ALL)
+  const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
+    const num = val.trim() === "" ? 0 : parseInt(val, 10);
+    const allSecs = getClassSections(clsName);
+    const selectedSecs = classSectionsMap[clsName] || allSecs;
+
+    setSubjectPeriodsMap((prev) => {
+      const next = { ...prev };
+      if (sec === "ALL") {
+        selectedSecs.forEach((s) => {
+          const k = `${clsName}::${s}::${subName}`;
+          if (!num || num <= 0) {
+            delete next[k];
+          } else {
+            next[k] = num;
+          }
+        });
+        const clsK = `${clsName}::${subName}`;
+        if (!num || num <= 0) {
+          delete next[clsK];
+        } else {
+          next[clsK] = num;
+        }
+      } else {
+        const secKey = `${clsName}::${sec}::${subName}`;
+        if (!num || num <= 0) {
+          delete next[secKey];
+        } else {
+          next[secKey] = num;
+        }
+      }
+      return next;
+    });
+  };
+
+  // Copy one section's configured subjects and loads to all other sections of that class
+  const handleCopySectionConfigToAll = (clsName: string, fromSec: string) => {
+    const sourceSubs = getSectionSubjects(clsName, fromSec);
+    const allSecs = getClassSections(clsName);
+
+    setSectionSubjectsMap((prev) => {
+      const next = { ...prev };
+      allSecs.forEach((sec) => {
+        next[`${clsName}::${sec}`] = [...sourceSubs];
+      });
+      return next;
+    });
+
+    setSubjectPeriodsMap((prev) => {
+      const next = { ...prev };
+      allSecs.forEach((sec) => {
+        if (sec !== fromSec) {
+          sourceSubs.forEach((sub) => {
+            const fromKey = `${clsName}::${fromSec}::${sub}`;
+            const toKey = `${clsName}::${sec}::${sub}`;
+            if (prev[fromKey] !== undefined) {
+              next[toKey] = prev[fromKey];
+            }
+          });
+        }
+      });
+      return next;
+    });
+  };
+
+  // Set target weekly periods for a specific class default
+  const handlePeriodChangeForClass = (clsName: string, val: string) => {
+    const num = val.trim() === "" ? 0 : parseInt(val, 10);
+    setClassPeriodsMap((prev) => {
+      const next = { ...prev };
+      if (!num || num <= 0) {
+        delete next[clsName];
+      } else {
+        next[clsName] = num;
+      }
+      return next;
+    });
+  };
+
+  // Set target weekly periods for a specific section
+  const handleSectionPeriodChange = (clsName: string, sec: string, val: string) => {
+    const key = `${clsName}::${sec}`;
+    const num = val.trim() === "" ? 0 : parseInt(val, 10);
+    setSectionPeriodsMap((prev) => {
+      const next = { ...prev };
+      if (!num || num <= 0) {
+        delete next[key];
+      } else {
+        next[key] = num;
+      }
+      return next;
+    });
   };
 
   // Period Availability toggles
@@ -393,12 +760,12 @@ export function RoutineTeachersTab({
       for (let p = 1; p <= settings.periodsPerDay; p++) all.push(p);
       setAvailSlots({ ...availSlots, [dayIdx]: all });
     } else if (type === "morning") {
-      const breakPoint = settings.breaks[0] || Math.ceil(settings.periodsPerDay / 2);
+      const breakPoint = settings.breaks[0] || Math.floor(settings.periodsPerDay / 2);
       const morning: number[] = [];
-      for (let p = 1; p < breakPoint; p++) morning.push(p);
+      for (let p = 1; p <= breakPoint; p++) morning.push(p);
       setAvailSlots({ ...availSlots, [dayIdx]: morning });
     } else if (type === "afternoon") {
-      const breakPoint = settings.breaks[0] || Math.ceil(settings.periodsPerDay / 2);
+      const breakPoint = settings.breaks[0] || Math.floor(settings.periodsPerDay / 2);
       const afternoon: number[] = [];
       for (let p = breakPoint + 1; p <= settings.periodsPerDay; p++) afternoon.push(p);
       setAvailSlots({ ...availSlots, [dayIdx]: afternoon });
@@ -424,14 +791,22 @@ export function RoutineTeachersTab({
         availableSlots: availSlots,
         qualifiedClasses: selectedClasses,
         classSubjects: classSubjectsMap,
+        sectionSubjects: sectionSubjectsMap,
+        classSections: classSectionsMap,
+        classPeriods: classPeriodsMap,
+        sectionPeriods: sectionPeriodsMap,
+        subjectPeriods: subjectPeriodsMap,
         primarySubject: finalSubject || null,
         classTeacherOf: finalClassTeacher,
         classTeacherFirstPeriods: finalClassTeacher ? Number(classTeacherFirstPeriods) || 3 : null,
       };
 
       await onSaveTeacher(payload);
+      await syncRoutineTeacherToClasses(teacherName.trim(), finalClassTeacher, originalClassTeacherOf);
+
       setIsEditorOpen(false);
       setEditingTeacherId(null);
+      setOriginalClassTeacherOf(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -440,9 +815,13 @@ export function RoutineTeachersTab({
   // Delete Teacher
   const handleDelete = React.useCallback(async (id: string) => {
     if (onDeleteTeacher) {
+      const target = teachers.find((t) => t.id === id);
+      if (target?.classTeacherOf) {
+        await syncRoutineTeacherToClasses(target.name, null, target.classTeacherOf);
+      }
       await onDeleteTeacher(id);
     }
-  }, [onDeleteTeacher]);
+  }, [onDeleteTeacher, teachers]);
 
   // Readable label for the teacher dropdown trigger
   const selectedStaffLabel = useMemo(() => {
@@ -460,6 +839,11 @@ export function RoutineTeachersTab({
     teachers.forEach((t) => {
       if (t.classTeacherOf) {
         map[t.classTeacherOf] = t.name;
+        const parsed = parseClassSectionLabel(t.classTeacherOf);
+        if (parsed) {
+          map[formatClassSectionLabel(parsed.className, parsed.section)] = t.name;
+          map[`${parsed.className} - ${parsed.section}`] = t.name;
+        }
       }
     });
     return map;
@@ -733,6 +1117,8 @@ export function RoutineTeachersTab({
               {presetClasses.map((c) => {
                 const isSelected = selectedClasses.includes(c.name);
                 const subCount = (classSubjectsMap[c.name] || []).length;
+                const secCount = (classSectionsMap[c.name] || getClassSections(c.name)).length;
+                const periodLoad = classPeriodsMap[c.name];
                 return (
                   <button
                     key={c.name}
@@ -751,7 +1137,7 @@ export function RoutineTeachersTab({
                         variant="secondary"
                         className="text-[9px] px-1 py-0 bg-primary-foreground/20 text-primary-foreground border-transparent font-mono"
                       >
-                        {subCount} Sub
+                        {secCount} Sec • {subCount} Sub {periodLoad ? `• ${periodLoad}p` : ""}
                       </Badge>
                     )}
                   </button>
@@ -759,70 +1145,256 @@ export function RoutineTeachersTab({
               })}
             </div>
 
-            {/* Subject Selection Panels for Each Selected Class */}
+            {/* Subject, Section & Period Panels for Each Selected Class */}
             {selectedClasses.length > 0 && (
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-3 pt-1">
                 {presetClasses
                   .filter((c) => selectedClasses.includes(c.name))
                   .map((c) => {
                     const availableSubs = classSubjectsDictionary[c.name] || [];
-                    const selectedSubs = classSubjectsMap[c.name] || [];
-                    const allSelected =
-                      availableSubs.length > 0 && selectedSubs.length === availableSubs.length;
+                    const allSecs = getClassSections(c.name);
+                    const selectedSecs = classSectionsMap[c.name] || allSecs;
+                    const allSecsSelected =
+                      allSecs.length > 0 && selectedSecs.length === allSecs.length;
+                    const currentActiveSec =
+                      activeSectionTab[c.name] || (allSecs.length > 1 ? "ALL" : allSecs[0] || "A");
+
+                    const classTotalPeriods = selectedSecs.reduce(
+                      (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
+                      0
+                    );
 
                     return (
                       <div
                         key={c.name}
-                        className="p-3 bg-card border rounded-md space-y-2 shadow-2xs"
+                        className="p-3 bg-card border rounded-lg space-y-3 shadow-xs"
                       >
-                        <div className="flex items-center justify-between border-b pb-1.5">
+                        {/* Class Header: Name & Auto Total Workload */}
+                        <div className="flex items-center justify-between border-b pb-2">
                           <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-semibold text-xs text-foreground font-mono">
+                            <Badge
+                              variant="outline"
+                              className="font-bold text-xs text-foreground font-mono bg-background"
+                            >
                               {c.name}
                             </Badge>
                             <span className="text-[11px] text-muted-foreground">
-                              Select subjects this teacher can teach for {c.name}:
+                              {selectedSecs.length} Active {selectedSecs.length === 1 ? "Section" : "Sections"}
                             </span>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleAllSubjectsForClass(c.name)}
-                            className="h-6 text-[10px] px-2 text-primary hover:bg-primary/10"
+
+                          <Badge
+                            variant="secondary"
+                            className="font-mono text-xs font-bold text-primary bg-primary/10 border-primary/20"
                           >
-                            {allSelected ? "Deselect All" : "Select All"}
-                          </Button>
+                            Class Total: {classTotalPeriods} p/wk
+                          </Badge>
                         </div>
 
-                        {/* Subject Pills */}
-                        <div className="flex flex-wrap gap-1.5 pt-0.5">
-                          {availableSubs.length === 0 ? (
-                            <span className="text-xs text-muted-foreground italic">
-                              No subjects configured for this class in School Settings.
+                        {/* Section Selection Bar & Switcher */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-semibold text-foreground">
+                              Configure Section ({c.name}):
                             </span>
-                          ) : (
-                            availableSubs.map((sub) => {
-                              const isSubActive = selectedSubs.includes(sub);
-                              return (
-                                <button
-                                  key={sub}
-                                  type="button"
-                                  onClick={() => toggleSubjectForClass(c.name, sub)}
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              Click to switch
+                            </span>
+                          </div>
+
+                          {/* Clean Segmented Tab Buttons */}
+                          <div className="flex flex-wrap gap-1.5 p-1 bg-muted/30 rounded-lg border">
+                            {allSecs.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveSectionTab((prev) => ({ ...prev, [c.name]: "ALL" }));
+                                  if (!allSecsSelected) {
+                                    setClassSectionsMap((prev) => ({ ...prev, [c.name]: [...allSecs] }));
+                                  }
+                                }}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                  currentActiveSec === "ALL"
+                                    ? "bg-primary text-primary-foreground shadow-xs font-bold ring-1 ring-primary/40"
+                                    : "bg-background text-foreground hover:bg-muted/80 border border-transparent hover:border-border"
+                                )}
+                              >
+                                {currentActiveSec === "ALL" && (
+                                  <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                                )}
+                                <span>All Sections</span>
+                                <Badge
+                                  variant="secondary"
                                   className={cn(
-                                    "px-2.5 py-1 rounded text-xs border transition-all select-none font-medium flex items-center gap-1",
-                                    isSubActive
-                                      ? "bg-primary/10 text-primary border-primary/40 font-semibold shadow-2xs"
-                                      : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                    "text-[10px] font-mono px-1.5 py-0 font-bold",
+                                    currentActiveSec === "ALL"
+                                      ? "bg-primary-foreground text-primary"
+                                      : "bg-muted text-muted-foreground"
                                   )}
                                 >
-                                  {isSubActive && <Check className="w-3 h-3 text-primary" />}
-                                  <span>{sub}</span>
+                                  {classTotalPeriods} p/wk
+                                </Badge>
+                              </button>
+                            )}
+
+                            {allSecs.map((sec) => {
+                              const isFocused = currentActiveSec === sec;
+                              const secLoad = calculateSectionTotalPeriods(c.name, sec);
+
+                              return (
+                                <button
+                                  key={sec}
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveSectionTab((prev) => ({ ...prev, [c.name]: sec }));
+                                    if (!selectedSecs.includes(sec)) {
+                                      setClassSectionsMap((prev) => ({
+                                        ...prev,
+                                        [c.name]: Array.from(new Set([...(prev[c.name] || allSecs), sec])),
+                                      }));
+                                    }
+                                  }}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                    isFocused
+                                      ? "bg-primary text-primary-foreground shadow-xs font-bold ring-1 ring-primary/40"
+                                      : "bg-background text-foreground hover:bg-muted/80 border border-transparent hover:border-border"
+                                  )}
+                                >
+                                  {isFocused && (
+                                    <Check className="w-3.5 h-3.5 text-primary-foreground" />
+                                  )}
+                                  <span>Sec {sec}</span>
+                                  <Badge
+                                    variant="secondary"
+                                    className={cn(
+                                      "text-[10px] font-mono px-1.5 py-0 font-bold",
+                                      isFocused
+                                        ? "bg-primary-foreground text-primary"
+                                        : "bg-muted text-muted-foreground"
+                                    )}
+                                  >
+                                    {secLoad} p/wk
+                                  </Badge>
                                 </button>
                               );
-                            })
-                          )}
+                            })}
+                          </div>
                         </div>
+
+                        {/* Subjects for the Active Section or All Sections */}
+                        {selectedSecs.includes(currentActiveSec) || (currentActiveSec === "ALL" && selectedSecs.length > 0) ? (
+                          <div className="space-y-2 pt-2 border-t bg-muted/15 -mx-3 -mb-3 p-3 rounded-b-lg">
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-semibold text-foreground">
+                                  {currentActiveSec === "ALL" ? "Subjects for All Sections:" : `Subjects for Sec ${currentActiveSec}:`}
+                                </span>
+                                <Badge variant="outline" className="text-[10px] font-mono font-bold bg-background">
+                                  {getSectionSubjects(c.name, currentActiveSec).length} Selected • {currentActiveSec === "ALL" ? classTotalPeriods : calculateSectionTotalPeriods(c.name, currentActiveSec)} p/wk
+                                </Badge>
+                              </div>
+
+                              <div className="flex items-center gap-1">
+                                {allSecs.length > 1 && currentActiveSec !== "ALL" && (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCopySectionConfigToAll(c.name, currentActiveSec)}
+                                    className="h-5 text-[10px] px-1.5 gap-1 bg-background text-foreground hover:bg-muted"
+                                    title="Apply this section's subjects and period loads to all other sections"
+                                  >
+                                    <Copy className="w-2.5 h-2.5" />
+                                    <span>Copy to All Secs</span>
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleAllSubjectsForSection(c.name, currentActiveSec)}
+                                  className="h-5 text-[10px] px-1.5 text-primary hover:bg-primary/10"
+                                >
+                                  {getSectionSubjects(c.name, currentActiveSec).length === availableSubs.length &&
+                                  availableSubs.length > 0
+                                    ? "Deselect All"
+                                    : "Select All"}
+                                </Button>
+                              </div>
+                            </div>
+
+                            {/* Subject Pills with inline editable p/wk */}
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {availableSubs.length === 0 ? (
+                                <span className="text-xs text-muted-foreground italic">
+                                  No subjects configured for this class in School Settings.
+                                </span>
+                              ) : (
+                                availableSubs.map((sub) => {
+                                  const secSubs = getSectionSubjects(c.name, currentActiveSec);
+                                  const isSubActive = secSubs.includes(sub);
+                                  const subPeriod = getSubjectPeriod(c.name, currentActiveSec, sub);
+
+                                  return (
+                                    <div
+                                      key={sub}
+                                      className={cn(
+                                        "inline-flex items-center rounded-md border text-xs transition-all",
+                                        isSubActive
+                                          ? "bg-card border-primary/40 shadow-2xs text-foreground ring-1 ring-primary/20"
+                                          : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                      )}
+                                    >
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          toggleSubjectForSection(c.name, currentActiveSec, sub)
+                                        }
+                                        className={cn(
+                                          "px-2 py-1 font-medium flex items-center gap-1 select-none transition-colors",
+                                          isSubActive ? "text-primary font-semibold" : "text-muted-foreground"
+                                        )}
+                                      >
+                                        {isSubActive && <Check className="w-3 h-3 text-primary" />}
+                                        <span>{sub}</span>
+                                      </button>
+
+                                      {isSubActive && (
+                                        <div className="flex items-center gap-0.5 pr-1.5 pl-1 py-0.5 border-l border-primary/20 bg-primary/5">
+                                          <Input
+                                            type="number"
+                                            min={1}
+                                            max={20}
+                                            value={subPeriod}
+                                            onChange={(e) =>
+                                              handleSubjectPeriodChange(
+                                                c.name,
+                                                currentActiveSec,
+                                                sub,
+                                                e.target.value
+                                              )
+                                            }
+                                            className="h-5 w-10 text-[11px] font-mono font-bold px-0.5 text-center bg-background border-primary/30"
+                                            title={`Weekly periods for ${sub}${currentActiveSec === "ALL" ? " across all sections" : ` in Sec ${currentActiveSec}`}`}
+                                          />
+                                          <span className="text-[10px] text-muted-foreground font-mono font-medium">
+                                            p/wk
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 bg-muted/20 border border-dashed rounded text-center text-xs text-muted-foreground">
+                            Select a section above to configure its subjects and weekly period load.
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -888,8 +1460,7 @@ export function RoutineTeachersTab({
                             className={cn(
                               "px-2 py-0.5 rounded text-[11px] font-mono font-medium border transition-all select-none",
                               isSelected && "bg-primary text-primary-foreground border-primary shadow-xs font-bold",
-                              !isSelected && "bg-muted/50 text-muted-foreground border-border hover:bg-muted",
-                              isBreak && !isSelected && "opacity-40"
+                              !isSelected && "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
                             )}
                           >
                             P{p}
@@ -970,7 +1541,7 @@ export function RoutineTeachersTab({
                 <th className="py-2.5 px-4 w-16">Code</th>
                 <th className="py-2.5 px-4 w-28">Subject</th>
                 <th className="py-2.5 px-4 w-32">Class Teacher</th>
-                <th className="py-2.5 px-4">Eligible Classes & Subjects</th>
+                <th className="py-2.5 px-4">Eligible Classes, Sections & Subjects</th>
                 <th className="py-2.5 px-4 w-20">Capacity</th>
                 <th className="py-2.5 px-4 w-24">Workload</th>
                 <th className="py-2.5 px-4 w-24">Availability</th>
@@ -1028,6 +1599,9 @@ const TeacherTableRow = React.memo(function TeacherTableRow({
 
   const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
   const cSubjects = t.classSubjects || {};
+  const cSections = t.classSections || {};
+  const cPeriods = t.classPeriods || {};
+  const sPeriods = t.sectionPeriods || {};
 
   return (
     <tr className="hover:bg-muted/30 transition-colors">
@@ -1079,17 +1653,37 @@ const TeacherTableRow = React.memo(function TeacherTableRow({
             All classes & subjects
           </span>
         ) : (
-          <div className="flex flex-wrap gap-1 max-w-lg">
+          <div className="flex flex-wrap gap-1.5 max-w-lg">
             {qClasses.map((cls) => {
               const subs = cSubjects[cls] || [];
+              const secs = cSections[cls] || [];
+              const periodTarget = cPeriods[cls];
+
               return (
-                <span
+                <div
                   key={cls}
-                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60 border text-[10px] font-medium text-foreground"
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-muted/60 border text-[10px] font-medium text-foreground flex-wrap"
                 >
                   <span className="font-bold text-primary">{cls}:</span>
-                  <span>{subs.length > 0 ? subs.join(", ") : "All"}</span>
-                </span>
+                  {secs.length > 0 && (
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background font-semibold">
+                      {secs
+                        .map((sec) => {
+                          const p = sPeriods[`${cls}::${sec}`] || sPeriods[`${cls}-${sec}`] || sPeriods[`${cls}_${sec}`];
+                          return p ? `Sec ${sec} (${p}p)` : `Sec ${sec}`;
+                        })
+                        .join(", ")}
+                    </Badge>
+                  )}
+                  {periodTarget && periodTarget > 0 && (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono bg-primary/10 text-primary font-bold">
+                      {periodTarget} p/wk
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground">
+                    {subs.length > 0 ? subs.join(", ") : "All"}
+                  </span>
+                </div>
               );
             })}
           </div>

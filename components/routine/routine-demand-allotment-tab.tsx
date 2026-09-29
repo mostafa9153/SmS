@@ -144,18 +144,31 @@ export function RoutineDemandAllotmentTab({
             return isStreamMatch;
           });
 
-          const demand = streamSubs.reduce(
+          // Strict deduplication by canonical name + stream
+          const dedupedStreamSubs: RoutineSubject[] = [];
+          const seenHs = new Set<string>();
+          for (const s of streamSubs) {
+            const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
+            const key = `${cName}::${streamKey}`;
+            if (!seenHs.has(key)) {
+              seenHs.add(key);
+              dedupedStreamSubs.push(s);
+            }
+          }
+
+          const demand = dedupedStreamSubs.reduce(
             (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
             0
           );
 
           // Workload assigned for these stream subjects in this class
-          const subIdSet = new Set(streamSubs.map((s) => s.id));
+          const subIdSet = new Set(dedupedStreamSubs.map((s) => s.id));
           const assigned = classAssignments
             .filter((a) => subIdSet.has(a.subjectId))
             .reduce((sum, a) => sum + a.periodsPerWeek, 0);
 
-          const subjectList = streamSubs.map((s) => {
+          const subjectList = dedupedStreamSubs.map((s) => {
             const asg = classAssignments.find((a) => a.subjectId === s.id);
             const tch = asg ? teacherMap.get(asg.teacherId) : null;
             return {
@@ -187,7 +200,7 @@ export function RoutineDemandAllotmentTab({
             section: cls.section,
             stream: st,
             isHs: true,
-            subjectsCount: streamSubs.length,
+            subjectsCount: dedupedStreamSubs.length,
             demandPeriods: demand,
             capacityPeriods: weeklyCapacity,
             assignedPeriods: assigned,
@@ -211,17 +224,28 @@ export function RoutineDemandAllotmentTab({
           return presets.has(s.name.trim().toLowerCase());
         });
 
-        const demand = classSubs.reduce(
+        // Strict deduplication by canonical name
+        const dedupedSubs: RoutineSubject[] = [];
+        const seen = new Set<string>();
+        for (const s of classSubs) {
+          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          if (!seen.has(cName)) {
+            seen.add(cName);
+            dedupedSubs.push(s);
+          }
+        }
+
+        const demand = dedupedSubs.reduce(
           (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
           0
         );
 
-        const subIdSet = new Set(classSubs.map((s) => s.id));
+        const subIdSet = new Set(dedupedSubs.map((s) => s.id));
         const assigned = classAssignments
           .filter((a) => subIdSet.has(a.subjectId))
           .reduce((sum, a) => sum + a.periodsPerWeek, 0);
 
-        const subjectList = classSubs.map((s) => {
+        const subjectList = dedupedSubs.map((s) => {
           const asg = classAssignments.find((a) => a.subjectId === s.id);
           const tch = asg ? teacherMap.get(asg.teacherId) : null;
           return {
@@ -558,16 +582,17 @@ export function RoutineDemandAllotmentTab({
                 <th className="py-2.5 px-4">Class & Section</th>
                 <th className="py-2.5 px-4">Stream</th>
                 <th className="py-2.5 px-4 text-center">Subjects</th>
-                <th className="py-2.5 px-4 text-center">Required Demand</th>
+                <th className="py-2.5 px-4 text-center">Class Capacity</th>
+                <th className="py-2.5 px-4 text-center">Subject Demand</th>
                 <th className="py-2.5 px-4 text-center">Teacher Allotted</th>
-                <th className="py-2.5 px-4 w-44">Allotment Progress</th>
+                <th className="py-2.5 px-4 w-40">Allotment Progress</th>
                 <th className="py-2.5 px-4 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-10 text-center text-muted-foreground">
                     <Scale className="w-6 h-6 mx-auto mb-1 opacity-40" />
                     <span>No matching class allotments found.</span>
                   </td>
@@ -594,6 +619,11 @@ export function RoutineDemandAllotmentTab({
                   {allotmentRows.reduce((sum, r) => sum + r.subjectsCount, 0)}
                 </td>
                 <td className="py-3 px-4 text-center">
+                  <Badge variant="outline" className="font-mono text-xs font-bold bg-background">
+                    {grandTotals.totalCapacity} p/wk
+                  </Badge>
+                </td>
+                <td className="py-3 px-4 text-center">
                   <Badge variant="secondary" className="font-mono text-xs font-bold">
                     {grandTotals.totalDemand} p/wk
                   </Badge>
@@ -603,7 +633,7 @@ export function RoutineDemandAllotmentTab({
                     variant={grandTotals.totalAssigned >= grandTotals.totalDemand ? "secondary" : "outline"}
                     className={cn(
                       "font-mono text-xs font-bold",
-                      grandTotals.totalAssigned >= grandTotals.totalDemand
+                      grandTotals.totalAssigned >= grandTotals.totalDemand && grandTotals.totalDemand > 0
                         ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200"
                         : "text-amber-700 dark:text-amber-400 border-amber-300"
                     )}
@@ -707,6 +737,11 @@ const AllotmentRowItem = React.memo(function AllotmentRowItem({
           {row.subjectsCount}
         </td>
         <td className="py-2.5 px-4 text-center">
+          <Badge variant="outline" className="font-mono text-xs font-bold bg-background text-foreground">
+            {row.capacityPeriods} p/wk
+          </Badge>
+        </td>
+        <td className="py-2.5 px-4 text-center">
           <div className="inline-flex items-center gap-1">
             <Badge variant="secondary" className="font-mono text-xs font-bold">
               {row.demandPeriods} p/wk
@@ -784,7 +819,7 @@ const AllotmentRowItem = React.memo(function AllotmentRowItem({
       {/* Expandable Subject-by-Subject Breakdown Drawer */}
       {isExpanded && (
         <tr className="bg-muted/15 border-b">
-          <td colSpan={8} className="p-3 pl-10">
+          <td colSpan={9} className="p-3 pl-10">
             <div className="border rounded-md bg-card overflow-hidden">
               <div className="px-3 py-1.5 bg-muted/40 border-b flex items-center justify-between text-xs font-semibold text-foreground">
                 <span>

@@ -339,24 +339,21 @@ export function RoutineViewerTab({
                   {viewMode === "master" ? "Class \\ Period" : "Day \\ Period"}
                 </th>
                 {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                  const isBreak = settings.breaks.includes(p);
+                  const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
                   return (
-                    <th
-                      key={p}
-                      className={cn(
-                        "py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px]",
-                        isBreak && "bg-amber-500/20 text-amber-800 dark:text-amber-300 font-bold"
-                      )}
-                    >
-                      {isBreak ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <Coffee className="w-3 h-3 text-amber-600" />
-                          <span>Recess</span>
-                        </div>
-                      ) : (
+                    <React.Fragment key={p}>
+                      <th className="py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px]">
                         <span>Period {p}</span>
+                      </th>
+                      {hasBreakAfter && (
+                        <th className="py-2.5 px-2 border-r border-border print:border-black min-w-[70px] bg-amber-500/15 text-amber-800 dark:text-amber-300 font-bold">
+                          <div className="flex items-center justify-center gap-1">
+                            <Coffee className="w-3 h-3 text-amber-600" />
+                            <span>Recess</span>
+                          </div>
+                        </th>
                       )}
-                    </th>
+                    </React.Fragment>
                   );
                 })}
               </tr>
@@ -372,7 +369,6 @@ export function RoutineViewerTab({
                       ? maxHalfP
                       : settings.periodsPerDay;
                     const classLimit = c.dailyPeriods || settings.periodsPerDay;
-                    let pPos = 0;
 
                     return (
                       <tr key={c.id} className="hover:bg-muted/20 transition-colors">
@@ -380,78 +376,74 @@ export function RoutineViewerTab({
                           {c.className} - {c.section}
                         </td>
                         {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                          const isBreak = settings.breaks.includes(p);
                           const isGray = p > maxPForDay || p > classLimit;
-
-                          if (isGray) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
-                              >
-                                -
-                              </td>
-                            );
-                          }
-
-                          if (isBreak) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-[10px] print:border-black"
-                              >
-                                Tiffin Break
-                              </td>
-                            );
-                          }
-
-                          const cellData = routine.grid[c.id]?.[dPos]?.[pPos];
-                          pPos++;
-
-                          if (!cellData) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 print:border-black"
-                              >
-                                ·
-                              </td>
-                            );
-                          }
-
-                          const subj = subjectMap.get(cellData.sid);
-                          const tch = teacherMap.get(cellData.tid);
-                          const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
+                          const pPos = p - 1;
+                          const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
+                          const cellData = isGray ? null : routine.grid[c.id]?.[dPos]?.[pPos];
 
                           return (
-                            <td
-                              key={p}
-                              className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black"
-                            >
-                              <div
-                                className={cn(
-                                  "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
-                                  cellData.lab
-                                    ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
-                                    : "bg-background border-border",
-                                  subj?.isHard && "border-l-4 border-l-amber-500"
-                                )}
-                              >
-                                <span className="font-bold text-foreground text-[11px] truncate block leading-tight">
-                                  {subj?.name || "?"} {cellData.lab ? "(Lab)" : ""}
-                                </span>
-                                <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
-                                  <span className="font-semibold text-primary font-mono">
-                                    {tch?.shortName || tch?.name || "?"}
-                                  </span>
-                                  {rm && (
-                                    <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
-                                      {rm.name.split(" ")[0]}
-                                    </span>
+                            <React.Fragment key={p}>
+                              {isGray ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
+                                >
+                                  -
+                                </td>
+                              ) : !cellData ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 print:border-black"
+                                >
+                                  ·
+                                </td>
+                              ) : (
+                                <td
+                                  className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black"
+                                >
+                                  {(() => {
+                                    const subj = subjectMap.get(cellData.sid);
+                                    const tch = teacherMap.get(cellData.tid);
+                                    const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
+                                    return (
+                                      <div
+                                        className={cn(
+                                          "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
+                                          cellData.lab
+                                            ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                            : "bg-background border-border",
+                                          subj?.isHard && "border-l-4 border-l-amber-500"
+                                        )}
+                                      >
+                                        <span className="font-bold text-foreground text-[11px] truncate block leading-tight">
+                                          {subj?.name || "?"} {cellData.lab ? "(Lab)" : ""}
+                                        </span>
+                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                                          <span className="font-semibold text-primary font-mono">
+                                            {tch?.shortName || tch?.name || "?"}
+                                          </span>
+                                          {rm && (
+                                            <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
+                                              {rm.name.split(" ")[0]}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                              {hasBreakAfter && (
+                                <td
+                                  className={cn(
+                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                    p >= maxPForDay
+                                      ? "bg-muted/30 text-muted-foreground/30"
+                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                                   )}
-                                </div>
-                              </div>
-                            </td>
+                                >
+                                  {p < maxPForDay ? "Tiffin" : "-"}
+                                </td>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tr>
@@ -472,7 +464,6 @@ export function RoutineViewerTab({
                       const cl = classMap.get(selectedClassId);
                       if (cl?.dailyPeriods) entityLimit = cl.dailyPeriods;
                     }
-                    let pPos = 0;
 
                     return (
                       <tr key={dIdx} className="hover:bg-muted/20 transition-colors">
@@ -480,107 +471,106 @@ export function RoutineViewerTab({
                           {DAY_NAMES[dIdx]} {halfDays.includes(dIdx) && "(Half)"}
                         </td>
                         {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                          const isBreak = settings.breaks.includes(p);
                           const isGray = p > maxPForDay || p > entityLimit;
-
-                          if (isGray) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
-                              >
-                                -
-                              </td>
-                            );
-                          }
-
-                          if (isBreak) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 font-semibold text-[10px] print:border-black"
-                              >
-                                Tiffin Break
-                              </td>
-                            );
-                          }
+                          const pPos = p - 1;
+                          const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
 
                           let cellData = null;
                           let associatedClassId = selectedClassId;
 
-                          if (viewMode === "class") {
-                            cellData = routine.grid[selectedClassId]?.[dPos]?.[pPos];
-                          } else if (viewMode === "teacher") {
-                            classes.forEach((c) => {
-                              const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                              if (cell && cell.tid === selectedTeacherId) {
-                                cellData = cell;
-                                associatedClassId = c.id;
-                              }
-                            });
-                          } else if (viewMode === "room") {
-                            classes.forEach((c) => {
-                              const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                              if (cell && cell.rid === selectedRoomId) {
-                                cellData = cell;
-                                associatedClassId = c.id;
-                              }
-                            });
+                          if (!isGray) {
+                            if (viewMode === "class") {
+                              cellData = routine.grid[selectedClassId]?.[dPos]?.[pPos];
+                            } else if (viewMode === "teacher") {
+                              classes.forEach((c) => {
+                                const cell = routine.grid[c.id]?.[dPos]?.[pPos];
+                                if (cell && cell.tid === selectedTeacherId) {
+                                  cellData = cell;
+                                  associatedClassId = c.id;
+                                }
+                              });
+                            } else if (viewMode === "room") {
+                              classes.forEach((c) => {
+                                const cell = routine.grid[c.id]?.[dPos]?.[pPos];
+                                if (cell && cell.rid === selectedRoomId) {
+                                  cellData = cell;
+                                  associatedClassId = c.id;
+                                }
+                              });
+                            }
                           }
-
-                          pPos++;
-
-                          if (!cellData) {
-                            return (
-                              <td
-                                key={p}
-                                className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 print:border-black"
-                              >
-                                ·
-                              </td>
-                            );
-                          }
-
-                          const subj = subjectMap.get(cellData.sid);
-                          const tch = teacherMap.get(cellData.tid);
-                          const cls = classMap.get(associatedClassId);
-                          const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
-
-                          const title1 = subj?.name || "?";
-                          const title2 =
-                            viewMode === "class"
-                              ? tch?.shortName || tch?.name || "?"
-                              : viewMode === "teacher"
-                              ? `${cls?.className || "?"} ${cls?.section || ""}`
-                              : `${cls?.className || "?"} ${cls?.section || ""} • ${tch?.shortName || tch?.name || ""}`;
 
                           return (
-                            <td
-                              key={p}
-                              className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black"
-                            >
-                              <div
-                                className={cn(
-                                  "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
-                                  cellData.lab
-                                    ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
-                                    : "bg-background border-border",
-                                  subj?.isHard && "border-l-4 border-l-amber-500"
-                                )}
-                              >
-                                <span className="font-bold text-foreground text-[11px] truncate block leading-tight">
-                                  {title1} {cellData.lab ? "(Lab)" : ""}
-                                </span>
-                                <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
-                                  <span className="font-semibold text-primary font-mono">{title2}</span>
-                                  {rm && viewMode !== "room" && (
-                                    <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
-                                      {rm.name.split(" ")[0]}
-                                    </span>
+                            <React.Fragment key={p}>
+                              {isGray ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
+                                >
+                                  -
+                                </td>
+                              ) : !cellData ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 print:border-black"
+                                >
+                                  ·
+                                </td>
+                              ) : (
+                                <td
+                                  className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black"
+                                >
+                                  {(() => {
+                                    const subj = subjectMap.get(cellData.sid);
+                                    const tch = teacherMap.get(cellData.tid);
+                                    const cls = classMap.get(associatedClassId);
+                                    const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
+
+                                    const title1 = subj?.name || "?";
+                                    const title2 =
+                                      viewMode === "class"
+                                        ? tch?.shortName || tch?.name || "?"
+                                        : viewMode === "teacher"
+                                        ? `${cls?.className || "?"} ${cls?.section || ""}`
+                                        : `${cls?.className || "?"} ${cls?.section || ""} • ${tch?.shortName || tch?.name || ""}`;
+
+                                    return (
+                                      <div
+                                        className={cn(
+                                          "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
+                                          cellData.lab
+                                            ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                            : "bg-background border-border",
+                                          subj?.isHard && "border-l-4 border-l-amber-500"
+                                        )}
+                                      >
+                                        <span className="font-bold text-foreground text-[11px] truncate block leading-tight">
+                                          {title1} {cellData.lab ? "(Lab)" : ""}
+                                        </span>
+                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                                          <span className="font-semibold text-primary font-mono">{title2}</span>
+                                          {rm && viewMode !== "room" && (
+                                            <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
+                                              {rm.name.split(" ")[0]}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                              {hasBreakAfter && (
+                                <td
+                                  className={cn(
+                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                    p >= maxPForDay
+                                      ? "bg-muted/30 text-muted-foreground/30"
+                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
                                   )}
-                                </div>
-                              </div>
-                            </td>
+                                >
+                                  {p < maxPForDay ? "Tiffin" : "-"}
+                                </td>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tr>

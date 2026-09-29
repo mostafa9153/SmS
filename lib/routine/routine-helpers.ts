@@ -133,17 +133,23 @@ export function getConfiguredStreamsForClass(className: string): Array<"Science"
  */
 export function calculateClassWeeklyCapacity(
   cls: RoutineClass,
-  settings: RoutineSettings
+  settings?: RoutineSettings | null
 ): number {
-  const cLimit = cls.dailyPeriods && cls.dailyPeriods >= 4 ? cls.dailyPeriods : settings.periodsPerDay;
+  const workingDays =
+    settings && Array.isArray(settings.workingDays) && settings.workingDays.length > 0
+      ? settings.workingDays
+      : [0, 1, 2, 3, 4, 5];
+  const periodsPerDay = (settings && Number(settings.periodsPerDay)) || 8;
+  const cLimit =
+    cls && cls.dailyPeriods && cls.dailyPeriods >= 1 ? cls.dailyPeriods : periodsPerDay;
+  const halfDays = (settings && Array.isArray(settings.halfDays) ? settings.halfDays : [5]);
+  const halfDayPeriods = (settings && Number(settings.halfDayPeriods)) || 4;
+
   let totalSlots = 0;
-  for (const d of settings.workingDays) {
-    const isHalf = settings.halfDays.includes(d);
-    const dayMax = isHalf ? Math.min(settings.halfDayPeriods, cLimit) : cLimit;
-    const teachingInDay = Array.from({ length: dayMax }, (_, i) => i + 1).filter(
-      (p) => !settings.breaks.includes(p)
-    ).length;
-    totalSlots += teachingInDay;
+  for (const d of workingDays) {
+    const isHalf = halfDays.includes(d);
+    const dayMax = isHalf ? Math.min(halfDayPeriods, cLimit) : cLimit;
+    totalSlots += dayMax;
   }
   return totalSlots;
 }

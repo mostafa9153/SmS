@@ -73,9 +73,7 @@ export class RoutineSolver {
   public getTeachingPeriods(): number[] {
     const periods: number[] = [];
     for (let p = 1; p <= this.settings.periodsPerDay; p++) {
-      if (!this.settings.breaks.includes(p)) {
-        periods.push(p);
-      }
+      periods.push(p);
     }
     return periods;
   }
@@ -90,7 +88,7 @@ export class RoutineSolver {
       errors.push('No active working days configured.');
     }
     if (teachingPeriods.length === 0) {
-      errors.push('No teaching periods available (all periods are configured as breaks).');
+      errors.push('No teaching periods available.');
     }
     if (this.classes.length === 0) {
       errors.push('No classes configured in the schedule.');
@@ -136,7 +134,7 @@ export class RoutineSolver {
       let totalAvailSlots = 0;
       for (const d of this.settings.workingDays) {
         const availList = teacher.availableSlots?.[d] || (teacher.availableSlots as Record<string, number[]>)?.[String(d)] || [];
-        totalAvailSlots += availList.filter((p: number) => !this.settings.breaks.includes(p)).length;
+        totalAvailSlots += availList.filter((p: number) => p <= this.settings.periodsPerDay).length;
       }
 
       if (load > totalAvailSlots) {
@@ -218,7 +216,7 @@ export class RoutineSolver {
     // Break boundary for Morning/Afternoon preference
     const breakP = this.settings.breaks.length
       ? Math.min(...this.settings.breaks)
-      : Math.floor(this.settings.periodsPerDay / 2) + 1;
+      : Math.floor(this.settings.periodsPerDay / 2);
 
     // Deconstruct assignments into schedulable atomic units
     const units: Unit[] = [];
@@ -341,6 +339,9 @@ export class RoutineSolver {
         } else {
           current = 0;
         }
+        if (this.settings.breaks.includes(i)) {
+          current = 0; // Recess / break resets consecutive teaching fatigue
+        }
       }
       return maxBlock;
     };
@@ -364,7 +365,7 @@ export class RoutineSolver {
       if (rid && rBusy[rid]?.[dPos]?.[pPos]) return false;
 
       // Subject time preference
-      if (u.timePref === 'morning' && pNum >= breakP) return false;
+      if (u.timePref === 'morning' && pNum > breakP) return false;
       if (u.timePref === 'afternoon' && pNum <= breakP) return false;
 
       // Teacher availability grid
@@ -379,16 +380,17 @@ export class RoutineSolver {
         const pNum2 = teachingPeriods[pPos + 1];
         if (pNum2 > cDaily) return false;
         if (halfDays.includes(actDay) && pNum2 > maxHalfP) return false;
-        if (pNum2 - pNum !== 1) return false; // Must be physically consecutive without a break in-between
+        if (pNum2 - pNum !== 1) return false; // Must be physically consecutive
+        if (this.settings.breaks.includes(pNum)) return false; // Cannot span across recess / break interval
         if (cBusy[cid]?.[dPos]?.[pPos + 1] || tBusy[tid]?.[dPos]?.[pPos + 1]) return false;
         if (rid && rBusy[rid]?.[dPos]?.[pPos + 1]) return false;
         if (!availSlots.includes(pNum2)) return false;
-        if (u.timePref === 'morning' && pNum2 >= breakP) return false;
+        if (u.timePref === 'morning' && pNum2 > breakP) return false;
         if (u.timePref === 'afternoon' && pNum2 <= breakP) return false;
       }
 
       // Subject daily frequency constraint (maxPerDay)
-      const maxDaily = u.multi ? (u.maxPerDay || 2) : 1;
+      const maxDaily = u.sz === 2 ? Math.max(2, u.multi ? (u.maxPerDay || 2) : 2) : (u.multi ? (u.maxPerDay || 2) : 1);
       let daySlotsUsed = 0;
       for (let p = 0; p < P; p++) {
         const b = cBusy[cid]?.[dPos]?.[p];

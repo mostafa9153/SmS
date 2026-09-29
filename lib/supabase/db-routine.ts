@@ -178,6 +178,45 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       } else {
         subjects = dbSubjects;
       }
+
+      // Strict canonical deduplication to ensure zero duplicate subjects
+      const dedupedSubjects: RoutineSubject[] = [];
+      const duplicateIdsToDelete: string[] = [];
+      const seenSubjectsKey = new Set<string>();
+
+      const getCanonicalKey = (s: RoutineSubject) => {
+        const cls = (s.className || "").trim().toLowerCase();
+        const normName = s.name
+          .trim()
+          .toLowerCase()
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const stream = (s.stream || "general").trim().toLowerCase();
+        return `${cls}::${normName}::${stream}`;
+      };
+
+      subjects.forEach((sub) => {
+        const key = getCanonicalKey(sub);
+        if (!seenSubjectsKey.has(key)) {
+          seenSubjectsKey.add(key);
+          dedupedSubjects.push(sub);
+        } else {
+          if (sub.id) duplicateIdsToDelete.push(sub.id);
+        }
+      });
+
+      subjects = dedupedSubjects;
+      setLocalRoutineState({ subjects: dedupedSubjects });
+
+      if (duplicateIdsToDelete.length > 0) {
+        Promise.resolve(
+          supabase
+            .from("routine_subjects")
+            .delete()
+            .in("id", duplicateIdsToDelete)
+        ).catch((e: unknown) => console.warn("Clean duplicate routine subjects failed:", e));
+      }
     }
 
     // 5. Fetch Teachers: staff_profiles + routine_teacher_availability + local teachers
@@ -214,6 +253,11 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         const rawAvail = customAvail?.available_slots || {};
         const qClasses = rawAvail._qualifiedClasses || rawAvail.qualifiedClasses || [];
         const cSubjects = rawAvail._classSubjects || rawAvail.classSubjects || {};
+        const sSubjects = rawAvail._sectionSubjects || rawAvail.sectionSubjects || {};
+        const cSections = rawAvail._classSections || rawAvail.classSections || {};
+        const cPeriods = rawAvail._classPeriods || rawAvail.classPeriods || {};
+        const sPeriods = rawAvail._sectionPeriods || rawAvail.sectionPeriods || {};
+        const subPeriods = rawAvail._subjectPeriods || rawAvail.subjectPeriods || {};
         const primarySubject = customAvail?.primary_subject || rawAvail._primarySubject || rawAvail.primarySubject || null;
         const classTeacherOf = customAvail?.class_teacher_of || rawAvail._classTeacherOf || rawAvail.classTeacherOf || null;
         const classTeacherFirstPeriods =
@@ -230,6 +274,11 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           availableSlots: cleanSlotsForTeacher(rawAvail, settings),
           qualifiedClasses: qClasses,
           classSubjects: cSubjects,
+          sectionSubjects: sSubjects,
+          classSections: cSections,
+          classPeriods: cPeriods,
+          sectionPeriods: sPeriods,
+          subjectPeriods: subPeriods,
           primarySubject: primarySubject,
           classTeacherOf: classTeacherOf,
           classTeacherFirstPeriods: classTeacherFirstPeriods,
@@ -245,6 +294,11 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           const rawAvail = a.available_slots || {};
           const qClasses = rawAvail._qualifiedClasses || rawAvail.qualifiedClasses || [];
           const cSubjects = rawAvail._classSubjects || rawAvail.classSubjects || {};
+          const sSubjects = rawAvail._sectionSubjects || rawAvail.sectionSubjects || {};
+          const cSections = rawAvail._classSections || rawAvail.classSections || {};
+          const cPeriods = rawAvail._classPeriods || rawAvail.classPeriods || {};
+          const sPeriods = rawAvail._sectionPeriods || rawAvail.sectionPeriods || {};
+          const subPeriods = rawAvail._subjectPeriods || rawAvail.subjectPeriods || {};
           const primarySubject = a.primary_subject || rawAvail._primarySubject || rawAvail.primarySubject || null;
           const classTeacherOf = a.class_teacher_of || rawAvail._classTeacherOf || rawAvail.classTeacherOf || null;
           const classTeacherFirstPeriods =
@@ -261,6 +315,11 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
             availableSlots: cleanSlotsForTeacher(rawAvail, settings),
             qualifiedClasses: qClasses,
             classSubjects: cSubjects,
+            sectionSubjects: sSubjects,
+            classSections: cSections,
+            classPeriods: cPeriods,
+            sectionPeriods: sPeriods,
+            subjectPeriods: subPeriods,
             primarySubject: primarySubject,
             classTeacherOf: classTeacherOf,
             classTeacherFirstPeriods: classTeacherFirstPeriods,
@@ -283,6 +342,9 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
             maxPeriods: t.maxPeriods || existing.maxPeriods,
             qualifiedClasses: t.qualifiedClasses && t.qualifiedClasses.length > 0 ? t.qualifiedClasses : existing.qualifiedClasses,
             classSubjects: t.classSubjects && Object.keys(t.classSubjects).length > 0 ? t.classSubjects : existing.classSubjects,
+            classSections: t.classSections && Object.keys(t.classSections).length > 0 ? t.classSections : existing.classSections,
+            classPeriods: t.classPeriods && Object.keys(t.classPeriods).length > 0 ? t.classPeriods : existing.classPeriods,
+            sectionPeriods: t.sectionPeriods && Object.keys(t.sectionPeriods).length > 0 ? t.sectionPeriods : existing.sectionPeriods,
             primarySubject: t.primarySubject || existing.primarySubject,
             classTeacherOf: t.classTeacherOf || existing.classTeacherOf,
             classTeacherFirstPeriods: t.classTeacherFirstPeriods ?? existing.classTeacherFirstPeriods,
@@ -583,14 +645,38 @@ export async function upsertSubjectDb(subj: {
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
 }): Promise<string> {
-  const id = subj.id || crypto.randomUUID();
-
-  // 1. Immediately update localStorage
   const local = getLocalRoutineState() || {};
   const currentSubjects: RoutineSubject[] = local.subjects || [];
+
+  const canonicalName = subj.name
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const normalizedClass = (subj.className || "").trim().toLowerCase();
+  const normalizedStream = (subj.stream || "general").trim().toLowerCase();
+
+  const existingIdx = currentSubjects.findIndex((s) => {
+    if (subj.id && s.id === subj.id) return true;
+    const sCanonical = s.name
+      .trim()
+      .toLowerCase()
+      .replace(/\s*\([^)]*\)/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const sClass = (s.className || "").trim().toLowerCase();
+    const sStream = (s.stream || "general").trim().toLowerCase();
+
+    return sCanonical === canonicalName && sClass === normalizedClass && sStream === normalizedStream;
+  });
+
+  const id = subj.id || (existingIdx > -1 ? currentSubjects[existingIdx].id : crypto.randomUUID());
+
+  // 1. Immediately update localStorage
   const subjectObj: RoutineSubject = {
     id,
-    name: subj.name,
+    name: subj.name.trim(),
     className: subj.className || null,
     classId: subj.classId || null,
     stream: subj.stream || null,
@@ -611,7 +697,6 @@ export async function upsertSubjectDb(subj: {
         : 5,
   };
 
-  const existingIdx = currentSubjects.findIndex((s) => s.id === id || (subj.id && s.id === subj.id));
   let nextSubjects: RoutineSubject[];
   if (existingIdx > -1) {
     nextSubjects = [...currentSubjects];
@@ -626,7 +711,7 @@ export async function upsertSubjectDb(subj: {
   try {
     const payload: Record<string, any> = {
       id,
-      name: subj.name,
+      name: subj.name.trim(),
       is_hard: Boolean(subj.isHard),
       is_lab: Boolean(subj.isLab),
       time_pref: subj.timePref || "any",
@@ -644,7 +729,7 @@ export async function upsertSubjectDb(subj: {
       console.warn("upsertSubjectDb primary payload error, trying base fallback:", error);
       await supabase.from("routine_subjects").upsert({
         id,
-        name: subj.name,
+        name: subj.name.trim(),
         is_hard: Boolean(subj.isHard),
         is_lab: Boolean(subj.isLab),
         time_pref: subj.timePref || "any",
@@ -679,32 +764,52 @@ export async function batchUpsertSubjectsDb(
   const local = getLocalRoutineState() || {};
   let currentSubjects: RoutineSubject[] = [...(local.subjects || [])];
 
-  const processedList: RoutineSubject[] = subjectsList.map((s) => ({
-    id: s.id || crypto.randomUUID(),
-    name: s.name,
-    className: s.className || null,
-    classId: s.classId || null,
-    stream: s.stream || null,
-    isCommon: Boolean(s.isCommon),
-    isHard: Boolean(s.isHard),
-    isLab: Boolean(s.isLab),
-    timePref: s.timePref || "any",
-    allowMultiplePerDay: Boolean(s.allowMultiplePerDay),
-    maxPerDay:
-      s.maxPerDay !== undefined && s.maxPerDay !== null
-        ? Number(s.maxPerDay)
-        : Boolean(s.allowMultiplePerDay)
-        ? 2
-        : 1,
-    periodsPerWeek:
-      s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
-        ? Number(s.periodsPerWeek)
-        : 5,
-  }));
+  const processedList: RoutineSubject[] = subjectsList.map((s) => {
+    const normalizedName = s.name.trim().toLowerCase();
+    const normalizedClass = (s.className || "").trim().toLowerCase();
+    const normalizedStream = (s.stream || "").trim().toLowerCase();
+
+    const existingMatch = currentSubjects.find(
+      (existing) =>
+        (s.id && existing.id === s.id) ||
+        (existing.name.trim().toLowerCase() === normalizedName &&
+          (existing.className || "").trim().toLowerCase() === normalizedClass &&
+          (existing.stream || "").trim().toLowerCase() === normalizedStream)
+    );
+
+    const id = s.id || (existingMatch ? existingMatch.id : crypto.randomUUID());
+
+    return {
+      id,
+      name: s.name.trim(),
+      className: s.className || null,
+      classId: s.classId || null,
+      stream: s.stream || null,
+      isCommon: Boolean(s.isCommon),
+      isHard: Boolean(s.isHard),
+      isLab: Boolean(s.isLab),
+      timePref: s.timePref || "any",
+      allowMultiplePerDay: Boolean(s.allowMultiplePerDay),
+      maxPerDay:
+        s.maxPerDay !== undefined && s.maxPerDay !== null
+          ? Number(s.maxPerDay)
+          : Boolean(s.allowMultiplePerDay)
+          ? 2
+          : 1,
+      periodsPerWeek:
+        s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
+          ? Number(s.periodsPerWeek)
+          : 5,
+    };
+  });
 
   processedList.forEach((sub) => {
     const idx = currentSubjects.findIndex(
-      (s) => s.id === sub.id || (s.name.toLowerCase() === sub.name.toLowerCase() && (s.className || "").toLowerCase() === (sub.className || "").toLowerCase())
+      (s) =>
+        s.id === sub.id ||
+        (s.name.trim().toLowerCase() === sub.name.toLowerCase() &&
+          (s.className || "").trim().toLowerCase() === (sub.className || "").toLowerCase() &&
+          (s.stream || "").trim().toLowerCase() === (sub.stream || "").toLowerCase())
     );
     if (idx > -1) {
       currentSubjects[idx] = sub;
@@ -798,6 +903,11 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
         ...teacher.availableSlots,
         _qualifiedClasses: teacher.qualifiedClasses || [],
         _classSubjects: teacher.classSubjects || {},
+        _sectionSubjects: teacher.sectionSubjects || {},
+        _classSections: teacher.classSections || {},
+        _classPeriods: teacher.classPeriods || {},
+        _sectionPeriods: teacher.sectionPeriods || {},
+        _subjectPeriods: teacher.subjectPeriods || {},
         _primarySubject: teacher.primarySubject || null,
         _classTeacherOf: teacher.classTeacherOf || null,
         _classTeacherFirstPeriods: teacher.classTeacherFirstPeriods ?? (teacher.classTeacherOf ? 3 : null),

@@ -14,7 +14,7 @@ export interface RoutineSettings {
   periodsPerDay: number; // e.g. 8
   halfDays: number[]; // e.g. [5] (Saturday)
   halfDayPeriods: number; // e.g. 4
-  breaks: number[]; // e.g. [4] (4th period is break)
+  breaks: number[]; // e.g. [4] (Break interval placed after period 4, between period 4 & 5)
   tchDailyMax: number; // e.g. 5
   tchConsecMax: number; // e.g. 3
 }
@@ -65,6 +65,11 @@ export interface RoutineTeacher {
   availableSlots: Record<number | string, number[]>; // dayIndex -> period numbers (1-indexed)
   qualifiedClasses?: string[]; // e.g. ["Class V", "Class VI"]
   classSubjects?: Record<string, string[]>; // e.g. { "Class V": ["Bengali", "Mathematics"], "Class IX": ["Physical Science"] }
+  sectionSubjects?: Record<string, string[]>; // e.g. { "Class V::A": ["Bengali"], "Class V::B": ["English"] }
+  classSections?: Record<string, string[]>; // e.g. { "Class V": ["A", "B"], "Class XI": ["Science"] }
+  classPeriods?: Record<string, number>; // e.g. { "Class V": 5, "Class XI": 6 }
+  sectionPeriods?: Record<string, number>; // e.g. { "Class V::A": 3, "Class V::B": 2 }
+  subjectPeriods?: Record<string, number>; // e.g. { "Class V::A::Bengali": 4, "Class V::Bengali": 5 }
   primarySubject?: string | null; // e.g. "Mathematics", "Bengali", etc.
   classTeacherOf?: string | null; // e.g. "Class V - A", "Class VII", etc.
   classTeacherFirstPeriods?: number | null; // e.g. target number of 1st periods / week in their CT class (default 3)

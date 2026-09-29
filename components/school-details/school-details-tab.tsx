@@ -48,6 +48,20 @@ import {
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { createClient } from "@/lib/supabase/client";
+import {
+  syncClassTeachersToRoutine,
+  syncMarksSchemeSubjectToRoutine,
+  syncRemoveMarksSchemeSubjectFromRoutine,
+  syncAllSubjectsBidirectional,
+} from "@/lib/routine/routine-sync";
+import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
   HEAD_DESIGNATION_OPTIONS,
@@ -73,8 +87,6 @@ import {
   computeSchemeTotals,
 } from "@/lib/utils/marks-config";
 
-
-
 // Interface for Class Item
 interface ClassItem {
   id: string;
@@ -84,6 +96,7 @@ interface ClassItem {
   stream?: string;
   streamSections?: Record<string, string[]>;
   classTeacher?: string;
+  sectionTeachers?: Record<string, string>;
   roomNo?: string;
   capacity?: number;
   isAutoPass: boolean;
@@ -196,6 +209,7 @@ export function SchoolDetailsTab() {
     "Commerce": ["A"],
   });
   const [newTeacher, setNewTeacher] = useState("");
+  const [newSectionTeachers, setNewSectionTeachers] = useState<Record<string, string>>({});
   const [newRoom, setNewRoom] = useState("");
   const [newCapacity, setNewCapacity] = useState("120");
   const [newAutoPass, setNewAutoPass] = useState("false");
@@ -212,6 +226,8 @@ export function SchoolDetailsTab() {
     "Commerce": ["A"],
   });
   const [editTeacher, setEditTeacher] = useState("");
+  const [editSectionTeachers, setEditSectionTeachers] = useState<Record<string, string>>({});
+  const [staffList, setStaffList] = useState<{ id: string; full_name: string; designation?: string }[]>([]);
   const [editRoom, setEditRoom] = useState("");
   const [editCapacity, setEditCapacity] = useState("120");
   const [editAutoPass, setEditAutoPass] = useState("false");
@@ -409,6 +425,32 @@ export function SchoolDetailsTab() {
         })
         .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
     });
+
+    // Fetch teaching staff for Section Class Teacher selection
+    const supabase = createClient();
+    supabase
+      .from("staff_profiles")
+      .select("id, full_name, designation")
+      .eq("employee_type", "TEACHING")
+      .order("full_name", { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setStaffList(data);
+        }
+      });
+
+    const handleMarksUpdate = () => {
+      const refreshed = getSavedMarksSchemes();
+      setMarksSchemes(refreshed);
+    };
+
+    window.addEventListener("sms_marks_schemes_updated", handleMarksUpdate);
+    window.addEventListener("sms_routine_state_updated", handleMarksUpdate);
+
+    return () => {
+      window.removeEventListener("sms_marks_schemes_updated", handleMarksUpdate);
+      window.removeEventListener("sms_routine_state_updated", handleMarksUpdate);
+    };
   }, []);
 
   const handleSavePromotionPolicy = () => {
@@ -521,6 +563,11 @@ export function SchoolDetailsTab() {
     setSelectedNewSubjectToAdd("");
     setCustomSubjectName("");
 
+    // Sync to Routine Subjects database & local state
+    syncMarksSchemeSubjectToRoutine(classCode, cleanName).catch((err) =>
+      console.warn("Failed to sync subject to routine:", err)
+    );
+
     showToast({
       type: "success",
       title: "Subject Added",
@@ -557,6 +604,11 @@ export function SchoolDetailsTab() {
 
     setMarksSchemes(updatedList);
     saveMarksSchemes(updatedList);
+
+    // Sync removal to Routine Subjects database & local state
+    syncRemoveMarksSchemeSubjectFromRoutine(classCode, subjectToRemove).catch((err) =>
+      console.warn("Failed to sync remove subject from routine:", err)
+    );
 
     showToast({
       type: "success",
@@ -678,6 +730,16 @@ export function SchoolDetailsTab() {
       finalSections = Array.from(allSecSet).sort();
     }
 
+    const finalSectionTeachers: Record<string, string> = {};
+    finalSections.forEach((sec) => {
+      const t = newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || newTeacher;
+      if (t && t.trim()) {
+        finalSectionTeachers[sec] = t.trim();
+        finalSectionTeachers[`Section ${sec}`] = t.trim();
+      }
+    });
+    const primaryTeacher = Object.values(finalSectionTeachers)[0] || newTeacher.trim() || undefined;
+
     const newClassItem: ClassItem = {
       id: `c-${Date.now()}`,
       name: newClassName.trim(),
@@ -685,7 +747,8 @@ export function SchoolDetailsTab() {
       sections: finalSections,
       stream: isHs ? newStream : undefined,
       streamSections: finalStreamSections,
-      classTeacher: newTeacher.trim() || undefined,
+      classTeacher: primaryTeacher,
+      sectionTeachers: Object.keys(finalSectionTeachers).length > 0 ? finalSectionTeachers : undefined,
       roomNo: newRoom.trim() || undefined,
       capacity: parseInt(newCapacity, 10) || 100,
       isAutoPass: newAutoPass === "true",
@@ -694,11 +757,12 @@ export function SchoolDetailsTab() {
 
     const updated = [...classes, newClassItem];
     updateAndSyncClasses(updated);
+    syncClassTeachersToRoutine(newClassName.trim(), finalSectionTeachers, finalSections);
 
     showToast({
       type: "success",
       title: "Class Added",
-      description: `${newClassName} has been added to class management.`,
+      description: `${newClassName} has been added and class teachers synced.`,
     });
 
     // Reset Form
@@ -712,6 +776,7 @@ export function SchoolDetailsTab() {
       "Commerce": ["A"],
     });
     setNewTeacher("");
+    setNewSectionTeachers({});
     setNewRoom("");
     setNewCapacity("120");
     setNewAutoPass("false");
@@ -738,6 +803,14 @@ export function SchoolDetailsTab() {
     setEditStreamSections(streamSecs);
 
     setEditTeacher(cls.classTeacher || "");
+    const sTeachers: Record<string, string> = cls.sectionTeachers ? { ...cls.sectionTeachers } : {};
+    if (cls.classTeacher && (!cls.sectionTeachers || Object.keys(cls.sectionTeachers).length === 0)) {
+      cls.sections.forEach((sec) => {
+        sTeachers[sec] = cls.classTeacher!;
+      });
+    }
+    setEditSectionTeachers(sTeachers);
+
     setEditRoom(cls.roomNo || "");
     setEditCapacity(String(cls.capacity || 120));
     setEditAutoPass(cls.isAutoPass ? "true" : "false");
@@ -998,6 +1071,16 @@ export function SchoolDetailsTab() {
       finalSections = Array.from(allSecSet).sort();
     }
 
+    const finalSectionTeachers: Record<string, string> = {};
+    finalSections.forEach((sec) => {
+      const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || editTeacher;
+      if (t && t.trim()) {
+        finalSectionTeachers[sec] = t.trim();
+        finalSectionTeachers[`Section ${sec}`] = t.trim();
+      }
+    });
+    const primaryTeacher = Object.values(finalSectionTeachers)[0] || editTeacher.trim() || undefined;
+
     const updated = classes.map((c) => {
       if (c.id === editingClass.id) {
         return {
@@ -1005,7 +1088,8 @@ export function SchoolDetailsTab() {
           sections: finalSections,
           stream: isHs ? editStream : undefined,
           streamSections: finalStreamSections,
-          classTeacher: editTeacher.trim() || undefined,
+          classTeacher: primaryTeacher,
+          sectionTeachers: Object.keys(finalSectionTeachers).length > 0 ? finalSectionTeachers : undefined,
           roomNo: editRoom.trim() || undefined,
           capacity: parseInt(editCapacity, 10) || 100,
           isAutoPass: editAutoPass === "true",
@@ -1015,11 +1099,12 @@ export function SchoolDetailsTab() {
     });
 
     updateAndSyncClasses(updated);
+    syncClassTeachersToRoutine(editClassName, finalSectionTeachers, finalSections);
 
     showToast({
       type: "success",
       title: "Class Updated",
-      description: `${editClassName} details and sections updated successfully.`,
+      description: `${editClassName} details and section teachers updated successfully.`,
     });
 
     setEditingClass(null);
@@ -1980,9 +2065,27 @@ export function SchoolDetailsTab() {
 
                     {/* Right: Teacher & Actions (Edit + Delete) */}
                     <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
-                      <div className="text-left md:text-right text-xs">
-                        <span className="text-muted-foreground text-[10px] block">Class In-charge</span>
-                        <span className="font-semibold text-foreground">{cls.classTeacher || "Not Assigned"}</span>
+                      <div className="text-left md:text-right text-xs min-w-[130px]">
+                        <span className="text-muted-foreground text-[10px] block font-medium">Class Teacher</span>
+                        {cls.sections && cls.sections.length > 1 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
+                          <div className="flex flex-col gap-0.5 md:items-end">
+                            {cls.sections.map((sec) => {
+                              const tch = cls.sectionTeachers?.[sec] || cls.sectionTeachers?.[`Section ${sec}`] || cls.classTeacher;
+                              return (
+                                <div key={sec} className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background">
+                                    Sec {sec}
+                                  </Badge>
+                                  <span>{tch || "Not Assigned"}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-foreground">
+                            {cls.classTeacher || (cls.sectionTeachers && Object.values(cls.sectionTeachers)[0]) || "Not Assigned"}
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1">
@@ -2284,17 +2387,73 @@ export function SchoolDetailsTab() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="editTeacher" className="text-xs">Class In-charge</Label>
-                  <Input
-                    id="editTeacher"
-                    value={editTeacher}
-                    onChange={(e) => setEditTeacher(e.target.value)}
-                    placeholder="Teacher Name"
-                    className="text-xs"
-                  />
+              {/* Section-wise Class Teacher Selection */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">
+                  Section Class Teacher
+                </Label>
+                <div className="space-y-1.5 p-2.5 rounded-xl border bg-muted/20">
+                  {editSections.map((sec) => {
+                    const currentVal = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || (editSections.length === 1 ? editTeacher : "");
+                    return (
+                      <div key={sec} className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-mono font-bold w-16 justify-center shrink-0 bg-background">
+                          Sec {sec}
+                        </Badge>
+                        <div className="flex-1">
+                          {staffList.length > 0 ? (
+                            <Select
+                              value={currentVal || "__none__"}
+                              onValueChange={(val: string | null) => {
+                                const finalVal: string = !val || val === "__none__" ? "" : val;
+                                setEditSectionTeachers((prev) => ({
+                                  ...prev,
+                                  [sec]: finalVal,
+                                }));
+                                if (editSections.length === 1) {
+                                  setEditTeacher(finalVal);
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-7 text-xs bg-background font-medium">
+                                <SelectValue placeholder="Select Teacher" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                                  -- Not Assigned --
+                                </SelectItem>
+                                {staffList.map((s) => (
+                                  <SelectItem key={s.id} value={s.full_name} className="text-xs">
+                                    {s.full_name} {s.designation ? `(${s.designation})` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              value={currentVal}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setEditSectionTeachers((prev) => ({
+                                  ...prev,
+                                  [sec]: val,
+                                }));
+                                if (editSections.length === 1) {
+                                  setEditTeacher(val);
+                                }
+                              }}
+                              placeholder="Teacher Name"
+                              className="h-7 text-xs bg-background"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="editRoom" className="text-xs">Room Number</Label>
                   <Input

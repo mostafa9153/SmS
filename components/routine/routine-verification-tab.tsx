@@ -71,15 +71,12 @@ export function RoutineVerificationTab({
     const halfDays = settings.halfDays || [5];
     const halfP = settings.halfDayPeriods || 4;
     const regP = settings.periodsPerDay || 8;
-    const breakP = settings.breaks || [4];
 
     let total = 0;
     days.forEach((d) => {
       const isHalf = halfDays.includes(d);
       const daySlots = isHalf ? halfP : regP;
-      for (let p = 1; p <= daySlots; p++) {
-        if (!breakP.includes(p)) total++;
-      }
+      total += daySlots;
     });
     return total;
   }, [settings]);

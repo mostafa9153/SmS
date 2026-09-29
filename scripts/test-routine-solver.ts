@@ -132,8 +132,8 @@ function runComprehensiveTests() {
         if (cell) {
           const pNum = teachingPeriods[pPos];
           if (cell.sid === 's1' || cell.sid === 's3') {
-            // Math & Chem are morning (< 4)
-            assert(pNum < 4, `Morning subject ${cell.sid} placed at period ${pNum} < 4`);
+            // Math & Chem are morning (<= 4)
+            assert(pNum <= 4, `Morning subject ${cell.sid} placed at period ${pNum} <= 4`);
           }
           if (cell.sid === 's5') {
             // Physical Ed is afternoon (> 4)

@@ -151,6 +151,17 @@ export function RoutineSubjectsTab({
   const [editId, setEditId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [marksSchemeVersion, setMarksSchemeVersion] = useState(0);
+
+  useEffect(() => {
+    const handleMarksUpdate = () => {
+      setMarksSchemeVersion((v) => v + 1);
+    };
+    window.addEventListener("sms_marks_schemes_updated", handleMarksUpdate);
+    return () => {
+      window.removeEventListener("sms_marks_schemes_updated", handleMarksUpdate);
+    };
+  }, []);
 
   // Target class for form creation
   const targetClassForForm = activeClass === "all" ? availableClasses[0] || "Class V" : activeClass;
@@ -178,9 +189,9 @@ export function RoutineSubjectsTab({
       return Array.from(new Set(combined));
     }
     return getDatabaseSubjectsForClass(activeClass);
-  }, [activeClass, isCurrentClassHs, selectedStream, configuredStreamsForActive]);
+  }, [activeClass, isCurrentClassHs, selectedStream, configuredStreamsForActive, marksSchemeVersion]);
 
-  // Filtered subjects for the active class view & stream
+  // Filtered subjects for the active class view & stream (Strictly Deduplicated)
   const currentClassSubjects = useMemo(() => {
     let list = subjects;
     if (activeClass !== "all") {
@@ -201,18 +212,46 @@ export function RoutineSubjectsTab({
       });
     }
 
-    return list;
-  }, [subjects, activeClass, isCurrentClassHs, selectedStream]);
-
-  // Number of configured subjects per class (O(S) single-pass aggregation)
-  const classSubjectCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const s of subjects) {
-      if (s.className) {
-        const clsLower = s.className.toLowerCase();
-        counts[clsLower] = (counts[clsLower] || 0) + 1;
+    // Strict deduplication by canonical subject name + stream to guarantee zero duplicate rows
+    const seen = new Map<string, RoutineSubject>();
+    for (const s of list) {
+      const canonicalName = s.name
+        .trim()
+        .toLowerCase()
+        .replace(/\s*\([^)]*\)/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      const streamKey = isCurrentClassHs
+        ? (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase()
+        : "general";
+      const key = `${canonicalName}::${streamKey}`;
+      if (!seen.has(key)) {
+        seen.set(key, s);
       }
     }
+
+    return Array.from(seen.values());
+  }, [subjects, activeClass, isCurrentClassHs, selectedStream]);
+
+  // Number of configured subjects per class (Strictly deduplicated)
+  const classSubjectCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    availableClasses.forEach((cls) => {
+      const clsLower = cls.toLowerCase();
+      const clsSubs = subjects.filter((s) => s.className && s.className.toLowerCase() === clsLower);
+      const seen = new Set<string>();
+      clsSubs.forEach((s) => {
+        const canonicalName = s.name
+          .trim()
+          .toLowerCase()
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const streamKey = (s.stream || "general").toLowerCase();
+        seen.add(`${canonicalName}::${streamKey}`);
+      });
+      counts[clsLower] = seen.size;
+    });
     const result: Record<string, number> = {};
     availableClasses.forEach((cls) => {
       result[cls] = counts[cls.toLowerCase()] || 0;
@@ -220,8 +259,37 @@ export function RoutineSubjectsTab({
     return result;
   }, [subjects, availableClasses]);
 
+  const handleEdit = React.useCallback((s: RoutineSubject) => {
+    setEditId(s.id);
+    setName(s.name);
+    setPeriodsPerWeek(s.periodsPerWeek || (s.isLab ? 2 : 5));
+    if (s.className && availableClasses.includes(s.className)) {
+      setActiveClass(s.className);
+    }
+    setIsLab(Boolean(s.isLab));
+    setTimePref(s.timePref || "any");
+    setAllowMulti(Boolean(s.allowMultiplePerDay));
+    setMaxPerDay(s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2);
+    const stream = detectSubjectStream(s.name, s.stream);
+    setFormStream(stream);
+    setIsCommonSubject(Boolean(s.isCommon || stream === "Common"));
+  }, [availableClasses]);
+
   // Handle choosing a preset subject chip
   const handleSelectPresetChip = React.useCallback((subName: string) => {
+    const canonicalInput = subName.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+    // Check if this subject already exists in the current class
+    const existing = currentClassSubjects.find((s) => {
+      const canonicalS = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+      return canonicalS === canonicalInput || s.name.trim().toLowerCase() === subName.trim().toLowerCase();
+    });
+
+    if (existing) {
+      handleEdit(existing);
+      return;
+    }
+
+    setEditId(null);
     setName(subName);
     const lower = subName.toLowerCase();
     const detected = detectSubjectStream(subName);
@@ -238,7 +306,7 @@ export function RoutineSubjectsTab({
       setIsLab(false);
       setPeriodsPerWeek(5);
     }
-  }, []);
+  }, [currentClassSubjects, handleEdit]);
 
   // Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,8 +323,23 @@ export function RoutineSubjectsTab({
           : formStream
         : null;
 
+      // Safety check against duplicates: if editId is null, check if a subject with same canonical name and class already exists
+      let effectiveId = editId;
+      if (!effectiveId) {
+        const canonicalInput = name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        const existingMatch = currentClassSubjects.find((s) => {
+          const canonicalS = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const matchName = canonicalS === canonicalInput || s.name.trim().toLowerCase() === name.trim().toLowerCase();
+          const matchStream = !isCurrentClassHs || (s.stream || "Common").toLowerCase() === (finalStream || "Common").toLowerCase();
+          return matchName && matchStream;
+        });
+        if (existingMatch) {
+          effectiveId = existingMatch.id;
+        }
+      }
+
       await onSaveSubject({
-        id: editId || undefined,
+        id: effectiveId || undefined,
         name: name.trim(),
         className: targetClassForForm,
         stream: finalStream,
@@ -281,22 +364,6 @@ export function RoutineSubjectsTab({
       setIsSubmitting(false);
     }
   };
-
-  const handleEdit = React.useCallback((s: RoutineSubject) => {
-    setEditId(s.id);
-    setName(s.name);
-    setPeriodsPerWeek(s.periodsPerWeek || (s.isLab ? 2 : 5));
-    if (s.className && availableClasses.includes(s.className)) {
-      setActiveClass(s.className);
-    }
-    setIsLab(Boolean(s.isLab));
-    setTimePref(s.timePref || "any");
-    setAllowMulti(Boolean(s.allowMultiplePerDay));
-    setMaxPerDay(s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2);
-    const stream = detectSubjectStream(s.name, s.stream);
-    setFormStream(stream);
-    setIsCommonSubject(Boolean(s.isCommon || stream === "Common"));
-  }, [availableClasses]);
 
   const handleCancel = React.useCallback(() => {
     setEditId(null);
@@ -814,24 +881,94 @@ export function RoutineSubjectsTab({
 
         {/* Form Inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
+          {/* Subject Name Selector Dropdown */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Subject Name *</Label>
-            <Input
-              type="text"
-              placeholder="e.g. Mathematics, Bengali"
-              value={name}
-              onChange={(e) => {
-                const val = e.target.value;
-                setName(val);
-                if (isCurrentClassHs) {
-                  const det = detectSubjectStream(val);
-                  setFormStream(det);
-                  if (det === "Common") setIsCommonSubject(true);
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Subject Name *</Label>
+              {editId && (
+                <span className="text-[10px] text-primary font-semibold font-mono">
+                  (Editing)
+                </span>
+              )}
+            </div>
+
+            <Select
+              value={
+                activeClassPresets.includes(name) ||
+                currentClassSubjects.some((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase())
+                  ? name
+                  : name.trim()
+                  ? "__custom__"
+                  : ""
+              }
+              onValueChange={(val) => {
+                if (!val || val === "__custom__") {
+                  setEditId(null);
+                  setName("");
+                } else {
+                  handleSelectPresetChip(val);
                 }
               }}
-              className="h-8 text-xs font-medium"
-              required
-            />
+            >
+              <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                <SelectValue placeholder="Choose Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {activeClassPresets.map((sub) => {
+                  const isAdded = currentClassSubjects.some(
+                    (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
+                  );
+                  return (
+                    <SelectItem key={sub} value={sub} className="text-xs">
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{sub}</span>
+                        {isAdded && (
+                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                            (Added)
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+                {/* Any existing custom subjects */}
+                {currentClassSubjects
+                  .filter((s) => !activeClassPresets.some((p) => p.toLowerCase() === s.name.toLowerCase()))
+                  .map((s) => (
+                    <SelectItem key={s.id} value={s.name} className="text-xs">
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span>{s.name}</span>
+                        <span className="text-[9px] text-muted-foreground font-mono">(Custom)</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                <SelectItem value="__custom__" className="text-xs text-primary font-semibold">
+                  + Custom Subject (Type manually)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* If custom is selected or name is not in presets, show manual input */}
+            {(!activeClassPresets.includes(name) &&
+              !currentClassSubjects.some((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase())) ||
+            name === "" ? (
+              <Input
+                type="text"
+                placeholder="Type custom subject name..."
+                value={name}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setName(val);
+                  if (isCurrentClassHs) {
+                    const det = detectSubjectStream(val);
+                    setFormStream(det);
+                    if (det === "Common") setIsCommonSubject(true);
+                  }
+                }}
+                className="h-8 text-xs font-medium mt-1"
+                required
+              />
+            ) : null}
           </div>
 
           {/* Stream Selector (for HS Classes - Only showing configured streams) */}

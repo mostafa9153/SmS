@@ -92,12 +92,14 @@ export function RoutineSettingsTab({
                 min={1}
                 max={14}
                 value={settings.periodsPerDay}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10) || 8;
                   setSettings({
                     ...settings,
-                    periodsPerDay: parseInt(e.target.value, 10) || 8,
-                  })
-                }
+                    periodsPerDay: val,
+                    breaks: settings.breaks.filter((p) => p < val),
+                  });
+                }}
                 className="h-9 text-xs"
               />
             </div>
@@ -233,7 +235,7 @@ export function RoutineSettingsTab({
         </div>
 
         <div className="flex flex-wrap gap-2 pt-1">
-          {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
+          {Array.from({ length: Math.max(0, settings.periodsPerDay - 1) }, (_, i) => i + 1).map((p) => {
             const isBreak = settings.breaks.includes(p);
             return (
               <button
@@ -247,9 +249,13 @@ export function RoutineSettingsTab({
                     : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
                 )}
               >
-                <Coffee className={cn("w-3 h-3", isBreak ? "text-white" : "opacity-40")} />
-                <span>Period {p}</span>
-                {isBreak && <span className="text-[10px] font-bold opacity-90">(Break)</span>}
+                <Coffee className={cn("w-3.5 h-3.5", isBreak ? "text-white" : "opacity-40")} />
+                <span>Between Period {p} & {p + 1}</span>
+                {isBreak && (
+                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-white/20 text-white border-transparent">
+                    Break
+                  </Badge>
+                )}
               </button>
             );
           })}
