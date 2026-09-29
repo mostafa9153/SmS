@@ -70,6 +70,20 @@ interface RoutineSubjectsTabProps {
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
   }) => Promise<void>;
+  onBatchSaveSubjects?: (subjects: {
+    id?: string;
+    name: string;
+    className?: string | null;
+    classId?: string | null;
+    stream?: string | null;
+    isCommon?: boolean;
+    isHard?: boolean;
+    isLab?: boolean;
+    timePref?: "any" | "morning" | "afternoon";
+    allowMultiplePerDay?: boolean;
+    maxPerDay?: number | null;
+    periodsPerWeek?: number | null;
+  }[]) => Promise<void>;
   onDeleteSubject: (id: string) => Promise<void>;
 }
 
@@ -77,6 +91,7 @@ export function RoutineSubjectsTab({
   subjects,
   classes = [],
   onSaveSubject,
+  onBatchSaveSubjects,
   onDeleteSubject,
 }: RoutineSubjectsTabProps) {
   // Available distinct classes sorted in standard grade sequence
@@ -349,22 +364,30 @@ export function RoutineSubjectsTab({
 
     setIsSyncing(true);
     try {
-      for (const item of filteredToAdd) {
+      const itemsToSave = filteredToAdd.map((item) => {
         const lower = item.name.toLowerCase();
         const isLabSubject = lower.includes("lab") || lower.includes("practical");
         const isLightSub = lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental");
-        await onSaveSubject({
+        return {
           name: item.name,
           className: activeClass,
           stream: item.stream || (isCurrentClassHs ? detectSubjectStream(item.name) : null),
           isCommon: item.isCommon || (isCurrentClassHs && item.stream === "Common"),
           isHard: false,
           isLab: isLabSubject,
-          timePref: "any",
+          timePref: "any" as const,
           allowMultiplePerDay: false,
           maxPerDay: 1,
           periodsPerWeek: isLabSubject || isLightSub ? 2 : 5,
-        });
+        };
+      });
+
+      if (onBatchSaveSubjects) {
+        await onBatchSaveSubjects(itemsToSave);
+      } else {
+        for (const item of itemsToSave) {
+          await onSaveSubject(item);
+        }
       }
     } finally {
       setIsSyncing(false);
@@ -387,21 +410,29 @@ export function RoutineSubjectsTab({
 
     setIsSyncing(true);
     try {
-      for (const subName of toAdd) {
+      const itemsToSave = toAdd.map((subName) => {
         const lower = subName.toLowerCase();
         const isLight = lower.includes("environmental");
-        await onSaveSubject({
+        return {
           name: subName,
           className: activeClass,
           stream: "Common",
           isCommon: true,
           isHard: false,
           isLab: false,
-          timePref: "any",
+          timePref: "any" as const,
           allowMultiplePerDay: false,
           maxPerDay: 1,
           periodsPerWeek: isLight ? 2 : 5,
-        });
+        };
+      });
+
+      if (onBatchSaveSubjects) {
+        await onBatchSaveSubjects(itemsToSave);
+      } else {
+        for (const item of itemsToSave) {
+          await onSaveSubject(item);
+        }
       }
     } finally {
       setIsSyncing(false);
@@ -454,22 +485,30 @@ export function RoutineSubjectsTab({
 
     setIsSyncing(true);
     try {
-      for (const item of toAdd) {
+      const itemsToSave = toAdd.map((item) => {
         const lower = item.subjectName.toLowerCase();
         const isLabSubject = lower.includes("lab") || lower.includes("practical");
         const isLightSub = lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental");
-        await onSaveSubject({
+        return {
           name: item.subjectName,
           className: item.className,
           stream: item.stream || null,
           isCommon: item.isCommon || false,
           isHard: false,
           isLab: isLabSubject,
-          timePref: "any",
+          timePref: "any" as const,
           allowMultiplePerDay: false,
           maxPerDay: 1,
           periodsPerWeek: isLabSubject || isLightSub ? 2 : 5,
-        });
+        };
+      });
+
+      if (onBatchSaveSubjects) {
+        await onBatchSaveSubjects(itemsToSave);
+      } else {
+        for (const item of itemsToSave) {
+          await onSaveSubject(item);
+        }
       }
     } finally {
       setIsSyncing(false);

@@ -22,7 +22,7 @@ export interface RoutineFullState {
 
 const LOCAL_STORAGE_KEY = "routine_forge_pro_local_state_v1";
 
-function getLocalState(): Partial<RoutineFullState> | null {
+export function getLocalRoutineState(): Partial<RoutineFullState> | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -32,28 +32,48 @@ function getLocalState(): Partial<RoutineFullState> | null {
   }
 }
 
-function setLocalState(state: Partial<RoutineFullState>) {
+export function setLocalRoutineState(state: Partial<RoutineFullState>) {
   if (typeof window === "undefined") return;
   try {
-    const existing = getLocalState() || {};
+    const existing = getLocalRoutineState() || {};
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ ...existing, ...state }));
   } catch {}
 }
 
+function cleanSlotsForTeacher(rawAvail: any, settings: RoutineSettings): Record<number, number[]> {
+  const cleanSlots: Record<number, number[]> = {};
+  const days = settings.workingDays || [0, 1, 2, 3, 4, 5];
+  const periods = settings.periodsPerDay || 8;
+
+  days.forEach((d) => {
+    if (rawAvail && Array.isArray(rawAvail[d])) {
+      cleanSlots[d] = rawAvail[d];
+    } else if (rawAvail && Array.isArray(rawAvail[String(d)])) {
+      cleanSlots[d] = rawAvail[String(d)];
+    } else {
+      cleanSlots[d] = [];
+      for (let p = 1; p <= periods; p++) {
+        cleanSlots[d].push(p);
+      }
+    }
+  });
+  return cleanSlots;
+}
+
 /**
- * Loads the complete routine dataset from Supabase (with automatic teacher sync from staff_profiles).
+ * Loads the complete routine dataset from Supabase + Local Storage.
  */
 export async function fetchRoutineFullState(): Promise<RoutineFullState> {
   const supabase = createClient();
-  const local = getLocalState();
+  const local = getLocalRoutineState();
 
-  let settings: RoutineSettings = DEFAULT_ROUTINE_SETTINGS;
-  let rooms: RoutineRoom[] = [];
-  let classes: RoutineClass[] = [];
-  let subjects: RoutineSubject[] = [];
-  let teachers: RoutineTeacher[] = [];
-  let assignments: RoutineAssignment[] = [];
-  let routine: GeneratedRoutine | null = null;
+  let settings: RoutineSettings = local?.settings || DEFAULT_ROUTINE_SETTINGS;
+  let rooms: RoutineRoom[] = local?.rooms || [];
+  let classes: RoutineClass[] = local?.classes || [];
+  let subjects: RoutineSubject[] = local?.subjects || [];
+  let teachers: RoutineTeacher[] = local?.teachers || [];
+  let assignments: RoutineAssignment[] = local?.assignments || [];
+  let routine: GeneratedRoutine | null = local?.routine || null;
 
   try {
     // 1. Fetch Settings
@@ -75,8 +95,6 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         tchDailyMax: setRow.tch_daily_max || 5,
         tchConsecMax: setRow.tch_consec_max || 3,
       };
-    } else if (local?.settings) {
-      settings = local.settings;
     }
 
     // 2. Fetch Rooms
@@ -86,13 +104,18 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .order("name", { ascending: true });
 
     if (!roomError && roomRows && roomRows.length > 0) {
-      rooms = roomRows.map((r: any) => ({
+      const dbRooms: RoutineRoom[] = roomRows.map((r: any) => ({
         id: r.id,
         name: r.name,
         isLab: Boolean(r.is_lab),
       }));
-    } else if (local?.rooms && local.rooms.length > 0) {
-      rooms = local.rooms;
+      if (rooms.length > 0) {
+        const dbIdSet = new Set(dbRooms.map((r) => r.id));
+        const extraLocal = rooms.filter((r) => !dbIdSet.has(r.id));
+        rooms = [...dbRooms, ...extraLocal];
+      } else {
+        rooms = dbRooms;
+      }
     }
 
     // 3. Fetch Classes
@@ -103,14 +126,19 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .order("section", { ascending: true });
 
     if (!classError && classRows && classRows.length > 0) {
-      classes = classRows.map((c: any) => ({
+      const dbClasses: RoutineClass[] = classRows.map((c: any) => ({
         id: c.id,
         className: c.class_name,
         section: c.section,
         dailyPeriods: c.daily_periods,
       }));
-    } else if (local?.classes && local.classes.length > 0) {
-      classes = local.classes;
+      if (classes.length > 0) {
+        const dbIdSet = new Set(dbClasses.map((c) => c.id));
+        const extraLocal = classes.filter((c) => !dbIdSet.has(c.id));
+        classes = [...dbClasses, ...extraLocal];
+      } else {
+        classes = dbClasses;
+      }
     }
 
     // 4. Fetch Subjects
@@ -120,7 +148,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .order("name", { ascending: true });
 
     if (!subjError && subjRows && subjRows.length > 0) {
-      subjects = subjRows.map((s: any) => ({
+      const dbSubjects: RoutineSubject[] = subjRows.map((s: any) => ({
         id: s.id,
         name: s.name,
         className: s.class_name || s.className || null,
@@ -142,12 +170,18 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
             ? Number(s.periods_per_week)
             : 5,
       }));
-    } else if (local?.subjects && local.subjects.length > 0) {
-      subjects = local.subjects;
+
+      if (subjects.length > 0) {
+        const dbIdSet = new Set(dbSubjects.map((s) => s.id));
+        const extraLocal = subjects.filter((s) => !dbIdSet.has(s.id));
+        subjects = [...dbSubjects, ...extraLocal];
+      } else {
+        subjects = dbSubjects;
+      }
     }
 
-    // 5. Fetch Teachers from staff_profiles and sync with routine_teacher_availability
-    const { data: staffRows, error: staffError } = await supabase
+    // 5. Fetch Teachers: staff_profiles + routine_teacher_availability + local teachers
+    const { data: staffRows } = await supabase
       .from("staff_profiles")
       .select("id, full_name, employee_type, designation, status")
       .eq("employee_type", "TEACHING")
@@ -159,19 +193,17 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
 
     const availMap = new Map<string, any>();
     if (availRows) {
-      availRows.forEach((a: any) => availMap.set(a.teacher_id, a));
+      availRows.forEach((a: any) => {
+        if (a.teacher_id) availMap.set(a.teacher_id, a);
+        if (a.id) availMap.set(a.id, a);
+      });
     }
 
-    if (!staffError && staffRows && staffRows.length > 0) {
-      const defaultAvailSlots: Record<number, number[]> = {};
-      settings.workingDays.forEach((d) => {
-        defaultAvailSlots[d] = [];
-        for (let p = 1; p <= settings.periodsPerDay; p++) {
-          defaultAvailSlots[d].push(p);
-        }
-      });
+    const loadedTeachersMap = new Map<string, RoutineTeacher>();
 
-      teachers = staffRows.map((st: any) => {
+    // Add teachers from staff_profiles
+    if (staffRows && staffRows.length > 0) {
+      staffRows.forEach((st: any) => {
         const customAvail = availMap.get(st.id);
         const words = (st.full_name || "").trim().split(/\s+/);
         const defaultShort =
@@ -190,36 +222,77 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           rawAvail.classTeacherFirstPeriods ??
           (classTeacherOf ? 3 : null);
 
-        const cleanSlots: Record<number, number[]> = {};
-        settings.workingDays.forEach((d) => {
-          if (Array.isArray(rawAvail[d])) {
-            cleanSlots[d] = rawAvail[d];
-          } else if (Array.isArray(rawAvail[String(d)])) {
-            cleanSlots[d] = rawAvail[String(d)];
-          } else {
-            cleanSlots[d] = [];
-            for (let p = 1; p <= settings.periodsPerDay; p++) {
-              cleanSlots[d].push(p);
-            }
-          }
-        });
-
-        return {
+        loadedTeachersMap.set(st.id, {
           id: st.id,
           name: st.full_name,
           shortName: customAvail?.short_name || defaultShort,
           maxPeriods: customAvail?.max_periods ?? 24,
-          availableSlots: cleanSlots,
+          availableSlots: cleanSlotsForTeacher(rawAvail, settings),
           qualifiedClasses: qClasses,
           classSubjects: cSubjects,
           primarySubject: primarySubject,
           classTeacherOf: classTeacherOf,
           classTeacherFirstPeriods: classTeacherFirstPeriods,
-        };
+        });
       });
-    } else if (local?.teachers && local.teachers.length > 0) {
-      teachers = local.teachers;
     }
+
+    // Add standalone custom teachers from routine_teacher_availability
+    if (availRows && availRows.length > 0) {
+      availRows.forEach((a: any) => {
+        const teacherKey = a.teacher_id || a.id;
+        if (teacherKey && !loadedTeachersMap.has(teacherKey)) {
+          const rawAvail = a.available_slots || {};
+          const qClasses = rawAvail._qualifiedClasses || rawAvail.qualifiedClasses || [];
+          const cSubjects = rawAvail._classSubjects || rawAvail.classSubjects || {};
+          const primarySubject = a.primary_subject || rawAvail._primarySubject || rawAvail.primarySubject || null;
+          const classTeacherOf = a.class_teacher_of || rawAvail._classTeacherOf || rawAvail.classTeacherOf || null;
+          const classTeacherFirstPeriods =
+            a.class_teacher_first_periods ??
+            rawAvail._classTeacherFirstPeriods ??
+            rawAvail.classTeacherFirstPeriods ??
+            (classTeacherOf ? 3 : null);
+
+          loadedTeachersMap.set(teacherKey, {
+            id: teacherKey,
+            name: a.teacher_name || "Teacher",
+            shortName: a.short_name || (a.teacher_name ? a.teacher_name.slice(0, 3).toUpperCase() : "TCH"),
+            maxPeriods: a.max_periods ?? 24,
+            availableSlots: cleanSlotsForTeacher(rawAvail, settings),
+            qualifiedClasses: qClasses,
+            classSubjects: cSubjects,
+            primarySubject: primarySubject,
+            classTeacherOf: classTeacherOf,
+            classTeacherFirstPeriods: classTeacherFirstPeriods,
+          });
+        }
+      });
+    }
+
+    // Merge with any teachers in local state
+    if (teachers.length > 0) {
+      teachers.forEach((t) => {
+        if (!loadedTeachersMap.has(t.id)) {
+          loadedTeachersMap.set(t.id, t);
+        } else {
+          // Merge local configurations if they exist
+          const existing = loadedTeachersMap.get(t.id)!;
+          loadedTeachersMap.set(t.id, {
+            ...existing,
+            shortName: t.shortName || existing.shortName,
+            maxPeriods: t.maxPeriods || existing.maxPeriods,
+            qualifiedClasses: t.qualifiedClasses && t.qualifiedClasses.length > 0 ? t.qualifiedClasses : existing.qualifiedClasses,
+            classSubjects: t.classSubjects && Object.keys(t.classSubjects).length > 0 ? t.classSubjects : existing.classSubjects,
+            primarySubject: t.primarySubject || existing.primarySubject,
+            classTeacherOf: t.classTeacherOf || existing.classTeacherOf,
+            classTeacherFirstPeriods: t.classTeacherFirstPeriods ?? existing.classTeacherFirstPeriods,
+            availableSlots: t.availableSlots && Object.keys(t.availableSlots).length > 0 ? t.availableSlots : existing.availableSlots,
+          });
+        }
+      });
+    }
+
+    teachers = Array.from(loadedTeachersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     // 6. Fetch Assignments
     const { data: asgRows, error: asgError } = await supabase
@@ -227,7 +300,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .select("*");
 
     if (!asgError && asgRows && asgRows.length > 0) {
-      assignments = asgRows.map((a: any) => ({
+      const dbAssignments: RoutineAssignment[] = asgRows.map((a: any) => ({
         id: a.id,
         classId: a.class_id,
         subjectId: a.subject_id,
@@ -235,8 +308,13 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         roomId: a.room_id,
         periodsPerWeek: a.periods_per_week,
       }));
-    } else if (local?.assignments && local.assignments.length > 0) {
-      assignments = local.assignments;
+      if (assignments.length > 0) {
+        const dbIdSet = new Set(dbAssignments.map((a) => a.id));
+        const extraLocal = assignments.filter((a) => !dbIdSet.has(a.id));
+        assignments = [...dbAssignments, ...extraLocal];
+      } else {
+        assignments = dbAssignments;
+      }
     }
 
     // 7. Fetch Latest Generated Routine
@@ -260,26 +338,13 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         generatedAt: routineRow.created_at,
         metadata: routineRow.metadata,
       };
-    } else if (local?.routine) {
-      routine = local.routine;
     }
   } catch (err) {
     console.warn("fetchRoutineFullState fallback to local state:", err);
-    if (local) {
-      return {
-        settings: local.settings || DEFAULT_ROUTINE_SETTINGS,
-        rooms: local.rooms || [],
-        classes: local.classes || [],
-        subjects: local.subjects || [],
-        teachers: local.teachers || [],
-        assignments: local.assignments || [],
-        routine: local.routine || null,
-      };
-    }
   }
 
-  // Backup to localStorage
-  setLocalState({
+  // Persist updated complete state to localStorage
+  setLocalRoutineState({
     settings,
     rooms,
     classes,
@@ -304,8 +369,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
  * Saves Routine Settings to Supabase & Local Cache.
  */
 export async function saveRoutineSettingsDb(settings: RoutineSettings): Promise<boolean> {
+  setLocalRoutineState({ settings });
   const supabase = createClient();
-  setLocalState({ settings });
 
   try {
     const payload = {
@@ -331,7 +396,7 @@ export async function saveRoutineSettingsDb(settings: RoutineSettings): Promise<
     return !insErr;
   } catch (err) {
     console.warn("saveRoutineSettingsDb warning:", err);
-    return true; // local saved
+    return true;
   }
 }
 
@@ -339,10 +404,24 @@ export async function saveRoutineSettingsDb(settings: RoutineSettings): Promise<
  * Upsert Room
  */
 export async function upsertRoomDb(room: { id?: string; name: string; isLab?: boolean }): Promise<string> {
-  const supabase = createClient();
   const id = room.id || crypto.randomUUID();
   const isLab = Boolean(room.isLab);
 
+  // Update local storage immediately
+  const local = getLocalRoutineState() || {};
+  const currentRooms = local.rooms || [];
+  const updated: RoutineRoom = { id, name: room.name, isLab };
+  const idx = currentRooms.findIndex((r) => r.id === id);
+  let nextRooms: RoutineRoom[];
+  if (idx > -1) {
+    nextRooms = [...currentRooms];
+    nextRooms[idx] = updated;
+  } else {
+    nextRooms = [...currentRooms, updated];
+  }
+  setLocalRoutineState({ rooms: nextRooms });
+
+  const supabase = createClient();
   try {
     await supabase.from("routine_rooms").upsert({
       id,
@@ -359,6 +438,11 @@ export async function upsertRoomDb(room: { id?: string; name: string; isLab?: bo
  * Delete Room
  */
 export async function deleteRoomDb(id: string): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  if (local.rooms) {
+    setLocalRoutineState({ rooms: local.rooms.filter((r) => r.id !== id) });
+  }
+
   const supabase = createClient();
   try {
     await supabase.from("routine_rooms").delete().eq("id", id);
@@ -373,9 +457,28 @@ export async function deleteRoomDb(id: string): Promise<boolean> {
  * Upsert Class
  */
 export async function upsertClassDb(cls: { id?: string; className: string; section: string; dailyPeriods?: number | null }): Promise<string> {
-  const supabase = createClient();
   const id = cls.id || crypto.randomUUID();
 
+  // Update local storage immediately
+  const local = getLocalRoutineState() || {};
+  const currentClasses = local.classes || [];
+  const updated: RoutineClass = {
+    id,
+    className: cls.className,
+    section: cls.section,
+    dailyPeriods: cls.dailyPeriods || null,
+  };
+  const idx = currentClasses.findIndex((c) => c.id === id);
+  let nextClasses: RoutineClass[];
+  if (idx > -1) {
+    nextClasses = [...currentClasses];
+    nextClasses[idx] = updated;
+  } else {
+    nextClasses = [...currentClasses, updated];
+  }
+  setLocalRoutineState({ classes: nextClasses });
+
+  const supabase = createClient();
   try {
     await supabase.from("routine_classes").upsert({
       id,
@@ -395,9 +498,29 @@ export async function upsertClassDb(cls: { id?: string; className: string; secti
 export async function batchUpsertClassesDb(
   classesList: { id?: string; className: string; section: string; dailyPeriods?: number | null }[]
 ): Promise<RoutineClass[]> {
-  const supabase = createClient();
-  const rows = classesList.map((c) => ({
+  const local = getLocalRoutineState() || {};
+  let currentClasses: RoutineClass[] = [...(local.classes || [])];
+
+  const processedList: RoutineClass[] = classesList.map((c) => ({
     id: c.id || crypto.randomUUID(),
+    className: c.className,
+    section: c.section,
+    dailyPeriods: c.dailyPeriods || null,
+  }));
+
+  processedList.forEach((cls) => {
+    const idx = currentClasses.findIndex((c) => c.id === cls.id || (c.className === cls.className && c.section === cls.section));
+    if (idx > -1) {
+      currentClasses[idx] = cls;
+    } else {
+      currentClasses.push(cls);
+    }
+  });
+  setLocalRoutineState({ classes: currentClasses });
+
+  const supabase = createClient();
+  const rows = processedList.map((c) => ({
+    id: c.id,
     class_name: c.className,
     section: c.section,
     daily_periods: c.dailyPeriods || null,
@@ -421,18 +544,18 @@ export async function batchUpsertClassesDb(
     console.warn("batchUpsertClassesDb:", err);
   }
 
-  return rows.map((r) => ({
-    id: r.id,
-    className: r.class_name,
-    section: r.section,
-    dailyPeriods: r.daily_periods,
-  }));
+  return processedList;
 }
 
 /**
  * Delete Class
  */
 export async function deleteClassDb(id: string): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  if (local.classes) {
+    setLocalRoutineState({ classes: local.classes.filter((c) => c.id !== id) });
+  }
+
   const supabase = createClient();
   try {
     await supabase.from("routine_classes").delete().eq("id", id);
@@ -460,9 +583,46 @@ export async function upsertSubjectDb(subj: {
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
 }): Promise<string> {
-  const supabase = createClient();
   const id = subj.id || crypto.randomUUID();
 
+  // 1. Immediately update localStorage
+  const local = getLocalRoutineState() || {};
+  const currentSubjects: RoutineSubject[] = local.subjects || [];
+  const subjectObj: RoutineSubject = {
+    id,
+    name: subj.name,
+    className: subj.className || null,
+    classId: subj.classId || null,
+    stream: subj.stream || null,
+    isCommon: Boolean(subj.isCommon),
+    isHard: Boolean(subj.isHard),
+    isLab: Boolean(subj.isLab),
+    timePref: subj.timePref || "any",
+    allowMultiplePerDay: Boolean(subj.allowMultiplePerDay),
+    maxPerDay:
+      subj.maxPerDay !== undefined && subj.maxPerDay !== null
+        ? Number(subj.maxPerDay)
+        : Boolean(subj.allowMultiplePerDay)
+        ? 2
+        : 1,
+    periodsPerWeek:
+      subj.periodsPerWeek !== undefined && subj.periodsPerWeek !== null
+        ? Number(subj.periodsPerWeek)
+        : 5,
+  };
+
+  const existingIdx = currentSubjects.findIndex((s) => s.id === id || (subj.id && s.id === subj.id));
+  let nextSubjects: RoutineSubject[];
+  if (existingIdx > -1) {
+    nextSubjects = [...currentSubjects];
+    nextSubjects[existingIdx] = subjectObj;
+  } else {
+    nextSubjects = [...currentSubjects, subjectObj];
+  }
+  setLocalRoutineState({ subjects: nextSubjects });
+
+  // 2. Persist to Supabase
+  const supabase = createClient();
   try {
     const payload: Record<string, any> = {
       id,
@@ -481,6 +641,7 @@ export async function upsertSubjectDb(subj: {
 
     const { error } = await supabase.from("routine_subjects").upsert(payload);
     if (error) {
+      console.warn("upsertSubjectDb primary payload error, trying base fallback:", error);
       await supabase.from("routine_subjects").upsert({
         id,
         name: subj.name,
@@ -488,21 +649,117 @@ export async function upsertSubjectDb(subj: {
         is_lab: Boolean(subj.isLab),
         time_pref: subj.timePref || "any",
         allow_multiple_per_day: Boolean(subj.allowMultiplePerDay),
-        class_name: subj.className || null,
-        max_per_day: subj.maxPerDay ?? 1,
-        periods_per_week: subj.periodsPerWeek ?? 5,
       });
     }
   } catch (err) {
-    console.warn("upsertSubjectDb:", err);
+    console.warn("upsertSubjectDb catch:", err);
   }
   return id;
+}
+
+/**
+ * Batch Upsert Subjects
+ */
+export async function batchUpsertSubjectsDb(
+  subjectsList: {
+    id?: string;
+    name: string;
+    className?: string | null;
+    classId?: string | null;
+    stream?: string | null;
+    isCommon?: boolean;
+    isHard?: boolean;
+    isLab?: boolean;
+    timePref?: "any" | "morning" | "afternoon";
+    allowMultiplePerDay?: boolean;
+    maxPerDay?: number | null;
+    periodsPerWeek?: number | null;
+  }[]
+): Promise<RoutineSubject[]> {
+  const local = getLocalRoutineState() || {};
+  let currentSubjects: RoutineSubject[] = [...(local.subjects || [])];
+
+  const processedList: RoutineSubject[] = subjectsList.map((s) => ({
+    id: s.id || crypto.randomUUID(),
+    name: s.name,
+    className: s.className || null,
+    classId: s.classId || null,
+    stream: s.stream || null,
+    isCommon: Boolean(s.isCommon),
+    isHard: Boolean(s.isHard),
+    isLab: Boolean(s.isLab),
+    timePref: s.timePref || "any",
+    allowMultiplePerDay: Boolean(s.allowMultiplePerDay),
+    maxPerDay:
+      s.maxPerDay !== undefined && s.maxPerDay !== null
+        ? Number(s.maxPerDay)
+        : Boolean(s.allowMultiplePerDay)
+        ? 2
+        : 1,
+    periodsPerWeek:
+      s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
+        ? Number(s.periodsPerWeek)
+        : 5,
+  }));
+
+  processedList.forEach((sub) => {
+    const idx = currentSubjects.findIndex(
+      (s) => s.id === sub.id || (s.name.toLowerCase() === sub.name.toLowerCase() && (s.className || "").toLowerCase() === (sub.className || "").toLowerCase())
+    );
+    if (idx > -1) {
+      currentSubjects[idx] = sub;
+    } else {
+      currentSubjects.push(sub);
+    }
+  });
+  setLocalRoutineState({ subjects: currentSubjects });
+
+  const supabase = createClient();
+  const rows = processedList.map((s) => ({
+    id: s.id,
+    name: s.name,
+    class_name: s.className,
+    class_id: s.classId,
+    stream: s.stream,
+    is_common: s.isCommon,
+    is_hard: s.isHard,
+    is_lab: s.isLab,
+    time_pref: s.timePref,
+    allow_multiple_per_day: s.allowMultiplePerDay,
+    max_per_day: s.maxPerDay,
+    periods_per_week: s.periodsPerWeek,
+  }));
+
+  try {
+    const { error } = await supabase.from("routine_subjects").upsert(rows);
+    if (error) {
+      console.warn("batchUpsertSubjectsDb error, trying base columns:", error);
+      const baseRows = processedList.map((s) => ({
+        id: s.id,
+        name: s.name,
+        is_hard: s.isHard,
+        is_lab: s.isLab,
+        time_pref: s.timePref,
+        allow_multiple_per_day: s.allowMultiplePerDay,
+      }));
+      await supabase.from("routine_subjects").upsert(baseRows);
+    }
+  } catch (err) {
+    console.warn("batchUpsertSubjectsDb catch:", err);
+  }
+
+  return processedList;
 }
 
 /**
  * Delete Subject
  */
 export async function deleteSubjectDb(id: string): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  if (local.subjects) {
+    setLocalRoutineState({ subjects: local.subjects.filter((s) => s.id !== id) });
+  }
+
   const supabase = createClient();
   try {
     await supabase.from("routine_subjects").delete().eq("id", id);
@@ -517,13 +774,23 @@ export async function deleteSubjectDb(id: string): Promise<boolean> {
  * Upsert Teacher Availability & Class/Subject Qualifications
  */
 export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  const current = local.teachers || [];
+  const idx = current.findIndex((t) => t.id === teacher.id);
+  let next: RoutineTeacher[];
+  if (idx > -1) {
+    next = [...current];
+    next[idx] = teacher;
+  } else {
+    next = [...current, teacher];
+  }
+  setLocalRoutineState({ teachers: next });
+
   const supabase = createClient();
   try {
     const isUuid = teacher.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(teacher.id);
-    const teacherId = isUuid ? teacher.id : null;
 
-    const payload = {
-      ...(isUuid ? { teacher_id: teacherId } : {}),
+    const payload: Record<string, any> = {
       teacher_name: teacher.name,
       short_name: teacher.shortName,
       max_periods: teacher.maxPeriods,
@@ -538,11 +805,23 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
       updated_at: new Date().toISOString(),
     };
 
+    if (isUuid) {
+      payload.teacher_id = teacher.id;
+    }
+
+    // Attempt upsert with teacher_id
     const { error } = await supabase.from("routine_teacher_availability").upsert(
       payload,
       { onConflict: isUuid ? "teacher_id" : "id" }
     );
-    return !error;
+
+    // If foreign key failed (custom teacher not in staff_profiles), omit teacher_id and upsert with id
+    if (error) {
+      delete payload.teacher_id;
+      if (isUuid) payload.id = teacher.id;
+      await supabase.from("routine_teacher_availability").upsert(payload);
+    }
+    return true;
   } catch (err) {
     console.warn("upsertTeacherAvailabilityDb:", err);
     return false;
@@ -553,6 +832,14 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
  * Delete Teacher from Routine
  */
 export async function deleteTeacherDb(id: string): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  if (local.teachers) {
+    setLocalRoutineState({
+      teachers: local.teachers.filter((t) => t.id !== id),
+      assignments: (local.assignments || []).filter((a) => a.teacherId !== id),
+    });
+  }
+
   const supabase = createClient();
   try {
     await supabase.from("routine_teacher_availability").delete().eq("teacher_id", id);
@@ -576,9 +863,29 @@ export async function upsertAssignmentDb(asg: {
   roomId?: string | null;
   periodsPerWeek: number;
 }): Promise<string> {
-  const supabase = createClient();
   const id = asg.id || crypto.randomUUID();
 
+  const local = getLocalRoutineState() || {};
+  const current = local.assignments || [];
+  const updated: RoutineAssignment = {
+    id,
+    classId: asg.classId,
+    subjectId: asg.subjectId,
+    teacherId: asg.teacherId,
+    roomId: asg.roomId || null,
+    periodsPerWeek: asg.periodsPerWeek,
+  };
+  const idx = current.findIndex((a) => a.id === id || (a.classId === asg.classId && a.subjectId === asg.subjectId));
+  let next: RoutineAssignment[];
+  if (idx > -1) {
+    next = [...current];
+    next[idx] = updated;
+  } else {
+    next = [...current, updated];
+  }
+  setLocalRoutineState({ assignments: next });
+
+  const supabase = createClient();
   try {
     await supabase.from("routine_assignments").upsert(
       {
@@ -603,9 +910,11 @@ export async function upsertAssignmentDb(asg: {
 export async function batchUpsertAssignmentsDb(
   asgList: RoutineAssignment[]
 ): Promise<boolean> {
-  const supabase = createClient();
+  setLocalRoutineState({ assignments: asgList });
+
   if (!asgList || asgList.length === 0) return true;
 
+  const supabase = createClient();
   const rows = asgList.map((asg) => ({
     id: asg.id || crypto.randomUUID(),
     class_id: asg.classId,
@@ -634,6 +943,11 @@ export async function batchUpsertAssignmentsDb(
  * Delete Assignment
  */
 export async function deleteAssignmentDb(id: string): Promise<boolean> {
+  const local = getLocalRoutineState() || {};
+  if (local.assignments) {
+    setLocalRoutineState({ assignments: local.assignments.filter((a) => a.id !== id) });
+  }
+
   const supabase = createClient();
   try {
     await supabase.from("routine_assignments").delete().eq("id", id);
@@ -648,8 +962,8 @@ export async function deleteAssignmentDb(id: string): Promise<boolean> {
  * Save Generated Routine in Cache
  */
 export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise<boolean> {
+  setLocalRoutineState({ routine });
   const supabase = createClient();
-  setLocalState({ routine });
 
   try {
     const { error } = await supabase.from("routine_generated_cache").insert({

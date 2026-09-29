@@ -11,6 +11,7 @@ import {
   batchUpsertClassesDb,
   deleteClassDb,
   upsertSubjectDb,
+  batchUpsertSubjectsDb,
   deleteSubjectDb,
   upsertTeacherAvailabilityDb,
   deleteTeacherDb,
@@ -193,6 +194,37 @@ export default function RoutineSetupPage() {
     setSubjects((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const handleBatchSaveSubjects = async (
+    subjectsList: {
+      id?: string;
+      name: string;
+      className?: string | null;
+      classId?: string | null;
+      stream?: string | null;
+      isCommon?: boolean;
+      isHard?: boolean;
+      isLab?: boolean;
+      timePref?: "any" | "morning" | "afternoon";
+      allowMultiplePerDay?: boolean;
+      maxPerDay?: number | null;
+      periodsPerWeek?: number | null;
+    }[]
+  ) => {
+    const saved = await batchUpsertSubjectsDb(subjectsList);
+    setSubjects((prev) => {
+      const next = [...prev];
+      saved.forEach((sub) => {
+        const idx = next.findIndex((s) => s.id === sub.id);
+        if (idx > -1) {
+          next[idx] = sub;
+        } else {
+          next.push(sub);
+        }
+      });
+      return next;
+    });
+  };
+
   // Handlers for Teachers
   const handleSaveTeacher = async (teacherData: RoutineTeacher) => {
     await upsertTeacherAvailabilityDb(teacherData);
@@ -348,6 +380,7 @@ export default function RoutineSetupPage() {
                 subjects={subjects}
                 classes={classes}
                 onSaveSubject={handleSaveSubject}
+                onBatchSaveSubjects={handleBatchSaveSubjects}
                 onDeleteSubject={handleDeleteSubject}
               />
             )}
