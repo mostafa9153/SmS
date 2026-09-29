@@ -32,6 +32,7 @@ import { RoutineClassesTab } from "@/components/routine/routine-classes-tab";
 import { RoutineTeachersTab } from "@/components/routine/routine-teachers-tab";
 import { RoutineSubjectsTab } from "@/components/routine/routine-subjects-tab";
 import { RoutineDemandAllotmentTab } from "@/components/routine/routine-demand-allotment-tab";
+import { RoutineAllotmentOverviewTab } from "@/components/routine/routine-allotment-overview-tab";
 import {
   Sliders,
   Building2,
@@ -42,6 +43,7 @@ import {
   ArrowRight,
   CheckCircle2,
   BarChart3,
+  LayoutGrid,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,7 +56,7 @@ import {
   syncAllSubjectsBidirectional,
 } from "@/lib/routine/routine-sync";
 
-type SetupTab = "settings" | "classes" | "teachers" | "subjects" | "rooms" | "demand";
+type SetupTab = "settings" | "classes" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
 
 export default function RoutineSetupPage() {
   const [activeTab, setActiveTab] = useState<SetupTab>("settings");
@@ -276,6 +278,7 @@ export default function RoutineSetupPage() {
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
     { id: "teachers", label: "Teachers & Availability", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
+    { id: "overview", label: "Allotment Overview", icon: LayoutGrid },
     { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
   ];
 
@@ -415,6 +418,16 @@ export default function RoutineSetupPage() {
                 rooms={rooms}
                 onSaveRoom={handleSaveRoom}
                 onDeleteRoom={handleDeleteRoom}
+              />
+            )}
+
+            {activeTab === "overview" && (
+              <RoutineAllotmentOverviewTab
+                classes={classes}
+                subjects={subjects}
+                teachers={teachers}
+                assignments={assignments}
+                settings={settings}
               />
             )}
 
