@@ -533,6 +533,89 @@ export function RoutineTeachersTab({
     [subjectPeriodsMap, getSubjectDefaultPeriod, classSectionsMap, getClassSections]
   );
 
+  // Helper to compute live allocation breakdown across other teachers for a given class, section, and subject
+  const getSubjectAllocationStats = React.useCallback(
+    (clsName: string, sec: string, subName: string) => {
+      // 1. Total weekly demand from configured subjects (or fallback default 5)
+      const matchedSubject = (subjects || []).find(
+        (s) =>
+          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+          (!s.className || s.className.trim().toLowerCase() === clsName.trim().toLowerCase())
+      );
+      const totalDemand =
+        matchedSubject?.periodsPerWeek && matchedSubject.periodsPerWeek > 0
+          ? matchedSubject.periodsPerWeek
+          : 5;
+
+      // 2. Sections to check (if sec === "ALL", inspect all configured sections)
+      const allSecs = getClassSections(clsName);
+      const targetSecs = sec === "ALL" ? (classSectionsMap[clsName] || allSecs) : [sec];
+
+      // 3. Find other teachers who have this subject assigned in these sections
+      const otherTeacherLoads: { teacherName: string; shortName: string; periods: number }[] = [];
+      let totalOtherAssigned = 0;
+
+      teachers
+        .filter(
+          (t) =>
+            t.id !== editingTeacherId &&
+            t.name.trim().toLowerCase() !== teacherName.trim().toLowerCase()
+        )
+        .forEach((t) => {
+          let tPeriodsForSec = 0;
+          targetSecs.forEach((s) => {
+            const secKey = `${clsName}::${s}`;
+            const isAssignedToSec =
+              (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(subName)) ||
+              (!t.sectionSubjects?.[secKey] &&
+                t.qualifiedClasses?.includes(clsName) &&
+                t.classSubjects?.[clsName]?.includes(subName) &&
+                (t.classSections?.[clsName] || allSecs).includes(s));
+
+            if (isAssignedToSec) {
+              const specificPeriod =
+                t.subjectPeriods?.[`${clsName}::${s}::${subName}`] ||
+                t.subjectPeriods?.[`${clsName}::${subName}`] ||
+                getSubjectDefaultPeriod(clsName, subName);
+              tPeriodsForSec += specificPeriod;
+            }
+          });
+
+          const avgPeriods =
+            targetSecs.length > 0 ? Math.round(tPeriodsForSec / targetSecs.length) : tPeriodsForSec;
+
+          if (avgPeriods > 0) {
+            totalOtherAssigned += avgPeriods;
+            otherTeacherLoads.push({
+              teacherName: t.name,
+              shortName: t.shortName || generateInitials(t.name),
+              periods: avgPeriods,
+            });
+          }
+        });
+
+      const remaining = Math.max(0, totalDemand - totalOtherAssigned);
+      const isFullyBooked = totalOtherAssigned >= totalDemand;
+
+      return {
+        totalDemand,
+        otherAssigned: totalOtherAssigned,
+        remaining,
+        isFullyBooked,
+        otherTeachers: otherTeacherLoads,
+      };
+    },
+    [
+      subjects,
+      getClassSections,
+      classSectionsMap,
+      teachers,
+      editingTeacherId,
+      teacherName,
+      getSubjectDefaultPeriod,
+    ]
+  );
+
   // Calculate total weekly periods for a section automatically from its active subjects
   const calculateSectionTotalPeriods = React.useCallback(
     (clsName: string, sec: string): number => {
@@ -568,6 +651,13 @@ export function RoutineTeachersTab({
           ? (prev[clsName] || []).filter((sub) => sub !== subName)
           : Array.from(new Set([...(prev[clsName] || []), subName])),
       }));
+
+      // Auto-populate remaining slots if newly activating
+      if (!exists) {
+        const stats = getSubjectAllocationStats(clsName, "ALL", subName);
+        const autoFillPeriods = stats.remaining > 0 ? stats.remaining : stats.totalDemand;
+        handleSubjectPeriodChange(clsName, "ALL", subName, String(autoFillPeriods));
+      }
       return;
     }
 
@@ -580,6 +670,13 @@ export function RoutineTeachersTab({
       ...prev,
       [secKey]: updated,
     }));
+
+    // Auto-populate remaining slots if newly activating
+    if (!exists) {
+      const stats = getSubjectAllocationStats(clsName, sec, subName);
+      const autoFillPeriods = stats.remaining > 0 ? stats.remaining : stats.totalDemand;
+      handleSubjectPeriodChange(clsName, sec, subName, String(autoFillPeriods));
+    }
 
     // Maintain class-level union
     setClassSubjectsMap((prev) => {
@@ -1325,8 +1422,8 @@ export function RoutineTeachersTab({
                               </div>
                             </div>
 
-                            {/* Subject Pills with inline editable p/wk */}
-                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {/* Subject Pills with live quota breakdown and inline editable p/wk */}
+                            <div className="flex flex-wrap gap-2 pt-0.5">
                               {availableSubs.length === 0 ? (
                                 <span className="text-xs text-muted-foreground italic">
                                   No subjects configured for this class in School Settings.
@@ -1336,15 +1433,20 @@ export function RoutineTeachersTab({
                                   const secSubs = getSectionSubjects(c.name, currentActiveSec);
                                   const isSubActive = secSubs.includes(sub);
                                   const subPeriod = getSubjectPeriod(c.name, currentActiveSec, sub);
+                                  const stats = getSubjectAllocationStats(c.name, currentActiveSec, sub);
+                                  const isOverflow = isSubActive && subPeriod > stats.remaining;
+                                  const overflowAmount = subPeriod - stats.remaining;
 
                                   return (
                                     <div
                                       key={sub}
                                       className={cn(
-                                        "inline-flex items-center rounded-md border text-xs transition-all",
+                                        "inline-flex flex-col sm:flex-row items-stretch sm:items-center rounded-lg border text-xs transition-all p-1 gap-1",
                                         isSubActive
-                                          ? "bg-card border-primary/40 shadow-2xs text-foreground ring-1 ring-primary/20"
-                                          : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                                          ? isOverflow
+                                            ? "bg-card border-rose-500/60 shadow-2xs text-foreground ring-1 ring-rose-500/30"
+                                            : "bg-card border-primary/50 shadow-2xs text-foreground ring-1 ring-primary/20"
+                                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
                                       )}
                                     >
                                       <button
@@ -1353,35 +1455,79 @@ export function RoutineTeachersTab({
                                           toggleSubjectForSection(c.name, currentActiveSec, sub)
                                         }
                                         className={cn(
-                                          "px-2 py-1 font-medium flex items-center gap-1 select-none transition-colors",
-                                          isSubActive ? "text-primary font-semibold" : "text-muted-foreground"
+                                          "px-2 py-1 text-left font-medium flex items-center gap-1.5 select-none transition-colors",
+                                          isSubActive ? "text-primary font-semibold" : "text-foreground/80 hover:text-foreground"
                                         )}
                                       >
-                                        {isSubActive && <Check className="w-3 h-3 text-primary" />}
-                                        <span>{sub}</span>
+                                        <div
+                                          className={cn(
+                                            "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors shrink-0",
+                                            isSubActive
+                                              ? "bg-primary border-primary text-primary-foreground"
+                                              : "border-muted-foreground/50 bg-background"
+                                          )}
+                                        >
+                                          {isSubActive && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <span className="font-semibold text-xs leading-tight">{sub}</span>
+                                          <div className="flex items-center gap-1 mt-0.5">
+                                            {stats.isFullyBooked ? (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-muted text-muted-foreground border border-border font-mono">
+                                                Full ({stats.otherTeachers.map((t) => `${t.shortName}: ${t.periods}p`).join(", ")})
+                                              </span>
+                                            ) : stats.otherAssigned > 0 ? (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                                                {stats.otherAssigned}/{stats.totalDemand} ({stats.otherTeachers.map((t) => `${t.shortName}:${t.periods}p`).join(",")}) • {stats.remaining} Rem
+                                              </span>
+                                            ) : (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
+                                                0/{stats.totalDemand} • {stats.remaining} Free
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
                                       </button>
 
                                       {isSubActive && (
-                                        <div className="flex items-center gap-0.5 pr-1.5 pl-1 py-0.5 border-l border-primary/20 bg-primary/5">
-                                          <Input
-                                            type="number"
-                                            min={1}
-                                            max={20}
-                                            value={subPeriod}
-                                            onChange={(e) =>
-                                              handleSubjectPeriodChange(
-                                                c.name,
-                                                currentActiveSec,
-                                                sub,
-                                                e.target.value
-                                              )
-                                            }
-                                            className="h-5 w-10 text-[11px] font-mono font-bold px-0.5 text-center bg-background border-primary/30"
-                                            title={`Weekly periods for ${sub}${currentActiveSec === "ALL" ? " across all sections" : ` in Sec ${currentActiveSec}`}`}
-                                          />
-                                          <span className="text-[10px] text-muted-foreground font-mono font-medium">
-                                            p/wk
-                                          </span>
+                                        <div className="flex items-center justify-between sm:justify-start gap-1.5 px-2 py-0.5 border-t sm:border-t-0 sm:border-l border-border/80 bg-muted/20 rounded">
+                                          <div className="flex items-center gap-1">
+                                            <Input
+                                              type="number"
+                                              min={1}
+                                              max={20}
+                                              value={subPeriod}
+                                              onChange={(e) =>
+                                                handleSubjectPeriodChange(
+                                                  c.name,
+                                                  currentActiveSec,
+                                                  sub,
+                                                  e.target.value
+                                                )
+                                              }
+                                              className={cn(
+                                                "h-6 w-11 text-[11px] font-mono font-bold px-1 text-center bg-background",
+                                                isOverflow
+                                                  ? "border-rose-500 text-rose-500 focus:ring-rose-500"
+                                                  : "border-primary/40 text-foreground"
+                                              )}
+                                              title={`Weekly periods for ${sub}${currentActiveSec === "ALL" ? " across all sections" : ` in Sec ${currentActiveSec}`}`}
+                                            />
+                                            <span className="text-[10px] text-muted-foreground font-mono font-medium">
+                                              p/wk
+                                            </span>
+                                          </div>
+
+                                          {isOverflow && (
+                                            <Badge
+                                              variant="destructive"
+                                              className="text-[9px] px-1 py-0 gap-0.5 bg-rose-500/15 text-rose-500 border border-rose-500/30 hover:bg-rose-500/20 font-bold"
+                                              title="Assigned periods exceed remaining unallocated demand"
+                                            >
+                                              <AlertTriangle className="w-2.5 h-2.5" />
+                                              +{overflowAmount} Over
+                                            </Badge>
+                                          )}
                                         </div>
                                       )}
                                     </div>
