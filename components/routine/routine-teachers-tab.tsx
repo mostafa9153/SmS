@@ -32,7 +32,6 @@ import {
   BookOpen,
   GraduationCap,
   Award,
-  Copy,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -776,36 +775,6 @@ export function RoutineTeachersTab({
     });
   };
 
-  // Copy one section's configured subjects and loads to all other sections of that class
-  const handleCopySectionConfigToAll = (clsName: string, fromSec: string) => {
-    const sourceSubs = getSectionSubjects(clsName, fromSec);
-    const allSecs = getClassSections(clsName);
-
-    setSectionSubjectsMap((prev) => {
-      const next = { ...prev };
-      allSecs.forEach((sec) => {
-        next[`${clsName}::${sec}`] = [...sourceSubs];
-      });
-      return next;
-    });
-
-    setSubjectPeriodsMap((prev) => {
-      const next = { ...prev };
-      allSecs.forEach((sec) => {
-        if (sec !== fromSec) {
-          sourceSubs.forEach((sub) => {
-            const fromKey = `${clsName}::${fromSec}::${sub}`;
-            const toKey = `${clsName}::${sec}::${sub}`;
-            if (prev[fromKey] !== undefined) {
-              next[toKey] = prev[fromKey];
-            }
-          });
-        }
-      });
-      return next;
-    });
-  };
-
   // Set target weekly periods for a specific class default
   const handlePeriodChangeForClass = (clsName: string, val: string) => {
     const num = val.trim() === "" ? 0 : parseInt(val, 10);
@@ -1394,19 +1363,6 @@ export function RoutineTeachersTab({
                               </div>
 
                               <div className="flex items-center gap-1">
-                                {allSecs.length > 1 && currentActiveSec !== "ALL" && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleCopySectionConfigToAll(c.name, currentActiveSec)}
-                                    className="h-5 text-[10px] px-1.5 gap-1 bg-background text-foreground hover:bg-muted"
-                                    title="Apply this section's subjects and period loads to all other sections"
-                                  >
-                                    <Copy className="w-2.5 h-2.5" />
-                                    <span>Copy to All Secs</span>
-                                  </Button>
-                                )}
                                 <Button
                                   type="button"
                                   variant="ghost"
