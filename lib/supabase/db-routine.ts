@@ -132,12 +132,45 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         section: c.section,
         dailyPeriods: c.daily_periods,
       }));
-      if (classes.length > 0) {
-        const dbIdSet = new Set(dbClasses.map((c) => c.id));
-        const extraLocal = classes.filter((c) => !dbIdSet.has(c.id));
-        classes = [...dbClasses, ...extraLocal];
-      } else {
-        classes = dbClasses;
+
+      // Merge and strictly deduplicate by (className + section)
+      const dedupedClasses: RoutineClass[] = [];
+      const duplicateClassIdsToDelete: string[] = [];
+      const seenClassKeys = new Set<string>();
+
+      const getClassKey = (c: RoutineClass) =>
+        `${(c.className || "").trim().toLowerCase()}::${(c.section || "").trim().toLowerCase()}`;
+
+      // Prefer DB entries first
+      dbClasses.forEach((c) => {
+        const key = getClassKey(c);
+        if (!seenClassKeys.has(key)) {
+          seenClassKeys.add(key);
+          dedupedClasses.push(c);
+        } else {
+          if (c.id) duplicateClassIdsToDelete.push(c.id);
+        }
+      });
+
+      // Then check extra local classes
+      classes.forEach((c) => {
+        const key = getClassKey(c);
+        if (!seenClassKeys.has(key)) {
+          seenClassKeys.add(key);
+          dedupedClasses.push(c);
+        }
+      });
+
+      classes = dedupedClasses;
+      setLocalRoutineState({ classes: dedupedClasses });
+
+      if (duplicateClassIdsToDelete.length > 0) {
+        Promise.resolve(
+          supabase
+            .from("routine_classes")
+            .delete()
+            .in("id", duplicateClassIdsToDelete)
+        ).catch((e: unknown) => console.warn("Clean duplicate routine classes failed:", e));
       }
     }
 
@@ -519,22 +552,32 @@ export async function deleteRoomDb(id: string): Promise<boolean> {
  * Upsert Class
  */
 export async function upsertClassDb(cls: { id?: string; className: string; section: string; dailyPeriods?: number | null }): Promise<string> {
-  const id = cls.id || crypto.randomUUID();
-
-  // Update local storage immediately
   const local = getLocalRoutineState() || {};
   const currentClasses = local.classes || [];
+
+  const normClass = cls.className.trim().toLowerCase();
+  const normSec = cls.section.trim().toLowerCase();
+
+  const existingIdx = currentClasses.findIndex(
+    (c) =>
+      (cls.id && c.id === cls.id) ||
+      (c.className.trim().toLowerCase() === normClass && c.section.trim().toLowerCase() === normSec)
+  );
+
+  const id = cls.id || (existingIdx > -1 ? currentClasses[existingIdx].id : crypto.randomUUID());
+
+  // Update local storage immediately
   const updated: RoutineClass = {
     id,
     className: cls.className,
     section: cls.section,
     dailyPeriods: cls.dailyPeriods || null,
   };
-  const idx = currentClasses.findIndex((c) => c.id === id);
+
   let nextClasses: RoutineClass[];
-  if (idx > -1) {
+  if (existingIdx > -1) {
     nextClasses = [...currentClasses];
-    nextClasses[idx] = updated;
+    nextClasses[existingIdx] = updated;
   } else {
     nextClasses = [...currentClasses, updated];
   }
@@ -563,15 +606,31 @@ export async function batchUpsertClassesDb(
   const local = getLocalRoutineState() || {};
   let currentClasses: RoutineClass[] = [...(local.classes || [])];
 
-  const processedList: RoutineClass[] = classesList.map((c) => ({
-    id: c.id || crypto.randomUUID(),
-    className: c.className,
-    section: c.section,
-    dailyPeriods: c.dailyPeriods || null,
-  }));
+  const processedList: RoutineClass[] = classesList.map((cls) => {
+    const normClass = cls.className.trim().toLowerCase();
+    const normSec = cls.section.trim().toLowerCase();
+    const existing = currentClasses.find(
+      (c) =>
+        (cls.id && c.id === cls.id) ||
+        (c.className.trim().toLowerCase() === normClass && c.section.trim().toLowerCase() === normSec)
+    );
+    const id = cls.id || existing?.id || crypto.randomUUID();
+    return {
+      id,
+      className: cls.className,
+      section: cls.section,
+      dailyPeriods: cls.dailyPeriods || null,
+    };
+  });
 
   processedList.forEach((cls) => {
-    const idx = currentClasses.findIndex((c) => c.id === cls.id || (c.className === cls.className && c.section === cls.section));
+    const normClass = cls.className.trim().toLowerCase();
+    const normSec = cls.section.trim().toLowerCase();
+    const idx = currentClasses.findIndex(
+      (c) =>
+        c.id === cls.id ||
+        (c.className.trim().toLowerCase() === normClass && c.section.trim().toLowerCase() === normSec)
+    );
     if (idx > -1) {
       currentClasses[idx] = cls;
     } else {

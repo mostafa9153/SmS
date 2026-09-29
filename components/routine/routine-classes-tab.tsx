@@ -165,9 +165,19 @@ export function RoutineClassesTab({
   const [dailyPeriods, setDailyPeriods] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Sorted Classes in ascending grade sequence (V -> VI -> ... -> XII)
+  // Sorted Classes in ascending grade sequence (V -> VI -> ... -> XII) with strict deduplication
   const sortedClasses = React.useMemo(() => {
-    return [...classes].sort((a, b) => {
+    const deduped: RoutineClass[] = [];
+    const seen = new Set<string>();
+    for (const c of classes) {
+      const key = `${(c.className || "").trim().toLowerCase()}::${(c.section || "").trim().toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(c);
+      }
+    }
+
+    return deduped.sort((a, b) => {
       const rankA = getClassNumericRank(a.className);
       const rankB = getClassNumericRank(b.className);
       if (rankA !== rankB) return rankA - rankB;
@@ -500,12 +510,12 @@ export function RoutineClassesTab({
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-foreground">Configured Classes</span>
             <Badge variant="secondary" className="text-[10px] font-mono">
-              {classes.length} Total
+              {sortedClasses.length} Total
             </Badge>
           </div>
 
           {/* Batch Edit Bar */}
-          {classes.length > 0 && (
+          {sortedClasses.length > 0 && (
             <div className="flex items-center gap-2 bg-background border px-2.5 py-1 rounded-md text-xs">
               <Layers className="w-3.5 h-3.5 text-muted-foreground" />
               <span className="text-[11px] font-medium text-muted-foreground">Batch Set Daily Periods:</span>
