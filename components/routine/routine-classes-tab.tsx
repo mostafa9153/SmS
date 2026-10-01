@@ -23,7 +23,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
-import { isHsClass, parseSectionAndStream, formatSectionAndStream } from "@/lib/routine/routine-helpers";
+import {
+  isHsClass,
+  parseSectionAndStream,
+  formatSectionAndStream,
+  getConfiguredStreamsForClass,
+} from "@/lib/routine/routine-helpers";
+import { getClassStreamList } from "@/lib/utils/school-profile";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -76,24 +82,36 @@ export function RoutineClassesTab({
     [settings]
   );
 
-  // Compute all preset combinations for each class
+  // Compute all preset combinations for each class dynamically from school presets
   const allPresetItems: PresetClassItem[] = React.useMemo(() => {
     const list = presetClassesList.length > 0 ? presetClassesList : FALLBACK_CLASSES;
     const items: PresetClassItem[] = [];
 
-    list.forEach((c) => {
+    list.forEach((c: any) => {
       const isHs = isHsClass(c.name, c.code);
       const secs = c.sections && c.sections.length > 0 ? c.sections : ["A", "B"];
 
       if (isHs) {
-        const streams = ["Science", "Arts", "Commerce"];
-        secs.forEach((s) => {
+        const streams = c.stream
+          ? getClassStreamList(c.stream)
+          : getConfiguredStreamsForClass(c.name);
+
+        if (c.streamSections && Object.keys(c.streamSections).length > 0) {
           streams.forEach((str) => {
-            items.push({ className: c.name, section: s, stream: str });
+            const streamSecs = c.streamSections?.[str] || secs;
+            streamSecs.forEach((s: string) => {
+              items.push({ className: c.name, section: s, stream: str });
+            });
           });
-        });
+        } else {
+          secs.forEach((s: string) => {
+            streams.forEach((str) => {
+              items.push({ className: c.name, section: s, stream: str });
+            });
+          });
+        }
       } else {
-        secs.forEach((s) => {
+        secs.forEach((s: string) => {
           items.push({ className: c.name, section: s, stream: "General" });
         });
       }
@@ -192,12 +210,21 @@ export function RoutineClassesTab({
   // Available Streams for currently selected class & section
   const availableStreams = React.useMemo(() => {
     if (!selectedClass) return ["General"];
+    const targetClassObj = presetClassesList.find((c) => c.name === selectedClass);
+    const isHs = targetClassObj ? isHsClass(targetClassObj.name, targetClassObj.code) : isHsClass(selectedClass);
+    if (!isHs) return ["General"];
+
     const itemsForSec = unaddedPresetItems.filter(
       (i) => i.className === selectedClass && (!selectedSection || i.section === selectedSection)
     );
     const streams = Array.from(new Set(itemsForSec.map((i) => i.stream)));
-    return streams.length > 0 ? streams : ["General"];
-  }, [selectedClass, selectedSection, unaddedPresetItems]);
+    if (streams.length > 0) return streams;
+
+    const configured = targetClassObj?.stream
+      ? getClassStreamList(targetClassObj.stream)
+      : getConfiguredStreamsForClass(selectedClass);
+    return configured.length > 0 ? configured : ["Science", "Arts", "Commerce"];
+  }, [selectedClass, selectedSection, unaddedPresetItems, presetClassesList]);
 
   // Synchronize dropdown selections when available options change
   useEffect(() => {

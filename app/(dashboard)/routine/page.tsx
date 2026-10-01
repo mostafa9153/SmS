@@ -443,20 +443,6 @@ export default function RoutineSetupPage() {
           </>
         )}
       </div>
-
-      {/* Workflow Next Step Link */}
-      <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Setup step 1 of 4: Configuration</span>
-        </div>
-        <Link href="/routine/assignments">
-          <Button variant="default" size="sm" className="h-8 gap-1.5 text-xs font-semibold">
-            Next: Verify & Audit
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </Link>
-      </div>
     </div>
   );
 }
