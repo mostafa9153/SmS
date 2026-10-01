@@ -44,6 +44,7 @@ import {
   detectSubjectStream,
   getConfiguredStreamsForClass,
   calculateClassWeeklyCapacity,
+  parseSectionAndStream,
 } from "@/lib/routine/routine-helpers";
 
 // Re-export for backward compatibility
@@ -119,15 +120,37 @@ export function RoutineDemandAllotmentTab({
       if (isHs) {
         // For HS classes, check if section is already a stream or analyze configured streams
         const configuredStreams = getConfiguredStreamsForClass(cls.className);
-        const sectionLower = cls.section.toLowerCase();
+        const { stream: parsedStream } = parseSectionAndStream(cls.section || "");
+        const sectionLower = (cls.section || "").toLowerCase();
 
-        // Check if section explicitly matches a stream
-        const isSectionSpecificStream = configuredStreams.some(
-          (st) => st.toLowerCase() === sectionLower
-        );
+        // Check if section explicitly matches or specifies a stream
+        let matchedStream: "Science" | "Commerce" | "Arts" | null = null;
 
-        const streamsToProcess = isSectionSpecificStream
-          ? [configuredStreams.find((st) => st.toLowerCase() === sectionLower)!]
+        if (parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all") {
+          const found = configuredStreams.find(
+            (st) => st.toLowerCase() === parsedStream.toLowerCase()
+          );
+          if (found) matchedStream = found;
+        }
+
+        if (!matchedStream) {
+          for (const st of configuredStreams) {
+            const stLower = st.toLowerCase();
+            if (
+              sectionLower === stLower ||
+              sectionLower.includes(`(${stLower})`) ||
+              sectionLower.includes(`-${stLower}`) ||
+              sectionLower.includes(` ${stLower}`) ||
+              sectionLower.includes(stLower)
+            ) {
+              matchedStream = st;
+              break;
+            }
+          }
+        }
+
+        const streamsToProcess = matchedStream
+          ? [matchedStream]
           : configuredStreams;
 
         streamsToProcess.forEach((st) => {
