@@ -657,18 +657,28 @@ export async function batchUpsertClassesDb(
       .select();
 
     if (!error && data) {
-      return data.map((r: any) => ({
-        id: r.id,
-        className: r.class_name,
-        section: r.section,
-        dailyPeriods: r.daily_periods,
-      }));
+      data.forEach((r: any) => {
+        const normClass = r.class_name.trim().toLowerCase();
+        const normSec = r.section.trim().toLowerCase();
+        const idx = currentClasses.findIndex(
+          (c) => c.className.trim().toLowerCase() === normClass && c.section.trim().toLowerCase() === normSec
+        );
+        if (idx > -1) {
+          currentClasses[idx] = {
+            id: r.id,
+            className: r.class_name,
+            section: r.section,
+            dailyPeriods: r.daily_periods,
+          };
+        }
+      });
+      setLocalRoutineState({ classes: currentClasses });
     }
   } catch (err) {
     console.warn("batchUpsertClassesDb:", err);
   }
 
-  return processedList;
+  return currentClasses;
 }
 
 /**
@@ -915,7 +925,7 @@ export async function batchUpsertSubjectsDb(
     console.warn("batchUpsertSubjectsDb catch:", err);
   }
 
-  return processedList;
+  return currentSubjects;
 }
 
 /**

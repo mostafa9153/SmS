@@ -1,55 +1,44 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineSettings,
   RoutineClass,
   RoutineSubject,
-  DAY_NAMES,
 } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Plus,
-  Trash2,
-  Edit2,
-  Check,
-  X,
   Users,
-  AlertTriangle,
-  CheckCircle2,
-  SlidersHorizontal,
-  BookOpen,
   GraduationCap,
-  Award,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import {
   getDynamicClassList,
   FALLBACK_CLASSES,
   getClassNumericRank,
   getDatabaseSubjectsForClass,
 } from "@/lib/ems/ems-config-loader";
-import { generateInitials } from "@/lib/routine/routine-helpers";
+import {
+  generateInitials,
+  isHsClass,
+  parseSectionAndStream,
+  detectSubjectStream,
+  getConfiguredStreamsForClass,
+  getTeacherSubjectPeriod,
+} from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
   syncRoutineTeacherToClasses,
   parseClassSectionLabel,
   formatClassSectionLabel,
 } from "@/lib/routine/routine-sync";
+import { TeacherSummaryBadges } from "./teachers/teacher-summary-badges";
+import { TeacherTableRow } from "./teachers/teacher-table-row";
+import { TeacherEditorForm } from "./teachers/teacher-editor-form";
 
-interface RoutineTeachersTabProps {
+export interface RoutineTeachersTabProps {
   teachers: RoutineTeacher[];
   assignments: RoutineAssignment[];
   settings: RoutineSettings;
@@ -180,7 +169,7 @@ export function RoutineTeachersTab({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Helper to extract configured sections for a class
-  const getClassSections = React.useCallback(
+  const getClassSections = useCallback(
     (clsName: string): string[] => {
       const clsLower = clsName.trim().toLowerCase();
       const matched = classes.filter((c) => c.className.trim().toLowerCase() === clsLower);
@@ -193,14 +182,265 @@ export function RoutineTeachersTab({
     [classes]
   );
 
+  // Helper to get default weekly period for a subject in a class
+  const getSubjectDefaultPeriod = useCallback(
+    (clsName: string, subName: string): number => {
+      const matched = (subjects || []).find(
+        (s) =>
+          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+          (s.className ? s.className.trim().toLowerCase() === clsName.trim().toLowerCase() : true)
+      );
+      return matched?.periodsPerWeek && matched.periodsPerWeek > 0 ? matched.periodsPerWeek : 5;
+    },
+    [subjects]
+  );
+
+  // Helper to compute a teacher's total active workload across all assigned classes, sections, and subjects
+  const computeTeacherEffectiveLoad = useCallback(
+    (t: RoutineTeacher): number => {
+      // 1. Check if explicit assignments exist for this teacher
+      const asgLoad = assignments
+        .filter((a) => a.teacherId === t.id || a.teacherId === t.name)
+        .reduce((sum, a) => sum + (Number(a.periodsPerWeek) || 0), 0);
+      if (asgLoad > 0) return asgLoad;
+
+      // 2. Otherwise calculate directly from configured classes, sections, and subjects
+      const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
+      if (!qClasses || qClasses.length === 0) return 0;
+
+      let totalLoad = 0;
+
+      qClasses.forEach((clsName) => {
+        const configuredSections =
+          t.classSections?.[clsName] && t.classSections[clsName].length > 0
+            ? t.classSections[clsName]
+            : getClassSections(clsName);
+
+        configuredSections.forEach((sec) => {
+          const secKey = `${clsName}::${sec}`;
+          const altSecKey1 = `${clsName}-${sec}`;
+          const altSecKey2 = `${clsName}_${sec}`;
+
+          const directSecPeriod =
+            t.sectionPeriods?.[secKey] ??
+            t.sectionPeriods?.[altSecKey1] ??
+            t.sectionPeriods?.[altSecKey2];
+
+          // Subjects for this section
+          const secSubs =
+            t.sectionSubjects?.[secKey] ??
+            t.sectionSubjects?.[altSecKey1] ??
+            t.classSubjects?.[clsName] ??
+            [];
+
+          if (secSubs.length > 0) {
+            secSubs.forEach((sub) => {
+              const p = getTeacherSubjectPeriod(
+                t,
+                clsName,
+                sec,
+                sub,
+                getSubjectDefaultPeriod(clsName, sub)
+              );
+              totalLoad += Number(p) || 0;
+            });
+          } else if (directSecPeriod && directSecPeriod > 0) {
+            totalLoad += Number(directSecPeriod);
+          } else if (t.classPeriods?.[clsName] && t.classPeriods[clsName] > 0) {
+            totalLoad += Number(t.classPeriods[clsName]);
+          }
+        });
+      });
+
+      return totalLoad;
+    },
+    [assignments, getClassSections, getSubjectDefaultPeriod]
+  );
+
   // Compute workload per teacher
   const teacherLoadMap: Record<string, number> = useMemo(() => {
     const map: Record<string, number> = {};
-    assignments.forEach((a) => {
-      map[a.teacherId] = (map[a.teacherId] || 0) + a.periodsPerWeek;
+    teachers.forEach((t) => {
+      map[t.id] = computeTeacherEffectiveLoad(t);
     });
     return map;
-  }, [assignments]);
+  }, [teachers, computeTeacherEffectiveLoad]);
+
+  // Aggregate teacher load stats
+  const totalAllottedLoad = useMemo(() => {
+    return Object.values(teacherLoadMap).reduce((sum, val) => sum + val, 0);
+  }, [teacherLoadMap]);
+
+  // Distinct curriculum subjects across the school
+  const distinctCurriculumSubjects = useMemo(() => {
+    const set = new Set<string>();
+    subjects.forEach((s) => {
+      if (s.name && s.name.trim()) {
+        const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        set.add(canonical);
+      }
+    });
+    return Array.from(set);
+  }, [subjects]);
+
+  const totalSchoolSubjects = distinctCurriculumSubjects.length;
+
+  // Number of distinct curriculum subjects that have at least one teacher assigned
+  const totalAssignedSubjects = useMemo(() => {
+    const assignedSet = new Set<string>();
+    teachers.forEach((t) => {
+      if (t.classSubjects) {
+        Object.values(t.classSubjects).forEach((subs) => {
+          subs.forEach((s) => {
+            const canonical = s.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            assignedSet.add(canonical);
+          });
+        });
+      }
+      if (t.sectionSubjects) {
+        Object.values(t.sectionSubjects).forEach((subs) => {
+          subs.forEach((s) => {
+            const canonical = s.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            assignedSet.add(canonical);
+          });
+        });
+      }
+      if (t.primarySubject && t.primarySubject.trim()) {
+        const canonical = t.primarySubject.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        assignedSet.add(canonical);
+      }
+    });
+    assignments.forEach((a) => {
+      const sub = subjects.find((s) => s.id === a.subjectId);
+      if (sub && sub.name) {
+        const canonical = sub.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        assignedSet.add(canonical);
+      }
+    });
+    return distinctCurriculumSubjects.filter((s) => assignedSet.has(s)).length;
+  }, [teachers, assignments, subjects, distinctCurriculumSubjects]);
+
+  // Map of total configured subjects for each class
+  const classTotalSubjectsMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    const sourceClasses = classes.length > 0 ? classes : [];
+    sourceClasses.forEach((c) => {
+      const clsLower = c.className.trim().toLowerCase();
+      const isHs = isHsClass(c.className);
+      const presets = new Set(getDatabaseSubjectsForClass(c.className).map((sub) => sub.toLowerCase()));
+      const classSubs = subjects.filter(
+        (s) =>
+          (s.className && s.className.trim().toLowerCase() === clsLower) ||
+          (!s.className && presets.has(s.name.trim().toLowerCase()))
+      );
+
+      if (isHs) {
+        const { stream: parsedStream } = parseSectionAndStream(c.section || "");
+        const configuredStreams = getConfiguredStreamsForClass(c.className);
+        const targetStream =
+          parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all"
+            ? parsedStream
+            : configuredStreams[0] || "Arts";
+        const streamSubs = classSubs.filter((s) => {
+          const detStream = detectSubjectStream(s.name, s.stream);
+          return detStream === "Common" || s.isCommon || detStream.toLowerCase() === targetStream.toLowerCase();
+        });
+        const distinct = new Set(streamSubs.map((s) => s.name.trim().toLowerCase()));
+        map[c.className] = distinct.size > 0 ? distinct.size : 6;
+      } else {
+        const distinct = new Set(classSubs.map((s) => s.name.trim().toLowerCase()));
+        const dbPresets = getDatabaseSubjectsForClass(c.className);
+        map[c.className] = distinct.size > 0 ? distinct.size : (dbPresets.length || 8);
+      }
+    });
+    return map;
+  }, [classes, subjects]);
+
+  // Total required subject periods across all sections of all classes in the school
+  const totalSchoolSubjectPeriods = useMemo(() => {
+    let totalPeriods = 0;
+    const sourceClasses = classes.length > 0 ? classes : [];
+
+    // If classes array is empty, fall back to presetClasses with their default sections
+    if (sourceClasses.length === 0) {
+      const pClasses = presetClasses.length > 0 ? presetClasses : FALLBACK_CLASSES;
+      pClasses.forEach((pc) => {
+        const secs = pc.sections && pc.sections.length > 0 ? pc.sections : ["A", "B"];
+        const presets = getDatabaseSubjectsForClass(pc.name);
+        const clsLower = pc.name.trim().toLowerCase();
+        const classSubs = subjects.filter(
+          (s) => s.className && s.className.trim().toLowerCase() === clsLower
+        );
+
+        let classPeriodSum = 0;
+        if (classSubs.length > 0) {
+          const seen = new Set<string>();
+          classSubs.forEach((s) => {
+            const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            if (!seen.has(canonical)) {
+              seen.add(canonical);
+              classPeriodSum += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
+            }
+          });
+        } else {
+          classPeriodSum = presets.length * 5;
+        }
+        totalPeriods += classPeriodSum * secs.length;
+      });
+      return totalPeriods;
+    }
+
+    sourceClasses.forEach((c) => {
+      const clsLower = c.className.trim().toLowerCase();
+      const isHs = isHsClass(c.className);
+      const presets = new Set(getDatabaseSubjectsForClass(c.className).map((sub) => sub.toLowerCase()));
+
+      const classSubs = subjects.filter(
+        (s) =>
+          (s.className && s.className.trim().toLowerCase() === clsLower) ||
+          (!s.className && presets.has(s.name.trim().toLowerCase()))
+      );
+
+      if (isHs) {
+        const { stream: parsedStream } = parseSectionAndStream(c.section || "");
+        const configuredStreams = getConfiguredStreamsForClass(c.className);
+        const targetStream =
+          parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all"
+            ? parsedStream
+            : configuredStreams[0] || "Arts";
+
+        const streamSubs = classSubs.filter((s) => {
+          const detStream = detectSubjectStream(s.name, s.stream);
+          return detStream === "Common" || s.isCommon || detStream.toLowerCase() === targetStream.toLowerCase();
+        });
+
+        const seen = new Set<string>();
+        streamSubs.forEach((s) => {
+          const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          if (!seen.has(canonical)) {
+            seen.add(canonical);
+            totalPeriods += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : 5;
+          }
+        });
+      } else {
+        const seen = new Set<string>();
+        if (classSubs.length > 0) {
+          classSubs.forEach((s) => {
+            const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            if (!seen.has(canonical)) {
+              seen.add(canonical);
+              totalPeriods += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
+            }
+          });
+        } else {
+          const dbPresets = getDatabaseSubjectsForClass(c.className);
+          totalPeriods += dbPresets.length * 5;
+        }
+      }
+    });
+
+    return totalPeriods;
+  }, [classes, subjects, presetClasses]);
 
   // Staff members not yet added as routine faculty
   const unaddedStaff = useMemo(() => {
@@ -271,7 +511,7 @@ export function RoutineTeachersTab({
   };
 
   // Open Editor for Editing Existing Teacher
-  const handleEdit = React.useCallback((t: RoutineTeacher) => {
+  const handleEdit = useCallback((t: RoutineTeacher) => {
     const matchedStaff = staffList.find(
       (s) => s.id === t.id || s.full_name.toLowerCase() === t.name.toLowerCase()
     );
@@ -322,7 +562,7 @@ export function RoutineTeachersTab({
     setIsEditorOpen(true);
   }, [staffList, availableSubjectOptions, settings]);
 
-  const handleCancel = React.useCallback(() => {
+  const handleCancel = useCallback(() => {
     setIsEditorOpen(false);
     setEditingTeacherId(null);
   }, []);
@@ -439,48 +679,20 @@ export function RoutineTeachersTab({
     }
   };
 
-  // Toggle section selection for a specific class
-  const toggleSectionForClass = (clsName: string, section: string) => {
+  const handleSelectSection = (clsName: string, sec: string) => {
     const allSecs = getClassSections(clsName);
-    const current = classSectionsMap[clsName] || allSecs;
-
-    if (section === "ALL") {
-      const isAll = current.length === allSecs.length;
+    if (sec === "ALL") {
+      setClassSectionsMap((prev) => ({ ...prev, [clsName]: [...allSecs] }));
+    } else {
       setClassSectionsMap((prev) => ({
         ...prev,
-        [clsName]: isAll ? [] : [...allSecs],
+        [clsName]: Array.from(new Set([...(prev[clsName] || allSecs), sec])),
       }));
-      return;
     }
-
-    const exists = current.includes(section);
-    const next = exists ? current.filter((s) => s !== section) : [...current, section];
-    setClassSectionsMap((prev) => ({
-      ...prev,
-      [clsName]: next,
-    }));
   };
-
-  // Toggle all sections for a class
-  const toggleAllSectionsForClass = (clsName: string) => {
-    toggleSectionForClass(clsName, "ALL");
-  };
-
-  // Helper to get default weekly period for a subject in a class
-  const getSubjectDefaultPeriod = React.useCallback(
-    (clsName: string, subName: string): number => {
-      const matched = (subjects || []).find(
-        (s) =>
-          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
-          (s.className ? s.className.trim().toLowerCase() === clsName.trim().toLowerCase() : true)
-      );
-      return matched?.periodsPerWeek && matched.periodsPerWeek > 0 ? matched.periodsPerWeek : 5;
-    },
-    [subjects]
-  );
 
   // Helper to get active subjects for a specific section (or ALL)
-  const getSectionSubjects = React.useCallback(
+  const getSectionSubjects = useCallback(
     (clsName: string, sec: string): string[] => {
       if (sec === "ALL") {
         const allSecs = getClassSections(clsName);
@@ -503,7 +715,7 @@ export function RoutineTeachersTab({
   );
 
   // Helper to get specific period count for a subject in a section (or ALL)
-  const getSubjectPeriod = React.useCallback(
+  const getSubjectPeriod = useCallback(
     (clsName: string, sec: string, subName: string): number => {
       if (sec === "ALL") {
         const allSecs = getClassSections(clsName);
@@ -533,7 +745,7 @@ export function RoutineTeachersTab({
   );
 
   // Helper to compute live allocation breakdown across other teachers for a given class, section, and subject
-  const getSubjectAllocationStats = React.useCallback(
+  const getSubjectAllocationStats = useCallback(
     (clsName: string, sec: string, subName: string) => {
       // 1. Total weekly demand from configured subjects (or fallback default 5)
       const matchedSubject = (subjects || []).find(
@@ -616,13 +828,48 @@ export function RoutineTeachersTab({
   );
 
   // Calculate total weekly periods for a section automatically from its active subjects
-  const calculateSectionTotalPeriods = React.useCallback(
+  const calculateSectionTotalPeriods = useCallback(
     (clsName: string, sec: string): number => {
       const secSubs = getSectionSubjects(clsName, sec);
       return secSubs.reduce((sum, sub) => sum + getSubjectPeriod(clsName, sec, sub), 0);
     },
     [getSectionSubjects, getSubjectPeriod]
   );
+
+  // Handle subject period count change (for single sec or ALL)
+  const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
+    const num = val.trim() === "" ? 0 : parseInt(val, 10);
+    const allSecs = getClassSections(clsName);
+    const selectedSecs = classSectionsMap[clsName] || allSecs;
+
+    setSubjectPeriodsMap((prev) => {
+      const next = { ...prev };
+      if (sec === "ALL") {
+        selectedSecs.forEach((s) => {
+          const k = `${clsName}::${s}::${subName}`;
+          if (!num || num <= 0) {
+            delete next[k];
+          } else {
+            next[k] = num;
+          }
+        });
+        const clsK = `${clsName}::${subName}`;
+        if (!num || num <= 0) {
+          delete next[clsK];
+        } else {
+          next[clsK] = num;
+        }
+      } else {
+        const secKey = `${clsName}::${sec}::${subName}`;
+        if (!num || num <= 0) {
+          delete next[secKey];
+        } else {
+          next[secKey] = num;
+        }
+      }
+      return next;
+    });
+  };
 
   // Toggle subject for a specific section (or ALL)
   const toggleSubjectForSection = (clsName: string, sec: string, subName: string) => {
@@ -740,70 +987,6 @@ export function RoutineTeachersTab({
     });
   };
 
-  // Handle subject period count change (for single sec or ALL)
-  const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
-    const num = val.trim() === "" ? 0 : parseInt(val, 10);
-    const allSecs = getClassSections(clsName);
-    const selectedSecs = classSectionsMap[clsName] || allSecs;
-
-    setSubjectPeriodsMap((prev) => {
-      const next = { ...prev };
-      if (sec === "ALL") {
-        selectedSecs.forEach((s) => {
-          const k = `${clsName}::${s}::${subName}`;
-          if (!num || num <= 0) {
-            delete next[k];
-          } else {
-            next[k] = num;
-          }
-        });
-        const clsK = `${clsName}::${subName}`;
-        if (!num || num <= 0) {
-          delete next[clsK];
-        } else {
-          next[clsK] = num;
-        }
-      } else {
-        const secKey = `${clsName}::${sec}::${subName}`;
-        if (!num || num <= 0) {
-          delete next[secKey];
-        } else {
-          next[secKey] = num;
-        }
-      }
-      return next;
-    });
-  };
-
-  // Set target weekly periods for a specific class default
-  const handlePeriodChangeForClass = (clsName: string, val: string) => {
-    const num = val.trim() === "" ? 0 : parseInt(val, 10);
-    setClassPeriodsMap((prev) => {
-      const next = { ...prev };
-      if (!num || num <= 0) {
-        delete next[clsName];
-      } else {
-        next[clsName] = num;
-      }
-      return next;
-    });
-  };
-
-  // Set target weekly periods for a specific section
-  const handleSectionPeriodChange = (clsName: string, sec: string, val: string) => {
-    const key = `${clsName}::${sec}`;
-    const num = val.trim() === "" ? 0 : parseInt(val, 10);
-    setSectionPeriodsMap((prev) => {
-      const next = { ...prev };
-      if (!num || num <= 0) {
-        delete next[key];
-      } else {
-        next[key] = num;
-      }
-      return next;
-    });
-  };
-
   // Period Availability toggles
   const togglePeriod = (dayIdx: number, period: number) => {
     const current = availSlots[dayIdx] || [];
@@ -879,7 +1062,7 @@ export function RoutineTeachersTab({
   };
 
   // Delete Teacher
-  const handleDelete = React.useCallback(async (id: string) => {
+  const handleDelete = useCallback(async (id: string) => {
     if (onDeleteTeacher) {
       const target = teachers.find((t) => t.id === id);
       if (target?.classTeacherOf) {
@@ -899,21 +1082,33 @@ export function RoutineTeachersTab({
     return teacherName || "Select Teacher";
   }, [selectedStaffId, staffList, teacherName]);
 
-  // Class teacher assignments lookup for display
+  // Class teacher assignments lookup for display & conflict detection
   const currentClassTeacherMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<string, { id: string; name: string }> = {};
     teachers.forEach((t) => {
-      if (t.classTeacherOf) {
-        map[t.classTeacherOf] = t.name;
+      if (t.classTeacherOf && t.classTeacherOf.trim() && t.classTeacherOf !== "__none__") {
+        const info = { id: t.id, name: t.name };
+        map[t.classTeacherOf.trim()] = info;
         const parsed = parseClassSectionLabel(t.classTeacherOf);
         if (parsed) {
-          map[formatClassSectionLabel(parsed.className, parsed.section)] = t.name;
-          map[`${parsed.className} - ${parsed.section}`] = t.name;
+          map[formatClassSectionLabel(parsed.className, parsed.section)] = info;
+          map[`${parsed.className} - ${parsed.section}`] = info;
+          map[`${parsed.className}-${parsed.section}`] = info;
         }
       }
     });
     return map;
   }, [teachers]);
+
+  // Detect conflict if selected class is already assigned to another teacher
+  const conflictTeacher = useMemo(() => {
+    if (!classTeacherOf || classTeacherOf === "__none__") return null;
+    const info = currentClassTeacherMap[classTeacherOf.trim()];
+    if (!info) return null;
+    if (editingTeacherId && info.id === editingTeacherId) return null;
+    if (teacherName && info.name.trim().toLowerCase() === teacherName.trim().toLowerCase()) return null;
+    return info;
+  }, [classTeacherOf, currentClassTeacherMap, editingTeacherId, teacherName]);
 
   return (
     <div className="space-y-4 w-full">
@@ -941,698 +1136,73 @@ export function RoutineTeachersTab({
         </div>
       </div>
 
-      {/* Availability & Class/Subject Editor Card */}
+      {/* Availability & Class/Subject Editor Form */}
       {isEditorOpen && (
-        <form
-          onSubmit={handleSave}
-          autoComplete="off"
-          className="bg-card border-2 border-primary/40 rounded-lg p-4 shadow-sm space-y-4 animate-in fade-in duration-150"
-        >
-          <div className="flex items-center justify-between border-b pb-2.5">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-4 h-4 text-primary" />
-              <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                {editingTeacherId && !unaddedStaff.some((s) => s.id === editingTeacherId)
-                  ? `Edit Faculty: ${teacherName}`
-                  : "Select & Configure Faculty Member"}
-              </h2>
-            </div>
-            <Button type="button" variant="ghost" size="sm" onClick={handleCancel} className="h-7 w-7 p-0">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {/* Row 1: Teacher Selection & Initials (2 fields) */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* 1. Saved Teacher Dropdown Selection */}
-            <div className="space-y-1.5 sm:col-span-2">
-              <Label className="text-xs font-semibold">Select Teacher from Staff *</Label>
-              {staffList.length > 0 ? (
-                <Select
-                  value={selectedStaffId}
-                  onValueChange={(val) => val && handleStaffDropdownChange(val)}
-                >
-                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                    <SelectValue placeholder="Select Teacher">
-                      {selectedStaffLabel}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectableStaffList.length > 0 ? (
-                      selectableStaffList.map((s) => (
-                        <SelectItem key={s.id} value={s.id} className="text-xs">
-                          {s.full_name} {s.designation ? `(${s.designation})` : ""}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="__none__" disabled className="text-xs">
-                        All School Staff Added
-                      </SelectItem>
-                    )}
-                    <SelectItem value="__custom__" className="text-xs font-medium text-primary">
-                      + Custom Teacher (Manual Name)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  type="text"
-                  placeholder="e.g. Ananya Kayal"
-                  value={teacherName}
-                  onChange={(e) => handleCustomNameChange(e.target.value)}
-                  className="h-8 text-xs font-medium"
-                  required
-                />
-              )}
-            </div>
-
-            {/* Custom Teacher Name field if __custom__ selected, else Initials */}
-            {selectedStaffId === "__custom__" ? (
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label className="text-xs font-semibold">Custom Teacher Name *</Label>
-                <Input
-                  type="text"
-                  placeholder="Enter full name"
-                  value={teacherName}
-                  onChange={(e) => handleCustomNameChange(e.target.value)}
-                  className="h-8 text-xs font-medium"
-                  required
-                />
-              </div>
-            ) : (
-              <div className="space-y-1.5 sm:col-span-1">
-                <Label className="text-xs font-semibold">Short Code / Initials *</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g. AK, RM"
-                  maxLength={6}
-                  value={shortName}
-                  onChange={(e) => setShortName(e.target.value.toUpperCase())}
-                  className="h-8 text-xs font-mono font-bold uppercase"
-                  required
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Row 2: Primary Subject, Class Teacher Of, (1st Period Quota if CT), Max Periods / Week */}
-          <div
-            className={cn(
-              "grid grid-cols-1 gap-3",
-              classTeacherOf && classTeacherOf !== "__none__"
-                ? "sm:grid-cols-2 lg:grid-cols-4"
-                : "sm:grid-cols-3"
-            )}
-          >
-            {/* 3. Primary Subject / Specialization */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Primary Subject</Label>
-              <Select
-                value={primarySubject || "__none__"}
-                onValueChange={(val) => {
-                  if (!val || val === "__none__") {
-                    setPrimarySubject("");
-                  } else {
-                    setPrimarySubject(val);
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                  <SelectValue placeholder="Select Subject">
-                    {primarySubject === "__custom__"
-                      ? "Custom Subject..."
-                      : primarySubject || "-- None / General --"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                    -- None / General --
-                  </SelectItem>
-                  {availableSubjectOptions.map((subj) => (
-                    <SelectItem key={subj} value={subj} className="text-xs">
-                      {subj}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__custom__" className="text-xs font-medium text-primary">
-                    + Custom Subject...
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 4. Class Teacher Assignment */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Class Teacher Of</Label>
-              <Select
-                value={classTeacherOf || "__none__"}
-                onValueChange={(val) => setClassTeacherOf(val || "")}
-              >
-                <SelectTrigger className="h-8 text-xs bg-background font-medium">
-                  <SelectValue placeholder="Select Class">
-                    {classTeacherOf && classTeacherOf !== "__none__"
-                      ? classTeacherOf
-                      : "-- Not Assigned --"}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                    -- Not a Class Teacher --
-                  </SelectItem>
-                  {availableClassOptions.map((c) => {
-                    const currentCt = currentClassTeacherMap[c.label];
-                    const isCurrent = editingTeacherId && currentCt === teacherName;
-                    return (
-                      <SelectItem key={c.id || c.label} value={c.label} className="text-xs">
-                        <span>{c.label}</span>
-                        {currentCt && !isCurrent && (
-                          <span className="text-[10px] text-muted-foreground ml-1 font-normal">
-                            (CT: {currentCt})
-                          </span>
-                        )}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 4b. 1st Period in CT Class (Only shown when Class Teacher is assigned) */}
-            {classTeacherOf && classTeacherOf !== "__none__" && (
-              <div className="space-y-1.5 animate-in fade-in duration-150">
-                <Label className="text-xs font-semibold text-primary flex items-center justify-between">
-                  <span>CT 1st Periods / Wk</span>
-                  <span className="text-[10px] text-muted-foreground font-normal">(Default 3)</span>
-                </Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={6}
-                  value={classTeacherFirstPeriods}
-                  onChange={(e) => setClassTeacherFirstPeriods(parseInt(e.target.value, 10) || 1)}
-                  className="h-8 text-xs font-mono font-bold border-primary/40 bg-primary/5 focus:bg-background"
-                  required
-                />
-              </div>
-            )}
-
-            {/* 5. Max periods limit */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Max Periods / Week</Label>
-              <Input
-                type="number"
-                min={1}
-                max={48}
-                value={maxPeriods}
-                onChange={(e) => setMaxPeriods(parseInt(e.target.value, 10) || 24)}
-                className="h-8 text-xs font-mono font-medium"
-              />
-            </div>
-          </div>
-
-          {/* Custom Subject Input if __custom__ selected */}
-          {primarySubject === "__custom__" && (
-            <div className="p-2.5 bg-muted/40 border rounded-md space-y-1 max-w-sm">
-              <Label className="text-xs font-medium">Enter Custom Subject Name *</Label>
-              <Input
-                type="text"
-                placeholder="e.g. Sanskrit, Statistics"
-                value={customPrimarySubject}
-                onChange={(e) => setCustomPrimarySubject(e.target.value)}
-                className="h-8 text-xs bg-background"
-                required
-              />
-            </div>
-          )}
-
-          {/* Class & Subject Eligibility Setup */}
-          <div className="space-y-2.5 pt-1 border-t">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-primary" />
-                <Label className="text-xs font-semibold text-foreground">
-                  Eligible Classes & Preset Subjects
-                </Label>
-              </div>
-              <span className="text-[11px] text-muted-foreground font-medium">
-                {selectedClasses.length} Classes Selected
-              </span>
-            </div>
-
-            {/* Class Selection Pills */}
-            <div className="flex flex-wrap gap-1.5 p-2 bg-muted/30 border rounded-lg">
-              {presetClasses.map((c) => {
-                const isSelected = selectedClasses.includes(c.name);
-                const subCount = (classSubjectsMap[c.name] || []).length;
-                const secCount = (classSectionsMap[c.name] || getClassSections(c.name)).length;
-                const periodLoad = classPeriodsMap[c.name];
-                return (
-                  <button
-                    key={c.name}
-                    type="button"
-                    onClick={() => toggleClass(c.name)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-md text-xs font-semibold border transition-all flex items-center gap-1.5 select-none",
-                      isSelected
-                        ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                        : "bg-background text-muted-foreground border-border hover:bg-muted/60"
-                    )}
-                  >
-                    <span>{c.name}</span>
-                    {isSelected && (
-                      <Badge
-                        variant="secondary"
-                        className="text-[9px] px-1 py-0 bg-primary-foreground/20 text-primary-foreground border-transparent font-mono"
-                      >
-                        {secCount} Sec • {subCount} Sub {periodLoad ? `• ${periodLoad}p` : ""}
-                      </Badge>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Subject, Section & Period Panels for Each Selected Class */}
-            {selectedClasses.length > 0 && (
-              <div className="space-y-3 pt-1">
-                {presetClasses
-                  .filter((c) => selectedClasses.includes(c.name))
-                  .map((c) => {
-                    const availableSubs = classSubjectsDictionary[c.name] || [];
-                    const allSecs = getClassSections(c.name);
-                    const selectedSecs = classSectionsMap[c.name] || allSecs;
-                    const allSecsSelected =
-                      allSecs.length > 0 && selectedSecs.length === allSecs.length;
-                    const currentActiveSec =
-                      activeSectionTab[c.name] || (allSecs.length > 1 ? "ALL" : allSecs[0] || "A");
-
-                    const classTotalPeriods = selectedSecs.reduce(
-                      (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
-                      0
-                    );
-
-                    return (
-                      <div
-                        key={c.name}
-                        className="p-3 bg-card border rounded-lg space-y-3 shadow-xs"
-                      >
-                        {/* Class Header: Name & Auto Total Workload */}
-                        <div className="flex items-center justify-between border-b pb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="font-bold text-xs text-foreground font-mono bg-background"
-                            >
-                              {c.name}
-                            </Badge>
-                            <span className="text-[11px] text-muted-foreground">
-                              {selectedSecs.length} Active {selectedSecs.length === 1 ? "Section" : "Sections"}
-                            </span>
-                          </div>
-
-                          <Badge
-                            variant="secondary"
-                            className="font-mono text-xs font-bold text-primary bg-primary/10 border-primary/20"
-                          >
-                            Class Total: {classTotalPeriods} p/wk
-                          </Badge>
-                        </div>
-
-                        {/* Section Selection Bar & Switcher */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[11px] font-semibold text-foreground">
-                              Configure Section ({c.name}):
-                            </span>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              Click to switch
-                            </span>
-                          </div>
-
-                          {/* Clean Segmented Tab Buttons */}
-                          <div className="flex flex-wrap gap-1.5 p-1 bg-muted/30 rounded-lg border">
-                            {allSecs.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveSectionTab((prev) => ({ ...prev, [c.name]: "ALL" }));
-                                  if (!allSecsSelected) {
-                                    setClassSectionsMap((prev) => ({ ...prev, [c.name]: [...allSecs] }));
-                                  }
-                                }}
-                                className={cn(
-                                  "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                  currentActiveSec === "ALL"
-                                    ? "bg-primary text-primary-foreground shadow-xs font-bold ring-1 ring-primary/40"
-                                    : "bg-background text-foreground hover:bg-muted/80 border border-transparent hover:border-border"
-                                )}
-                              >
-                                {currentActiveSec === "ALL" && (
-                                  <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                                )}
-                                <span>All Sections</span>
-                                <Badge
-                                  variant="secondary"
-                                  className={cn(
-                                    "text-[10px] font-mono px-1.5 py-0 font-bold",
-                                    currentActiveSec === "ALL"
-                                      ? "bg-primary-foreground text-primary"
-                                      : "bg-muted text-muted-foreground"
-                                  )}
-                                >
-                                  {classTotalPeriods} p/wk
-                                </Badge>
-                              </button>
-                            )}
-
-                            {allSecs.map((sec) => {
-                              const isFocused = currentActiveSec === sec;
-                              const secLoad = calculateSectionTotalPeriods(c.name, sec);
-
-                              return (
-                                <button
-                                  key={sec}
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveSectionTab((prev) => ({ ...prev, [c.name]: sec }));
-                                    if (!selectedSecs.includes(sec)) {
-                                      setClassSectionsMap((prev) => ({
-                                        ...prev,
-                                        [c.name]: Array.from(new Set([...(prev[c.name] || allSecs), sec])),
-                                      }));
-                                    }
-                                  }}
-                                  className={cn(
-                                    "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none",
-                                    isFocused
-                                      ? "bg-primary text-primary-foreground shadow-xs font-bold ring-1 ring-primary/40"
-                                      : "bg-background text-foreground hover:bg-muted/80 border border-transparent hover:border-border"
-                                  )}
-                                >
-                                  {isFocused && (
-                                    <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                                  )}
-                                  <span>Sec {sec}</span>
-                                  <Badge
-                                    variant="secondary"
-                                    className={cn(
-                                      "text-[10px] font-mono px-1.5 py-0 font-bold",
-                                      isFocused
-                                        ? "bg-primary-foreground text-primary"
-                                        : "bg-muted text-muted-foreground"
-                                    )}
-                                  >
-                                    {secLoad} p/wk
-                                  </Badge>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Subjects for the Active Section or All Sections */}
-                        {selectedSecs.includes(currentActiveSec) || (currentActiveSec === "ALL" && selectedSecs.length > 0) ? (
-                          <div className="space-y-2 pt-2 border-t bg-muted/15 -mx-3 -mb-3 p-3 rounded-b-lg">
-                            <div className="flex flex-wrap items-center justify-between gap-1.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] font-semibold text-foreground">
-                                  {currentActiveSec === "ALL" ? "Subjects for All Sections:" : `Subjects for Sec ${currentActiveSec}:`}
-                                </span>
-                                <Badge variant="outline" className="text-[10px] font-mono font-bold bg-background">
-                                  {getSectionSubjects(c.name, currentActiveSec).length} Selected • {currentActiveSec === "ALL" ? classTotalPeriods : calculateSectionTotalPeriods(c.name, currentActiveSec)} p/wk
-                                </Badge>
-                              </div>
-
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleAllSubjectsForSection(c.name, currentActiveSec)}
-                                  className="h-5 text-[10px] px-1.5 text-primary hover:bg-primary/10"
-                                >
-                                  {getSectionSubjects(c.name, currentActiveSec).length === availableSubs.length &&
-                                  availableSubs.length > 0
-                                    ? "Deselect All"
-                                    : "Select All"}
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Subject Pills with live quota breakdown and inline editable p/wk */}
-                            <div className="flex flex-wrap gap-2 pt-0.5">
-                              {availableSubs.length === 0 ? (
-                                <span className="text-xs text-muted-foreground italic">
-                                  No subjects configured for this class in School Settings.
-                                </span>
-                              ) : (
-                                availableSubs.map((sub) => {
-                                  const secSubs = getSectionSubjects(c.name, currentActiveSec);
-                                  const isSubActive = secSubs.includes(sub);
-                                  const subPeriod = getSubjectPeriod(c.name, currentActiveSec, sub);
-                                  const stats = getSubjectAllocationStats(c.name, currentActiveSec, sub);
-                                  const isOverflow = isSubActive && subPeriod > stats.remaining;
-                                  const overflowAmount = subPeriod - stats.remaining;
-
-                                  return (
-                                    <div
-                                      key={sub}
-                                      className={cn(
-                                        "inline-flex flex-col sm:flex-row items-stretch sm:items-center rounded-lg border text-xs transition-all p-1 gap-1",
-                                        isSubActive
-                                          ? isOverflow
-                                            ? "bg-card border-rose-500/60 shadow-2xs text-foreground ring-1 ring-rose-500/30"
-                                            : "bg-card border-primary/50 shadow-2xs text-foreground ring-1 ring-primary/20"
-                                          : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/60"
-                                      )}
-                                    >
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          toggleSubjectForSection(c.name, currentActiveSec, sub)
-                                        }
-                                        className={cn(
-                                          "px-2 py-1 text-left font-medium flex items-center gap-1.5 select-none transition-colors",
-                                          isSubActive ? "text-primary font-semibold" : "text-foreground/80 hover:text-foreground"
-                                        )}
-                                      >
-                                        <div
-                                          className={cn(
-                                            "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors shrink-0",
-                                            isSubActive
-                                              ? "bg-primary border-primary text-primary-foreground"
-                                              : "border-muted-foreground/50 bg-background"
-                                          )}
-                                        >
-                                          {isSubActive && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                                        </div>
-                                        <div className="flex flex-col">
-                                          <span className="font-semibold text-xs leading-tight">{sub}</span>
-                                          <div className="flex items-center gap-1 mt-0.5">
-                                            {stats.isFullyBooked ? (
-                                              <span className="text-[9.5px] px-1 py-0 rounded bg-muted text-muted-foreground border border-border font-mono">
-                                                Full ({stats.otherTeachers.map((t) => `${t.shortName}: ${t.periods}p`).join(", ")})
-                                              </span>
-                                            ) : stats.otherAssigned > 0 ? (
-                                              <span className="text-[9.5px] px-1 py-0 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
-                                                {stats.otherAssigned}/{stats.totalDemand} ({stats.otherTeachers.map((t) => `${t.shortName}:${t.periods}p`).join(",")}) • {stats.remaining} Rem
-                                              </span>
-                                            ) : (
-                                              <span className="text-[9.5px] px-1 py-0 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
-                                                0/{stats.totalDemand} • {stats.remaining} Free
-                                              </span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </button>
-
-                                      {isSubActive && (
-                                        <div className="flex items-center justify-between sm:justify-start gap-1.5 px-2 py-0.5 border-t sm:border-t-0 sm:border-l border-border/80 bg-muted/20 rounded">
-                                          <div className="flex items-center gap-1">
-                                            <Input
-                                              type="number"
-                                              min={1}
-                                              max={20}
-                                              value={subPeriod}
-                                              onChange={(e) =>
-                                                handleSubjectPeriodChange(
-                                                  c.name,
-                                                  currentActiveSec,
-                                                  sub,
-                                                  e.target.value
-                                                )
-                                              }
-                                              className={cn(
-                                                "h-6 w-11 text-[11px] font-mono font-bold px-1 text-center bg-background",
-                                                isOverflow
-                                                  ? "border-rose-500 text-rose-500 focus:ring-rose-500"
-                                                  : "border-primary/40 text-foreground"
-                                              )}
-                                              title={`Weekly periods for ${sub}${currentActiveSec === "ALL" ? " across all sections" : ` in Sec ${currentActiveSec}`}`}
-                                            />
-                                            <span className="text-[10px] text-muted-foreground font-mono font-medium">
-                                              p/wk
-                                            </span>
-                                          </div>
-
-                                          {isOverflow && (
-                                            <Badge
-                                              variant="destructive"
-                                              className="text-[9px] px-1 py-0 gap-0.5 bg-rose-500/15 text-rose-500 border border-rose-500/30 hover:bg-rose-500/20 font-bold"
-                                              title="Assigned periods exceed remaining unallocated demand"
-                                            >
-                                              <AlertTriangle className="w-2.5 h-2.5" />
-                                              +{overflowAmount} Over
-                                            </Badge>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="p-2.5 bg-muted/20 border border-dashed rounded text-center text-xs text-muted-foreground">
-                            Select a section above to configure its subjects and weekly period load.
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-
-          {/* Availability Matrix */}
-          <div className="space-y-2 pt-2 border-t">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold text-foreground">Weekly Period Availability Matrix</Label>
-              <Badge variant="outline" className="text-[10px] font-mono">
-                {settings.workingDays.length} Working Days
-              </Badge>
-            </div>
-
-            <div className="border rounded-md divide-y overflow-hidden text-xs bg-card">
-              {settings.workingDays.map((dIdx) => {
-                const dayPeriods = availSlots[dIdx] || [];
-                const isHalf = settings.halfDays?.includes(dIdx);
-                const maxP = isHalf ? settings.halfDayPeriods || 4 : settings.periodsPerDay;
-
-                return (
-                  <div
-                    key={dIdx}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-2.5 hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 sm:w-32">
-                      <span className="font-semibold text-xs text-foreground">{DAY_NAMES[dIdx]}</span>
-                      {isHalf && (
-                        <Badge
-                          variant="outline"
-                          className="text-[9px] px-1 py-0 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-300"
-                        >
-                          Half
-                        </Badge>
-                      )}
-                    </div>
-
-                    {/* Period chips */}
-                    <div className="flex flex-wrap gap-1 flex-1">
-                      {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                        const isSelected = dayPeriods.includes(p);
-                        const isBreak = settings.breaks.includes(p);
-                        const isOverLimit = p > maxP;
-
-                        if (isOverLimit) {
-                          return (
-                            <span
-                              key={p}
-                              className="px-2 py-0.5 rounded text-[10px] font-mono border bg-muted/40 text-muted-foreground/40 select-none"
-                            >
-                              -
-                            </span>
-                          );
-                        }
-
-                        return (
-                          <button
-                            key={p}
-                            type="button"
-                            onClick={() => togglePeriod(dIdx, p)}
-                            className={cn(
-                              "px-2 py-0.5 rounded text-[11px] font-mono font-medium border transition-all select-none",
-                              isSelected && "bg-primary text-primary-foreground border-primary shadow-xs font-bold",
-                              !isSelected && "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
-                            )}
-                          >
-                            P{p}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Quick presets */}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPreset(dIdx, "all")}
-                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                      >
-                        All
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPreset(dIdx, "morning")}
-                        className="h-6 px-1.5 text-[10px] text-muted-foreground hover:text-foreground"
-                      >
-                        Morning
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setPreset(dIdx, "none")}
-                        className="h-6 px-1.5 text-[10px] text-destructive hover:bg-destructive/10"
-                      >
-                        Clear
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button type="button" variant="outline" size="sm" onClick={handleCancel} className="h-8 text-xs">
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isSubmitting || !teacherName.trim()}
-              className="h-8 text-xs font-semibold px-4"
-            >
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-              Save Teacher & Qualifications
-            </Button>
-          </div>
-        </form>
+        <TeacherEditorForm
+          isSubmitting={isSubmitting}
+          editingTeacherId={editingTeacherId}
+          teacherName={teacherName}
+          shortName={shortName}
+          primarySubject={primarySubject}
+          customPrimarySubject={customPrimarySubject}
+          classTeacherOf={classTeacherOf}
+          classTeacherFirstPeriods={classTeacherFirstPeriods}
+          maxPeriods={maxPeriods}
+          selectedClasses={selectedClasses}
+          classSubjectsMap={classSubjectsMap}
+          sectionSubjectsMap={sectionSubjectsMap}
+          classSectionsMap={classSectionsMap}
+          classPeriodsMap={classPeriodsMap}
+          activeSectionTab={activeSectionTab}
+          availSlots={availSlots}
+          presetClasses={presetClasses}
+          staffList={staffList}
+          selectableStaffList={selectableStaffList}
+          unaddedStaff={unaddedStaff}
+          selectedStaffId={selectedStaffId}
+          selectedStaffLabel={selectedStaffLabel}
+          availableSubjectOptions={availableSubjectOptions}
+          availableClassOptions={availableClassOptions}
+          currentClassTeacherMap={currentClassTeacherMap}
+          conflictTeacher={conflictTeacher}
+          classSubjectsDictionary={classSubjectsDictionary}
+          settings={settings}
+          onSave={handleSave}
+          onCancel={handleCancel}
+          onStaffDropdownChange={handleStaffDropdownChange}
+          onCustomNameChange={handleCustomNameChange}
+          setShortName={setShortName}
+          setPrimarySubject={setPrimarySubject}
+          setCustomPrimarySubject={setCustomPrimarySubject}
+          setClassTeacherOf={setClassTeacherOf}
+          setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
+          setMaxPeriods={setMaxPeriods}
+          onToggleClass={toggleClass}
+          onToggleSubjectForSection={toggleSubjectForSection}
+          onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
+          onSubjectPeriodChange={handleSubjectPeriodChange}
+          onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
+          onSelectSection={handleSelectSection}
+          onTogglePeriod={togglePeriod}
+          onSetPreset={setPreset}
+          getClassSections={getClassSections}
+          getSectionSubjects={getSectionSubjects}
+          getSubjectPeriod={getSubjectPeriod}
+          getSubjectAllocationStats={getSubjectAllocationStats}
+          calculateSectionTotalPeriods={calculateSectionTotalPeriods}
+        />
       )}
 
       {/* Teachers List Table */}
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
-        <div className="px-4 py-2.5 bg-muted/40 border-b flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">Teaching Faculty</span>
-            <Badge variant="secondary" className="text-[10px] font-mono">
-              {teachers.length} Active Staff
-            </Badge>
-          </div>
+        <div className="px-4 py-2 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-2">
+          <TeacherSummaryBadges
+            totalStaffCount={teachers.length}
+            totalAllottedLoad={totalAllottedLoad}
+            totalSchoolSubjectPeriods={totalSchoolSubjectPeriods}
+            totalAssignedSubjects={totalAssignedSubjects}
+            totalSchoolSubjects={totalSchoolSubjects}
+          />
         </div>
 
         <div className="overflow-x-auto">
@@ -1664,6 +1234,8 @@ export function RoutineTeachersTab({
                     key={t.id}
                     teacher={t}
                     load={teacherLoadMap[t.id] || 0}
+                    subjects={subjects}
+                    classTotalSubjectsMap={classTotalSubjectsMap}
                     settings={settings}
                     onEdit={handleEdit}
                     onDelete={onDeleteTeacher ? handleDelete : undefined}
@@ -1677,163 +1249,3 @@ export function RoutineTeachersTab({
     </div>
   );
 }
-
-interface TeacherTableRowProps {
-  teacher: RoutineTeacher;
-  load: number;
-  settings: RoutineSettings;
-  onEdit: (t: RoutineTeacher) => void;
-  onDelete?: (id: string) => Promise<void>;
-}
-
-const TeacherTableRow = React.memo(function TeacherTableRow({
-  teacher: t,
-  load,
-  settings,
-  onEdit,
-  onDelete,
-}: TeacherTableRowProps) {
-  const isOverloaded = load > t.maxPeriods;
-  const totalSlots = settings.workingDays.reduce((acc, d) => {
-    const raw = t.availableSlots?.[d] ?? (t.availableSlots as any)?.[String(d)];
-    return acc + (Array.isArray(raw) ? raw.length : settings.periodsPerDay);
-  }, 0);
-
-  const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
-  const cSubjects = t.classSubjects || {};
-  const cSections = t.classSections || {};
-  const cPeriods = t.classPeriods || {};
-  const sPeriods = t.sectionPeriods || {};
-
-  return (
-    <tr className="hover:bg-muted/30 transition-colors">
-      <td className="py-2.5 px-4 font-semibold text-foreground">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span>{t.name}</span>
-          {t.classTeacherOf && (
-            <Badge
-              variant="secondary"
-              className="text-[9px] px-1.5 py-0 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200"
-            >
-              CT: {t.classTeacherOf}
-            </Badge>
-          )}
-        </div>
-      </td>
-      <td className="py-2.5 px-4">
-        <Badge variant="outline" className="font-mono text-[10px] font-bold">
-          {t.shortName || "-"}
-        </Badge>
-      </td>
-      <td className="py-2.5 px-4">
-        {t.primarySubject ? (
-          <Badge variant="secondary" className="text-[10px] font-medium bg-muted font-mono">
-            {t.primarySubject}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-[11px]">-</span>
-        )}
-      </td>
-      <td className="py-2.5 px-4">
-        {t.classTeacherOf ? (
-          <div className="flex flex-col gap-0.5">
-            <span className="font-semibold text-primary text-[11px] flex items-center gap-1">
-              <Award className="w-3 h-3 text-primary" />
-              {t.classTeacherOf}
-            </span>
-            <span className="text-[10px] text-muted-foreground font-mono">
-              1st Period: {t.classTeacherFirstPeriods ?? 3}/wk
-            </span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-[11px]">-</span>
-        )}
-      </td>
-      <td className="py-2.5 px-4">
-        {qClasses.length === 0 ? (
-          <span className="text-muted-foreground text-[11px] italic">
-            All classes & subjects
-          </span>
-        ) : (
-          <div className="flex flex-wrap gap-1.5 max-w-lg">
-            {qClasses.map((cls) => {
-              const subs = cSubjects[cls] || [];
-              const secs = cSections[cls] || [];
-              const periodTarget = cPeriods[cls];
-
-              return (
-                <div
-                  key={cls}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-muted/60 border text-[10px] font-medium text-foreground flex-wrap"
-                >
-                  <span className="font-bold text-primary">{cls}:</span>
-                  {secs.length > 0 && (
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background font-semibold">
-                      {secs
-                        .map((sec) => {
-                          const p = sPeriods[`${cls}::${sec}`] || sPeriods[`${cls}-${sec}`] || sPeriods[`${cls}_${sec}`];
-                          return p ? `Sec ${sec} (${p}p)` : `Sec ${sec}`;
-                        })
-                        .join(", ")}
-                    </Badge>
-                  )}
-                  {periodTarget && periodTarget > 0 && (
-                    <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono bg-primary/10 text-primary font-bold">
-                      {periodTarget} p/wk
-                    </Badge>
-                  )}
-                  <span className="text-muted-foreground">
-                    {subs.length > 0 ? subs.join(", ") : "All"}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </td>
-      <td className="py-2.5 px-4 font-mono text-muted-foreground text-[11px]">
-        {t.maxPeriods} p/wk
-      </td>
-      <td className="py-2.5 px-4">
-        <Badge
-          variant={isOverloaded ? "destructive" : "secondary"}
-          className={cn(
-            "text-[10px] font-mono gap-1",
-            !isOverloaded && load > 0 && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200"
-          )}
-        >
-          {isOverloaded && <AlertTriangle className="w-2.5 h-2.5" />}
-          {!isOverloaded && load > 0 && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />}
-          {load} / {t.maxPeriods}
-        </Badge>
-      </td>
-      <td className="py-2.5 px-4">
-        <span className="text-muted-foreground text-[11px] font-mono">
-          {totalSlots} slots/wk
-        </span>
-      </td>
-      <td className="py-2.5 px-4 text-right">
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onEdit(t)}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-          >
-            <Edit2 className="h-3.5 w-3.5" />
-          </Button>
-          {onDelete && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(t.id)}
-              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-});

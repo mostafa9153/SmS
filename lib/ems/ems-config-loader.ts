@@ -8,6 +8,7 @@ export interface DynamicClassItem {
   code: string;
   sections: string[];
   stream?: string;
+  streamSections?: Record<string, string[]>;
 }
 
 export const FALLBACK_CLASSES: DynamicClassItem[] = [
@@ -17,8 +18,8 @@ export const FALLBACK_CLASSES: DynamicClassItem[] = [
   { name: "Class VIII", code: "VIII", sections: ["A", "B"] },
   { name: "Class IX", code: "IX", sections: ["A", "B"] },
   { name: "Class X", code: "X", sections: ["A", "B"] },
-  { name: "Class XI", code: "XI", sections: ["A", "B", "C"] },
-  { name: "Class XII", code: "XII", sections: ["A", "B", "C"] },
+  { name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts", streamSections: { Arts: ["A", "B"] } },
+  { name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts", streamSections: { Arts: ["A", "B"] } },
 ];
 
 // Numeric rank helper to sort classes in standard grade sequence: V -> VI -> VII -> VIII -> IX -> X -> XI -> XII
@@ -56,10 +57,12 @@ export function getDynamicClassList(): DynamicClassItem[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
         const mapped: DynamicClassItem[] = parsed.map((c: any) => ({
+          id: c.id,
           name: c.name || `Class ${c.code}`,
           code: String(c.code || c.name).trim().toUpperCase(),
           sections: Array.isArray(c.sections) && c.sections.length > 0 ? c.sections : ["A", "B"],
           stream: c.stream,
+          streamSections: c.streamSections,
         }));
         return mapped.sort((a, b) => getClassNumericRank(a.code) - getClassNumericRank(b.code));
       }

@@ -20,8 +20,10 @@ import {
   Sparkles,
   Layers,
   CheckCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { showToast } from "@/components/ui/toast-banner";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import {
   isHsClass,
@@ -30,6 +32,7 @@ import {
   getConfiguredStreamsForClass,
 } from "@/lib/routine/routine-helpers";
 import { getClassStreamList } from "@/lib/utils/school-profile";
+import { cn } from "@/lib/utils";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -56,9 +59,58 @@ export function RoutineClassesTab({
   const [presetClassesList, setPresetClassesList] = useState<ReturnType<typeof getDynamicClassList>>([]);
 
   useEffect(() => {
-    const list = getDynamicClassList();
-    setPresetClassesList(list && list.length > 0 ? list : FALLBACK_CLASSES);
+    const refreshList = () => {
+      const list = getDynamicClassList();
+      setPresetClassesList(list && list.length > 0 ? list : FALLBACK_CLASSES);
+    };
+    refreshList();
+    window.addEventListener("sms_class_management_updated", refreshList);
+    window.addEventListener("sms_routine_state_updated", refreshList);
+    return () => {
+      window.removeEventListener("sms_class_management_updated", refreshList);
+      window.removeEventListener("sms_routine_state_updated", refreshList);
+    };
   }, []);
+
+  // Auto-prune any orphaned classes in routine that are no longer configured in School Details
+  useEffect(() => {
+    if (!classes || classes.length === 0 || !onDeleteClass) return;
+    const list = presetClassesList.length > 0 ? presetClassesList : getDynamicClassList();
+    if (!list || list.length === 0) return;
+
+    const allowedStreamsMap = new Map<string, Set<string>>();
+    list.forEach((c: any) => {
+      const isHs = isHsClass(c.name, c.code);
+      if (isHs) {
+        const streams = c.streamSections && Object.keys(c.streamSections).length > 0
+          ? Object.keys(c.streamSections)
+          : (c.stream ? getClassStreamList(c.stream, ["Arts"]) : getConfiguredStreamsForClass(c.name));
+        const sSet = new Set(streams.map((s) => s.trim().toLowerCase()));
+        allowedStreamsMap.set(c.name.trim().toLowerCase(), sSet);
+        allowedStreamsMap.set(`class ${c.code.trim().toLowerCase()}`, sSet);
+      }
+    });
+
+    const orphanedIds: string[] = [];
+    classes.forEach((c) => {
+      const normName = (c.className || "").trim().toLowerCase();
+      const isHs = isHsClass(c.className);
+      if (isHs && allowedStreamsMap.has(normName)) {
+        const parsed = parseSectionAndStream(c.section);
+        const streamLower = (parsed.stream || "").trim().toLowerCase();
+        const allowedStreams = allowedStreamsMap.get(normName)!;
+        if (streamLower && streamLower !== "general" && !allowedStreams.has(streamLower)) {
+          if (c.id) orphanedIds.push(c.id);
+        }
+      }
+    });
+
+    if (orphanedIds.length > 0) {
+      orphanedIds.forEach((id) => {
+        onDeleteClass(id).catch((err) => console.warn("Prune orphaned class error:", err));
+      });
+    }
+  }, [classes, presetClassesList, onDeleteClass]);
 
   // Calculate Max weekly periods/classes for a class based on active schedule
   const calculateWeeklyPeriods = useCallback(
@@ -92,24 +144,18 @@ export function RoutineClassesTab({
       const secs = c.sections && c.sections.length > 0 ? c.sections : ["A", "B"];
 
       if (isHs) {
-        const streams = c.stream
-          ? getClassStreamList(c.stream)
-          : getConfiguredStreamsForClass(c.name);
+        const allowedStreamsList = c.stream
+          ? getClassStreamList(c.stream, ["Arts"])
+          : (c.streamSections && Object.keys(c.streamSections).length > 0 ? Object.keys(c.streamSections) : ["Arts"]);
 
-        if (c.streamSections && Object.keys(c.streamSections).length > 0) {
-          streams.forEach((str) => {
-            const streamSecs = c.streamSections?.[str] || secs;
-            streamSecs.forEach((s: string) => {
-              items.push({ className: c.name, section: s, stream: str });
-            });
+        allowedStreamsList.forEach((str) => {
+          const streamSecs = (c.streamSections && c.streamSections[str] && c.streamSections[str].length > 0)
+            ? c.streamSections[str]
+            : (c.sections && c.sections.length > 0 ? c.sections : ["A"]);
+          streamSecs.forEach((s: string) => {
+            items.push({ className: c.name, section: s, stream: str });
           });
-        } else {
-          secs.forEach((s: string) => {
-            streams.forEach((str) => {
-              items.push({ className: c.name, section: s, stream: str });
-            });
-          });
-        }
+        });
       } else {
         secs.forEach((s: string) => {
           items.push({ className: c.name, section: s, stream: "General" });
@@ -220,10 +266,12 @@ export function RoutineClassesTab({
     const streams = Array.from(new Set(itemsForSec.map((i) => i.stream)));
     if (streams.length > 0) return streams;
 
-    const configured = targetClassObj?.stream
-      ? getClassStreamList(targetClassObj.stream)
-      : getConfiguredStreamsForClass(selectedClass);
-    return configured.length > 0 ? configured : ["Science", "Arts", "Commerce"];
+    const allowedStreams = targetClassObj?.stream
+      ? getClassStreamList(targetClassObj.stream, ["Arts"])
+      : (targetClassObj?.streamSections && Object.keys(targetClassObj.streamSections).length > 0
+          ? Object.keys(targetClassObj.streamSections)
+          : getConfiguredStreamsForClass(selectedClass));
+    return allowedStreams.length > 0 ? allowedStreams : ["Arts"];
   }, [selectedClass, selectedSection, unaddedPresetItems, presetClassesList]);
 
   // Synchronize dropdown selections when available options change
@@ -374,6 +422,19 @@ export function RoutineClassesTab({
           await onSaveClass(r);
         }
       }
+
+      showToast({
+        type: "success",
+        title: "All Classes Synced",
+        description: `Successfully synchronized ${newRows.length} classes & sections from School Setup.`,
+      });
+    } catch (err) {
+      console.error("Auto-sync error:", err);
+      showToast({
+        type: "error",
+        title: "Sync Failed",
+        description: "Failed to auto-sync school classes.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -398,10 +459,24 @@ export function RoutineClassesTab({
             size="sm"
             onClick={handleAutoLoadPresets}
             disabled={isSubmitting || isAllPresetsAdded}
-            className="h-7 text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/5 disabled:opacity-50"
+            className={cn(
+              "h-7 text-xs font-semibold gap-1.5 transition-all select-none",
+              isAllPresetsAdded
+                ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 cursor-default opacity-90"
+                : "border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
+            )}
           >
-            <Sparkles className="w-3.5 h-3.5 text-primary" />
-            {isAllPresetsAdded ? "All Preset Classes Added" : "Auto-Sync All School Preset Classes"}
+            {isAllPresetsAdded ? (
+              <>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>All School Classes Synced</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>Auto-Sync All School Preset Classes</span>
+              </>
+            )}
           </Button>
         </div>
 
@@ -439,8 +514,8 @@ export function RoutineClassesTab({
               disabled={isAllPresetsAdded || availableSections.length === 0}
             >
               <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder={availableSections.length === 0 ? "No Sections" : "Select Section"}>
-                  {selectedSection ? `Section ${selectedSection}` : availableSections.length === 0 ? "No Sections" : "Select Section"}
+                <SelectValue placeholder={isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}>
+                  {selectedSection ? `Section ${selectedSection}` : isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -462,8 +537,8 @@ export function RoutineClassesTab({
               disabled={isAllPresetsAdded || (availableStreams.length <= 1 && availableStreams[0] === "General")}
             >
               <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder="Select Stream">
-                  {selectedStream || "Select Stream"}
+                <SelectValue placeholder={isAllPresetsAdded ? "All Streams Added" : "Select Stream"}>
+                  {selectedStream || (isAllPresetsAdded ? "All Streams Added" : "Select Stream")}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -682,6 +757,8 @@ const ClassTableRow = React.memo(function ClassTableRow({
           variant="ghost"
           size="sm"
           onClick={() => onDeleteClass(cls.id)}
+          aria-label={`Delete ${cls.className} Section ${secName}`}
+          title={`Delete ${cls.className} Section ${secName}`}
           className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
         >
           <Trash2 className="h-3.5 w-3.5" />

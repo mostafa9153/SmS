@@ -7,7 +7,7 @@ import {
   getSchoolConfiguredStreams,
 } from "@/lib/utils/school-profile";
 import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
-import { RoutineClass, RoutineSettings } from "./types";
+import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher } from "./types";
 
 export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts", string[]> = {
   Common: ["Bengali", "English", "Environmental Studies", "Alternative English", "Hindi", "Urdu"],
@@ -17,6 +17,126 @@ export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts
 };
 
 export const PRESET_STREAMS = ["General", "Science", "Arts", "Commerce", "Vocational"] as const;
+
+/**
+ * Standardizes delimiter formatting for section key (e.g. "Class 10::A")
+ */
+export function toSectionKey(className: string, section: string): string {
+  return `${(className || "").trim()}::${(section || "").trim()}`;
+}
+
+/**
+ * Standardizes delimiter formatting for class subject key (e.g. "Class 10::Math")
+ */
+export function toClassSubjectKey(className: string, subjectName: string): string {
+  return `${(className || "").trim()}::${(subjectName || "").trim()}`;
+}
+
+/**
+ * Standardizes delimiter formatting for section-subject key (e.g. "Class 10::A::Math" or "Class 10::Math")
+ */
+export function toSubjectKey(
+  className: string,
+  section: string | null | undefined,
+  subjectName: string
+): string {
+  const cls = (className || "").trim();
+  const sub = (subjectName || "").trim();
+  const sec = (section || "").trim();
+  if (!sec || sec.toUpperCase() === "ALL" || sec.toUpperCase() === "GENERAL") {
+    return `${cls}::${sub}`;
+  }
+  return `${cls}::${sec}::${sub}`;
+}
+
+/**
+ * Safely retrieves configured weekly periods for a teacher on a specific subject,
+ * with full backwards compatibility across legacy delimiters (::, -, _).
+ */
+export function getTeacherSubjectPeriod(
+  teacher: RoutineTeacher,
+  className: string,
+  section: string,
+  subjectName: string,
+  fallbackDefault?: number
+): number {
+  const cls = (className || "").trim();
+  const sec = (section || "").trim();
+  const sub = (subjectName || "").trim();
+
+  // 1. Direct section-subject specific overrides
+  const specificVal =
+    teacher.subjectPeriods?.[`${cls}::${sec}::${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}::${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}::${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}-${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}_${sub}`];
+  if (specificVal !== undefined && specificVal !== null && Number(specificVal) > 0) {
+    return Number(specificVal);
+  }
+
+  // 2. Class-subject general override
+  const clsVal =
+    teacher.subjectPeriods?.[`${cls}::${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}-${sub}`] ??
+    teacher.subjectPeriods?.[`${cls}_${sub}`];
+  if (clsVal !== undefined && clsVal !== null && Number(clsVal) > 0) {
+    return Number(clsVal);
+  }
+
+  // 3. Section direct period
+  const secPeriod =
+    teacher.sectionPeriods?.[`${cls}::${sec}`] ??
+    teacher.sectionPeriods?.[`${cls}-${sec}`] ??
+    teacher.sectionPeriods?.[`${cls}_${sec}`];
+  if (secPeriod !== undefined && secPeriod !== null && Number(secPeriod) > 0) {
+    return Number(secPeriod);
+  }
+
+  // 4. Class direct period
+  const clsPeriod = teacher.classPeriods?.[cls];
+  if (clsPeriod !== undefined && clsPeriod !== null && Number(clsPeriod) > 0) {
+    return Number(clsPeriod);
+  }
+
+  return fallbackDefault ?? 5;
+}
+
+/**
+ * Safely retrieves section period override with backwards compatibility
+ */
+export function getTeacherSectionPeriod(
+  teacher: RoutineTeacher,
+  className: string,
+  section: string
+): number | undefined {
+  const cls = (className || "").trim();
+  const sec = (section || "").trim();
+  return (
+    teacher.sectionPeriods?.[`${cls}::${sec}`] ??
+    teacher.sectionPeriods?.[`${cls}-${sec}`] ??
+    teacher.sectionPeriods?.[`${cls}_${sec}`]
+  );
+}
+
+/**
+ * Safely retrieves section subjects with backwards compatibility and class fallback
+ */
+export function getTeacherSectionSubjects(
+  teacher: RoutineTeacher,
+  className: string,
+  section: string
+): string[] {
+  const cls = (className || "").trim();
+  const sec = (section || "").trim();
+  const list =
+    teacher.sectionSubjects?.[`${cls}::${sec}`] ??
+    teacher.sectionSubjects?.[`${cls}-${sec}`] ??
+    teacher.sectionSubjects?.[`${cls}_${sec}`] ??
+    teacher.classSubjects?.[cls] ??
+    [];
+  return list;
+}
 
 /**
  * Parses raw section string like "A (Science)", "Science", or "A - Science" into section and stream
@@ -125,7 +245,7 @@ export function detectSubjectStream(
  * Resolves streams configured in School Profile for a given HS class
  */
 export function getConfiguredStreamsForClass(className: string): Array<"Science" | "Commerce" | "Arts"> {
-  if (typeof window === "undefined") return ["Science", "Commerce", "Arts"];
+  if (typeof window === "undefined") return ["Arts"];
   const dynamicClasses = getDynamicClassList();
   const cleanCode = className.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
   const target = dynamicClasses.find(
@@ -136,7 +256,9 @@ export function getConfiguredStreamsForClass(className: string): Array<"Science"
   );
 
   let rawStreams: string[] = [];
-  if (target?.stream && target.stream.trim()) {
+  if (target?.streamSections && Object.keys(target.streamSections).length > 0) {
+    rawStreams = Object.keys(target.streamSections);
+  } else if (target?.stream && target.stream.trim()) {
     rawStreams = getClassStreamList(target.stream);
   } else {
     rawStreams = getSchoolConfiguredStreams();
@@ -156,7 +278,43 @@ export function getConfiguredStreamsForClass(className: string): Array<"Science"
     }
   });
 
-  return result.length > 0 ? result : ["Science", "Commerce", "Arts"];
+  return result.length > 0 ? result : ["Arts"];
+}
+
+/**
+ * Filters subjects appropriate for a given class and section/stream
+ */
+export function filterSubjectsForClassStream(
+  subjects: RoutineSubject[],
+  className: string,
+  section?: string
+): RoutineSubject[] {
+  const clsLower = (className || "").trim().toLowerCase();
+  const isHs = isHsClass(className);
+
+  const classSubs = subjects.filter(
+    (s) => !s.className || s.className.trim().toLowerCase() === clsLower
+  );
+
+  if (!isHs) {
+    return classSubs;
+  }
+
+  const { stream: parsedStream } = parseSectionAndStream(section || "");
+  const configuredStreams = getConfiguredStreamsForClass(className);
+  const targetStream =
+    parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all"
+      ? parsedStream
+      : configuredStreams[0] || "Arts";
+
+  return classSubs.filter((s) => {
+    const detStream = detectSubjectStream(s.name, s.stream);
+    return (
+      detStream === "Common" ||
+      Boolean(s.isCommon) ||
+      detStream.toLowerCase() === targetStream.toLowerCase()
+    );
+  });
 }
 
 /**

@@ -177,6 +177,8 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
                         variant="ghost"
                         size="sm"
                         onClick={() => handleEdit(r)}
+                        aria-label={`Edit ${r.name}`}
+                        title={`Edit ${r.name}`}
                         className="h-7 w-7 p-0"
                       >
                         <Edit2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
@@ -185,6 +187,8 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
                         variant="ghost"
                         size="sm"
                         onClick={() => onDeleteRoom(r.id)}
+                        aria-label={`Delete ${r.name}`}
+                        title={`Delete ${r.name}`}
                         className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

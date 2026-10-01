@@ -46,6 +46,7 @@ import {
   calculateClassWeeklyCapacity,
   parseSectionAndStream,
 } from "@/lib/routine/routine-helpers";
+import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
 // Re-export for backward compatibility
 export { calculateClassWeeklyCapacity };
@@ -95,6 +96,7 @@ export function RoutineDemandAllotmentTab({
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedClassIds, setExpandedClassIds] = useState<Record<string, boolean>>({});
 
+  const configuredSchoolStreams = useMemo(() => getSchoolConfiguredStreams(), []);
   const teacherMap = useMemo(() => new Map(teachers.map((t) => [t.id, t])), [teachers]);
 
   // Compute breakdown rows per class & stream
@@ -185,25 +187,69 @@ export function RoutineDemandAllotmentTab({
             0
           );
 
-          // Workload assigned for these stream subjects in this class
-          const subIdSet = new Set(dedupedStreamSubs.map((s) => s.id));
-          const assigned = classAssignments
-            .filter((a) => subIdSet.has(a.subjectId))
-            .reduce((sum, a) => sum + a.periodsPerWeek, 0);
-
           const subjectList = dedupedStreamSubs.map((s) => {
             const asg = classAssignments.find((a) => a.subjectId === s.id);
-            const tch = asg ? teacherMap.get(asg.teacherId) : null;
+            const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
+
+            if (asg) {
+              const tch = teacherMap.get(asg.teacherId);
+              return {
+                id: s.id,
+                name: s.name,
+                stream: s.stream || detectSubjectStream(s.name),
+                isCommon: s.isCommon,
+                periods: defaultPeriods,
+                assignedTeacher: tch ? tch.name : null,
+                assignedPeriods: asg.periodsPerWeek,
+              };
+            }
+
+            // Fallback to configured teacher profile
+            const secKey = `${cls.className}::${cls.section}`;
+            const altSecKey = `${cls.className}-${cls.section}`;
+            const matchingTeacher = teachers.find((t) => {
+              const hasSecSub =
+                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
+                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name));
+              if (hasSecSub) return true;
+              return (
+                t.qualifiedClasses?.includes(cls.className) &&
+                t.classSubjects?.[cls.className]?.includes(s.name) &&
+                (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section))
+              );
+            });
+
+            if (matchingTeacher) {
+              const p =
+                matchingTeacher.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+                matchingTeacher.subjectPeriods?.[`${cls.className}::${s.name}`] ??
+                matchingTeacher.sectionPeriods?.[secKey] ??
+                matchingTeacher.classPeriods?.[cls.className] ??
+                defaultPeriods;
+
+              return {
+                id: s.id,
+                name: s.name,
+                stream: s.stream || detectSubjectStream(s.name),
+                isCommon: s.isCommon,
+                periods: defaultPeriods,
+                assignedTeacher: matchingTeacher.name,
+                assignedPeriods: Number(p) || defaultPeriods,
+              };
+            }
+
             return {
               id: s.id,
               name: s.name,
               stream: s.stream || detectSubjectStream(s.name),
               isCommon: s.isCommon,
-              periods: s.periodsPerWeek || (s.isLab ? 2 : 5),
-              assignedTeacher: tch ? tch.name : null,
-              assignedPeriods: asg ? asg.periodsPerWeek : 0,
+              periods: defaultPeriods,
+              assignedTeacher: null,
+              assignedPeriods: 0,
             };
           });
+
+          const assigned = subjectList.reduce((sum, item) => sum + item.assignedPeriods, 0);
 
           const gap = assigned - demand;
           const capacityGap = weeklyCapacity - demand;
@@ -263,24 +309,69 @@ export function RoutineDemandAllotmentTab({
           0
         );
 
-        const subIdSet = new Set(dedupedSubs.map((s) => s.id));
-        const assigned = classAssignments
-          .filter((a) => subIdSet.has(a.subjectId))
-          .reduce((sum, a) => sum + a.periodsPerWeek, 0);
-
         const subjectList = dedupedSubs.map((s) => {
           const asg = classAssignments.find((a) => a.subjectId === s.id);
-          const tch = asg ? teacherMap.get(asg.teacherId) : null;
+          const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
+
+          if (asg) {
+            const tch = teacherMap.get(asg.teacherId);
+            return {
+              id: s.id,
+              name: s.name,
+              stream: null,
+              isCommon: false,
+              periods: defaultPeriods,
+              assignedTeacher: tch ? tch.name : null,
+              assignedPeriods: asg.periodsPerWeek,
+            };
+          }
+
+          // Fallback to configured teacher profile
+          const secKey = `${cls.className}::${cls.section}`;
+          const altSecKey = `${cls.className}-${cls.section}`;
+          const matchingTeacher = teachers.find((t) => {
+            const hasSecSub =
+              (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
+              (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name));
+            if (hasSecSub) return true;
+            return (
+              t.qualifiedClasses?.includes(cls.className) &&
+              t.classSubjects?.[cls.className]?.includes(s.name) &&
+              (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section))
+            );
+          });
+
+          if (matchingTeacher) {
+            const p =
+              matchingTeacher.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+              matchingTeacher.subjectPeriods?.[`${cls.className}::${s.name}`] ??
+              matchingTeacher.sectionPeriods?.[secKey] ??
+              matchingTeacher.classPeriods?.[cls.className] ??
+              defaultPeriods;
+
+            return {
+              id: s.id,
+              name: s.name,
+              stream: null,
+              isCommon: false,
+              periods: defaultPeriods,
+              assignedTeacher: matchingTeacher.name,
+              assignedPeriods: Number(p) || defaultPeriods,
+            };
+          }
+
           return {
             id: s.id,
             name: s.name,
             stream: null,
             isCommon: false,
-            periods: s.periodsPerWeek || (s.isLab ? 2 : 5),
-            assignedTeacher: tch ? tch.name : null,
-            assignedPeriods: asg ? asg.periodsPerWeek : 0,
+            periods: defaultPeriods,
+            assignedTeacher: null,
+            assignedPeriods: 0,
           };
         });
+
+        const assigned = subjectList.reduce((sum, item) => sum + item.assignedPeriods, 0);
 
         const gap = assigned - demand;
         const capacityGap = weeklyCapacity - demand;
@@ -517,15 +608,11 @@ export function RoutineDemandAllotmentTab({
               <SelectItem value="all" className="text-xs">
                 All Streams
               </SelectItem>
-              <SelectItem value="Science" className="text-xs">
-                Science
-              </SelectItem>
-              <SelectItem value="Commerce" className="text-xs">
-                Commerce
-              </SelectItem>
-              <SelectItem value="Arts" className="text-xs">
-                Arts
-              </SelectItem>
+              {configuredSchoolStreams.map((st) => (
+                <SelectItem key={st} value={st} className="text-xs">
+                  {st}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

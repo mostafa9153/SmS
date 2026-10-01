@@ -233,6 +233,14 @@ export function RoutineSubjectsTab({
     return Array.from(seen.values());
   }, [subjects, activeClass, isCurrentClassHs, selectedStream]);
 
+  // Total weekly periods load for the currently active class subjects
+  const currentClassTotalPeriods = useMemo(() => {
+    return currentClassSubjects.reduce(
+      (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
+      0
+    );
+  }, [currentClassSubjects]);
+
   // Number of configured subjects per class (Strictly deduplicated)
   const classSubjectCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -1199,6 +1207,9 @@ export function RoutineSubjectsTab({
             <Badge variant="secondary" className="text-[10px] font-mono font-bold">
               {currentClassSubjects.length} Subjects
             </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
+              {currentClassTotalPeriods} p/wk
+            </Badge>
           </div>
         </div>
 
@@ -1363,6 +1374,8 @@ const SubjectTableRow = React.memo(function SubjectTableRow({
             variant="ghost"
             size="sm"
             onClick={() => onEdit(s)}
+            aria-label={`Edit ${s.name}`}
+            title={`Edit ${s.name}`}
             className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
           >
             <Edit2 className="h-3.5 w-3.5" />
@@ -1371,6 +1384,8 @@ const SubjectTableRow = React.memo(function SubjectTableRow({
             variant="ghost"
             size="sm"
             onClick={() => onDelete(s.id)}
+            aria-label={`Delete ${s.name}`}
+            title={`Delete ${s.name}`}
             className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
           >
             <Trash2 className="h-3.5 w-3.5" />

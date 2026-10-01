@@ -59,7 +59,7 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfileData = {
   state: "West Bengal",
   pincode: "743349",
   schoolMotto: "Knowledge, Character, Excellence (আলো থেকে আলো)",
-  hsStreams: ["Arts", "Science", "Commerce"],
+  hsStreams: ["Arts"],
 };
 
 /**
@@ -67,11 +67,36 @@ export const DEFAULT_SCHOOL_PROFILE: SchoolProfileData = {
  * Defaults to ["Arts", "Science", "Commerce"] if not explicitly configured.
  */
 export function getSchoolConfiguredStreams(profile?: Partial<SchoolProfileData>): string[] {
-  if (profile?.hsStreams && Array.isArray(profile.hsStreams) && profile.hsStreams.length > 0) {
-    return profile.hsStreams;
-  }
   if (typeof window !== "undefined") {
     try {
+      const savedClasses = localStorage.getItem("sms_class_management");
+      if (savedClasses) {
+        const parsedClasses = JSON.parse(savedClasses);
+        if (Array.isArray(parsedClasses)) {
+          const foundStreams = new Set<string>();
+          parsedClasses.forEach((c: any) => {
+            const isHs =
+              c.code === "XI" || c.code === "XII" || c.code === "11" || c.code === "12" ||
+              (c.name && (c.name.includes("XI") || c.name.includes("XII") || c.name.includes("11") || c.name.includes("12")));
+            if (isHs) {
+              if (c.streamSections && Object.keys(c.streamSections).length > 0) {
+                Object.keys(c.streamSections).forEach((st) => foundStreams.add(st.trim()));
+              } else if (c.stream) {
+                const parts = c.stream.split(/[\/,•|]+/).map((s: string) => s.trim()).filter(Boolean);
+                parts.forEach((st: string) => foundStreams.add(st));
+              }
+            }
+          });
+          if (foundStreams.size > 0) {
+            return Array.from(foundStreams);
+          }
+        }
+      }
+
+      if (profile?.hsStreams && Array.isArray(profile.hsStreams) && profile.hsStreams.length > 0) {
+        return profile.hsStreams;
+      }
+
       const saved = localStorage.getItem("sms_school_profile");
       if (saved) {
         const parsed = JSON.parse(saved);
@@ -79,28 +104,11 @@ export function getSchoolConfiguredStreams(profile?: Partial<SchoolProfileData>)
           return parsed.hsStreams;
         }
       }
-      const savedClasses = localStorage.getItem("sms_class_management");
-      if (savedClasses) {
-        const parsedClasses = JSON.parse(savedClasses);
-        if (Array.isArray(parsedClasses)) {
-          const hsClass = parsedClasses.find(
-            (c: any) =>
-              (c.code === "XI" || c.code === "XII" || c.code === "11" || c.code === "12" ||
-               (c.name && (c.name.includes("XI") || c.name.includes("XII")))) &&
-              c.stream
-          );
-          if (hsClass?.stream) {
-            const streams = hsClass.stream
-              .split(/[\/,•|]+/)
-              .map((s: string) => s.trim())
-              .filter(Boolean);
-            if (streams.length > 0) return streams;
-          }
-        }
-      }
     } catch {}
+  } else if (profile?.hsStreams && Array.isArray(profile.hsStreams) && profile.hsStreams.length > 0) {
+    return profile.hsStreams;
   }
-  return ["Arts", "Science", "Commerce"];
+  return ["Arts"];
 }
 
 /**

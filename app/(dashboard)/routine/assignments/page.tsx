@@ -52,12 +52,17 @@ export default function RoutineAssignmentsPage() {
   useEffect(() => {
     loadData();
 
+    let timeoutId: NodeJS.Timeout | null = null;
     const handleStateUpdated = () => {
-      loadData();
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        loadData();
+      }, 200);
     };
 
     window.addEventListener("sms_routine_state_updated", handleStateUpdated);
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener("sms_routine_state_updated", handleStateUpdated);
     };
   }, []);

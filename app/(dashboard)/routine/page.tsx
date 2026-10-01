@@ -90,16 +90,23 @@ export default function RoutineSetupPage() {
   useEffect(() => {
     loadData();
 
+    let timeoutId: NodeJS.Timeout | null = null;
     const handleStateUpdate = () => {
-      loadData();
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        loadData();
+      }, 200);
     };
 
     window.addEventListener("sms_routine_state_updated", handleStateUpdate);
     window.addEventListener("sms_marks_schemes_updated", handleStateUpdate);
+    window.addEventListener("sms_class_management_updated", handleStateUpdate);
 
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener("sms_routine_state_updated", handleStateUpdate);
       window.removeEventListener("sms_marks_schemes_updated", handleStateUpdate);
+      window.removeEventListener("sms_class_management_updated", handleStateUpdate);
     };
   }, []);
 

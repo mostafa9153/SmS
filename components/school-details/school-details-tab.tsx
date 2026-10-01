@@ -63,6 +63,7 @@ import {
   syncMarksSchemeSubjectToRoutine,
   syncRemoveMarksSchemeSubjectFromRoutine,
   syncAllSubjectsBidirectional,
+  syncConfiguredClassesToRoutine,
 } from "@/lib/routine/routine-sync";
 import {
   detectSubjectStream,
@@ -151,8 +152,8 @@ const DEFAULT_CLASSES: ClassItem[] = [
   { id: "c-8", name: "Class VIII", code: "VIII", sections: ["A", "B"], classTeacher: "K. Das", roomNo: "Room 104", capacity: 120, isAutoPass: true, status: "Active" },
   { id: "c-9", name: "Class IX", code: "IX", sections: ["A", "B"], classTeacher: "T. Banerjee", roomNo: "Room 201", capacity: 130, isAutoPass: false, status: "Active" },
   { id: "c-10", name: "Class X", code: "X", sections: ["A", "B"], classTeacher: "A. Halder", roomNo: "Room 202", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts / Science / Commerce", streamSections: { "Arts": ["A", "B"], "Science": ["A"], "Commerce": ["A"] }, classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
-  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts / Science / Commerce", streamSections: { "Arts": ["A", "B"], "Science": ["A"], "Commerce": ["A"] }, classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
 ];
 
 type SchoolDetailsSubTab = "profile" | "classes" | "marks_scheme";
@@ -211,11 +212,9 @@ export function SchoolDetailsTab() {
   const [newClassName, setNewClassName] = useState("");
   const [newClassCode, setNewClassCode] = useState("");
   const [newSections, setNewSections] = useState<string[]>(["A", "B"]);
-  const [newStream, setNewStream] = useState("Arts / Science / Commerce");
+  const [newStream, setNewStream] = useState("Arts");
   const [newStreamSections, setNewStreamSections] = useState<Record<string, string[]>>({
     "Arts": ["A", "B"],
-    "Science": ["A"],
-    "Commerce": ["A"],
   });
   const [newTeacher, setNewTeacher] = useState("");
   const [newSectionTeachers, setNewSectionTeachers] = useState<Record<string, string>>({});
@@ -228,11 +227,9 @@ export function SchoolDetailsTab() {
   const [editClassName, setEditClassName] = useState("");
   const [editClassCode, setEditClassCode] = useState("");
   const [editSections, setEditSections] = useState<string[]>(["A", "B"]);
-  const [editStream, setEditStream] = useState("Arts / Science / Commerce");
+  const [editStream, setEditStream] = useState("Arts");
   const [editStreamSections, setEditStreamSections] = useState<Record<string, string[]>>({
     "Arts": ["A", "B"],
-    "Science": ["A"],
-    "Commerce": ["A"],
   });
   const [editTeacher, setEditTeacher] = useState("");
   const [editSectionTeachers, setEditSectionTeachers] = useState<Record<string, string>>({});
@@ -367,7 +364,11 @@ export function SchoolDetailsTab() {
     setClasses(updated);
     if (typeof window !== "undefined") {
       localStorage.setItem("sms_class_management", JSON.stringify(updated));
+      window.dispatchEvent(new Event("sms_class_management_updated"));
     }
+    // Prune and sync unconfigured streams in routine
+    syncConfiguredClassesToRoutine(updated).catch((e) => console.warn("syncConfiguredClassesToRoutine:", e));
+
     fetch("/api/school-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

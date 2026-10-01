@@ -546,6 +546,8 @@ export function RoutineAssignmentsTab({
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(a)}
+                          aria-label={`Edit assignment for ${cls ? `${cls.className} - ${cls.section}` : "class"} ${subj?.name || ""}`}
+                          title={`Edit assignment`}
                           className="h-7 w-7 p-0"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
@@ -554,6 +556,8 @@ export function RoutineAssignmentsTab({
                           variant="ghost"
                           size="sm"
                           onClick={() => onDeleteAssignment(a.id)}
+                          aria-label={`Delete assignment for ${cls ? `${cls.className} - ${cls.section}` : "class"} ${subj?.name || ""}`}
+                          title={`Delete assignment`}
                           className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

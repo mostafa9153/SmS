@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import { RoutineTeacher, RoutineSubject } from "./types";
+import { RoutineTeacher, RoutineSubject, RoutineClass } from "./types";
 import {
   getLocalRoutineState,
   setLocalRoutineState,
@@ -13,7 +13,11 @@ import {
   saveMarksSchemes,
   type ClassMarksScheme,
 } from "@/lib/utils/marks-config";
-import { detectSubjectStream } from "./routine-helpers";
+import {
+  detectSubjectStream,
+  isHsClass,
+  parseSectionAndStream,
+} from "./routine-helpers";
 
 export interface SyncClassItem {
   id: string;
@@ -529,6 +533,89 @@ export async function syncAllSubjectsBidirectional(): Promise<void> {
     }
   } catch (err) {
     console.warn("syncAllSubjectsBidirectional error:", err);
+  }
+}
+
+/**
+ * Prunes / syncs routine classes to match configured school classes & streams.
+ * Removes orphaned streams (e.g. Science/Commerce if school only runs Arts).
+ */
+export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncClassItem[]): Promise<void> {
+  if (typeof window === "undefined") return;
+
+  try {
+    let rawClasses = configuredClasses;
+    if (!rawClasses || rawClasses.length === 0) {
+      const stored = localStorage.getItem("sms_class_management");
+      if (stored) rawClasses = JSON.parse(stored);
+    }
+    if (!Array.isArray(rawClasses) || rawClasses.length === 0) return;
+
+    const local = getLocalRoutineState() || {};
+    const existingRoutineClasses = local.classes || [];
+    if (existingRoutineClasses.length === 0) return;
+
+    // Build lookup of allowed (className -> Set of allowed streams/sections)
+    const allowedMap = new Map<string, { streams: Set<string>; sections: Set<string> }>();
+
+    rawClasses.forEach((c) => {
+      const normClass = (c.name || `Class ${c.code}`).trim().toLowerCase();
+      const isHs = isHsClass(c.name, c.code);
+      const streamsSet = new Set<string>();
+      const sectionsSet = new Set<string>();
+
+      if (isHs) {
+        if (c.streamSections && Object.keys(c.streamSections).length > 0) {
+          Object.keys(c.streamSections).forEach((st) => streamsSet.add(st.trim().toLowerCase()));
+        } else if (c.stream) {
+          const parts = c.stream.split(/[\/,•|]+/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
+          parts.forEach((st: string) => streamsSet.add(st));
+        } else {
+          streamsSet.add("arts");
+        }
+      }
+
+      (c.sections || ["A", "B"]).forEach((s: string) => sectionsSet.add(s.trim().toLowerCase()));
+
+      allowedMap.set(normClass, { streams: streamsSet, sections: sectionsSet });
+      const altCodeName = `class ${c.code.trim().toLowerCase()}`;
+      allowedMap.set(altCodeName, { streams: streamsSet, sections: sectionsSet });
+    });
+
+    const toKeep: RoutineClass[] = [];
+    const idsToDelete: string[] = [];
+
+    existingRoutineClasses.forEach((rc) => {
+      const normName = (rc.className || "").trim().toLowerCase();
+      const parsed = parseSectionAndStream(rc.section);
+      const allowed = allowedMap.get(normName);
+
+      if (!allowed) {
+        toKeep.push(rc);
+        return;
+      }
+
+      const isHs = isHsClass(rc.className);
+      if (isHs) {
+        const streamLower = (parsed.stream || "").trim().toLowerCase();
+        // If the stream is not in the allowed active streams for this HS class, prune it
+        if (streamLower && streamLower !== "general" && !allowed.streams.has(streamLower)) {
+          if (rc.id) idsToDelete.push(rc.id);
+          return;
+        }
+      }
+
+      toKeep.push(rc);
+    });
+
+    if (idsToDelete.length > 0) {
+      setLocalRoutineState({ classes: toKeep });
+      const supabase = createClient();
+      await supabase.from("routine_classes").delete().in("id", idsToDelete);
+      window.dispatchEvent(new Event("sms_routine_state_updated"));
+    }
+  } catch (err) {
+    console.warn("syncConfiguredClassesToRoutine error:", err);
   }
 }
 
