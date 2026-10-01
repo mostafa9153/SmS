@@ -192,6 +192,18 @@ export function detectSubjectStream(
     return explicitStream as any;
   }
   const lower = (name || "").trim().toLowerCase();
+
+  // Exclude junior general school subjects before checking keywords
+  if (
+    lower.startsWith("environment &") ||
+    lower.includes("our environment") ||
+    lower.includes("health & physical") ||
+    lower.includes("work education") ||
+    lower.includes("art & work")
+  ) {
+    return "General";
+  }
+
   if (
     lower.includes("bengali") ||
     lower.includes("english") ||

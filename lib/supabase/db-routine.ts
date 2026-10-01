@@ -206,7 +206,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
 
       if (subjects.length > 0) {
         const dbIdSet = new Set(dbSubjects.map((s) => s.id));
-        const extraLocal = subjects.filter((s) => !dbIdSet.has(s.id));
+        const extraLocal = subjects.filter((s) => !dbIdSet.has(s.id) && Boolean(s.className));
         subjects = [...dbSubjects, ...extraLocal];
       } else {
         subjects = dbSubjects;

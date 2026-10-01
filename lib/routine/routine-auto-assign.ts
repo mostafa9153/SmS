@@ -41,9 +41,18 @@ export function autoBuildRoutineAssignments(
     const isHs = isHsClass(cls.className);
     const { stream: sectionStream } = parseSectionAndStream(cls.section || "");
 
+    const explicitClassSubs = subjects.filter(
+      (s) => s.className && s.className.toLowerCase() === clsNameLower
+    );
+    const hasExplicitSubs = explicitClassSubs.length > 0;
+
     // Find subjects for this class and stream (for HS classes)
-    const matchingSubjects = subjects.filter((s) => {
+    const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+    const matchingSubjects = candidates.filter((s) => {
       if (s.className && s.className.toLowerCase() !== clsNameLower) {
+        return false;
+      }
+      if (hasExplicitSubs && !s.className) {
         return false;
       }
       if (!isHs) {

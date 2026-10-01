@@ -100,10 +100,11 @@ export function RoutineAssignmentsTab({
   const selectedClassObj = classMap.get(classId);
   const relevantSubjects = useMemo(() => {
     if (!selectedClassObj) return subjects;
-    const match = subjects.filter(
-      (s) => !s.className || s.className.toLowerCase() === selectedClassObj.className.toLowerCase()
+    const explicit = subjects.filter(
+      (s) => s.className && s.className.toLowerCase() === selectedClassObj.className.toLowerCase()
     );
-    return match.length > 0 ? match : subjects;
+    if (explicit.length > 0) return explicit;
+    return subjects.filter((s) => !s.className);
   }, [subjects, selectedClassObj]);
 
   React.useEffect(() => {

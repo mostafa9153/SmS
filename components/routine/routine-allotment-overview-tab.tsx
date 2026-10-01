@@ -178,10 +178,15 @@ export function RoutineAllotmentOverviewTab({
       let hasIssues = false;
 
       distinctSubjectNames.forEach((subName) => {
+        const hasExplicitForClass = subjects.some(
+          (s) => s.className && s.className.trim().toLowerCase() === cls.className.trim().toLowerCase()
+        );
         const matchedSubject = subjects.find(
           (s) =>
             s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
-            (!s.className || s.className.trim().toLowerCase() === cls.className.trim().toLowerCase())
+            (hasExplicitForClass
+              ? s.className && s.className.trim().toLowerCase() === cls.className.trim().toLowerCase()
+              : !s.className || s.className.trim().toLowerCase() === cls.className.trim().toLowerCase())
         );
 
         const demandPeriods =

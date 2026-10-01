@@ -45,6 +45,7 @@ import {
   getConfiguredStreamsForClass,
   calculateClassWeeklyCapacity,
   parseSectionAndStream,
+  HS_STREAM_PRESETS,
 } from "@/lib/routine/routine-helpers";
 import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
@@ -156,18 +157,31 @@ export function RoutineDemandAllotmentTab({
           ? [matchedStream]
           : configuredStreams;
 
+        const explicitClassSubs = subjects.filter(
+          (s) => s.className && s.className.toLowerCase() === clsLower
+        );
+        const hasExplicitSubs = explicitClassSubs.length > 0;
+
         streamsToProcess.forEach((st) => {
           // Subjects for this stream = Common subjects + Stream-specific subjects
-          const streamSubs = subjects.filter((s) => {
+          const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+          const streamSubs = candidates.filter((s) => {
+            if (s.className && s.className.toLowerCase() !== clsLower) {
+              return false;
+            }
             const detStream = detectSubjectStream(s.name, s.stream);
             const isStreamMatch = detStream === "Common" || s.isCommon || detStream === st;
             if (!isStreamMatch) return false;
 
-            if (s.className) {
-              return s.className.toLowerCase() === clsLower;
+            if (hasExplicitSubs) {
+              return Boolean(s.className && s.className.toLowerCase() === clsLower);
             }
-            // If className not tagged, only include if it's an HS-appropriate subject
-            return isStreamMatch;
+            // If className not tagged and class has no configured subjects, only match official HS presets
+            const hsPresetSubs = [
+              ...HS_STREAM_PRESETS.Common,
+              ...(HS_STREAM_PRESETS[st] || []),
+            ].map((p) => p.toLowerCase());
+            return hsPresetSubs.includes(s.name.trim().toLowerCase());
           });
 
           // Strict deduplication by canonical name + stream
@@ -305,15 +319,24 @@ export function RoutineDemandAllotmentTab({
         });
       } else {
         // Non-HS General Class: Strictly match subjects for this class
+        const explicitClassSubs = subjects.filter(
+          (s) => s.className && s.className.toLowerCase() === clsLower
+        );
+        const hasExplicitSubs = explicitClassSubs.length > 0;
+
         const presets = new Set(
           getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
         );
 
-        const classSubs = subjects.filter((s) => {
-          if (s.className) {
-            return s.className.toLowerCase() === clsLower;
+        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+        const classSubs = candidates.filter((s) => {
+          if (s.className && s.className.toLowerCase() !== clsLower) {
+            return false;
           }
-          // If untagged, only include if subject is part of this class's curriculum
+          if (hasExplicitSubs) {
+            return Boolean(s.className && s.className.toLowerCase() === clsLower);
+          }
+          // If untagged and no explicit subs exist, only include if subject is part of this class's curriculum
           return presets.has(s.name.trim().toLowerCase());
         });
 
