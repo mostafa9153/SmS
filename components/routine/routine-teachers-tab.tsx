@@ -86,15 +86,19 @@ export function RoutineTeachersTab({
       });
   }, []);
 
-  // Compute preset subjects for each class
+  // Compute preset and configured subjects for each class
   const classSubjectsDictionary = useMemo(() => {
     const map: Record<string, string[]> = {};
     presetClasses.forEach((c) => {
-      const subs = getDatabaseSubjectsForClass(c.code || c.name);
-      map[c.name] = subs;
+      const dbSubs = getDatabaseSubjectsForClass(c.code || c.name);
+      const configuredSubs = (subjects || [])
+        .filter((s) => !s.className || s.className.trim().toLowerCase() === c.name.trim().toLowerCase())
+        .map((s) => s.name.trim());
+      const merged = Array.from(new Set([...dbSubs, ...configuredSubs])).filter(Boolean);
+      map[c.name] = merged;
     });
     return map;
-  }, [presetClasses]);
+  }, [presetClasses, subjects]);
 
   // Aggregated unique subjects list across configured subjects & presets
   const availableSubjectOptions = useMemo(() => {
