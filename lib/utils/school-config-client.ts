@@ -91,6 +91,11 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
         if (data.student_entry_presets && typeof data.student_entry_presets === "object") {
           safeSet("sms_student_entry_presets", data.student_entry_presets);
         }
+
+        // Dispatch sync events so all active components immediately update with server data
+        window.dispatchEvent(new Event("sms_class_management_updated"));
+        window.dispatchEvent(new Event("sms_marks_schemes_updated"));
+        window.dispatchEvent(new Event("sms_school_profile_updated"));
       }
 
       return data;

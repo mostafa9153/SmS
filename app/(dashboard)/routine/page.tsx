@@ -17,6 +17,7 @@ import {
   deleteTeacherDb,
   RoutineFullState,
 } from "@/lib/supabase/db-routine";
+import { fetchSchoolConfigClient } from "@/lib/utils/school-config-client";
 import {
   RoutineSettings,
   RoutineRoom,
@@ -73,6 +74,9 @@ export default function RoutineSetupPage() {
   const loadData = async () => {
     setLoading(true);
     try {
+      // 1. Fetch centralized school config (classes, streams, marks schemes) from server first
+      await fetchSchoolConfigClient(true).catch((e) => console.warn("Failed to sync school config:", e));
+      // 2. Fetch routine full state from Supabase
       const data: RoutineFullState = await fetchRoutineFullState();
       setSettings(data.settings || DEFAULT_ROUTINE_SETTINGS);
       setRooms(data.rooms || []);

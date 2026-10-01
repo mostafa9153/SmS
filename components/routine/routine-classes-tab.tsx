@@ -75,6 +75,9 @@ export function RoutineClassesTab({
   // Auto-prune any orphaned classes in routine that are no longer configured in School Details
   useEffect(() => {
     if (!classes || classes.length === 0 || !onDeleteClass) return;
+    const hasExplicitSavedClasses = typeof window !== "undefined" && Boolean(localStorage.getItem("sms_class_management"));
+    if (!hasExplicitSavedClasses) return; // Prevent pruning with fallback defaults
+
     const list = presetClassesList.length > 0 ? presetClassesList : getDynamicClassList();
     if (!list || list.length === 0) return;
 
