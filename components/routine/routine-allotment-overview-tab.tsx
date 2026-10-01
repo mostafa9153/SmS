@@ -192,12 +192,11 @@ export function RoutineAllotmentOverviewTab({
         const cellTeachers: TeacherAssignmentItem[] = [];
         let assignedPeriods = 0;
 
-        const directAssignments = assignments.filter(
-          (a) =>
-            a.className.trim().toLowerCase() === cls.className.trim().toLowerCase() &&
-            a.section.trim().toLowerCase() === cls.section.trim().toLowerCase() &&
-            a.subject.trim().toLowerCase() === subName.trim().toLowerCase()
-        );
+        const directAssignments = assignments.filter((a) => {
+          if (a.classId !== cls.id) return false;
+          const matchedSub = subjects.find((s) => s.id === a.subjectId);
+          return matchedSub && matchedSub.name.trim().toLowerCase() === subName.trim().toLowerCase();
+        });
 
         if (directAssignments.length > 0) {
           directAssignments.forEach((a) => {
@@ -490,7 +489,7 @@ export function RoutineAllotmentOverviewTab({
             />
           </div>
 
-          <Select value={filterClass} onValueChange={setFilterClass}>
+          <Select value={filterClass} onValueChange={(val) => setFilterClass(val ?? "all")}>
             <SelectTrigger className="h-8 w-36 text-xs bg-background">
               <SelectValue placeholder="All Classes" />
             </SelectTrigger>
@@ -578,7 +577,9 @@ export function RoutineAllotmentOverviewTab({
                     <td className="py-2 px-3 font-bold font-mono text-foreground sticky left-0 bg-card/95 backdrop-blur-xs z-10 border-r flex items-center gap-1.5">
                       <span>{row.label}</span>
                       {row.hasIssues && (
-                        <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" title="Has unallotted or mismatched subjects" />
+                        <span title="Has unallotted or mismatched subjects" className="inline-flex shrink-0">
+                          <AlertTriangle className="w-3 h-3 text-amber-500" />
+                        </span>
                       )}
                     </td>
 
