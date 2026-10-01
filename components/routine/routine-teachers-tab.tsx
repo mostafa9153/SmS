@@ -1129,7 +1129,7 @@ export function RoutineTeachersTab({
     try {
       const ok = await batchSaveTeachersAvailabilityDb(teachers);
       if (ok) {
-        showToast("All faculty assignments & availability saved to Cloud successfully!", "success");
+        showToast("All faculty assignments saved to Cloud successfully!", "success");
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("sms_routine_state_updated"));
         }
@@ -1270,14 +1270,13 @@ export function RoutineTeachersTab({
                 <th className="py-2.5 px-4">Eligible Classes, Sections & Subjects</th>
                 <th className="py-2.5 px-4 w-20">Capacity</th>
                 <th className="py-2.5 px-4 w-24">Workload</th>
-                <th className="py-2.5 px-4 w-24">Availability</th>
                 <th className="py-2.5 px-4 text-right w-20">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {teachers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     <Users className="w-6 h-6 mx-auto mb-1 opacity-40" />
                     <span>No teaching staff configured. Click &quot;Add Teacher&quot; above to begin.</span>
                   </td>
@@ -1299,7 +1298,7 @@ export function RoutineTeachersTab({
                       />
                       {isEditingThis && (
                         <tr className="bg-muted/15 border-b border-primary/30">
-                          <td colSpan={9} className="p-3">
+                          <td colSpan={8} className="p-3">
                             <TeacherEditorForm
                               isSubmitting={isSubmitting}
                               editingTeacherId={editingTeacherId}

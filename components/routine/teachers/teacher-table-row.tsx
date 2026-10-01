@@ -37,11 +37,6 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
   const cPeriods = t.classPeriods || {};
   const sPeriods = t.sectionPeriods || {};
 
-  const totalSlots = settings.workingDays.reduce((acc, d) => {
-    const raw = t.availableSlots?.[d] ?? (t.availableSlots as any)?.[String(d)];
-    return acc + (Array.isArray(raw) ? raw.length : settings.periodsPerDay);
-  }, 0);
-
   return (
     <tr
       className={cn(
@@ -173,11 +168,6 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
           {!isOverloaded && load > 0 && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />}
           {load} / {t.maxPeriods}
         </Badge>
-      </td>
-      <td className="py-2.5 px-4">
-        <span className="text-muted-foreground text-[11px] font-mono">
-          {totalSlots} slots/wk
-        </span>
       </td>
       <td className="py-2.5 px-4 text-right">
         <div className="flex items-center justify-end gap-1">

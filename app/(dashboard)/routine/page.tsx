@@ -283,7 +283,7 @@ export default function RoutineSetupPage() {
     { id: "settings", label: "Global Settings", icon: Sliders },
     { id: "classes", label: "Classes", icon: School, count: classes.length },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
-    { id: "teachers", label: "Teachers & Availability", icon: Users, count: teachers.length },
+    { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
     { id: "overview", label: "Allotment Overview", icon: LayoutGrid },
     { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
