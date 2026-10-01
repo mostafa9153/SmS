@@ -151,7 +151,11 @@ export class RoutineSolver {
       const subj = this.subjects.get(asg.subjectId);
       const cls = this.classes.find((c) => c.id === asg.classId);
       if (subj) {
-        const maxDaily = subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1;
+        const classSubjTotalPeriods = this.assignments
+          .filter((a) => a.classId === asg.classId && a.subjectId === asg.subjectId)
+          .reduce((sum, a) => sum + a.periodsPerWeek, 0);
+        const minDailyNeeded = Math.ceil(classSubjTotalPeriods / Math.max(1, daysCount));
+        const maxDaily = Math.max(minDailyNeeded, subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1);
         const maxCapacity = daysCount * maxDaily;
         if (asg.periodsPerWeek > maxCapacity) {
           errors.push(
@@ -228,7 +232,13 @@ export class RoutineSolver {
       const subj = this.subjects.get(asg.subjectId);
       if (!subj) continue;
 
-      const maxDaily = subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1;
+      const classSubjTotalPeriods = this.assignments
+        .filter((a) => a.classId === asg.classId && a.subjectId === asg.subjectId)
+        .reduce((sum, a) => sum + a.periodsPerWeek, 0);
+      const minDailyNeeded = Math.ceil(classSubjTotalPeriods / Math.max(1, D));
+      const maxDaily = Math.max(minDailyNeeded, subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1);
+      const allowMultiple = subj.allowMultiplePerDay || minDailyNeeded > 1;
+
       const tch = this.teachers.get(asg.teacherId);
       const cls = this.classes.find((c) => c.id === asg.classId);
       const fullClassLabel = `${cls?.className || ""}${cls?.section && cls.section !== "ALL" ? ` - ${cls.section}` : ""}`.toLowerCase();
@@ -252,7 +262,7 @@ export class RoutineSolver {
             rid: asg.roomId || null,
             sz: 2,
             hard: subj.isHard,
-            multi: subj.allowMultiplePerDay,
+            multi: allowMultiple,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
             isClassTeacherUnit: isCT,
@@ -271,7 +281,7 @@ export class RoutineSolver {
             rid: asg.roomId || null,
             sz: 1,
             hard: subj.isHard,
-            multi: subj.allowMultiplePerDay,
+            multi: allowMultiple,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
             isClassTeacherUnit: isCT,
@@ -290,7 +300,7 @@ export class RoutineSolver {
             rid: asg.roomId || null,
             sz: 1,
             hard: subj.isHard,
-            multi: subj.allowMultiplePerDay,
+            multi: allowMultiple,
             maxPerDay: maxDaily,
             timePref: subj.timePref,
             isClassTeacherUnit: isCT,

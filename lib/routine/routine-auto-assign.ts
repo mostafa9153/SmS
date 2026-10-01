@@ -70,8 +70,18 @@ export function autoBuildRoutineAssignments(
 
       const subjNameLower = subj.name.trim().toLowerCase();
 
+      const secName = (cls.section || "A").trim();
+
       // Find qualified teachers for this class, section and subject
       const qualifiedTeachers = teachers.filter((t) => {
+        // 0. If teacher has explicit subject periods for this exact class, section & subject, they are qualified
+        const explicitP =
+          t.subjectPeriods?.[`${cls.className}::${secName}::${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}-${secName}-${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}_${secName}_${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}::${subj.name}`];
+        if (explicitP && Number(explicitP) > 0) return true;
+
         // 1. Class qualification
         const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
         const classQualified = qClasses.length === 0 || qClasses.includes(clsNameLower);
@@ -104,6 +114,75 @@ export function autoBuildRoutineAssignments(
         if (classSubs.length === 0) return true; // Qualified for all subjects in this class
         return classSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
       });
+
+      // Check if any qualified teachers have explicit subjectPeriods configured for this class, section & subject
+      const explicitTeachers: { teacher: RoutineTeacher; periods: number }[] = [];
+      qualifiedTeachers.forEach((t) => {
+        const p =
+          t.subjectPeriods?.[`${cls.className}::${secName}::${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}-${secName}-${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}_${secName}_${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}::${subj.name}`];
+        if (p && Number(p) > 0) {
+          explicitTeachers.push({
+            teacher: t,
+            periods: Number(p),
+          });
+        }
+      });
+
+      // Auto-assign lab room if subject is practical/lab
+      let assignedRoomId: string | null = null;
+      if (subj.isLab && rooms && rooms.length > 0) {
+        const labRooms = rooms.filter((r) => r.isLab);
+        if (labRooms.length > 0) {
+          const isComp = subjNameLower.includes("comp");
+          const matchingLab =
+            labRooms.find((r) =>
+              isComp ? r.name.toLowerCase().includes("comp") : !r.name.toLowerCase().includes("comp")
+            ) || labRooms[0];
+          assignedRoomId = matchingLab.id;
+        }
+      }
+
+      if (explicitTeachers.length > 0) {
+        let totalExplicit = 0;
+        explicitTeachers.forEach(({ teacher, periods }) => {
+          assignments.push({
+            id: crypto.randomUUID(),
+            classId: cls.id,
+            subjectId: subj.id,
+            teacherId: teacher.id,
+            roomId: assignedRoomId,
+            periodsPerWeek: periods,
+          });
+          teacherLoads[teacher.id] = (teacherLoads[teacher.id] || 0) + periods;
+          totalExplicit += periods;
+        });
+
+        // If total explicit periods doesn't cover required demand, allocate remaining to the primary/first teacher
+        const remainingDemand = weeklyPeriods - totalExplicit;
+        if (remainingDemand > 0) {
+          const leadTeacher = explicitTeachers[0].teacher;
+          const existingAsg = assignments.find(
+            (a) => a.classId === cls.id && a.subjectId === subj.id && a.teacherId === leadTeacher.id
+          );
+          if (existingAsg) {
+            existingAsg.periodsPerWeek += remainingDemand;
+          } else {
+            assignments.push({
+              id: crypto.randomUUID(),
+              classId: cls.id,
+              subjectId: subj.id,
+              teacherId: leadTeacher.id,
+              roomId: assignedRoomId,
+              periodsPerWeek: remainingDemand,
+            });
+          }
+          teacherLoads[leadTeacher.id] = (teacherLoads[leadTeacher.id] || 0) + remainingDemand;
+        }
+        continue;
+      }
 
       let chosenTeacher: RoutineTeacher | null = null;
 
@@ -143,7 +222,6 @@ export function autoBuildRoutineAssignments(
       }
 
       if (chosenTeacher) {
-        const secName = (cls.section || "A").trim();
 
         // 1. Subject-specific period override (highest priority)
         const customSubjectPeriod =
@@ -171,20 +249,6 @@ export function autoBuildRoutineAssignments(
           customTeacherPeriods && customTeacherPeriods > 0
             ? customTeacherPeriods
             : weeklyPeriods;
-
-        // Auto-assign lab room if subject is practical/lab
-        let assignedRoomId: string | null = null;
-        if (subj.isLab && rooms && rooms.length > 0) {
-          const labRooms = rooms.filter((r) => r.isLab);
-          if (labRooms.length > 0) {
-            const isComp = subjNameLower.includes("comp");
-            const matchingLab =
-              labRooms.find((r) =>
-                isComp ? r.name.toLowerCase().includes("comp") : !r.name.toLowerCase().includes("comp")
-              ) || labRooms[0];
-            assignedRoomId = matchingLab.id;
-          }
-        }
 
         assignments.push({
           id: crypto.randomUUID(),

@@ -214,9 +214,27 @@ export function RoutineAllotmentOverviewTab({
         } else {
           teachers.forEach((t) => {
             const secKey = `${cls.className}::${cls.section}`;
-            const isAssigned =
+            const altSecKey = `${cls.className}-${cls.section}`;
+            const altSecKey2 = `${cls.className}_${cls.section}`;
+
+            const explicitP =
+              t.subjectPeriods?.[`${cls.className}::${cls.section}::${subName}`] ??
+              t.subjectPeriods?.[`${cls.className}-${cls.section}-${subName}`] ??
+              t.subjectPeriods?.[`${cls.className}_${cls.section}_${subName}`] ??
+              t.subjectPeriods?.[`${cls.className}::${subName}`];
+
+            const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+
+            const hasSecSub =
               (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(subName)) ||
+              (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(subName)) ||
+              (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(subName));
+
+            const isAssigned =
+              hasExplicitSubjPeriod ||
+              hasSecSub ||
               (!t.sectionSubjects?.[secKey] &&
+                !t.sectionSubjects?.[altSecKey] &&
                 t.qualifiedClasses?.includes(cls.className) &&
                 t.classSubjects?.[cls.className]?.includes(subName) &&
                 (!t.classSections?.[cls.className] ||
@@ -224,9 +242,11 @@ export function RoutineAllotmentOverviewTab({
 
             if (isAssigned) {
               const p =
-                t.subjectPeriods?.[`${cls.className}::${cls.section}::${subName}`] ||
-                t.subjectPeriods?.[`${cls.className}::${subName}`] ||
-                (demandPeriods > 0 ? demandPeriods : 4);
+                explicitP != null
+                  ? Number(explicitP)
+                  : demandPeriods > 0
+                  ? demandPeriods
+                  : 4;
 
               const tInfo = teacherCodeMap.get(t.id);
               cellTeachers.push({

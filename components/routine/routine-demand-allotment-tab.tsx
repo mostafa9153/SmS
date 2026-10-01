@@ -79,6 +79,7 @@ export interface ClassAllotmentRow {
     isCommon?: boolean;
     periods: number;
     assignedTeacher?: string | null;
+    assignedTeachers?: { teacherId: string; name: string; shortName?: string; periods: number }[];
     assignedPeriods: number;
   }[];
 }
@@ -188,55 +189,77 @@ export function RoutineDemandAllotmentTab({
           );
 
           const subjectList = dedupedStreamSubs.map((s) => {
-            const asg = classAssignments.find((a) => a.subjectId === s.id);
             const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
+            const directAsgs = classAssignments.filter((a) => a.subjectId === s.id);
 
-            if (asg) {
-              const tch = teacherMap.get(asg.teacherId);
-              return {
-                id: s.id,
-                name: s.name,
-                stream: s.stream || detectSubjectStream(s.name),
-                isCommon: s.isCommon,
-                periods: defaultPeriods,
-                assignedTeacher: tch ? tch.name : null,
-                assignedPeriods: asg.periodsPerWeek,
-              };
+            const teacherItems: { teacherId: string; name: string; shortName?: string; periods: number }[] = [];
+            let totalAssignedPeriods = 0;
+
+            if (directAsgs.length > 0) {
+              directAsgs.forEach((asg) => {
+                const tch = teacherMap.get(asg.teacherId);
+                teacherItems.push({
+                  teacherId: asg.teacherId,
+                  name: tch ? tch.name : "Unknown",
+                  shortName: tch?.shortName,
+                  periods: asg.periodsPerWeek,
+                });
+                totalAssignedPeriods += asg.periodsPerWeek;
+              });
+            } else {
+              // Fallback to configured teacher profiles
+              const secKey = `${cls.className}::${cls.section}`;
+              const altSecKey = `${cls.className}-${cls.section}`;
+              const altSecKey2 = `${cls.className}_${cls.section}`;
+
+              teachers.forEach((t) => {
+                const explicitP =
+                  t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}::${s.name}`];
+
+                const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+
+                const hasSecSub =
+                  (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
+                  (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
+                  (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
+
+                const isQualified =
+                  hasExplicitSubjPeriod ||
+                  hasSecSub ||
+                  (!t.sectionSubjects?.[secKey] &&
+                    !t.sectionSubjects?.[altSecKey] &&
+                    t.qualifiedClasses?.includes(cls.className) &&
+                    t.classSubjects?.[cls.className]?.includes(s.name) &&
+                    (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section)));
+
+                if (isQualified) {
+                  const p =
+                    explicitP ??
+                    t.sectionPeriods?.[secKey] ??
+                    t.classPeriods?.[cls.className] ??
+                    defaultPeriods;
+
+                  const numericP = Number(p) || defaultPeriods;
+                  teacherItems.push({
+                    teacherId: t.id,
+                    name: t.name,
+                    shortName: t.shortName,
+                    periods: numericP,
+                  });
+                  totalAssignedPeriods += numericP;
+                }
+              });
             }
 
-            // Fallback to configured teacher profile
-            const secKey = `${cls.className}::${cls.section}`;
-            const altSecKey = `${cls.className}-${cls.section}`;
-            const matchingTeacher = teachers.find((t) => {
-              const hasSecSub =
-                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
-                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name));
-              if (hasSecSub) return true;
-              return (
-                t.qualifiedClasses?.includes(cls.className) &&
-                t.classSubjects?.[cls.className]?.includes(s.name) &&
-                (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section))
-              );
-            });
-
-            if (matchingTeacher) {
-              const p =
-                matchingTeacher.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-                matchingTeacher.subjectPeriods?.[`${cls.className}::${s.name}`] ??
-                matchingTeacher.sectionPeriods?.[secKey] ??
-                matchingTeacher.classPeriods?.[cls.className] ??
-                defaultPeriods;
-
-              return {
-                id: s.id,
-                name: s.name,
-                stream: s.stream || detectSubjectStream(s.name),
-                isCommon: s.isCommon,
-                periods: defaultPeriods,
-                assignedTeacher: matchingTeacher.name,
-                assignedPeriods: Number(p) || defaultPeriods,
-              };
-            }
+            const assignedTeacherLabel =
+              teacherItems.length === 0
+                ? null
+                : teacherItems.length === 1
+                ? teacherItems[0].name
+                : teacherItems.map((item) => `${item.shortName || item.name} (${item.periods}p)`).join(", ");
 
             return {
               id: s.id,
@@ -244,8 +267,9 @@ export function RoutineDemandAllotmentTab({
               stream: s.stream || detectSubjectStream(s.name),
               isCommon: s.isCommon,
               periods: defaultPeriods,
-              assignedTeacher: null,
-              assignedPeriods: 0,
+              assignedTeacher: assignedTeacherLabel,
+              assignedTeachers: teacherItems,
+              assignedPeriods: totalAssignedPeriods,
             };
           });
 
@@ -310,55 +334,77 @@ export function RoutineDemandAllotmentTab({
         );
 
         const subjectList = dedupedSubs.map((s) => {
-          const asg = classAssignments.find((a) => a.subjectId === s.id);
           const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
+          const directAsgs = classAssignments.filter((a) => a.subjectId === s.id);
 
-          if (asg) {
-            const tch = teacherMap.get(asg.teacherId);
-            return {
-              id: s.id,
-              name: s.name,
-              stream: null,
-              isCommon: false,
-              periods: defaultPeriods,
-              assignedTeacher: tch ? tch.name : null,
-              assignedPeriods: asg.periodsPerWeek,
-            };
+          const teacherItems: { teacherId: string; name: string; shortName?: string; periods: number }[] = [];
+          let totalAssignedPeriods = 0;
+
+          if (directAsgs.length > 0) {
+            directAsgs.forEach((asg) => {
+              const tch = teacherMap.get(asg.teacherId);
+              teacherItems.push({
+                teacherId: asg.teacherId,
+                name: tch ? tch.name : "Unknown",
+                shortName: tch?.shortName,
+                periods: asg.periodsPerWeek,
+              });
+              totalAssignedPeriods += asg.periodsPerWeek;
+            });
+          } else {
+            // Fallback to configured teacher profiles
+            const secKey = `${cls.className}::${cls.section}`;
+            const altSecKey = `${cls.className}-${cls.section}`;
+            const altSecKey2 = `${cls.className}_${cls.section}`;
+
+            teachers.forEach((t) => {
+              const explicitP =
+                t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+                t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
+                t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
+                t.subjectPeriods?.[`${cls.className}::${s.name}`];
+
+              const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+
+              const hasSecSub =
+                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
+                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
+                (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
+
+              const isQualified =
+                hasExplicitSubjPeriod ||
+                hasSecSub ||
+                (!t.sectionSubjects?.[secKey] &&
+                  !t.sectionSubjects?.[altSecKey] &&
+                  t.qualifiedClasses?.includes(cls.className) &&
+                  t.classSubjects?.[cls.className]?.includes(s.name) &&
+                  (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section)));
+
+              if (isQualified) {
+                const p =
+                  explicitP ??
+                  t.sectionPeriods?.[secKey] ??
+                  t.classPeriods?.[cls.className] ??
+                  defaultPeriods;
+
+                const numericP = Number(p) || defaultPeriods;
+                teacherItems.push({
+                  teacherId: t.id,
+                  name: t.name,
+                  shortName: t.shortName,
+                  periods: numericP,
+                });
+                totalAssignedPeriods += numericP;
+              }
+            });
           }
 
-          // Fallback to configured teacher profile
-          const secKey = `${cls.className}::${cls.section}`;
-          const altSecKey = `${cls.className}-${cls.section}`;
-          const matchingTeacher = teachers.find((t) => {
-            const hasSecSub =
-              (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
-              (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name));
-            if (hasSecSub) return true;
-            return (
-              t.qualifiedClasses?.includes(cls.className) &&
-              t.classSubjects?.[cls.className]?.includes(s.name) &&
-              (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section))
-            );
-          });
-
-          if (matchingTeacher) {
-            const p =
-              matchingTeacher.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-              matchingTeacher.subjectPeriods?.[`${cls.className}::${s.name}`] ??
-              matchingTeacher.sectionPeriods?.[secKey] ??
-              matchingTeacher.classPeriods?.[cls.className] ??
-              defaultPeriods;
-
-            return {
-              id: s.id,
-              name: s.name,
-              stream: null,
-              isCommon: false,
-              periods: defaultPeriods,
-              assignedTeacher: matchingTeacher.name,
-              assignedPeriods: Number(p) || defaultPeriods,
-            };
-          }
+          const assignedTeacherLabel =
+            teacherItems.length === 0
+              ? null
+              : teacherItems.length === 1
+              ? teacherItems[0].name
+              : teacherItems.map((item) => `${item.shortName || item.name} (${item.periods}p)`).join(", ");
 
           return {
             id: s.id,
@@ -366,8 +412,9 @@ export function RoutineDemandAllotmentTab({
             stream: null,
             isCommon: false,
             periods: defaultPeriods,
-            assignedTeacher: null,
-            assignedPeriods: 0,
+            assignedTeacher: assignedTeacherLabel,
+            assignedTeachers: teacherItems,
+            assignedPeriods: totalAssignedPeriods,
           };
         });
 
@@ -975,7 +1022,26 @@ const AllotmentRowItem = React.memo(function AllotmentRowItem({
                           {sub.periods} p/wk
                         </td>
                         <td className="py-1.5 px-3">
-                          {sub.assignedTeacher ? (
+                          {sub.assignedTeachers && sub.assignedTeachers.length > 0 ? (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {sub.assignedTeachers.map((t) => (
+                                <span
+                                  key={t.teacherId}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/60 border text-[11px] font-medium"
+                                  title={`${t.name}: ${t.periods} periods/wk`}
+                                >
+                                  <Users className="w-3 h-3 text-primary opacity-70" />
+                                  <span>{t.name}</span>
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[9px] px-1 py-0 font-bold bg-background text-primary border-primary/30"
+                                  >
+                                    {t.periods}p
+                                  </Badge>
+                                </span>
+                              ))}
+                            </div>
+                          ) : sub.assignedTeacher ? (
                             <span className="font-medium text-foreground flex items-center gap-1">
                               <Users className="w-3 h-3 text-primary opacity-70" />
                               {sub.assignedTeacher}
