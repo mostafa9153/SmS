@@ -71,11 +71,11 @@ export default function RoutineSetupPage() {
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = React.useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
-      // 1. Fetch centralized school config (classes, streams, marks schemes) from server first
-      await fetchSchoolConfigClient(true).catch((e) => console.warn("Failed to sync school config:", e));
+      // 1. Fetch centralized school config from server without force refreshing
+      await fetchSchoolConfigClient(false).catch((e) => console.warn("Failed to sync school config:", e));
       // 2. Fetch routine full state from Supabase
       const data: RoutineFullState = await fetchRoutineFullState();
       setSettings(data.settings || DEFAULT_ROUTINE_SETTINGS);
@@ -87,32 +87,28 @@ export default function RoutineSetupPage() {
     } catch (err) {
       console.error("Failed to load routine setup data:", err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
+    loadData(true);
 
     let timeoutId: NodeJS.Timeout | null = null;
     const handleStateUpdate = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        loadData();
-      }, 200);
+        loadData(false);
+      }, 300);
     };
 
     window.addEventListener("sms_routine_state_updated", handleStateUpdate);
-    window.addEventListener("sms_marks_schemes_updated", handleStateUpdate);
-    window.addEventListener("sms_class_management_updated", handleStateUpdate);
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener("sms_routine_state_updated", handleStateUpdate);
-      window.removeEventListener("sms_marks_schemes_updated", handleStateUpdate);
-      window.removeEventListener("sms_class_management_updated", handleStateUpdate);
     };
-  }, []);
+  }, [loadData]);
 
   // Handlers for Settings
   const handleSaveSettings = async (newSettings: RoutineSettings) => {
