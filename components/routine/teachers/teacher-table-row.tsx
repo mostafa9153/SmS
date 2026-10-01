@@ -14,6 +14,7 @@ export interface TeacherTableRowProps {
   subjects?: RoutineSubject[];
   classTotalSubjectsMap?: Record<string, number>;
   settings: RoutineSettings;
+  isEditing?: boolean;
   onEdit: (t: RoutineTeacher) => void;
   onDelete?: (id: string) => Promise<void>;
 }
@@ -24,6 +25,7 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
   subjects = [],
   classTotalSubjectsMap = {},
   settings,
+  isEditing = false,
   onEdit,
   onDelete,
 }: TeacherTableRowProps) {
@@ -41,7 +43,12 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
   }, 0);
 
   return (
-    <tr className="hover:bg-muted/30 transition-colors">
+    <tr
+      className={cn(
+        "hover:bg-muted/30 transition-colors",
+        isEditing && "bg-primary/5 border-l-4 border-l-primary"
+      )}
+    >
       <td className="py-2.5 px-4 font-semibold text-foreground">
         <div className="flex items-center gap-1.5 flex-wrap">
           <span>{t.name}</span>
@@ -175,12 +182,17 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
       <td className="py-2.5 px-4 text-right">
         <div className="flex items-center justify-end gap-1">
           <Button
-            variant="ghost"
+            variant={isEditing ? "secondary" : "ghost"}
             size="sm"
             onClick={() => onEdit(t)}
-            aria-label={`Edit ${t.name}`}
-            title={`Edit ${t.name}`}
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+            aria-label={isEditing ? `Close editor for ${t.name}` : `Edit ${t.name}`}
+            title={isEditing ? "Close Editor" : `Edit ${t.name}`}
+            className={cn(
+              "h-7 w-7 p-0",
+              isEditing
+                ? "text-primary bg-primary/10 border border-primary/30"
+                : "text-muted-foreground hover:text-foreground"
+            )}
           >
             <Edit2 className="h-3.5 w-3.5" />
           </Button>

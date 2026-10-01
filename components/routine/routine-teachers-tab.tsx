@@ -514,62 +514,70 @@ export function RoutineTeachersTab({
     setIsEditorOpen(true);
   };
 
-  // Open Editor for Editing Existing Teacher
-  const handleEdit = useCallback((t: RoutineTeacher) => {
-    const matchedStaff = staffList.find(
-      (s) => s.id === t.id || s.full_name.toLowerCase() === t.name.toLowerCase()
-    );
-
-    setSelectedStaffId(matchedStaff ? matchedStaff.id : "__custom__");
-    setEditingTeacherId(t.id);
-    setTeacherName(t.name);
-    setShortName(t.shortName || generateInitials(t.name));
-
-    const subj = t.primarySubject || "";
-    const isStandardSubj = availableSubjectOptions.includes(subj);
-    if (subj && !isStandardSubj) {
-      setPrimarySubject("__custom__");
-      setCustomPrimarySubject(subj);
-    } else {
-      setPrimarySubject(subj);
-      setCustomPrimarySubject("");
-    }
-
-    setClassTeacherOf(t.classTeacherOf || "__none__");
-    setOriginalClassTeacherOf(t.classTeacherOf || null);
-    setClassTeacherFirstPeriods(t.classTeacherFirstPeriods ?? 3);
-    setMaxPeriods(t.maxPeriods || 24);
-
-    // Load qualified classes, subjects, sections, and periods
-    const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
-    setSelectedClasses(qClasses);
-    setClassSubjectsMap(t.classSubjects || {});
-    setSectionSubjectsMap(t.sectionSubjects || {});
-    setClassSectionsMap(t.classSections || {});
-    setClassPeriodsMap(t.classPeriods || {});
-    setSectionPeriodsMap(t.sectionPeriods || {});
-    setSubjectPeriodsMap(t.subjectPeriods || {});
-    setActiveSectionTab({});
-
-    // Deep copy available slots
-    const slots: Record<number, number[]> = {};
-    settings.workingDays.forEach((d) => {
-      const raw = t.availableSlots?.[d] ?? (t.availableSlots as any)?.[String(d)];
-      if (Array.isArray(raw)) {
-        slots[d] = [...raw];
-      } else {
-        slots[d] = [];
-        for (let p = 1; p <= settings.periodsPerDay; p++) slots[d].push(p);
-      }
-    });
-    setAvailSlots(slots);
-    setIsEditorOpen(true);
-  }, [staffList, availableSubjectOptions, settings]);
-
   const handleCancel = useCallback(() => {
     setIsEditorOpen(false);
     setEditingTeacherId(null);
   }, []);
+
+  // Open Editor for Editing Existing Teacher
+  const handleEdit = useCallback(
+    (t: RoutineTeacher) => {
+      if (isEditorOpen && editingTeacherId === t.id) {
+        handleCancel();
+        return;
+      }
+
+      const matchedStaff = staffList.find(
+        (s) => s.id === t.id || s.full_name.toLowerCase() === t.name.toLowerCase()
+      );
+
+      setSelectedStaffId(matchedStaff ? matchedStaff.id : "__custom__");
+      setEditingTeacherId(t.id);
+      setTeacherName(t.name);
+      setShortName(t.shortName || generateInitials(t.name));
+
+      const subj = t.primarySubject || "";
+      const isStandardSubj = availableSubjectOptions.includes(subj);
+      if (subj && !isStandardSubj) {
+        setPrimarySubject("__custom__");
+        setCustomPrimarySubject(subj);
+      } else {
+        setPrimarySubject(subj);
+        setCustomPrimarySubject("");
+      }
+
+      setClassTeacherOf(t.classTeacherOf || "__none__");
+      setOriginalClassTeacherOf(t.classTeacherOf || null);
+      setClassTeacherFirstPeriods(t.classTeacherFirstPeriods ?? 3);
+      setMaxPeriods(t.maxPeriods || 24);
+
+      // Load qualified classes, subjects, sections, and periods
+      const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
+      setSelectedClasses(qClasses);
+      setClassSubjectsMap(t.classSubjects || {});
+      setSectionSubjectsMap(t.sectionSubjects || {});
+      setClassSectionsMap(t.classSections || {});
+      setClassPeriodsMap(t.classPeriods || {});
+      setSectionPeriodsMap(t.sectionPeriods || {});
+      setSubjectPeriodsMap(t.subjectPeriods || {});
+      setActiveSectionTab({});
+
+      // Deep copy available slots
+      const slots: Record<number, number[]> = {};
+      settings.workingDays.forEach((d) => {
+        const raw = t.availableSlots?.[d] ?? (t.availableSlots as any)?.[String(d)];
+        if (Array.isArray(raw)) {
+          slots[d] = [...raw];
+        } else {
+          slots[d] = [];
+          for (let p = 1; p <= settings.periodsPerDay; p++) slots[d].push(p);
+        }
+      });
+      setAvailSlots(slots);
+      setIsEditorOpen(true);
+    },
+    [isEditorOpen, editingTeacherId, handleCancel, staffList, availableSubjectOptions, settings]
+  );
 
   // Handle Staff Dropdown Change in Form
   const handleStaffDropdownChange = (staffId: string) => {
@@ -1179,8 +1187,11 @@ export function RoutineTeachersTab({
         </div>
       </div>
 
-      {/* Availability & Class/Subject Editor Form */}
-      {isEditorOpen && (
+      {/* Teacher Editor Form Component Helper */}
+      {(() => null)()}
+
+      {/* Availability & Class/Subject Editor Form (when adding a new faculty member) */}
+      {isEditorOpen && !editingTeacherId && (
         <TeacherEditorForm
           isSubmitting={isSubmitting}
           editingTeacherId={editingTeacherId}
@@ -1272,18 +1283,82 @@ export function RoutineTeachersTab({
                   </td>
                 </tr>
               ) : (
-                teachers.map((t) => (
-                  <TeacherTableRow
-                    key={t.id}
-                    teacher={t}
-                    load={teacherLoadMap[t.id] || 0}
-                    subjects={subjects}
-                    classTotalSubjectsMap={classTotalSubjectsMap}
-                    settings={settings}
-                    onEdit={handleEdit}
-                    onDelete={onDeleteTeacher ? handleDelete : undefined}
-                  />
-                ))
+                teachers.map((t) => {
+                  const isEditingThis = isEditorOpen && editingTeacherId === t.id;
+                  return (
+                    <React.Fragment key={t.id}>
+                      <TeacherTableRow
+                        teacher={t}
+                        load={teacherLoadMap[t.id] || 0}
+                        subjects={subjects}
+                        classTotalSubjectsMap={classTotalSubjectsMap}
+                        settings={settings}
+                        isEditing={isEditingThis}
+                        onEdit={handleEdit}
+                        onDelete={onDeleteTeacher ? handleDelete : undefined}
+                      />
+                      {isEditingThis && (
+                        <tr className="bg-muted/15 border-b border-primary/30">
+                          <td colSpan={9} className="p-3">
+                            <TeacherEditorForm
+                              isSubmitting={isSubmitting}
+                              editingTeacherId={editingTeacherId}
+                              teacherName={teacherName}
+                              shortName={shortName}
+                              primarySubject={primarySubject}
+                              customPrimarySubject={customPrimarySubject}
+                              classTeacherOf={classTeacherOf}
+                              classTeacherFirstPeriods={classTeacherFirstPeriods}
+                              maxPeriods={maxPeriods}
+                              selectedClasses={selectedClasses}
+                              classSubjectsMap={classSubjectsMap}
+                              sectionSubjectsMap={sectionSubjectsMap}
+                              classSectionsMap={classSectionsMap}
+                              classPeriodsMap={classPeriodsMap}
+                              activeSectionTab={activeSectionTab}
+                              availSlots={availSlots}
+                              presetClasses={presetClasses}
+                              staffList={staffList}
+                              selectableStaffList={selectableStaffList}
+                              unaddedStaff={unaddedStaff}
+                              selectedStaffId={selectedStaffId}
+                              selectedStaffLabel={selectedStaffLabel}
+                              availableSubjectOptions={availableSubjectOptions}
+                              availableClassOptions={availableClassOptions}
+                              currentClassTeacherMap={currentClassTeacherMap}
+                              conflictTeacher={conflictTeacher}
+                              classSubjectsDictionary={classSubjectsDictionary}
+                              settings={settings}
+                              onSave={handleSave}
+                              onCancel={handleCancel}
+                              onStaffDropdownChange={handleStaffDropdownChange}
+                              onCustomNameChange={handleCustomNameChange}
+                              setShortName={setShortName}
+                              setPrimarySubject={setPrimarySubject}
+                              setCustomPrimarySubject={setCustomPrimarySubject}
+                              setClassTeacherOf={setClassTeacherOf}
+                              setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
+                              setMaxPeriods={setMaxPeriods}
+                              onToggleClass={toggleClass}
+                              onToggleSubjectForSection={toggleSubjectForSection}
+                              onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
+                              onSubjectPeriodChange={handleSubjectPeriodChange}
+                              onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
+                              onSelectSection={handleSelectSection}
+                              onTogglePeriod={togglePeriod}
+                              onSetPreset={setPreset}
+                              getClassSections={getClassSections}
+                              getSectionSubjects={getSectionSubjects}
+                              getSubjectPeriod={getSubjectPeriod}
+                              getSubjectAllocationStats={getSubjectAllocationStats}
+                              calculateSectionTotalPeriods={calculateSectionTotalPeriods}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>
