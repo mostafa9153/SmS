@@ -361,32 +361,6 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       });
     }
 
-    // Merge with any teachers in local state
-    if (teachers.length > 0) {
-      teachers.forEach((t) => {
-        if (!loadedTeachersMap.has(t.id)) {
-          loadedTeachersMap.set(t.id, t);
-        } else {
-          // Merge local configurations if they exist
-          const existing = loadedTeachersMap.get(t.id)!;
-          loadedTeachersMap.set(t.id, {
-            ...existing,
-            shortName: t.shortName || existing.shortName,
-            maxPeriods: t.maxPeriods || existing.maxPeriods,
-            qualifiedClasses: t.qualifiedClasses && t.qualifiedClasses.length > 0 ? t.qualifiedClasses : existing.qualifiedClasses,
-            classSubjects: t.classSubjects && Object.keys(t.classSubjects).length > 0 ? t.classSubjects : existing.classSubjects,
-            classSections: t.classSections && Object.keys(t.classSections).length > 0 ? t.classSections : existing.classSections,
-            classPeriods: t.classPeriods && Object.keys(t.classPeriods).length > 0 ? t.classPeriods : existing.classPeriods,
-            sectionPeriods: t.sectionPeriods && Object.keys(t.sectionPeriods).length > 0 ? t.sectionPeriods : existing.sectionPeriods,
-            primarySubject: t.primarySubject || existing.primarySubject,
-            classTeacherOf: t.classTeacherOf || existing.classTeacherOf,
-            classTeacherFirstPeriods: t.classTeacherFirstPeriods ?? existing.classTeacherFirstPeriods,
-            availableSlots: t.availableSlots && Object.keys(t.availableSlots).length > 0 ? t.availableSlots : existing.availableSlots,
-          });
-        }
-      });
-    }
-
     teachers = Array.from(loadedTeachersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 
     // 6. Fetch Assignments
@@ -1006,6 +980,60 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
     return true;
   } catch (err) {
     console.warn("upsertTeacherAvailabilityDb:", err);
+    return false;
+  }
+}
+
+/**
+ * Batch Upsert All Teachers Availability & Qualifications to Supabase
+ */
+export async function batchSaveTeachersAvailabilityDb(teachersList: RoutineTeacher[]): Promise<boolean> {
+  const supabase = createClient();
+  try {
+    const rows = teachersList.map((t) => {
+      const isUuid = t.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.id);
+      const row: Record<string, any> = {
+        teacher_name: t.name,
+        short_name: t.shortName,
+        max_periods: t.maxPeriods,
+        available_slots: {
+          ...t.availableSlots,
+          _qualifiedClasses: t.qualifiedClasses || [],
+          _classSubjects: t.classSubjects || {},
+          _sectionSubjects: t.sectionSubjects || {},
+          _classSections: t.classSections || {},
+          _classPeriods: t.classPeriods || {},
+          _sectionPeriods: t.sectionPeriods || {},
+          _subjectPeriods: t.subjectPeriods || {},
+          _primarySubject: t.primarySubject || null,
+          _classTeacherOf: t.classTeacherOf || null,
+          _classTeacherFirstPeriods: t.classTeacherFirstPeriods ?? (t.classTeacherOf ? 3 : null),
+        },
+        updated_at: new Date().toISOString(),
+      };
+      if (isUuid) {
+        row.teacher_id = t.id;
+      } else {
+        row.id = t.id;
+      }
+      return row;
+    });
+
+    setLocalRoutineState({ teachers: teachersList });
+
+    const { error } = await supabase
+      .from("routine_teacher_availability")
+      .upsert(rows, { onConflict: "teacher_id" });
+
+    if (error) {
+      console.warn("batchSaveTeachersAvailabilityDb onConflict failed, running individual upserts:", error);
+      for (const t of teachersList) {
+        await upsertTeacherAvailabilityDb(t);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("batchSaveTeachersAvailabilityDb error:", err);
     return false;
   }
 }

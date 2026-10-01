@@ -5,8 +5,9 @@ import { RoutineRoom } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { showToast } from "@/components/ui/toast-banner";
 
 interface RoutineRoomsTabProps {
   rooms: RoutineRoom[];
@@ -138,6 +139,38 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
             <Badge variant="secondary" className="text-[10px] font-mono">
               {rooms.length} Total
             </Badge>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSubmitting || rooms.length === 0}
+              onClick={async () => {
+                setIsSubmitting(true);
+                try {
+                  for (const r of rooms) {
+                    await onSaveRoom(r);
+                  }
+                  showToast({
+                    type: "success",
+                    title: "Saved to Cloud",
+                    description: `${rooms.length} rooms & laboratories saved to Cloud successfully.`,
+                  });
+                } catch {
+                  showToast({
+                    type: "error",
+                    title: "Save Failed",
+                    description: "Failed to save rooms to cloud.",
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
+            >
+              <CloudUpload className="w-3.5 h-3.5" />
+              Save to Cloud
+            </Button>
           </div>
         </div>
 

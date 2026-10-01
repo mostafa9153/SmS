@@ -9,6 +9,8 @@ import { Save, RefreshCw, Sliders, CalendarDays, Coffee, UserCheck } from "lucid
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+import { showToast } from "@/components/ui/toast-banner";
+
 interface RoutineSettingsTabProps {
   settings: RoutineSettings;
   onSave: (settings: RoutineSettings) => Promise<void>;
@@ -67,6 +69,20 @@ export function RoutineSettingsTab({
     setIsSaving(true);
     try {
       await onSave(settings);
+      showToast({
+        type: "success",
+        title: "Settings Saved",
+        description: "Schedule configuration saved to Cloud successfully.",
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("sms_routine_state_updated"));
+      }
+    } catch {
+      showToast({
+        type: "error",
+        title: "Save Failed",
+        description: "Failed to save schedule configuration.",
+      });
     } finally {
       setIsSaving(false);
     }

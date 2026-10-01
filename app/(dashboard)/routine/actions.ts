@@ -11,6 +11,7 @@ import {
   upsertSubjectDb,
   deleteSubjectDb,
   upsertTeacherAvailabilityDb,
+  batchSaveTeachersAvailabilityDb,
   upsertAssignmentDb,
   deleteAssignmentDb,
   saveGeneratedRoutineDb,
@@ -191,6 +192,11 @@ export async function saveTeacherAvailabilityAction(teacher: RoutineTeacher) {
     return await upsertTeacherAvailabilityDb(teacher);
   }
   return await upsertTeacherAvailabilityDb(parsed.data as RoutineTeacher);
+}
+
+export async function batchSaveTeachersAction(teachers: RoutineTeacher[]) {
+  if (!Array.isArray(teachers) || teachers.length === 0) return true;
+  return await batchSaveTeachersAvailabilityDb(teachers);
 }
 
 export async function saveAssignmentAction(asg: {

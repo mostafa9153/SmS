@@ -29,8 +29,11 @@ import {
   Atom,
   Briefcase,
   Palette,
+  CloudUpload,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import {
   getDynamicClassList,
@@ -1210,6 +1213,56 @@ export function RoutineSubjectsTab({
             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
               {currentClassTotalPeriods} p/wk
             </Badge>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSubmitting || subjects.length === 0}
+              onClick={async () => {
+                setIsSubmitting(true);
+                try {
+                  const rows = subjects.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    className: s.className || null,
+                    classId: s.classId || null,
+                    stream: s.stream || null,
+                    isCommon: s.isCommon,
+                    isHard: s.isHard,
+                    isLab: s.isLab,
+                    timePref: s.timePref,
+                    allowMultiplePerDay: s.allowMultiplePerDay,
+                    maxPerDay: s.maxPerDay,
+                    periodsPerWeek: s.periodsPerWeek,
+                  }));
+                  if (onBatchSaveSubjects) {
+                    await onBatchSaveSubjects(rows);
+                  } else {
+                    for (const r of rows) {
+                      await onSaveSubject(r);
+                    }
+                  }
+                  showToast({
+                    type: "success",
+                    title: "Saved to Cloud",
+                    description: `${subjects.length} subjects saved to Cloud successfully.`,
+                  });
+                } catch {
+                  showToast({
+                    type: "error",
+                    title: "Save Failed",
+                    description: "Failed to save subjects to cloud.",
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
+            >
+              <CloudUpload className="w-3.5 h-3.5" />
+              Save to Cloud
+            </Button>
           </div>
         </div>
 

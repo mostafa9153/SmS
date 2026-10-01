@@ -21,6 +21,8 @@ import {
   Layers,
   CheckCheck,
   CheckCircle2,
+  CloudUpload,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
@@ -592,6 +594,48 @@ export function RoutineClassesTab({
             <Badge variant="secondary" className="text-[10px] font-mono">
               {sortedClasses.length} Total
             </Badge>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={isSubmitting || sortedClasses.length === 0}
+              onClick={async () => {
+                setIsSubmitting(true);
+                try {
+                  const rows = sortedClasses.map((c) => ({
+                    id: c.id,
+                    className: c.className,
+                    section: c.section,
+                    dailyPeriods: c.dailyPeriods || null,
+                  }));
+                  if (onBatchSaveClasses) {
+                    await onBatchSaveClasses(rows);
+                  } else {
+                    for (const r of rows) {
+                      await onSaveClass(r);
+                    }
+                  }
+                  showToast({
+                    type: "success",
+                    title: "Saved to Cloud",
+                    description: `${sortedClasses.length} classes & sections saved to Cloud successfully.`,
+                  });
+                } catch {
+                  showToast({
+                    type: "error",
+                    title: "Save Failed",
+                    description: "Failed to save classes to cloud.",
+                  });
+                } finally {
+                  setIsSubmitting(false);
+                }
+              }}
+              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
+            >
+              <CloudUpload className="w-3.5 h-3.5" />
+              Save to Cloud
+            </Button>
           </div>
 
           {/* Batch Edit Bar */}

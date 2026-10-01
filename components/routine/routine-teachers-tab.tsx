@@ -13,7 +13,11 @@ import {
   Plus,
   Users,
   GraduationCap,
+  CloudUpload,
+  RefreshCw,
 } from "lucide-react";
+import { showToast } from "@/components/ui/toast-banner";
+import { batchSaveTeachersAvailabilityDb } from "@/lib/supabase/db-routine";
 import {
   getDynamicClassList,
   FALLBACK_CLASSES,
@@ -1110,9 +1114,30 @@ export function RoutineTeachersTab({
     return info;
   }, [classTeacherOf, currentClassTeacherMap, editingTeacherId, teacherName]);
 
+  // Batch Save all teachers to Cloud
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const handleSaveAllToCloud = async () => {
+    setIsSavingAll(true);
+    try {
+      const ok = await batchSaveTeachersAvailabilityDb(teachers);
+      if (ok) {
+        showToast("All faculty assignments & availability saved to Cloud successfully!", "success");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("sms_routine_state_updated"));
+        }
+      } else {
+        showToast("Failed to save faculty to cloud", "error");
+      }
+    } catch (e) {
+      showToast("Error saving faculty to cloud", "error");
+    } finally {
+      setIsSavingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-4 w-full">
-      {/* Top Header Card: Add Teacher Button */}
+      {/* Top Header Card: Add Teacher Button & Save to Cloud */}
       <div className="bg-card border rounded-lg p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <GraduationCap className="w-4 h-4 text-primary" />
@@ -1123,15 +1148,33 @@ export function RoutineTeachersTab({
 
         <div className="flex items-center gap-2">
           {!isEditorOpen && (
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleOpenAdd}
-              className="h-8 text-xs font-semibold gap-1.5 px-3.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Add Teacher
-            </Button>
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isSavingAll || teachers.length === 0}
+                onClick={handleSaveAllToCloud}
+                className="h-8 text-xs font-semibold gap-1.5 px-3 border-primary/30 text-primary hover:bg-primary/10"
+              >
+                {isSavingAll ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CloudUpload className="w-3.5 h-3.5 text-primary" />
+                )}
+                Save to Cloud
+              </Button>
+
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleOpenAdd}
+                className="h-8 text-xs font-semibold gap-1.5 px-3.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Teacher
+              </Button>
+            </>
           )}
         </div>
       </div>
