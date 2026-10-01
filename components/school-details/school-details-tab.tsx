@@ -30,6 +30,9 @@ import {
   Upload,
   UserCheck,
   PenTool,
+  Atom,
+  Briefcase,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +64,11 @@ import {
   syncRemoveMarksSchemeSubjectFromRoutine,
   syncAllSubjectsBidirectional,
 } from "@/lib/routine/routine-sync";
+import {
+  detectSubjectStream,
+  isHsClass,
+  parseSectionAndStream,
+} from "@/lib/routine/routine-helpers";
 import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
@@ -195,6 +203,7 @@ export function SchoolDetailsTab() {
 
   // Class Subject Selection State
   const [selectedSubjectClass, setSelectedSubjectClass] = useState<string>("V");
+  const [selectedSubjectStream, setSelectedSubjectStream] = useState<"all" | "Common" | "Science" | "Arts" | "Commerce">("all");
   const [selectedNewSubjectToAdd, setSelectedNewSubjectToAdd] = useState<string>("");
   const [customSubjectName, setCustomSubjectName] = useState<string>("");
 
@@ -731,13 +740,43 @@ export function SchoolDetailsTab() {
     }
 
     const finalSectionTeachers: Record<string, string> = {};
-    finalSections.forEach((sec) => {
-      const t = newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || newTeacher;
-      if (t && t.trim()) {
-        finalSectionTeachers[sec] = t.trim();
-        finalSectionTeachers[`Section ${sec}`] = t.trim();
-      }
-    });
+    if (isHs) {
+      const activeStreamsList = getClassStreamList(newStream);
+      activeStreamsList.forEach((st) => {
+        const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
+          ? newStreamSections[st]
+          : ["A"];
+        secs.forEach((sec) => {
+          const t =
+            newSectionTeachers[`${st} - ${sec}`] ||
+            newSectionTeachers[`${st}::${sec}`] ||
+            newSectionTeachers[`${sec} (${st})`] ||
+            newSectionTeachers[`Sec ${sec} (${st})`] ||
+            newSectionTeachers[sec] ||
+            newSectionTeachers[`Section ${sec}`] ||
+            newTeacher;
+          if (t && t.trim()) {
+            const val = t.trim();
+            finalSectionTeachers[`${st} - ${sec}`] = val;
+            finalSectionTeachers[`${st} - Section ${sec}`] = val;
+            finalSectionTeachers[`${sec} (${st})`] = val;
+            finalSectionTeachers[`Sec ${sec} (${st})`] = val;
+            finalSectionTeachers[`${st}::${sec}`] = val;
+            if (!finalSectionTeachers[sec]) {
+              finalSectionTeachers[sec] = val;
+            }
+          }
+        });
+      });
+    } else {
+      finalSections.forEach((sec) => {
+        const t = newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || newTeacher;
+        if (t && t.trim()) {
+          finalSectionTeachers[sec] = t.trim();
+          finalSectionTeachers[`Section ${sec}`] = t.trim();
+        }
+      });
+    }
     const primaryTeacher = Object.values(finalSectionTeachers)[0] || newTeacher.trim() || undefined;
 
     const newClassItem: ClassItem = {
@@ -1072,13 +1111,43 @@ export function SchoolDetailsTab() {
     }
 
     const finalSectionTeachers: Record<string, string> = {};
-    finalSections.forEach((sec) => {
-      const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || editTeacher;
-      if (t && t.trim()) {
-        finalSectionTeachers[sec] = t.trim();
-        finalSectionTeachers[`Section ${sec}`] = t.trim();
-      }
-    });
+    if (isHs) {
+      const activeStreamsList = getClassStreamList(editStream);
+      activeStreamsList.forEach((st) => {
+        const secs = (editStreamSections[st] && editStreamSections[st].length > 0)
+          ? editStreamSections[st]
+          : ["A"];
+        secs.forEach((sec) => {
+          const t =
+            editSectionTeachers[`${st} - ${sec}`] ||
+            editSectionTeachers[`${st}::${sec}`] ||
+            editSectionTeachers[`${sec} (${st})`] ||
+            editSectionTeachers[`Sec ${sec} (${st})`] ||
+            editSectionTeachers[sec] ||
+            editSectionTeachers[`Section ${sec}`] ||
+            editTeacher;
+          if (t && t.trim()) {
+            const val = t.trim();
+            finalSectionTeachers[`${st} - ${sec}`] = val;
+            finalSectionTeachers[`${st} - Section ${sec}`] = val;
+            finalSectionTeachers[`${sec} (${st})`] = val;
+            finalSectionTeachers[`Sec ${sec} (${st})`] = val;
+            finalSectionTeachers[`${st}::${sec}`] = val;
+            if (!finalSectionTeachers[sec]) {
+              finalSectionTeachers[sec] = val;
+            }
+          }
+        });
+      });
+    } else {
+      finalSections.forEach((sec) => {
+        const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || editTeacher;
+        if (t && t.trim()) {
+          finalSectionTeachers[sec] = t.trim();
+          finalSectionTeachers[`Section ${sec}`] = t.trim();
+        }
+      });
+    }
     const primaryTeacher = Object.values(finalSectionTeachers)[0] || editTeacher.trim() || undefined;
 
     const updated = classes.map((c) => {
@@ -2067,7 +2136,30 @@ export function SchoolDetailsTab() {
                     <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
                       <div className="text-left md:text-right text-xs min-w-[130px]">
                         <span className="text-muted-foreground text-[10px] block font-medium">Class Teacher</span>
-                        {cls.sections && cls.sections.length > 1 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
+                        {isHs && cls.streamSections && Object.keys(cls.streamSections).length > 0 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
+                          <div className="flex flex-col gap-0.5 md:items-end">
+                            {getClassStreamList(cls.stream || "Arts / Science / Commerce").map((st) => {
+                              const sSections = getStreamSections(cls, st);
+                              return sSections.map((sec) => {
+                                const tch =
+                                  cls.sectionTeachers?.[`${st} - ${sec}`] ||
+                                  cls.sectionTeachers?.[`${st}::${sec}`] ||
+                                  cls.sectionTeachers?.[`${sec} (${st})`] ||
+                                  cls.sectionTeachers?.[`Sec ${sec} (${st})`] ||
+                                  cls.sectionTeachers?.[sec] ||
+                                  cls.classTeacher;
+                                return (
+                                  <div key={`${st}_${sec}`} className="text-[11px] font-medium text-foreground flex items-center gap-1">
+                                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background">
+                                      {st} {sec}
+                                    </Badge>
+                                    <span>{tch || "Not Assigned"}</span>
+                                  </div>
+                                );
+                              });
+                            })}
+                          </div>
+                        ) : cls.sections && cls.sections.length > 1 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
                           <div className="flex flex-col gap-0.5 md:items-end">
                             {cls.sections.map((sec) => {
                               const tch = cls.sectionTeachers?.[sec] || cls.sectionTeachers?.[`Section ${sec}`] || cls.classTeacher;
@@ -2389,67 +2481,159 @@ export function SchoolDetailsTab() {
 
               {/* Section-wise Class Teacher Selection */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-foreground">
-                  Section Class Teacher
-                </Label>
-                <div className="space-y-1.5 p-2.5 rounded-xl border bg-muted/20">
-                  {editSections.map((sec) => {
-                    const currentVal = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || (editSections.length === 1 ? editTeacher : "");
-                    return (
-                      <div key={sec} className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs font-mono font-bold w-16 justify-center shrink-0 bg-background">
-                          Sec {sec}
-                        </Badge>
-                        <div className="flex-1">
-                          {staffList.length > 0 ? (
-                            <Select
-                              value={currentVal || "__none__"}
-                              onValueChange={(val: string | null) => {
-                                const finalVal: string = !val || val === "__none__" ? "" : val;
-                                setEditSectionTeachers((prev) => ({
-                                  ...prev,
-                                  [sec]: finalVal,
-                                }));
-                                if (editSections.length === 1) {
-                                  setEditTeacher(finalVal);
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="h-7 text-xs bg-background font-medium">
-                                <SelectValue placeholder="Select Teacher" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                                  -- Not Assigned --
-                                </SelectItem>
-                                {staffList.map((s) => (
-                                  <SelectItem key={s.id} value={s.full_name} className="text-xs">
-                                    {s.full_name} {s.designation ? `(${s.designation})` : ""}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <Input
-                              value={currentVal}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setEditSectionTeachers((prev) => ({
-                                  ...prev,
-                                  [sec]: val,
-                                }));
-                                if (editSections.length === 1) {
-                                  setEditTeacher(val);
-                                }
-                              }}
-                              placeholder="Teacher Name"
-                              className="h-7 text-xs bg-background"
-                            />
-                          )}
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground">
+                    {isEditingHs ? "Stream & Section Class Teachers" : "Section Class Teacher"}
+                  </Label>
+                  {isEditingHs && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Assign separate class teacher for each stream
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-2 p-2.5 rounded-xl border bg-muted/20">
+                  {isEditingHs ? (
+                    getClassStreamList(editStream).map((st) => {
+                      const sSections = editStreamSections[st] || ["A"];
+                      const streamBadgeClass =
+                        st === "Science"
+                          ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200"
+                          : st === "Commerce"
+                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200"
+                          : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200";
+
+                      return (
+                        <div key={st} className="space-y-1.5">
+                          {sSections.map((sec) => {
+                            const key = `${st} - ${sec}`;
+                            const currentVal =
+                              editSectionTeachers[key] ||
+                              editSectionTeachers[`${st}::${sec}`] ||
+                              editSectionTeachers[`${sec} (${st})`] ||
+                              editSectionTeachers[`Sec ${sec} (${st})`] ||
+                              (editSections.length === 1 ? editSectionTeachers[sec] : "") ||
+                              editTeacher ||
+                              "";
+
+                            return (
+                              <div key={`${st}_${sec}`} className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={cn("text-xs font-bold w-32 justify-center shrink-0 py-0.5", streamBadgeClass)}
+                                >
+                                  {st} — Sec {sec}
+                                </Badge>
+                                <div className="flex-1">
+                                  {staffList.length > 0 ? (
+                                    <Select
+                                      value={currentVal || "__none__"}
+                                      onValueChange={(val: string | null) => {
+                                        const finalVal: string = !val || val === "__none__" ? "" : val;
+                                        setEditSectionTeachers((prev) => ({
+                                          ...prev,
+                                          [key]: finalVal,
+                                          [`${sec} (${st})`]: finalVal,
+                                          [`${st}::${sec}`]: finalVal,
+                                          [`${st} - Section ${sec}`]: finalVal,
+                                        }));
+                                      }}
+                                    >
+                                      <SelectTrigger className="h-7 text-xs bg-background font-medium">
+                                        <SelectValue placeholder={`Select ${st} Sec ${sec} Teacher`} />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                                          -- Not Assigned --
+                                        </SelectItem>
+                                        {staffList.map((s) => (
+                                          <SelectItem key={s.id} value={s.full_name} className="text-xs">
+                                            {s.full_name} {s.designation ? `(${s.designation})` : ""}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <Input
+                                      placeholder="Type teacher name..."
+                                      value={currentVal}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        setEditSectionTeachers((prev) => ({
+                                          ...prev,
+                                          [key]: val,
+                                          [`${sec} (${st})`]: val,
+                                          [`${st}::${sec}`]: val,
+                                        }));
+                                      }}
+                                      className="h-7 text-xs bg-background"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    editSections.map((sec) => {
+                      const currentVal = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || (editSections.length === 1 ? editTeacher : "");
+                      return (
+                        <div key={sec} className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs font-mono font-bold w-16 justify-center shrink-0 bg-background">
+                            Sec {sec}
+                          </Badge>
+                          <div className="flex-1">
+                            {staffList.length > 0 ? (
+                              <Select
+                                value={currentVal || "__none__"}
+                                onValueChange={(val: string | null) => {
+                                  const finalVal: string = !val || val === "__none__" ? "" : val;
+                                  setEditSectionTeachers((prev) => ({
+                                    ...prev,
+                                    [sec]: finalVal,
+                                  }));
+                                  if (editSections.length === 1) {
+                                    setEditTeacher(finalVal);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className="h-7 text-xs bg-background font-medium">
+                                  <SelectValue placeholder="Select Teacher" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
+                                    -- Not Assigned --
+                                  </SelectItem>
+                                  {staffList.map((s) => (
+                                    <SelectItem key={s.id} value={s.full_name} className="text-xs">
+                                      {s.full_name} {s.designation ? `(${s.designation})` : ""}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                value={currentVal}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setEditSectionTeachers((prev) => ({
+                                    ...prev,
+                                    [sec]: val,
+                                  }));
+                                  if (editSections.length === 1) {
+                                    setEditTeacher(val);
+                                  }
+                                }}
+                                placeholder="Teacher Name"
+                                className="h-7 text-xs bg-background"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -3150,6 +3334,7 @@ export function SchoolDetailsTab() {
               {(() => {
                 const activeScheme = marksSchemes.find((s) => s.classCode === selectedSubjectClass) || marksSchemes[0];
                 const activeSubjects = activeScheme.subjects || [];
+                const isHs = isHsClass(activeScheme.classCode) || isHigherSecondaryClass(activeScheme.classCode, activeScheme.className);
 
                 const SUBJECT_PALETTES = [
                   "bg-blue-50/80 text-blue-700 border-blue-200/80 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/50",
@@ -3162,7 +3347,22 @@ export function SchoolDetailsTab() {
                   "bg-teal-50/80 text-teal-700 border-teal-200/80 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-900/50",
                 ];
 
-                const selectOptions = MASTER_SUBJECT_BANK.flatMap((cat) =>
+                const selectOptions = MASTER_SUBJECT_BANK.filter((cat) => {
+                  if (!isHs || selectedSubjectStream === "all") return true;
+                  if (selectedSubjectStream === "Common") {
+                    return cat.category === "Languages";
+                  }
+                  if (selectedSubjectStream === "Science") {
+                    return cat.category === "Science (Class XI - XII)" || cat.category === "Languages";
+                  }
+                  if (selectedSubjectStream === "Arts") {
+                    return cat.category === "Humanities & Arts (Class XI - XII)" || cat.category === "Languages";
+                  }
+                  if (selectedSubjectStream === "Commerce") {
+                    return cat.category === "Commerce (Class XI - XII)" || cat.category === "Languages";
+                  }
+                  return true;
+                }).flatMap((cat) =>
                   cat.subjects.map((sub) => ({
                     label: sub,
                     value: sub,
@@ -3171,13 +3371,82 @@ export function SchoolDetailsTab() {
                   }))
                 );
 
+                const displayedSubjects = (!isHs || selectedSubjectStream === "all")
+                  ? activeSubjects
+                  : activeSubjects.filter((s) => {
+                      const st = detectSubjectStream(s);
+                      if (selectedSubjectStream === "Common") return st === "Common";
+                      return st === selectedSubjectStream;
+                    });
+
                 return (
                   <div className="space-y-3 pt-0.5">
+                    {/* Stream Filter Bar for Class 11 and 12 */}
+                    {isHs && (
+                      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-muted/30 rounded-xl border border-border/70">
+                        <span className="text-[11px] font-bold text-muted-foreground px-1.5">Stream:</span>
+                        {[
+                          { id: "all", label: "All Streams", count: activeSubjects.length },
+                          { id: "Common", label: "Common / Languages", icon: BookOpen, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Common").length },
+                          { id: "Science", label: "Science", icon: Atom, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Science").length },
+                          { id: "Arts", label: "Arts / Humanities", icon: Palette, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Arts").length },
+                          { id: "Commerce", label: "Commerce", icon: Briefcase, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Commerce").length },
+                        ].map((st) => {
+                          const isStSelected = selectedSubjectStream === st.id;
+                          const Icon = st.icon;
+                          return (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => setSelectedSubjectStream(st.id as any)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
+                                isStSelected
+                                  ? "bg-background text-primary border border-primary/30 shadow-2xs font-bold"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                              )}
+                            >
+                              {Icon && <Icon className="w-3 h-3" />}
+                              <span>{st.label}</span>
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium",
+                                isStSelected ? "bg-primary/15 text-primary font-bold" : "bg-muted text-muted-foreground"
+                              )}>
+                                {st.count}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {/* Selected Subjects Pills */}
                     <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl border bg-muted/15 min-h-[50px]">
-                      {activeSubjects.length > 0 ? (
-                        activeSubjects.map((subj, idx) => {
+                      {displayedSubjects.length > 0 ? (
+                        displayedSubjects.map((subj, idx) => {
                           const palette = SUBJECT_PALETTES[idx % SUBJECT_PALETTES.length];
+                          const detStream = detectSubjectStream(subj);
+
+                          const streamTag = isHs && (
+                            detStream === "Science" ? (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-300/40">
+                                Science
+                              </span>
+                            ) : detStream === "Commerce" ? (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-300/40">
+                                Commerce
+                              </span>
+                            ) : detStream === "Arts" ? (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-300/40">
+                                Arts
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40">
+                                Common
+                              </span>
+                            )
+                          );
+
                           return (
                             <div
                               key={subj}
@@ -3188,6 +3457,7 @@ export function SchoolDetailsTab() {
                             >
                               <span className="text-[10px] opacity-70 font-mono font-bold">#{idx + 1}</span>
                               <span className="font-semibold">{subj}</span>
+                              {streamTag}
                               <button
                                 type="button"
                                 onClick={() => handleRemoveSubjectFromClass(activeScheme.classCode, subj)}
@@ -3200,7 +3470,11 @@ export function SchoolDetailsTab() {
                           );
                         })
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">No subjects selected for {activeScheme.className}.</span>
+                        <span className="text-xs text-muted-foreground italic">
+                          {isHs && selectedSubjectStream !== "all"
+                            ? `No ${selectedSubjectStream} subjects added yet for ${activeScheme.className}.`
+                            : `No subjects selected for ${activeScheme.className}.`}
+                        </span>
                       )}
                     </div>
 
@@ -3213,7 +3487,11 @@ export function SchoolDetailsTab() {
                             setSelectedNewSubjectToAdd(val);
                             if (val) setCustomSubjectName("");
                           }}
-                          placeholder="Select from subject bank..."
+                          placeholder={
+                            isHs && selectedSubjectStream !== "all"
+                              ? `Select ${selectedSubjectStream} subject from bank...`
+                              : "Select from subject bank..."
+                          }
                           options={selectOptions}
                           className="w-full text-xs"
                         />
@@ -3249,7 +3527,7 @@ export function SchoolDetailsTab() {
                         className="w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground px-4 shadow-xs"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        <span>Add</span>
+                        <span>Add Subject</span>
                       </Button>
                     </div>
                   </div>
