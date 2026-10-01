@@ -16,6 +16,13 @@ import {
   CloudUpload,
   RefreshCw,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { batchSaveTeachersAvailabilityDb } from "@/lib/supabase/db-routine";
 import {
@@ -1151,94 +1158,103 @@ export function RoutineTeachersTab({
         </div>
 
         <div className="flex items-center gap-2">
-          {!isEditorOpen && (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isSavingAll || teachers.length === 0}
-                onClick={handleSaveAllToCloud}
-                className="h-8 text-xs font-semibold gap-1.5 px-3 border-primary/30 text-primary hover:bg-primary/10"
-              >
-                {isSavingAll ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CloudUpload className="w-3.5 h-3.5 text-primary" />
-                )}
-                Save to Cloud
-              </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={isSavingAll || teachers.length === 0}
+            onClick={handleSaveAllToCloud}
+            className="h-8 text-xs font-semibold gap-1.5 px-3 border-primary/30 text-primary hover:bg-primary/10"
+          >
+            {isSavingAll ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <CloudUpload className="w-3.5 h-3.5 text-primary" />
+            )}
+            Save to Cloud
+          </Button>
 
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleOpenAdd}
-                className="h-8 text-xs font-semibold gap-1.5 px-3.5"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Teacher
-              </Button>
-            </>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleOpenAdd}
+            className="h-8 text-xs font-semibold gap-1.5 px-3.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Teacher
+          </Button>
         </div>
       </div>
 
-      {/* Availability & Class/Subject Editor Form */}
-      {isEditorOpen && (
-        <TeacherEditorForm
-          isSubmitting={isSubmitting}
-          editingTeacherId={editingTeacherId}
-          teacherName={teacherName}
-          shortName={shortName}
-          primarySubject={primarySubject}
-          customPrimarySubject={customPrimarySubject}
-          classTeacherOf={classTeacherOf}
-          classTeacherFirstPeriods={classTeacherFirstPeriods}
-          maxPeriods={maxPeriods}
-          selectedClasses={selectedClasses}
-          classSubjectsMap={classSubjectsMap}
-          sectionSubjectsMap={sectionSubjectsMap}
-          classSectionsMap={classSectionsMap}
-          classPeriodsMap={classPeriodsMap}
-          activeSectionTab={activeSectionTab}
-          availSlots={availSlots}
-          presetClasses={presetClasses}
-          staffList={staffList}
-          selectableStaffList={selectableStaffList}
-          unaddedStaff={unaddedStaff}
-          selectedStaffId={selectedStaffId}
-          selectedStaffLabel={selectedStaffLabel}
-          availableSubjectOptions={availableSubjectOptions}
-          availableClassOptions={availableClassOptions}
-          currentClassTeacherMap={currentClassTeacherMap}
-          conflictTeacher={conflictTeacher}
-          classSubjectsDictionary={classSubjectsDictionary}
-          settings={settings}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          onStaffDropdownChange={handleStaffDropdownChange}
-          onCustomNameChange={handleCustomNameChange}
-          setShortName={setShortName}
-          setPrimarySubject={setPrimarySubject}
-          setCustomPrimarySubject={setCustomPrimarySubject}
-          setClassTeacherOf={setClassTeacherOf}
-          setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
-          setMaxPeriods={setMaxPeriods}
-          onToggleClass={toggleClass}
-          onToggleSubjectForSection={toggleSubjectForSection}
-          onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
-          onSubjectPeriodChange={handleSubjectPeriodChange}
-          onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
-          onSelectSection={handleSelectSection}
-          onTogglePeriod={togglePeriod}
-          onSetPreset={setPreset}
-          getClassSections={getClassSections}
-          getSectionSubjects={getSectionSubjects}
-          getSubjectPeriod={getSubjectPeriod}
-          getSubjectAllocationStats={getSubjectAllocationStats}
-          calculateSectionTotalPeriods={calculateSectionTotalPeriods}
-        />
-      )}
+      {/* Availability & Class/Subject Editor Dialog Modal */}
+      <Dialog open={isEditorOpen} onOpenChange={(open) => { if (!open) handleCancel(); }}>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 border-0 bg-transparent shadow-2xl"
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {editingTeacherId ? `Edit Faculty: ${teacherName}` : "Add Faculty Member"}
+            </DialogTitle>
+            <DialogDescription>
+              Configure teacher availability, eligible classes, sections, and subjects.
+            </DialogDescription>
+          </DialogHeader>
+          <TeacherEditorForm
+            isSubmitting={isSubmitting}
+            editingTeacherId={editingTeacherId}
+            teacherName={teacherName}
+            shortName={shortName}
+            primarySubject={primarySubject}
+            customPrimarySubject={customPrimarySubject}
+            classTeacherOf={classTeacherOf}
+            classTeacherFirstPeriods={classTeacherFirstPeriods}
+            maxPeriods={maxPeriods}
+            selectedClasses={selectedClasses}
+            classSubjectsMap={classSubjectsMap}
+            sectionSubjectsMap={sectionSubjectsMap}
+            classSectionsMap={classSectionsMap}
+            classPeriodsMap={classPeriodsMap}
+            activeSectionTab={activeSectionTab}
+            availSlots={availSlots}
+            presetClasses={presetClasses}
+            staffList={staffList}
+            selectableStaffList={selectableStaffList}
+            unaddedStaff={unaddedStaff}
+            selectedStaffId={selectedStaffId}
+            selectedStaffLabel={selectedStaffLabel}
+            availableSubjectOptions={availableSubjectOptions}
+            availableClassOptions={availableClassOptions}
+            currentClassTeacherMap={currentClassTeacherMap}
+            conflictTeacher={conflictTeacher}
+            classSubjectsDictionary={classSubjectsDictionary}
+            settings={settings}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onStaffDropdownChange={handleStaffDropdownChange}
+            onCustomNameChange={handleCustomNameChange}
+            setShortName={setShortName}
+            setPrimarySubject={setPrimarySubject}
+            setCustomPrimarySubject={setCustomPrimarySubject}
+            setClassTeacherOf={setClassTeacherOf}
+            setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
+            setMaxPeriods={setMaxPeriods}
+            onToggleClass={toggleClass}
+            onToggleSubjectForSection={toggleSubjectForSection}
+            onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
+            onSubjectPeriodChange={handleSubjectPeriodChange}
+            onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
+            onSelectSection={handleSelectSection}
+            onTogglePeriod={togglePeriod}
+            onSetPreset={setPreset}
+            getClassSections={getClassSections}
+            getSectionSubjects={getSectionSubjects}
+            getSubjectPeriod={getSubjectPeriod}
+            getSubjectAllocationStats={getSubjectAllocationStats}
+            calculateSectionTotalPeriods={calculateSectionTotalPeriods}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Teachers List Table */}
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
