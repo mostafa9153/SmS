@@ -245,6 +245,8 @@ export function RoutineSubjectsTab({
   const [maxPerDay, setMaxPerDay] = useState<number>(2);
   const [editId, setEditId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+
   // Dialog-specific edit form state (independent from the add form)
   const [dlgName, setDlgName] = useState("");
   const [dlgPeriodsPerWeek, setDlgPeriodsPerWeek] = useState<number>(5);
@@ -265,7 +267,7 @@ export function RoutineSubjectsTab({
   // Drag-to-reorder: localOrder[classKey] = ordered array of subject ids
   const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
 
-  // DnD sensors — require 5px movement to start drag so clicks still work
+  // DnD sensors â€” require 5px movement to start drag so clicks still work
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
@@ -450,6 +452,21 @@ export function RoutineSubjectsTab({
     setDlgMaxPerDay(s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2);
     setDlgFormStream(stream);
     setDlgIsCommon(Boolean(s.isCommon || stream === "Common"));
+    setDialogMode("edit");
+    setEditDialogOpen(true);
+  }, []);
+
+  const handleOpenAddDialog = React.useCallback(() => {
+    setEditId(null);
+    setDlgName("");
+    setDlgPeriodsPerWeek(5);
+    setDlgIsLab(false);
+    setDlgTimePref("any");
+    setDlgAllowMulti(false);
+    setDlgMaxPerDay(2);
+    setDlgFormStream("General");
+    setDlgIsCommon(false);
+    setDialogMode("add");
     setEditDialogOpen(true);
   }, []);
 
@@ -464,12 +481,12 @@ export function RoutineSubjectsTab({
     });
 
     if (existing) {
-      // Already added — open edit dialog for it
+      // Already added â€” open edit dialog for it
       handleEdit(existing);
       return;
     }
 
-    // New subject — just fill the add form
+    // New subject â€” just fill the add form
     setEditId(null);
     setName(subName);
     const lower = subName.toLowerCase();
@@ -566,10 +583,9 @@ export function RoutineSubjectsTab({
 
   const handleDlgSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dlgName.trim() || !editId) return;
+    if (!dlgName.trim()) return;
     setIsDlgSubmitting(true);
     try {
-      const subjectBeingEdited = subjects.find((s) => s.id === editId);
       const finalStream = isCurrentClassHs
         ? dlgIsCommon
           ? "Common"
@@ -577,25 +593,51 @@ export function RoutineSubjectsTab({
           ? detectSubjectStream(dlgName.trim())
           : dlgFormStream
         : null;
-      await onSaveSubject({
-        id: editId,
-        name: dlgName.trim(),
-        className: subjectBeingEdited?.className || targetClassForForm,
-        stream: finalStream,
-        isCommon: dlgIsCommon || finalStream === "Common",
-        isHard: false,
-        isLab: dlgIsLab,
-        timePref: dlgTimePref,
-        allowMultiplePerDay: dlgAllowMulti,
-        maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : 1,
-        periodsPerWeek: Number(dlgPeriodsPerWeek) || 5,
-      });
+
+      if (dialogMode === "edit" && editId) {
+        const subjectBeingEdited = subjects.find((s) => s.id === editId);
+        await onSaveSubject({
+          id: editId,
+          name: dlgName.trim(),
+          className: subjectBeingEdited?.className || targetClassForForm,
+          stream: finalStream,
+          isCommon: dlgIsCommon || finalStream === "Common",
+          isHard: false,
+          isLab: dlgIsLab,
+          timePref: dlgTimePref,
+          allowMultiplePerDay: dlgAllowMulti,
+          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : 1,
+          periodsPerWeek: Number(dlgPeriodsPerWeek) || 5,
+        });
+      } else {
+        // Add mode
+        const canonicalInput = dlgName.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        const existingMatch = currentClassSubjects.find((s) => {
+          const canonicalS = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const matchStream = !isCurrentClassHs || (s.stream || "Common").toLowerCase() === (finalStream || "Common").toLowerCase();
+          return (canonicalS === canonicalInput || s.name.trim().toLowerCase() === dlgName.trim().toLowerCase()) && matchStream;
+        });
+        await onSaveSubject({
+          id: existingMatch?.id || undefined,
+          name: dlgName.trim(),
+          className: targetClassForForm,
+          stream: finalStream,
+          isCommon: dlgIsCommon || finalStream === "Common",
+          isHard: false,
+          isLab: dlgIsLab,
+          timePref: dlgTimePref,
+          allowMultiplePerDay: dlgAllowMulti,
+          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : 1,
+          periodsPerWeek: Number(dlgPeriodsPerWeek) || 5,
+        });
+      }
       setEditDialogOpen(false);
       setEditId(null);
     } finally {
       setIsDlgSubmitting(false);
     }
   };
+
 
 
   const handleSelectClass = React.useCallback((cls: string) => {
@@ -628,49 +670,7 @@ export function RoutineSubjectsTab({
   const handleSaveAll = React.useCallback(async () => {
     setIsSaving(true);
     try {
-      let currentList = [...subjects];
-
-      // If user typed a subject name in the form, automatically include it
-      if (name.trim()) {
-        const finalStream = isCurrentClassHs
-          ? isCommonSubject
-            ? "Common"
-            : formStream === "General"
-            ? detectSubjectStream(name.trim())
-            : formStream
-          : null;
-
-        const canonicalInput = name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-        const existingIdx = currentList.findIndex((s) => {
-          if (editId && s.id === editId) return true;
-          const canonicalS = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-          const matchClass = (s.className || "").toLowerCase() === targetClassForForm.toLowerCase();
-          return canonicalS === canonicalInput && matchClass;
-        });
-
-        const newOrUpdatedSubject: RoutineSubject = {
-          id: editId || (existingIdx > -1 ? currentList[existingIdx].id : crypto.randomUUID()),
-          name: name.trim(),
-          className: targetClassForForm,
-          stream: finalStream,
-          isCommon: isCommonSubject || finalStream === "Common",
-          isHard: false,
-          isLab,
-          timePref,
-          allowMultiplePerDay: allowMulti,
-          maxPerDay: allowMulti ? Number(maxPerDay) || 2 : 1,
-          periodsPerWeek: Number(periodsPerWeek) || 5,
-        };
-
-        if (existingIdx > -1) {
-          currentList[existingIdx] = newOrUpdatedSubject;
-        } else {
-          currentList.push(newOrUpdatedSubject);
-        }
-
-        setName("");
-        setEditId(null);
-      }
+      const currentList = [...subjects];
 
       const rows = currentList.map((s) => {
         // Resolve sortOrder from any localOrder entry that contains this subject
@@ -924,19 +924,51 @@ export function RoutineSubjectsTab({
           </div>
 
           <div className="flex items-center gap-1.5">
+            {activeClass !== "all" && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleOpenAddDialog}
+                className="h-7 text-xs font-semibold gap-1 px-3"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Subject
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleSyncFromPresets}
-              disabled={isSyncing || isSubmitting}
+              disabled={isSyncing}
               className="h-7 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
             >
               <Sparkles className="w-3.5 h-3.5 text-primary" />
               <span>Sync from Presets</span>
             </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSaveAll}
+              disabled={isSaving || subjects.length === 0}
+              className={cn(
+                "h-7 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs",
+                isSavedRecently
+                  ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
+            >
+              {isSaving ? (
+                <><RefreshCw className="w-3 h-3 animate-spin" /><span>Saving...</span></>
+              ) : isSavedRecently ? (
+                <><Check className="w-3 h-3" /><span>Saved</span></>
+              ) : (
+                <><Save className="w-3 h-3" /><span>Save</span></>
+              )}
+            </Button>
           </div>
         </div>
+
 
         {/* Horizontal Class Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
@@ -1113,313 +1145,8 @@ export function RoutineSubjectsTab({
         )}
       </div>
 
-      {/* 2. Active Class Configurator Form */}
-      <form onSubmit={handleSubmit} autoComplete="off" className="bg-card border rounded-lg p-4 shadow-xs space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              Configure Subject for {targetClassForForm}
-            </h2>
-            {isCurrentClassHs && selectedStream !== "all" && (
-              <Badge variant="secondary" className="text-[10px] font-bold">
-                {selectedStream}
-              </Badge>
-            )}
-          </div>
 
-          <div className="flex items-center gap-2">
-            {/* Add to Class submit button */}
-            <Button
-              type="submit"
-              size="sm"
-              disabled={isSubmitting || !name.trim()}
-              className="h-8 text-xs font-semibold px-4 gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add to {targetClassForForm}
-            </Button>
 
-            {/* Cloud Save */}
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSaveAll}
-              disabled={isSaving || isSubmitting || (subjects.length === 0 && !name.trim())}
-              className={cn(
-                "h-8 text-xs font-semibold gap-1.5 px-3.5 transition-all duration-150 shadow-xs cursor-pointer",
-                isSavedRecently
-                  ? "bg-emerald-600 hover:bg-emerald-600 text-white"
-                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
-              )}
-            >
-              {isSaving ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : isSavedRecently ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Saved</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save</span>
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Form Inputs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
-          {/* Subject Name Selector Dropdown */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">Subject Name *</Label>
-              {editId && (
-                <span className="text-[10px] text-primary font-semibold font-mono">
-                  (Editing)
-                </span>
-              )}
-            </div>
-
-            <Select
-              value={name || ""}
-              onValueChange={(val) => {
-                if (val) {
-                  handleSelectPresetChip(val);
-                }
-              }}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder="Choose Subject from Presets" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40 sticky top-0 z-10">
-                  {targetClassForForm} Presets
-                </div>
-                {activeClassPresets.map((sub) => {
-                  const isAdded = currentClassSubjects.some(
-                    (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
-                  );
-                  return (
-                    <SelectItem key={sub} value={sub} className="text-xs">
-                      <div className="flex items-center justify-between w-full gap-2">
-                        <span>{sub}</span>
-                        {isAdded && (
-                          <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-                            (Added)
-                          </span>
-                        )}
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-
-                {/* Custom subjects already added that are not in presets */}
-                {currentClassSubjects
-                  .filter(
-                    (s) =>
-                      !activeClassPresets.some((p) => p.toLowerCase() === s.name.toLowerCase())
-                  )
-                  .map((s) => (
-                    <SelectItem key={s.id} value={s.name} className="text-xs">
-                      <div className="flex items-center justify-between w-full gap-2">
-                        <span>{s.name}</span>
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
-                          (Added)
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Stream Selector (for HS Classes - Only showing configured streams) */}
-          {isCurrentClassHs ? (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Stream</Label>
-              <Select
-                value={formStream}
-                onValueChange={(val: any) => {
-                  setFormStream(val);
-                  setIsCommonSubject(val === "Common");
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                  <SelectValue placeholder="Select Stream" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Common" className="text-xs">
-                    Common (Languages & Core)
-                  </SelectItem>
-                  {configuredStreamsForActive.includes("Science") && (
-                    <SelectItem value="Science" className="text-xs">
-                      Science
-                    </SelectItem>
-                  )}
-                  {configuredStreamsForActive.includes("Commerce") && (
-                    <SelectItem value="Commerce" className="text-xs">
-                      Commerce
-                    </SelectItem>
-                  )}
-                  {configuredStreamsForActive.includes("Arts") && (
-                    <SelectItem value="Arts" className="text-xs">
-                      Arts / Humanities
-                    </SelectItem>
-                  )}
-                  <SelectItem value="General" className="text-xs">
-                    General
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Periods / Week *</Label>
-              <Input
-                type="number"
-                min={1}
-                max={18}
-                value={periodsPerWeek}
-                onChange={(e) => setPeriodsPerWeek(parseInt(e.target.value, 10) || 1)}
-                className="h-8 text-xs font-mono font-semibold"
-                required
-              />
-            </div>
-          )}
-
-          {isCurrentClassHs && (
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Periods / Week *</Label>
-              <Input
-                type="number"
-                min={1}
-                max={18}
-                value={periodsPerWeek}
-                onChange={(e) => setPeriodsPerWeek(parseInt(e.target.value, 10) || 1)}
-                className="h-8 text-xs font-mono font-semibold"
-                required
-              />
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Period Format</Label>
-            <Select
-              value={isLab ? "lab" : "single"}
-              onValueChange={(val) => setIsLab(val === "lab")}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder="Period Format">
-                  {isLab ? "Practical Lab (2 Consec. Slots)" : "Single Period (1 Slot)"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="single" className="text-xs">
-                  Single Period (1 Slot)
-                </SelectItem>
-                <SelectItem value="lab" className="text-xs">
-                  Practical Lab (2 Consec. Slots)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Time Window</Label>
-            <Select
-              value={timePref}
-              onValueChange={(val) => val && setTimePref(val as "any" | "morning" | "afternoon")}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder="Time Window">
-                  {timePref === "morning"
-                    ? "Morning (Before Tiffin)"
-                    : timePref === "afternoon"
-                    ? "Afternoon (After Tiffin)"
-                    : "Flexible (Anytime)"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any" className="text-xs">
-                  Flexible (Anytime)
-                </SelectItem>
-                <SelectItem value="morning" className="text-xs">
-                  Morning (Before Tiffin)
-                </SelectItem>
-                <SelectItem value="afternoon" className="text-xs">
-                  Afternoon (After Tiffin)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* HS Class Common Subject Checkbox + Multi-Period Day Policy with Numeric Max Limit */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t">
-          <div className="flex flex-wrap items-center gap-4">
-            {isCurrentClassHs && (
-              <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer select-none text-indigo-700 dark:text-indigo-400 bg-indigo-50/70 dark:bg-indigo-950/30 px-2.5 py-1 rounded border border-indigo-200 dark:border-indigo-800">
-                <input
-                  type="checkbox"
-                  checked={isCommonSubject}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setIsCommonSubject(checked);
-                    if (checked) setFormStream("Common");
-                  }}
-                  className="h-3.5 w-3.5 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Common across all streams (Science, Commerce, Arts)</span>
-              </label>
-            )}
-
-            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={allowMulti}
-                onChange={(e) => setAllowMulti(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <span>Allow multiple periods in the same day for {targetClassForForm}</span>
-            </label>
-
-            {allowMulti && (
-              <div className="flex items-center gap-2 pl-2 border-l border-border">
-                <Label className="text-xs font-medium text-foreground whitespace-nowrap">
-                  Max Periods / Day:
-                </Label>
-                <div className="w-28">
-                  <Select
-                    value={String(maxPerDay)}
-                    onValueChange={(val) => setMaxPerDay(Number(val) || 2)}
-                  >
-                    <SelectTrigger className="h-7 text-xs font-semibold bg-background">
-                      <SelectValue placeholder="Limit">{maxPerDay} Periods</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2" className="text-xs">
-                        2 Periods / day
-                      </SelectItem>
-                      <SelectItem value="3" className="text-xs">
-                        3 Periods / day
-                      </SelectItem>
-                      <SelectItem value="4" className="text-xs">
-                        4 Periods / day
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </form>
 
 
@@ -1504,13 +1231,16 @@ export function RoutineSubjectsTab({
         </div>
       </div>
 
-      {/* Edit Subject Dialog */}
+      {/* Add / Edit Subject Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) handleDlgClose(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-              <Edit2 className="w-4 h-4 text-primary" />
-              Edit Subject
+              {dialogMode === "add" ? (
+                <><Plus className="w-4 h-4 text-primary" />Add Subject to {targetClassForForm}</>
+              ) : (
+                <><Edit2 className="w-4 h-4 text-primary" />Edit Subject</>
+              )}
             </DialogTitle>
           </DialogHeader>
 
@@ -1518,13 +1248,59 @@ export function RoutineSubjectsTab({
             {/* Subject Name */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Subject Name *</Label>
-              <Input
-                value={dlgName}
-                onChange={(e) => setDlgName(e.target.value)}
-                className="h-8 text-xs font-medium"
-                required
-              />
+              {dialogMode === "add" ? (
+                <Select
+                  value={dlgName || ""}
+                  onValueChange={(val) => {
+                    if (!val) return;
+                    setDlgName(val);
+                    const lower = val.toLowerCase();
+                    const detected = detectSubjectStream(val);
+                    setDlgFormStream(detected);
+                    setDlgIsCommon(detected === "Common");
+                    if (lower.includes("lab") || lower.includes("practical")) {
+                      setDlgIsLab(true); setDlgPeriodsPerWeek(2);
+                    } else if (lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental")) {
+                      setDlgIsLab(false); setDlgPeriodsPerWeek(2);
+                    } else {
+                      setDlgIsLab(false); setDlgPeriodsPerWeek(5);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                    <SelectValue placeholder="Choose Subject from Presets" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40 sticky top-0 z-10">
+                      {targetClassForForm} Presets
+                    </div>
+                    {activeClassPresets.map((sub) => {
+                      const isAdded = currentClassSubjects.some(
+                        (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
+                      );
+                      return (
+                        <SelectItem key={sub} value={sub} className="text-xs">
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{sub}</span>
+                            {isAdded && (
+                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">(Added)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  value={dlgName}
+                  onChange={(e) => setDlgName(e.target.value)}
+                  className="h-8 text-xs font-medium"
+                  required
+                />
+              )}
             </div>
+
 
             <div className="grid grid-cols-2 gap-3">
               {/* Periods / Week */}
@@ -1640,6 +1416,8 @@ export function RoutineSubjectsTab({
               <Button type="submit" size="sm" disabled={isDlgSubmitting || !dlgName.trim()} className="h-8 text-xs font-semibold px-4 gap-1.5">
                 {isDlgSubmitting ? (
                   <><RefreshCw className="h-3.5 w-3.5 animate-spin" /><span>Saving...</span></>
+                ) : dialogMode === "add" ? (
+                  <><Plus className="h-3.5 w-3.5" /><span>Add Subject</span></>
                 ) : (
                   <><Check className="h-3.5 w-3.5" /><span>Save Changes</span></>
                 )}
