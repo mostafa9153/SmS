@@ -5,9 +5,10 @@ import { RoutineRoom } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload, Save, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
+import { cn } from "@/lib/utils";
 
 interface RoutineRoomsTabProps {
   rooms: RoutineRoom[];
@@ -20,6 +21,7 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
   const [isLab, setIsLab] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +145,6 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
             <Button
               type="button"
               size="sm"
-              variant="outline"
               disabled={isSubmitting || rooms.length === 0}
               onClick={async () => {
                 setIsSubmitting(true);
@@ -151,11 +152,16 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
                   for (const r of rooms) {
                     await onSaveRoom(r);
                   }
+                  setIsSavedRecently(true);
+                  setTimeout(() => setIsSavedRecently(false), 2500);
                   showToast({
                     type: "success",
-                    title: "Saved to Cloud",
-                    description: `${rooms.length} rooms & laboratories saved to Cloud successfully.`,
+                    title: "Saved",
+                    description: `${rooms.length} rooms & laboratories saved successfully.`,
                   });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("sms_routine_state_updated"));
+                  }
                 } catch {
                   showToast({
                     type: "error",
@@ -166,10 +172,29 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
                   setIsSubmitting(false);
                 }
               }}
-              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
+              className={cn(
+                "h-7 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs cursor-pointer ml-1",
+                isSavedRecently
+                  ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
             >
-              <CloudUpload className="w-3.5 h-3.5" />
-              Save to Cloud
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : isSavedRecently ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </>
+              )}
             </Button>
           </div>
         </div>

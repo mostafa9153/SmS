@@ -33,13 +33,14 @@ export default async function SettingsRootPage({ searchParams }: SettingsPagePro
       case "config":
       case "profile":
         redirect("/settings/school-details?tab=profile");
+
       case "classes":
       case "class-management":
-        redirect("/settings/school-details?tab=classes");
+        redirect("/settings/presets?section=classes");
       case "marks_scheme":
       case "marks":
       case "exam-scheme":
-        redirect("/settings/school-details?tab=marks_scheme");
+        redirect("/settings/presets?section=marks_scheme");
 
       case "presets":
       case "preset-addresses":
@@ -50,6 +51,7 @@ export default async function SettingsRootPage({ searchParams }: SettingsPagePro
         redirect("/settings/presets?section=fee");
       case "address":
       case "bank":
+      case "school":
       case "ai":
         redirect(`/settings/presets?section=${tab}`);
 

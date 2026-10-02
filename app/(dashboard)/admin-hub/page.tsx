@@ -152,14 +152,14 @@ export default function AdminHubPage() {
 
         <div className="flex items-center gap-2">
           <Link
-            href="/teacher-management"
+            href="/settings/presets"
             className={cn(
               buttonVariants({ size: "sm" }),
               "h-8.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold transition-colors cursor-pointer gap-1.5 shadow-xs flex items-center"
             )}
           >
-            <GraduationCap className="h-3.5 w-3.5" />
-            <span>Teacher Management</span>
+            <MapPin className="h-3.5 w-3.5" />
+            <span>Presets</span>
           </Link>
           <Link
             href="/settings"

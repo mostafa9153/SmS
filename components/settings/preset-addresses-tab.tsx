@@ -36,7 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import {
@@ -57,15 +57,142 @@ import {
   UserCheck,
   CheckCircle2,
   Sliders,
+  Info,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from "@/components/ui/tooltip";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 import { FeePresetManager } from "@/components/settings/fee-preset-manager";
-import { Receipt } from "lucide-react";
+import { ClassManagementTab } from "@/components/settings/class-management-tab";
+import { MarksSchemeTab } from "@/components/settings/marks-scheme-tab";
+import { Receipt, GraduationCap, Award } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import { SettingsBackButton } from "./settings-back-button";
 
-type PresetSection = "defaults" | "fee" | "address" | "bank" | "school" | "ai";
-const VALID_PRESET_SECTIONS: PresetSection[] = ["defaults", "fee", "address", "bank", "school", "ai"];
+function InfoTooltip({ content }: { content: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        onClick={(e) => e.preventDefault()}
+        className="inline-flex items-center justify-center p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+      >
+        <Info className="h-3.5 w-3.5" />
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs p-2 text-xs leading-relaxed shadow-lg">
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+type PresetSection = "defaults" | "classes" | "marks_scheme" | "fee" | "address" | "bank" | "school" | "ai";
+const VALID_PRESET_SECTIONS: PresetSection[] = ["defaults", "classes", "marks_scheme", "fee", "address", "bank", "school", "ai"];
+
+interface PresetItemConfig {
+  id: PresetSection;
+  title: string;
+  tag: string;
+  icon: React.ComponentType<{ className?: string }>;
+  activeBg: string;
+  activeShadow: string;
+  iconBg: string;
+  iconColor: string;
+}
+
+const ACADEMIC_PRESET_ITEMS: PresetItemConfig[] = [
+  {
+    id: "classes",
+    title: "Class Management",
+    tag: "Classes, Sections & Streams",
+    icon: GraduationCap,
+    activeBg: "bg-blue-600 text-white border-blue-600",
+    activeShadow: "shadow-md shadow-blue-500/25 ring-2 ring-blue-500/30",
+    iconBg: "bg-blue-500/15",
+    iconColor: "text-blue-600 dark:text-blue-400",
+  },
+  {
+    id: "marks_scheme",
+    title: "Exam Marks Scheme",
+    tag: "V–X Summative & XI–XII Sem",
+    icon: Award,
+    activeBg: "bg-purple-600 text-white border-purple-600",
+    activeShadow: "shadow-md shadow-purple-500/25 ring-2 ring-purple-500/30",
+    iconBg: "bg-purple-500/15",
+    iconColor: "text-purple-600 dark:text-purple-400",
+  },
+  {
+    id: "fee",
+    title: "Invoice Fee Presets",
+    tag: "Class 5–8, 9–10 & 11–12",
+    icon: Receipt,
+    activeBg: "bg-violet-600 text-white border-violet-600",
+    activeShadow: "shadow-md shadow-violet-500/25 ring-2 ring-violet-500/30",
+    iconBg: "bg-violet-500/15",
+    iconColor: "text-violet-600 dark:text-violet-400",
+  },
+  {
+    id: "defaults",
+    title: "Student Entry Defaults",
+    tag: "Guardian, Religion, Medium",
+    icon: UserCheck,
+    activeBg: "bg-amber-600 text-white border-amber-600",
+    activeShadow: "shadow-md shadow-amber-500/25 ring-2 ring-amber-500/30",
+    iconBg: "bg-amber-500/15",
+    iconColor: "text-amber-600 dark:text-amber-400",
+  },
+];
+
+const SYSTEM_PRESET_ITEMS: PresetItemConfig[] = [
+  {
+    id: "address",
+    title: "Address Presets",
+    tag: "Villages, PO, PS, Block & GP",
+    icon: MapPin,
+    activeBg: "bg-emerald-600 text-white border-emerald-600",
+    activeShadow: "shadow-md shadow-emerald-500/25 ring-2 ring-emerald-500/30",
+    iconBg: "bg-emerald-500/15",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    id: "bank",
+    title: "Bank & IFSC Presets",
+    tag: "Bank Names & IFSC Codes",
+    icon: Landmark,
+    activeBg: "bg-teal-600 text-white border-teal-600",
+    activeShadow: "shadow-md shadow-teal-500/25 ring-2 ring-teal-500/30",
+    iconBg: "bg-teal-500/15",
+    iconColor: "text-teal-600 dark:text-teal-400",
+  },
+  {
+    id: "school",
+    title: "Feeder Schools",
+    tag: "Previous Primary & High Schools",
+    icon: School,
+    activeBg: "bg-indigo-600 text-white border-indigo-600",
+    activeShadow: "shadow-md shadow-indigo-500/25 ring-2 ring-indigo-500/30",
+    iconBg: "bg-indigo-500/15",
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+  },
+  {
+    id: "ai",
+    title: "AI & OCR Vision Key",
+    tag: "Gemini & OpenAI API Config",
+    icon: Sparkles,
+    activeBg: "bg-pink-600 text-white border-pink-600",
+    activeShadow: "shadow-md shadow-pink-500/25 ring-2 ring-pink-500/30",
+    iconBg: "bg-pink-500/15",
+    iconColor: "text-pink-600 dark:text-pink-400",
+  },
+];
+
+const ALL_PRESET_ITEMS = [...ACADEMIC_PRESET_ITEMS, ...SYSTEM_PRESET_ITEMS];
 
 export function PresetAddressesTab() {
   const searchParams = useSearchParams();
@@ -402,162 +529,180 @@ export function PresetAddressesTab() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border bg-card/90 backdrop-blur shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
-            <Building className="h-5 w-5" />
+    <TooltipProvider delay={100}>
+      <div className="space-y-6">
+        {/* Unified Header Banner with Navigation Back Button & Light Gradient */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/40 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-amber-500/5 dark:from-emerald-950/25 dark:via-teal-950/15 dark:to-background shadow-xs">
+          <div className="flex items-center gap-3">
+            <SettingsBackButton />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 shrink-0 shadow-2xs">
+              <Building className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
+                System Presets & Quick-Fill Hub
+              </h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-muted-foreground">
+                  Active:{" "}
+                  <strong className="text-foreground font-semibold">
+                    {ALL_PRESET_ITEMS.find((item) => item.id === activeSection)?.title || "Presets"}
+                  </strong>
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-              System Presets & Quick-Fill Hub
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              Configure predefined options for Addresses, Local Bank Branches & IFSC Codes, and Feeder Schools to accelerate student registration.
-            </p>
+
+          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetDefaults}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs font-semibold rounded-xl border-border hover:bg-muted cursor-pointer h-9"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Reset Defaults
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs px-4 shadow-xs cursor-pointer h-9"
+            >
+              {isSaving ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-3.5 w-3.5" />
+                  Save All Presets
+                </>
+              )}
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleResetDefaults}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 text-xs font-semibold rounded-xl border-border hover:bg-muted cursor-pointer h-10 sm:h-9"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Reset Defaults
-          </Button>
+        {/* Presets Navigation Quick-Grid (Compact, sleek & single-line buttons) */}
+        <div className="rounded-2xl border bg-card/90 backdrop-blur-xs p-2.5 sm:p-3 shadow-2xs space-y-2">
+          {/* Group 1: Academic Setup */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                <GraduationCap className="h-3.5 w-3.5" />
+                Academic Setup & Evaluation
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {ACADEMIC_PRESET_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all duration-150 cursor-pointer relative group",
+                      isActive
+                        ? cn(item.activeBg, item.activeShadow, "scale-[1.01]")
+                        : "bg-background border-border/80 hover:border-foreground/30 hover:bg-muted/40 hover:-translate-y-0.5 shadow-2xs hover:shadow-xs"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
+                        isActive ? "bg-white/20 text-white shadow-xs" : item.iconBg
+                      )}
+                    >
+                      <Icon className={cn("h-3.5 w-3.5", isActive ? "text-white" : item.iconColor)} />
+                    </div>
+                    <span
+                      className={cn(
+                        "text-xs font-bold truncate leading-tight min-w-0 flex-1",
+                        isActive ? "text-white font-extrabold" : "text-foreground"
+                      )}
+                    >
+                      {item.title}
+                    </span>
+                    {isActive && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-white shrink-0 shadow-xs" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          <Button
-            type="button"
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-xs px-4 shadow-xs cursor-pointer h-10 sm:h-9"
-          >
-            {isSaving ? (
-              <>
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="h-3.5 w-3.5" />
-                Save All Presets
-              </>
-            )}
-          </Button>
+          <div className="h-px bg-border/50 my-0.5" />
+
+          {/* Group 2: Master Data & Quick-Fill */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                Master Data & Quick-Fill Presets
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              {SYSTEM_PRESET_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeSection === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveSection(item.id)}
+                    className={cn(
+                      "flex items-center gap-2.5 px-3 py-2 rounded-xl border text-left transition-all duration-150 cursor-pointer relative group",
+                      isActive
+                        ? cn(item.activeBg, item.activeShadow, "scale-[1.01]")
+                        : "bg-background border-border/80 hover:border-foreground/30 hover:bg-muted/40 hover:-translate-y-0.5 shadow-2xs hover:shadow-xs"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
+                        isActive ? "bg-white/20 text-white shadow-xs" : item.iconBg
+                      )}
+                    >
+                      <Icon className={cn("h-3.5 w-3.5", isActive ? "text-white" : item.iconColor)} />
+                    </div>
+                    <span
+                      className={cn(
+                        "text-xs font-bold truncate leading-tight min-w-0 flex-1",
+                        isActive ? "text-white font-extrabold" : "text-foreground"
+                      )}
+                    >
+                      {item.title}
+                    </span>
+                    {isActive && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-white shrink-0 shadow-xs" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Sub-Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-2 overflow-x-auto flex-nowrap custom-scrollbar scrollbar-none">
-        <button
-          type="button"
-          onClick={() => setActiveSection("defaults")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "defaults"
-              ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <UserCheck className="h-3.5 w-3.5 text-amber-500" />
-          ⚡ Student Entry Defaults
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("fee")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "fee"
-              ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <Receipt className="h-3.5 w-3.5 text-purple-500" />
-          🧾 Invoice Fee Presets (3 Tiers)
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("address")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "address"
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <MapPin className="h-3.5 w-3.5" />
-          📍 Address Presets
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("bank")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "bank"
-              ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <Landmark className="h-3.5 w-3.5" />
-          🏦 Bank & IFSC Presets
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("school")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "school"
-              ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <School className="h-3.5 w-3.5" />
-          🏫 Previous / Feeder Schools
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveSection("ai")}
-          className={cn(
-            "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 whitespace-nowrap min-h-[38px]",
-            activeSection === "ai"
-              ? "bg-pink-500/10 text-pink-700 dark:text-pink-400 border border-pink-500/30 shadow-2xs"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-          )}
-        >
-          <Sparkles className="h-3.5 w-3.5 text-pink-500" />
-          ✨ AI &amp; OCR Vision Key
-        </button>
-      </div>
 
       {/* SECTION 0: Student Entry Defaults */}
       {activeSection === "defaults" && (
         <div className="space-y-5 animate-in fade-in-50 duration-200">
           <Card className="rounded-2xl border border-border/80 shadow-xs overflow-hidden">
-            <CardHeader className="pb-4 border-b bg-gradient-to-r from-amber-500/10 via-background to-background">
+            <CardHeader className="py-3 px-5 border-b bg-gradient-to-r from-amber-500/10 via-background to-background">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
                     <Sliders className="h-4 w-4" />
                   </div>
-                  <div>
-                    <CardTitle className="text-sm sm:text-base font-bold text-foreground">
-                      Student Data Entry Defaults
-                    </CardTitle>
-                    <CardDescription className="text-xs text-muted-foreground">
-                      Configure fallback values for new student registrations and Excel bulk uploads when fields are left blank.
-                    </CardDescription>
-                  </div>
+                  <CardTitle className="text-sm sm:text-base font-bold text-foreground">
+                    Student Data Entry Defaults
+                  </CardTitle>
                 </div>
                 <Button
                   type="button"
@@ -583,19 +728,16 @@ export function PresetAddressesTab() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-5 space-y-6">
-              {/* Form Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <CardContent className="p-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* 1. Default Guardian Relationship */}
-                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-3.5">
+                  <div className="flex items-center gap-1.5">
                     <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <UserCheck className="h-3.5 w-3.5 text-amber-500" />
                       Default Relationship with Guardian
                     </Label>
-                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                      Auto Fallback
-                    </span>
+                    <InfoTooltip content="When student admission or Excel bulk upload has an empty Guardian relationship, it will automatically default to this selection." />
                   </div>
                   <CustomSelect
                     value={studentPresets.defaultGuardianRelationship}
@@ -603,21 +745,16 @@ export function PresetAddressesTab() {
                     options={GUARDIAN_DEFAULT_PRESET_OPTIONS}
                     placeholder="Select default guardian relationship..."
                   />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    When student admission or Excel bulk upload has an empty Guardian relationship, it will automatically default to this selection.
-                  </p>
                 </div>
 
                 {/* 2. Default Religion */}
-                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-3.5">
+                  <div className="flex items-center gap-1.5">
                     <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <Sparkles className="h-3.5 w-3.5 text-blue-500" />
                       Default Religion
                     </Label>
-                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                      Auto Fallback
-                    </span>
+                    <InfoTooltip content="When Religion is left blank or unselected, newly registered or bulk-uploaded students will automatically receive this religion." />
                   </div>
                   <CustomSelect
                     value={studentPresets.defaultReligion}
@@ -625,40 +762,34 @@ export function PresetAddressesTab() {
                     options={RELIGION_DEFAULT_PRESET_OPTIONS}
                     placeholder="Select default religion..."
                   />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    When Religion is left blank or unselected, newly registered or bulk-uploaded students will automatically receive this religion.
-                  </p>
                 </div>
 
                 {/* 3. Auto-sync Guardian Name */}
-                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <div className="flex items-center justify-between rounded-xl border border-border/70 bg-card p-3.5 min-h-[76px]">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="autoFillGuardianName" className="text-xs font-bold text-foreground flex items-center gap-1.5 cursor-pointer">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                       Auto-Fill Guardian Name
                     </Label>
-                    <input
-                      type="checkbox"
-                      checked={studentPresets.autoFillGuardianName}
-                      onChange={(e) => setStudentPresets((prev) => ({ ...prev, autoFillGuardianName: e.target.checked }))}
-                      className="h-4 w-4 rounded border-border text-amber-600 focus:ring-amber-500 cursor-pointer"
-                    />
+                    <InfoTooltip content="If Guardian is set to Father, Guardian's Name will automatically copy Father's Name if left blank. If Mother, it will copy Mother's Name." />
                   </div>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    If Guardian is set to <strong>Father</strong>, Guardian&apos;s Name will automatically copy <strong>Father&apos;s Name</strong> if left blank. If <strong>Mother</strong>, it will copy <strong>Mother&apos;s Name</strong>.
-                  </p>
+                  <input
+                    id="autoFillGuardianName"
+                    type="checkbox"
+                    checked={studentPresets.autoFillGuardianName}
+                    onChange={(e) => setStudentPresets((prev) => ({ ...prev, autoFillGuardianName: e.target.checked }))}
+                    className="h-4.5 w-4.5 rounded border-border text-amber-600 focus:ring-amber-500 cursor-pointer"
+                  />
                 </div>
 
                 {/* 4. Default Mother Tongue */}
-                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-3.5">
+                  <div className="flex items-center gap-1.5">
                     <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <Compass className="h-3.5 w-3.5 text-purple-500" />
                       Default Mother Tongue
                     </Label>
-                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                      Auto Fallback
-                    </span>
+                    <InfoTooltip content="Default spoken language at home for registered students when left empty." />
                   </div>
                   <CustomSelect
                     value={studentPresets.defaultMotherTongue}
@@ -672,21 +803,16 @@ export function PresetAddressesTab() {
                     ]}
                     placeholder="Select default mother tongue..."
                   />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Default spoken language at home for registered students when left empty.
-                  </p>
                 </div>
 
                 {/* 5. Default Medium of Instruction */}
-                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-4">
-                  <div className="flex items-center justify-between">
+                <div className="space-y-2 rounded-xl border border-border/70 bg-card p-3.5 md:col-span-2">
+                  <div className="flex items-center gap-1.5">
                     <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                       <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
                       Default Medium of Instruction
                     </Label>
-                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                      Auto Fallback
-                    </span>
+                    <InfoTooltip content="Default medium of instruction for registered students when left empty." />
                   </div>
                   <CustomSelect
                     value={studentPresets.defaultMediumOfInstruction}
@@ -694,53 +820,24 @@ export function PresetAddressesTab() {
                     options={MEDIUM_OF_INSTRUCTION_DEFAULT_PRESET_OPTIONS}
                     placeholder="Select default medium..."
                   />
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Default medium of instruction for registered students when left empty.
-                  </p>
-                </div>
-              </div>
-
-              {/* Real-Time Rule Summary Callout */}
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 space-y-2">
-                <p className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-amber-500" />
-                  Active Auto-Fill Rules Preview
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-1 text-xs">
-                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Guardian Relation</span>
-                    <span className="font-semibold text-foreground">
-                      {studentPresets.defaultGuardianRelationship === "None" ? "Leave Blank" : studentPresets.defaultGuardianRelationship || "Father"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Guardian Name</span>
-                    <span className="font-semibold text-foreground">
-                      {studentPresets.autoFillGuardianName ? "Auto-synced from Parent" : "Manual entry only"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Religion</span>
-                    <span className="font-semibold text-foreground">
-                      {studentPresets.defaultReligion === "None" ? "Leave Blank" : studentPresets.defaultReligion || "Hinduism"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Mother Tongue</span>
-                    <span className="font-semibold text-foreground">
-                      {studentPresets.defaultMotherTongue === "None" ? "Leave Blank" : studentPresets.defaultMotherTongue || "Bengali"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-background/80 border border-border/50">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Blank Medium</span>
-                    <span className="font-semibold text-foreground">
-                      {studentPresets.defaultMediumOfInstruction === "None" ? "Leave Blank" : studentPresets.defaultMediumOfInstruction || "Bengali"}
-                    </span>
-                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* SECTION: Class Management */}
+      {activeSection === "classes" && (
+        <div className="space-y-5 animate-in fade-in-50 duration-200">
+          <ClassManagementTab />
+        </div>
+      )}
+
+      {/* SECTION: Exam Marks Scheme */}
+      {activeSection === "marks_scheme" && (
+        <div className="space-y-5 animate-in fade-in-50 duration-200">
+          <MarksSchemeTab />
         </div>
       )}
 
@@ -759,10 +856,7 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <Building className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Villages (Vill)</CardTitle>
-                  <CardDescription className="text-xs">Pre-saved village names for the dropdown</CardDescription>
-                </div>
+                <CardTitle className="text-sm font-bold">Villages (Vill)</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -809,10 +903,7 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <Landmark className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Gram Panchayats (G.P)</CardTitle>
-                  <CardDescription className="text-xs">Pre-saved Gram Panchayat names for dropdown</CardDescription>
-                </div>
+                <CardTitle className="text-sm font-bold">Gram Panchayats (G.P)</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -859,9 +950,9 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Post Offices (P.O) & Pincodes</CardTitle>
-                  <CardDescription className="text-xs">Selecting a P.O in the form auto-fills its PIN</CardDescription>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle className="text-sm font-bold">Post Offices (P.O) &amp; Pincodes</CardTitle>
+                  <InfoTooltip content="Selecting a P.O in the form auto-fills its PIN code." />
                 </div>
               </div>
             </CardHeader>
@@ -921,10 +1012,7 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <Building className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Blocks / Municipalities</CardTitle>
-                  <CardDescription className="text-xs">Pre-saved Block / Municipality names</CardDescription>
-                </div>
+                <CardTitle className="text-sm font-bold">Blocks / Municipalities</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -971,10 +1059,7 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Police Stations (P.S)</CardTitle>
-                  <CardDescription className="text-xs">Pre-saved police stations for the dropdown</CardDescription>
-                </div>
+                <CardTitle className="text-sm font-bold">Police Stations (P.S)</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -1021,10 +1106,7 @@ export function PresetAddressesTab() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center gap-2">
                 <Compass className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Districts (Dist)</CardTitle>
-                  <CardDescription className="text-xs">Pre-saved districts for the dropdown</CardDescription>
-                </div>
+                <CardTitle className="text-sm font-bold">Districts (Dist)</CardTitle>
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
@@ -1075,11 +1157,9 @@ export function PresetAddressesTab() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Landmark className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <div>
-                  <CardTitle className="text-sm font-bold">Local Bank Branches & IFSC Codes</CardTitle>
-                  <CardDescription className="text-xs">
-                    Selecting a bank branch in the student form will automatically fill its 11-digit IFSC code
-                  </CardDescription>
+                <div className="flex items-center gap-1.5">
+                  <CardTitle className="text-sm font-bold">Local Bank Branches &amp; IFSC Codes</CardTitle>
+                  <InfoTooltip content="Selecting a bank branch in the student form will automatically fill its 11-digit IFSC code." />
                 </div>
               </div>
               <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 px-2.5 py-1 rounded-lg">
@@ -1180,11 +1260,9 @@ export function PresetAddressesTab() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <School className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <div>
+                <div className="flex items-center gap-1.5">
                   <CardTitle className="text-sm font-bold">Feeder / Previous School Presets</CardTitle>
-                  <CardDescription className="text-xs">
-                    Local primary and feeder schools that appear in the student previous schooling dropdown
-                  </CardDescription>
+                  <InfoTooltip content="Local primary and feeder schools that appear in the student previous schooling dropdown." />
                 </div>
               </div>
               <span className="text-xs font-semibold bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 px-2.5 py-1 rounded-lg">
@@ -1247,12 +1325,9 @@ export function PresetAddressesTab() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-pink-500/10 text-pink-600 dark:text-pink-400 shrink-0">
                 <Sparkles className="h-4 w-4" />
               </div>
-              <div>
-                <CardTitle className="text-sm font-bold">1. AI Model &amp; Vision OCR Configuration</CardTitle>
-                <CardDescription className="text-xs">
-                  The AI OCR scanner runs automatically on your camera captures and physical admission form images.
-                  You can use Google Gemini (Recommended &amp; Free Tier) or OpenAI.
-                </CardDescription>
+              <div className="flex items-center gap-1.5">
+                <CardTitle className="text-sm font-bold">AI Model &amp; Vision OCR Configuration</CardTitle>
+                <InfoTooltip content="The AI OCR scanner runs automatically on your camera captures and physical admission form images using Google Gemini or OpenAI." />
               </div>
             </div>
           </CardHeader>
@@ -1311,5 +1386,6 @@ export function PresetAddressesTab() {
         </Card>
       )}
     </div>
-  );
+  </TooltipProvider>
+);
 }

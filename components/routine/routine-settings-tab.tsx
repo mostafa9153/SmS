@@ -5,7 +5,7 @@ import { RoutineSettings, DAY_NAMES } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RefreshCw, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
+import { Save, RefreshCw, Check, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,7 @@ export function RoutineSettingsTab({
 }: RoutineSettingsTabProps) {
   const [settings, setSettings] = useState<RoutineSettings>(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
 
   React.useEffect(() => {
     setSettings(initialSettings);
@@ -69,10 +70,12 @@ export function RoutineSettingsTab({
     setIsSaving(true);
     try {
       await onSave(settings);
+      setIsSavedRecently(true);
+      setTimeout(() => setIsSavedRecently(false), 2500);
       showToast({
         type: "success",
-        title: "Settings Saved",
-        description: "Schedule configuration saved to Cloud successfully.",
+        title: "Saved",
+        description: "Schedule configuration saved successfully.",
       });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("sms_routine_state_updated"));
@@ -284,10 +287,29 @@ export function RoutineSettingsTab({
           size="sm"
           onClick={handleSave}
           disabled={isSaving || isLoading}
-          className="h-8 gap-1.5 text-xs font-semibold px-4"
+          className={cn(
+            "h-8 gap-1.5 text-xs font-semibold px-4 transition-all duration-150 shadow-xs cursor-pointer",
+            isSavedRecently
+              ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+              : "bg-primary hover:bg-primary/90 text-primary-foreground"
+          )}
         >
-          {isSaving ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Save Global Settings
+          {isSaving ? (
+            <>
+              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : isSavedRecently ? (
+            <>
+              <Check className="h-3.5 w-3.5" />
+              <span>Saved</span>
+            </>
+          ) : (
+            <>
+              <Save className="h-3.5 w-3.5" />
+              <span>Save</span>
+            </>
+          )}
         </Button>
       </div>
     </div>

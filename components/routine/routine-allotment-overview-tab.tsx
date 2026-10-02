@@ -97,7 +97,30 @@ export function RoutineAllotmentOverviewTab({
   settings,
 }: RoutineAllotmentOverviewTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterClass, setFilterClass] = useState<string>("all");
+  const [filterClass, setFilterClassState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const c = urlParams.get("overviewClass");
+        if (c) return c;
+        const saved = localStorage.getItem("sms_routine_overview_class");
+        if (saved) return saved;
+      } catch {}
+    }
+    return "all";
+  });
+
+  const setFilterClass = (c: string) => {
+    setFilterClassState(c);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_overview_class", c);
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set("overviewClass", c);
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
   const [issuesOnly, setIssuesOnly] = useState<boolean>(false);
 
   // 1. Assign Teacher Short Code / Initials (e.g. AK, SR, MB)

@@ -103,19 +103,18 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .select("*")
       .order("name", { ascending: true });
 
-    if (!roomError && roomRows && roomRows.length > 0) {
-      const dbRooms: RoutineRoom[] = roomRows.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        isLab: Boolean(r.is_lab),
-      }));
-      if (rooms.length > 0) {
-        const dbIdSet = new Set(dbRooms.map((r) => r.id));
-        const extraLocal = rooms.filter((r) => !dbIdSet.has(r.id));
-        rooms = [...dbRooms, ...extraLocal];
-      } else {
+    if (!roomError) {
+      if (roomRows && roomRows.length > 0) {
+        const dbRooms: RoutineRoom[] = roomRows.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          isLab: Boolean(r.is_lab),
+        }));
         rooms = dbRooms;
+      } else if (roomRows && roomRows.length === 0 && !local?.rooms?.length) {
+        rooms = [];
       }
+      setLocalRoutineState({ rooms });
     }
 
     // 3. Fetch Classes
@@ -125,53 +124,35 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .order("class_name", { ascending: true })
       .order("section", { ascending: true });
 
-    if (!classError && classRows && classRows.length > 0) {
-      const dbClasses: RoutineClass[] = classRows.map((c: any) => ({
-        id: c.id,
-        className: c.class_name,
-        section: c.section,
-        dailyPeriods: c.daily_periods,
-      }));
+    if (!classError) {
+      if (classRows && classRows.length > 0) {
+        const dbClasses: RoutineClass[] = classRows.map((c: any) => ({
+          id: c.id,
+          className: c.class_name,
+          section: c.section,
+          dailyPeriods: c.daily_periods,
+        }));
 
-      // Merge and strictly deduplicate by (className + section)
-      const dedupedClasses: RoutineClass[] = [];
-      const duplicateClassIdsToDelete: string[] = [];
-      const seenClassKeys = new Set<string>();
+        // Strict deduplication by (className + section)
+        const dedupedClasses: RoutineClass[] = [];
+        const seenClassKeys = new Set<string>();
 
-      const getClassKey = (c: RoutineClass) =>
-        `${(c.className || "").trim().toLowerCase()}::${(c.section || "").trim().toLowerCase()}`;
+        const getClassKey = (c: RoutineClass) =>
+          `${(c.className || "").trim().toLowerCase()}::${(c.section || "").trim().toLowerCase()}`;
 
-      // Prefer DB entries first
-      dbClasses.forEach((c) => {
-        const key = getClassKey(c);
-        if (!seenClassKeys.has(key)) {
-          seenClassKeys.add(key);
-          dedupedClasses.push(c);
-        } else {
-          if (c.id) duplicateClassIdsToDelete.push(c.id);
-        }
-      });
+        dbClasses.forEach((c) => {
+          const key = getClassKey(c);
+          if (!seenClassKeys.has(key)) {
+            seenClassKeys.add(key);
+            dedupedClasses.push(c);
+          }
+        });
 
-      // Then check extra local classes
-      classes.forEach((c) => {
-        const key = getClassKey(c);
-        if (!seenClassKeys.has(key)) {
-          seenClassKeys.add(key);
-          dedupedClasses.push(c);
-        }
-      });
-
-      classes = dedupedClasses;
-      setLocalRoutineState({ classes: dedupedClasses });
-
-      if (duplicateClassIdsToDelete.length > 0) {
-        Promise.resolve(
-          supabase
-            .from("routine_classes")
-            .delete()
-            .in("id", duplicateClassIdsToDelete)
-        ).catch((e: unknown) => console.warn("Clean duplicate routine classes failed:", e));
+        classes = dedupedClasses;
+      } else if (classRows && classRows.length === 0 && !local?.classes?.length) {
+        classes = [];
       }
+      setLocalRoutineState({ classes });
     }
 
     // 4. Fetch Subjects
@@ -180,76 +161,60 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .select("*")
       .order("name", { ascending: true });
 
-    if (!subjError && subjRows && subjRows.length > 0) {
-      const dbSubjects: RoutineSubject[] = subjRows.map((s: any) => ({
-        id: s.id,
-        name: s.name,
-        className: s.class_name || s.className || null,
-        classId: s.class_id || s.classId || null,
-        stream: s.stream || null,
-        isCommon: Boolean(s.is_common ?? s.isCommon),
-        isHard: Boolean(s.is_hard),
-        isLab: Boolean(s.is_lab),
-        timePref: s.time_pref || "any",
-        allowMultiplePerDay: Boolean(s.allow_multiple_per_day),
-        maxPerDay:
-          s.max_per_day !== undefined && s.max_per_day !== null
-            ? Number(s.max_per_day)
-            : Boolean(s.allow_multiple_per_day)
-            ? 2
-            : 1,
-        periodsPerWeek:
-          s.periods_per_week !== undefined && s.periods_per_week !== null
-            ? Number(s.periods_per_week)
-            : 5,
-      }));
+    if (!subjError) {
+      if (subjRows && subjRows.length > 0) {
+        const dbSubjects: RoutineSubject[] = subjRows.map((s: any) => ({
+          id: s.id,
+          name: s.name,
+          className: s.class_name || s.className || null,
+          classId: s.class_id || s.classId || null,
+          stream: s.stream || null,
+          isCommon: Boolean(s.is_common ?? s.isCommon),
+          isHard: Boolean(s.is_hard),
+          isLab: Boolean(s.is_lab),
+          timePref: s.time_pref || "any",
+          allowMultiplePerDay: Boolean(s.allow_multiple_per_day),
+          maxPerDay:
+            s.max_per_day !== undefined && s.max_per_day !== null
+              ? Number(s.max_per_day)
+              : Boolean(s.allow_multiple_per_day)
+              ? 2
+              : 1,
+          periodsPerWeek:
+            s.periods_per_week !== undefined && s.periods_per_week !== null
+              ? Number(s.periods_per_week)
+              : 5,
+        }));
 
-      if (subjects.length > 0) {
-        const dbIdSet = new Set(dbSubjects.map((s) => s.id));
-        const extraLocal = subjects.filter((s) => !dbIdSet.has(s.id) && Boolean(s.className));
-        subjects = [...dbSubjects, ...extraLocal];
-      } else {
-        subjects = dbSubjects;
+        // Strict canonical deduplication to ensure zero duplicate subjects
+        const dedupedSubjects: RoutineSubject[] = [];
+        const seenSubjectsKey = new Set<string>();
+
+        const getCanonicalKey = (s: RoutineSubject) => {
+          const cls = (s.className || "").trim().toLowerCase();
+          const normName = s.name
+            .trim()
+            .toLowerCase()
+            .replace(/\s*\([^)]*\)/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          const stream = (s.stream || "general").trim().toLowerCase();
+          return `${cls}::${normName}::${stream}`;
+        };
+
+        dbSubjects.forEach((sub) => {
+          const key = getCanonicalKey(sub);
+          if (!seenSubjectsKey.has(key)) {
+            seenSubjectsKey.add(key);
+            dedupedSubjects.push(sub);
+          }
+        });
+
+        subjects = dedupedSubjects;
+      } else if (subjRows && subjRows.length === 0 && !local?.subjects?.length) {
+        subjects = [];
       }
-
-      // Strict canonical deduplication to ensure zero duplicate subjects
-      const dedupedSubjects: RoutineSubject[] = [];
-      const duplicateIdsToDelete: string[] = [];
-      const seenSubjectsKey = new Set<string>();
-
-      const getCanonicalKey = (s: RoutineSubject) => {
-        const cls = (s.className || "").trim().toLowerCase();
-        const normName = s.name
-          .trim()
-          .toLowerCase()
-          .replace(/\s*\([^)]*\)/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-        const stream = (s.stream || "general").trim().toLowerCase();
-        return `${cls}::${normName}::${stream}`;
-      };
-
-      subjects.forEach((sub) => {
-        const key = getCanonicalKey(sub);
-        if (!seenSubjectsKey.has(key)) {
-          seenSubjectsKey.add(key);
-          dedupedSubjects.push(sub);
-        } else {
-          if (sub.id) duplicateIdsToDelete.push(sub.id);
-        }
-      });
-
-      subjects = dedupedSubjects;
-      setLocalRoutineState({ subjects: dedupedSubjects });
-
-      if (duplicateIdsToDelete.length > 0) {
-        Promise.resolve(
-          supabase
-            .from("routine_subjects")
-            .delete()
-            .in("id", duplicateIdsToDelete)
-        ).catch((e: unknown) => console.warn("Clean duplicate routine subjects failed:", e));
-      }
+      setLocalRoutineState({ subjects });
     }
 
     // 5. Fetch Teachers: staff_profiles + routine_teacher_availability + local teachers
@@ -368,22 +333,20 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       .from("routine_assignments")
       .select("*");
 
-    if (!asgError && asgRows && asgRows.length > 0) {
-      const dbAssignments: RoutineAssignment[] = asgRows.map((a: any) => ({
-        id: a.id,
-        classId: a.class_id,
-        subjectId: a.subject_id,
-        teacherId: a.teacher_id,
-        roomId: a.room_id,
-        periodsPerWeek: a.periods_per_week,
-      }));
-      if (assignments.length > 0) {
-        const dbIdSet = new Set(dbAssignments.map((a) => a.id));
-        const extraLocal = assignments.filter((a) => !dbIdSet.has(a.id));
-        assignments = [...dbAssignments, ...extraLocal];
-      } else {
-        assignments = dbAssignments;
+    if (!asgError) {
+      if (asgRows && asgRows.length > 0) {
+        assignments = asgRows.map((a: any) => ({
+          id: a.id,
+          classId: a.class_id,
+          subjectId: a.subject_id,
+          teacherId: a.teacher_id,
+          roomId: a.room_id,
+          periodsPerWeek: a.periods_per_week,
+        }));
+      } else if (asgRows && asgRows.length === 0 && !local?.assignments?.length) {
+        assignments = [];
       }
+      setLocalRoutineState({ assignments });
     }
 
     // 7. Fetch Latest Generated Routine

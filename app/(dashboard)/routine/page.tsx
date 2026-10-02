@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   fetchRoutineFullState,
   saveRoutineSettingsDb,
@@ -49,19 +50,80 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-import {
-  syncRoutineSubjectToMarksSchemes,
-  syncBatchRoutineSubjectsToMarksSchemes,
-  syncRemoveRoutineSubjectFromMarksSchemes,
-  syncAllSubjectsBidirectional,
-} from "@/lib/routine/routine-sync";
+import { showToast } from "@/components/ui/toast-banner";
+import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
 
 type SetupTab = "settings" | "classes" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
 
-export default function RoutineSetupPage() {
-  const [activeTab, setActiveTab] = useState<SetupTab>("settings");
+const VALID_TABS: SetupTab[] = ["settings", "classes", "subjects", "teachers", "rooms", "overview", "demand"];
+function isValidTab(val: any): val is SetupTab {
+  return VALID_TABS.includes(val);
+}
+
+function RoutineSetupPageContent() {
+  const searchParams = useSearchParams();
+
+  // Initialize active tab with strict priority: URL query param -> localStorage -> default "settings"
+  const getInitialTab = (): SetupTab => {
+    const tabParam = searchParams?.get("tab");
+    if (tabParam && isValidTab(tabParam)) {
+      return tabParam;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_routine_active_tab");
+        if (saved && isValidTab(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return "settings";
+  };
+
+  const [activeTab, setActiveTab] = useState<SetupTab>(getInitialTab);
   const [loading, setLoading] = useState(true);
+
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const param = new URLSearchParams(window.location.search).get("tab");
+      if (param && isValidTab(param)) {
+        setActiveTab(param);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Handle tab change with immediate state update, localStorage persistence, and URL sync
+  const handleTabChange = (newTab: SetupTab) => {
+    setActiveTab(newTab);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_active_tab", newTab);
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", newTab);
+      if (newTab !== "teachers") {
+        url.searchParams.delete("teacherId");
+        url.searchParams.delete("newTeacher");
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_active_tab", activeTab);
+      } catch {}
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") !== activeTab) {
+        url.searchParams.set("tab", activeTab);
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+  }, [activeTab]);
 
   // Core state
   const [settings, setSettings] = useState<RoutineSettings>(DEFAULT_ROUTINE_SETTINGS);
@@ -76,7 +138,9 @@ export default function RoutineSetupPage() {
     try {
       // 1. Fetch centralized school config from server without force refreshing
       await fetchSchoolConfigClient(false).catch((e) => console.warn("Failed to sync school config:", e));
-      // 2. Fetch routine full state from Supabase
+      // 2. Automatically sync subjects from Presets (/settings/presets?section=marks_scheme) to Routine
+      await syncAllSubjectsFromPresetsToRoutine().catch((e) => console.warn("Auto-sync from presets:", e));
+      // 3. Fetch routine full state from Supabase
       const data: RoutineFullState = await fetchRoutineFullState();
       setSettings(data.settings || DEFAULT_ROUTINE_SETTINGS);
       setRooms(data.rooms || []);
@@ -184,7 +248,6 @@ export default function RoutineSetupPage() {
     periodsPerWeek?: number | null;
   }) => {
     const id = await upsertSubjectDb(subjData);
-    syncRoutineSubjectToMarksSchemes(subjData);
     setSubjects((prev) => {
       const idx = prev.findIndex((s) => s.id === id);
       const updated: RoutineSubject = {
@@ -220,10 +283,49 @@ export default function RoutineSetupPage() {
 
   const handleDeleteSubject = async (id: string) => {
     const targetSub = subjects.find((s) => s.id === id);
-    await deleteSubjectDb(id);
-    if (targetSub && targetSub.className) {
-      syncRemoveRoutineSubjectFromMarksSchemes(targetSub.className, targetSub.name);
+    if (!targetSub) return;
+
+    // Safety guard: Check if assigned to any teacher or scheduled in timetable
+    const cleanSubLower = targetSub.name.trim().toLowerCase();
+    const className = targetSub.className || "";
+    const classCode = normalizeClassToCode(className);
+
+    const assignedTeacher = teachers.find((t) => {
+      const classSubs = t.classSubjects?.[className] || t.classSubjects?.[classCode] || [];
+      if (classSubs.some((s) => s.trim().toLowerCase() === cleanSubLower)) {
+        return true;
+      }
+      if (t.sectionSubjects) {
+        for (const [key, subs] of Object.entries(t.sectionSubjects)) {
+          if (
+            (key.startsWith(`${className}::`) || key.startsWith(`${classCode}::`)) &&
+            subs.some((s) => s.trim().toLowerCase() === cleanSubLower)
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+
+    const isAssignedInTimetable = assignments.some((a) => a.subjectId === id);
+
+    if (assignedTeacher || isAssignedInTimetable) {
+      const teacherInfo = assignedTeacher ? ` (${assignedTeacher.name})` : "";
+      showToast({
+        type: "warning",
+        title: "Subject In Use",
+        description: `"${targetSub.name}" is assigned to teacher${teacherInfo} or scheduled in timetable. Please unassign first before removing.`,
+      });
+      return;
     }
+
+    await deleteSubjectDb(id);
+    showToast({
+      type: "info",
+      title: "Subject Removed",
+      description: `"${targetSub.name}" has been removed from Routine.`,
+    });
     setSubjects((prev) => prev.filter((s) => s.id !== id));
   };
 
@@ -244,7 +346,6 @@ export default function RoutineSetupPage() {
     }[]
   ) => {
     const saved = await batchUpsertSubjectsDb(subjectsList);
-    syncBatchRoutineSubjectsToMarksSchemes(subjectsList);
     setSubjects((prev) => {
       const next = [...prev];
       saved.forEach((sub) => {
@@ -343,7 +444,7 @@ export default function RoutineSetupPage() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setActiveTab(item.id as SetupTab)}
+              onClick={() => handleTabChange(item.id as SetupTab)}
               className={cn(
                 "px-3.5 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap transition-all select-none border",
                 isActive
@@ -453,4 +554,20 @@ export default function RoutineSetupPage() {
     </div>
   );
 }
+
+export default function RoutineSetupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="py-16 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
+          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+          <span>Loading Routine Setup...</span>
+        </div>
+      }
+    >
+      <RoutineSetupPageContent />
+    </Suspense>
+  );
+}
+
 

@@ -40,9 +40,25 @@ export function CustomSelect({
   id,
 }: CustomSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpwards, setOpenUpwards] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-detect if popover should open upwards or downwards
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const neededHeight = 280;
+      if (spaceBelow < neededHeight && spaceAbove > spaceBelow) {
+        setOpenUpwards(true);
+      } else {
+        setOpenUpwards(false);
+      }
+    }
+  }, [isOpen]);
 
   // Normalize options
   const normalizedOptions: CustomSelectOption[] = useMemo(() => {
@@ -153,7 +169,8 @@ export function CustomSelect({
       {isOpen && !disabled && (
         <div
           className={cn(
-            "absolute left-0 top-full mt-1.5 w-full min-w-full max-h-72 overflow-hidden rounded-2xl border border-border bg-popover p-1.5 shadow-2xl z-[9999] animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col",
+            "absolute left-0 w-full min-w-full max-h-72 overflow-hidden rounded-2xl border border-border/80 bg-popover/95 backdrop-blur-md p-1.5 shadow-2xl z-[9999] animate-in fade-in-0 zoom-in-95 duration-150 flex flex-col",
+            openUpwards ? "bottom-full mb-1.5" : "top-full mt-1.5",
             dropdownClassName
           )}
         >
@@ -211,25 +228,31 @@ export function CustomSelect({
                       type="button"
                       disabled={opt.disabled}
                       onClick={() => {
+                        if (opt.disabled) return;
                         onChange(opt.value);
                         setIsOpen(false);
                         setSearchQuery("");
                       }}
                       className={cn(
-                        "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-medium text-left transition-all duration-150 cursor-pointer",
-                        opt.disabled && "opacity-40 cursor-not-allowed",
-                        isSelected
-                          ? "bg-primary/15 text-primary font-bold shadow-2xs"
-                          : "text-foreground hover:bg-primary/10 hover:text-primary"
+                        "w-full flex items-center justify-between rounded-xl px-2.5 py-1.5 text-xs sm:text-sm font-medium text-left transition-all duration-150 select-none",
+                        opt.disabled
+                          ? "opacity-35 cursor-not-allowed text-muted-foreground bg-transparent hover:bg-transparent hover:text-muted-foreground"
+                          : isSelected
+                          ? "bg-primary/15 text-primary font-bold shadow-2xs cursor-pointer"
+                          : "text-foreground hover:bg-primary/10 hover:text-primary cursor-pointer"
                       )}
                     >
                       <span className="truncate flex items-center gap-2">
                         {opt.icon && <span className="text-sm shrink-0">{opt.icon}</span>}
                         <span className="truncate">{opt.label}</span>
                       </span>
-                      {isSelected && (
+                      {opt.disabled ? (
+                        <span className="text-[10px] font-semibold tracking-wide px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground/80 shrink-0 ml-1.5 border border-border/40">
+                          Added
+                        </span>
+                      ) : isSelected ? (
                         <Check className="h-4 w-4 text-primary shrink-0 ml-1.5" />
-                      )}
+                      ) : null}
                     </button>
                   </React.Fragment>
                 );

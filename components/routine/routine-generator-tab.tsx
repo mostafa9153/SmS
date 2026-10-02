@@ -406,7 +406,7 @@ export function RoutineGeneratorTab({
       <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
         <Link href="/routine/assignments">
           <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-            ← Back to Assignments
+            ← Back to Verification
           </Button>
         </Link>
         <Link href="/routine/viewer">

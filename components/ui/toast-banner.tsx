@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, Info, X, AlertTriangle } from "lucide-react";
 
 export interface ToastMessage {
   id: string;
-  type: "success" | "error" | "info";
+  type: "success" | "error" | "info" | "warning";
   title: string;
   description?: string;
 }
@@ -14,7 +14,7 @@ let toastListeners: ((toast: ToastMessage) => void)[] = [];
 
 export function showToast(
   toastOrTitle: Omit<ToastMessage, "id"> | string,
-  type: "success" | "error" | "info" = "info"
+  type: "success" | "error" | "info" | "warning" = "info"
 ) {
   const toastObj: Omit<ToastMessage, "id"> =
     typeof toastOrTitle === "string"
@@ -53,6 +53,8 @@ export function ToastContainer() {
               ? "border-emerald-500/40 text-emerald-950 dark:text-emerald-200"
               : toast.type === "error"
               ? "border-rose-500/40 text-rose-950 dark:text-rose-200"
+              : toast.type === "warning"
+              ? "border-amber-500/40 text-amber-950 dark:text-amber-200"
               : "border-primary/40 text-foreground"
           }`}
         >
@@ -61,6 +63,9 @@ export function ToastContainer() {
           )}
           {toast.type === "error" && (
             <AlertCircle className="h-5 w-5 text-rose-600 flex-shrink-0 mt-0.5" />
+          )}
+          {toast.type === "warning" && (
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           )}
           {toast.type === "info" && (
             <Info className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />

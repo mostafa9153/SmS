@@ -18,6 +18,7 @@ import {
   CalendarClock,
   LogOut,
   ArrowLeft,
+  PanelLeftClose,
   ShieldAlert,
   Activity,
   Sliders,
@@ -556,17 +557,20 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            title="Go Back (পেছনে যান)"
-            aria-label="Go Back"
-            className="group relative flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary dark:bg-[#FACC15]/15 dark:hover:bg-[#FACC15]/25 dark:text-[#FACC15] border border-primary/20 dark:border-[#FACC15]/30 shadow-2xs hover:shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
-          </button>
+          {!mobile && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Collapse Sidebar (মেনু বন্ধ করুন)"
+              aria-label="Collapse Sidebar"
+              className="group relative flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary dark:bg-[#FACC15]/15 dark:hover:bg-[#FACC15]/25 dark:text-[#FACC15] border border-primary/20 dark:border-[#FACC15]/30 shadow-2xs hover:shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <PanelLeftClose className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
+            </button>
+          )}
           {mobile && (
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close navigation menu"
               className="flex items-center justify-center h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground border border-transparent hover:border-border/60 transition-all duration-150 active:scale-95 cursor-pointer"

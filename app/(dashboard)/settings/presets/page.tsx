@@ -1,6 +1,4 @@
 import { Suspense } from "react";
-import { MapPin } from "lucide-react";
-import { SettingsPageHeader } from "@/components/settings/settings-page-header";
 import { PresetAddressesTab } from "@/components/settings/preset-addresses-tab";
 
 export const metadata = {
@@ -11,12 +9,6 @@ export const metadata = {
 export default function PresetsSettingsPage() {
   return (
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
-      <SettingsPageHeader
-        title="System Presets & Quick-Fill Hub"
-        subtitle="Configure reusable preset templates for student registration, feeder schools, local banks, quick addresses, and AI OCR vision keys."
-        icon={MapPin}
-        iconColor="text-emerald-600 dark:text-emerald-400 bg-emerald-500/10"
-      />
       <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">Loading Presets...</div>}>
         <PresetAddressesTab />
       </Suspense>

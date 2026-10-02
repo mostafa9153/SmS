@@ -31,10 +31,13 @@ import {
   Palette,
   CloudUpload,
   RefreshCw,
+  Save,
 } from "lucide-react";
+import { setLocalRoutineState } from "@/lib/supabase/db-routine";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
 import {
   getDynamicClassList,
   FALLBACK_CLASSES,
@@ -111,7 +114,18 @@ export function RoutineSubjectsTab({
   }, [classes]);
 
   // Active Class Tab Selection (e.g. "Class V", "Class VI", etc. or "all")
-  const [activeClass, setActiveClass] = useState<string>(availableClasses[0] || "Class V");
+  const [activeClass, setActiveClass] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlCls = urlParams.get("class");
+        if (urlCls) return urlCls;
+        const saved = localStorage.getItem("sms_routine_subjects_class");
+        if (saved) return saved;
+      } catch {}
+    }
+    return availableClasses[0] || "Class V";
+  });
 
   // Keep activeClass synchronized when classes change
   useEffect(() => {
@@ -120,9 +134,31 @@ export function RoutineSubjectsTab({
       activeClass !== "all" &&
       !availableClasses.includes(activeClass)
     ) {
-      setActiveClass(availableClasses[0]);
+      const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const urlCls = urlParams?.get("class");
+      const savedCls = typeof window !== "undefined" ? localStorage.getItem("sms_routine_subjects_class") : null;
+      const candidate = urlCls || savedCls;
+      if (candidate && (candidate === "all" || availableClasses.includes(candidate))) {
+        setActiveClass(candidate);
+      } else {
+        setActiveClass(availableClasses[0]);
+      }
     }
   }, [availableClasses, activeClass]);
+
+  // Keep URL & localStorage in sync with activeClass
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeClass) {
+      try {
+        localStorage.setItem("sms_routine_subjects_class", activeClass);
+      } catch {}
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") === "subjects" && url.searchParams.get("class") !== activeClass) {
+        url.searchParams.set("class", activeClass);
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+  }, [activeClass]);
 
   const isCurrentClassHs = isHsClass(activeClass);
 
@@ -133,7 +169,22 @@ export function RoutineSubjectsTab({
   }, [activeClass, isCurrentClassHs]);
 
   // Active Stream Filter for HS Classes: "all" | "Common" | "Science" | "Commerce" | "Arts"
-  const [selectedStream, setSelectedStream] = useState<"all" | "Common" | "Science" | "Commerce" | "Arts">("all");
+  const [selectedStream, setSelectedStream] = useState<"all" | "Common" | "Science" | "Commerce" | "Arts">(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlStream = urlParams.get("stream") as any;
+        if (urlStream && ["all", "Common", "Science", "Commerce", "Arts"].includes(urlStream)) {
+          return urlStream;
+        }
+        const saved = localStorage.getItem("sms_routine_subjects_stream") as any;
+        if (saved && ["all", "Common", "Science", "Commerce", "Arts"].includes(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    return "all";
+  });
 
   // Reset selectedStream when activeClass changes or if selectedStream is not configured
   useEffect(() => {
@@ -141,6 +192,20 @@ export function RoutineSubjectsTab({
       setSelectedStream("all");
     }
   }, [configuredStreamsForActive, selectedStream, activeClass]);
+
+  // Keep URL & localStorage in sync with selectedStream
+  useEffect(() => {
+    if (typeof window !== "undefined" && selectedStream) {
+      try {
+        localStorage.setItem("sms_routine_subjects_stream", selectedStream);
+      } catch {}
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") === "subjects" && url.searchParams.get("stream") !== selectedStream) {
+        url.searchParams.set("stream", selectedStream);
+        window.history.replaceState(null, "", url.toString());
+      }
+    }
+  }, [selectedStream]);
 
   // Form State
   const [name, setName] = useState("");
@@ -153,6 +218,8 @@ export function RoutineSubjectsTab({
   const [maxPerDay, setMaxPerDay] = useState<number>(2);
   const [editId, setEditId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [marksSchemeVersion, setMarksSchemeVersion] = useState(0);
 
@@ -169,27 +236,31 @@ export function RoutineSubjectsTab({
   // Target class for form creation
   const targetClassForForm = activeClass === "all" ? availableClasses[0] || "Class V" : activeClass;
 
-  // Preset subjects for the currently active class and stream (filtered strictly by configured streams)
+  // Preset subjects for the currently active class and stream (filtered strictly by configured streams & presets)
   const activeClassPresets = useMemo(() => {
     if (activeClass === "all") return [];
     if (isCurrentClassHs) {
-      if (selectedStream === "Common") return HS_STREAM_PRESETS.Common;
-      if (selectedStream === "Science") return configuredStreamsForActive.includes("Science") ? HS_STREAM_PRESETS.Science : [];
-      if (selectedStream === "Commerce") return configuredStreamsForActive.includes("Commerce") ? HS_STREAM_PRESETS.Commerce : [];
-      if (selectedStream === "Arts") return configuredStreamsForActive.includes("Arts") ? HS_STREAM_PRESETS.Arts : [];
-      
-      // All Streams: show Common + ONLY the configured streams presets
-      const combined: string[] = [...HS_STREAM_PRESETS.Common];
-      if (configuredStreamsForActive.includes("Science")) {
-        combined.push(...HS_STREAM_PRESETS.Science);
+      const dbSubs = getDatabaseSubjectsForClass(activeClass);
+      let streamPresets: string[] = [];
+      if (selectedStream === "Common") streamPresets = HS_STREAM_PRESETS.Common;
+      else if (selectedStream === "Science") streamPresets = configuredStreamsForActive.includes("Science") ? HS_STREAM_PRESETS.Science : [];
+      else if (selectedStream === "Commerce") streamPresets = configuredStreamsForActive.includes("Commerce") ? HS_STREAM_PRESETS.Commerce : [];
+      else if (selectedStream === "Arts") streamPresets = configuredStreamsForActive.includes("Arts") ? HS_STREAM_PRESETS.Arts : [];
+      else {
+        // All Streams: show Common + ONLY the configured streams presets
+        const combined: string[] = [...HS_STREAM_PRESETS.Common];
+        if (configuredStreamsForActive.includes("Science")) {
+          combined.push(...HS_STREAM_PRESETS.Science);
+        }
+        if (configuredStreamsForActive.includes("Commerce")) {
+          combined.push(...HS_STREAM_PRESETS.Commerce);
+        }
+        if (configuredStreamsForActive.includes("Arts")) {
+          combined.push(...HS_STREAM_PRESETS.Arts);
+        }
+        streamPresets = combined;
       }
-      if (configuredStreamsForActive.includes("Commerce")) {
-        combined.push(...HS_STREAM_PRESETS.Commerce);
-      }
-      if (configuredStreamsForActive.includes("Arts")) {
-        combined.push(...HS_STREAM_PRESETS.Arts);
-      }
-      return Array.from(new Set(combined));
+      return Array.from(new Set([...dbSubs, ...streamPresets]));
     }
     return getDatabaseSubjectsForClass(activeClass);
   }, [activeClass, isCurrentClassHs, selectedStream, configuredStreamsForActive, marksSchemeVersion]);
@@ -215,13 +286,12 @@ export function RoutineSubjectsTab({
       });
     }
 
-    // Strict deduplication by canonical subject name + stream to guarantee zero duplicate rows
+    // Strict deduplication by subject name + stream to guarantee zero duplicate rows
     const seen = new Map<string, RoutineSubject>();
     for (const s of list) {
       const canonicalName = s.name
         .trim()
         .toLowerCase()
-        .replace(/\s*\([^)]*\)/g, "")
         .replace(/\s+/g, " ")
         .trim();
       const streamKey = isCurrentClassHs
@@ -388,10 +458,147 @@ export function RoutineSubjectsTab({
     setIsCommonSubject(false);
   }, []);
 
+  const handleSelectClass = React.useCallback((cls: string) => {
+    setActiveClass(cls);
+    handleCancel();
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_subjects_class", cls);
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "subjects");
+      url.searchParams.set("class", cls);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, [handleCancel]);
+
+  const handleSelectStream = React.useCallback((stream: "all" | "Common" | "Science" | "Commerce" | "Arts") => {
+    setSelectedStream(stream);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_subjects_stream", stream);
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set("stream", stream);
+      window.history.replaceState(null, "", url.toString());
+    }
+  }, []);
+
+  // Permanent Cloud Save handler for Routine Subjects
+  const handleSaveAll = React.useCallback(async () => {
+    setIsSaving(true);
+    try {
+      let currentList = [...subjects];
+
+      // If user typed a subject name in the form, automatically include it
+      if (name.trim()) {
+        const finalStream = isCurrentClassHs
+          ? isCommonSubject
+            ? "Common"
+            : formStream === "General"
+            ? detectSubjectStream(name.trim())
+            : formStream
+          : null;
+
+        const canonicalInput = name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        const existingIdx = currentList.findIndex((s) => {
+          if (editId && s.id === editId) return true;
+          const canonicalS = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const matchClass = (s.className || "").toLowerCase() === targetClassForForm.toLowerCase();
+          return canonicalS === canonicalInput && matchClass;
+        });
+
+        const newOrUpdatedSubject: RoutineSubject = {
+          id: editId || (existingIdx > -1 ? currentList[existingIdx].id : crypto.randomUUID()),
+          name: name.trim(),
+          className: targetClassForForm,
+          stream: finalStream,
+          isCommon: isCommonSubject || finalStream === "Common",
+          isHard: false,
+          isLab,
+          timePref,
+          allowMultiplePerDay: allowMulti,
+          maxPerDay: allowMulti ? Number(maxPerDay) || 2 : 1,
+          periodsPerWeek: Number(periodsPerWeek) || 5,
+        };
+
+        if (existingIdx > -1) {
+          currentList[existingIdx] = newOrUpdatedSubject;
+        } else {
+          currentList.push(newOrUpdatedSubject);
+        }
+
+        setName("");
+        setEditId(null);
+      }
+
+      const rows = currentList.map((s) => ({
+        id: s.id,
+        name: s.name,
+        className: s.className || null,
+        classId: s.classId || null,
+        stream: s.stream || null,
+        isCommon: s.isCommon,
+        isHard: s.isHard,
+        isLab: s.isLab,
+        timePref: s.timePref,
+        allowMultiplePerDay: s.allowMultiplePerDay,
+        maxPerDay: s.maxPerDay,
+        periodsPerWeek: s.periodsPerWeek,
+      }));
+
+      if (onBatchSaveSubjects) {
+        await onBatchSaveSubjects(rows);
+      } else {
+        for (const r of rows) {
+          await onSaveSubject(r);
+        }
+      }
+
+      setLocalRoutineState({ subjects: currentList });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("sms_routine_state_updated"));
+      }
+
+      setIsSavedRecently(true);
+      setTimeout(() => setIsSavedRecently(false), 2500);
+
+      showToast({
+        type: "success",
+        title: "Saved",
+        description: `${rows.length} subjects saved to cloud.`,
+      });
+    } catch (err) {
+      console.error("Save error:", err);
+      showToast({
+        type: "error",
+        title: "Save Failed",
+        description: "Failed to save subjects to cloud.",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    subjects,
+    name,
+    isCurrentClassHs,
+    isCommonSubject,
+    formStream,
+    editId,
+    targetClassForForm,
+    isLab,
+    timePref,
+    allowMulti,
+    maxPerDay,
+    periodsPerWeek,
+    onBatchSaveSubjects,
+    onSaveSubject,
+  ]);
+
   // Auto-Sync Preset Subjects for Active Class
   const handleSyncActiveClass = async () => {
     if (activeClass === "all") {
-      await handleSyncAllClasses();
+      await handleSyncFromPresets();
       return;
     }
 
@@ -517,77 +724,31 @@ export function RoutineSubjectsTab({
     }
   };
 
-  // Auto-Sync All Classes Presets
-  const handleSyncAllClasses = async () => {
-    const existingKeys = new Set(
-      subjects.map((s) => `${(s.className || "").toLowerCase()}::${s.name.trim().toLowerCase()}`)
-    );
-
-    const toAdd: { className: string; subjectName: string; stream?: string; isCommon?: boolean }[] = [];
-    availableClasses.forEach((cls) => {
-      const isHs = isHsClass(cls);
-      if (isHs) {
-        const classStreams = getConfiguredStreamsForClass(cls);
-        const streamEntries = [
-          ...HS_STREAM_PRESETS.Common.map((p) => ({ name: p, stream: "Common", isCommon: true })),
-          ...(classStreams.includes("Science")
-            ? HS_STREAM_PRESETS.Science.map((p) => ({ name: p, stream: "Science", isCommon: false }))
-            : []),
-          ...(classStreams.includes("Commerce")
-            ? HS_STREAM_PRESETS.Commerce.map((p) => ({ name: p, stream: "Commerce", isCommon: false }))
-            : []),
-          ...(classStreams.includes("Arts")
-            ? HS_STREAM_PRESETS.Arts.map((p) => ({ name: p, stream: "Arts", isCommon: false }))
-            : []),
-        ];
-        streamEntries.forEach((entry) => {
-          const key = `${cls.toLowerCase()}::${entry.name.trim().toLowerCase()}`;
-          if (!existingKeys.has(key)) {
-            toAdd.push({ className: cls, subjectName: entry.name.trim(), stream: entry.stream, isCommon: entry.isCommon });
-            existingKeys.add(key);
-          }
-        });
-      } else {
-        const subs = getDatabaseSubjectsForClass(cls);
-        subs.forEach((sub) => {
-          const key = `${cls.toLowerCase()}::${sub.trim().toLowerCase()}`;
-          if (!existingKeys.has(key)) {
-            toAdd.push({ className: cls, subjectName: sub.trim() });
-            existingKeys.add(key);
-          }
-        });
-      }
-    });
-
-    if (toAdd.length === 0) return;
-
+  // Sync All Classes Presets from Settings
+  const handleSyncFromPresets = async () => {
     setIsSyncing(true);
     try {
-      const itemsToSave = toAdd.map((item) => {
-        const lower = item.subjectName.toLowerCase();
-        const isLabSubject = lower.includes("lab") || lower.includes("practical");
-        const isLightSub = lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental");
-        return {
-          name: item.subjectName,
-          className: item.className,
-          stream: item.stream || null,
-          isCommon: item.isCommon || false,
-          isHard: false,
-          isLab: isLabSubject,
-          timePref: "any" as const,
-          allowMultiplePerDay: false,
-          maxPerDay: 1,
-          periodsPerWeek: isLabSubject || isLightSub ? 2 : 5,
-        };
-      });
-
-      if (onBatchSaveSubjects) {
-        await onBatchSaveSubjects(itemsToSave);
+      const res = await syncAllSubjectsFromPresetsToRoutine();
+      if (res.addedCount > 0) {
+        showToast({
+          type: "success",
+          title: "Synced from Presets",
+          description: `${res.addedCount} new subjects synced from Presets with 5 periods/week.`,
+        });
       } else {
-        for (const item of itemsToSave) {
-          await onSaveSubject(item);
-        }
+        showToast({
+          type: "info",
+          title: "Already Up to Date",
+          description: "All preset subjects are already present in Routine.",
+        });
       }
+    } catch (err) {
+      console.error("Sync error:", err);
+      showToast({
+        type: "error",
+        title: "Sync Failed",
+        description: "Failed to sync subjects from Presets.",
+      });
     } finally {
       setIsSyncing(false);
     }
@@ -608,12 +769,12 @@ export function RoutineSubjectsTab({
               type="button"
               variant="outline"
               size="sm"
-              onClick={handleSyncAllClasses}
+              onClick={handleSyncFromPresets}
               disabled={isSyncing || isSubmitting}
               className="h-7 text-xs font-medium gap-1 text-muted-foreground hover:text-foreground"
             >
               <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Auto-Sync All</span>
+              <span>Sync from Presets</span>
             </Button>
           </div>
         </div>
@@ -628,10 +789,7 @@ export function RoutineSubjectsTab({
               <button
                 key={cls}
                 type="button"
-                onClick={() => {
-                  setActiveClass(cls);
-                  if (editId) handleCancel();
-                }}
+                onClick={() => handleSelectClass(cls)}
                 className={cn(
                   "px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap transition-all select-none border text-xs font-semibold",
                   isActive
@@ -667,10 +825,7 @@ export function RoutineSubjectsTab({
 
           <button
             type="button"
-            onClick={() => {
-              setActiveClass("all");
-              if (editId) handleCancel();
-            }}
+            onClick={() => handleSelectClass("all")}
             className={cn(
               "px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap transition-all select-none border text-xs font-semibold",
               activeClass === "all"
@@ -705,7 +860,7 @@ export function RoutineSubjectsTab({
               {/* All Streams button */}
               <button
                 type="button"
-                onClick={() => setSelectedStream("all")}
+                onClick={() => handleSelectStream("all")}
                 className={cn(
                   "px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all select-none",
                   selectedStream === "all"
@@ -720,7 +875,7 @@ export function RoutineSubjectsTab({
               {/* Common Core button */}
               <button
                 type="button"
-                onClick={() => setSelectedStream("Common")}
+                onClick={() => handleSelectStream("Common")}
                 className={cn(
                   "px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all select-none",
                   selectedStream === "Common"
@@ -736,7 +891,7 @@ export function RoutineSubjectsTab({
               {configuredStreamsForActive.includes("Science") && (
                 <button
                   type="button"
-                  onClick={() => setSelectedStream("Science")}
+                  onClick={() => handleSelectStream("Science")}
                   className={cn(
                     "px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all select-none",
                     selectedStream === "Science"
@@ -752,7 +907,7 @@ export function RoutineSubjectsTab({
               {configuredStreamsForActive.includes("Commerce") && (
                 <button
                   type="button"
-                  onClick={() => setSelectedStream("Commerce")}
+                  onClick={() => handleSelectStream("Commerce")}
                   className={cn(
                     "px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all select-none",
                     selectedStream === "Commerce"
@@ -768,7 +923,7 @@ export function RoutineSubjectsTab({
               {configuredStreamsForActive.includes("Arts") && (
                 <button
                   type="button"
-                  onClick={() => setSelectedStream("Arts")}
+                  onClick={() => handleSelectStream("Arts")}
                   className={cn(
                     "px-2.5 py-1 rounded-md text-xs font-medium border flex items-center gap-1.5 transition-all select-none",
                     selectedStream === "Arts"
@@ -816,23 +971,35 @@ export function RoutineSubjectsTab({
             )}
           </div>
 
-          {activeClass !== "all" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleSyncActiveClass}
-              disabled={isSyncing || isSubmitting}
-              className="h-7 text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              {isSyncing
-                ? "Syncing..."
-                : isCurrentClassHs && selectedStream !== "all"
-                ? `Auto-Sync ${selectedStream} Presets`
-                : `Auto-Sync ${activeClass} Presets`}
-            </Button>
-          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSaveAll}
+            disabled={isSaving || isSubmitting || (subjects.length === 0 && !name.trim())}
+            className={cn(
+              "h-8 text-xs font-semibold gap-1.5 px-3.5 transition-all duration-150 shadow-xs cursor-pointer",
+              isSavedRecently
+                ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                : "bg-primary hover:bg-primary/90 text-primary-foreground"
+            )}
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : isSavedRecently ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                <span>Saved</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5" />
+                <span>Save</span>
+              </>
+            )}
+          </Button>
         </div>
 
         {/* Preset Subject Chips for Active Class & Selected Stream */}
@@ -904,25 +1071,15 @@ export function RoutineSubjectsTab({
             </div>
 
             <Select
-              value={
-                activeClassPresets.includes(name) ||
-                currentClassSubjects.some((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase())
-                  ? name
-                  : name.trim()
-                  ? "__custom__"
-                  : ""
-              }
+              value={name || ""}
               onValueChange={(val) => {
-                if (!val || val === "__custom__") {
-                  setEditId(null);
-                  setName("");
-                } else {
+                if (val) {
                   handleSelectPresetChip(val);
                 }
               }}
             >
               <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder="Choose Subject" />
+                <SelectValue placeholder="Choose Subject from Presets" />
               </SelectTrigger>
               <SelectContent>
                 {activeClassPresets.map((sub) => {
@@ -942,44 +1099,21 @@ export function RoutineSubjectsTab({
                     </SelectItem>
                   );
                 })}
-                {/* Any existing custom subjects */}
+                {/* Any existing subjects for this class */}
                 {currentClassSubjects
                   .filter((s) => !activeClassPresets.some((p) => p.toLowerCase() === s.name.toLowerCase()))
                   .map((s) => (
                     <SelectItem key={s.id} value={s.name} className="text-xs">
                       <div className="flex items-center justify-between w-full gap-2">
                         <span>{s.name}</span>
-                        <span className="text-[9px] text-muted-foreground font-mono">(Custom)</span>
+                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                          (Added)
+                        </span>
                       </div>
                     </SelectItem>
                   ))}
-                <SelectItem value="__custom__" className="text-xs text-primary font-semibold">
-                  + Custom Subject (Type manually)
-                </SelectItem>
               </SelectContent>
             </Select>
-
-            {/* If custom is selected or name is not in presets, show manual input */}
-            {(!activeClassPresets.includes(name) &&
-              !currentClassSubjects.some((s) => s.name.trim().toLowerCase() === name.trim().toLowerCase())) ||
-            name === "" ? (
-              <Input
-                type="text"
-                placeholder="Type custom subject name..."
-                value={name}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setName(val);
-                  if (isCurrentClassHs) {
-                    const det = detectSubjectStream(val);
-                    setFormStream(det);
-                    if (det === "Common") setIsCommonSubject(true);
-                  }
-                }}
-                className="h-8 text-xs font-medium mt-1"
-                required
-              />
-            ) : null}
           </div>
 
           {/* Stream Selector (for HS Classes - Only showing configured streams) */}
@@ -1213,56 +1347,6 @@ export function RoutineSubjectsTab({
             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
               {currentClassTotalPeriods} p/wk
             </Badge>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isSubmitting || subjects.length === 0}
-              onClick={async () => {
-                setIsSubmitting(true);
-                try {
-                  const rows = subjects.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    className: s.className || null,
-                    classId: s.classId || null,
-                    stream: s.stream || null,
-                    isCommon: s.isCommon,
-                    isHard: s.isHard,
-                    isLab: s.isLab,
-                    timePref: s.timePref,
-                    allowMultiplePerDay: s.allowMultiplePerDay,
-                    maxPerDay: s.maxPerDay,
-                    periodsPerWeek: s.periodsPerWeek,
-                  }));
-                  if (onBatchSaveSubjects) {
-                    await onBatchSaveSubjects(rows);
-                  } else {
-                    for (const r of rows) {
-                      await onSaveSubject(r);
-                    }
-                  }
-                  showToast({
-                    type: "success",
-                    title: "Saved to Cloud",
-                    description: `${subjects.length} subjects saved to Cloud successfully.`,
-                  });
-                } catch {
-                  showToast({
-                    type: "error",
-                    title: "Save Failed",
-                    description: "Failed to save subjects to cloud.",
-                  });
-                } finally {
-                  setIsSubmitting(false);
-                }
-              }}
-              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
-            >
-              <CloudUpload className="w-3.5 h-3.5" />
-              Save to Cloud
-            </Button>
           </div>
         </div>
 
@@ -1291,7 +1375,7 @@ export function RoutineSubjectsTab({
                     <span>
                       {activeClass === "all"
                         ? "No subjects created yet."
-                        : `No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Click 'Auto-Sync' above.`}
+                        : `No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Select a preset chip or add a subject above.`}
                     </span>
                   </td>
                 </tr>

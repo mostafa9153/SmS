@@ -1,116 +1,39 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
-import { 
-  Building, 
-  GraduationCap, 
-  Save, 
-  Plus, 
-  Sparkles, 
-  Layers, 
-  Users, 
-  MapPin, 
-  Phone, 
-  Award, 
+import {
+  Building,
+  GraduationCap,
+  Save,
+  Sparkles,
+  MapPin,
+  Phone,
+  Award,
   ShieldCheck,
-  Edit2,
-  Trash2,
   School,
-  Lock,
-  X,
-  Calculator,
   RotateCcw,
-  CheckCircle2,
-  Info,
-  Sliders,
-  BookOpen,
   Check,
-  Trophy,
   Upload,
   UserCheck,
   PenTool,
-  Atom,
-  Briefcase,
-  Palette,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
-import {
-  syncClassTeachersToRoutine,
-  syncMarksSchemeSubjectToRoutine,
-  syncRemoveMarksSchemeSubjectFromRoutine,
-  syncAllSubjectsBidirectional,
-  syncConfiguredClassesToRoutine,
-} from "@/lib/routine/routine-sync";
-import {
-  detectSubjectStream,
-  isHsClass,
-  parseSectionAndStream,
-} from "@/lib/routine/routine-helpers";
 import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
   HEAD_DESIGNATION_OPTIONS,
   STANDARD_HS_STREAMS,
-  getSchoolConfiguredStreams,
-  getSchoolStreamOptions,
-  getClassStreamList,
-  getStreamSections,
-  getDynamicSectionsForClassAndStream,
   saveSchoolProfileToDb,
   formatFullSchoolAddress,
 } from "@/lib/utils/school-profile";
-import {
-  type ClassMarksScheme,
-  type PromotionPolicy,
-  DEFAULT_MARKS_SCHEMES,
-  DEFAULT_PROMOTION_POLICY,
-  MASTER_SUBJECT_BANK,
-  getSavedMarksSchemes,
-  saveMarksSchemes,
-  getSavedPromotionPolicy,
-  savePromotionPolicy,
-  computeSchemeTotals,
-} from "@/lib/utils/marks-config";
-
-// Interface for Class Item
-interface ClassItem {
-  id: string;
-  name: string;
-  code: string;
-  sections: string[];
-  stream?: string;
-  streamSections?: Record<string, string[]>;
-  classTeacher?: string;
-  sectionTeachers?: Record<string, string>;
-  roomNo?: string;
-  capacity?: number;
-  isAutoPass: boolean;
-  status: "Active" | "Inactive";
-}
 
 /**
  * Helper to identify Higher Secondary classes (Classes XI and XII / 11 and 12).
@@ -143,109 +66,38 @@ export function getNextAvailableLetter(existing: string[]): string {
   return "+";
 }
 
-
-
-const DEFAULT_CLASSES: ClassItem[] = [
-  { id: "c-5", name: "Class V", code: "V", sections: ["A", "B"], classTeacher: "S. Roy", roomNo: "Room 101", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-6", name: "Class VI", code: "VI", sections: ["A", "B"], classTeacher: "P. Mondal", roomNo: "Room 102", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-7", name: "Class VII", code: "VII", sections: ["A", "B"], classTeacher: "R. Mukherjee", roomNo: "Room 103", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-8", name: "Class VIII", code: "VIII", sections: ["A", "B"], classTeacher: "K. Das", roomNo: "Room 104", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-9", name: "Class IX", code: "IX", sections: ["A", "B"], classTeacher: "T. Banerjee", roomNo: "Room 201", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-10", name: "Class X", code: "X", sections: ["A", "B"], classTeacher: "A. Halder", roomNo: "Room 202", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
-  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
-];
-
-type SchoolDetailsSubTab = "profile" | "classes" | "marks_scheme";
-const VALID_SCHOOL_DETAILS_TABS: SchoolDetailsSubTab[] = ["profile", "classes", "marks_scheme"];
-
 export function SchoolDetailsTab() {
-  // Navigation between the requested options: School Profile, Class Management & Marks Scheme
-  const searchParams = useSearchParams();
-  const tabParam = (searchParams.get("tab") || searchParams.get("section")) as SchoolDetailsSubTab;
-  const initialTab = tabParam && VALID_SCHOOL_DETAILS_TABS.includes(tabParam) ? tabParam : "profile";
-  const [subOption, setSubOptionState] = useState<SchoolDetailsSubTab>(initialTab);
-
-  const setSubOption = (option: SchoolDetailsSubTab) => {
-    setSubOptionState(option);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (option === "profile") {
-        url.searchParams.delete("tab");
-        url.searchParams.delete("section");
-      } else {
-        url.searchParams.set("tab", option);
-      }
-      window.history.replaceState(null, "", url.toString());
-    }
-  };
-
-  // Profile Form State
   const [profile, setProfile] = useState<SchoolProfileData>(DEFAULT_SCHOOL_PROFILE);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
 
-  // Class Management State
-  const [classes, setClasses] = useState<ClassItem[]>(DEFAULT_CLASSES);
-  const [isAddClassOpen, setIsAddClassOpen] = useState(false);
-
-  // Marks Scheme State (Classes V to XII)
-  const [marksSchemes, setMarksSchemes] = useState<ClassMarksScheme[]>(DEFAULT_MARKS_SCHEMES);
-  const [editingScheme, setEditingScheme] = useState<ClassMarksScheme | null>(null);
-  const [editSchemeSubjectCount, setEditSchemeSubjectCount] = useState<number>(5);
-  const [editScheme1stWritten, setEditScheme1stWritten] = useState<number>(20);
-  const [editScheme1stPractical, setEditScheme1stPractical] = useState<number>(0);
-  const [editScheme2ndWritten, setEditScheme2ndWritten] = useState<number>(30);
-  const [editScheme2ndPractical, setEditScheme2ndPractical] = useState<number>(0);
-  const [editSchemeAnnualWritten, setEditSchemeAnnualWritten] = useState<number>(50);
-  const [editSchemeAnnualPractical, setEditSchemeAnnualPractical] = useState<number>(0);
-  const [editSchemeOddSemMarks, setEditSchemeOddSemMarks] = useState<number>(50);
-  const [editSchemeEvenSemMarks, setEditSchemeEvenSemMarks] = useState<number>(50);
-  const [editSchemeNotes, setEditSchemeNotes] = useState<string>("");
-
-  // Class Subject Selection State
-  const [selectedSubjectClass, setSelectedSubjectClass] = useState<string>("V");
-  const [selectedSubjectStream, setSelectedSubjectStream] = useState<"all" | "Common" | "Science" | "Arts" | "Commerce">("all");
-  const [selectedNewSubjectToAdd, setSelectedNewSubjectToAdd] = useState<string>("");
-  const [customSubjectName, setCustomSubjectName] = useState<string>("");
-
-  // Add Class Form State
-  const [newClassName, setNewClassName] = useState("");
-  const [newClassCode, setNewClassCode] = useState("");
-  const [newSections, setNewSections] = useState<string[]>(["A", "B"]);
-  const [newStream, setNewStream] = useState("Arts");
-  const [newStreamSections, setNewStreamSections] = useState<Record<string, string[]>>({
-    "Arts": ["A", "B"],
-  });
-  const [newTeacher, setNewTeacher] = useState("");
-  const [newSectionTeachers, setNewSectionTeachers] = useState<Record<string, string>>({});
-  const [newRoom, setNewRoom] = useState("");
-  const [newCapacity, setNewCapacity] = useState("120");
-  const [newAutoPass, setNewAutoPass] = useState("false");
-
-  // Edit Class Form State (with locked Name & Code, and clickable Sections)
-  const [editingClass, setEditingClass] = useState<ClassItem | null>(null);
-  const [editClassName, setEditClassName] = useState("");
-  const [editClassCode, setEditClassCode] = useState("");
-  const [editSections, setEditSections] = useState<string[]>(["A", "B"]);
-  const [editStream, setEditStream] = useState("Arts");
-  const [editStreamSections, setEditStreamSections] = useState<Record<string, string[]>>({
-    "Arts": ["A", "B"],
-  });
-  const [editTeacher, setEditTeacher] = useState("");
-  const [editSectionTeachers, setEditSectionTeachers] = useState<Record<string, string>>({});
-  const [staffList, setStaffList] = useState<{ id: string; full_name: string; designation?: string }[]>([]);
-  const [editRoom, setEditRoom] = useState("");
-  const [editCapacity, setEditCapacity] = useState("120");
-  const [editAutoPass, setEditAutoPass] = useState("false");
-
-  // Promotion & Pass Criteria State
-  const [promotionPolicy, setPromotionPolicy] = useState<PromotionPolicy>(DEFAULT_PROMOTION_POLICY);
-  const [isSavingPolicy, setIsSavingPolicy] = useState(false);
-
-  // Reference for signature file upload
+  // References for file uploads
   const signatureInputRef = useRef<HTMLInputElement>(null);
-  // Reference for school logo file upload
   const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Load saved state from localStorage then fetch latest from Database
+  useEffect(() => {
+    try {
+      const savedProfile = localStorage.getItem("sms_school_profile");
+      if (savedProfile) {
+        setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...JSON.parse(savedProfile) });
+      }
+    } catch (e) {
+      console.error("Failed to load local school details", e);
+    }
+
+    import("@/lib/utils/school-config-client").then(({ fetchSchoolConfigClient }) => {
+      fetchSchoolConfigClient()
+        .then((data) => {
+          if (data?.school_profile) {
+            setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...data.school_profile });
+            localStorage.setItem("sms_school_profile", JSON.stringify(data.school_profile));
+            setIsCloudSynced(true);
+          }
+        })
+        .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
+    });
+  }, []);
 
   // Handle school logo/crest image upload
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,7 +133,7 @@ export function SchoolDetailsTab() {
         showToast({
           type: "success",
           title: "Logo Uploaded",
-          description: "School emblem preview updated. Click 'Save Profile Details' to store permanently.",
+          description: "School emblem preview updated. Click 'Save Profile' to store permanently.",
         });
       }
     };
@@ -289,7 +141,6 @@ export function SchoolDetailsTab() {
     e.target.value = "";
   };
 
-  // Reset logo to default /logo.png
   const handleResetLogo = () => {
     setProfile((prev) => ({
       ...prev,
@@ -302,7 +153,6 @@ export function SchoolDetailsTab() {
     });
   };
 
-  // Handle digital signature image upload
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -344,7 +194,6 @@ export function SchoolDetailsTab() {
     e.target.value = "";
   };
 
-  // Handle signature removal
   const handleRemoveSignature = () => {
     setProfile((prev) => ({
       ...prev,
@@ -357,277 +206,6 @@ export function SchoolDetailsTab() {
     });
   };
 
-  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
-
-  // Helper to sync classes to database and localStorage
-  const updateAndSyncClasses = (updated: ClassItem[]) => {
-    setClasses(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("sms_class_management", JSON.stringify(updated));
-      window.dispatchEvent(new Event("sms_class_management_updated"));
-    }
-    // Prune and sync unconfigured streams in routine
-    syncConfiguredClassesToRoutine(updated).catch((e) => console.warn("syncConfiguredClassesToRoutine:", e));
-
-    fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "class_management", value: updated }),
-    })
-      .then((res) => {
-        if (res.ok) {
-          import("@/lib/utils/school-config-client").then(({ invalidateSchoolConfigClientCache }) =>
-            invalidateSchoolConfigClientCache()
-          );
-        }
-      })
-      .catch((err) => console.warn("Background DB sync for classes failed:", err));
-  };
-
-  // Load saved state from localStorage if present, then fetch latest from Database
-  useEffect(() => {
-    try {
-      const savedProfile = localStorage.getItem("sms_school_profile");
-      if (savedProfile) {
-        setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...JSON.parse(savedProfile) });
-      }
-      const savedClasses = localStorage.getItem("sms_class_management");
-      if (savedClasses) {
-        const parsed = JSON.parse(savedClasses) as ClassItem[];
-        // Ensure stream is only kept for Class XI and XII
-        const sanitized = parsed.map((c) => ({
-          ...c,
-          stream: isHigherSecondaryClass(c.code, c.name) ? (c.stream || "Arts / Science / Commerce") : undefined,
-        }));
-        setClasses(sanitized);
-      }
-      const loadedSchemes = getSavedMarksSchemes();
-      setMarksSchemes(loadedSchemes);
-      const loadedPolicy = getSavedPromotionPolicy();
-      setPromotionPolicy(loadedPolicy);
-    } catch (e) {
-      console.error("Failed to load local school details", e);
-    }
-
-    // Seamlessly fetch and synchronize all 4 school configs from Supabase database
-    import("@/lib/utils/school-config-client").then(({ fetchSchoolConfigClient }) => {
-      fetchSchoolConfigClient()
-        .then((data) => {
-          if (data) {
-            if (data.school_profile) {
-              setProfile({ ...DEFAULT_SCHOOL_PROFILE, ...data.school_profile });
-              localStorage.setItem("sms_school_profile", JSON.stringify(data.school_profile));
-            }
-            if (data.class_management && Array.isArray(data.class_management) && data.class_management.length > 0) {
-              setClasses(data.class_management);
-              localStorage.setItem("sms_class_management", JSON.stringify(data.class_management));
-            }
-            if (data.marks_schemes && Array.isArray(data.marks_schemes) && data.marks_schemes.length > 0) {
-              setMarksSchemes(data.marks_schemes);
-              localStorage.setItem("sms_marks_distribution_schemes", JSON.stringify(data.marks_schemes));
-            }
-            if (data.promotion_policy) {
-              setPromotionPolicy(data.promotion_policy);
-              localStorage.setItem("sms_promotion_pass_policy", JSON.stringify(data.promotion_policy));
-            }
-            setIsCloudSynced(true);
-          }
-        })
-        .catch((err) => console.warn("Failed to sync school config from cloud DB:", err));
-    });
-
-    // Fetch teaching staff for Section Class Teacher selection
-    const supabase = createClient();
-    supabase
-      .from("staff_profiles")
-      .select("id, full_name, designation")
-      .eq("employee_type", "TEACHING")
-      .order("full_name", { ascending: true })
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setStaffList(data);
-        }
-      });
-
-    const handleMarksUpdate = () => {
-      const refreshed = getSavedMarksSchemes();
-      setMarksSchemes(refreshed);
-    };
-
-    window.addEventListener("sms_marks_schemes_updated", handleMarksUpdate);
-    window.addEventListener("sms_routine_state_updated", handleMarksUpdate);
-
-    return () => {
-      window.removeEventListener("sms_marks_schemes_updated", handleMarksUpdate);
-      window.removeEventListener("sms_routine_state_updated", handleMarksUpdate);
-    };
-  }, []);
-
-  const handleSavePromotionPolicy = () => {
-    setIsSavingPolicy(true);
-    savePromotionPolicy(promotionPolicy);
-    setTimeout(() => {
-      setIsSavingPolicy(false);
-      showToast({
-        type: "success",
-        title: "Policy Saved",
-        description: "Promotion & Pass Criteria Policy updated successfully.",
-      });
-    }, 400);
-  };
-
-  // Open Edit Scheme Modal
-  const handleOpenEditScheme = (scheme: ClassMarksScheme) => {
-    setEditingScheme(scheme);
-    setEditSchemeSubjectCount(scheme.subjectCount);
-    setEditScheme1stWritten(scheme.firstSummativeWritten ?? 20);
-    setEditScheme1stPractical(scheme.firstSummativePractical || 0);
-    setEditScheme2ndWritten(scheme.secondSummativeWritten ?? 30);
-    setEditScheme2ndPractical(scheme.secondSummativePractical || 0);
-    setEditSchemeAnnualWritten(scheme.annualWritten ?? 50);
-    setEditSchemeAnnualPractical(scheme.annualPractical || 0);
-    setEditSchemeOddSemMarks(scheme.oddSemesterMarks ?? 50);
-    setEditSchemeEvenSemMarks(scheme.evenSemesterMarks ?? 50);
-    setEditSchemeNotes(scheme.notes || "");
-  };
-
-  // Save Edited Scheme
-  const handleSaveEditScheme = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingScheme) return;
-
-    const isHs = editingScheme.isSemesterSystem || editingScheme.classCode === "XI" || editingScheme.classCode === "XII";
-
-    const updatedScheme: ClassMarksScheme = {
-      ...editingScheme,
-      subjectCount: Number(editSchemeSubjectCount) || 1,
-      firstSummativeWritten: Number(editScheme1stWritten) || 0,
-      firstSummativePractical: Number(editScheme1stPractical) || 0,
-      secondSummativeWritten: Number(editScheme2ndWritten) || 0,
-      secondSummativePractical: Number(editScheme2ndPractical) || 0,
-      annualWritten: Number(editSchemeAnnualWritten) || 0,
-      annualPractical: Number(editSchemeAnnualPractical) || 0,
-      oddSemesterMarks: isHs ? (Number(editSchemeOddSemMarks) || 50) : undefined,
-      evenSemesterMarks: isHs ? (Number(editSchemeEvenSemMarks) || 50) : undefined,
-      notes: editSchemeNotes.trim() || undefined,
-    };
-
-    const updatedList = marksSchemes.map((s) => (s.classCode === editingScheme.classCode ? updatedScheme : s));
-    setMarksSchemes(updatedList);
-    saveMarksSchemes(updatedList);
-
-    showToast({
-      type: "success",
-      title: "Marks Structure Updated",
-      description: `Evaluation marks structure for ${editingScheme.className} updated. All result pages will now use this scheme!`,
-    });
-
-    setEditingScheme(null);
-  };
-
-  // Reset to West Bengal Defaults
-  const handleResetDefaultSchemes = () => {
-    if (window.confirm("Reset all class marks schemes to standard West Bengal Board (WBBSE/WBCHSE) defaults?")) {
-      setMarksSchemes(DEFAULT_MARKS_SCHEMES);
-      saveMarksSchemes(DEFAULT_MARKS_SCHEMES);
-      showToast({
-        type: "success",
-        title: "Reset to WB Defaults",
-        description: "Standard marks distribution for Classes V to XII restored successfully.",
-      });
-    }
-  };
-
-  // Add Subject to Class
-  const handleAddSubjectToClass = (classCode: string, subjectName: string) => {
-    const cleanName = subjectName.trim();
-    if (!cleanName) return;
-
-    const target = marksSchemes.find((s) => s.classCode === classCode);
-    if (!target) return;
-
-    const existing = target.subjects || [];
-    if (existing.includes(cleanName)) {
-      showToast({
-        type: "info",
-        title: "Subject Already Added",
-        description: `${cleanName} is already assigned to Class ${classCode}.`,
-      });
-      return;
-    }
-
-    const updatedSubjects = [...existing, cleanName];
-    const updatedList = marksSchemes.map((s) => {
-      if (s.classCode === classCode) {
-        return {
-          ...s,
-          subjects: updatedSubjects,
-          subjectCount: updatedSubjects.length,
-        };
-      }
-      return s;
-    });
-
-    setMarksSchemes(updatedList);
-    saveMarksSchemes(updatedList);
-    setSelectedNewSubjectToAdd("");
-    setCustomSubjectName("");
-
-    // Sync to Routine Subjects database & local state
-    syncMarksSchemeSubjectToRoutine(classCode, cleanName).catch((err) =>
-      console.warn("Failed to sync subject to routine:", err)
-    );
-
-    showToast({
-      type: "success",
-      title: "Subject Added",
-      description: `Added "${cleanName}" to Class ${classCode} (${updatedSubjects.length} subjects total).`,
-    });
-  };
-
-  // Remove Subject from Class
-  const handleRemoveSubjectFromClass = (classCode: string, subjectToRemove: string) => {
-    const target = marksSchemes.find((s) => s.classCode === classCode);
-    if (!target) return;
-
-    const existing = target.subjects || [];
-    if (existing.length <= 1) {
-      showToast({
-        type: "error",
-        title: "Cannot Remove",
-        description: "A class must have at least one subject.",
-      });
-      return;
-    }
-
-    const updatedSubjects = existing.filter((sub) => sub !== subjectToRemove);
-    const updatedList = marksSchemes.map((s) => {
-      if (s.classCode === classCode) {
-        return {
-          ...s,
-          subjects: updatedSubjects,
-          subjectCount: updatedSubjects.length,
-        };
-      }
-      return s;
-    });
-
-    setMarksSchemes(updatedList);
-    saveMarksSchemes(updatedList);
-
-    // Sync removal to Routine Subjects database & local state
-    syncRemoveMarksSchemeSubjectFromRoutine(classCode, subjectToRemove).catch((err) =>
-      console.warn("Failed to sync remove subject from routine:", err)
-    );
-
-    showToast({
-      type: "success",
-      title: "Subject Removed",
-      description: `Removed "${subjectToRemove}" from Class ${classCode}.`,
-    });
-  };
-
-  // Helper to dynamically auto-fill Full Address Line when sub-address fields are edited
   const handleGeographicalAddressChange = (field: keyof SchoolProfileData, value: string) => {
     setProfile((prev) => {
       const updated = { ...prev, [field]: value };
@@ -636,7 +214,6 @@ export function SchoolDetailsTab() {
     });
   };
 
-  // Toggle school-level Higher Secondary streams (Arts, Science, Commerce, Vocational)
   const handleToggleProfileStream = (streamName: string) => {
     const current = profile.hsStreams && profile.hsStreams.length > 0
       ? [...profile.hsStreams]
@@ -660,7 +237,6 @@ export function SchoolDetailsTab() {
     setProfile((prev) => ({ ...prev, hsStreams: next }));
   };
 
-  // Save Profile Handler (Syncs to DB and LocalStorage)
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
@@ -676,17 +252,31 @@ export function SchoolDetailsTab() {
       };
       setProfile(profileToSave);
 
-      // Also ensure Class XI & XII classes reflect the active streams
-      const updatedClasses = classes.map((c) => {
-        if (isHigherSecondaryClass(c.code, c.name)) {
-          return {
-            ...c,
-            stream: activeStreams.join(" / "),
-          };
+      // Also ensure Class XI & XII classes reflect the active streams in localStorage & DB
+      try {
+        const savedClassesRaw = localStorage.getItem("sms_class_management");
+        if (savedClassesRaw) {
+          const classesList = JSON.parse(savedClassesRaw) as Array<{ code?: string; name?: string; stream?: string }>;
+          const updatedClasses = classesList.map((c) => {
+            if (isHigherSecondaryClass(c.code, c.name)) {
+              return {
+                ...c,
+                stream: activeStreams.join(" / "),
+              };
+            }
+            return c;
+          });
+          localStorage.setItem("sms_class_management", JSON.stringify(updatedClasses));
+          window.dispatchEvent(new Event("sms_class_management_updated"));
+          fetch("/api/school-config", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: "class_management", value: updatedClasses }),
+          }).catch((err) => console.warn("Background DB sync for classes failed:", err));
         }
-        return c;
-      });
-      updateAndSyncClasses(updatedClasses);
+      } catch (e) {
+        console.warn("Class stream sync skipped:", e);
+      }
 
       localStorage.setItem("sms_school_profile", JSON.stringify(profileToSave));
       const success = await saveSchoolProfileToDb(profileToSave);
@@ -709,3227 +299,645 @@ export function SchoolDetailsTab() {
     }
   };
 
-  // Add Class Handler
-  const handleAddClass = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newClassName.trim() || !newClassCode.trim()) {
-      showToast({
-        type: "error",
-        title: "Missing Information",
-        description: "Class name and class code are required.",
-      });
-      return;
-    }
-
-    const isHs = isHigherSecondaryClass(newClassCode, newClassName);
-    let finalSections = newSections.length > 0 ? newSections : ["A"];
-    let finalStreamSections: Record<string, string[]> | undefined = undefined;
-
-    if (isHs) {
-      const activeStreamsList = getClassStreamList(newStream);
-      const cleanedStreamSections: Record<string, string[]> = {};
-      const allSecSet = new Set<string>();
-      activeStreamsList.forEach((st) => {
-        const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
-          ? newStreamSections[st]
-          : ["A"];
-        cleanedStreamSections[st] = secs;
-        secs.forEach((s) => allSecSet.add(s));
-      });
-      finalStreamSections = cleanedStreamSections;
-      finalSections = Array.from(allSecSet).sort();
-    }
-
-    const finalSectionTeachers: Record<string, string> = {};
-    if (isHs) {
-      const activeStreamsList = getClassStreamList(newStream);
-      activeStreamsList.forEach((st) => {
-        const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
-          ? newStreamSections[st]
-          : ["A"];
-        secs.forEach((sec) => {
-          const t =
-            newSectionTeachers[`${st} - ${sec}`] ||
-            newSectionTeachers[`${st}::${sec}`] ||
-            newSectionTeachers[`${sec} (${st})`] ||
-            newSectionTeachers[`Sec ${sec} (${st})`] ||
-            newSectionTeachers[sec] ||
-            newSectionTeachers[`Section ${sec}`] ||
-            newTeacher;
-          if (t && t.trim()) {
-            const val = t.trim();
-            finalSectionTeachers[`${st} - ${sec}`] = val;
-            finalSectionTeachers[`${st} - Section ${sec}`] = val;
-            finalSectionTeachers[`${sec} (${st})`] = val;
-            finalSectionTeachers[`Sec ${sec} (${st})`] = val;
-            finalSectionTeachers[`${st}::${sec}`] = val;
-            if (!finalSectionTeachers[sec]) {
-              finalSectionTeachers[sec] = val;
-            }
-          }
-        });
-      });
-    } else {
-      finalSections.forEach((sec) => {
-        const t = newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || newTeacher;
-        if (t && t.trim()) {
-          finalSectionTeachers[sec] = t.trim();
-          finalSectionTeachers[`Section ${sec}`] = t.trim();
-        }
-      });
-    }
-    const primaryTeacher = Object.values(finalSectionTeachers)[0] || newTeacher.trim() || undefined;
-
-    const newClassItem: ClassItem = {
-      id: `c-${Date.now()}`,
-      name: newClassName.trim(),
-      code: newClassCode.trim().toUpperCase(),
-      sections: finalSections,
-      stream: isHs ? newStream : undefined,
-      streamSections: finalStreamSections,
-      classTeacher: primaryTeacher,
-      sectionTeachers: Object.keys(finalSectionTeachers).length > 0 ? finalSectionTeachers : undefined,
-      roomNo: newRoom.trim() || undefined,
-      capacity: parseInt(newCapacity, 10) || 100,
-      isAutoPass: newAutoPass === "true",
-      status: "Active",
-    };
-
-    const updated = [...classes, newClassItem];
-    updateAndSyncClasses(updated);
-    syncClassTeachersToRoutine(newClassName.trim(), finalSectionTeachers, finalSections);
-
-    showToast({
-      type: "success",
-      title: "Class Added",
-      description: `${newClassName} has been added and class teachers synced.`,
-    });
-
-    // Reset Form
-    setNewClassName("");
-    setNewClassCode("");
-    setNewSections(["A", "B"]);
-    setNewStream("Arts / Science / Commerce");
-    setNewStreamSections({
-      "Arts": ["A", "B"],
-      "Science": ["A"],
-      "Commerce": ["A"],
-    });
-    setNewTeacher("");
-    setNewSectionTeachers({});
-    setNewRoom("");
-    setNewCapacity("120");
-    setNewAutoPass("false");
-    setIsAddClassOpen(false);
-  };
-
-  // Open Edit Class Modal (Locks Name & Code, sets interactive sections)
-  const handleOpenEditClass = (cls: ClassItem) => {
-    setEditingClass(cls);
-    setEditClassName(cls.name);
-    setEditClassCode(cls.code);
-    setEditSections(cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"]);
-    setEditStream(cls.stream || "Arts / Science / Commerce");
-
-    const streamSecs: Record<string, string[]> = cls.streamSections
-      ? { ...cls.streamSections }
-      : {};
-    const streamsList = getClassStreamList(cls.stream || "Arts / Science / Commerce");
-    streamsList.forEach((s) => {
-      if (!streamSecs[s] || !Array.isArray(streamSecs[s]) || streamSecs[s].length === 0) {
-        streamSecs[s] = cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"];
-      }
-    });
-    setEditStreamSections(streamSecs);
-
-    setEditTeacher(cls.classTeacher || "");
-    const sTeachers: Record<string, string> = cls.sectionTeachers ? { ...cls.sectionTeachers } : {};
-    if (cls.classTeacher && (!cls.sectionTeachers || Object.keys(cls.sectionTeachers).length === 0)) {
-      cls.sections.forEach((sec) => {
-        sTeachers[sec] = cls.classTeacher!;
-      });
-    }
-    setEditSectionTeachers(sTeachers);
-
-    setEditRoom(cls.roomNo || "");
-    setEditCapacity(String(cls.capacity || 120));
-    setEditAutoPass(cls.isAutoPass ? "true" : "false");
-  };
-
-  // Section click-add & click-remove helpers for Edit modal (General)
-  const handleAddEditSection = (sectionLetter: string) => {
-    const letter = sectionLetter.trim().toUpperCase();
-    if (!letter || editSections.includes(letter)) return;
-    const updated = [...editSections, letter].sort();
-    setEditSections(updated);
-  };
-
-  const handleRemoveEditSection = (sectionToRemove: string) => {
-    if (editSections.length <= 1) {
-      showToast({
-        type: "info",
-        title: "Section Required",
-        description: "A class must have at least one section.",
-      });
-      return;
-    }
-    setEditSections((prev) => prev.filter((s) => s !== sectionToRemove));
-  };
-
-  // Edit modal stream section helpers
-  const handleAddEditModalStreamSection = (streamName: string, letter: string) => {
-    const cleanLetter = letter.trim().toUpperCase();
-    if (!cleanLetter) return;
-    setEditStreamSections((prev) => {
-      const current = prev[streamName] || ["A"];
-      if (current.includes(cleanLetter)) return prev;
-      return {
-        ...prev,
-        [streamName]: [...current, cleanLetter].sort(),
-      };
-    });
-  };
-
-  const handleRemoveEditModalStreamSection = (streamName: string, sectionToRemove: string) => {
-    setEditStreamSections((prev) => {
-      const current = prev[streamName] || ["A"];
-      if (current.length <= 1) {
-        showToast({
-          type: "info",
-          title: "Section Required",
-          description: `${streamName} must have at least one section.`,
-        });
-        return prev;
-      }
-      return {
-        ...prev,
-        [streamName]: current.filter((s) => s !== sectionToRemove),
-      };
-    });
-  };
-
-  // Section click-add & click-remove helpers for Add modal (General)
-  const handleAddNewModalSection = (sectionLetter: string) => {
-    const letter = sectionLetter.trim().toUpperCase();
-    if (!letter || newSections.includes(letter)) return;
-    const updated = [...newSections, letter].sort();
-    setNewSections(updated);
-  };
-
-  const handleRemoveNewModalSection = (sectionToRemove: string) => {
-    if (newSections.length <= 1) {
-      showToast({
-        type: "info",
-        title: "Section Required",
-        description: "A class must have at least one section.",
-      });
-      return;
-    }
-    setNewSections((prev) => prev.filter((s) => s !== sectionToRemove));
-  };
-
-  // Add modal stream section helpers
-  const handleAddAddModalStreamSection = (streamName: string, letter: string) => {
-    const cleanLetter = letter.trim().toUpperCase();
-    if (!cleanLetter) return;
-    setNewStreamSections((prev) => {
-      const current = prev[streamName] || ["A"];
-      if (current.includes(cleanLetter)) return prev;
-      return {
-        ...prev,
-        [streamName]: [...current, cleanLetter].sort(),
-      };
-    });
-  };
-
-  const handleRemoveAddModalStreamSection = (streamName: string, sectionToRemove: string) => {
-    setNewStreamSections((prev) => {
-      const current = prev[streamName] || ["A"];
-      if (current.length <= 1) {
-        showToast({
-          type: "info",
-          title: "Section Required",
-          description: `${streamName} must have at least one section.`,
-        });
-        return prev;
-      }
-      return {
-        ...prev,
-        [streamName]: current.filter((s) => s !== sectionToRemove),
-      };
-    });
-  };
-
-  // Quick Append Section to Class directly from row (General)
-  const handleQuickAddSection = (classId: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-
-    const nextSec = getNextAvailableLetter(target.sections);
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return { ...c, sections: [...c.sections, nextSec].sort() };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Added",
-      description: `Added Section ${nextSec} to ${target.name}.`,
-    });
-  };
-
-  // Quick Remove Section from Class directly from row (General)
-  const handleQuickRemoveSection = (classId: string, sectionToRemove: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-
-    if (target.sections.length <= 1) {
-      showToast({
-        type: "info",
-        title: "Cannot Remove",
-        description: "A class must have at least one active section.",
-      });
-      return;
-    }
-
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return { ...c, sections: c.sections.filter((s) => s !== sectionToRemove) };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Removed",
-      description: `Removed Section ${sectionToRemove} from ${target.name}.`,
-    });
-  };
-
-  // Quick Add Stream Section directly from row (Higher Secondary)
-  const handleQuickAddStreamSection = (classId: string, streamName: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-    const currentSections = (target.streamSections && target.streamSections[streamName]) || target.sections || ["A"];
-    const nextSec = getNextAvailableLetter(currentSections);
-    const updatedSecs = [...currentSections, nextSec].sort();
-
-    const nextStreamSections = {
-      ...(target.streamSections || {}),
-      [streamName]: updatedSecs,
-    };
-
-    const allSectionsSet = new Set<string>();
-    Object.values(nextStreamSections).forEach((arr) => arr.forEach((s) => allSectionsSet.add(s)));
-    const unionSections = Array.from(allSectionsSet).sort();
-
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return {
-          ...c,
-          streamSections: nextStreamSections,
-          sections: unionSections.length > 0 ? unionSections : target.sections,
-        };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Added",
-      description: `Added Section ${nextSec} to ${target.name} (${streamName}).`,
-    });
-  };
-
-  // Quick Remove Stream Section directly from row (Higher Secondary)
-  const handleQuickRemoveStreamSection = (classId: string, streamName: string, sectionToRemove: string) => {
-    const target = classes.find((c) => c.id === classId);
-    if (!target) return;
-    const currentSections = (target.streamSections && target.streamSections[streamName]) || target.sections || ["A"];
-    if (currentSections.length <= 1) {
-      showToast({
-        type: "info",
-        title: "Cannot Remove",
-        description: `${streamName} must have at least one active section.`,
-      });
-      return;
-    }
-    const nextStreamSections = {
-      ...(target.streamSections || {}),
-      [streamName]: currentSections.filter((s) => s !== sectionToRemove),
-    };
-
-    const allSectionsSet = new Set<string>();
-    Object.values(nextStreamSections).forEach((arr) => arr.forEach((s) => allSectionsSet.add(s)));
-    const unionSections = Array.from(allSectionsSet).sort();
-
-    const updated = classes.map((c) => {
-      if (c.id === classId) {
-        return {
-          ...c,
-          streamSections: nextStreamSections,
-          sections: unionSections.length > 0 ? unionSections : target.sections,
-        };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    showToast({
-      type: "success",
-      title: "Section Removed",
-      description: `Removed Section ${sectionToRemove} from ${target.name} (${streamName}).`,
-    });
-  };
-
-  // Save Edited Class Handler
-  const handleSaveEditClass = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingClass) return;
-
-    const isHs = isHigherSecondaryClass(editClassCode, editClassName);
-    let finalSections = editSections.length > 0 ? editSections : ["A"];
-    let finalStreamSections: Record<string, string[]> | undefined = undefined;
-
-    if (isHs) {
-      const activeStreamsList = getClassStreamList(editStream);
-      const cleanedStreamSections: Record<string, string[]> = {};
-      const allSecSet = new Set<string>();
-      activeStreamsList.forEach((st) => {
-        const secs = (editStreamSections[st] && editStreamSections[st].length > 0)
-          ? editStreamSections[st]
-          : ["A"];
-        cleanedStreamSections[st] = secs;
-        secs.forEach((s) => allSecSet.add(s));
-      });
-      finalStreamSections = cleanedStreamSections;
-      finalSections = Array.from(allSecSet).sort();
-    }
-
-    const finalSectionTeachers: Record<string, string> = {};
-    if (isHs) {
-      const activeStreamsList = getClassStreamList(editStream);
-      activeStreamsList.forEach((st) => {
-        const secs = (editStreamSections[st] && editStreamSections[st].length > 0)
-          ? editStreamSections[st]
-          : ["A"];
-        secs.forEach((sec) => {
-          const t =
-            editSectionTeachers[`${st} - ${sec}`] ||
-            editSectionTeachers[`${st}::${sec}`] ||
-            editSectionTeachers[`${sec} (${st})`] ||
-            editSectionTeachers[`Sec ${sec} (${st})`] ||
-            editSectionTeachers[sec] ||
-            editSectionTeachers[`Section ${sec}`] ||
-            editTeacher;
-          if (t && t.trim()) {
-            const val = t.trim();
-            finalSectionTeachers[`${st} - ${sec}`] = val;
-            finalSectionTeachers[`${st} - Section ${sec}`] = val;
-            finalSectionTeachers[`${sec} (${st})`] = val;
-            finalSectionTeachers[`Sec ${sec} (${st})`] = val;
-            finalSectionTeachers[`${st}::${sec}`] = val;
-            if (!finalSectionTeachers[sec]) {
-              finalSectionTeachers[sec] = val;
-            }
-          }
-        });
-      });
-    } else {
-      finalSections.forEach((sec) => {
-        const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || editTeacher;
-        if (t && t.trim()) {
-          finalSectionTeachers[sec] = t.trim();
-          finalSectionTeachers[`Section ${sec}`] = t.trim();
-        }
-      });
-    }
-    const primaryTeacher = Object.values(finalSectionTeachers)[0] || editTeacher.trim() || undefined;
-
-    const updated = classes.map((c) => {
-      if (c.id === editingClass.id) {
-        return {
-          ...c,
-          sections: finalSections,
-          stream: isHs ? editStream : undefined,
-          streamSections: finalStreamSections,
-          classTeacher: primaryTeacher,
-          sectionTeachers: Object.keys(finalSectionTeachers).length > 0 ? finalSectionTeachers : undefined,
-          roomNo: editRoom.trim() || undefined,
-          capacity: parseInt(editCapacity, 10) || 100,
-          isAutoPass: editAutoPass === "true",
-        };
-      }
-      return c;
-    });
-
-    updateAndSyncClasses(updated);
-    syncClassTeachersToRoutine(editClassName, finalSectionTeachers, finalSections);
-
-    showToast({
-      type: "success",
-      title: "Class Updated",
-      description: `${editClassName} details and section teachers updated successfully.`,
-    });
-
-    setEditingClass(null);
-  };
-
-  // Delete Class Handler
-  const handleDeleteClass = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to remove ${name} from class management?`)) {
-      const updated = classes.filter((c) => c.id !== id);
-      updateAndSyncClasses(updated);
-      showToast({
-        type: "success",
-        title: "Class Removed",
-        description: `${name} has been removed.`,
-      });
-    }
-  };
-
-  const isAddingHs = isHigherSecondaryClass(newClassCode, newClassName);
-  const isEditingHs = isHigherSecondaryClass(editClassCode, editClassName);
-
-  const editNextLetter = getNextAvailableLetter(editSections);
-  const newNextLetter = getNextAvailableLetter(newSections);
-
   return (
     <div className="space-y-6">
-      {/* Sub-option Switcher / Top Navigation Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border rounded-2xl p-2.5 shadow-2xs">
-        <div className="flex items-center gap-1.5 p-1 bg-muted/60 rounded-xl overflow-x-auto custom-scrollbar flex-nowrap scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setSubOption("profile")}
-            className={cn(
-              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
-              subOption === "profile"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+      {/* Header Banner */}
+      <div className="rounded-2xl border bg-gradient-to-r from-amber-500/10 via-background to-background p-5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="h-14 w-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-xs shrink-0">
+              <School className="h-7 w-7" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-foreground">
+                {profile.schoolName}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
+                <span>UDISE+: <strong className="font-mono text-foreground">{profile.udiseCode}</strong></span>
+                {profile.hsCode && (
+                  <>
+                    <span>•</span>
+                    <span>H.S. Code: <strong className="font-mono text-foreground">{profile.hsCode}</strong></span>
+                  </>
+                )}
+                <span>•</span>
+                <span>Affiliation: <strong className="text-foreground">{profile.boardAffiliation}</strong></span>
+                <span>•</span>
+                <span>Est: <strong className="font-mono text-foreground">{profile.establishedYear}</strong></span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isCloudSynced ? (
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                Cloud Synced
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border-neutral-200 text-xs py-1 px-2.5">
+                Local Storage
+              </Badge>
             )}
-          >
-            <Building className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <span>School Profile</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubOption("classes")}
-            className={cn(
-              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
-              subOption === "classes"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-            )}
-          >
-            <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-            <span>Class Management</span>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/20 bg-background/60">
-              {classes.length}
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Verified Institution
             </Badge>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSubOption("marks_scheme")}
-            className={cn(
-              "flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer shrink-0 whitespace-nowrap min-h-[36px]",
-              subOption === "marks_scheme"
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-            )}
-          >
-            <Award className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-            <span>Exam Marks Scheme</span>
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-muted-foreground/20 bg-background/60 text-violet-700 dark:text-violet-300">
-              V - XII
-            </Badge>
-          </button>
-        </div>
-
-        {/* Top Action Buttons for different tabs */}
-        <div className="flex items-center gap-2 px-1 sm:px-2">
-          {subOption === "profile" && (
             <Button
               size="sm"
               onClick={handleSaveProfile}
               disabled={isSavingProfile}
-              className="w-full sm:w-auto bg-primary text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs h-9 justify-center"
+              className="bg-primary text-primary-foreground text-xs font-semibold gap-1.5 shadow-xs h-9 justify-center cursor-pointer ml-1"
             >
               <Save className="h-4 w-4" />
               {isSavingProfile ? "Saving..." : "Save Profile"}
             </Button>
-          )}
+          </div>
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* OPTION 1: SCHOOL PROFILE (স্কুল প্রোফাইল)                                */}
-      {/* ========================================================================= */}
-      {subOption === "profile" && (
-        <div className="space-y-5 animate-in fade-in-50 duration-200">
-          {/* Header Banner */}
-          <div className="rounded-2xl border bg-gradient-to-r from-amber-500/10 via-background to-background p-5">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="h-14 w-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-700 dark:text-amber-300 shadow-xs shrink-0">
-                  <School className="h-7 w-7" />
-                </div>
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-foreground">
-                    {profile.schoolName}
-                  </h2>
-                  <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
-                    <span>UDISE+: <strong className="font-mono text-foreground">{profile.udiseCode}</strong></span>
-                    {profile.hsCode && (
-                      <>
-                        <span>•</span>
-                        <span>H.S. Code: <strong className="font-mono text-foreground">{profile.hsCode}</strong></span>
-                      </>
-                    )}
-                    <span>•</span>
-                    <span>Affiliation: <strong className="text-foreground">{profile.boardAffiliation}</strong></span>
-                    <span>•</span>
-                    <span>Est: <strong className="font-mono text-foreground">{profile.establishedYear}</strong></span>
-                  </p>
-                </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Left 2 Cols: Detailed Form */}
+        <div className="lg:col-span-2 space-y-5">
+          {/* 1. Basic Metadata */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Building className="h-4 w-4 text-primary" />
+                Institutional Identity & Accreditation
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="schoolName" className="text-xs">Official School Name *</Label>
+                <Input
+                  id="schoolName"
+                  value={profile.schoolName}
+                  onChange={(e) => setProfile({ ...profile, schoolName: e.target.value })}
+                  className="text-xs font-medium"
+                  placeholder="e.g. Marigachi High School (H.S.)"
+                />
               </div>
-              <div className="flex items-center gap-2">
-                {isCloudSynced ? (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400 border-blue-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                    Cloud Synced
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400 border-neutral-200 text-xs py-1 px-2.5">
-                    Local Storage
-                  </Badge>
-                )}
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 text-xs py-1 px-2.5 flex items-center gap-1.5">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Verified Institution
+
+              <div className="space-y-1.5">
+                <Label htmlFor="udiseCode" className="text-xs">UDISE+ Code *</Label>
+                <Input
+                  id="udiseCode"
+                  value={profile.udiseCode}
+                  onChange={(e) => setProfile({ ...profile, udiseCode: e.target.value })}
+                  className="text-xs font-mono"
+                  placeholder="11-digit UDISE Code"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="hsCode" className="text-xs">H.S. Code</Label>
+                <Input
+                  id="hsCode"
+                  value={profile.hsCode || ""}
+                  onChange={(e) => setProfile({ ...profile, hsCode: e.target.value })}
+                  className="text-xs font-mono"
+                  placeholder="e.g. 102298"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="indexNo" className="text-xs">WBBSE Index No</Label>
+                <Input
+                  id="indexNo"
+                  value={profile.indexNo || ""}
+                  onChange={(e) => setProfile({ ...profile, indexNo: e.target.value })}
+                  className="text-xs font-mono"
+                  placeholder="e.g. B2-026"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="boardAffiliation" className="text-xs">Board / Council Affiliation</Label>
+                <Input
+                  id="boardAffiliation"
+                  value={profile.boardAffiliation}
+                  onChange={(e) => setProfile({ ...profile, boardAffiliation: e.target.value })}
+                  className="text-xs"
+                  placeholder="e.g. WBBSE / WBCHSE"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="establishedYear" className="text-xs">Year of Establishment</Label>
+                <Input
+                  id="establishedYear"
+                  value={profile.establishedYear}
+                  onChange={(e) => setProfile({ ...profile, establishedYear: e.target.value })}
+                  className="text-xs font-mono"
+                  placeholder="e.g. 1965"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="schoolCategory" className="text-xs">School Level / Category</Label>
+                <Input
+                  id="schoolCategory"
+                  value={profile.schoolCategory}
+                  onChange={(e) => setProfile({ ...profile, schoolCategory: e.target.value })}
+                  className="text-xs"
+                  placeholder="Higher Secondary (V - XII)"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="mediumOfInstruction" className="text-xs">Medium of Instruction</Label>
+                <Input
+                  id="mediumOfInstruction"
+                  value={profile.mediumOfInstruction}
+                  onChange={(e) => setProfile({ ...profile, mediumOfInstruction: e.target.value })}
+                  className="text-xs"
+                  placeholder="Bengali / English"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Higher Secondary Streams Configuration (Class XI & XII) */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-primary" />
+                  Higher Secondary Streams (Class XI &amp; XII)
+                </CardTitle>
+                <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+                  {(profile.hsStreams || ["Arts", "Science", "Commerce"]).length} Active
                 </Badge>
               </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* Left 2 Cols: Detailed Form */}
-            <div className="lg:col-span-2 space-y-5">
-              {/* 1. Basic Metadata */}
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Building className="h-4 w-4 text-primary" />
-                    Institutional Identity & Accreditation
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Basic identification, government codes, and educational board details.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="schoolName" className="text-xs">Official School Name *</Label>
-                    <Input
-                      id="schoolName"
-                      value={profile.schoolName}
-                      onChange={(e) => setProfile({ ...profile, schoolName: e.target.value })}
-                      className="text-xs font-medium"
-                      placeholder="e.g. Marigachi High School (H.S.)"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="udiseCode" className="text-xs">UDISE+ Code *</Label>
-                    <Input
-                      id="udiseCode"
-                      value={profile.udiseCode}
-                      onChange={(e) => setProfile({ ...profile, udiseCode: e.target.value })}
-                      className="text-xs font-mono"
-                      placeholder="11-digit UDISE Code"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="hsCode" className="text-xs">H.S. Code</Label>
-                    <Input
-                      id="hsCode"
-                      value={profile.hsCode || ""}
-                      onChange={(e) => setProfile({ ...profile, hsCode: e.target.value })}
-                      className="text-xs font-mono"
-                      placeholder="e.g. 102298"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="indexNo" className="text-xs">WBBSE Index No</Label>
-                    <Input
-                      id="indexNo"
-                      value={profile.indexNo || ""}
-                      onChange={(e) => setProfile({ ...profile, indexNo: e.target.value })}
-                      className="text-xs font-mono"
-                      placeholder="e.g. B2-026"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="boardAffiliation" className="text-xs">Board / Council Affiliation</Label>
-                    <Input
-                      id="boardAffiliation"
-                      value={profile.boardAffiliation}
-                      onChange={(e) => setProfile({ ...profile, boardAffiliation: e.target.value })}
-                      className="text-xs"
-                      placeholder="e.g. WBBSE / WBCHSE"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="establishedYear" className="text-xs">Year of Establishment</Label>
-                    <Input
-                      id="establishedYear"
-                      value={profile.establishedYear}
-                      onChange={(e) => setProfile({ ...profile, establishedYear: e.target.value })}
-                      className="text-xs font-mono"
-                      placeholder="e.g. 1965"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolCategory" className="text-xs">School Level / Category</Label>
-                    <Input
-                      id="schoolCategory"
-                      value={profile.schoolCategory}
-                      onChange={(e) => setProfile({ ...profile, schoolCategory: e.target.value })}
-                      className="text-xs"
-                      placeholder="Higher Secondary (V - XII)"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="mediumOfInstruction" className="text-xs">Medium of Instruction</Label>
-                    <Input
-                      id="mediumOfInstruction"
-                      value={profile.mediumOfInstruction}
-                      onChange={(e) => setProfile({ ...profile, mediumOfInstruction: e.target.value })}
-                      className="text-xs"
-                      placeholder="Bengali / English"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Higher Secondary Streams Configuration (Class XI & XII) */}
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <GraduationCap className="h-4 w-4 text-primary" />
-                      Higher Secondary Streams (Class XI &amp; XII)
-                    </CardTitle>
-                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-                      {(profile.hsStreams || ["Arts", "Science", "Commerce"]).length} Active
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-3">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {STANDARD_HS_STREAMS.map((s) => {
-                      const isSelected = (profile.hsStreams || ["Arts", "Science", "Commerce"]).includes(s);
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => handleToggleProfileStream(s)}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer",
-                            isSelected
-                              ? "border-primary/50 bg-primary/10 text-primary font-bold shadow-2xs"
-                              : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/40"
-                          )}
-                        >
-                          <span className="text-xs font-semibold">{s}</span>
-                          <div
-                            className={cn(
-                              "h-4 w-4 rounded flex items-center justify-center border transition-colors",
-                              isSelected
-                                ? "bg-primary border-primary text-primary-foreground"
-                                : "border-muted-foreground/40 bg-background"
-                            )}
-                          >
-                            {isSelected && <Check className="h-3 w-3" />}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-                    <span>Active Streams:</span>
-                    <span className="font-semibold text-foreground">
-                      {(profile.hsStreams || ["Arts", "Science", "Commerce"]).join(" • ") || "None"}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 2. Administration & Contact */}
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    Administration & Contact Information
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Institutional contact details for communication, notices, and certificates.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="headmasterName" className="text-xs">Headmaster / Principal / TIC Name</Label>
-                    <Input
-                      id="headmasterName"
-                      value={profile.headmasterName}
-                      onChange={(e) => setProfile({ ...profile, headmasterName: e.target.value })}
-                      className="text-xs font-medium"
-                      placeholder="e.g. Dr. A. K. Mondal"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolEmail" className="text-xs">Official Contact Email *</Label>
-                    <Input
-                      id="schoolEmail"
-                      type="email"
-                      value={profile.schoolEmail}
-                      onChange={(e) => setProfile({ ...profile, schoolEmail: e.target.value })}
-                      className="text-xs"
-                      placeholder="e.g. contact@marigachihighschool.in"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="schoolPhone" className="text-xs">Primary Telephone / Mobile</Label>
-                    <Input
-                      id="schoolPhone"
-                      value={profile.schoolPhone}
-                      onChange={(e) => setProfile({ ...profile, schoolPhone: e.target.value })}
-                      className="text-xs"
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="altPhone" className="text-xs">Alternate Helpline / Landline</Label>
-                    <Input
-                      id="altPhone"
-                      value={profile.altPhone}
-                      onChange={(e) => setProfile({ ...profile, altPhone: e.target.value })}
-                      className="text-xs"
-                      placeholder="03218-245678"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <Label htmlFor="schoolWebsite" className="text-xs">Institutional Website URL</Label>
-                    <Input
-                      id="schoolWebsite"
-                      value={profile.schoolWebsite}
-                      onChange={(e) => setProfile({ ...profile, schoolWebsite: e.target.value })}
-                      className="text-xs"
-                      placeholder="https://marigachihighschool.in"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* 3. Address & Location */}
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-rose-500" />
-                    Geographical Address & Location
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Campus location details printed on admit cards, transfer certificates, and grade reports.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="schoolAddress" className="text-xs font-semibold">Full Address Line *</Label>
-                      <span className="text-[10px] text-muted-foreground italic">Auto-constructed as location details below are updated</span>
-                    </div>
-                    <Input
-                      id="schoolAddress"
-                      value={profile.schoolAddress}
-                      onChange={(e) => setProfile({ ...profile, schoolAddress: e.target.value })}
-                      className="text-xs font-medium bg-muted/20"
-                      placeholder="Full constructed address line..."
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="village" className="text-xs">Village / Area / Ward</Label>
-                    <Input
-                      id="village"
-                      value={profile.village}
-                      onChange={(e) => handleGeographicalAddressChange("village", e.target.value)}
-                      className="text-xs"
-                      placeholder="e.g. Marigachi"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="postOffice" className="text-xs">Post Office (P.O.)</Label>
-                    <Input
-                      id="postOffice"
-                      value={profile.postOffice || ""}
-                      onChange={(e) => handleGeographicalAddressChange("postOffice", e.target.value)}
-                      className="text-xs"
-                      placeholder="e.g. Marigachi"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="policeStation" className="text-xs">Police Station / Block (P.S.)</Label>
-                    <Input
-                      id="policeStation"
-                      value={profile.policeStation}
-                      onChange={(e) => handleGeographicalAddressChange("policeStation", e.target.value)}
-                      className="text-xs"
-                      placeholder="e.g. Mathurapur"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="district" className="text-xs">District</Label>
-                    <Input
-                      id="district"
-                      value={profile.district}
-                      onChange={(e) => handleGeographicalAddressChange("district", e.target.value)}
-                      className="text-xs"
-                      placeholder="e.g. South 24 Parganas"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="state" className="text-xs">State</Label>
-                    <Input
-                      id="state"
-                      value={profile.state || "West Bengal"}
-                      onChange={(e) => handleGeographicalAddressChange("state", e.target.value)}
-                      className="text-xs"
-                      placeholder="e.g. West Bengal"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="pincode" className="text-xs">Postal PIN Code</Label>
-                    <Input
-                      id="pincode"
-                      value={profile.pincode}
-                      onChange={(e) => handleGeographicalAddressChange("pincode", e.target.value)}
-                      className="text-xs font-mono"
-                      placeholder="e.g. 743349"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Right 1 Col: Brand Assets & Quick Summary */}
-            <div className="space-y-5">
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-amber-500" />
-                      School Crest & Motto
-                    </CardTitle>
-                    {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" ? (
-                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                        Custom Logo Active
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
-                        Default Crest
-                      </Badge>
-                    )}
-                  </div>
-                  <CardDescription className="text-xs">
-                    Official emblem & institutional motto used on marksheets, ID cards, admit cards, and certificates.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-4 text-center">
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                  />
-
-                  {/* Logo Display Box with Hover Action Overlay */}
-                  <div className="space-y-2">
-                    <div 
-                      onClick={() => logoInputRef.current?.click()}
-                      className="mx-auto h-32 w-32 rounded-2xl border-2 border-dashed border-primary/40 p-2.5 flex items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer relative group overflow-hidden"
-                      title="Click to change school crest"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={profile.schoolLogoUrl || "/logo.png"}
-                        alt="School Crest"
-                        className="max-h-full max-w-full object-contain"
-                      />
-                      <div className="absolute inset-0 bg-background/85 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1 text-center">
-                        <Upload className="h-4 w-4 text-primary" />
-                        <span className="text-[10px] font-semibold text-foreground">Click to Change</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-center gap-2 pt-0.5">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => logoInputRef.current?.click()}
-                        className="h-7 text-xs px-2.5"
-                      >
-                        <Upload className="h-3 w-3 mr-1" />
-                        Change Logo
-                      </Button>
-                      {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={handleResetLogo}
-                          className="h-7 text-xs text-muted-foreground hover:text-destructive px-2"
-                          title="Restore default school logo"
-                        >
-                          <RotateCcw className="h-3 w-3 mr-1" />
-                          Reset
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 text-left pt-1 border-t">
-                    <Label htmlFor="schoolMotto" className="text-xs font-medium">School Motto / Tagline</Label>
-                    <Input
-                      id="schoolMotto"
-                      value={profile.schoolMotto}
-                      onChange={(e) => setProfile({ ...profile, schoolMotto: e.target.value })}
-                      className="text-xs italic"
-                      placeholder="e.g. Knowledge, Character, Excellence"
-                    />
-                  </div>
-
-                  <div className="pt-2">
-                    <Button
-                      size="sm"
-                      onClick={handleSaveProfile}
-                      disabled={isSavingProfile}
-                      className="w-full bg-primary text-primary-foreground text-xs font-semibold"
-                    >
-                      <Save className="h-3.5 w-3.5 mr-1.5" />
-                      {isSavingProfile ? "Saving..." : "Save Profile Details"}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Head of Institution (HOI) & Signature Card */}
-              <Card className="border bg-card shadow-2xs">
-                <CardHeader className="pb-3 border-b">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                      <UserCheck className="h-4 w-4 text-primary" />
-                      Head of Institution & Signature
-                    </CardTitle>
-                    {profile.headSignatureUrl ? (
-                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
-                        Signature Loaded
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                        Manual Sign Mode
-                      </Badge>
-                    )}
-                  </div>
-                  <CardDescription className="text-xs">
-                    Configure institutional authority designation (T.I.C. / Headmaster / Principal) and official digital signature.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-4">
-                  {/* Head Designation / Role Selection */}
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Head Designation / Role</Label>
-                    <CustomSelect
-                      value={profile.headDesignation || "Teacher-in-Charge"}
-                      onChange={(val) => setProfile({ ...profile, headDesignation: String(val) })}
-                      options={HEAD_DESIGNATION_OPTIONS}
-                      placeholder="Select Designation"
-                      searchable={false}
-                    />
-                  </div>
-
-                  {profile.headDesignation === "Custom" && (
-                    <div className="space-y-1.5">
-                      <Label htmlFor="customHeadDesignation" className="text-xs">Custom Designation Title</Label>
-                      <Input
-                        id="customHeadDesignation"
-                        value={profile.customHeadDesignation || ""}
-                        onChange={(e) => setProfile({ ...profile, customHeadDesignation: e.target.value })}
-                        className="text-xs"
-                        placeholder="e.g. Acting Headmaster / Vice Principal"
-                      />
-                    </div>
-                  )}
-
-                  {/* Headmaster / TIC Name */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="headmasterNameRight" className="text-xs font-medium">Head of Institution Name</Label>
-                    <Input
-                      id="headmasterNameRight"
-                      value={profile.headmasterName}
-                      onChange={(e) => setProfile({ ...profile, headmasterName: e.target.value })}
-                      className="text-xs font-medium"
-                      placeholder="e.g. Sheikh Sirajuddin / Dr. A. K. Mondal"
-                    />
-                  </div>
-
-                  {/* Signature Upload & Preview Section */}
-                  <div className="space-y-2 pt-1 border-t">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold flex items-center gap-1.5">
-                        <PenTool className="h-3.5 w-3.5 text-primary" />
-                        Official Digital Signature
-                      </Label>
-                      {profile.headSignatureUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveSignature}
-                          className="text-[11px] text-destructive hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          Remove
-                        </button>
-                      )}
-                    </div>
-
-                    <input
-                      ref={signatureInputRef}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={handleSignatureUpload}
-                      className="hidden"
-                    />
-
-                    {profile.headSignatureUrl ? (
-                      <div className="space-y-2">
-                        <div className="h-20 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 flex flex-col items-center justify-center relative overflow-hidden group">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={profile.headSignatureUrl}
-                            alt="Head Signature"
-                            className="max-h-14 max-w-full object-contain"
-                          />
-                          <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => signatureInputRef.current?.click()}
-                              className="h-7 text-xs"
-                            >
-                              <Upload className="h-3 w-3 mr-1" />
-                              Replace
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="destructive"
-                              onClick={handleRemoveSignature}
-                              className="h-7 text-xs"
-                            >
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Remove
-                            </Button>
-                          </div>
-                        </div>
-                        <p className="text-[10.5px] text-muted-foreground text-center">
-                          Signature configured. Used for marksheets, invoices, and digital exports.
-                        </p>
-                      </div>
-                    ) : (
-                      <div 
-                        onClick={() => signatureInputRef.current?.click()}
-                        className="h-20 w-full rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-primary/60 bg-muted/20 hover:bg-muted/40 transition-colors flex flex-col items-center justify-center cursor-pointer p-2 text-center"
-                      >
-                        <Upload className="h-4 w-4 text-muted-foreground mb-1" />
-                        <span className="text-[11px] font-medium text-foreground">Click to Upload Signature</span>
-                        <span className="text-[9.5px] text-muted-foreground">PNG (transparent background), JPG or WEBP max 2MB</span>
-                      </div>
-                    )}
-
-                    <div className="flex gap-2 pt-1">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => signatureInputRef.current?.click()}
-                        className="flex-1 text-xs h-8"
-                      >
-                        <Upload className="h-3 w-3 mr-1.5" />
-                        {profile.headSignatureUrl ? "Update Signature" : "Upload Signature"}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleSaveProfile}
-                        disabled={isSavingProfile}
-                        className="flex-1 bg-primary text-primary-foreground text-xs h-8 font-semibold"
-                      >
-                        <Save className="h-3 w-3 mr-1.5" />
-                        {isSavingProfile ? "Saving..." : "Save Settings"}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Quick Info Box */}
-              <Card className="border border-blue-500/20 bg-blue-500/5 shadow-2xs">
-                <CardContent className="p-4 space-y-2.5 text-xs">
-                  <div className="font-semibold text-foreground flex items-center gap-2">
-                    <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    Institution Profile Summary
-                  </div>
-                  <p className="text-muted-foreground text-[11px] leading-relaxed">
-                    This profile information is dynamically referenced by the report generator, marksheet printing module, and government compliance exports.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* OPTION 2: CLASS MANAGEMENT (ক্লাস ম্যানেজমেন্ট)                           */}
-      {/* ========================================================================= */}
-      {subOption === "classes" && (
-        <div className="space-y-5 animate-in fade-in-50 duration-200">
-          {/* Summary KPI Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <Card className="border bg-card/90 shadow-2xs p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium">Total Classes</p>
-                  <h3 className="text-xl font-bold text-foreground mt-0.5">{classes.length}</h3>
-                </div>
-                <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                  <GraduationCap className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border bg-card/90 shadow-2xs p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium">Active Sections</p>
-                  <h3 className="text-xl font-bold text-foreground mt-0.5">
-                    {classes.reduce((sum, c) => sum + c.sections.length, 0)}
-                  </h3>
-                </div>
-                <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                  <Layers className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border bg-card/90 shadow-2xs p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium">RTE Auto-Pass Classes</p>
-                  <h3 className="text-xl font-bold text-cyan-600 dark:text-cyan-400 mt-0.5">
-                    {classes.filter((c) => c.isAutoPass).length}
-                  </h3>
-                </div>
-                <div className="h-9 w-9 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
-                  <Award className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="border bg-card/90 shadow-2xs p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] text-muted-foreground font-medium">Total Student Capacity</p>
-                  <h3 className="text-xl font-bold text-foreground mt-0.5">
-                    {classes.reduce((sum, c) => sum + (c.capacity || 0), 0)}
-                  </h3>
-                </div>
-                <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <Users className="h-5 w-5" />
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Classes Grid */}
-          <div className="rounded-2xl border bg-card/90 shadow-2xs overflow-hidden">
-            <div className="p-4 sm:p-5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                  Configured Classes & Sections
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Manage active grades, section allotments, class teachers, and promotion rules.
-                </p>
-              </div>
-
-              {/* Add New Class Button - Exactly here in the card header */}
-              <Button
-                size="sm"
-                onClick={() => setIsAddClassOpen(true)}
-                className="bg-primary text-primary-foreground text-xs font-semibold gap-1.5 self-start sm:self-auto shadow-xs"
-              >
-                <Plus className="h-4 w-4" />
-                Add New Class
-              </Button>
-            </div>
-
-            <div className="divide-y divide-border/60">
-              {classes.map((cls) => {
-                const isHs = isHigherSecondaryClass(cls.code, cls.name);
-                return (
-                  <div
-                    key={cls.id}
-                    className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-muted/20 transition-colors"
-                  >
-                    {/* Left: Class Badge & Info */}
-                    <div className="flex items-start sm:items-center gap-3.5 min-w-[200px]">
-                      <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shadow-2xs shrink-0">
-                        {cls.code}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-foreground">{cls.name}</h4>
-                          {cls.isAutoPass ? (
-                            <Badge variant="outline" className="text-[10px] bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-400 border-cyan-200">
-                              RTE Auto-Pass (V-VIII)
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200">
-                              Exam / Merit Based
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 flex flex-wrap items-center gap-2">
-                          {/* Stream is ONLY displayed for Class XI and XII */}
-                          {isHs && cls.stream && (
-                            <>
-                              <span>Stream: <strong className="text-foreground font-medium">{cls.stream}</strong></span>
-                              <span>•</span>
-                            </>
-                          )}
-                          {cls.roomNo && (
-                            <>
-                              <span>{cls.roomNo}</span>
-                              <span>•</span>
-                            </>
-                          )}
-                          {cls.capacity && (
-                            <span>Cap: {cls.capacity}</span>
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Middle: Sections List */}
-                    {isHs ? (
-                      <div className="flex flex-col gap-2 min-w-[280px]">
-                        {getClassStreamList(cls.stream || "Arts / Science / Commerce").map((streamName) => {
-                          const sSections = getStreamSections(cls, streamName);
-                          const nextLetter = getNextAvailableLetter(sSections);
-                          return (
-                            <div
-                              key={streamName}
-                              className="flex flex-wrap items-center gap-1.5 bg-muted/20 px-2.5 py-1.5 rounded-xl border border-border/60"
-                            >
-                              <Badge
-                                variant="outline"
-                                className="text-[11px] font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20 shrink-0"
-                              >
-                                {streamName}
-                              </Badge>
-                              <span className="text-[11px] text-muted-foreground font-medium mr-0.5">Sections:</span>
-                              {sSections.map((sec) => (
-                                <Badge
-                                  key={sec}
-                                  className="bg-accent text-foreground hover:bg-accent font-bold text-xs pl-2 pr-1 py-0.5 rounded-md border border-border flex items-center gap-1 group transition-all"
-                                >
-                                  <span>{sec}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickRemoveStreamSection(cls.id, streamName, sec)}
-                                    title={`Remove Section ${sec} from ${streamName}`}
-                                    className="text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-full h-3.5 w-3.5 flex items-center justify-center transition-colors cursor-pointer"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                </Badge>
-                              ))}
-                              <button
-                                type="button"
-                                onClick={() => handleQuickAddStreamSection(cls.id, streamName)}
-                                title={`Add Section ${nextLetter} to ${streamName}`}
-                                className="h-5 px-1.5 rounded-md border border-dashed border-primary/40 text-primary hover:bg-primary/10 flex items-center gap-0.5 text-[10px] font-semibold transition-colors cursor-pointer ml-0.5"
-                              >
-                                <Plus className="h-2.5 w-2.5" />
-                                <span>+{nextLetter}</span>
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold text-muted-foreground mr-1">Sections:</span>
-                        {cls.sections.map((sec) => (
-                          <Badge
-                            key={sec}
-                            className="bg-accent text-foreground hover:bg-accent font-bold text-xs pl-2.5 pr-1.5 py-0.5 rounded-lg border border-border flex items-center gap-1.5 group transition-all"
-                          >
-                            <span>Section {sec}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickRemoveSection(cls.id, sec)}
-                              title={`Click to remove Section ${sec}`}
-                              className="text-muted-foreground hover:text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-full h-3.5 w-3.5 flex items-center justify-center transition-colors cursor-pointer"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </button>
-                          </Badge>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => handleQuickAddSection(cls.id)}
-                          title={`Click to add Section ${getNextAvailableLetter(cls.sections)}`}
-                          className="h-6 px-2 rounded-lg border border-dashed border-primary/40 text-primary hover:bg-primary/10 flex items-center gap-1 text-[11px] font-semibold transition-colors cursor-pointer"
-                        >
-                          <Plus className="h-3 w-3" />
-                          <span>Add Section</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Right: Teacher & Actions (Edit + Delete) */}
-                    <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-border/40">
-                      <div className="text-left md:text-right text-xs min-w-[130px]">
-                        <span className="text-muted-foreground text-[10px] block font-medium">Class Teacher</span>
-                        {isHs && cls.streamSections && Object.keys(cls.streamSections).length > 0 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
-                          <div className="flex flex-col gap-0.5 md:items-end">
-                            {getClassStreamList(cls.stream || "Arts / Science / Commerce").map((st) => {
-                              const sSections = getStreamSections(cls, st);
-                              return sSections.map((sec) => {
-                                const tch =
-                                  cls.sectionTeachers?.[`${st} - ${sec}`] ||
-                                  cls.sectionTeachers?.[`${st}::${sec}`] ||
-                                  cls.sectionTeachers?.[`${sec} (${st})`] ||
-                                  cls.sectionTeachers?.[`Sec ${sec} (${st})`] ||
-                                  cls.sectionTeachers?.[sec] ||
-                                  cls.classTeacher;
-                                return (
-                                  <div key={`${st}_${sec}`} className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                                    <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background">
-                                      {st} {sec}
-                                    </Badge>
-                                    <span>{tch || "Not Assigned"}</span>
-                                  </div>
-                                );
-                              });
-                            })}
-                          </div>
-                        ) : cls.sections && cls.sections.length > 1 && cls.sectionTeachers && Object.keys(cls.sectionTeachers).length > 0 ? (
-                          <div className="flex flex-col gap-0.5 md:items-end">
-                            {cls.sections.map((sec) => {
-                              const tch = cls.sectionTeachers?.[sec] || cls.sectionTeachers?.[`Section ${sec}`] || cls.classTeacher;
-                              return (
-                                <div key={sec} className="text-[11px] font-medium text-foreground flex items-center gap-1">
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 font-mono bg-background">
-                                    Sec {sec}
-                                  </Badge>
-                                  <span>{tch || "Not Assigned"}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <span className="font-semibold text-foreground">
-                            {cls.classTeacher || (cls.sectionTeachers && Object.values(cls.sectionTeachers)[0]) || "Not Assigned"}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        {/* Edit Class Button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleOpenEditClass(cls)}
-                          className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
-                          title={`Edit ${cls.name}`}
-                        >
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-
-                        {/* Delete Class Button */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClass(cls.id, cls.name)}
-                          className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                          title={`Delete ${cls.name}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {classes.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground text-xs">
-                  No classes configured. Click &quot;Add New Class&quot; to configure.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* EDIT CLASS MODAL DIALOG (Name & Code LOCKED, Sections CLICK ADD & REMOVE) */}
-      {/* ========================================================================= */}
-      <Dialog open={!!editingClass} onOpenChange={(open) => !open && setEditingClass(null)}>
-        <DialogContent className="sm:max-w-[460px]">
-          <form onSubmit={handleSaveEditClass}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Edit2 className="h-5 w-5 text-primary" />
-                Edit Class Details
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Update class information, sections, teacher, or capacity for {editingClass?.name}.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-3.5 py-4">
-              {/* 1. Class Name and Roman/Code - LOCKED / READ-ONLY */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="editClassName" className="text-xs flex items-center gap-1.5 text-muted-foreground font-medium">
-                    <Lock className="h-3 w-3 text-amber-500" />
-                    <span>Class Name</span>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal text-muted-foreground border-border/60">
-                      Locked
-                    </Badge>
-                  </Label>
-                  <Input
-                    id="editClassName"
-                    value={editClassName}
-                    disabled
-                    readOnly
-                    className="text-xs bg-muted/60 text-muted-foreground cursor-not-allowed border-dashed select-none"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="editClassCode" className="text-xs flex items-center gap-1.5 text-muted-foreground font-medium">
-                    <Lock className="h-3 w-3 text-amber-500" />
-                    <span>Roman / Code</span>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-normal text-muted-foreground border-border/60">
-                      Locked
-                    </Badge>
-                  </Label>
-                  <Input
-                    id="editClassCode"
-                    value={editClassCode}
-                    disabled
-                    readOnly
-                    className="text-xs font-mono bg-muted/60 text-muted-foreground cursor-not-allowed border-dashed select-none"
-                  />
-                </div>
-              </div>
-
-              {/* Stream option ONLY for Class XI and XII */}
-              {isEditingHs && (
-                <div className="space-y-1.5 animate-in fade-in-50">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="editStream" className="text-xs font-semibold">
-                      Academic Streams
-                    </Label>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
-                      XI &amp; XII Only
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {STANDARD_HS_STREAMS.map((s) => {
-                      const isSelected = editStream.toLowerCase().includes(s.toLowerCase());
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => {
-                            const currentParts = editStream
-                              .split(/[\/,•|]+/)
-                              .map((p) => p.trim())
-                              .filter(Boolean);
-                            let nextParts: string[];
-                            if (currentParts.some((p) => p.toLowerCase() === s.toLowerCase())) {
-                              if (currentParts.length <= 1) return;
-                              nextParts = currentParts.filter((p) => p.toLowerCase() !== s.toLowerCase());
-                            } else {
-                              nextParts = [...currentParts, s];
-                            }
-                            setEditStream(nextParts.join(" / "));
-                          }}
-                          className={cn(
-                            "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1",
-                            isSelected
-                              ? "bg-primary/10 border-primary text-primary shadow-2xs font-bold"
-                              : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-                          )}
-                        >
-                          {isSelected && <Check className="h-3 w-3" />}
-                          <span>{s}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <Input
-                    id="editStream"
-                    value={editStream}
-                    onChange={(e) => setEditStream(e.target.value)}
-                    placeholder="e.g. Arts / Science / Commerce"
-                    className="text-xs font-medium"
-                  />
-                </div>
-              )}
-
-              {/* Sections: Stream-specific for HS, General for other classes */}
-              {isEditingHs ? (
-                <div className="space-y-2 animate-in fade-in-50">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-foreground">
-                      Stream-wise Section Allocation
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Click ✕ to remove • Click + to add
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {getClassStreamList(editStream).map((streamName) => {
-                      const sSections = editStreamSections[streamName] || ["A"];
-                      const nextLetter = getNextAvailableLetter(sSections);
-                      return (
-                        <div key={streamName} className="p-3 rounded-xl border bg-muted/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
-                              {streamName} Stream
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {sSections.length} Section{sSections.length > 1 ? "s" : ""}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {sSections.map((sec) => (
-                              <Badge
-                                key={sec}
-                                className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                              >
-                                <span>Section {sec}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveEditModalStreamSection(streamName, sec)}
-                                  title={`Remove Section ${sec} from ${streamName}`}
-                                  className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </Badge>
-                            ))}
-
-                            <button
-                              type="button"
-                              onClick={() => handleAddEditModalStreamSection(streamName, nextLetter)}
-                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                            >
-                              <Plus className="h-3 w-3" />
-                              <span>Add Section {nextLetter}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                            <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                            {["A", "B", "C", "D", "E"].map((letter) => {
-                              const isAlreadyAdded = sSections.includes(letter);
-                              return (
-                                <button
-                                  key={letter}
-                                  type="button"
-                                  disabled={isAlreadyAdded}
-                                  onClick={() => handleAddEditModalStreamSection(streamName, letter)}
-                                  className={cn(
-                                    "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                                    isAlreadyAdded
-                                      ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                                      : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
-                                  )}
-                                >
-                                  +{letter}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-foreground">
-                      Class Sections
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Click ✕ to remove • Click button to add
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
-                    {/* Current Active Badges */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {editSections.map((sec) => (
-                        <Badge
-                          key={sec}
-                          className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                        >
-                          <span>Section {sec}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEditSection(sec)}
-                            title={`Click to remove Section ${sec}`}
-                            className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
-                      ))}
-
-                      {/* Quick Add Next Letter Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleAddEditSection(editNextLetter)}
-                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                        title={`Add Section ${editNextLetter}`}
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>Add Section {editNextLetter}</span>
-                      </button>
-                    </div>
-
-                    {/* Quick-add letters palette */}
-                    <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                      <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                      {["A", "B", "C", "D", "E", "F"].map((letter) => {
-                        const isAlreadyAdded = editSections.includes(letter);
-                        return (
-                          <button
-                            key={letter}
-                            type="button"
-                            disabled={isAlreadyAdded}
-                            onClick={() => handleAddEditSection(letter)}
-                            className={cn(
-                              "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                              isAlreadyAdded
-                                ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                                : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
-                            )}
-                            title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
-                          >
-                            +{letter}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Section-wise Class Teacher Selection */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">
-                    {isEditingHs ? "Stream & Section Class Teachers" : "Section Class Teacher"}
-                  </Label>
-                  {isEditingHs && (
-                    <span className="text-[10px] text-muted-foreground">
-                      Assign separate class teacher for each stream
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-2 p-2.5 rounded-xl border bg-muted/20">
-                  {isEditingHs ? (
-                    getClassStreamList(editStream).map((st) => {
-                      const sSections = editStreamSections[st] || ["A"];
-                      const streamBadgeClass =
-                        st === "Science"
-                          ? "bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200"
-                          : st === "Commerce"
-                          ? "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200"
-                          : "bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-200";
-
-                      return (
-                        <div key={st} className="space-y-1.5">
-                          {sSections.map((sec) => {
-                            const key = `${st} - ${sec}`;
-                            const currentVal =
-                              editSectionTeachers[key] ||
-                              editSectionTeachers[`${st}::${sec}`] ||
-                              editSectionTeachers[`${sec} (${st})`] ||
-                              editSectionTeachers[`Sec ${sec} (${st})`] ||
-                              (editSections.length === 1 ? editSectionTeachers[sec] : "") ||
-                              editTeacher ||
-                              "";
-
-                            return (
-                              <div key={`${st}_${sec}`} className="flex items-center gap-2">
-                                <Badge
-                                  variant="outline"
-                                  className={cn("text-xs font-bold w-32 justify-center shrink-0 py-0.5", streamBadgeClass)}
-                                >
-                                  {st} — Sec {sec}
-                                </Badge>
-                                <div className="flex-1">
-                                  {staffList.length > 0 ? (
-                                    <Select
-                                      value={currentVal || "__none__"}
-                                      onValueChange={(val: string | null) => {
-                                        const finalVal: string = !val || val === "__none__" ? "" : val;
-                                        setEditSectionTeachers((prev) => ({
-                                          ...prev,
-                                          [key]: finalVal,
-                                          [`${sec} (${st})`]: finalVal,
-                                          [`${st}::${sec}`]: finalVal,
-                                          [`${st} - Section ${sec}`]: finalVal,
-                                        }));
-                                      }}
-                                    >
-                                      <SelectTrigger className="h-7 text-xs bg-background font-medium">
-                                        <SelectValue placeholder={`Select ${st} Sec ${sec} Teacher`} />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                                          -- Not Assigned --
-                                        </SelectItem>
-                                        {staffList.map((s) => (
-                                          <SelectItem key={s.id} value={s.full_name} className="text-xs">
-                                            {s.full_name} {s.designation ? `(${s.designation})` : ""}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  ) : (
-                                    <Input
-                                      placeholder="Type teacher name..."
-                                      value={currentVal}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        setEditSectionTeachers((prev) => ({
-                                          ...prev,
-                                          [key]: val,
-                                          [`${sec} (${st})`]: val,
-                                          [`${st}::${sec}`]: val,
-                                        }));
-                                      }}
-                                      className="h-7 text-xs bg-background"
-                                    />
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    editSections.map((sec) => {
-                      const currentVal = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || (editSections.length === 1 ? editTeacher : "");
-                      return (
-                        <div key={sec} className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs font-mono font-bold w-16 justify-center shrink-0 bg-background">
-                            Sec {sec}
-                          </Badge>
-                          <div className="flex-1">
-                            {staffList.length > 0 ? (
-                              <Select
-                                value={currentVal || "__none__"}
-                                onValueChange={(val: string | null) => {
-                                  const finalVal: string = !val || val === "__none__" ? "" : val;
-                                  setEditSectionTeachers((prev) => ({
-                                    ...prev,
-                                    [sec]: finalVal,
-                                  }));
-                                  if (editSections.length === 1) {
-                                    setEditTeacher(finalVal);
-                                  }
-                                }}
-                              >
-                                <SelectTrigger className="h-7 text-xs bg-background font-medium">
-                                  <SelectValue placeholder="Select Teacher" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="__none__" className="text-xs text-muted-foreground">
-                                    -- Not Assigned --
-                                  </SelectItem>
-                                  {staffList.map((s) => (
-                                    <SelectItem key={s.id} value={s.full_name} className="text-xs">
-                                      {s.full_name} {s.designation ? `(${s.designation})` : ""}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                value={currentVal}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setEditSectionTeachers((prev) => ({
-                                    ...prev,
-                                    [sec]: val,
-                                  }));
-                                  if (editSections.length === 1) {
-                                    setEditTeacher(val);
-                                  }
-                                }}
-                                placeholder="Teacher Name"
-                                className="h-7 text-xs bg-background"
-                              />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="editRoom" className="text-xs">Room Number</Label>
-                  <Input
-                    id="editRoom"
-                    value={editRoom}
-                    onChange={(e) => setEditRoom(e.target.value)}
-                    placeholder="e.g. Room 204"
-                    className="text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="editCapacity" className="text-xs">Student Capacity</Label>
-                  <Input
-                    id="editCapacity"
-                    type="number"
-                    value={editCapacity}
-                    onChange={(e) => setEditCapacity(e.target.value)}
-                    placeholder="120"
-                    className="text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="editAutoPass" className="text-xs">Promotion Policy</Label>
-                  <CustomSelect
-                    value={editAutoPass}
-                    onChange={(val) => setEditAutoPass(val)}
-                    options={[
-                      { label: "Exam Merit Based", value: "false" },
-                      { label: "RTE Act 100% Auto-Pass", value: "true" },
-                    ]}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEditingClass(null)}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" className="text-xs bg-primary text-primary-foreground">
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ========================================================================= */}
-      {/* ADD NEW CLASS MODAL DIALOG                                               */}
-      {/* ========================================================================= */}
-      <Dialog open={isAddClassOpen} onOpenChange={setIsAddClassOpen}>
-        <DialogContent className="sm:max-w-[460px]">
-          <form onSubmit={handleAddClass}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                Add New Class
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Configure a new class, grade level, and its corresponding sections.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-3.5 py-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="className" className="text-xs">Class Name *</Label>
-                  <Input
-                    id="className"
-                    value={newClassName}
-                    onChange={(e) => setNewClassName(e.target.value)}
-                    placeholder="e.g. Class IX"
-                    className="h-10 sm:h-9 text-base sm:text-xs"
-                    required
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="classCode" className="text-xs">Roman / Code *</Label>
-                  <Input
-                    id="classCode"
-                    value={newClassCode}
-                    onChange={(e) => setNewClassCode(e.target.value)}
-                    placeholder="e.g. IX or XI"
-                    className="h-10 sm:h-9 text-base sm:text-xs font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Stream option ONLY for Class XI and XII */}
-              {isAddingHs && (
-                <div className="space-y-1.5 animate-in fade-in-50">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="stream" className="text-xs font-semibold">
-                      Academic Stream
-                    </Label>
-                    <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-200">
-                      XI &amp; XII Only
-                    </Badge>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {STANDARD_HS_STREAMS.map((s) => {
-                      const isSelected = newStream.toLowerCase().includes(s.toLowerCase());
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => {
-                            const currentParts = newStream
-                              .split(/[\/,•|]+/)
-                              .map((p) => p.trim())
-                              .filter(Boolean);
-                            let nextParts: string[];
-                            if (currentParts.some((p) => p.toLowerCase() === s.toLowerCase())) {
-                              if (currentParts.length <= 1) return;
-                              nextParts = currentParts.filter((p) => p.toLowerCase() !== s.toLowerCase());
-                            } else {
-                              nextParts = [...currentParts, s];
-                            }
-                            const updatedStr = nextParts.join(" / ");
-                            setNewStream(updatedStr);
-                            // Initialize stream section if not present
-                            setNewStreamSections((prev) => {
-                              const updated = { ...prev };
-                              nextParts.forEach((st) => {
-                                if (!updated[st]) updated[st] = ["A"];
-                              });
-                              return updated;
-                            });
-                          }}
-                          className={cn(
-                            "px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer flex items-center gap-1",
-                            isSelected
-                              ? "bg-primary/10 border-primary text-primary shadow-2xs font-bold"
-                              : "bg-muted/30 border-border text-muted-foreground hover:bg-muted/60"
-                          )}
-                        >
-                          {isSelected && <Check className="h-3 w-3" />}
-                          <span>{s}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <Input
-                    id="stream"
-                    value={newStream}
-                    onChange={(e) => setNewStream(e.target.value)}
-                    placeholder="e.g. Arts / Science / Commerce"
-                    className="h-10 sm:h-9 text-base sm:text-xs"
-                  />
-                </div>
-              )}
-
-              {/* Sections: Stream-specific for HS, General for other classes */}
-              {isAddingHs ? (
-                <div className="space-y-2 animate-in fade-in-50">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-foreground">
-                      Stream-wise Section Allocation
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Click ✕ to remove • Click + to add
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    {getClassStreamList(newStream).map((streamName) => {
-                      const sSections = newStreamSections[streamName] || ["A"];
-                      const nextLetter = getNextAvailableLetter(sSections);
-                      return (
-                        <div key={streamName} className="p-3 rounded-xl border bg-muted/30 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <Badge variant="outline" className="text-xs font-bold px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
-                              {streamName} Stream
-                            </Badge>
-                            <span className="text-[10px] text-muted-foreground">
-                              {sSections.length} Section{sSections.length > 1 ? "s" : ""}
-                            </span>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            {sSections.map((sec) => (
-                              <Badge
-                                key={sec}
-                                className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                              >
-                                <span>Section {sec}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveAddModalStreamSection(streamName, sec)}
-                                  title={`Remove Section ${sec} from ${streamName}`}
-                                  className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                                >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </Badge>
-                            ))}
-
-                            <button
-                              type="button"
-                              onClick={() => handleAddAddModalStreamSection(streamName, nextLetter)}
-                              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                            >
-                              <Plus className="h-3 w-3" />
-                              <span>Add Section {nextLetter}</span>
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                            <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                            {["A", "B", "C", "D", "E"].map((letter) => {
-                              const isAlreadyAdded = sSections.includes(letter);
-                              return (
-                                <button
-                                  key={letter}
-                                  type="button"
-                                  disabled={isAlreadyAdded}
-                                  onClick={() => handleAddAddModalStreamSection(streamName, letter)}
-                                  className={cn(
-                                    "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                                    isAlreadyAdded
-                                      ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                                      : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
-                                  )}
-                                >
-                                  +{letter}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold text-foreground">
-                      Class Sections
-                    </Label>
-                    <span className="text-[10px] text-muted-foreground">
-                      Click ✕ to remove • Click button to add
-                    </span>
-                  </div>
-
-                  <div className="p-3 rounded-xl border bg-muted/30 space-y-2.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {newSections.map((sec) => (
-                        <Badge
-                          key={sec}
-                          className="bg-primary/10 text-primary hover:bg-rose-500/10 hover:text-rose-600 border border-primary/20 hover:border-rose-300 font-bold text-xs pl-2.5 pr-1.5 py-1 rounded-lg flex items-center gap-1.5 transition-all group shadow-2xs"
-                        >
-                          <span>Section {sec}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNewModalSection(sec)}
-                            title={`Click to remove Section ${sec}`}
-                            className="h-4 w-4 rounded-full bg-primary/10 group-hover:bg-rose-500 group-hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </Badge>
-                      ))}
-
-                      <button
-                        type="button"
-                        onClick={() => handleAddNewModalSection(newNextLetter)}
-                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-dashed border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-colors cursor-pointer"
-                        title={`Add Section ${newNextLetter}`}
-                      >
-                        <Plus className="h-3 w-3" />
-                        <span>Add Section {newNextLetter}</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1 pt-1 border-t border-border/50">
-                      <span className="text-[10px] text-muted-foreground mr-1">Quick Add:</span>
-                      {["A", "B", "C", "D", "E", "F"].map((letter) => {
-                        const isAlreadyAdded = newSections.includes(letter);
-                        return (
-                          <button
-                            key={letter}
-                            type="button"
-                            disabled={isAlreadyAdded}
-                            onClick={() => handleAddNewModalSection(letter)}
-                            className={cn(
-                              "h-5 min-w-[20px] px-1 rounded text-[10px] font-bold transition-colors cursor-pointer",
-                              isAlreadyAdded
-                                ? "bg-muted text-muted-foreground/40 cursor-not-allowed opacity-40"
-                                : "bg-background hover:bg-primary hover:text-primary-foreground border text-foreground shadow-2xs"
-                            )}
-                            title={isAlreadyAdded ? `Section ${letter} already added` : `Click to add Section ${letter}`}
-                          >
-                            +{letter}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="teacher" className="text-xs">Class Teacher</Label>
-                  <Input
-                    id="teacher"
-                    value={newTeacher}
-                    onChange={(e) => setNewTeacher(e.target.value)}
-                    placeholder="Teacher Name"
-                    className="h-10 sm:h-9 text-base sm:text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="room" className="text-xs">Room Number</Label>
-                  <Input
-                    id="room"
-                    value={newRoom}
-                    onChange={(e) => setNewRoom(e.target.value)}
-                    placeholder="e.g. Room 204"
-                    className="h-10 sm:h-9 text-base sm:text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="capacity" className="text-xs">Student Capacity</Label>
-                  <Input
-                    id="capacity"
-                    type="number"
-                    value={newCapacity}
-                    onChange={(e) => setNewCapacity(e.target.value)}
-                    placeholder="120"
-                    className="h-10 sm:h-9 text-base sm:text-xs font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="autoPass" className="text-xs">Promotion Policy</Label>
-                  <CustomSelect
-                    value={newAutoPass}
-                    onChange={(val) => setNewAutoPass(val)}
-                    options={[
-                      { label: "Exam Merit Based", value: "false" },
-                      { label: "RTE Act 100% Auto-Pass", value: "true" },
-                    ]}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setIsAddClassOpen(false)}
-                className="text-xs"
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" className="text-xs bg-primary text-primary-foreground">
-                Add Class
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* ========================================================================= */}
-      {/* OPTION 3: EXAM MARKS DISTRIBUTION & EVALUATION SCHEME (নম্বর বিভাজন)      */}
-      {/* ========================================================================= */}
-      {subOption === "marks_scheme" && (
-        <div className="space-y-4 animate-in fade-in-50 duration-200 pb-28">
-          {/* 1. Secondary Classes (V - X) 3-Summative Evaluation Table Card */}
-          <Card className="border bg-card shadow-xs overflow-hidden">
-            <CardHeader className="p-4 border-b bg-muted/20">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <Award className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <span>Secondary Evaluation Scheme</span>
-                      <Badge variant="outline" className="text-[10px] bg-background font-mono font-medium">
-                        Class V – X (WBBSE 3-Summative)
-                      </Badge>
-                    </CardTitle>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResetDefaultSchemes}
-                    className="h-8 text-xs font-semibold gap-1.5 hover:bg-muted"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>Restore Defaults</span>
-                  </Button>
-                </div>
-              </div>
             </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/60 border-b">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Class</th>
-                      <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Subjects</th>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">1st Summative</th>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">2nd Summative</th>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">3rd / Annual Exam</th>
-                      <th className="px-4 py-2.5 text-right font-bold text-foreground bg-primary/5 border-l border-r border-primary/15">
-                        Total Marks (Annual)
-                      </th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-muted-foreground">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {marksSchemes
-                      .filter((s) => s.classCode !== "XI" && s.classCode !== "XII")
-                      .map((scheme) => {
-                        const totals = computeSchemeTotals(scheme);
-                        const has1stPractical = (scheme.firstSummativePractical || 0) > 0;
-                        const has2ndPractical = (scheme.secondSummativePractical || 0) > 0;
-                        const hasAnnualPractical = (scheme.annualPractical || 0) > 0;
-
-                        return (
-                          <tr key={scheme.classCode} className="hover:bg-muted/30 transition-colors">
-                            {/* Class Name & Code */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2.5">
-                                <div className="h-7 w-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary font-mono shrink-0">
-                                  {scheme.classCode}
-                                </div>
-                                <div className="font-bold text-foreground">{scheme.className}</div>
-                              </div>
-                            </td>
-
-                            {/* Number of Subjects */}
-                            <td className="px-3 py-3 text-center">
-                              <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 bg-background shadow-2xs">
-                                {scheme.subjectCount} Sub
-                              </Badge>
-                            </td>
-
-                            {/* 1st Summative */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-0.5">
-                                <div className="font-bold font-mono text-foreground text-xs">
-                                  {totals.firstExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {scheme.firstSummativeWritten}
-                                  {has1stPractical && <span className="text-amber-600 font-semibold">+{scheme.firstSummativePractical}p</span>}
-                                  <span> × {scheme.subjectCount}</span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* 2nd Summative */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-0.5">
-                                <div className="font-bold font-mono text-foreground text-xs">
-                                  {totals.secondExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {scheme.secondSummativeWritten}
-                                  {has2ndPractical && <span className="text-amber-600 font-semibold">+{scheme.secondSummativePractical}p</span>}
-                                  <span> × {scheme.subjectCount}</span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* 3rd / Annual */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-0.5">
-                                <div className="font-bold font-mono text-emerald-700 dark:text-emerald-400 text-xs">
-                                  {totals.annualExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {scheme.annualWritten}
-                                  {hasAnnualPractical && <span className="text-amber-600 font-semibold">+{scheme.annualPractical}p</span>}
-                                  <span> × {scheme.subjectCount}</span>
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Grand Total Column */}
-                            <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-primary/5 border-l border-r border-primary/15">
-                              <span className="inline-flex items-center text-primary bg-primary/10 border border-primary/25 px-2.5 py-1 rounded-md shadow-2xs">
-                                {totals.grandTotal} Marks
-                              </span>
-                            </td>
-
-                            {/* Action Button */}
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenEditScheme(scheme)}
-                                className="h-7 text-xs px-2.5 gap-1.5 hover:border-primary hover:text-primary transition-all shadow-2xs"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                                <span>Edit Marks</span>
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 2. Higher Secondary (XI & XII) Semester Marks Scheme Table Card */}
-          <Card className="border bg-card shadow-xs overflow-hidden">
-            <CardHeader className="p-4 border-b bg-muted/20">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-                    <BookOpen className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <span>Higher Secondary Semester Marks Scheme</span>
-                      <Badge variant="outline" className="text-[10px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 font-mono font-medium">
-                        Class XI & XII (WBCHSE Semester Model)
-                      </Badge>
-                    </CardTitle>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/60 border-b">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Class</th>
-                      <th className="px-3 py-2.5 text-center font-semibold text-muted-foreground">Subjects</th>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Odd Semester</th>
-                      <th className="px-4 py-2.5 text-left font-semibold text-muted-foreground">Even Semester</th>
-                      <th className="px-4 py-2.5 text-right font-bold text-foreground bg-indigo-500/5 border-l border-r border-indigo-500/15">
-                        Grand Total (Per Year)
-                      </th>
-                      <th className="px-4 py-2.5 text-right font-semibold text-muted-foreground">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {marksSchemes
-                      .filter((s) => s.classCode === "XI" || s.classCode === "XII")
-                      .map((scheme) => {
-                        const totals = computeSchemeTotals(scheme);
-                        const isXI = scheme.classCode === "XI";
-                        const oddLabel = isXI ? "Semester 1" : "Semester 3";
-                        const evenLabel = isXI ? "Semester 2" : "Semester 4";
-
-                        return (
-                          <tr key={scheme.classCode} className="hover:bg-muted/30 transition-colors">
-                            {/* Class Name & Code */}
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2.5">
-                                <div className="h-7 w-7 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center font-bold text-xs text-indigo-600 dark:text-indigo-400 font-mono shrink-0">
-                                  {scheme.classCode}
-                                </div>
-                                <div className="font-bold text-foreground">{scheme.className}</div>
-                              </div>
-                            </td>
-
-                            {/* Number of Subjects */}
-                            <td className="px-3 py-3 text-center">
-                              <Badge variant="outline" className="font-mono text-xs font-bold px-2 py-0.5 bg-background shadow-2xs">
-                                {scheme.subjectCount} Sub
-                              </Badge>
-                            </td>
-
-                            {/* Odd Semester */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-0.5">
-                                <div className="font-bold font-mono text-foreground text-xs flex items-center gap-1.5">
-                                  <span>{totals.firstExamTotal} Marks</span>
-                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono">{oddLabel}</Badge>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {scheme.oddSemesterMarks ?? 50} Marks × {scheme.subjectCount} Subjects
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Even Semester */}
-                            <td className="px-4 py-3">
-                              <div className="space-y-0.5">
-                                <div className="font-bold font-mono text-emerald-700 dark:text-emerald-400 text-xs flex items-center gap-1.5">
-                                  <span>{totals.secondExamTotal} Marks</span>
-                                  <Badge variant="secondary" className="text-[9px] px-1 py-0 font-mono">{evenLabel}</Badge>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {scheme.evenSemesterMarks ?? 50} Marks × {scheme.subjectCount} Subjects
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Grand Total Column */}
-                            <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-indigo-500/5 border-l border-r border-indigo-500/15">
-                              <span className="inline-flex items-center text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-md shadow-2xs">
-                                {totals.grandTotal} Marks
-                              </span>
-                            </td>
-
-                            {/* Action Button */}
-                            <td className="px-4 py-3 text-right">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenEditScheme(scheme)}
-                                className="h-7 text-xs px-2.5 gap-1.5 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-2xs"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                                <span>Edit Marks</span>
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ========================================================================= */}
-          {/* CLASS-WISE SUBJECT SELECTION                                              */}
-          {/* ========================================================================= */}
-          <Card className="border bg-card shadow-xs overflow-visible">
-            <CardHeader className="p-3.5 sm:p-4 border-b bg-muted/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                    <BookOpen className="h-4 w-4" />
-                  </div>
-                  <CardTitle className="text-xs sm:text-sm font-bold">
-                    Class Subjects
-                  </CardTitle>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-3.5 sm:p-4 space-y-3.5 overflow-visible">
-              {/* Class Selector Tabs */}
-              <div className="flex flex-wrap items-center gap-1.5 p-1 bg-muted/40 rounded-xl border">
-                {marksSchemes.map((scheme) => {
-                  const isSelected = selectedSubjectClass === scheme.classCode;
+            <CardContent className="pt-4 space-y-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {STANDARD_HS_STREAMS.map((s) => {
+                  const isSelected = (profile.hsStreams || ["Arts", "Science", "Commerce"]).includes(s);
                   return (
                     <button
-                      key={scheme.classCode}
+                      key={s}
                       type="button"
-                      onClick={() => setSelectedSubjectClass(scheme.classCode)}
+                      onClick={() => handleToggleProfileStream(s)}
                       className={cn(
-                        "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
+                        "flex items-center justify-between p-3 rounded-xl border text-left transition-all cursor-pointer",
                         isSelected
-                          ? "bg-background text-primary shadow-xs border border-primary/20 font-bold"
-                          : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                          ? "border-primary/50 bg-primary/10 text-primary font-bold shadow-2xs"
+                          : "border-border/60 bg-muted/20 text-muted-foreground hover:bg-muted/40"
                       )}
                     >
-                      <span>{scheme.className}</span>
-                      <span className={cn(
-                        "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium",
-                        isSelected ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        {(scheme.subjects || []).length} Sub
-                      </span>
+                      <span className="text-xs font-semibold">{s}</span>
+                      <div
+                        className={cn(
+                          "h-4 w-4 rounded flex items-center justify-center border transition-colors",
+                          isSelected
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-muted-foreground/40 bg-background"
+                        )}
+                      >
+                        {isSelected && <Check className="h-3 w-3" />}
+                      </div>
                     </button>
                   );
                 })}
               </div>
-
-              {/* Active Class Subject Manager */}
-              {(() => {
-                const activeScheme = marksSchemes.find((s) => s.classCode === selectedSubjectClass) || marksSchemes[0];
-                const activeSubjects = activeScheme.subjects || [];
-                const isHs = isHsClass(activeScheme.classCode) || isHigherSecondaryClass(activeScheme.classCode, activeScheme.className);
-
-                const SUBJECT_PALETTES = [
-                  "bg-blue-50/80 text-blue-700 border-blue-200/80 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-900/50",
-                  "bg-emerald-50/80 text-emerald-700 border-emerald-200/80 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/50",
-                  "bg-violet-50/80 text-violet-700 border-violet-200/80 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-900/50",
-                  "bg-amber-50/80 text-amber-700 border-amber-200/80 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/50",
-                  "bg-rose-50/80 text-rose-700 border-rose-200/80 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-900/50",
-                  "bg-cyan-50/80 text-cyan-700 border-cyan-200/80 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-900/50",
-                  "bg-indigo-50/80 text-indigo-700 border-indigo-200/80 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-900/50",
-                  "bg-teal-50/80 text-teal-700 border-teal-200/80 dark:bg-teal-950/30 dark:text-teal-300 dark:border-teal-900/50",
-                ];
-
-                const selectOptions = MASTER_SUBJECT_BANK.filter((cat) => {
-                  if (!isHs || selectedSubjectStream === "all") return true;
-                  if (selectedSubjectStream === "Common") {
-                    return cat.category === "Languages";
-                  }
-                  if (selectedSubjectStream === "Science") {
-                    return cat.category === "Science (Class XI - XII)" || cat.category === "Languages";
-                  }
-                  if (selectedSubjectStream === "Arts") {
-                    return cat.category === "Humanities & Arts (Class XI - XII)" || cat.category === "Languages";
-                  }
-                  if (selectedSubjectStream === "Commerce") {
-                    return cat.category === "Commerce (Class XI - XII)" || cat.category === "Languages";
-                  }
-                  return true;
-                }).flatMap((cat) =>
-                  cat.subjects.map((sub) => ({
-                    label: sub,
-                    value: sub,
-                    category: cat.category,
-                    disabled: activeSubjects.includes(sub),
-                  }))
-                );
-
-                const displayedSubjects = (!isHs || selectedSubjectStream === "all")
-                  ? activeSubjects
-                  : activeSubjects.filter((s) => {
-                      const st = detectSubjectStream(s);
-                      if (selectedSubjectStream === "Common") return st === "Common";
-                      return st === selectedSubjectStream;
-                    });
-
-                return (
-                  <div className="space-y-3 pt-0.5">
-                    {/* Stream Filter Bar for Class 11 and 12 */}
-                    {isHs && (
-                      <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-muted/30 rounded-xl border border-border/70">
-                        <span className="text-[11px] font-bold text-muted-foreground px-1.5">Stream:</span>
-                        {[
-                          { id: "all", label: "All Streams", count: activeSubjects.length },
-                          { id: "Common", label: "Common / Languages", icon: BookOpen, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Common").length },
-                          { id: "Science", label: "Science", icon: Atom, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Science").length },
-                          { id: "Arts", label: "Arts / Humanities", icon: Palette, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Arts").length },
-                          { id: "Commerce", label: "Commerce", icon: Briefcase, count: activeSubjects.filter((s) => detectSubjectStream(s) === "Commerce").length },
-                        ].map((st) => {
-                          const isStSelected = selectedSubjectStream === st.id;
-                          const Icon = st.icon;
-                          return (
-                            <button
-                              key={st.id}
-                              type="button"
-                              onClick={() => setSelectedSubjectStream(st.id as any)}
-                              className={cn(
-                                "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5",
-                                isStSelected
-                                  ? "bg-background text-primary border border-primary/30 shadow-2xs font-bold"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                              )}
-                            >
-                              {Icon && <Icon className="w-3 h-3" />}
-                              <span>{st.label}</span>
-                              <span className={cn(
-                                "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-medium",
-                                isStSelected ? "bg-primary/15 text-primary font-bold" : "bg-muted text-muted-foreground"
-                              )}>
-                                {st.count}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-
-                    {/* Selected Subjects Pills */}
-                    <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl border bg-muted/15 min-h-[50px]">
-                      {displayedSubjects.length > 0 ? (
-                        displayedSubjects.map((subj, idx) => {
-                          const palette = SUBJECT_PALETTES[idx % SUBJECT_PALETTES.length];
-                          const detStream = detectSubjectStream(subj);
-
-                          const streamTag = isHs && (
-                            detStream === "Science" ? (
-                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-300/40">
-                                Science
-                              </span>
-                            ) : detStream === "Commerce" ? (
-                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-300/40">
-                                Commerce
-                              </span>
-                            ) : detStream === "Arts" ? (
-                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-300/40">
-                                Arts
-                              </span>
-                            ) : (
-                              <span className="text-[9px] font-bold px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-300/40">
-                                Common
-                              </span>
-                            )
-                          );
-
-                          return (
-                            <div
-                              key={subj}
-                              className={cn(
-                                "border font-medium text-xs pl-2.5 pr-1 py-1 rounded-lg flex items-center gap-1.5 shadow-2xs group transition-all duration-150",
-                                palette
-                              )}
-                            >
-                              <span className="text-[10px] opacity-70 font-mono font-bold">#{idx + 1}</span>
-                              <span className="font-semibold">{subj}</span>
-                              {streamTag}
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSubjectFromClass(activeScheme.classCode, subj)}
-                                title={`Remove ${subj}`}
-                                className="h-4 w-4 rounded-full hover:bg-rose-500 hover:text-white flex items-center justify-center transition-colors cursor-pointer opacity-70 hover:opacity-100"
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">
-                          {isHs && selectedSubjectStream !== "all"
-                            ? `No ${selectedSubjectStream} subjects added yet for ${activeScheme.className}.`
-                            : `No subjects selected for ${activeScheme.className}.`}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Add Subject Bar */}
-                    <div className="flex flex-col sm:flex-row items-center gap-2 p-2.5 rounded-xl border bg-card">
-                      <div className="w-full sm:flex-1">
-                        <CustomSelect
-                          value={selectedNewSubjectToAdd}
-                          onChange={(val) => {
-                            setSelectedNewSubjectToAdd(val);
-                            if (val) setCustomSubjectName("");
-                          }}
-                          placeholder={
-                            isHs && selectedSubjectStream !== "all"
-                              ? `Select ${selectedSubjectStream} subject from bank...`
-                              : "Select from subject bank..."
-                          }
-                          options={selectOptions}
-                          className="w-full text-xs"
-                        />
-                      </div>
-
-                      <div className="w-full sm:w-48">
-                        <Input
-                          placeholder="Or custom subject..."
-                          value={customSubjectName}
-                          onChange={(e) => {
-                            setCustomSubjectName(e.target.value);
-                            if (e.target.value) setSelectedNewSubjectToAdd("");
-                          }}
-                          className="h-9 text-xs"
-                        />
-                      </div>
-
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          const subToAdd = selectedNewSubjectToAdd || customSubjectName;
-                          if (subToAdd) {
-                            handleAddSubjectToClass(activeScheme.classCode, subToAdd);
-                          } else {
-                            showToast({
-                              type: "info",
-                              title: "Select Subject",
-                              description: "Please choose or type a subject to add.",
-                            });
-                          }
-                        }}
-                        className="w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground px-4 shadow-xs"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add Subject</span>
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })()}
+              <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                <span>Active Streams:</span>
+                <span className="font-semibold text-foreground">
+                  {(profile.hsStreams || ["Arts", "Science", "Commerce"]).join(" • ") || "None"}
+                </span>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Card 3: Promotion & Pass Criteria Policy */}
-          <Card className="border bg-card shadow-xs overflow-hidden">
-            <CardHeader className="p-4 border-b bg-muted/20">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-600 shrink-0">
-                    <Sliders className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2">
-                      <span>Promotion & Pass Criteria Policy</span>
-                      <Badge variant="outline" className="text-[10px] bg-background font-medium">
-                        Session & Promotion Rules
-                      </Badge>
-                    </CardTitle>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handleSavePromotionPolicy}
-                  disabled={isSavingPolicy}
-                  className="h-8 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground shadow-xs"
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  <span>{isSavingPolicy ? "Saving..." : "Save Policy"}</span>
-                </Button>
-              </div>
+          {/* 2. Administration & Contact */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                Administration & Contact Information
+              </CardTitle>
             </CardHeader>
+            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="headmasterName" className="text-xs">Headmaster / Principal / TIC Name</Label>
+                <Input
+                  id="headmasterName"
+                  value={profile.headmasterName}
+                  onChange={(e) => setProfile({ ...profile, headmasterName: e.target.value })}
+                  className="text-xs font-medium"
+                  placeholder="e.g. Dr. A. K. Mondal"
+                />
+              </div>
 
-            <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Rule A: Class 5 to 8 Auto-Pass (RTE) */}
-                <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/40 dark:bg-emerald-950/20 p-3.5 flex items-center justify-between">
-                  <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>Classes V – VIII (RTE Auto-Promotion)</span>
-                  </span>
-                  <Badge className="bg-emerald-600 text-white text-[10px] shrink-0 font-semibold px-2.5 py-1">
-                    100% Auto-Pass
-                  </Badge>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="schoolEmail" className="text-xs">Official Contact Email *</Label>
+                <Input
+                  id="schoolEmail"
+                  type="email"
+                  value={profile.schoolEmail}
+                  onChange={(e) => setProfile({ ...profile, schoolEmail: e.target.value })}
+                  className="text-xs"
+                  placeholder="e.g. contact@marigachihighschool.in"
+                />
+              </div>
 
-                {/* Rule B: Class IX & X Per-Subject Pass Percentage */}
-                <div className="rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/40 dark:bg-blue-950/20 p-3.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
-                    <Trophy className="h-4 w-4 text-blue-600 shrink-0" />
-                    <span>Class IX & X Per-Subject Pass %</span>
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={promotionPolicy.subjectPassPercentage ?? 30}
-                      onChange={(e) =>
-                        setPromotionPolicy((prev) => ({
-                          ...prev,
-                          subjectPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="font-mono text-sm font-bold rounded-lg border border-blue-300 bg-background px-2 py-1 w-16 text-blue-700 dark:text-blue-400 text-center"
-                    />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
-                  </div>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="schoolPhone" className="text-xs">Primary Telephone / Mobile</Label>
+                <Input
+                  id="schoolPhone"
+                  value={profile.schoolPhone}
+                  onChange={(e) => setProfile({ ...profile, schoolPhone: e.target.value })}
+                  className="text-xs"
+                  placeholder="+91 98765 43210"
+                />
+              </div>
 
-                {/* Rule C: Theory / Written Minimum Pass Cutoff */}
-                <div className="rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/40 dark:bg-purple-950/20 p-3.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-purple-900 dark:text-purple-300 flex items-center gap-1.5">
-                    <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
-                    <span>Theory / Written Minimum Pass %</span>
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={promotionPolicy.theoryPassPercentage ?? 30}
-                      onChange={(e) =>
-                        setPromotionPolicy((prev) => ({
-                          ...prev,
-                          theoryPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="font-mono text-sm font-bold rounded-lg border border-purple-300 bg-background px-2 py-1 w-16 text-purple-700 dark:text-purple-400 text-center"
-                    />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
-                  </div>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="altPhone" className="text-xs">Alternate Helpline / Landline</Label>
+                <Input
+                  id="altPhone"
+                  value={profile.altPhone}
+                  onChange={(e) => setProfile({ ...profile, altPhone: e.target.value })}
+                  className="text-xs"
+                  placeholder="03218-245678"
+                />
+              </div>
 
-                {/* Rule D: Practical / Project Minimum Pass Cutoff */}
-                <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                    <PenTool className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>Practical / Project Minimum Pass %</span>
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={promotionPolicy.practicalPassPercentage ?? 30}
-                      onChange={(e) =>
-                        setPromotionPolicy((prev) => ({
-                          ...prev,
-                          practicalPassPercentage: Math.max(0, Math.min(100, Number(e.target.value) || 0)),
-                        }))
-                      }
-                      className="font-mono text-sm font-bold rounded-lg border border-amber-300 bg-background px-2 py-1 w-16 text-amber-700 dark:text-amber-400 text-center"
-                    />
-                    <span className="text-xs font-bold text-muted-foreground">%</span>
-                  </div>
-                </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor="schoolWebsite" className="text-xs">Institutional Website URL</Label>
+                <Input
+                  id="schoolWebsite"
+                  value={profile.schoolWebsite}
+                  onChange={(e) => setProfile({ ...profile, schoolWebsite: e.target.value })}
+                  className="text-xs"
+                  placeholder="https://marigachihighschool.in"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-                {/* Rule E: 5-Subject Mandatory Rule */}
-                <div className="rounded-xl border border-border bg-card p-3.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
-                    <span>5-Subject Mandatory Pass Rule (WBBSE/WBCHSE)</span>
-                  </span>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={promotionPolicy.requireFiveSubjectsPass ?? true}
-                      onChange={(e) =>
-                        setPromotionPolicy((prev) => ({
-                          ...prev,
-                          requireFiveSubjectsPass: e.target.checked,
-                        }))
-                      }
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
-                  </label>
+          {/* 3. Address & Location */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-rose-500" />
+                Geographical Address & Location
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5 sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="schoolAddress" className="text-xs font-semibold">Full Address Line *</Label>
+                  <span className="text-[10px] text-muted-foreground italic">Auto-constructed as location details below are updated</span>
                 </div>
+                <Input
+                  id="schoolAddress"
+                  value={profile.schoolAddress}
+                  onChange={(e) => setProfile({ ...profile, schoolAddress: e.target.value })}
+                  className="text-xs font-medium bg-muted/20"
+                  placeholder="Full constructed address line..."
+                />
+              </div>
 
-                {/* Rule F: Class 11 Supplementary / Class 12 Compartmental Allowance */}
-                <div className="rounded-xl border border-border bg-card p-3.5 flex items-center justify-between gap-3">
-                  <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Sliders className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>Max Allowed Supplementary / Compartmental Fails</span>
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <input
-                      type="number"
-                      min={1}
-                      max={4}
-                      value={promotionPolicy.class11MaxSupplementarySubjects ?? 2}
-                      onChange={(e) =>
-                        setPromotionPolicy((prev) => ({
-                          ...prev,
-                          class11MaxSupplementarySubjects: Math.max(1, Math.min(4, Number(e.target.value) || 2)),
-                          class12MaxCompartmentalSubjects: Math.max(1, Math.min(4, Number(e.target.value) || 2)),
-                        }))
-                      }
-                      className="font-mono text-sm font-bold rounded-lg border bg-background px-2 py-1 w-14 text-center"
-                    />
-                    <span className="text-xs font-bold text-muted-foreground">Sub</span>
-                  </div>
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="village" className="text-xs">Village / Area / Ward</Label>
+                <Input
+                  id="village"
+                  value={profile.village}
+                  onChange={(e) => handleGeographicalAddressChange("village", e.target.value)}
+                  className="text-xs"
+                  placeholder="e.g. Marigachi"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="postOffice" className="text-xs">Post Office (P.O.)</Label>
+                <Input
+                  id="postOffice"
+                  value={profile.postOffice || ""}
+                  onChange={(e) => handleGeographicalAddressChange("postOffice", e.target.value)}
+                  className="text-xs"
+                  placeholder="e.g. Marigachi"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="policeStation" className="text-xs">Police Station / Block (P.S.)</Label>
+                <Input
+                  id="policeStation"
+                  value={profile.policeStation}
+                  onChange={(e) => handleGeographicalAddressChange("policeStation", e.target.value)}
+                  className="text-xs"
+                  placeholder="e.g. Mathurapur"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="district" className="text-xs">District</Label>
+                <Input
+                  id="district"
+                  value={profile.district}
+                  onChange={(e) => handleGeographicalAddressChange("district", e.target.value)}
+                  className="text-xs"
+                  placeholder="e.g. South 24 Parganas"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="state" className="text-xs">State</Label>
+                <Input
+                  id="state"
+                  value={profile.state || "West Bengal"}
+                  onChange={(e) => handleGeographicalAddressChange("state", e.target.value)}
+                  className="text-xs"
+                  placeholder="e.g. West Bengal"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="pincode" className="text-xs">Postal PIN Code</Label>
+                <Input
+                  id="pincode"
+                  value={profile.pincode}
+                  onChange={(e) => handleGeographicalAddressChange("pincode", e.target.value)}
+                  className="text-xs font-mono"
+                  placeholder="e.g. 743349"
+                />
               </div>
             </CardContent>
           </Card>
         </div>
-      )}
 
-      {/* Modal: Edit Class Marks Scheme */}
-      <Dialog open={!!editingScheme} onOpenChange={(open) => !open && setEditingScheme(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
-              <Calculator className="h-4 w-4 text-primary" />
-              <span>Configure Marks: {editingScheme?.className}</span>
-            </DialogTitle>
-          </DialogHeader>
-
-          {editingScheme && (
-            <form onSubmit={handleSaveEditScheme} className="space-y-3 pt-1">
-              {/* Number of Subjects */}
-              <div className="space-y-1 p-2.5 rounded-lg border bg-muted/30">
-                <Label htmlFor="schemeSubjects" className="text-xs font-semibold flex items-center justify-between">
-                  <span>Number of Subjects *</span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    Class {editingScheme.classCode}
+        {/* Right 1 Col: Brand Assets & HOI */}
+        <div className="space-y-5">
+          {/* School Crest & Motto */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  School Crest & Motto
+                </CardTitle>
+                {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" ? (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                    Custom Logo Active
                   </Badge>
-                </Label>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                    Default Crest
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4 text-center">
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={handleLogoUpload}
+                className="hidden"
+              />
+
+              {/* Logo Display Box with Hover Action Overlay */}
+              <div className="space-y-2">
+                <div
+                  onClick={() => logoInputRef.current?.click()}
+                  className="mx-auto h-32 w-32 rounded-2xl border-2 border-dashed border-primary/40 p-2.5 flex items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer relative group overflow-hidden"
+                  title="Click to change school crest"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={profile.schoolLogoUrl || "/logo.png"}
+                    alt="School Crest"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                  <div className="absolute inset-0 bg-background/85 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5 p-1 text-center">
+                    <Upload className="h-4 w-4 text-primary" />
+                    <span className="text-[10px] font-semibold text-foreground">Click to Change</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 pt-0.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="h-7 text-xs px-2.5 cursor-pointer"
+                  >
+                    <Upload className="h-3 w-3 mr-1" />
+                    Change Logo
+                  </Button>
+                  {profile.schoolLogoUrl && profile.schoolLogoUrl !== "/logo.png" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleResetLogo}
+                      className="h-7 text-xs text-muted-foreground hover:text-destructive px-2 cursor-pointer"
+                      title="Restore default school logo"
+                    >
+                      <RotateCcw className="h-3 w-3 mr-1" />
+                      Reset
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 text-left pt-1 border-t">
+                <Label htmlFor="schoolMotto" className="text-xs font-medium">School Motto / Tagline</Label>
                 <Input
-                  id="schemeSubjects"
-                  type="number"
-                  min="1"
-                  max="15"
-                  value={editSchemeSubjectCount}
-                  onChange={(e) => setEditSchemeSubjectCount(parseInt(e.target.value, 10) || 1)}
-                  className="text-xs font-bold font-mono h-8"
-                  required
+                  id="schoolMotto"
+                  value={profile.schoolMotto}
+                  onChange={(e) => setProfile({ ...profile, schoolMotto: e.target.value })}
+                  className="text-xs italic"
+                  placeholder="e.g. Knowledge, Character, Excellence"
                 />
               </div>
 
-              {/* If Class XI or XII (Semester System) */}
-              {editingScheme.isSemesterSystem || editingScheme.classCode === "XI" || editingScheme.classCode === "XII" ? (
-                <>
-                  {/* Odd Semester Marks (Sem 1 or Sem 3) */}
-                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <span className="text-xs font-bold text-foreground">
-                        {editingScheme.classCode === "XI" ? "Semester 1" : "Semester 3"} Marks (per subject)
-                      </span>
-                      <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                        Total: {editSchemeSubjectCount * (Number(editSchemeOddSemMarks) || 0)} Marks
-                      </span>
-                    </div>
-                    <div className="pt-0.5 space-y-0.5">
-                      <Label className="text-[10px] text-muted-foreground">Full Marks (Written/Theory + Practical)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editSchemeOddSemMarks}
-                        onChange={(e) => setEditSchemeOddSemMarks(parseFloat(e.target.value) || 0)}
-                        className="text-xs font-mono h-8"
-                        placeholder="50"
-                        required
-                      />
-                    </div>
-                  </div>
+              <div className="pt-2">
+                <Button
+                  size="sm"
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                  className="w-full bg-primary text-primary-foreground text-xs font-semibold cursor-pointer"
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  {isSavingProfile ? "Saving..." : "Save Profile Details"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-                  {/* Even Semester Marks (Sem 2 or Sem 4) */}
-                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <span className="text-xs font-bold text-foreground">
-                        {editingScheme.classCode === "XI" ? "Semester 2" : "Semester 4"} Marks (per subject)
-                      </span>
-                      <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                        Total: {editSchemeSubjectCount * (Number(editSchemeEvenSemMarks) || 0)} Marks
-                      </span>
-                    </div>
-                    <div className="pt-0.5 space-y-0.5">
-                      <Label className="text-[10px] text-muted-foreground">Full Marks (Written/Theory + Practical)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        value={editSchemeEvenSemMarks}
-                        onChange={(e) => setEditSchemeEvenSemMarks(parseFloat(e.target.value) || 0)}
-                        className="text-xs font-mono h-8"
-                        placeholder="50"
-                        required
-                      />
-                    </div>
-                  </div>
+          {/* Head of Institution (HOI) & Signature Card */}
+          <Card className="border bg-card shadow-2xs">
+            <CardHeader className="pb-3 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" />
+                  Head of Institution & Signature
+                </CardTitle>
+                {profile.headSignatureUrl ? (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                    Signature Loaded
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                    Manual Sign Mode
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {/* Head Designation / Role Selection */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium">Head Designation / Role</Label>
+                <CustomSelect
+                  value={profile.headDesignation || "Teacher-in-Charge"}
+                  onChange={(val) => setProfile({ ...profile, headDesignation: String(val) })}
+                  options={HEAD_DESIGNATION_OPTIONS}
+                  placeholder="Select Designation"
+                  searchable={false}
+                />
+              </div>
 
-                  {/* Live Preview of Grand Total for HS */}
-                  <div className="rounded-lg p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-muted-foreground">Annual Total (Both Semesters):</span>
-                    <span className="font-mono font-extrabold text-xs text-indigo-600 dark:text-indigo-400">
-                      {editSchemeSubjectCount * ((Number(editSchemeOddSemMarks) || 0) + (Number(editSchemeEvenSemMarks) || 0))} Marks
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* 1st Summative Marks */}
-                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <span className="text-xs font-bold text-foreground">1st Summative</span>
-                      <span className="text-[11px] font-mono font-bold text-primary">
-                        Total: {editSchemeSubjectCount * ((Number(editScheme1stWritten) || 0) + (Number(editScheme1stPractical) || 0))} Marks
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editScheme1stWritten}
-                          onChange={(e) => setEditScheme1stWritten(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editScheme1stPractical}
-                          onChange={(e) => setEditScheme1stPractical(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 2nd Summative Marks */}
-                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <span className="text-xs font-bold text-foreground">2nd Summative</span>
-                      <span className="text-[11px] font-mono font-bold text-primary">
-                        Total: {editSchemeSubjectCount * ((Number(editScheme2ndWritten) || 0) + (Number(editScheme2ndPractical) || 0))} Marks
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editScheme2ndWritten}
-                          onChange={(e) => setEditScheme2ndWritten(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Practical / Oral</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editScheme2ndPractical}
-                          onChange={(e) => setEditScheme2ndPractical(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 3rd / Annual Exam Marks */}
-                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
-                    <div className="flex items-center justify-between border-b pb-1">
-                      <span className="text-xs font-bold text-foreground">3rd / Annual Exam</span>
-                      <span className="text-[11px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-                        Total: {editSchemeSubjectCount * ((Number(editSchemeAnnualWritten) || 0) + (Number(editSchemeAnnualPractical) || 0))} Marks
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 pt-0.5">
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Written (per sub)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editSchemeAnnualWritten}
-                          onChange={(e) => setEditSchemeAnnualWritten(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={editSchemeAnnualPractical}
-                          onChange={(e) => setEditSchemeAnnualPractical(parseFloat(e.target.value) || 0)}
-                          className="text-xs font-mono h-7"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Live Preview of Grand Total */}
-                  <div className="rounded-lg p-2.5 bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-muted-foreground">Grand Total Marks:</span>
-                    <span className="font-mono font-extrabold text-xs text-primary">
-                      {editSchemeSubjectCount * (
-                        (Number(editScheme1stWritten) || 0) +
-                        (Number(editScheme1stPractical) || 0) +
-                        (Number(editScheme2ndWritten) || 0) +
-                        (Number(editScheme2ndPractical) || 0) +
-                        (Number(editSchemeAnnualWritten) || 0) +
-                        (Number(editSchemeAnnualPractical) || 0)
-                      )}{" "}
-                      Marks
-                    </span>
-                  </div>
-                </>
+              {profile.headDesignation === "Custom" && (
+                <div className="space-y-1.5">
+                  <Label htmlFor="customHeadDesignation" className="text-xs">Custom Designation Title</Label>
+                  <Input
+                    id="customHeadDesignation"
+                    value={profile.customHeadDesignation || ""}
+                    onChange={(e) => setProfile({ ...profile, customHeadDesignation: e.target.value })}
+                    className="text-xs"
+                    placeholder="e.g. Acting Headmaster / Vice Principal"
+                  />
+                </div>
               )}
 
-              <DialogFooter className="pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingScheme(null)}
-                  className="h-8 text-xs"
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" size="sm" className="h-8 text-xs bg-primary text-primary-foreground gap-1.5">
-                  <Save className="h-3.5 w-3.5" />
-                  Save Scheme
-                </Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+              {/* Headmaster / TIC Name */}
+              <div className="space-y-1.5">
+                <Label htmlFor="headmasterNameRight" className="text-xs font-medium">Head of Institution Name</Label>
+                <Input
+                  id="headmasterNameRight"
+                  value={profile.headmasterName}
+                  onChange={(e) => setProfile({ ...profile, headmasterName: e.target.value })}
+                  className="text-xs font-medium"
+                  placeholder="e.g. Sheikh Sirajuddin / Dr. A. K. Mondal"
+                />
+              </div>
+
+              {/* Signature Upload & Preview Section */}
+              <div className="space-y-2 pt-1 border-t">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold flex items-center gap-1.5">
+                    <PenTool className="h-3.5 w-3.5 text-primary" />
+                    Official Digital Signature
+                  </Label>
+                  {profile.headSignatureUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveSignature}
+                      className="text-[11px] text-destructive hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleSignatureUpload}
+                  className="hidden"
+                />
+
+                {profile.headSignatureUrl ? (
+                  <div className="space-y-2">
+                    <div className="h-20 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 p-2 flex flex-col items-center justify-center relative overflow-hidden group">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={profile.headSignatureUrl}
+                        alt="Head Signature"
+                        className="max-h-14 max-w-full object-contain"
+                      />
+                      <div className="absolute inset-0 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => signatureInputRef.current?.click()}
+                          className="h-7 text-xs cursor-pointer"
+                        >
+                          <Upload className="h-3 w-3 mr-1" />
+                          Replace
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="destructive"
+                          onClick={handleRemoveSignature}
+                          className="h-7 text-xs cursor-pointer"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => signatureInputRef.current?.click()}
+                    className="h-20 w-full rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-primary/60 bg-muted/20 hover:bg-muted/40 transition-colors flex flex-col items-center justify-center cursor-pointer p-2 text-center"
+                  >
+                    <Upload className="h-4 w-4 text-muted-foreground mb-1" />
+                    <span className="text-[11px] font-medium text-foreground">Click to Upload Signature</span>
+                    <span className="text-[9.5px] text-muted-foreground">PNG, JPG or WEBP max 2MB</span>
+                  </div>
+                )}
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => signatureInputRef.current?.click()}
+                    className="flex-1 text-xs h-8 cursor-pointer"
+                  >
+                    <Upload className="h-3 w-3 mr-1.5" />
+                    {profile.headSignatureUrl ? "Update Signature" : "Upload Signature"}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleSaveProfile}
+                    disabled={isSavingProfile}
+                    className="flex-1 bg-primary text-primary-foreground text-xs h-8 font-semibold cursor-pointer"
+                  >
+                    <Save className="h-3 w-3 mr-1.5" />
+                    {isSavingProfile ? "Saving..." : "Save Settings"}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Info Box */}
+          <Card className="border border-blue-500/20 bg-blue-500/5 shadow-2xs">
+            <CardContent className="p-4 space-y-2.5 text-xs">
+              <div className="font-semibold text-foreground flex items-center gap-2">
+                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Institution Profile Summary
+              </div>
+              <p className="text-muted-foreground text-[11px] leading-relaxed">
+                Referenced dynamically by report card generators, marksheet printing, and administrative compliance exports.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
-

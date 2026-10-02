@@ -886,7 +886,7 @@ export default function ResultsClient() {
             </div>
 
             <Link
-              href="/settings/school-details?tab=marks_scheme"
+              href="/settings/presets?section=marks_scheme"
               className="flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] rounded-xl border border-border/80 bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-all text-muted-foreground hover:text-foreground shadow-2xs"
               title="Configure Pass % and Evaluation Schemes"
             >

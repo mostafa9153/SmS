@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   CloudUpload,
   RefreshCw,
+  Save,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
@@ -208,6 +209,7 @@ export function RoutineClassesTab({
   const [selectedStream, setSelectedStream] = useState<string>("General");
   const [dailyPeriods, setDailyPeriods] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
 
   // Sorted Classes in ascending grade sequence (V -> VI -> ... -> XII) with strict deduplication
   const sortedClasses = React.useMemo(() => {
@@ -598,7 +600,6 @@ export function RoutineClassesTab({
             <Button
               type="button"
               size="sm"
-              variant="outline"
               disabled={isSubmitting || sortedClasses.length === 0}
               onClick={async () => {
                 setIsSubmitting(true);
@@ -616,11 +617,16 @@ export function RoutineClassesTab({
                       await onSaveClass(r);
                     }
                   }
+                  setIsSavedRecently(true);
+                  setTimeout(() => setIsSavedRecently(false), 2500);
                   showToast({
                     type: "success",
-                    title: "Saved to Cloud",
-                    description: `${sortedClasses.length} classes & sections saved to Cloud successfully.`,
+                    title: "Saved",
+                    description: `${sortedClasses.length} classes & sections saved successfully.`,
                   });
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("sms_routine_state_updated"));
+                  }
                 } catch {
                   showToast({
                     type: "error",
@@ -631,10 +637,29 @@ export function RoutineClassesTab({
                   setIsSubmitting(false);
                 }
               }}
-              className="h-7 text-xs font-semibold gap-1.5 px-2.5 border-primary/30 text-primary hover:bg-primary/10 ml-1"
+              className={cn(
+                "h-7 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs cursor-pointer ml-1",
+                isSavedRecently
+                  ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                  : "bg-primary hover:bg-primary/90 text-primary-foreground"
+              )}
             >
-              <CloudUpload className="w-3.5 h-3.5" />
-              Save to Cloud
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : isSavedRecently ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Saved</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
+                </>
+              )}
             </Button>
           </div>
 

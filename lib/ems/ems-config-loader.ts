@@ -179,7 +179,8 @@ export function getDatabaseSubjectsForClass(
     additionalSubjects?: string[];
     coCurricularSubjects?: string[];
     languageGroup?: string[];
-  }[] = []
+  }[] = [],
+  preserveOriginalNames = true
 ): string[] {
   const normClass = (classCode || "VII")
     .trim()
@@ -211,8 +212,11 @@ export function getDatabaseSubjectsForClass(
     return (romanMap[sCode] || sCode) === normalizedClass;
   });
 
-  // If configured in School Details -> Class Subjects, return EXACTLY those subjects (besio na, komo na)
+  // If configured in Settings -> Presets -> Class Subjects, return EXACTLY those subjects (besio na, komo na)
   if (matchedScheme && Array.isArray(matchedScheme.subjects) && matchedScheme.subjects.length > 0) {
+    if (preserveOriginalNames) {
+      return Array.from(new Set(matchedScheme.subjects.map((s) => s.trim()).filter(Boolean)));
+    }
     const exactConfiguredSubjects: string[] = [];
     matchedScheme.subjects.forEach((sub) => {
       const clean = cleanSubjectName(sub);

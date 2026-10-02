@@ -93,7 +93,30 @@ export function RoutineDemandAllotmentTab({
   settings,
 }: RoutineDemandAllotmentTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterClass, setFilterClass] = useState<string>("all");
+  const [filterClass, setFilterClassState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const c = urlParams.get("demandClass");
+        if (c) return c;
+        const saved = localStorage.getItem("sms_routine_demand_class");
+        if (saved) return saved;
+      } catch {}
+    }
+    return "all";
+  });
+
+  const setFilterClass = (c: string) => {
+    setFilterClassState(c);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_demand_class", c);
+      } catch {}
+      const url = new URL(window.location.href);
+      url.searchParams.set("demandClass", c);
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
   const [filterStream, setFilterStream] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedClassIds, setExpandedClassIds] = useState<Record<string, boolean>>({});
@@ -745,7 +768,7 @@ export function RoutineDemandAllotmentTab({
           </Button>
           <Link href="/routine/assignments">
             <Button size="sm" className="h-8 text-xs font-semibold gap-1">
-              <span>Manage Workload</span>
+              <span>Verify & Audit</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Button>
           </Link>

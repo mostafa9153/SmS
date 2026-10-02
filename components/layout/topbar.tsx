@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Menu, Search, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { Menu, Search, PanelLeftOpen, PanelLeftClose, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { NotificationPanel } from "@/components/layout/notification-panel";
@@ -74,17 +74,27 @@ export function Topbar() {
         </SheetContent>
       </Sheet>
 
-      {/* Desktop Sidebar Toggle Button */}
-      <button
-        onClick={toggleSidebar}
-        title={isOpen ? "Collapse Sidebar (মেনু বন্ধ করুন)" : "Expand Sidebar (মেনু খুলুন)"}
-        className="hidden md:flex items-center justify-center rounded-lg p-1.5 text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
-      >
-        {isOpen ? (
-          <PanelLeftClose className="h-4.5 w-4.5" />
-        ) : (
+      {/* Desktop Sidebar Expand Button (visible when sidebar is closed) */}
+      {!isOpen && (
+        <button
+          onClick={toggleSidebar}
+          title="Expand Sidebar (মেনু খুলুন)"
+          aria-label="Expand Sidebar"
+          className="hidden md:flex items-center justify-center h-8 w-8 rounded-xl text-muted-foreground hover:bg-accent/80 hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+        >
           <PanelLeftOpen className="h-4.5 w-4.5 text-primary" />
-        )}
+        </button>
+      )}
+
+      {/* Navigation / Back Button (on the left side of search bar) */}
+      <button
+        type="button"
+        onClick={() => router.back()}
+        title="Go Back (পেছনে যান)"
+        aria-label="Go Back"
+        className="group relative flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary dark:bg-[#FACC15]/15 dark:hover:bg-[#FACC15]/25 dark:text-[#FACC15] border border-primary/20 dark:border-[#FACC15]/30 shadow-2xs hover:shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 shrink-0 cursor-pointer"
+      >
+        <ArrowLeft className="h-4 w-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
       </button>
 
       {/* Global search with iOS-zoom-safe font and responsive placeholder */}

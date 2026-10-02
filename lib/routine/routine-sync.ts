@@ -18,6 +18,7 @@ import {
   isHsClass,
   parseSectionAndStream,
 } from "./routine-helpers";
+import { showToast } from "@/components/ui/toast-banner";
 
 export interface SyncClassItem {
   id: string;
@@ -330,48 +331,71 @@ export async function syncMarksSchemeSubjectToRoutine(
   try {
     const className = normalizeClassToFullName(classCode);
     const cleanName = subjectName.trim();
-    const local = getLocalRoutineState();
-    const currentSubjects: RoutineSubject[] = local?.subjects || [];
+    const supabase = createClient();
+    const { data: dbSubjects } = await supabase
+      .from("routine_subjects")
+      .select("*")
+      .eq("class_name", className);
 
-    const existing = currentSubjects.find(
-      (s) =>
-        s.className &&
-        normalizeClassToCode(s.className) === normalizeClassToCode(classCode) &&
-        isSameSubject(s.name, cleanName)
+    const currentSubjects = dbSubjects || [];
+    const exactMatch = currentSubjects.find(
+      (s: any) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
     );
 
-    if (!existing) {
-      const lower = cleanName.toLowerCase();
-      const isLab = lower.includes("lab") || lower.includes("practical");
-      const periods = isLab
-        ? 2
-        : lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental")
-        ? 2
-        : 5;
+    if (exactMatch) return;
 
-      const newSubject: RoutineSubject = {
-        id: crypto.randomUUID(),
+    // Check if stripped match exists that can be renamed (e.g. "Bengali" -> "Bengali (1st Language)")
+    const strippedMatch = currentSubjects.find((s: any) => isSameSubject(s.name, cleanName));
+
+    if (strippedMatch) {
+      await upsertSubjectDb({
+        id: strippedMatch.id,
         name: cleanName,
         className,
-        periodsPerWeek: periods,
-        isLab,
+        periodsPerWeek: strippedMatch.periods_per_week || 5,
+        isLab: Boolean(strippedMatch.is_lab),
         isHard: false,
-        timePref: "any",
-        allowMultiplePerDay: false,
-        maxPerDay: 1,
-        stream: detectSubjectStream(cleanName),
-      };
-
-      await upsertSubjectDb(newSubject);
+        timePref: strippedMatch.time_pref || "any",
+        allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day),
+        maxPerDay: strippedMatch.max_per_day || 1,
+        stream: detectSubjectStream(cleanName, strippedMatch.stream),
+      });
       window.dispatchEvent(new Event("sms_routine_state_updated"));
+      return;
     }
+
+    const lower = cleanName.toLowerCase();
+    const isLab = lower.includes("lab") || lower.includes("practical");
+    const periods = 5;
+
+    const newSubject: RoutineSubject = {
+      id: crypto.randomUUID(),
+      name: cleanName,
+      className,
+      periodsPerWeek: periods,
+      isLab,
+      isHard: false,
+      timePref: "any",
+      allowMultiplePerDay: false,
+      maxPerDay: 1,
+      stream: detectSubjectStream(cleanName),
+    };
+
+    await upsertSubjectDb(newSubject);
+    window.dispatchEvent(new Event("sms_routine_state_updated"));
+
+    showToast({
+      type: "success",
+      title: "Subject Synced to Routine",
+      description: `"${cleanName}" was added to ${className} with 5 p/wk in Routine.`,
+    });
   } catch (err) {
     console.warn("syncMarksSchemeSubjectToRoutine error:", err);
   }
 }
 
 /**
- * Sync Subject Removal from Marks Schemes (School Details) -> Routine Subjects
+ * Sync Subject Removal from Marks Schemes (School Details) -> Routine Subjects (with Safety Guard)
  */
 export async function syncRemoveMarksSchemeSubjectFromRoutine(
   classCode: string,
@@ -381,8 +405,11 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
 
   try {
     const targetCode = normalizeClassToCode(classCode);
+    const className = normalizeClassToFullName(classCode);
     const local = getLocalRoutineState();
     const currentSubjects: RoutineSubject[] = local?.subjects || [];
+    const teachers: RoutineTeacher[] = local?.teachers || [];
+    const assignments: any[] = local?.assignments || [];
 
     const toDelete = currentSubjects.find(
       (s) =>
@@ -391,149 +418,175 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
         isSameSubject(s.name, subjectName)
     );
 
-    if (toDelete && toDelete.id) {
-      await deleteSubjectDb(toDelete.id);
-      window.dispatchEvent(new Event("sms_routine_state_updated"));
+    if (!toDelete || !toDelete.id) return;
+
+    // Safety Guard: Check if any teacher is assigned to this subject for this class
+    const cleanSubLower = subjectName.trim().toLowerCase();
+    const assignedTeacher = teachers.find((t) => {
+      const classSubs = t.classSubjects?.[className] || t.classSubjects?.[classCode] || [];
+      if (classSubs.some((s) => s.trim().toLowerCase() === cleanSubLower)) {
+        return true;
+      }
+      if (t.sectionSubjects) {
+        for (const [key, subs] of Object.entries(t.sectionSubjects)) {
+          if (
+            (key.startsWith(`${className}::`) || key.startsWith(`${classCode}::`)) &&
+            subs.some((s) => s.trim().toLowerCase() === cleanSubLower)
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+
+    const isAssignedInTimetable = assignments.some((a) => a.subjectId === toDelete.id);
+
+    if (assignedTeacher || isAssignedInTimetable) {
+      const teacherInfo = assignedTeacher ? ` (assigned to ${assignedTeacher.name})` : "";
+      showToast({
+        type: "warning",
+        title: "Subject Retained in Routine",
+        description: `"${subjectName}" for ${className} is currently assigned to teachers in Routine${teacherInfo}. To prevent schedule corruption, it was kept in Routine.`,
+      });
+      return;
     }
+
+    // Safe to delete from routine_subjects
+    await deleteSubjectDb(toDelete.id);
+    window.dispatchEvent(new Event("sms_routine_state_updated"));
+
+    showToast({
+      type: "info",
+      title: "Subject Removed from Routine",
+      description: `"${subjectName}" was removed from ${className} in Routine.`,
+    });
   } catch (err) {
     console.warn("syncRemoveMarksSchemeSubjectFromRoutine error:", err);
   }
 }
 
 /**
- * Sync Subject Removal from Routine -> Marks Schemes
+ * Routine subjects are downstream; no-op to prevent routine from modifying academic marks schemes
  */
 export function syncRemoveRoutineSubjectFromMarksSchemes(
-  classNameOrCode: string,
-  subjectName: string
+  _classNameOrCode: string,
+  _subjectName: string
 ): void {
-  if (typeof window === "undefined" || !subjectName.trim()) return;
-
-  try {
-    const classCode = normalizeClassToCode(classNameOrCode);
-    const schemes = getSavedMarksSchemes();
-    let hasChanged = false;
-
-    const updatedSchemes = schemes.map((scheme) => {
-      if (normalizeClassToCode(scheme.classCode) === classCode) {
-        const existingSubjects = scheme.subjects || [];
-        const nextSubjects = existingSubjects.filter((s) => !isSameSubject(s, subjectName));
-        if (nextSubjects.length !== existingSubjects.length) {
-          hasChanged = true;
-          return {
-            ...scheme,
-            subjects: nextSubjects,
-            subjectCount: nextSubjects.length,
-          };
-        }
-      }
-      return scheme;
-    });
-
-    if (hasChanged) {
-      saveMarksSchemes(updatedSchemes);
-    }
-  } catch (err) {
-    console.warn("syncRemoveRoutineSubjectFromMarksSchemes error:", err);
-  }
+  // Presets is the authoritative academic catalog; Routine does not mutate Marks Schemes.
 }
 
 /**
- * Bidirectional Full Sync between Routine Subjects and Marks Schemes
+ * Sync all subjects from Presets (/settings/presets?section=marks_scheme) to Routine Subjects
  */
-export async function syncAllSubjectsBidirectional(): Promise<void> {
-  if (typeof window === "undefined") return;
+export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCount: number }> {
+  if (typeof window === "undefined") return { addedCount: 0 };
 
   try {
     const schemes = getSavedMarksSchemes();
-    const local = getLocalRoutineState();
-    const routineSubjects: RoutineSubject[] = local?.subjects || [];
-    let marksSchemesChanged = false;
-    const subjectsToUpsert: {
-      id?: string;
-      name: string;
-      className?: string | null;
-      periodsPerWeek?: number | null;
-      isLab?: boolean;
-      isHard?: boolean;
-      timePref?: "any" | "morning" | "afternoon";
-      allowMultiplePerDay?: boolean;
-      maxPerDay?: number | null;
-      stream?: string | null;
-    }[] = [];
+    if (!schemes || schemes.length === 0) return { addedCount: 0 };
 
-    // 1. From Marks Schemes -> Routine
+    const supabase = createClient();
+    const { data: dbSubjects } = await supabase.from("routine_subjects").select("*");
+    const routineSubjects = dbSubjects || [];
+
+    const toUpsert: any[] = [];
+    const idsToDelete: string[] = [];
+
     for (const scheme of schemes) {
       const classCode = normalizeClassToCode(scheme.classCode);
       const className = normalizeClassToFullName(scheme.classCode);
       const schemeSubjects = scheme.subjects || [];
 
       for (const subName of schemeSubjects) {
-        const existsInRoutine = routineSubjects.some(
-          (s) =>
-            s.className &&
-            normalizeClassToCode(s.className) === classCode &&
-            isSameSubject(s.name, subName)
+        const cleanTarget = subName.trim();
+        const exactMatch = routineSubjects.find(
+          (s: any) =>
+            s.class_name &&
+            normalizeClassToCode(s.class_name) === classCode &&
+            s.name.trim().toLowerCase() === cleanTarget.toLowerCase()
         );
 
-        if (!existsInRoutine) {
-          const lower = subName.toLowerCase();
-          const isLab = lower.includes("lab") || lower.includes("practical");
-          subjectsToUpsert.push({
-            id: crypto.randomUUID(),
-            name: subName,
-            className,
-            periodsPerWeek: isLab ? 2 : 5,
-            isLab,
-            isHard: false,
-            timePref: "any",
-            allowMultiplePerDay: false,
-            maxPerDay: 1,
-            stream: detectSubjectStream(subName),
-          });
+        if (!exactMatch) {
+          const strippedMatch = routineSubjects.find(
+            (s: any) =>
+              s.class_name &&
+              normalizeClassToCode(s.class_name) === classCode &&
+              isSameSubject(s.name, cleanTarget)
+          );
+
+          if (strippedMatch) {
+            toUpsert.push({
+              id: strippedMatch.id,
+              name: cleanTarget,
+              className,
+              periodsPerWeek: strippedMatch.periods_per_week || 5,
+              isLab: Boolean(strippedMatch.is_lab),
+              isHard: false,
+              timePref: strippedMatch.time_pref || "any",
+              allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day),
+              maxPerDay: strippedMatch.max_per_day || 1,
+              stream: detectSubjectStream(cleanTarget, strippedMatch.stream),
+            });
+          } else {
+            const lower = cleanTarget.toLowerCase();
+            const isLab = lower.includes("lab") || lower.includes("practical");
+            toUpsert.push({
+              id: crypto.randomUUID(),
+              name: cleanTarget,
+              className,
+              periodsPerWeek: 5,
+              isLab,
+              isHard: false,
+              timePref: "any",
+              allowMultiplePerDay: false,
+              maxPerDay: 1,
+              stream: detectSubjectStream(cleanTarget),
+            });
+          }
+        }
+      }
+
+      // Check for orphan duplicate subjects in routine_subjects for this class
+      const classRoutineSubs = routineSubjects.filter(
+        (s: any) => s.class_name && normalizeClassToCode(s.class_name) === classCode
+      );
+      for (const rSub of classRoutineSubs) {
+        const isPresetSubject = schemeSubjects.some(
+          (p) => p.trim().toLowerCase() === rSub.name.trim().toLowerCase()
+        );
+        const hasFullVersionInPreset = schemeSubjects.some((p) => isSameSubject(p, rSub.name));
+
+        if (!isPresetSubject && hasFullVersionInPreset) {
+          idsToDelete.push(rSub.id);
         }
       }
     }
 
-    if (subjectsToUpsert.length > 0) {
-      await batchUpsertSubjectsDb(subjectsToUpsert);
+    if (idsToDelete.length > 0) {
+      await supabase.from("routine_subjects").delete().in("id", idsToDelete);
+    }
+
+    if (toUpsert.length > 0) {
+      await batchUpsertSubjectsDb(toUpsert);
+    }
+
+    if (idsToDelete.length > 0 || toUpsert.length > 0) {
       window.dispatchEvent(new Event("sms_routine_state_updated"));
     }
 
-    // 2. From Routine -> Marks Schemes
-    const updatedSchemes = schemes.map((scheme) => {
-      const classCode = normalizeClassToCode(scheme.classCode);
-      const existingSubjects = [...(scheme.subjects || [])];
-      let schemeChanged = false;
-
-      const matchingRoutineSubjs = routineSubjects.filter(
-        (s) => s.className && normalizeClassToCode(s.className) === classCode
-      );
-
-      for (const rSub of matchingRoutineSubjs) {
-        if (!existingSubjects.some((s) => isSameSubject(s, rSub.name))) {
-          existingSubjects.push(rSub.name);
-          schemeChanged = true;
-          marksSchemesChanged = true;
-        }
-      }
-
-      if (schemeChanged) {
-        return {
-          ...scheme,
-          subjects: existingSubjects,
-          subjectCount: existingSubjects.length,
-        };
-      }
-      return scheme;
-    });
-
-    if (marksSchemesChanged) {
-      saveMarksSchemes(updatedSchemes);
-    }
+    return { addedCount: toUpsert.length };
   } catch (err) {
-    console.warn("syncAllSubjectsBidirectional error:", err);
+    console.warn("syncAllSubjectsFromPresetsToRoutine error:", err);
+    return { addedCount: 0 };
   }
+}
+
+/**
+ * Backward compatibility alias for syncAllSubjectsFromPresetsToRoutine
+ */
+export async function syncAllSubjectsBidirectional(): Promise<void> {
+  await syncAllSubjectsFromPresetsToRoutine();
 }
 
 /**

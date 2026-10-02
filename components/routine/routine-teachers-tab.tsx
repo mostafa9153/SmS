@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   RoutineTeacher,
   RoutineAssignment,
@@ -15,8 +15,11 @@ import {
   GraduationCap,
   CloudUpload,
   RefreshCw,
+  Save,
+  Check,
 } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
+import { cn } from "@/lib/utils";
 import { batchSaveTeachersAvailabilityDb } from "@/lib/supabase/db-routine";
 import {
   getDynamicClassList,
@@ -31,6 +34,7 @@ import {
   detectSubjectStream,
   getConfiguredStreamsForClass,
   getTeacherSubjectPeriod,
+  HS_STREAM_PRESETS,
 } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -86,44 +90,41 @@ export function RoutineTeachersTab({
       });
   }, []);
 
-  // Compute preset subjects for each class
+  // Compute subjects for each class served downstream from Routine Subjects
   const classSubjectsDictionary = useMemo(() => {
     const map: Record<string, string[]> = {};
     presetClasses.forEach((c) => {
-      const subs = getDatabaseSubjectsForClass(c.code || c.name);
-      map[c.name] = subs;
+      const clsName = c.name;
+      const clsLower = clsName.trim().toLowerCase();
+
+      // Synced from Routine Subjects tab (Authoritative source)
+      const routineSubs = (subjects || [])
+        .filter((s) => !s.className || s.className.trim().toLowerCase() === clsLower)
+        .map((s) => s.name.trim());
+
+      if (routineSubs.length > 0) {
+        // Strictly serve subjects configured in Routine Subjects
+        map[clsName] = Array.from(new Set(routineSubs));
+      } else {
+        // Fallback only if no routine subjects configured yet for this class
+        const dbSubs = getDatabaseSubjectsForClass(c.code || c.name);
+        map[clsName] = Array.from(new Set(dbSubs));
+      }
     });
     return map;
-  }, [presetClasses]);
+  }, [presetClasses, subjects]);
 
-  // Aggregated unique subjects list across configured subjects & presets
+  // Aggregated unique subjects list across configured routine subjects
   const availableSubjectOptions = useMemo(() => {
     const set = new Set<string>();
     subjects.forEach((s) => {
       if (s.name) set.add(s.name.trim());
     });
-    Object.values(classSubjectsDictionary).forEach((subs) => {
-      subs.forEach((s) => set.add(s.trim()));
-    });
-    // Standard default list
-    [
-      "Bengali",
-      "English",
-      "Mathematics",
-      "Physical Science",
-      "Life Science",
-      "History",
-      "Geography",
-      "Health & Physical Education",
-      "Work Education",
-      "Computer Application",
-      "Physics",
-      "Chemistry",
-      "Biology",
-      "Sanskrit",
-      "Arabic",
-    ].forEach((s) => set.add(s));
-
+    if (set.size === 0) {
+      Object.values(classSubjectsDictionary).forEach((subs) => {
+        subs.forEach((s) => set.add(s.trim()));
+      });
+    }
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [subjects, classSubjectsDictionary]);
 
@@ -512,11 +513,24 @@ export function RoutineTeachersTab({
     });
     setAvailSlots(defaultSlots);
     setIsEditorOpen(true);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "teachers");
+      url.searchParams.set("newTeacher", "1");
+      url.searchParams.delete("teacherId");
+      window.history.replaceState(null, "", url.toString());
+    }
   };
 
   const handleCancel = useCallback(() => {
     setIsEditorOpen(false);
     setEditingTeacherId(null);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("teacherId");
+      url.searchParams.delete("newTeacher");
+      window.history.replaceState(null, "", url.toString());
+    }
   }, []);
 
   // Open Editor for Editing Existing Teacher
@@ -575,9 +589,40 @@ export function RoutineTeachersTab({
       });
       setAvailSlots(slots);
       setIsEditorOpen(true);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("tab", "teachers");
+        url.searchParams.set("teacherId", t.id);
+        url.searchParams.delete("newTeacher");
+        window.history.replaceState(null, "", url.toString());
+      }
     },
     [isEditorOpen, editingTeacherId, handleCancel, staffList, availableSubjectOptions, settings]
   );
+
+  // Auto-restore teacher editor once on initial mount if URL contains teacherId or newTeacher flag
+  const hasRestoredEditorRef = useRef(false);
+  useEffect(() => {
+    if (hasRestoredEditorRef.current) return;
+    if (typeof window !== "undefined" && teachers.length > 0 && !isEditorOpen) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get("tab") === "teachers") {
+        const tId = urlParams.get("teacherId");
+        if (tId) {
+          const target = teachers.find((t) => t.id === tId);
+          if (target) {
+            hasRestoredEditorRef.current = true;
+            handleEdit(target);
+            return;
+          }
+        }
+        if (urlParams.get("newTeacher") === "1") {
+          hasRestoredEditorRef.current = true;
+          handleOpenAdd();
+        }
+      }
+    }
+  }, [teachers, isEditorOpen, handleEdit]);
 
   // Handle Staff Dropdown Change in Form
   const handleStaffDropdownChange = (staffId: string) => {
@@ -1124,12 +1169,15 @@ export function RoutineTeachersTab({
 
   // Batch Save all teachers to Cloud
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [isSavedRecently, setIsSavedRecently] = useState(false);
   const handleSaveAllToCloud = async () => {
     setIsSavingAll(true);
     try {
       const ok = await batchSaveTeachersAvailabilityDb(teachers);
       if (ok) {
-        showToast("All faculty assignments saved to Cloud successfully!", "success");
+        setIsSavedRecently(true);
+        setTimeout(() => setIsSavedRecently(false), 2500);
+        showToast("Faculty configuration saved successfully!", "success");
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event("sms_routine_state_updated"));
         }
@@ -1160,17 +1208,31 @@ export function RoutineTeachersTab({
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
                 disabled={isSavingAll || teachers.length === 0}
                 onClick={handleSaveAllToCloud}
-                className="h-8 text-xs font-semibold gap-1.5 px-3 border-primary/30 text-primary hover:bg-primary/10"
+                className={cn(
+                  "h-8 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs cursor-pointer",
+                  isSavedRecently
+                    ? "bg-emerald-600 hover:bg-emerald-600 text-white"
+                    : "bg-primary hover:bg-primary/90 text-primary-foreground"
+                )}
               >
                 {isSavingAll ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : isSavedRecently ? (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Saved</span>
+                  </>
                 ) : (
-                  <CloudUpload className="w-3.5 h-3.5 text-primary" />
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save</span>
+                  </>
                 )}
-                Save to Cloud
               </Button>
 
               <Button
