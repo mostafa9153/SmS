@@ -1145,12 +1145,8 @@ export function RoutineSubjectsTab({
         )}
       </div>
 
-
-
-      </form>
-
-
       {/* 3. Subjects Table for Active Class */}
+
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
         <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
