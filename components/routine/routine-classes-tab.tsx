@@ -13,9 +13,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Plus,
   Trash2,
   Check,
+  X,
   School,
   Sparkles,
   Layers,
@@ -210,6 +218,7 @@ export function RoutineClassesTab({
   const [dailyPeriods, setDailyPeriods] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavedRecently, setIsSavedRecently] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   // Sorted Classes in ascending grade sequence (V -> VI -> ... -> XII) with strict deduplication
   const sortedClasses = React.useMemo(() => {
@@ -369,10 +378,24 @@ export function RoutineClassesTab({
         dailyPeriods: dailyPeriods ? parseInt(dailyPeriods, 10) : null,
       });
       setDailyPeriods("");
+      setIsAddDialogOpen(false);
+      showToast({
+        type: "success",
+        title: "Class Added",
+        description: `${selectedClass} Section ${combinedSection} added successfully.`,
+      });
+    } catch (err) {
+      console.error("Add class error:", err);
+      showToast({
+        type: "error",
+        title: "Failed to Add",
+        description: "Failed to add class section.",
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   // Batch Apply to all classes
   const handleBatchApply = async () => {
@@ -466,157 +489,49 @@ export function RoutineClassesTab({
 
   return (
     <div className="space-y-4 w-full">
-      {/* Top Controls: Preset Auto-Loader & Add Class Form Card */}
-      <form onSubmit={handleAddSubmit} autoComplete="off" className="bg-card border rounded-lg p-4 shadow-xs space-y-3.5">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
-          <div className="flex items-center gap-2">
-            <School className="w-4 h-4 text-primary" />
-            <h2 className="text-sm font-semibold tracking-tight text-foreground">
-              Add Class from School Presets
-            </h2>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleAutoLoadPresets}
-            disabled={isSubmitting || isAllPresetsAdded}
-            className={cn(
-              "h-7 text-xs font-semibold gap-1.5 transition-all select-none",
-              isAllPresetsAdded
-                ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 cursor-default opacity-90"
-                : "border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
-            )}
-          >
-            {isAllPresetsAdded ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span>All School Classes Synced</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span>Auto-Sync All School Preset Classes</span>
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Preset Dropdowns Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-          {/* 1. Class Dropdown */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Class / Standard *</Label>
-            <Select
-              value={selectedClass}
-              onValueChange={(val) => val && handleClassChange(val)}
-              disabled={isAllPresetsAdded}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder={isAllPresetsAdded ? "All Classes Added" : "Select Class"}>
-                  {selectedClass || (isAllPresetsAdded ? "All Classes Added" : "Select Class")}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {availableClasses.map((c) => (
-                  <SelectItem key={c.name} value={c.name} className="text-xs">
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 2. Section Dropdown */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Section *</Label>
-            <Select
-              value={selectedSection}
-              onValueChange={(val) => val && handleSectionChange(val)}
-              disabled={isAllPresetsAdded || availableSections.length === 0}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder={isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}>
-                  {selectedSection ? `Section ${selectedSection}` : isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {availableSections.map((s) => (
-                  <SelectItem key={s} value={s} className="text-xs">
-                    Section {s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Stream Dropdown */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Stream</Label>
-            <Select
-              value={selectedStream}
-              onValueChange={(val) => val && setSelectedStream(val)}
-              disabled={isAllPresetsAdded || (availableStreams.length <= 1 && availableStreams[0] === "General")}
-            >
-              <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                <SelectValue placeholder={isAllPresetsAdded ? "All Streams Added" : "Select Stream"}>
-                  {selectedStream || (isAllPresetsAdded ? "All Streams Added" : "Select Stream")}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {availableStreams.map((st) => (
-                  <SelectItem key={st} value={st} className="text-xs">
-                    {st}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 4. Daily Period Override */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Daily Periods (Optional)</Label>
-            <Input
-              type="number"
-              min={1}
-              max={14}
-              placeholder="Global (e.g. 8)"
-              value={dailyPeriods}
-              onChange={(e) => setDailyPeriods(e.target.value)}
-              className="h-8 text-xs font-medium"
-              disabled={isAllPresetsAdded}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button
-            type="submit"
-            size="sm"
-            disabled={isSubmitting || isAllPresetsAdded || !selectedClass.trim() || !selectedSection.trim()}
-            className="h-8 text-xs font-semibold px-4"
-          >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Class Section
-          </Button>
-        </div>
-      </form>
-
       {/* Classes Table Card with Batch Edit & In-Line Edit */}
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
         {/* Table Header Toolbar */}
         <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-foreground">Configured Classes</span>
-            <Badge variant="secondary" className="text-[10px] font-mono">
-              {sortedClasses.length} Total
-            </Badge>
-            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
-              Daily: <span className="font-bold ml-1">{totalDailyPeriods}</span> p/day
-            </Badge>
-            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
-              Weekly: <span className="font-bold ml-1">{totalWeeklyPeriods}</span> p/wk
-            </Badge>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setIsAddDialogOpen(true)}
+              disabled={isAllPresetsAdded}
+              className="h-7 text-xs font-semibold gap-1 px-3 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Class</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAutoLoadPresets}
+              disabled={isSubmitting || isAllPresetsAdded}
+              className={cn(
+                "h-7 text-xs font-semibold gap-1.5 transition-all select-none",
+                isAllPresetsAdded
+                  ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 cursor-default opacity-90"
+                  : "border-primary/30 text-primary hover:bg-primary/5 cursor-pointer"
+              )}
+            >
+              {isAllPresetsAdded ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>All Synced</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <span>Sync from Presets</span>
+                </>
+              )}
+            </Button>
 
             <Button
               type="button"
@@ -659,7 +574,7 @@ export function RoutineClassesTab({
                 }
               }}
               className={cn(
-                "h-7 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs cursor-pointer ml-1",
+                "h-7 text-xs font-semibold gap-1.5 px-3 transition-all duration-150 shadow-xs cursor-pointer",
                 isSavedRecently
                   ? "bg-emerald-600 hover:bg-emerald-600 text-white"
                   : "bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -719,22 +634,8 @@ export function RoutineClassesTab({
                 <th className="py-2.5 px-4 w-1/4">Class</th>
                 <th className="py-2.5 px-4 w-1/6">Section</th>
                 <th className="py-2.5 px-4 w-1/5">Stream</th>
-                <th className="py-2.5 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <span>Daily Period Limit (In-line Edit)</span>
-                    <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 h-4">
-                      {totalDailyPeriods} p/day
-                    </Badge>
-                  </div>
-                </th>
-                <th className="py-2.5 px-4 w-44">
-                  <div className="flex items-center gap-1.5">
-                    <span>Max Periods / Week</span>
-                    <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 h-4">
-                      {totalWeeklyPeriods} p/wk
-                    </Badge>
-                  </div>
-                </th>
+                <th className="py-2.5 px-4">Daily Period Limit (In-line Edit)</th>
+                <th className="py-2.5 px-4 w-44">Max Periods / Week</th>
                 <th className="py-2.5 px-4 text-right w-16">Actions</th>
               </tr>
             </thead>
@@ -743,7 +644,7 @@ export function RoutineClassesTab({
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     <School className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>No classes configured yet. Click &quot;Auto-Sync All School Preset Classes&quot; above.</span>
+                    <span>No classes configured yet. Click &quot;Sync from Presets&quot; above.</span>
                   </td>
                 </tr>
               ) : (
@@ -777,6 +678,137 @@ export function RoutineClassesTab({
           </table>
         </div>
       </div>
+
+      {/* Add Class Dialog Modal */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+              <Plus className="w-4 h-4 text-primary" />
+              Add Class from School Presets
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleAddSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* 1. Class Dropdown */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Class / Standard *</Label>
+                <Select
+                  value={selectedClass}
+                  onValueChange={(val) => val && handleClassChange(val)}
+                  disabled={isAllPresetsAdded}
+                >
+                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                    <SelectValue placeholder={isAllPresetsAdded ? "All Classes Added" : "Select Class"}>
+                      {selectedClass || (isAllPresetsAdded ? "All Classes Added" : "Select Class")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableClasses.map((c) => (
+                      <SelectItem key={c.name} value={c.name} className="text-xs">
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 2. Section Dropdown */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Section *</Label>
+                <Select
+                  value={selectedSection}
+                  onValueChange={(val) => val && handleSectionChange(val)}
+                  disabled={isAllPresetsAdded || availableSections.length === 0}
+                >
+                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                    <SelectValue placeholder={isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}>
+                      {selectedSection ? `Section ${selectedSection}` : isAllPresetsAdded ? "All Sections Added" : availableSections.length === 0 ? "No Sections" : "Select Section"}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSections.map((s) => (
+                      <SelectItem key={s} value={s} className="text-xs">
+                        Section {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 3. Stream Dropdown */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Stream</Label>
+                <Select
+                  value={selectedStream}
+                  onValueChange={(val) => val && setSelectedStream(val)}
+                  disabled={isAllPresetsAdded || (availableStreams.length <= 1 && availableStreams[0] === "General")}
+                >
+                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                    <SelectValue placeholder={isAllPresetsAdded ? "All Streams Added" : "Select Stream"}>
+                      {selectedStream || (isAllPresetsAdded ? "All Streams Added" : "Select Stream")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableStreams.map((st) => (
+                      <SelectItem key={st} value={st} className="text-xs">
+                        {st}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 4. Daily Period Override */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Daily Periods (Optional)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={14}
+                  placeholder="Global (e.g. 8)"
+                  value={dailyPeriods}
+                  onChange={(e) => setDailyPeriods(e.target.value)}
+                  className="h-8 text-xs font-medium"
+                  disabled={isAllPresetsAdded}
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddDialogOpen(false)}
+                className="h-8 text-xs px-3"
+              >
+                <X className="h-3.5 w-3.5 mr-1" />
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={isSubmitting || isAllPresetsAdded || !selectedClass.trim() || !selectedSection.trim()}
+                className="h-8 text-xs font-semibold px-4 gap-1.5"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Adding...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Class Section</span>
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

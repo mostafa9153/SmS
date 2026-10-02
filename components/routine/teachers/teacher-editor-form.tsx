@@ -138,7 +138,7 @@ export function TeacherEditorForm({
     <form
       onSubmit={onSave}
       autoComplete="off"
-      className="bg-card border-2 border-primary/40 rounded-lg p-4 shadow-sm space-y-4 animate-in fade-in duration-150"
+      className="space-y-4"
     >
       <div className="flex items-center justify-between border-b pb-2.5">
         <div className="flex items-center gap-2">
