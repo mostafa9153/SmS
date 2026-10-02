@@ -55,6 +55,7 @@ export interface RoutineSubject {
   allowMultiplePerDay: boolean;
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
+  sortOrder?: number | null;
 }
 
 export interface RoutineTeacher {

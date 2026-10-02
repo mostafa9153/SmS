@@ -1,6 +1,21 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { RoutineSubject, RoutineClass } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +47,7 @@ import {
   CloudUpload,
   RefreshCw,
   Save,
+  GripVertical,
 } from "lucide-react";
 import { setLocalRoutineState } from "@/lib/supabase/db-routine";
 import { Badge } from "@/components/ui/badge";
@@ -224,6 +240,14 @@ export function RoutineSubjectsTab({
   const [isSyncing, setIsSyncing] = useState(false);
   const [marksSchemeVersion, setMarksSchemeVersion] = useState(0);
 
+  // Drag-to-reorder: localOrder[classKey] = ordered array of subject ids
+  const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
+
+  // DnD sensors — require 5px movement to start drag so clicks still work
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
   useEffect(() => {
     const handleMarksUpdate = () => {
       setMarksSchemeVersion((v) => v + 1);
@@ -305,8 +329,31 @@ export function RoutineSubjectsTab({
       }
     }
 
-    return Array.from(seen.values());
-  }, [subjects, activeClass, isCurrentClassHs, selectedStream]);
+    const deduped = Array.from(seen.values());
+
+    // Apply local drag order if present for this class/stream key
+    const orderKey = `${activeClass}::${selectedStream}`;
+    const order = localOrder[orderKey];
+    if (order && order.length > 0) {
+      const idToSubject = new Map(deduped.map((s) => [s.id, s]));
+      const ordered: RoutineSubject[] = [];
+      for (const id of order) {
+        if (idToSubject.has(id)) ordered.push(idToSubject.get(id)!);
+      }
+      // Append any new subjects not yet in the saved order
+      for (const s of deduped) {
+        if (!order.includes(s.id)) ordered.push(s);
+      }
+      return ordered;
+    }
+
+    // Fall back to sortOrder field if present
+    return deduped.sort((a, b) => {
+      const ao = a.sortOrder ?? 9999;
+      const bo = b.sortOrder ?? 9999;
+      return ao - bo;
+    });
+  }, [subjects, activeClass, isCurrentClassHs, selectedStream, localOrder]);
 
   // Total weekly periods load for the currently active class subjects
   const currentClassTotalPeriods = useMemo(() => {
@@ -354,6 +401,21 @@ export function RoutineSubjectsTab({
       0
     );
   }, [subjects]);
+
+  // Handle drag-end: reorder within the current class/stream key
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const orderKey = `${activeClass}::${selectedStream}`;
+    const currentIds = currentClassSubjects.map((s) => s.id);
+    const oldIdx = currentIds.indexOf(active.id as string);
+    const newIdx = currentIds.indexOf(over.id as string);
+    if (oldIdx === -1 || newIdx === -1) return;
+
+    const reordered = arrayMove(currentIds, oldIdx, newIdx);
+    setLocalOrder((prev) => ({ ...prev, [orderKey]: reordered }));
+  }, [activeClass, selectedStream, currentClassSubjects]);
 
   const handleEdit = React.useCallback((s: RoutineSubject) => {
     setEditId(s.id);
@@ -547,20 +609,32 @@ export function RoutineSubjectsTab({
         setEditId(null);
       }
 
-      const rows = currentList.map((s) => ({
-        id: s.id,
-        name: s.name,
-        className: s.className || null,
-        classId: s.classId || null,
-        stream: s.stream || null,
-        isCommon: s.isCommon,
-        isHard: s.isHard,
-        isLab: s.isLab,
-        timePref: s.timePref,
-        allowMultiplePerDay: s.allowMultiplePerDay,
-        maxPerDay: s.maxPerDay,
-        periodsPerWeek: s.periodsPerWeek,
-      }));
+      const rows = currentList.map((s) => {
+        // Resolve sortOrder from any localOrder entry that contains this subject
+        let resolvedOrder: number | null = s.sortOrder ?? null;
+        for (const [, orderedIds] of Object.entries(localOrder)) {
+          const idx = orderedIds.indexOf(s.id);
+          if (idx !== -1) {
+            resolvedOrder = idx;
+            break;
+          }
+        }
+        return {
+          id: s.id,
+          name: s.name,
+          className: s.className || null,
+          classId: s.classId || null,
+          stream: s.stream || null,
+          isCommon: s.isCommon,
+          isHard: s.isHard,
+          isLab: s.isLab,
+          timePref: s.timePref,
+          allowMultiplePerDay: s.allowMultiplePerDay,
+          maxPerDay: s.maxPerDay,
+          periodsPerWeek: s.periodsPerWeek,
+          sortOrder: resolvedOrder,
+        };
+      });
 
       if (onBatchSaveSubjects) {
         await onBatchSaveSubjects(rows);
@@ -606,6 +680,7 @@ export function RoutineSubjectsTab({
     allowMulti,
     maxPerDay,
     periodsPerWeek,
+    localOrder,
     onBatchSaveSubjects,
     onSaveSubject,
   ]);
@@ -1023,61 +1098,6 @@ export function RoutineSubjectsTab({
           </Button>
         </div>
 
-        {/* Preset Subject Chips for Active Class & Selected Stream */}
-        {activeClass !== "all" && (
-          <div className="p-2.5 bg-muted/25 border rounded-md space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <span>{activeClass} Curriculum Presets</span>
-                {isCurrentClassHs && (
-                  <Badge variant="outline" className="text-[10px] font-medium">
-                    {selectedStream === "all" ? "All Streams" : selectedStream}
-                  </Badge>
-                )}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 items-center">
-              {activeClassPresets.length === 0 ? (
-                <span className="text-xs text-muted-foreground italic">
-                  No preset subjects configured for {activeClass}.
-                </span>
-              ) : (
-                activeClassPresets.map((sub) => {
-                  const isAlreadyAdded = currentClassSubjects.some(
-                    (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
-                  );
-                  const isCurrent = name.trim().toLowerCase() === sub.trim().toLowerCase();
-
-                  return (
-                    <button
-                      key={sub}
-                      type="button"
-                      onClick={() => handleSelectPresetChip(sub)}
-                      className={cn(
-                        "px-2.5 py-1 rounded text-xs font-medium border transition-all select-none flex items-center gap-1",
-                        isCurrent
-                          ? "bg-primary text-primary-foreground border-primary shadow-2xs font-semibold"
-                          : isAlreadyAdded
-                          ? "bg-muted/50 text-muted-foreground/80 border-border hover:bg-muted"
-                          : "bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5"
-                      )}
-                    >
-                      {isCurrent && <Check className="w-3 h-3 text-primary-foreground" />}
-                      <span>{sub}</span>
-                      {isAlreadyAdded && !isCurrent && (
-                        <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono">
-                          (Added)
-                        </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Form Inputs */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
           {/* Subject Name Selector Dropdown */}
@@ -1384,47 +1404,60 @@ export function RoutineSubjectsTab({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left border-collapse">
-            <thead>
-              <tr className="bg-muted/20 border-b text-muted-foreground font-semibold">
-                <th className="py-2.5 px-4">Subject Name</th>
-                {activeClass === "all" && <th className="py-2.5 px-4">Class</th>}
-                <th className="py-2.5 px-4">Stream / Type</th>
-                <th className="py-2.5 px-4">Weekly Load</th>
-                <th className="py-2.5 px-4">Period Format</th>
-                <th className="py-2.5 px-4">Time Preference</th>
-                <th className="py-2.5 px-4">Daily Policy</th>
-                <th className="py-2.5 px-4 text-right w-20">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {currentClassSubjects.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={activeClass === "all" ? 8 : 7}
-                    className="py-8 text-center text-muted-foreground"
-                  >
-                    <BookOpen className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>
-                      {activeClass === "all"
-                        ? "No subjects created yet."
-                        : `No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Select a preset chip or add a subject above.`}
-                    </span>
-                  </td>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="bg-muted/20 border-b text-muted-foreground font-semibold">
+                  {activeClass !== "all" && <th className="py-2.5 pl-3 pr-1 w-6" />}
+                  <th className="py-2.5 px-4">Subject Name</th>
+                  {activeClass === "all" && <th className="py-2.5 px-4">Class</th>}
+                  <th className="py-2.5 px-4">Stream / Type</th>
+                  <th className="py-2.5 px-4">Weekly Load</th>
+                  <th className="py-2.5 px-4">Period Format</th>
+                  <th className="py-2.5 px-4">Time Preference</th>
+                  <th className="py-2.5 px-4">Daily Policy</th>
+                  <th className="py-2.5 px-4 text-right w-20">Actions</th>
                 </tr>
-              ) : (
-                currentClassSubjects.map((s) => (
-                  <SubjectTableRow
-                    key={s.id}
-                    subject={s}
-                    activeClass={activeClass}
-                    onEdit={handleEdit}
-                    onDelete={onDeleteSubject}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <SortableContext
+                items={currentClassSubjects.map((s) => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <tbody className="divide-y divide-border">
+                  {currentClassSubjects.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={activeClass === "all" ? 8 : 8}
+                        className="py-8 text-center text-muted-foreground"
+                      >
+                        <BookOpen className="w-6 h-6 mx-auto mb-1 opacity-40" />
+                        <span>
+                          {activeClass === "all"
+                            ? "No subjects created yet."
+                            : `No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Select a preset chip or add a subject above.`}
+                        </span>
+                      </td>
+                    </tr>
+                  ) : (
+                    currentClassSubjects.map((s) => (
+                      <SubjectTableRow
+                        key={s.id}
+                        subject={s}
+                        activeClass={activeClass}
+                        onEdit={handleEdit}
+                        onDelete={onDeleteSubject}
+                        isDraggable={activeClass !== "all"}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </SortableContext>
+            </table>
+          </DndContext>
         </div>
       </div>
     </div>
