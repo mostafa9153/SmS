@@ -340,6 +340,19 @@ export function RoutineSubjectsTab({
     return result;
   }, [subjects, availableClasses]);
 
+  // Total subjects and weekly periods across all configured classes in school
+  const totalSchoolSubjects = useMemo(() => {
+    const sum = Object.values(classSubjectCounts).reduce((a, b) => a + b, 0);
+    return sum > 0 ? sum : subjects.length;
+  }, [classSubjectCounts, subjects]);
+
+  const totalSchoolWeeklyPeriods = useMemo(() => {
+    return subjects.reduce(
+      (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
+      0
+    );
+  }, [subjects]);
+
   const handleEdit = React.useCallback((s: RoutineSubject) => {
     setEditId(s.id);
     setName(s.name);
@@ -762,6 +775,12 @@ export function RoutineSubjectsTab({
           <div className="flex items-center gap-2">
             <School className="w-4 h-4 text-primary" />
             <span className="text-xs font-semibold text-foreground">Classes</span>
+            <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+              {totalSchoolSubjects} Total Subjects
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
+              {totalSchoolWeeklyPeriods} p/wk Total Load
+            </Badge>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -1347,6 +1366,11 @@ export function RoutineSubjectsTab({
             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
               {currentClassTotalPeriods} p/wk
             </Badge>
+            {activeClass !== "all" && (
+              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
+                School Total: {totalSchoolSubjects} Subjects
+              </Badge>
+            )}
           </div>
         </div>
 
