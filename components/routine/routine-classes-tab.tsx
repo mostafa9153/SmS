@@ -494,8 +494,20 @@ export function RoutineClassesTab({
         {/* Table Header Toolbar */}
         <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold text-foreground">Configured Classes</span>
+            <School className="w-4 h-4 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Classes & Sections</span>
+            <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+              {sortedClasses.length} Total Sections
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
+              {totalDailyPeriods} p/day
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
+              {totalWeeklyPeriods} p/wk Total Load
+            </Badge>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -597,33 +609,33 @@ export function RoutineClassesTab({
                 </>
               )}
             </Button>
-          </div>
 
-          {/* Batch Edit Bar */}
-          {sortedClasses.length > 0 && (
-            <div className="flex items-center gap-2 bg-background border px-2.5 py-1 rounded-md text-xs">
-              <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-              <span className="text-[11px] font-medium text-muted-foreground">Batch Set Daily Periods:</span>
-              <Input
-                type="number"
-                min={1}
-                max={14}
-                value={batchPeriodVal}
-                onChange={(e) => setBatchPeriodVal(e.target.value)}
-                className="h-6 w-14 text-xs font-mono px-1.5 py-0 text-center"
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleBatchApply}
-                disabled={isBatchApplying || !batchPeriodVal}
-                className="h-6 text-[11px] px-2 font-medium"
-              >
-                {isBatchApplying ? "Applying..." : "Apply to All"}
-              </Button>
-            </div>
-          )}
+            {/* Batch Edit Bar */}
+            {sortedClasses.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-background border px-2 py-0.5 rounded-md text-xs ml-1">
+                <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-[11px] font-medium text-muted-foreground">Daily Limit:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={14}
+                  value={batchPeriodVal}
+                  onChange={(e) => setBatchPeriodVal(e.target.value)}
+                  className="h-6 w-12 text-xs font-mono px-1 py-0 text-center"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleBatchApply}
+                  disabled={isBatchApplying || !batchPeriodVal}
+                  className="h-6 text-[10px] px-2 font-medium"
+                >
+                  {isBatchApplying ? "Applying..." : "Apply All"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Classes Table */}

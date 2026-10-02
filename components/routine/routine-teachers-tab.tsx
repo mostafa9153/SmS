@@ -20,6 +20,12 @@ import {
 } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { batchSaveTeachersAvailabilityDb } from "@/lib/supabase/db-routine";
 import {
   getDynamicClassList,
@@ -1249,65 +1255,79 @@ export function RoutineTeachersTab({
         </div>
       </div>
 
-      {/* Teacher Editor Form Component Helper */}
-      {(() => null)()}
-
-      {/* Availability & Class/Subject Editor Form (when adding a new faculty member) */}
-      {isEditorOpen && !editingTeacherId && (
-        <TeacherEditorForm
-          isSubmitting={isSubmitting}
-          editingTeacherId={editingTeacherId}
-          teacherName={teacherName}
-          shortName={shortName}
-          primarySubject={primarySubject}
-          customPrimarySubject={customPrimarySubject}
-          classTeacherOf={classTeacherOf}
-          classTeacherFirstPeriods={classTeacherFirstPeriods}
-          maxPeriods={maxPeriods}
-          selectedClasses={selectedClasses}
-          classSubjectsMap={classSubjectsMap}
-          sectionSubjectsMap={sectionSubjectsMap}
-          classSectionsMap={classSectionsMap}
-          classPeriodsMap={classPeriodsMap}
-          activeSectionTab={activeSectionTab}
-          availSlots={availSlots}
-          presetClasses={presetClasses}
-          staffList={staffList}
-          selectableStaffList={selectableStaffList}
-          unaddedStaff={unaddedStaff}
-          selectedStaffId={selectedStaffId}
-          selectedStaffLabel={selectedStaffLabel}
-          availableSubjectOptions={availableSubjectOptions}
-          availableClassOptions={availableClassOptions}
-          currentClassTeacherMap={currentClassTeacherMap}
-          conflictTeacher={conflictTeacher}
-          classSubjectsDictionary={classSubjectsDictionary}
-          settings={settings}
-          onSave={handleSave}
-          onCancel={handleCancel}
-          onStaffDropdownChange={handleStaffDropdownChange}
-          onCustomNameChange={handleCustomNameChange}
-          setShortName={setShortName}
-          setPrimarySubject={setPrimarySubject}
-          setCustomPrimarySubject={setCustomPrimarySubject}
-          setClassTeacherOf={setClassTeacherOf}
-          setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
-          setMaxPeriods={setMaxPeriods}
-          onToggleClass={toggleClass}
-          onToggleSubjectForSection={toggleSubjectForSection}
-          onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
-          onSubjectPeriodChange={handleSubjectPeriodChange}
-          onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
-          onSelectSection={handleSelectSection}
-          onTogglePeriod={togglePeriod}
-          onSetPreset={setPreset}
-          getClassSections={getClassSections}
-          getSectionSubjects={getSectionSubjects}
-          getSubjectPeriod={getSubjectPeriod}
-          getSubjectAllocationStats={getSubjectAllocationStats}
-          calculateSectionTotalPeriods={calculateSectionTotalPeriods}
-        />
-      )}
+      {/* Faculty Editor Dialog Popup (Modal for Add & Edit) */}
+      <Dialog
+        open={isEditorOpen}
+        onOpenChange={(open) => {
+          if (!open) handleCancel();
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-4xl w-[96vw] max-h-[90vh] overflow-y-auto p-4 sm:p-5 rounded-xl bg-card border shadow-xl"
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>
+              {editingTeacherId && !unaddedStaff.some((s) => s.id === editingTeacherId)
+                ? `Edit Faculty: ${teacherName}`
+                : "Configure Faculty Member"}
+            </DialogTitle>
+          </DialogHeader>
+          <TeacherEditorForm
+            isSubmitting={isSubmitting}
+            editingTeacherId={editingTeacherId}
+            teacherName={teacherName}
+            shortName={shortName}
+            primarySubject={primarySubject}
+            customPrimarySubject={customPrimarySubject}
+            classTeacherOf={classTeacherOf}
+            classTeacherFirstPeriods={classTeacherFirstPeriods}
+            maxPeriods={maxPeriods}
+            selectedClasses={selectedClasses}
+            classSubjectsMap={classSubjectsMap}
+            sectionSubjectsMap={sectionSubjectsMap}
+            classSectionsMap={classSectionsMap}
+            classPeriodsMap={classPeriodsMap}
+            activeSectionTab={activeSectionTab}
+            availSlots={availSlots}
+            presetClasses={presetClasses}
+            staffList={staffList}
+            selectableStaffList={selectableStaffList}
+            unaddedStaff={unaddedStaff}
+            selectedStaffId={selectedStaffId}
+            selectedStaffLabel={selectedStaffLabel}
+            availableSubjectOptions={availableSubjectOptions}
+            availableClassOptions={availableClassOptions}
+            currentClassTeacherMap={currentClassTeacherMap}
+            conflictTeacher={conflictTeacher}
+            classSubjectsDictionary={classSubjectsDictionary}
+            settings={settings}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onStaffDropdownChange={handleStaffDropdownChange}
+            onCustomNameChange={handleCustomNameChange}
+            setShortName={setShortName}
+            setPrimarySubject={setPrimarySubject}
+            setCustomPrimarySubject={setCustomPrimarySubject}
+            setClassTeacherOf={setClassTeacherOf}
+            setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
+            setMaxPeriods={setMaxPeriods}
+            onToggleClass={toggleClass}
+            onToggleSubjectForSection={toggleSubjectForSection}
+            onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
+            onSubjectPeriodChange={handleSubjectPeriodChange}
+            onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
+            onSelectSection={handleSelectSection}
+            onTogglePeriod={togglePeriod}
+            onSetPreset={setPreset}
+            getClassSections={getClassSections}
+            getSectionSubjects={getSectionSubjects}
+            getSubjectPeriod={getSubjectPeriod}
+            getSubjectAllocationStats={getSubjectAllocationStats}
+            calculateSectionTotalPeriods={calculateSectionTotalPeriods}
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Teachers List Table */}
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
@@ -1344,82 +1364,19 @@ export function RoutineTeachersTab({
                   </td>
                 </tr>
               ) : (
-                teachers.map((t) => {
-                  const isEditingThis = isEditorOpen && editingTeacherId === t.id;
-                  return (
-                    <React.Fragment key={t.id}>
-                      <TeacherTableRow
-                        teacher={t}
-                        load={teacherLoadMap[t.id] || 0}
-                        subjects={subjects}
-                        classTotalSubjectsMap={classTotalSubjectsMap}
-                        settings={settings}
-                        isEditing={isEditingThis}
-                        onEdit={handleEdit}
-                        onDelete={onDeleteTeacher ? handleDelete : undefined}
-                      />
-                      {isEditingThis && (
-                        <tr className="bg-muted/15 border-b border-primary/30">
-                          <td colSpan={8} className="p-3">
-                            <TeacherEditorForm
-                              isSubmitting={isSubmitting}
-                              editingTeacherId={editingTeacherId}
-                              teacherName={teacherName}
-                              shortName={shortName}
-                              primarySubject={primarySubject}
-                              customPrimarySubject={customPrimarySubject}
-                              classTeacherOf={classTeacherOf}
-                              classTeacherFirstPeriods={classTeacherFirstPeriods}
-                              maxPeriods={maxPeriods}
-                              selectedClasses={selectedClasses}
-                              classSubjectsMap={classSubjectsMap}
-                              sectionSubjectsMap={sectionSubjectsMap}
-                              classSectionsMap={classSectionsMap}
-                              classPeriodsMap={classPeriodsMap}
-                              activeSectionTab={activeSectionTab}
-                              availSlots={availSlots}
-                              presetClasses={presetClasses}
-                              staffList={staffList}
-                              selectableStaffList={selectableStaffList}
-                              unaddedStaff={unaddedStaff}
-                              selectedStaffId={selectedStaffId}
-                              selectedStaffLabel={selectedStaffLabel}
-                              availableSubjectOptions={availableSubjectOptions}
-                              availableClassOptions={availableClassOptions}
-                              currentClassTeacherMap={currentClassTeacherMap}
-                              conflictTeacher={conflictTeacher}
-                              classSubjectsDictionary={classSubjectsDictionary}
-                              settings={settings}
-                              onSave={handleSave}
-                              onCancel={handleCancel}
-                              onStaffDropdownChange={handleStaffDropdownChange}
-                              onCustomNameChange={handleCustomNameChange}
-                              setShortName={setShortName}
-                              setPrimarySubject={setPrimarySubject}
-                              setCustomPrimarySubject={setCustomPrimarySubject}
-                              setClassTeacherOf={setClassTeacherOf}
-                              setClassTeacherFirstPeriods={setClassTeacherFirstPeriods}
-                              setMaxPeriods={setMaxPeriods}
-                              onToggleClass={toggleClass}
-                              onToggleSubjectForSection={toggleSubjectForSection}
-                              onToggleAllSubjectsForSection={toggleAllSubjectsForSection}
-                              onSubjectPeriodChange={handleSubjectPeriodChange}
-                              onSetActiveSectionTab={(cls, sec) => setActiveSectionTab((prev) => ({ ...prev, [cls]: sec }))}
-                              onSelectSection={handleSelectSection}
-                              onTogglePeriod={togglePeriod}
-                              onSetPreset={setPreset}
-                              getClassSections={getClassSections}
-                              getSectionSubjects={getSectionSubjects}
-                              getSubjectPeriod={getSubjectPeriod}
-                              getSubjectAllocationStats={getSubjectAllocationStats}
-                              calculateSectionTotalPeriods={calculateSectionTotalPeriods}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
+                teachers.map((t) => (
+                  <TeacherTableRow
+                    key={t.id}
+                    teacher={t}
+                    load={teacherLoadMap[t.id] || 0}
+                    subjects={subjects}
+                    classTotalSubjectsMap={classTotalSubjectsMap}
+                    settings={settings}
+                    isEditing={isEditorOpen && editingTeacherId === t.id}
+                    onEdit={handleEdit}
+                    onDelete={onDeleteTeacher ? handleDelete : undefined}
+                  />
+                ))
               )}
             </tbody>
           </table>
