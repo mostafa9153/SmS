@@ -38,6 +38,7 @@ import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import { syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { MASTER_SUBJECT_BANK } from "@/lib/utils/marks-config";
 import {
   getDynamicClassList,
   FALLBACK_CLASSES,
@@ -264,6 +265,21 @@ export function RoutineSubjectsTab({
     }
     return getDatabaseSubjectsForClass(activeClass);
   }, [activeClass, isCurrentClassHs, selectedStream, configuredStreamsForActive, marksSchemeVersion]);
+
+  // Additional Master Preset Subjects from the official Subject Bank
+  const otherMasterBankSubjects = useMemo(() => {
+    const allBankSubs: string[] = [];
+    MASTER_SUBJECT_BANK.forEach((cat) => {
+      cat.subjects.forEach((sub) => {
+        if (!allBankSubs.includes(sub)) {
+          allBankSubs.push(sub);
+        }
+      });
+    });
+
+    const activeSet = new Set(activeClassPresets.map((p) => p.toLowerCase()));
+    return allBankSubs.filter((sub) => !activeSet.has(sub.toLowerCase()));
+  }, [activeClassPresets]);
 
   // Filtered subjects for the active class view & stream (Strictly Deduplicated)
   const currentClassSubjects = useMemo(() => {
@@ -1100,7 +1116,10 @@ export function RoutineSubjectsTab({
               <SelectTrigger className="h-8 text-xs font-medium bg-background">
                 <SelectValue placeholder="Choose Subject from Presets" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72">
+                <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40 sticky top-0 z-10">
+                  {targetClassForForm} Presets
+                </div>
                 {activeClassPresets.map((sub) => {
                   const isAdded = currentClassSubjects.some(
                     (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
@@ -1118,9 +1137,39 @@ export function RoutineSubjectsTab({
                     </SelectItem>
                   );
                 })}
+
+                {otherMasterBankSubjects.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider bg-muted/40 border-t mt-1 sticky top-0 z-10">
+                      Other Available Presets
+                    </div>
+                    {otherMasterBankSubjects.map((sub) => {
+                      const isAdded = currentClassSubjects.some(
+                        (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
+                      );
+                      return (
+                        <SelectItem key={sub} value={sub} className="text-xs">
+                          <div className="flex items-center justify-between w-full gap-2">
+                            <span>{sub}</span>
+                            {isAdded && (
+                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                                (Added)
+                              </span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </>
+                )}
+
                 {/* Any existing subjects for this class */}
                 {currentClassSubjects
-                  .filter((s) => !activeClassPresets.some((p) => p.toLowerCase() === s.name.toLowerCase()))
+                  .filter(
+                    (s) =>
+                      !activeClassPresets.some((p) => p.toLowerCase() === s.name.toLowerCase()) &&
+                      !otherMasterBankSubjects.some((p) => p.toLowerCase() === s.name.toLowerCase())
+                  )
                   .map((s) => (
                     <SelectItem key={s.id} value={s.name} className="text-xs">
                       <div className="flex items-center justify-between w-full gap-2">

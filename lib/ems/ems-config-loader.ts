@@ -1,5 +1,5 @@
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
-import { getSavedMarksSchemes, ClassMarksScheme } from "@/lib/utils/marks-config";
+import { getSavedMarksSchemes, ClassMarksScheme, DEFAULT_MARKS_SCHEMES } from "@/lib/utils/marks-config";
 import { getStandardSubjectsForClass } from "@/lib/utils/marksheet-calc";
 
 export interface DynamicClassItem {
@@ -230,19 +230,28 @@ export function getDatabaseSubjectsForClass(
   }
 
   // 2. Default fallback if no scheme is configured yet in Settings
-  const fallbackCurriculumMap: Record<string, string[]> = {
-    V: ["Bengali", "English", "Mathematics", "Our Environment"],
-    VI: ["Bengali", "English", "Mathematics", "Environment & Science", "History", "Geography"],
-    VII: ["Bengali", "English", "Sanskrit", "Mathematics", "Environment & Science", "History", "Geography"],
-    VIII: ["Bengali", "English", "Sanskrit", "Mathematics", "Environment & Science", "History", "Geography"],
-    IX: ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"],
-    X: ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"],
-    XI: ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biological Sciences"],
-    XII: ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biological Sciences"],
-  };
+  const defaultScheme = DEFAULT_MARKS_SCHEMES.find((s) => {
+    const sCode = (s.classCode || s.className || "")
+      .trim()
+      .toUpperCase()
+      .replace(/^CLASS\s*[-_]?\s*/i, "");
+    return (romanMap[sCode] || sCode) === normalizedClass;
+  });
 
-  return fallbackCurriculumMap[normalizedClass] || [
-    "Bengali", "English", "Mathematics", "Environment & Science", "History", "Geography",
+  if (defaultScheme && Array.isArray(defaultScheme.subjects) && defaultScheme.subjects.length > 0) {
+    if (preserveOriginalNames) {
+      return Array.from(new Set(defaultScheme.subjects.map((s) => s.trim()).filter(Boolean)));
+    }
+    return Array.from(new Set(defaultScheme.subjects.map((s) => cleanSubjectName(s)).filter(Boolean)));
+  }
+
+  return [
+    "Bengali (1st Language)",
+    "English (2nd Language)",
+    "Mathematics",
+    "Environment & Science",
+    "History",
+    "Geography",
   ];
 }
 
