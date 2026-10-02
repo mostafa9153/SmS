@@ -246,6 +246,7 @@ function RoutineSetupPageContent() {
     allowMultiplePerDay?: boolean;
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
+    sortOrder?: number | null;
   }) => {
     const id = await upsertSubjectDb(subjData);
     setSubjects((prev) => {
@@ -271,6 +272,7 @@ function RoutineSetupPageContent() {
           subjData.periodsPerWeek !== undefined && subjData.periodsPerWeek !== null
             ? Number(subjData.periodsPerWeek)
             : 5,
+        sortOrder: subjData.sortOrder !== undefined ? subjData.sortOrder : null,
       };
       if (idx > -1) {
         const next = [...prev];
@@ -343,6 +345,7 @@ function RoutineSetupPageContent() {
       allowMultiplePerDay?: boolean;
       maxPerDay?: number | null;
       periodsPerWeek?: number | null;
+      sortOrder?: number | null;
     }[]
   ) => {
     const saved = await batchUpsertSubjectsDb(subjectsList);

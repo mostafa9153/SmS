@@ -653,6 +653,7 @@ export async function upsertSubjectDb(subj: {
   allowMultiplePerDay?: boolean;
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
+  sortOrder?: number | null;
 }): Promise<string> {
   const local = getLocalRoutineState() || {};
   const currentSubjects: RoutineSubject[] = local.subjects || [];
@@ -704,6 +705,7 @@ export async function upsertSubjectDb(subj: {
       subj.periodsPerWeek !== undefined && subj.periodsPerWeek !== null
         ? Number(subj.periodsPerWeek)
         : 5,
+    sortOrder: subj.sortOrder !== undefined ? subj.sortOrder : null,
   };
 
   let nextSubjects: RoutineSubject[];
@@ -732,6 +734,7 @@ export async function upsertSubjectDb(subj: {
     if (subj.isCommon !== undefined) payload.is_common = Boolean(subj.isCommon);
     if (subj.maxPerDay !== undefined) payload.max_per_day = subj.maxPerDay;
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
+    if (subj.sortOrder !== undefined) payload.sort_order = subj.sortOrder;
 
     const { error } = await supabase.from("routine_subjects").upsert(payload);
     if (error) {
@@ -768,6 +771,7 @@ export async function batchUpsertSubjectsDb(
     allowMultiplePerDay?: boolean;
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
+    sortOrder?: number | null;
   }[]
 ): Promise<RoutineSubject[]> {
   const local = getLocalRoutineState() || {};
@@ -809,6 +813,7 @@ export async function batchUpsertSubjectsDb(
         s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
           ? Number(s.periodsPerWeek)
           : 5,
+      sortOrder: s.sortOrder !== undefined ? s.sortOrder : null,
     };
   });
 
@@ -842,6 +847,7 @@ export async function batchUpsertSubjectsDb(
     allow_multiple_per_day: s.allowMultiplePerDay,
     max_per_day: s.maxPerDay,
     periods_per_week: s.periodsPerWeek,
+    sort_order: s.sortOrder,
   }));
 
   try {
