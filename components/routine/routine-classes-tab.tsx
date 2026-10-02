@@ -249,6 +249,21 @@ export function RoutineClassesTab({
     });
   }, [classes]);
 
+  // Compute total daily and weekly period sums across all configured classes
+  const { totalDailyPeriods, totalWeeklyPeriods } = useMemo(() => {
+    let dailySum = 0;
+    let weeklySum = 0;
+    const globalP = settings?.periodsPerDay || 8;
+
+    sortedClasses.forEach((c) => {
+      const dp = c.dailyPeriods && c.dailyPeriods > 0 ? c.dailyPeriods : globalP;
+      dailySum += dp;
+      weeklySum += calculateWeeklyPeriods(c.dailyPeriods);
+    });
+
+    return { totalDailyPeriods: dailySum, totalWeeklyPeriods: weeklySum };
+  }, [sortedClasses, settings, calculateWeeklyPeriods]);
+
   // Batch edit bar state
   const [batchPeriodVal, setBatchPeriodVal] = useState<string>("7");
   const [isBatchApplying, setIsBatchApplying] = useState(false);
@@ -591,10 +606,16 @@ export function RoutineClassesTab({
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
         {/* Table Header Toolbar */}
         <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-foreground">Configured Classes</span>
             <Badge variant="secondary" className="text-[10px] font-mono">
               {sortedClasses.length} Total
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
+              Daily: <span className="font-bold ml-1">{totalDailyPeriods}</span> p/day
+            </Badge>
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
+              Weekly: <span className="font-bold ml-1">{totalWeeklyPeriods}</span> p/wk
             </Badge>
 
             <Button
@@ -698,8 +719,22 @@ export function RoutineClassesTab({
                 <th className="py-2.5 px-4 w-1/4">Class</th>
                 <th className="py-2.5 px-4 w-1/6">Section</th>
                 <th className="py-2.5 px-4 w-1/5">Stream</th>
-                <th className="py-2.5 px-4">Daily Period Limit (In-line Edit)</th>
-                <th className="py-2.5 px-4 w-36">Max Periods / Week</th>
+                <th className="py-2.5 px-4">
+                  <div className="flex items-center gap-1.5">
+                    <span>Daily Period Limit (In-line Edit)</span>
+                    <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 h-4">
+                      {totalDailyPeriods} p/day
+                    </Badge>
+                  </div>
+                </th>
+                <th className="py-2.5 px-4 w-44">
+                  <div className="flex items-center gap-1.5">
+                    <span>Max Periods / Week</span>
+                    <Badge variant="secondary" className="text-[9px] font-mono font-bold px-1.5 py-0 h-4">
+                      {totalWeeklyPeriods} p/wk
+                    </Badge>
+                  </div>
+                </th>
                 <th className="py-2.5 px-4 text-right w-16">Actions</th>
               </tr>
             </thead>
@@ -723,6 +758,22 @@ export function RoutineClassesTab({
                 ))
               )}
             </tbody>
+            {sortedClasses.length > 0 && (
+              <tfoot className="bg-muted/40 font-semibold border-t">
+                <tr>
+                  <td className="py-2 px-4 text-foreground" colSpan={3}>
+                    Total ({sortedClasses.length} Sections)
+                  </td>
+                  <td className="py-2 px-4 font-mono font-bold text-foreground">
+                    {totalDailyPeriods} periods/day
+                  </td>
+                  <td className="py-2 px-4 font-mono font-bold text-foreground">
+                    {totalWeeklyPeriods} p/wk
+                  </td>
+                  <td className="py-2 px-4"></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
