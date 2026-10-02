@@ -1469,6 +1469,7 @@ interface SubjectTableRowProps {
   activeClass: string;
   onEdit: (s: RoutineSubject) => void;
   onDelete: (id: string) => Promise<void>;
+  isDraggable?: boolean;
 }
 
 const SubjectTableRow = React.memo(function SubjectTableRow({
