@@ -9,6 +9,7 @@ import {
   GeneratedRoutine,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
+import { sanitizeTeacherSubjectPeriods } from "@/lib/routine/routine-helpers";
 
 export interface RoutineFullState {
   settings: RoutineSettings;
@@ -326,7 +327,9 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
       });
     }
 
-    teachers = Array.from(loadedTeachersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    teachers = Array.from(loadedTeachersMap.values())
+      .map(sanitizeTeacherSubjectPeriods)
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     // 6. Fetch Assignments
     const { data: asgRows, error: asgError } = await supabase
@@ -544,7 +547,7 @@ export async function batchUpsertClassesDb(
   classesList: { id?: string; className: string; section: string; dailyPeriods?: number | null }[]
 ): Promise<RoutineClass[]> {
   const local = getLocalRoutineState() || {};
-  let currentClasses: RoutineClass[] = [...(local.classes || [])];
+  const currentClasses: RoutineClass[] = [...(local.classes || [])];
 
   const processedList: RoutineClass[] = classesList.map((cls) => {
     const normClass = cls.className.trim().toLowerCase();
@@ -775,7 +778,7 @@ export async function batchUpsertSubjectsDb(
   }[]
 ): Promise<RoutineSubject[]> {
   const local = getLocalRoutineState() || {};
-  let currentSubjects: RoutineSubject[] = [...(local.subjects || [])];
+  const currentSubjects: RoutineSubject[] = [...(local.subjects || [])];
 
   const processedList: RoutineSubject[] = subjectsList.map((s) => {
     const normalizedName = s.name.trim().toLowerCase();

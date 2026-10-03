@@ -1,3 +1,4 @@
+import { getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 import {
   RoutineClass,
   RoutineSubject,
@@ -48,7 +49,7 @@ export function autoBuildRoutineAssignments(
 
     // Find subjects for this class and stream (for HS classes)
     const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
-    const matchingSubjects = candidates.filter((s) => {
+    const rawMatchingSubjects = candidates.filter((s) => {
       if (s.className && s.className.toLowerCase() !== clsNameLower) {
         return false;
       }
@@ -56,7 +57,13 @@ export function autoBuildRoutineAssignments(
         return false;
       }
       if (!isHs) {
-        return true;
+        if (hasExplicitSubs) {
+          return Boolean(s.className && s.className.toLowerCase() === clsNameLower);
+        }
+        const presets = new Set(
+          getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
+        );
+        return presets.has(s.name.trim().toLowerCase());
       }
       // Higher Secondary stream filtering
       const isCommon =
@@ -72,6 +79,18 @@ export function autoBuildRoutineAssignments(
       return true;
     });
 
+    // Deduplicate matching subjects by canonical subject name
+    const matchingSubjects: RoutineSubject[] = [];
+    const seenNames = new Set<string>();
+    for (const s of rawMatchingSubjects) {
+      const canonicalName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+      const key = `${canonicalName}::${(s.stream || detectSubjectStream(s.name) || "Common").toLowerCase()}`;
+      if (!seenNames.has(key)) {
+        seenNames.add(key);
+        matchingSubjects.push(s);
+      }
+    }
+
     for (const subj of matchingSubjects) {
       const weeklyPeriods = subj.periodsPerWeek && subj.periodsPerWeek > 0
         ? subj.periodsPerWeek
@@ -83,22 +102,15 @@ export function autoBuildRoutineAssignments(
 
       // Find qualified teachers for this class, section and subject
       const qualifiedTeachers = teachers.filter((t) => {
-        // 0. If teacher has explicit subject periods for this exact class, section & subject, they are qualified
-        const explicitP =
-          t.subjectPeriods?.[`${cls.className}::${secName}::${subj.name}`] ??
-          t.subjectPeriods?.[`${cls.className}-${secName}-${subj.name}`] ??
-          t.subjectPeriods?.[`${cls.className}_${secName}_${subj.name}`] ??
-          t.subjectPeriods?.[`${cls.className}::${subj.name}`];
-        if (explicitP && Number(explicitP) > 0) return true;
-
         // 1. Class qualification
         const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
         const classQualified = qClasses.length === 0 || qClasses.includes(clsNameLower);
         if (!classQualified) return false;
 
         // 2. Section qualification
-        const tSections = t.classSections?.[cls.className] || [];
-        if (tSections.length > 0) {
+        if (t.classSections?.[cls.className] !== undefined) {
+          const tSections = t.classSections[cls.className];
+          if (!Array.isArray(tSections) || tSections.length === 0) return false;
           const clsSec = (cls.section || "A").trim().toLowerCase();
           const matchesSec = tSections.some((s) => {
             const sLower = s.trim().toLowerCase();
@@ -114,9 +126,24 @@ export function autoBuildRoutineAssignments(
 
         // 3. Subject qualification (Check section-specific subjects first, then class subjects)
         const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
-        const secSubs = t.sectionSubjects?.[secKey] ?? t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`];
-        if (secSubs && Array.isArray(secSubs) && secSubs.length > 0) {
-          return secSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
+        const secSubs =
+          t.sectionSubjects?.[secKey] ??
+          t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
+          t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`];
+
+        if (secSubs !== undefined) {
+          return Array.isArray(secSubs) && secSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
+        }
+
+        // If teacher has ANY sectionSubjects configured for this class, strictly do NOT fall back to classSubjects
+        const hasAnySecConfig = Object.keys(t.sectionSubjects || {}).some(
+          (k) =>
+            k.startsWith(`${cls.className}::`) ||
+            k.startsWith(`${cls.className}-`) ||
+            k.startsWith(`${cls.className}_`)
+        );
+        if (hasAnySecConfig) {
+          return false;
         }
 
         const classSubs = t.classSubjects?.[cls.className] || [];
@@ -131,7 +158,11 @@ export function autoBuildRoutineAssignments(
           t.subjectPeriods?.[`${cls.className}::${secName}::${subj.name}`] ??
           t.subjectPeriods?.[`${cls.className}-${secName}-${subj.name}`] ??
           t.subjectPeriods?.[`${cls.className}_${secName}_${subj.name}`] ??
-          t.subjectPeriods?.[`${cls.className}::${subj.name}`];
+          t.subjectPeriods?.[`${cls.className}-${secName}::${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}_${secName}::${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}::${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}-${subj.name}`] ??
+          t.subjectPeriods?.[`${cls.className}_${subj.name}`];
         if (p && Number(p) > 0) {
           explicitTeachers.push({
             teacher: t,
@@ -155,7 +186,7 @@ export function autoBuildRoutineAssignments(
       }
 
       if (explicitTeachers.length > 0) {
-        let totalExplicit = 0;
+        // Allocate strictly the configured explicit periods without artificial inflation
         explicitTeachers.forEach(({ teacher, periods }) => {
           assignments.push({
             id: crypto.randomUUID(),
@@ -166,30 +197,7 @@ export function autoBuildRoutineAssignments(
             periodsPerWeek: periods,
           });
           teacherLoads[teacher.id] = (teacherLoads[teacher.id] || 0) + periods;
-          totalExplicit += periods;
         });
-
-        // If total explicit periods doesn't cover required demand, allocate remaining to the primary/first teacher
-        const remainingDemand = weeklyPeriods - totalExplicit;
-        if (remainingDemand > 0) {
-          const leadTeacher = explicitTeachers[0].teacher;
-          const existingAsg = assignments.find(
-            (a) => a.classId === cls.id && a.subjectId === subj.id && a.teacherId === leadTeacher.id
-          );
-          if (existingAsg) {
-            existingAsg.periodsPerWeek += remainingDemand;
-          } else {
-            assignments.push({
-              id: crypto.randomUUID(),
-              classId: cls.id,
-              subjectId: subj.id,
-              teacherId: leadTeacher.id,
-              roomId: assignedRoomId,
-              periodsPerWeek: remainingDemand,
-            });
-          }
-          teacherLoads[leadTeacher.id] = (teacherLoads[leadTeacher.id] || 0) + remainingDemand;
-        }
         continue;
       }
 

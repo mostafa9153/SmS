@@ -66,7 +66,7 @@ export interface TeacherEditorFormProps {
   onToggleAllSubjectsForSection: (clsName: string, sec: string) => void;
   onSubjectPeriodChange: (clsName: string, sec: string, subName: string, val: string) => void;
   onSetActiveSectionTab: (clsName: string, sec: string) => void;
-  onSelectSection: (clsName: string, sec: string) => void;
+  onSelectSection: (clsName: string, sec: string, action?: "select" | "deselect" | "toggle") => void;
   onTogglePeriod: (dayIdx: number, p: number) => void;
   onSetPreset: (dayIdx: number, type: "all" | "morning" | "afternoon" | "none") => void;
   getClassSections: (clsName: string) => string[];
@@ -94,10 +94,11 @@ export function TeacherEditorForm({
   maxPeriods,
   selectedClasses,
   classSubjectsMap,
+  sectionSubjectsMap,
   classSectionsMap,
   classPeriodsMap,
   activeSectionTab,
-  availSlots,
+  availSlots: _availSlots,
   presetClasses,
   staffList,
   selectableStaffList,
@@ -109,7 +110,7 @@ export function TeacherEditorForm({
   currentClassTeacherMap,
   conflictTeacher,
   classSubjectsDictionary,
-  settings,
+  settings: _settings,
   onSave,
   onCancel,
   onStaffDropdownChange,
@@ -126,8 +127,8 @@ export function TeacherEditorForm({
   onSubjectPeriodChange,
   onSetActiveSectionTab,
   onSelectSection,
-  onTogglePeriod,
-  onSetPreset,
+  onTogglePeriod: _onTogglePeriod,
+  onSetPreset: _onSetPreset,
   getClassSections,
   getSectionSubjects,
   getSubjectPeriod,
@@ -444,11 +445,22 @@ export function TeacherEditorForm({
               .map((c) => {
                 const availableSubs = classSubjectsDictionary[c.name] || [];
                 const allSecs = getClassSections(c.name);
-                const selectedSecs = classSectionsMap[c.name] || allSecs;
+                const configuredFromMap = allSecs.filter(
+                  (sec) =>
+                    sectionSubjectsMap[`${c.name}::${sec}`] !== undefined ||
+                    sectionSubjectsMap[`${c.name}-${sec}`] !== undefined ||
+                    sectionSubjectsMap[`${c.name}_${sec}`] !== undefined
+                );
+                const selectedSecs =
+                  classSectionsMap[c.name] !== undefined
+                    ? classSectionsMap[c.name]
+                    : configuredFromMap.length > 0
+                    ? configuredFromMap
+                    : [allSecs[0] || "A"];
                 const allSecsSelected =
                   allSecs.length > 0 && selectedSecs.length === allSecs.length;
                 const currentActiveSec =
-                  activeSectionTab[c.name] || (allSecs.length > 1 ? "ALL" : allSecs[0] || "A");
+                  activeSectionTab[c.name] || allSecs[0] || "A";
 
                 const classTotalPeriods = selectedSecs.reduce(
                   (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
@@ -532,40 +544,74 @@ export function TeacherEditorForm({
 
                         {allSecs.map((sec) => {
                           const isFocused = currentActiveSec === sec;
+                          const isSelected = selectedSecs.includes(sec);
                           const secLoad = calculateSectionTotalPeriods(c.name, sec);
 
                           return (
-                            <button
+                            <div
                               key={sec}
-                              type="button"
-                              onClick={() => {
-                                onSetActiveSectionTab(c.name, sec);
-                                onSelectSection(c.name, sec);
-                              }}
-                              aria-label={`Configure section ${sec} for ${c.name}`}
                               className={cn(
-                                "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none",
+                                "flex items-center rounded-md border text-xs font-semibold transition-all select-none overflow-hidden",
                                 isFocused
                                   ? "bg-primary text-primary-foreground shadow-xs font-bold ring-1 ring-primary/40"
-                                  : "bg-background text-foreground hover:bg-muted/80 border border-transparent hover:border-border"
+                                  : isSelected
+                                  ? "bg-background text-foreground border-border hover:bg-muted/80"
+                                  : "bg-muted/30 text-muted-foreground border-dashed border-border opacity-75 hover:opacity-100"
                               )}
                             >
-                              {isFocused && (
-                                <Check className="w-3.5 h-3.5 text-primary-foreground" />
-                              )}
-                              <span>Sec {sec}</span>
-                              <Badge
-                                variant="secondary"
+                              {/* Checkbox to include or exclude this section */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectSection(c.name, sec, isSelected ? "deselect" : "select");
+                                }}
+                                title={isSelected ? `Exclude Section ${sec}` : `Include Section ${sec}`}
+                                aria-label={isSelected ? `Exclude Section ${sec}` : `Include Section ${sec}`}
                                 className={cn(
-                                  "text-[10px] font-mono px-1.5 py-0 font-bold",
+                                  "px-2 py-1.5 flex items-center justify-center cursor-pointer transition-colors border-r",
                                   isFocused
-                                    ? "bg-primary-foreground text-primary"
-                                    : "bg-muted text-muted-foreground"
+                                    ? "border-primary-foreground/25 hover:bg-black/10"
+                                    : "border-border hover:bg-muted"
                                 )}
                               >
-                                {secLoad} p/wk
-                              </Badge>
-                            </button>
+                                <div
+                                  className={cn(
+                                    "w-3.5 h-3.5 rounded-xs border flex items-center justify-center transition-colors",
+                                    isSelected
+                                      ? isFocused
+                                        ? "bg-primary-foreground border-primary-foreground text-primary"
+                                        : "bg-primary border-primary text-primary-foreground"
+                                      : "border-muted-foreground/50 bg-background"
+                                  )}
+                                >
+                                  {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                </div>
+                              </button>
+
+                              {/* Main Tab Button to Switch View */}
+                              <button
+                                type="button"
+                                onClick={() => onSetActiveSectionTab(c.name, sec)}
+                                aria-label={`View section ${sec} for ${c.name}`}
+                                className="px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer text-left"
+                              >
+                                <span>Sec {sec}</span>
+                                <Badge
+                                  variant="secondary"
+                                  className={cn(
+                                    "text-[10px] font-mono px-1.5 py-0 font-bold",
+                                    isFocused
+                                      ? "bg-primary-foreground text-primary"
+                                      : isSelected
+                                      ? "bg-muted text-muted-foreground"
+                                      : "bg-muted/50 text-muted-foreground/60"
+                                  )}
+                                >
+                                  {isSelected ? `${secLoad} p/wk` : "Off"}
+                                </Badge>
+                              </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -717,8 +763,19 @@ export function TeacherEditorForm({
                         </div>
                       </div>
                     ) : (
-                      <div className="p-2.5 bg-muted/20 border border-dashed rounded text-center text-xs text-muted-foreground">
-                        Select a section above to configure its subjects and weekly period load.
+                      <div className="p-3 bg-muted/15 border border-dashed rounded-lg text-center flex flex-col items-center justify-center gap-1.5">
+                        <span className="text-xs text-muted-foreground font-medium">
+                          Section {currentActiveSec} is not assigned to this teacher.
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onSelectSection(c.name, currentActiveSec, "select")}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          + Assign Section {currentActiveSec}
+                        </Button>
                       </div>
                     )}
                   </div>

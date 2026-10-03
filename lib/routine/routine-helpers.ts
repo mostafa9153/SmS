@@ -6,8 +6,8 @@ import {
   getClassStreamList,
   getSchoolConfiguredStreams,
 } from "@/lib/utils/school-profile";
-import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
-import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher } from "./types";
+import { getDynamicClassList, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
+import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher, RoutineAssignment } from "./types";
 
 export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts", string[]> = {
   Common: ["Bengali", "English", "Environmental Studies", "Alternative English", "Hindi", "Urdu"],
@@ -120,7 +120,9 @@ export function getTeacherSectionPeriod(
 }
 
 /**
- * Safely retrieves section subjects with backwards compatibility and class fallback
+ * Safely retrieves section subjects with backwards compatibility and section isolation.
+ * If the teacher has section-level configurations or section restrictions for the class,
+ * unlisted sections strictly return [].
  */
 export function getTeacherSectionSubjects(
   teacher: RoutineTeacher,
@@ -129,13 +131,135 @@ export function getTeacherSectionSubjects(
 ): string[] {
   const cls = (className || "").trim();
   const sec = (section || "").trim();
-  const list =
+
+  // If teacher has classSections configured for this class, strictly verify that sec is allowed
+  const allowedSecs = teacher.classSections?.[cls];
+  if (allowedSecs !== undefined) {
+    if (!Array.isArray(allowedSecs) || allowedSecs.length === 0) {
+      return [];
+    }
+    const isAllowed = allowedSecs.some(
+      (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === sec.toLowerCase()
+    );
+    if (!isAllowed) {
+      return [];
+    }
+  }
+
+  const direct =
     teacher.sectionSubjects?.[`${cls}::${sec}`] ??
     teacher.sectionSubjects?.[`${cls}-${sec}`] ??
-    teacher.sectionSubjects?.[`${cls}_${sec}`] ??
-    teacher.classSubjects?.[cls] ??
-    [];
-  return list;
+    teacher.sectionSubjects?.[`${cls}_${sec}`];
+
+  if (direct !== undefined) {
+    return direct;
+  }
+
+  // If the teacher has any sectionSubjects configured for this class, do NOT fall back to classSubjects
+  const hasAnySecConfig = Object.keys(teacher.sectionSubjects || {}).some(
+    (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+  );
+  if (hasAnySecConfig) {
+    return [];
+  }
+
+  // If classSections was defined, it only falls through here if sec was allowed
+  if (allowedSecs !== undefined) {
+    return teacher.classSubjects?.[cls] ?? [];
+  }
+
+  return teacher.classSubjects?.[cls] ?? [];
+}
+
+/**
+ * Strips orphaned entries from teacher.subjectPeriods in-memory if the subject
+ * is not actively assigned in sectionSubjects or classSubjects, or if the section is excluded.
+ */
+export function sanitizeTeacherSubjectPeriods(teacher: RoutineTeacher): RoutineTeacher {
+  if (!teacher.subjectPeriods || Object.keys(teacher.subjectPeriods).length === 0) {
+    return teacher;
+  }
+
+  const cleanedSubjectPeriods: Record<string, number> = {};
+
+  Object.entries(teacher.subjectPeriods).forEach(([k, val]) => {
+    if (val === undefined || val === null || Number(val) <= 0) return;
+
+    let parts = k.split("::");
+    if (parts.length === 1) {
+      parts = k.split("-");
+      if (parts.length === 1) {
+        parts = k.split("_");
+      }
+    }
+
+    if (parts.length === 3) {
+      const cls = parts[0].trim();
+      const sec = parts[1].trim();
+      const sub = parts[2].trim().toLowerCase();
+
+      // Check allowed sections if classSections is defined
+      const allowedSecs = teacher.classSections?.[cls];
+      if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+        const isAllowed = allowedSecs.some(
+          (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === sec.toLowerCase()
+        );
+        if (!isAllowed) {
+          return; // Orphaned period for excluded section
+        }
+      }
+
+      const secSubs =
+        teacher.sectionSubjects?.[`${cls}::${sec}`] ??
+        teacher.sectionSubjects?.[`${cls}-${sec}`] ??
+        teacher.sectionSubjects?.[`${cls}_${sec}`];
+
+      if (secSubs !== undefined) {
+        if (secSubs.some((s) => s.trim().toLowerCase() === sub)) {
+          cleanedSubjectPeriods[k] = Number(val);
+        }
+        return;
+      }
+
+      const hasAnySecConfig = Object.keys(teacher.sectionSubjects || {}).some(
+        (sk) => sk.startsWith(`${cls}::`) || sk.startsWith(`${cls}-`) || sk.startsWith(`${cls}_`)
+      );
+      if (hasAnySecConfig) {
+        return; // Orphaned period
+      }
+
+      const clsSubs = teacher.classSubjects?.[cls] || [];
+      if (clsSubs.some((s) => s.trim().toLowerCase() === sub)) {
+        cleanedSubjectPeriods[k] = Number(val);
+      }
+    } else if (parts.length === 2) {
+      const cls = parts[0].trim();
+      const sub = parts[1].trim().toLowerCase();
+
+      const clsSubs = teacher.classSubjects?.[cls] || [];
+      if (clsSubs.some((s) => s.trim().toLowerCase() === sub)) {
+        cleanedSubjectPeriods[k] = Number(val);
+        return;
+      }
+
+      const hasInAnySec = Object.entries(teacher.sectionSubjects || {}).some(
+        ([sk, subs]) =>
+          (sk.startsWith(`${cls}::`) || sk.startsWith(`${cls}-`) || sk.startsWith(`${cls}_`)) &&
+          Array.isArray(subs) &&
+          subs.some((s) => s.trim().toLowerCase() === sub)
+      );
+      if (hasInAnySec) {
+        cleanedSubjectPeriods[k] = Number(val);
+      }
+    } else {
+      cleanedSubjectPeriods[k] = Number(val);
+    }
+  });
+
+  return {
+    ...teacher,
+    subjectPeriods: cleanedSubjectPeriods,
+  };
 }
 
 /**
@@ -356,6 +480,17 @@ export function calculateClassWeeklyCapacity(
 }
 
 /**
+ * Calculates total teaching period capacity across all configured classes and sections
+ */
+export function calculateTotalSchoolClassCapacity(
+  classes: RoutineClass[],
+  settings?: RoutineSettings | null
+): number {
+  if (!classes || classes.length === 0) return 0;
+  return classes.reduce((sum, cls) => sum + calculateClassWeeklyCapacity(cls, settings), 0);
+}
+
+/**
  * Auto-generates initials / short code from full name
  */
 export function generateInitials(name: string): string {
@@ -364,4 +499,217 @@ export function generateInitials(name: string): string {
     return (words[0][0] + words[1][0]).toUpperCase();
   }
   return (name || "").slice(0, 3).toUpperCase();
+}
+
+/**
+ * Single Source of Truth: Total weekly periods across ALL classes and sections combined (School-wide Period Demand)
+ */
+export function calculateTotalSchoolSectionDemand(
+  classes: RoutineClass[],
+  subjects: RoutineSubject[]
+): number {
+  if (!classes || classes.length === 0) {
+    return subjects.reduce(
+      (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
+      0
+    );
+  }
+
+  let totalDemand = 0;
+
+  classes.forEach((cls) => {
+    const clsLower = cls.className.toLowerCase();
+    const isHs = isHsClass(cls.className);
+
+    if (isHs) {
+      const configuredStreams = getConfiguredStreamsForClass(cls.className);
+      const { stream: parsedStream } = parseSectionAndStream(cls.section || "");
+      const sectionLower = (cls.section || "").toLowerCase();
+
+      let matchedStream: "Science" | "Commerce" | "Arts" | null = null;
+      if (parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all") {
+        const found = configuredStreams.find(
+          (st) => st.toLowerCase() === parsedStream.toLowerCase()
+        );
+        if (found) matchedStream = found;
+      }
+
+      if (!matchedStream) {
+        for (const st of configuredStreams) {
+          const stLower = st.toLowerCase();
+          if (
+            sectionLower === stLower ||
+            sectionLower.includes(`(${stLower})`) ||
+            sectionLower.includes(`-${stLower}`) ||
+            sectionLower.includes(` ${stLower}`) ||
+            sectionLower.includes(stLower)
+          ) {
+            matchedStream = st;
+            break;
+          }
+        }
+      }
+
+      const streamsToProcess = matchedStream ? [matchedStream] : configuredStreams;
+      const explicitClassSubs = subjects.filter(
+        (s) => s.className && s.className.toLowerCase() === clsLower
+      );
+      const hasExplicitSubs = explicitClassSubs.length > 0;
+
+      streamsToProcess.forEach((st) => {
+        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+        const streamSubs = candidates.filter((s) => {
+          if (s.className && s.className.toLowerCase() !== clsLower) return false;
+          const detStream = detectSubjectStream(s.name, s.stream);
+          const isStreamMatch = detStream === "Common" || s.isCommon || detStream === st;
+          if (!isStreamMatch) return false;
+          if (hasExplicitSubs) {
+            return Boolean(s.className && s.className.toLowerCase() === clsLower);
+          }
+          const hsPresetSubs = [
+            ...HS_STREAM_PRESETS.Common,
+            ...(HS_STREAM_PRESETS[st] || []),
+          ].map((p) => p.toLowerCase());
+          return hsPresetSubs.includes(s.name.trim().toLowerCase());
+        });
+
+        const dedupedStreamSubs: RoutineSubject[] = [];
+        const seenHs = new Set<string>();
+        for (const s of streamSubs) {
+          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
+          const key = `${cName}::${streamKey}`;
+          if (!seenHs.has(key)) {
+            seenHs.add(key);
+            dedupedStreamSubs.push(s);
+          }
+        }
+
+        const demand = dedupedStreamSubs.reduce(
+          (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+          0
+        );
+        totalDemand += demand;
+      });
+    } else {
+      const explicitClassSubs = subjects.filter(
+        (s) => s.className && s.className.toLowerCase() === clsLower
+      );
+      const hasExplicitSubs = explicitClassSubs.length > 0;
+      const presets = new Set(
+        getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
+      );
+
+      const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+      const classSubs = candidates.filter((s) => {
+        if (s.className && s.className.toLowerCase() !== clsLower) return false;
+        if (hasExplicitSubs) {
+          return Boolean(s.className && s.className.toLowerCase() === clsLower);
+        }
+        return presets.has(s.name.trim().toLowerCase());
+      });
+
+      const dedupedSubs: RoutineSubject[] = [];
+      const seen = new Set<string>();
+      for (const s of classSubs) {
+        const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        if (!seen.has(cName)) {
+          seen.add(cName);
+          dedupedSubs.push(s);
+        }
+      }
+
+      const demand = dedupedSubs.reduce(
+        (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+        0
+      );
+      totalDemand += demand;
+    }
+  });
+
+  return totalDemand;
+}
+
+/**
+ * Single Source of Truth: Total faculty assigned weekly workload across all classes and sections
+ */
+export function calculateTotalTeacherAllottedWorkload(
+  teachers: RoutineTeacher[],
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  assignments: RoutineAssignment[] = []
+): { totalWorkload: number; assignedTeacherCount: number } {
+  let totalWorkload = 0;
+  let assignedTeacherCount = 0;
+
+  teachers.forEach((t) => {
+    let teacherAssignedPeriods = 0;
+    const directTeacherAssignments = assignments.filter((a) => a.teacherId === t.id);
+
+    if (directTeacherAssignments.length > 0) {
+      directTeacherAssignments.forEach((a) => {
+        teacherAssignedPeriods += a.periodsPerWeek;
+      });
+    } else {
+      classes.forEach((c) => {
+        const secKey = `${c.className}::${c.section}`;
+        const altSecKey = `${c.className}-${c.section}`;
+        const altSecKey2 = `${c.className}_${c.section}`;
+
+        const allowedSecs = t.classSections?.[c.className];
+        if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+          const isAllowed = allowedSecs.some(
+            (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === c.section.toLowerCase()
+          );
+          if (!isAllowed) {
+            return;
+          }
+        }
+
+        const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+          (k) =>
+            k.startsWith(`${c.className}::`) ||
+            k.startsWith(`${c.className}-`) ||
+            k.startsWith(`${c.className}_`)
+        );
+
+        let activeSubs: string[] = [];
+        if (hasSecConfig) {
+          activeSubs =
+            t.sectionSubjects?.[secKey] ??
+            t.sectionSubjects?.[altSecKey] ??
+            t.sectionSubjects?.[altSecKey2] ??
+            [];
+        } else if (
+          allowedSecs === undefined &&
+          t.qualifiedClasses?.includes(c.className)
+        ) {
+          activeSubs = t.classSubjects?.[c.className] || [];
+        }
+
+        activeSubs.forEach((subName) => {
+          const matchedSubject = subjects.find(
+            (s) =>
+              s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+              (!s.className || s.className.trim().toLowerCase() === c.className.trim().toLowerCase())
+          );
+          const p = getTeacherSubjectPeriod(
+            t,
+            c.className,
+            c.section,
+            subName,
+            matchedSubject?.periodsPerWeek || 5
+          );
+          teacherAssignedPeriods += p;
+        });
+      });
+    }
+
+    if (teacherAssignedPeriods > 0) {
+      assignedTeacherCount += 1;
+      totalWorkload += teacherAssignedPeriods;
+    }
+  });
+
+  return { totalWorkload, assignedTeacherCount };
 }

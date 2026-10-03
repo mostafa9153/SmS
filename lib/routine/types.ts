@@ -102,6 +102,27 @@ export type SlotPlacement = RoutineCellData;
 export type RoutineGrid = Record<string, (RoutineCellData | null)[][]>;
 export type GeneratedRoutineGrid = RoutineGrid;
 
+export interface DiagnosticItem {
+  id?: string;
+  type:
+    | "teacher_daily_max"
+    | "consecutive_fatigue"
+    | "half_day_starvation"
+    | "time_pref_saturation"
+    | "teacher_availability"
+    | "faculty_shortage"
+    | "capacity_overflow"
+    | "room_capacity"
+    | "general";
+  severity: "error" | "warning" | "info";
+  title: string;
+  description: string;
+  solution?: string;
+  teacherName?: string;
+  className?: string;
+  subjectName?: string;
+}
+
 export interface GeneratedRoutine {
   id?: string;
   success: boolean;
@@ -118,8 +139,11 @@ export interface GeneratedRoutine {
     placedUnits: number;
     iterations: number;
     executionTimeMs: number;
+    phase?: number;
+    relaxedConstraints?: string[];
   };
   diagnostics?: string[];
+  diagnosticItems?: DiagnosticItem[];
 }
 
 export type SolverResult = GeneratedRoutine;
@@ -128,6 +152,8 @@ export interface ValidationReport {
   isValid: boolean;
   errors: string[];
   warnings: string[];
+  diagnosticItems?: DiagnosticItem[];
 }
 
 export type SolverValidationResult = ValidationReport;
+

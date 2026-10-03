@@ -307,7 +307,7 @@ export function RoutineGeneratorTab({
 
       {/* Validation Result Box */}
       {report && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {report.isValid ? (
             <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 font-bold text-emerald-800 dark:text-emerald-300">
@@ -319,10 +319,10 @@ export function RoutineGeneratorTab({
               </Badge>
             </div>
           ) : (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-xs space-y-2">
-              <div className="flex items-center gap-2 font-bold text-destructive">
+            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-xs space-y-3">
+              <div className="flex items-center gap-2 font-bold text-destructive text-sm">
                 <AlertCircle className="h-4 w-4" />
-                Mathematical Inconsistencies Detected ({report.errors.length})
+                Pre-Flight Constraints Detected ({report.errors.length} Errors)
               </div>
               <ul className="list-disc pl-5 space-y-1 text-destructive dark:text-red-400">
                 {report.errors.map((e, idx) => (
@@ -332,7 +332,40 @@ export function RoutineGeneratorTab({
             </div>
           )}
 
-          {report.warnings && report.warnings.length > 0 && (
+          {report.diagnosticItems && report.diagnosticItems.length > 0 && (
+            <div className="border rounded-lg overflow-hidden bg-card divide-y">
+              <div className="px-3.5 py-2 bg-muted/40 font-semibold text-xs text-foreground flex items-center gap-2">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                Itemized Constraint Diagnostics ({report.diagnosticItems.length})
+              </div>
+              {report.diagnosticItems.map((item, idx) => (
+                <div key={idx} className="p-3 text-xs flex flex-col md:flex-row md:items-start justify-between gap-2.5">
+                  <div className="space-y-1 flex-1">
+                    <div className="flex items-center gap-2">
+                      {item.severity === "error" ? (
+                        <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      )}
+                      <span className="font-semibold text-foreground">{item.title}</span>
+                      {item.className && <Badge variant="outline" className="text-[9px]">{item.className}</Badge>}
+                      {item.subjectName && <Badge variant="secondary" className="text-[9px]">{item.subjectName}</Badge>}
+                      {item.teacherName && <Badge variant="outline" className="text-[9px] bg-muted">{item.teacherName}</Badge>}
+                    </div>
+                    <p className="text-muted-foreground text-[11px] pl-5">{item.description}</p>
+                  </div>
+                  {item.solution && (
+                    <div className="md:w-1/3 bg-muted/30 border rounded p-2 text-[11px] text-muted-foreground">
+                      <span className="font-semibold text-foreground block mb-0.5">Solution:</span>
+                      {item.solution}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {report.warnings && report.warnings.length > 0 && !report.diagnosticItems?.length && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="h-3.5 w-3.5" />
@@ -350,13 +383,18 @@ export function RoutineGeneratorTab({
 
       {/* Generation Status Box */}
       {generationResult && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {generationResult.success ? (
             <div className="bg-card border-2 border-emerald-500/40 rounded-lg p-4 shadow-xs space-y-3.5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300 text-sm">
                   <CheckCircle2 className="h-5 w-5" />
                   Timetable Generated Successfully
+                  {generationResult.stats?.phase === 2 && (
+                    <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300 text-[10px]">
+                      Phase 2 (Soft-Bounds Auto-Relaxed)
+                    </Badge>
+                  )}
                 </div>
                 <Button
                   size="sm"
@@ -379,24 +417,86 @@ export function RoutineGeneratorTab({
                   <span className="font-bold text-foreground">{generationResult.iterations}</span>
                 </div>
                 <div className="border rounded-md p-2.5 bg-muted/10 font-mono">
-                  <span className="text-muted-foreground block text-[10px]">Hard Violations</span>
-                  <span className="font-bold text-emerald-600">0 (Strictly Zero)</span>
+                  <span className="text-muted-foreground block text-[10px]">Units Placed</span>
+                  <span className="font-bold text-emerald-600">
+                    {generationResult.stats?.placedUnits || generationResult.stats?.totalUnits} / {generationResult.stats?.totalUnits} (100%)
+                  </span>
                 </div>
                 <div className="border rounded-md p-2.5 bg-muted/10 font-mono">
-                  <span className="text-muted-foreground block text-[10px]">Heuristics</span>
-                  <span className="font-bold text-blue-600">MRV + Clustered</span>
+                  <span className="text-muted-foreground block text-[10px]">Hard Violations</span>
+                  <span className="font-bold text-emerald-600">0 (Strictly Zero)</span>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-xs space-y-2">
-              <div className="flex items-center gap-2 font-bold text-destructive text-sm">
-                <AlertCircle className="h-5 w-5" />
-                Solver Unable to Satisfy All Constraints
+            <div className="bg-card border-2 border-destructive/40 rounded-lg p-4 text-xs space-y-3.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-destructive text-sm">
+                  <AlertCircle className="h-5 w-5" />
+                  Constraint Solver Bottleneck Detected
+                </div>
+                {generationResult.stats && generationResult.stats.totalUnits > 0 && (
+                  <Badge variant="destructive" className="font-mono text-[10px]">
+                    Placed {generationResult.stats.placedUnits} / {generationResult.stats.totalUnits} Units (
+                    {Math.round((generationResult.stats.placedUnits / generationResult.stats.totalUnits) * 100)}%)
+                  </Badge>
+                )}
               </div>
-              <p className="text-destructive/90 text-xs">
-                The constraint satisfaction problem is mathematically over-constrained. Try relaxing strict 1-per-day rules, adding more teacher availability slots, or reducing consecutive period limits.
-              </p>
+
+              {/* Progress Bar */}
+              {generationResult.stats && generationResult.stats.totalUnits > 0 && (
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-amber-500 h-2 rounded-full transition-all"
+                    style={{
+                      width: `${Math.max(5, Math.round((generationResult.stats.placedUnits / generationResult.stats.totalUnits) * 100))}%`,
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Itemized Bottleneck Diagnostic Cards */}
+              {generationResult.diagnosticItems && generationResult.diagnosticItems.length > 0 ? (
+                <div className="border rounded-md divide-y bg-muted/10">
+                  <div className="px-3 py-2 bg-muted/40 font-semibold text-xs text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                    Specific Constraint Failure Breakdown ({generationResult.diagnosticItems.length} Issues)
+                  </div>
+                  {generationResult.diagnosticItems.map((diag, idx) => (
+                    <div key={idx} className="p-3 flex flex-col md:flex-row md:items-start justify-between gap-3">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {diag.severity === "error" ? (
+                            <AlertCircle className="w-4 h-4 text-destructive shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                          )}
+                          <span className="font-semibold text-foreground text-xs">{diag.title}</span>
+                          {diag.className && <Badge variant="outline" className="text-[9px]">{diag.className}</Badge>}
+                          {diag.subjectName && <Badge variant="secondary" className="text-[9px]">{diag.subjectName}</Badge>}
+                          {diag.teacherName && <Badge variant="outline" className="text-[9px] bg-muted">{diag.teacherName}</Badge>}
+                        </div>
+                        <p className="text-muted-foreground text-[11px] pl-6">{diag.description}</p>
+                      </div>
+
+                      {diag.solution && (
+                        <div className="md:w-1/3 bg-background border rounded p-2 text-[11px] space-y-0.5">
+                          <span className="font-semibold text-foreground block">Actionable Fix:</span>
+                          <span className="text-muted-foreground">{diag.solution}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                generationResult.diagnostics && generationResult.diagnostics.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1 text-destructive dark:text-red-400 text-xs">
+                    {generationResult.diagnostics.map((d, idx) => (
+                      <li key={idx}>{d}</li>
+                    ))}
+                  </ul>
+                )
+              )}
             </div>
           )}
         </div>
@@ -419,4 +519,5 @@ export function RoutineGeneratorTab({
     </div>
   );
 }
+
 

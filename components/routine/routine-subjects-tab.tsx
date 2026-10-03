@@ -74,6 +74,7 @@ import {
   detectSubjectStream,
   isHsClass,
   getConfiguredStreamsForClass,
+  parseSectionAndStream,
 } from "@/lib/routine/routine-helpers";
 
 // Re-export helpers for backward compatibility
@@ -82,6 +83,7 @@ export {
   detectSubjectStream,
   isHsClass,
   getConfiguredStreamsForClass,
+  parseSectionAndStream,
 };
 
 interface RoutineSubjectsTabProps {
@@ -140,15 +142,15 @@ export function RoutineSubjectsTab({
       .sort((a, b) => getClassNumericRank(a) - getClassNumericRank(b));
   }, [classes]);
 
-  // Active Class Tab Selection (e.g. "Class V", "Class VI", etc. or "all")
+  // Active Class Tab Selection (e.g. "Class V", "Class VI", etc.)
   const [activeClass, setActiveClass] = useState<string>(() => {
     if (typeof window !== "undefined") {
       try {
         const urlParams = new URLSearchParams(window.location.search);
         const urlCls = urlParams.get("class");
-        if (urlCls) return urlCls;
+        if (urlCls && urlCls !== "all" && availableClasses.includes(urlCls)) return urlCls;
         const saved = localStorage.getItem("sms_routine_subjects_class");
-        if (saved) return saved;
+        if (saved && saved !== "all" && availableClasses.includes(saved)) return saved;
       } catch {}
     }
     return availableClasses[0] || "Class V";
@@ -158,14 +160,13 @@ export function RoutineSubjectsTab({
   useEffect(() => {
     if (
       availableClasses.length > 0 &&
-      activeClass !== "all" &&
-      !availableClasses.includes(activeClass)
+      (!activeClass || activeClass === "all" || !availableClasses.includes(activeClass))
     ) {
       const urlParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
       const urlCls = urlParams?.get("class");
       const savedCls = typeof window !== "undefined" ? localStorage.getItem("sms_routine_subjects_class") : null;
       const candidate = urlCls || savedCls;
-      if (candidate && (candidate === "all" || availableClasses.includes(candidate))) {
+      if (candidate && candidate !== "all" && availableClasses.includes(candidate)) {
         setActiveClass(candidate);
       } else {
         setActiveClass(availableClasses[0]);
@@ -283,11 +284,10 @@ export function RoutineSubjectsTab({
   }, []);
 
   // Target class for form creation
-  const targetClassForForm = activeClass === "all" ? availableClasses[0] || "Class V" : activeClass;
+  const targetClassForForm = activeClass || availableClasses[0] || "Class V";
 
   // Preset subjects for the currently active class and stream (filtered strictly by configured streams & presets)
   const activeClassPresets = useMemo(() => {
-    if (activeClass === "all") return [];
     if (isCurrentClassHs) {
       const dbSubs = getDatabaseSubjectsForClass(activeClass);
       let streamPresets: string[] = [];
@@ -317,16 +317,13 @@ export function RoutineSubjectsTab({
 
   // Filtered subjects for the active class view & stream (Strictly Deduplicated)
   const currentClassSubjects = useMemo(() => {
-    let list = subjects;
-    if (activeClass !== "all") {
-      const clsLower = activeClass.toLowerCase();
-      const presets = new Set(getDatabaseSubjectsForClass(activeClass).map((sub) => sub.toLowerCase()));
-      list = subjects.filter(
-        (s) =>
-          (s.className && s.className.toLowerCase() === clsLower) ||
-          (!s.className && presets.has(s.name.toLowerCase()))
-      );
-    }
+    const clsLower = activeClass.toLowerCase();
+    const presets = new Set(getDatabaseSubjectsForClass(activeClass).map((sub) => sub.toLowerCase()));
+    let list = subjects.filter(
+      (s) =>
+        (s.className && s.className.toLowerCase() === clsLower) ||
+        (!s.className && presets.has(s.name.toLowerCase()))
+    );
 
     if (isCurrentClassHs && selectedStream !== "all") {
       list = list.filter((s) => {
@@ -413,18 +410,143 @@ export function RoutineSubjectsTab({
     return result;
   }, [subjects, availableClasses]);
 
-  // Total subjects and weekly periods across all configured classes in school
-  const totalSchoolSubjects = useMemo(() => {
-    const sum = Object.values(classSubjectCounts).reduce((a, b) => a + b, 0);
-    return sum > 0 ? sum : subjects.length;
-  }, [classSubjectCounts, subjects]);
 
-  const totalSchoolWeeklyPeriods = useMemo(() => {
-    return subjects.reduce(
-      (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
-      0
+
+  // Total weekly periods across ALL classes and sections combined (True School-wide Period Demand)
+  const totalSchoolSectionDemand = useMemo(() => {
+    if (!classes || classes.length === 0) {
+      return subjects.reduce(
+        (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
+        0
+      );
+    }
+
+    let totalDemand = 0;
+
+    classes.forEach((cls) => {
+      const clsLower = cls.className.toLowerCase();
+      const isHs = isHsClass(cls.className);
+
+      if (isHs) {
+        const configuredStreams = getConfiguredStreamsForClass(cls.className);
+        const { stream: parsedStream } = parseSectionAndStream(cls.section || "");
+        const sectionLower = (cls.section || "").toLowerCase();
+
+        let matchedStream: "Science" | "Commerce" | "Arts" | null = null;
+        if (parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all") {
+          const found = configuredStreams.find(
+            (st) => st.toLowerCase() === parsedStream.toLowerCase()
+          );
+          if (found) matchedStream = found;
+        }
+
+        if (!matchedStream) {
+          for (const st of configuredStreams) {
+            const stLower = st.toLowerCase();
+            if (
+              sectionLower === stLower ||
+              sectionLower.includes(`(${stLower})`) ||
+              sectionLower.includes(`-${stLower}`) ||
+              sectionLower.includes(` ${stLower}`) ||
+              sectionLower.includes(stLower)
+            ) {
+              matchedStream = st;
+              break;
+            }
+          }
+        }
+
+        const streamsToProcess = matchedStream ? [matchedStream] : configuredStreams;
+        const explicitClassSubs = subjects.filter(
+          (s) => s.className && s.className.toLowerCase() === clsLower
+        );
+        const hasExplicitSubs = explicitClassSubs.length > 0;
+
+        streamsToProcess.forEach((st) => {
+          const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+          const streamSubs = candidates.filter((s) => {
+            if (s.className && s.className.toLowerCase() !== clsLower) return false;
+            const detStream = detectSubjectStream(s.name, s.stream);
+            const isStreamMatch = detStream === "Common" || s.isCommon || detStream === st;
+            if (!isStreamMatch) return false;
+            if (hasExplicitSubs) {
+              return Boolean(s.className && s.className.toLowerCase() === clsLower);
+            }
+            const hsPresetSubs = [
+              ...HS_STREAM_PRESETS.Common,
+              ...(HS_STREAM_PRESETS[st] || []),
+            ].map((p) => p.toLowerCase());
+            return hsPresetSubs.includes(s.name.trim().toLowerCase());
+          });
+
+          const dedupedStreamSubs: RoutineSubject[] = [];
+          const seenHs = new Set<string>();
+          for (const s of streamSubs) {
+            const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
+            const key = `${cName}::${streamKey}`;
+            if (!seenHs.has(key)) {
+              seenHs.add(key);
+              dedupedStreamSubs.push(s);
+            }
+          }
+
+          const demand = dedupedStreamSubs.reduce(
+            (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+            0
+          );
+          totalDemand += demand;
+        });
+      } else {
+        const explicitClassSubs = subjects.filter(
+          (s) => s.className && s.className.toLowerCase() === clsLower
+        );
+        const hasExplicitSubs = explicitClassSubs.length > 0;
+        const presets = new Set(
+          getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
+        );
+
+        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+        const classSubs = candidates.filter((s) => {
+          if (s.className && s.className.toLowerCase() !== clsLower) return false;
+          if (hasExplicitSubs) {
+            return Boolean(s.className && s.className.toLowerCase() === clsLower);
+          }
+          return presets.has(s.name.trim().toLowerCase());
+        });
+
+        const dedupedSubs: RoutineSubject[] = [];
+        const seen = new Set<string>();
+        for (const s of classSubs) {
+          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          if (!seen.has(cName)) {
+            seen.add(cName);
+            dedupedSubs.push(s);
+          }
+        }
+
+        const demand = dedupedSubs.reduce(
+          (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+          0
+        );
+        totalDemand += demand;
+      }
+    });
+
+    return totalDemand;
+  }, [classes, subjects]);
+
+  // Specific class sections and their combined period load
+  const activeClassSections = useMemo(() => {
+    if (!classes) return [];
+    return classes.filter(
+      (c) => c.className.trim().toLowerCase() === activeClass.trim().toLowerCase()
     );
-  }, [subjects]);
+  }, [classes, activeClass]);
+
+  const activeClassSectionsTotalPeriods = useMemo(() => {
+    return activeClassSections.length * currentClassTotalPeriods;
+  }, [activeClassSections, currentClassTotalPeriods]);
 
   // Handle drag-end: reorder within the current class/stream key
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -915,26 +1037,21 @@ export function RoutineSubjectsTab({
           <div className="flex items-center gap-2">
             <School className="w-4 h-4 text-primary" />
             <span className="text-xs font-semibold text-foreground">Classes</span>
-            <Badge variant="secondary" className="text-[10px] font-mono font-bold">
-              {totalSchoolSubjects} Total Subjects
-            </Badge>
-            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80">
-              {totalSchoolWeeklyPeriods} p/wk Total Load
+            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80 font-bold">
+              {totalSchoolSectionDemand} p/wk Total Demand {classes && classes.length > 0 ? `(${classes.length} Sections)` : ""}
             </Badge>
           </div>
 
           <div className="flex items-center gap-1.5">
-            {activeClass !== "all" && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleOpenAddDialog}
-                className="h-7 text-xs font-semibold gap-1 px-3"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Add Subject
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleOpenAddDialog}
+              className="h-7 text-xs font-semibold gap-1 px-3"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Subject
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -1014,29 +1131,7 @@ export function RoutineSubjectsTab({
             );
           })}
 
-          <button
-            type="button"
-            onClick={() => handleSelectClass("all")}
-            className={cn(
-              "px-3 py-1.5 rounded-md flex items-center gap-2 whitespace-nowrap transition-all select-none border text-xs font-semibold",
-              activeClass === "all"
-                ? "bg-primary text-primary-foreground border-primary shadow-xs font-bold"
-                : "bg-background text-muted-foreground border-border hover:bg-muted/70 hover:text-foreground"
-            )}
-          >
-            <span>All Classes</span>
-            <Badge
-              variant={activeClass === "all" ? "secondary" : "outline"}
-              className={cn(
-                "text-[10px] px-1.5 py-0 font-mono font-bold leading-tight",
-                activeClass === "all"
-                  ? "bg-primary-foreground/20 text-primary-foreground border-transparent"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              {subjects.length}
-            </Badge>
-          </button>
+
         </div>
 
         {/* Stream Selector Sub-bar (Only for Higher Secondary classes XI and XII - Filtered Strictly by Configured Streams) */}
@@ -1151,19 +1246,17 @@ export function RoutineSubjectsTab({
         <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-foreground">
-              {activeClass === "all"
-                ? "All Configured Subjects"
-                : `${activeClass} Curriculum Subjects`}
+              {`${activeClass} Curriculum Subjects`}
             </span>
             <Badge variant="secondary" className="text-[10px] font-mono font-bold">
               {currentClassSubjects.length} Subjects
             </Badge>
             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
-              {currentClassTotalPeriods} p/wk
+              {currentClassTotalPeriods} p/wk / section
             </Badge>
-            {activeClass !== "all" && (
-              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
-                School Total: {totalSchoolSubjects} Subjects
+            {activeClassSections.length > 0 && (
+              <Badge variant="outline" className="text-[10px] font-mono text-foreground font-semibold border-border/80">
+                Total: {activeClassSectionsTotalPeriods} p/wk ({activeClassSections.length} Sections: {activeClassSections.map((c) => c.section).join(", ")})
               </Badge>
             )}
           </div>
@@ -1178,9 +1271,8 @@ export function RoutineSubjectsTab({
             <table className="w-full text-xs text-left border-collapse">
               <thead>
                 <tr className="bg-muted/20 border-b text-muted-foreground font-semibold">
-                  {activeClass !== "all" && <th className="py-2.5 pl-3 pr-1 w-6" />}
+                  <th className="py-2.5 pl-3 pr-1 w-6" />
                   <th className="py-2.5 px-4">Subject Name</th>
-                  {activeClass === "all" && <th className="py-2.5 px-4">Class</th>}
                   <th className="py-2.5 px-4">Stream / Type</th>
                   <th className="py-2.5 px-4">Weekly Load</th>
                   <th className="py-2.5 px-4">Period Format</th>
@@ -1197,14 +1289,12 @@ export function RoutineSubjectsTab({
                   {currentClassSubjects.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={activeClass === "all" ? 8 : 8}
+                        colSpan={8}
                         className="py-8 text-center text-muted-foreground"
                       >
                         <BookOpen className="w-6 h-6 mx-auto mb-1 opacity-40" />
                         <span>
-                          {activeClass === "all"
-                            ? "No subjects created yet."
-                            : `No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Select a preset chip or add a subject above.`}
+                          {`No subjects configured yet for ${activeClass}${selectedStream !== "all" ? ` (${selectedStream})` : ""}. Select a preset chip or add a subject above.`}
                         </span>
                       </td>
                     </tr>
@@ -1216,7 +1306,7 @@ export function RoutineSubjectsTab({
                         activeClass={activeClass}
                         onEdit={handleEdit}
                         onDelete={onDeleteSubject}
-                        isDraggable={activeClass !== "all"}
+                        isDraggable={true}
                       />
                     ))
                   )}
@@ -1496,13 +1586,7 @@ const SubjectTableRow = React.memo(function SubjectTableRow({
           )}
         </div>
       </td>
-      {activeClass === "all" && (
-        <td className="py-2.5 px-4">
-          <Badge variant="outline" className="text-[10px] font-semibold bg-background">
-            {s.className || "All Classes"}
-          </Badge>
-        </td>
-      )}
+
       <td className="py-2.5 px-4">
         {isHsClass(s.className || activeClass) ? (
           subjectStream === "Science" ? (

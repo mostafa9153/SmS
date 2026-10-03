@@ -11,11 +11,14 @@ import {
   RoutineRoom,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
+import { getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 import { autoBuildRoutineAssignments } from "@/lib/routine/routine-auto-assign";
 import {
   isHsClass,
   parseSectionAndStream,
   detectSubjectStream,
+  calculateTotalSchoolSectionDemand,
+  calculateTotalTeacherAllottedWorkload,
 } from "@/lib/routine/routine-helpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +41,14 @@ import { cn } from "@/lib/utils";
 export interface AuditIssue {
   id: string;
   type: "error" | "warning" | "info";
-  category: "faculty_shortage" | "overload" | "capacity_overflow" | "unassigned_subject" | "availability_conflict";
+  category:
+    | "faculty_shortage"
+    | "overload"
+    | "capacity_overflow"
+    | "unassigned_subject"
+    | "availability_conflict"
+    | "teacher_daily_max"
+    | "time_pref_saturation";
   title: string;
   description: string;
   solution: string;
@@ -108,9 +118,23 @@ export function RoutineVerificationTab({
     const subjectMap = new Map(subjects.map((s) => [s.id, s]));
     const teacherMap = new Map(teachers.map((t) => [t.id, t]));
 
+    const workingDays = settings.workingDays || [0, 1, 2, 3, 4, 5];
+    const halfDays = settings.halfDays || [5];
+    const halfP = settings.halfDayPeriods || 4;
+    const regP = settings.periodsPerDay || 8;
+    const fullDaysCount = workingDays.filter((d) => !halfDays.includes(d)).length;
+    const halfDaysCount = workingDays.filter((d) => halfDays.includes(d)).length;
+    const tchDailyMax = settings.tchDailyMax || 5;
+    const breakP = settings.breaks?.length ? Math.min(...settings.breaks) : Math.floor(regP / 2);
+
     // 1. Check Total School Faculty Capacity vs Demand
-    const totalWeeklyDemand = activeAssignments.reduce((sum, a) => sum + a.periodsPerWeek, 0);
-    const totalFacultyCapacity = teachers.reduce((sum, t) => sum + (t.maxPeriods || 24), 0);
+    const totalWeeklyDemand = calculateTotalSchoolSectionDemand(classes, subjects);
+    const { totalWorkload: totalFacultyCapacity } = calculateTotalTeacherAllottedWorkload(
+      teachers,
+      classes,
+      subjects,
+      activeAssignments
+    );
 
     if (totalFacultyCapacity < totalWeeklyDemand) {
       issues.push({
@@ -123,7 +147,7 @@ export function RoutineVerificationTab({
       });
     }
 
-    // 2. Check Teacher Overload / Burnout
+    // 2. Check Teacher Overload & Teacher Daily Max Physical Limit
     teachers.forEach((t) => {
       const load = teacherLoadMap[t.id] || 0;
       const max = t.maxPeriods || 24;
@@ -138,9 +162,24 @@ export function RoutineVerificationTab({
           targetTeacher: t.name,
         });
       }
+
+      // Teacher maximum daily physical capacity under tchDailyMax
+      const maxPhysicalDailyCapacity =
+        fullDaysCount * tchDailyMax + halfDaysCount * Math.min(tchDailyMax, halfP);
+      if (load > maxPhysicalDailyCapacity) {
+        issues.push({
+          id: `daily_cap_exceeded_${t.id}`,
+          type: "warning",
+          category: "teacher_daily_max",
+          title: `Teacher Daily Density: ${t.name} (${load} p/wk)`,
+          description: `Teacher ${t.name} is assigned ${load} periods/week. With "Max Periods/Day" = ${tchDailyMax}, max weekly capacity is ${maxPhysicalDailyCapacity} periods. The solver will adapt daily caps automatically.`,
+          solution: `Increase Teacher Daily Max in Routine Settings to ${Math.ceil(load / Math.max(1, workingDays.length))} periods/day, or balance workload.`,
+          targetTeacher: t.name,
+        });
+      }
     });
 
-    // 3. Class by Class Curriculum & Teacher Coverage Check
+    // 3. Class by Class Curriculum, Morning Saturation & Teacher Coverage Check
     classes.forEach((cls) => {
       const clsNameLower = cls.className.toLowerCase();
       const isHs = isHsClass(cls.className);
@@ -152,7 +191,7 @@ export function RoutineVerificationTab({
       const hasExplicitSubs = explicitClassSubs.length > 0;
 
       const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
-      const clsSubjects = candidates.filter((s) => {
+      const rawClsSubjects = candidates.filter((s) => {
         if (s.className && s.className.toLowerCase() !== clsNameLower) {
           return false;
         }
@@ -160,7 +199,14 @@ export function RoutineVerificationTab({
           return false;
         }
         if (!isHs) {
-          return true;
+          if (hasExplicitSubs) {
+            return Boolean(s.className && s.className.toLowerCase() === clsNameLower);
+          }
+          // For non-HS classes without explicit DB subjects, filter by preset subject list
+          const presets = new Set(
+            getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
+          );
+          return presets.has(s.name.trim().toLowerCase());
         }
         const isCommon =
           Boolean(s.isCommon) ||
@@ -174,6 +220,18 @@ export function RoutineVerificationTab({
         }
         return true;
       });
+
+      // Deduplicate by canonical name to avoid double-counting subjects configured per-section
+      const clsSubjects: typeof rawClsSubjects = [];
+      const seenSubjectNames = new Set<string>();
+      for (const s of rawClsSubjects) {
+        const canonicalName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        const key = `${canonicalName}::${(s.stream || detectSubjectStream(s.name) || "Common").toLowerCase()}`;
+        if (!seenSubjectNames.has(key)) {
+          seenSubjectNames.add(key);
+          clsSubjects.push(s);
+        }
+      }
 
       const clsDemand = clsSubjects.reduce(
         (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : s.isLab ? 2 : 5),
@@ -196,8 +254,48 @@ export function RoutineVerificationTab({
         });
       }
 
-      // Check each subject in this class for qualified teachers
+      // Morning preference saturation check
+      let totalMorningSlots = 0;
+      workingDays.forEach((d) => {
+        const isHalf = halfDays.includes(d);
+        const dayMax = isHalf ? Math.min(halfP, cls.dailyPeriods || regP) : (cls.dailyPeriods || regP);
+        totalMorningSlots += Math.min(dayMax, breakP);
+      });
+
+      const morningDemand = clsSubjects
+        .filter((s) => s.timePref === "morning")
+        .reduce((sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : s.isLab ? 2 : 5), 0);
+
+      if (morningDemand > totalMorningSlots) {
+        issues.push({
+          id: `morning_sat_${cls.id}`,
+          type: "warning",
+          category: "time_pref_saturation",
+          title: `Morning Slot Saturation in ${cls.className} (${cls.section})`,
+          description: `Morning-preferred subjects require ${morningDemand} periods/week, but class only has ${totalMorningSlots} morning periods. Solver will soften preferences when needed.`,
+          solution: `In Setup Hub → Subjects, change some subjects from "Morning" to "Any Time".`,
+          targetClass: `${cls.className} - ${cls.section}`,
+        });
+      }
+
+      // Check each subject in this class for qualified teachers and half-day saturation
       clsSubjects.forEach((subj) => {
+        const reqPeriods = subj.periodsPerWeek && subj.periodsPerWeek > 0 ? subj.periodsPerWeek : (subj.isLab ? 2 : 5);
+
+        // Half-day saturation note
+        if (halfDaysCount > 0 && reqPeriods > fullDaysCount && !subj.allowMultiplePerDay) {
+          issues.push({
+            id: `halfday_starve_${cls.id}_${subj.id}`,
+            type: "info",
+            category: "capacity_overflow",
+            title: `Half-Day Schedule Adaptation: ${cls.className} - ${subj.name}`,
+            description: `Subject "${subj.name}" has ${reqPeriods} periods/week with strict single-period daily limit across ${fullDaysCount} full days and ${halfDaysCount} half day.`,
+            solution: `Solver will automatically schedule double periods on weekdays if Saturday slots fill up.`,
+            targetClass: cls.className,
+            targetSubject: subj.name,
+          });
+        }
+
         const subjNameLower = subj.name.trim().toLowerCase();
         const qualifiedTeachers = teachers.filter((t) => {
           const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
@@ -215,7 +313,7 @@ export function RoutineVerificationTab({
             type: "error",
             category: "faculty_shortage",
             title: `No Qualified Faculty for ${cls.className}: ${subj.name}`,
-            description: `Subject "${subj.name}" in ${cls.className} requires ${subj.periodsPerWeek || (subj.isLab ? 2 : 5)} p/wk, but 0 active faculty members are qualified to teach it.`,
+            description: `Subject "${subj.name}" in ${cls.className} requires ${reqPeriods} p/wk, but 0 active faculty members are qualified to teach it.`,
             solution: `Go to Setup Hub → Teachers → Select an eligible teacher, select "${cls.className}", and check "${subj.name}".`,
             targetClass: cls.className,
             targetSubject: subj.name,
@@ -324,9 +422,6 @@ export function RoutineVerificationTab({
                   : `${auditReport.errorsCount} Critical Issues Found`}
               </Badge>
             </div>
-            <span className="text-xs text-muted-foreground block mt-0.5">
-              Automated mathematical consistency, teacher shortage detection & workload balancing audit.
-            </span>
           </div>
         </div>
 
@@ -487,16 +582,13 @@ export function RoutineVerificationTab({
 
         <div className="divide-y divide-border">
           {filteredIssues.length === 0 ? (
-            <div className="p-8 text-center space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-              <div className="text-sm font-bold text-foreground">Zero Imbalances Detected!</div>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                All classes have qualified teachers assigned, total demand matches faculty capacity, and no teacher burnout or schedule overflows exist.
-              </p>
-              <div className="pt-2">
+            <div className="p-6 text-center space-y-2">
+              <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
+              <div className="text-sm font-semibold text-foreground">Zero Imbalances Detected</div>
+              <div className="pt-1">
                 <Link href="/routine/generate">
                   <Button size="sm" className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                    Generate Timetable Now
+                    Generate Timetable
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Button>
                 </Link>

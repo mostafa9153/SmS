@@ -41,6 +41,7 @@ import {
   getConfiguredStreamsForClass,
   getTeacherSubjectPeriod,
   HS_STREAM_PRESETS,
+  sanitizeTeacherSubjectPeriods,
 } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -222,10 +223,30 @@ export function RoutineTeachersTab({
       let totalLoad = 0;
 
       qClasses.forEach((clsName) => {
+        const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+          (k) => k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)
+        );
+
         const configuredSections =
-          t.classSections?.[clsName] && t.classSections[clsName].length > 0
+          t.classSections?.[clsName] !== undefined
             ? t.classSections[clsName]
-            : getClassSections(clsName);
+            : hasSecConfig
+            ? Array.from(
+                new Set(
+                  Object.keys(t.sectionSubjects || {})
+                    .filter(
+                      (k) =>
+                        (k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)) &&
+                        (t.sectionSubjects?.[k] || []).length > 0
+                    )
+                    .map((k) => {
+                      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("-") : k.split("_");
+                      return parts[1]?.trim() || "";
+                    })
+                    .filter(Boolean)
+                )
+              )
+            : [getClassSections(clsName)[0] || "A"];
 
         configuredSections.forEach((sec) => {
           const secKey = `${clsName}::${sec}`;
@@ -237,12 +258,17 @@ export function RoutineTeachersTab({
             t.sectionPeriods?.[altSecKey1] ??
             t.sectionPeriods?.[altSecKey2];
 
-          // Subjects for this section
-          const secSubs =
-            t.sectionSubjects?.[secKey] ??
-            t.sectionSubjects?.[altSecKey1] ??
-            t.classSubjects?.[clsName] ??
-            [];
+          // Subjects for this section - strictly isolate if section config exists
+          let secSubs: string[] = [];
+          if (hasSecConfig) {
+            secSubs =
+              t.sectionSubjects?.[secKey] ??
+              t.sectionSubjects?.[altSecKey1] ??
+              t.sectionSubjects?.[altSecKey2] ??
+              [];
+          } else {
+            secSubs = t.classSubjects?.[clsName] ?? [];
+          }
 
           if (secSubs.length > 0) {
             secSubs.forEach((sub) => {
@@ -572,14 +598,36 @@ export function RoutineTeachersTab({
       setMaxPeriods(t.maxPeriods || 24);
 
       // Load qualified classes, subjects, sections, and periods
-      const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
+      const sanitized = sanitizeTeacherSubjectPeriods(t);
+      const qClasses = sanitized.qualifiedClasses || Object.keys(sanitized.classSubjects || {});
       setSelectedClasses(qClasses);
-      setClassSubjectsMap(t.classSubjects || {});
-      setSectionSubjectsMap(t.sectionSubjects || {});
-      setClassSectionsMap(t.classSections || {});
-      setClassPeriodsMap(t.classPeriods || {});
-      setSectionPeriodsMap(t.sectionPeriods || {});
-      setSubjectPeriodsMap(t.subjectPeriods || {});
+      setClassSubjectsMap(sanitized.classSubjects || {});
+      setSectionSubjectsMap(sanitized.sectionSubjects || {});
+
+      // Build robust classSectionsMap, reconstructing from sectionSubjects if classSections was not previously persisted
+      const initialSectionsMap: Record<string, string[]> = { ...(sanitized.classSections || {}) };
+      qClasses.forEach((cls) => {
+        if (!initialSectionsMap[cls] || initialSectionsMap[cls].length === 0) {
+          const secSubsKeys = Object.keys(sanitized.sectionSubjects || {}).filter(
+            (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+          );
+          if (secSubsKeys.length > 0) {
+            const extractedSecs = new Set<string>();
+            secSubsKeys.forEach((k) => {
+              const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("-") : k.split("_");
+              if (parts[1]) extractedSecs.add(parts[1].trim());
+            });
+            initialSectionsMap[cls] = Array.from(extractedSecs);
+          } else {
+            const allSecs = getClassSections(cls);
+            initialSectionsMap[cls] = [allSecs[0] || "A"];
+          }
+        }
+      });
+      setClassSectionsMap(initialSectionsMap);
+      setClassPeriodsMap(sanitized.classPeriods || {});
+      setSectionPeriodsMap(sanitized.sectionPeriods || {});
+      setSubjectPeriodsMap(sanitized.subjectPeriods || {});
       setActiveSectionTab({});
 
       // Deep copy available slots
@@ -603,7 +651,7 @@ export function RoutineTeachersTab({
         window.history.replaceState(null, "", url.toString());
       }
     },
-    [isEditorOpen, editingTeacherId, handleCancel, staffList, availableSubjectOptions, settings]
+    [isEditorOpen, editingTeacherId, handleCancel, staffList, availableSubjectOptions, settings, getClassSections]
   );
 
   // Auto-restore teacher editor once on initial mount if URL contains teacherId or newTeacher flag
@@ -724,33 +772,99 @@ export function RoutineTeachersTab({
         [clsName]: initialSubs,
       }));
 
-      // Default all sections for this class
+      // Initialize ONLY the first section so Section B does NOT get pre-assigned unless "ALL" is chosen
       const defaultSecs = getClassSections(clsName);
-      setClassSectionsMap((prev) => ({
+      const firstSec = defaultSecs[0] || "A";
+
+      setActiveSectionTab((prev) => ({
         ...prev,
-        [clsName]: defaultSecs,
+        [clsName]: firstSec,
       }));
 
-      // Initialize each section's subjects with initialSubs
-      setSectionSubjectsMap((prev) => {
+      setClassSectionsMap((prev) => ({
+        ...prev,
+        [clsName]: [firstSec],
+      }));
+
+      // Initialize ONLY the first section's subjects with initialSubs
+      setSectionSubjectsMap((prev) => ({
+        ...prev,
+        [`${clsName}::${firstSec}`]: [...initialSubs],
+      }));
+
+      // Initialize default periods for the first section only
+      setSubjectPeriodsMap((prev) => {
         const next = { ...prev };
-        defaultSecs.forEach((sec) => {
-          next[`${clsName}::${sec}`] = [...initialSubs];
+        initialSubs.forEach((sub) => {
+          next[`${clsName}::${firstSec}::${sub}`] = getSubjectDefaultPeriod(clsName, sub);
         });
         return next;
       });
     }
   };
 
-  const handleSelectSection = (clsName: string, sec: string) => {
+  const handleSelectSection = (
+    clsName: string,
+    sec: string,
+    action?: "select" | "deselect" | "toggle"
+  ) => {
     const allSecs = getClassSections(clsName);
     if (sec === "ALL") {
       setClassSectionsMap((prev) => ({ ...prev, [clsName]: [...allSecs] }));
-    } else {
-      setClassSectionsMap((prev) => ({
+      return;
+    }
+
+    let isDeselecting = false;
+    setClassSectionsMap((prev) => {
+      const current = prev[clsName] ?? [allSecs[0] || "A"];
+      const isSelected = current.includes(sec);
+      let nextSecs: string[];
+
+      if (action === "select") {
+        nextSecs = isSelected ? current : [...current, sec];
+      } else if (action === "deselect") {
+        nextSecs = current.filter((s) => s !== sec);
+        isDeselecting = true;
+      } else {
+        // Default toggle
+        if (isSelected) {
+          nextSecs = current.filter((s) => s !== sec);
+          isDeselecting = true;
+        } else {
+          nextSecs = [...current, sec];
+        }
+      }
+
+      return {
         ...prev,
-        [clsName]: Array.from(new Set([...(prev[clsName] || allSecs), sec])),
-      }));
+        [clsName]: nextSecs,
+      };
+    });
+
+    if (isDeselecting) {
+      // Clean up section subjects and subject periods for the deselected section
+      setSectionSubjectsMap((prev) => {
+        const next = { ...prev };
+        delete next[`${clsName}::${sec}`];
+        delete next[`${clsName}-${sec}`];
+        delete next[`${clsName}_${sec}`];
+        return next;
+      });
+      setSubjectPeriodsMap((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          if (
+            k.startsWith(`${clsName}::${sec}::`) ||
+            k.startsWith(`${clsName}-${sec}-`) ||
+            k.startsWith(`${clsName}_${sec}_`) ||
+            k.startsWith(`${clsName}-${sec}::`) ||
+            k.startsWith(`${clsName}_${sec}::`)
+          ) {
+            delete next[k];
+          }
+        });
+        return next;
+      });
     }
   };
 
@@ -759,19 +873,40 @@ export function RoutineTeachersTab({
     (clsName: string, sec: string): string[] => {
       if (sec === "ALL") {
         const allSecs = getClassSections(clsName);
-        const selectedSecs = classSectionsMap[clsName] || allSecs;
-        if (selectedSecs.length === 0) return classSubjectsMap[clsName] || [];
+        const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
+        if (selectedSecs.length === 0) return [];
         const union = new Set<string>();
         selectedSecs.forEach((s) => {
-          const subs = sectionSubjectsMap[`${clsName}::${s}`] || classSubjectsMap[clsName] || [];
-          subs.forEach((sub) => union.add(sub));
+          const direct =
+            sectionSubjectsMap[`${clsName}::${s}`] ??
+            sectionSubjectsMap[`${clsName}-${s}`] ??
+            sectionSubjectsMap[`${clsName}_${s}`];
+          if (direct !== undefined) {
+            direct.forEach((sub) => union.add(sub));
+          }
         });
         return Array.from(union);
       }
       const secKey = `${clsName}::${sec}`;
-      if (sectionSubjectsMap[secKey] !== undefined) {
-        return sectionSubjectsMap[secKey];
+      const direct =
+        sectionSubjectsMap[secKey] ??
+        sectionSubjectsMap[`${clsName}-${sec}`] ??
+        sectionSubjectsMap[`${clsName}_${sec}`];
+      if (direct !== undefined) {
+        return direct;
       }
+      const hasAnySecConfig = Object.keys(sectionSubjectsMap).some(
+        (k) => k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)
+      );
+      if (hasAnySecConfig) {
+        return [];
+      }
+
+      const allowedSecs = classSectionsMap[clsName];
+      if (allowedSecs !== undefined && !allowedSecs.includes(sec)) {
+        return [];
+      }
+
       return classSubjectsMap[clsName] || [];
     },
     [sectionSubjectsMap, classSubjectsMap, classSectionsMap, getClassSections]
@@ -782,7 +917,7 @@ export function RoutineTeachersTab({
     (clsName: string, sec: string, subName: string): number => {
       if (sec === "ALL") {
         const allSecs = getClassSections(clsName);
-        const selectedSecs = classSectionsMap[clsName] || allSecs;
+        const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
         const targetSec = selectedSecs[0] || "A";
         const secKey = `${clsName}::${targetSec}::${subName}`;
         if (subjectPeriodsMap[secKey] !== undefined && subjectPeriodsMap[secKey] > 0) {
@@ -794,14 +929,27 @@ export function RoutineTeachersTab({
         }
         return getSubjectDefaultPeriod(clsName, subName);
       }
-      const secKey = `${clsName}::${sec}::${subName}`;
-      if (subjectPeriodsMap[secKey] !== undefined && subjectPeriodsMap[secKey] > 0) {
-        return subjectPeriodsMap[secKey];
+
+      const p =
+        subjectPeriodsMap[`${clsName}::${sec}::${subName}`] ??
+        subjectPeriodsMap[`${clsName}-${sec}-${subName}`] ??
+        subjectPeriodsMap[`${clsName}_${sec}_${subName}`] ??
+        subjectPeriodsMap[`${clsName}-${sec}::${subName}`] ??
+        subjectPeriodsMap[`${clsName}_${sec}::${subName}`];
+
+      if (p !== undefined && p > 0) {
+        return p;
       }
-      const clsKey = `${clsName}::${subName}`;
-      if (subjectPeriodsMap[clsKey] !== undefined && subjectPeriodsMap[clsKey] > 0) {
-        return subjectPeriodsMap[clsKey];
+
+      const clsP =
+        subjectPeriodsMap[`${clsName}::${subName}`] ??
+        subjectPeriodsMap[`${clsName}-${subName}`] ??
+        subjectPeriodsMap[`${clsName}_${subName}`];
+
+      if (clsP !== undefined && clsP > 0) {
+        return clsP;
       }
+
       return getSubjectDefaultPeriod(clsName, subName);
     },
     [subjectPeriodsMap, getSubjectDefaultPeriod, classSectionsMap, getClassSections]
@@ -823,7 +971,7 @@ export function RoutineTeachersTab({
 
       // 2. Sections to check (if sec === "ALL", inspect all configured sections)
       const allSecs = getClassSections(clsName);
-      const targetSecs = sec === "ALL" ? (classSectionsMap[clsName] || allSecs) : [sec];
+      const targetSecs = sec === "ALL" ? (classSectionsMap[clsName] ?? [allSecs[0] || "A"]) : [sec];
 
       // 3. Find other teachers who have this subject assigned in these sections
       const otherTeacherLoads: { teacherName: string; shortName: string; periods: number }[] = [];
@@ -838,20 +986,51 @@ export function RoutineTeachersTab({
         .forEach((t) => {
           let tPeriodsForSec = 0;
           targetSecs.forEach((s) => {
+            const allowedSecs = t.classSections?.[clsName];
+            if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+              const isAllowed = allowedSecs.some(
+                (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === s.toLowerCase()
+              );
+              if (!isAllowed) {
+                return;
+              }
+            }
+
             const secKey = `${clsName}::${s}`;
-            const isAssignedToSec =
+            const altSecKey = `${clsName}-${s}`;
+            const altSecKey2 = `${clsName}_${s}`;
+
+            const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+              (k) =>
+                k.startsWith(`${clsName}::`) ||
+                k.startsWith(`${clsName}-`) ||
+                k.startsWith(`${clsName}_`)
+            );
+
+            const hasSecSub =
               (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(subName)) ||
-              (!t.sectionSubjects?.[secKey] &&
+              (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(subName)) ||
+              (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(subName));
+
+            const isAssignedToSec =
+              hasSecSub ||
+              (!hasSecConfig &&
+                allowedSecs === undefined &&
                 t.qualifiedClasses?.includes(clsName) &&
-                t.classSubjects?.[clsName]?.includes(subName) &&
-                (t.classSections?.[clsName] || allSecs).includes(s));
+                t.classSubjects?.[clsName]?.includes(subName));
 
             if (isAssignedToSec) {
               const specificPeriod =
-                t.subjectPeriods?.[`${clsName}::${s}::${subName}`] ||
-                t.subjectPeriods?.[`${clsName}::${subName}`] ||
+                t.subjectPeriods?.[`${clsName}::${s}::${subName}`] ??
+                t.subjectPeriods?.[`${clsName}-${s}-${subName}`] ??
+                t.subjectPeriods?.[`${clsName}_${s}_${subName}`] ??
+                t.subjectPeriods?.[`${clsName}-${s}::${subName}`] ??
+                t.subjectPeriods?.[`${clsName}_${s}::${subName}`] ??
+                t.subjectPeriods?.[`${clsName}::${subName}`] ??
+                t.subjectPeriods?.[`${clsName}-${subName}`] ??
+                t.subjectPeriods?.[`${clsName}_${subName}`] ??
                 getSubjectDefaultPeriod(clsName, subName);
-              tPeriodsForSec += specificPeriod;
+              tPeriodsForSec += Number(specificPeriod) || getSubjectDefaultPeriod(clsName, subName);
             }
           });
 
@@ -903,7 +1082,7 @@ export function RoutineTeachersTab({
   const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
     const num = val.trim() === "" ? 0 : parseInt(val, 10);
     const allSecs = getClassSections(clsName);
-    const selectedSecs = classSectionsMap[clsName] || allSecs;
+    const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
 
     setSubjectPeriodsMap((prev) => {
       const next = { ...prev };
@@ -937,7 +1116,7 @@ export function RoutineTeachersTab({
   // Toggle subject for a specific section (or ALL)
   const toggleSubjectForSection = (clsName: string, sec: string, subName: string) => {
     const allSecs = getClassSections(clsName);
-    const selectedSecs = classSectionsMap[clsName] || allSecs;
+    const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
 
     if (sec === "ALL") {
       const currentUnion = getSectionSubjects(clsName, "ALL");
@@ -946,7 +1125,7 @@ export function RoutineTeachersTab({
       setSectionSubjectsMap((prev) => {
         const next = { ...prev };
         selectedSecs.forEach((s) => {
-          const current = next[`${clsName}::${s}`] || classSubjectsMap[clsName] || [];
+          const current = next[`${clsName}::${s}`] || [];
           next[`${clsName}::${s}`] = exists
             ? current.filter((sub) => sub !== subName)
             : Array.from(new Set([...current, subName]));
@@ -961,8 +1140,23 @@ export function RoutineTeachersTab({
           : Array.from(new Set([...(prev[clsName] || []), subName])),
       }));
 
-      // Auto-populate remaining slots if newly activating
-      if (!exists) {
+      // When unchecking in ALL, clean up matching keys in subjectPeriodsMap
+      if (exists) {
+        setSubjectPeriodsMap((prev) => {
+          const next = { ...prev };
+          selectedSecs.forEach((s) => {
+            delete next[`${clsName}::${s}::${subName}`];
+            delete next[`${clsName}-${s}-${subName}`];
+            delete next[`${clsName}_${s}_${subName}`];
+            delete next[`${clsName}-${s}::${subName}`];
+            delete next[`${clsName}_${s}::${subName}`];
+          });
+          delete next[`${clsName}::${subName}`];
+          delete next[`${clsName}-${subName}`];
+          delete next[`${clsName}_${subName}`];
+          return next;
+        });
+      } else {
         const stats = getSubjectAllocationStats(clsName, "ALL", subName);
         const autoFillPeriods = stats.remaining > 0 ? stats.remaining : stats.totalDemand;
         handleSubjectPeriodChange(clsName, "ALL", subName, String(autoFillPeriods));
@@ -980,8 +1174,18 @@ export function RoutineTeachersTab({
       [secKey]: updated,
     }));
 
-    // Auto-populate remaining slots if newly activating
-    if (!exists) {
+    if (exists) {
+      // Clean up matching keys from subjectPeriodsMap
+      setSubjectPeriodsMap((prev) => {
+        const next = { ...prev };
+        delete next[`${clsName}::${sec}::${subName}`];
+        delete next[`${clsName}-${sec}-${subName}`];
+        delete next[`${clsName}_${sec}_${subName}`];
+        delete next[`${clsName}-${sec}::${subName}`];
+        delete next[`${clsName}_${sec}::${subName}`];
+        return next;
+      });
+    } else {
       const stats = getSubjectAllocationStats(clsName, sec, subName);
       const autoFillPeriods = stats.remaining > 0 ? stats.remaining : stats.totalDemand;
       handleSubjectPeriodChange(clsName, sec, subName, String(autoFillPeriods));
@@ -1005,7 +1209,7 @@ export function RoutineTeachersTab({
   const toggleAllSubjectsForSection = (clsName: string, sec: string) => {
     const allSubs = classSubjectsDictionary[clsName] || [];
     const allSecs = getClassSections(clsName);
-    const selectedSecs = classSectionsMap[clsName] || allSecs;
+    const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
 
     if (sec === "ALL") {
       const currentUnion = getSectionSubjects(clsName, "ALL");
@@ -1024,6 +1228,27 @@ export function RoutineTeachersTab({
         ...prev,
         [clsName]: [...nextSubs],
       }));
+
+      if (allSelected) {
+        setSubjectPeriodsMap((prev) => {
+          const next = { ...prev };
+          selectedSecs.forEach((s) => {
+            allSubs.forEach((subName) => {
+              delete next[`${clsName}::${s}::${subName}`];
+              delete next[`${clsName}-${s}-${subName}`];
+              delete next[`${clsName}_${s}_${subName}`];
+              delete next[`${clsName}-${s}::${subName}`];
+              delete next[`${clsName}_${s}::${subName}`];
+            });
+          });
+          allSubs.forEach((subName) => {
+            delete next[`${clsName}::${subName}`];
+            delete next[`${clsName}-${subName}`];
+            delete next[`${clsName}_${subName}`];
+          });
+          return next;
+        });
+      }
       return;
     }
 
@@ -1036,6 +1261,20 @@ export function RoutineTeachersTab({
       ...prev,
       [secKey]: next,
     }));
+
+    if (allSelected) {
+      setSubjectPeriodsMap((prev) => {
+        const nextMap = { ...prev };
+        allSubs.forEach((subName) => {
+          delete nextMap[`${clsName}::${sec}::${subName}`];
+          delete nextMap[`${clsName}-${sec}-${subName}`];
+          delete nextMap[`${clsName}_${sec}_${subName}`];
+          delete nextMap[`${clsName}-${sec}::${subName}`];
+          delete nextMap[`${clsName}_${sec}::${subName}`];
+        });
+        return nextMap;
+      });
+    }
 
     setClassSubjectsMap((prev) => {
       const allUnion = new Set<string>();
@@ -1190,7 +1429,7 @@ export function RoutineTeachersTab({
       } else {
         showToast("Failed to save faculty to cloud", "error");
       }
-    } catch (e) {
+    } catch {
       showToast("Error saving faculty to cloud", "error");
     } finally {
       setIsSavingAll(false);

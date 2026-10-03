@@ -184,9 +184,70 @@ function runComprehensiveTests() {
   const val3 = validateRoutineData(baseSettings, classes, teachers, subjects, impossibleSubjectAssignments, rooms);
   assert(!val3.isValid, 'Pre-validation correctly detects 1-per-day rule impossibility (8 periods > 6 days)');
 
+  // -------------------------------------------------------------
+  // Test 4: Two-Phase Solver Auto-Relaxation & Saturday Pigeonhole
+  // -------------------------------------------------------------
+  console.log('\n--- Test 4: Two-Phase Solver Auto-Relaxation (Saturday Pigeonhole + Morning Saturation) ---');
+  const heavySubjects: RoutineSubject[] = [
+    { id: 's1', name: 'Bengali', isHard: false, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 6 },
+    { id: 's2', name: 'English', isHard: false, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 6 },
+    { id: 's3', name: 'Mathematics', isHard: true, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 6 },
+    { id: 's4', name: 'Physical Science', isHard: true, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 6 },
+    { id: 's5', name: 'Life Science', isHard: true, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 6 },
+    { id: 's6', name: 'History', isHard: false, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 5 },
+    { id: 's7', name: 'Geography', isHard: false, isLab: false, timePref: 'morning', allowMultiplePerDay: false, periodsPerWeek: 5 },
+  ]; // Total demand = 40 periods in a 44-slot week (5*8 + 4 = 44). All 7 subjects want morning, exceeding morning slots (24).
+
+  const heavyAssignments2: RoutineAssignment[] = [
+    { id: 'ha1', classId: 'c1', subjectId: 's1', teacherId: 't1', periodsPerWeek: 6 },
+    { id: 'ha2', classId: 'c1', subjectId: 's2', teacherId: 't2', periodsPerWeek: 6 },
+    { id: 'ha3', classId: 'c1', subjectId: 's3', teacherId: 't3', periodsPerWeek: 6 },
+    { id: 'ha4', classId: 'c1', subjectId: 's4', teacherId: 't4', periodsPerWeek: 6 },
+    { id: 'ha5', classId: 'c1', subjectId: 's5', teacherId: 't5', periodsPerWeek: 6 },
+    { id: 'ha6', classId: 'c1', subjectId: 's6', teacherId: 't1', periodsPerWeek: 5 },
+    { id: 'ha7', classId: 'c1', subjectId: 's7', teacherId: 't2', periodsPerWeek: 5 },
+  ];
+
+  const res4 = generateRoutine(baseSettings, [classes[0]], teachers, heavySubjects, heavyAssignments2, rooms);
+  assert(res4.success, 'Two-phase solver succeeds by auto-relaxing soft morning bounds & Saturday pigeonhole');
+  assert(res4.stats?.placedUnits === 40, 'All 40 units successfully placed');
+  console.log(`Phase used: ${res4.stats?.phase}, Iterations: ${res4.iterations}, Time: ${res4.executionTimeMs}ms`);
+
+  // -------------------------------------------------------------
+  // Test 5: Rich Bottleneck Diagnostic Telemetry Generation
+  // -------------------------------------------------------------
+  console.log('\n--- Test 5: Rich Bottleneck Diagnostic Telemetry on Impossible Teacher Availability ---');
+  const restrictedTeachers: RoutineTeacher[] = [
+    {
+      id: 't_locked',
+      name: 'Dr. Busy',
+      shortName: 'BSY',
+      maxPeriods: 30,
+      availableSlots: {
+        0: [1, 2], // Only 2 periods available on Monday
+        1: [],
+        2: [],
+        3: [],
+        4: [],
+        5: [],
+      },
+    },
+  ];
+  const impossibleAvailAssignments: RoutineAssignment[] = [
+    { id: 'ia1', classId: 'c1', subjectId: 's1', teacherId: 't_locked', periodsPerWeek: 6 },
+  ];
+  const res5 = generateRoutine(baseSettings, [classes[0]], restrictedTeachers, heavySubjects, impossibleAvailAssignments, rooms);
+  assert(!res5.success, 'Solver correctly identifies impossibility when teacher slots are insufficient');
+  assert(Boolean(res5.diagnosticItems && res5.diagnosticItems.length > 0), 'Rich diagnostic items returned on failure');
+  const diag = res5.diagnosticItems![0];
+  assert(Boolean(diag.title && diag.title.length > 0), 'Diagnostic item has specific title');
+  assert(Boolean(diag.solution), 'Diagnostic item has actionable solution');
+  console.log(`Reported diagnostic: "${diag.title}" -> "${diag.description}"`);
+
   console.log('\n=========================================');
-  console.log('ALL 12/12 RIGOROUS SOLVER ASSERTIONS PASSED!');
+  console.log('ALL RIGOROUS SOLVER ASSERTIONS PASSED (100% SUITE)!');
   console.log('=========================================\n');
 }
 
 runComprehensiveTests();
+

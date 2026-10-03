@@ -24,6 +24,7 @@ import {
   Search,
   School,
   Users,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
@@ -94,14 +95,14 @@ export function RoutineAllotmentOverviewTab({
   subjects,
   teachers,
   assignments,
-  settings,
+  settings: _settings,
 }: RoutineAllotmentOverviewTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClassState] = useState<string>(() => {
     if (typeof window !== "undefined") {
       try {
         const urlParams = new URLSearchParams(window.location.search);
-        const c = urlParams.get("overviewClass");
+        const c = urlParams.get("class") || urlParams.get("overviewClass");
         if (c) return c;
         const saved = localStorage.getItem("sms_routine_overview_class");
         if (saved) return saved;
@@ -117,10 +118,47 @@ export function RoutineAllotmentOverviewTab({
         localStorage.setItem("sms_routine_overview_class", c);
       } catch {}
       const url = new URL(window.location.href);
-      url.searchParams.set("overviewClass", c);
+      if (c === "all") {
+        url.searchParams.delete("class");
+        url.searchParams.delete("overviewClass");
+      } else {
+        url.searchParams.set("class", c);
+        url.searchParams.set("overviewClass", c);
+      }
       window.history.replaceState(null, "", url.toString());
     }
   };
+
+  const [filterTeacher, setFilterTeacherState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const t = urlParams.get("teacher") || urlParams.get("teacherId");
+        if (t) return t;
+        const saved = localStorage.getItem("sms_routine_overview_teacher");
+        if (saved) return saved;
+      } catch {}
+    }
+    return "all";
+  });
+
+  const setFilterTeacher = (t: string) => {
+    setFilterTeacherState(t);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_routine_overview_teacher", t);
+      } catch {}
+      const url = new URL(window.location.href);
+      if (t === "all") {
+        url.searchParams.delete("teacher");
+        url.searchParams.delete("teacherId");
+      } else {
+        url.searchParams.set("teacher", t);
+      }
+      window.history.replaceState(null, "", url.toString());
+    }
+  };
+
   const [issuesOnly, setIssuesOnly] = useState<boolean>(false);
 
   // 1. Assign Teacher Short Code / Initials (e.g. AK, SR, MB)
@@ -245,13 +283,22 @@ export function RoutineAllotmentOverviewTab({
             const altSecKey = `${cls.className}-${cls.section}`;
             const altSecKey2 = `${cls.className}_${cls.section}`;
 
-            const explicitP =
-              t.subjectPeriods?.[`${cls.className}::${cls.section}::${subName}`] ??
-              t.subjectPeriods?.[`${cls.className}-${cls.section}-${subName}`] ??
-              t.subjectPeriods?.[`${cls.className}_${cls.section}_${subName}`] ??
-              t.subjectPeriods?.[`${cls.className}::${subName}`];
+            const allowedSecs = t.classSections?.[cls.className];
+            if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+              const isAllowed = allowedSecs.some(
+                (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === cls.section.toLowerCase()
+              );
+              if (!isAllowed) {
+                return;
+              }
+            }
 
-            const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+            const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+              (k) =>
+                k.startsWith(`${cls.className}::`) ||
+                k.startsWith(`${cls.className}-`) ||
+                k.startsWith(`${cls.className}_`)
+            );
 
             const hasSecSub =
               (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(subName)) ||
@@ -259,22 +306,29 @@ export function RoutineAllotmentOverviewTab({
               (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(subName));
 
             const isAssigned =
-              hasExplicitSubjPeriod ||
               hasSecSub ||
-              (!t.sectionSubjects?.[secKey] &&
-                !t.sectionSubjects?.[altSecKey] &&
+              (!hasSecConfig &&
+                allowedSecs === undefined &&
                 t.qualifiedClasses?.includes(cls.className) &&
-                t.classSubjects?.[cls.className]?.includes(subName) &&
-                (!t.classSections?.[cls.className] ||
-                  t.classSections[cls.className].includes(cls.section)));
+                t.classSubjects?.[cls.className]?.includes(subName));
 
             if (isAssigned) {
+              const explicitP =
+                t.subjectPeriods?.[`${cls.className}::${cls.section}::${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}-${cls.section}-${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}_${cls.section}_${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}-${cls.section}::${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}_${cls.section}::${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}::${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}-${subName}`] ??
+                t.subjectPeriods?.[`${cls.className}_${subName}`];
+
               const p =
-                explicitP != null
+                explicitP != null && Number(explicitP) > 0
                   ? Number(explicitP)
                   : demandPeriods > 0
                   ? demandPeriods
-                  : 4;
+                  : 5;
 
               const tInfo = teacherCodeMap.get(t.id);
               cellTeachers.push({
@@ -342,31 +396,97 @@ export function RoutineAllotmentOverviewTab({
       const assignedClasses: TeacherLoadRowData["assignedClasses"] = [];
       let totalAssignedPeriods = 0;
 
-      classes.forEach((c) => {
-        const secKey = `${c.className}::${c.section}`;
-        const activeSubs =
-          t.sectionSubjects?.[secKey] ||
-          (t.qualifiedClasses?.includes(c.className) &&
-          (!t.classSections?.[c.className] || t.classSections[c.className].includes(c.section))
-            ? t.classSubjects?.[c.className] || []
-            : []);
+      const directTeacherAssignments = assignments.filter((a) => a.teacherId === t.id);
 
-        activeSubs.forEach((subName) => {
-          const p =
-            t.subjectPeriods?.[`${c.className}::${c.section}::${subName}`] ||
-            t.subjectPeriods?.[`${c.className}::${subName}`] ||
-            4;
-
-          assignedClasses.push({
-            className: c.className,
-            section: c.section,
-            label: `${c.className}-${c.section}`,
-            subject: subName,
-            periods: p,
-          });
-          totalAssignedPeriods += p;
+      if (directTeacherAssignments.length > 0) {
+        directTeacherAssignments.forEach((a) => {
+          const c = classes.find((cls) => cls.id === a.classId);
+          const s = subjects.find((sub) => sub.id === a.subjectId);
+          if (c && s) {
+            assignedClasses.push({
+              className: c.className,
+              section: c.section,
+              label: `${c.className}-${c.section}`,
+              subject: s.name,
+              periods: a.periodsPerWeek,
+            });
+            totalAssignedPeriods += a.periodsPerWeek;
+          }
         });
-      });
+      } else {
+        classes.forEach((c) => {
+          const secKey = `${c.className}::${c.section}`;
+          const altSecKey = `${c.className}-${c.section}`;
+          const altSecKey2 = `${c.className}_${c.section}`;
+
+          const allowedSecs = t.classSections?.[c.className];
+          if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+            const isAllowed = allowedSecs.some(
+              (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === c.section.toLowerCase()
+            );
+            if (!isAllowed) {
+              return;
+            }
+          }
+
+          const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+            (k) =>
+              k.startsWith(`${c.className}::`) ||
+              k.startsWith(`${c.className}-`) ||
+              k.startsWith(`${c.className}_`)
+          );
+
+          let activeSubs: string[] = [];
+          if (hasSecConfig) {
+            activeSubs =
+              t.sectionSubjects?.[secKey] ??
+              t.sectionSubjects?.[altSecKey] ??
+              t.sectionSubjects?.[altSecKey2] ??
+              [];
+          } else if (
+            allowedSecs === undefined &&
+            t.qualifiedClasses?.includes(c.className)
+          ) {
+            activeSubs = t.classSubjects?.[c.className] || [];
+          }
+
+          activeSubs.forEach((subName) => {
+            const matchedSubject = (subjects || []).find(
+              (s) =>
+                s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+                (!s.className || s.className.trim().toLowerCase() === c.className.trim().toLowerCase())
+            );
+            const demandPeriods =
+              matchedSubject?.periodsPerWeek && matchedSubject.periodsPerWeek > 0
+                ? matchedSubject.periodsPerWeek
+                : 5;
+
+            const explicitP =
+              t.subjectPeriods?.[`${c.className}::${c.section}::${subName}`] ??
+              t.subjectPeriods?.[`${c.className}-${c.section}-${subName}`] ??
+              t.subjectPeriods?.[`${c.className}_${c.section}_${subName}`] ??
+              t.subjectPeriods?.[`${c.className}-${c.section}::${subName}`] ??
+              t.subjectPeriods?.[`${c.className}_${c.section}::${subName}`] ??
+              t.subjectPeriods?.[`${c.className}::${subName}`] ??
+              t.subjectPeriods?.[`${c.className}-${subName}`] ??
+              t.subjectPeriods?.[`${c.className}_${subName}`];
+
+            const p =
+              explicitP != null && Number(explicitP) > 0
+                ? Number(explicitP)
+                : demandPeriods;
+
+            assignedClasses.push({
+              className: c.className,
+              section: c.section,
+              label: `${c.className}-${c.section}`,
+              subject: subName,
+              periods: p,
+            });
+            totalAssignedPeriods += p;
+          });
+        });
+      }
 
       let status: TeacherLoadRowData["status"] = "balanced";
       let overloadCount = 0;
@@ -398,7 +518,7 @@ export function RoutineAllotmentOverviewTab({
         hasIssues,
       };
     });
-  }, [teachers, classes]);
+  }, [teachers, classes, assignments, subjects]);
 
   // 5. Global Metrics & Balance Calculations
   const grandTotalDemand = useMemo(() => {
@@ -429,11 +549,52 @@ export function RoutineAllotmentOverviewTab({
 
   const isSystemBalanced = grandTotalDemand > 0 && grandTotalDemand === grandTotalClassAssigned && totalMissingPeriods === 0;
 
+  // 6. Direct Matrix statistics per teacher (unique classes count and total assigned periods in matrix)
+  const teacherMatrixStats = useMemo(() => {
+    const map = new Map<string, { uniqueClasses: Set<string>; totalPeriods: number }>();
+    classMatrixRows.forEach((row) => {
+      Object.values(row.cells).forEach((cell) => {
+        cell.teachers.forEach((t) => {
+          if (!map.has(t.teacherId)) {
+            map.set(t.teacherId, { uniqueClasses: new Set(), totalPeriods: 0 });
+          }
+          const entry = map.get(t.teacherId)!;
+          entry.uniqueClasses.add(row.label);
+          entry.totalPeriods += t.periods;
+        });
+      });
+    });
+    return map;
+  }, [classMatrixRows]);
+
+  // Resolved Selected Teacher Object
+  const selectedTeacherObj = useMemo(() => {
+    if (!filterTeacher || filterTeacher === "all") return null;
+    return (
+      teacherLoadRows.find(
+        (t) =>
+          t.teacherId === filterTeacher ||
+          t.teacherCode.toUpperCase() === filterTeacher.toUpperCase() ||
+          t.shortName.toUpperCase() === filterTeacher.toUpperCase()
+      ) || null
+    );
+  }, [filterTeacher, teacherLoadRows]);
+
   // Filtered views
   const filteredClassMatrix = useMemo(() => {
     return classMatrixRows.filter((row) => {
       if (filterClass !== "all" && row.className !== filterClass) return false;
       if (issuesOnly && !row.hasIssues) return false;
+      if (selectedTeacherObj) {
+        const hasTeacherAssignment = Object.values(row.cells).some((cell) =>
+          cell.teachers.some(
+            (t) =>
+              t.teacherId === selectedTeacherObj.teacherId ||
+              t.teacherCode.toUpperCase() === selectedTeacherObj.teacherCode.toUpperCase()
+          )
+        );
+        if (!hasTeacherAssignment) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesClass = row.label.toLowerCase().includes(q);
@@ -448,10 +609,17 @@ export function RoutineAllotmentOverviewTab({
       }
       return true;
     });
-  }, [classMatrixRows, filterClass, issuesOnly, searchQuery]);
+  }, [classMatrixRows, filterClass, issuesOnly, searchQuery, selectedTeacherObj]);
 
   const filteredTeacherLoads = useMemo(() => {
     return teacherLoadRows.filter((row) => {
+      if (
+        selectedTeacherObj &&
+        row.teacherId !== selectedTeacherObj.teacherId &&
+        row.teacherCode.toUpperCase() !== selectedTeacherObj.teacherCode.toUpperCase()
+      ) {
+        return false;
+      }
       if (issuesOnly && !row.hasIssues) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -464,7 +632,27 @@ export function RoutineAllotmentOverviewTab({
       }
       return true;
     });
-  }, [teacherLoadRows, issuesOnly, searchQuery]);
+  }, [teacherLoadRows, selectedTeacherObj, issuesOnly, searchQuery]);
+
+  // Grand Total Periods currently showing in the filtered matrix table
+  const grandTotalShowingPeriods = useMemo(() => {
+    if (!selectedTeacherObj) {
+      return filteredClassMatrix.reduce((sum, r) => sum + r.totalClassAssigned, 0);
+    }
+    return filteredClassMatrix.reduce((sum, r) => {
+      return (
+        sum +
+        Object.values(r.cells).reduce((cSum, cell) => {
+          const matching = cell.teachers.filter(
+            (t) =>
+              t.teacherId === selectedTeacherObj.teacherId ||
+              t.teacherCode.toUpperCase() === selectedTeacherObj.teacherCode.toUpperCase()
+          );
+          return cSum + matching.reduce((p, t) => p + t.periods, 0);
+        }, 0)
+      );
+    }, 0);
+  }, [filteredClassMatrix, selectedTeacherObj]);
 
   const uniqueClassNames = useMemo(() => {
     return Array.from(new Set(classes.map((c) => c.className))).sort(
@@ -524,9 +712,9 @@ export function RoutineAllotmentOverviewTab({
       </div>
 
       {/* 2. Control Bar: Search & Issue Filter */}
-      <div className="bg-card border rounded-lg p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
-          <div className="relative flex-1 max-w-xs">
+      <div className="bg-card border rounded-lg p-2.5 shadow-xs flex flex-wrap lg:flex-nowrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
+          <div className="relative w-48 sm:w-56 shrink-0">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               type="text"
@@ -537,27 +725,89 @@ export function RoutineAllotmentOverviewTab({
             />
           </div>
 
+          {/* Class Filter */}
           <Select value={filterClass} onValueChange={(val) => setFilterClass(val ?? "all")}>
-            <SelectTrigger className="h-8 w-36 text-xs bg-background">
-              <SelectValue placeholder="All Classes" />
+            <SelectTrigger className="h-8 w-36 shrink-0 text-xs bg-background">
+              <SelectValue>
+                <span className="flex items-center gap-1">
+                  <span className="text-muted-foreground font-normal">Class:</span>
+                  <span className="font-semibold text-foreground">{filterClass === "all" ? "All" : filterClass}</span>
+                </span>
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all" className="text-xs">All Classes</SelectItem>
+              <SelectItem value="all" className="text-xs font-semibold">All Classes</SelectItem>
               {uniqueClassNames.map((c) => (
                 <SelectItem key={c} value={c} className="text-xs">{c}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+
+          {/* Teacher Filter */}
+          <Select
+            value={selectedTeacherObj ? selectedTeacherObj.teacherId : "all"}
+            onValueChange={(val) => setFilterTeacher(val ?? "all")}
+          >
+            <SelectTrigger className="h-8 w-64 sm:w-72 shrink-0 text-xs bg-background">
+              <SelectValue>
+                <span className="flex items-center gap-1 truncate">
+                  <span className="text-muted-foreground font-normal shrink-0">Teacher:</span>
+                  <span className="font-semibold text-foreground truncate">
+                    {selectedTeacherObj
+                      ? `${selectedTeacherObj.name} (${selectedTeacherObj.teacherCode})`
+                      : "All"}
+                  </span>
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="max-h-80 w-auto min-w-[360px] max-w-[480px]">
+              <SelectItem value="all" className="text-xs font-semibold">
+                All Faculty ({teachers.length})
+              </SelectItem>
+              {teacherLoadRows.map((t) => {
+                const stats = teacherMatrixStats.get(t.teacherId);
+                const classCount = stats ? stats.uniqueClasses.size : new Set(t.assignedClasses.map((ac) => ac.label)).size;
+                const periodsCount = stats ? stats.totalPeriods : t.totalAssignedPeriods;
+                return (
+                  <SelectItem key={t.teacherId} value={t.teacherId} className="text-xs">
+                    <span className="font-semibold text-foreground">{t.name}</span>
+                    <span className="text-muted-foreground ml-1.5 font-mono">({t.teacherCode})</span>
+                    <span className="text-muted-foreground ml-2 text-[11px] font-mono">
+                      — {classCount}C, {periodsCount}P
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {/* Reset Filters button */}
+          {(filterClass !== "all" || filterTeacher !== "all") && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setFilterClass("all");
+                setFilterTeacher("all");
+              }}
+              className="h-8 text-xs text-muted-foreground hover:text-foreground px-2 gap-1 shrink-0"
+              title="Reset all filters"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Reset</span>
+            </Button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Button
             type="button"
             variant={issuesOnly ? "destructive" : "outline"}
             size="sm"
             onClick={() => setIssuesOnly(!issuesOnly)}
             className={cn(
-              "h-8 text-xs font-semibold gap-1.5 px-3",
+              "h-8 text-xs font-semibold gap-1.5 px-3 shrink-0",
               issuesOnly ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/30" : ""
             )}
           >
@@ -570,14 +820,18 @@ export function RoutineAllotmentOverviewTab({
       {/* 3. CHART 1: Class-wise Subject & Teacher Allotment Matrix */}
       <div className="bg-card border rounded-xl shadow-xs overflow-hidden space-y-0">
         <div className="px-4 py-3 border-b bg-muted/20 flex flex-wrap items-center justify-between gap-2">
-          <div>
+          <div className="flex flex-wrap items-center gap-2.5">
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <School className="w-4 h-4 text-primary" />
               Class-wise Subject & Teacher Allotment Matrix
             </h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Reading Guide: Number in parentheses represents weekly periods. e.g. <span className="font-mono font-bold text-foreground">AK (4)</span> indicates Teacher AK will take 4 periods/week.
-            </p>
+            {selectedTeacherObj && (
+              <Badge variant="secondary" className="font-mono text-xs font-semibold gap-1.5 bg-primary/10 text-primary border-primary/20">
+                <span>{selectedTeacherObj.name} ({selectedTeacherObj.teacherCode})</span>
+                <span>•</span>
+                <span>{grandTotalShowingPeriods}P</span>
+              </Badge>
+            )}
           </div>
 
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-medium">
@@ -615,102 +869,135 @@ export function RoutineAllotmentOverviewTab({
               {filteredClassMatrix.length === 0 ? (
                 <tr>
                   <td colSpan={distinctSubjectNames.length + 2} className="py-8 text-center text-muted-foreground italic">
-                    No matching classes found.
+                    {selectedTeacherObj
+                      ? `No classes found for ${selectedTeacherObj.name} (${selectedTeacherObj.teacherCode})${filterClass !== "all" ? ` in ${filterClass}` : ""}.`
+                      : "No matching classes found."}
                   </td>
                 </tr>
               ) : (
-                filteredClassMatrix.map((row) => (
-                  <tr key={row.classId} className="hover:bg-muted/30 transition-colors">
-                    {/* Class & Section Header */}
-                    <td className="py-2 px-3 font-bold font-mono text-foreground sticky left-0 bg-card/95 backdrop-blur-xs z-10 border-r flex items-center gap-1.5">
-                      <span>{row.label}</span>
-                      {row.hasIssues && (
-                        <span title="Has unallotted or mismatched subjects" className="inline-flex shrink-0">
-                          <AlertTriangle className="w-3 h-3 text-amber-500" />
-                        </span>
-                      )}
-                    </td>
+                filteredClassMatrix.map((row) => {
+                  const rowTeacherPeriods = selectedTeacherObj
+                    ? Object.values(row.cells).reduce((acc, c) => {
+                        const matching = c.teachers.filter(
+                          (t) =>
+                            t.teacherId === selectedTeacherObj.teacherId ||
+                            t.teacherCode.toUpperCase() === selectedTeacherObj.teacherCode.toUpperCase()
+                        );
+                        return acc + matching.reduce((s, t) => s + t.periods, 0);
+                      }, 0)
+                    : row.totalClassAssigned;
 
-                    {/* Subject Cells */}
-                    {distinctSubjectNames.map((subName) => {
-                      const cell = row.cells[subName];
-                      if (!cell || (cell.demandPeriods === 0 && cell.assignedPeriods === 0)) {
+                  return (
+                    <tr key={row.classId} className="hover:bg-muted/30 transition-colors">
+                      {/* Class & Section Header */}
+                      <td className="py-2 px-3 font-bold font-mono text-foreground sticky left-0 bg-card/95 backdrop-blur-xs z-10 border-r flex items-center gap-1.5">
+                        <span>{row.label}</span>
+                        {!selectedTeacherObj && row.hasIssues && (
+                          <span title="Has unallotted or mismatched subjects" className="inline-flex shrink-0">
+                            <AlertTriangle className="w-3 h-3 text-amber-500" />
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Subject Cells */}
+                      {distinctSubjectNames.map((subName) => {
+                        const cell = row.cells[subName];
+                        if (!cell || (cell.demandPeriods === 0 && cell.assignedPeriods === 0)) {
+                          return (
+                            <td key={subName} className="py-2 px-2 text-center text-muted-foreground/40 font-mono border-r">
+                              —
+                            </td>
+                          );
+                        }
+
+                        const cellTeachers = selectedTeacherObj
+                          ? cell.teachers.filter(
+                              (t) =>
+                                t.teacherId === selectedTeacherObj.teacherId ||
+                                t.teacherCode.toUpperCase() === selectedTeacherObj.teacherCode.toUpperCase()
+                            )
+                          : cell.teachers;
+
+                        if (selectedTeacherObj && cellTeachers.length === 0) {
+                          return (
+                            <td key={subName} className="py-2 px-2 text-center text-muted-foreground/30 font-mono border-r">
+                              —
+                            </td>
+                          );
+                        }
+
+                        const isMissing = !selectedTeacherObj && cell.status === "missing";
+                        const isOverflow = !selectedTeacherObj && cell.status === "overflow";
+
                         return (
-                          <td key={subName} className="py-2 px-2 text-center text-muted-foreground/40 font-mono border-r">
-                            —
+                          <td
+                            key={subName}
+                            className={cn(
+                              "py-2 px-2 text-center border-r transition-all group relative",
+                              selectedTeacherObj
+                                ? "bg-primary/5 hover:bg-primary/10"
+                                : isMissing
+                                ? "bg-amber-500/10 hover:bg-amber-500/20 ring-1 ring-inset ring-amber-500/30"
+                                : isOverflow
+                                ? "bg-rose-500/10 hover:bg-rose-500/20 ring-1 ring-inset ring-rose-500/30"
+                                : ""
+                            )}
+                            title={`${subName} (${row.label})\nDemand: ${cell.demandPeriods} p/wk\nAssigned: ${cellTeachers.reduce((s, t) => s + t.periods, 0)} p/wk\n${cellTeachers.map((t) => `${t.teacherName} (${t.teacherCode}): ${t.periods}p`).join("\n")}${isMissing ? `\n⚠️ Missing ${cell.missingCount} periods!` : ""}`}
+                          >
+                            <div className="flex flex-col items-center justify-center gap-0.5">
+                              {cellTeachers.length > 0 ? (
+                                <div className="flex flex-wrap items-center justify-center gap-1">
+                                  {cellTeachers.map((t, tIdx) => (
+                                    <span
+                                      key={tIdx}
+                                      className={cn(
+                                        "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-transform hover:scale-105",
+                                        isMissing
+                                          ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+                                          : isOverflow
+                                          ? "bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30"
+                                          : "bg-primary/10 text-primary border border-primary/20"
+                                      )}
+                                    >
+                                      {t.teacherCode} ({t.periods})
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 font-mono">
+                                  ⚠️ 0/{cell.demandPeriods}
+                                </span>
+                              )}
+
+                              {isMissing && cellTeachers.length > 0 && (
+                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 font-mono">
+                                  (-{cell.missingCount}p)
+                                </span>
+                              )}
+                              {isOverflow && (
+                                <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 font-mono">
+                                  (+{cell.overflowCount}p)
+                                </span>
+                              )}
+                            </div>
                           </td>
                         );
-                      }
+                      })}
 
-                      const isMissing = cell.status === "missing";
-                      const isOverflow = cell.status === "overflow";
-
-                      return (
-                        <td
-                          key={subName}
-                          className={cn(
-                            "py-2 px-2 text-center border-r transition-all group relative",
-                            isMissing
-                              ? "bg-amber-500/10 hover:bg-amber-500/20 ring-1 ring-inset ring-amber-500/30"
-                              : isOverflow
-                              ? "bg-rose-500/10 hover:bg-rose-500/20 ring-1 ring-inset ring-rose-500/30"
-                              : ""
-                          )}
-                          title={`${subName} (${row.label})\nDemand: ${cell.demandPeriods} p/wk\nAssigned: ${cell.assignedPeriods} p/wk\n${cell.teachers.map((t) => `${t.teacherName} (${t.teacherCode}): ${t.periods}p`).join("\n")}${isMissing ? `\n⚠️ Missing ${cell.missingCount} periods!` : ""}`}
-                        >
-                          <div className="flex flex-col items-center justify-center gap-0.5">
-                            {cell.teachers.length > 0 ? (
-                              <div className="flex flex-wrap items-center justify-center gap-1">
-                                {cell.teachers.map((t, tIdx) => (
-                                  <span
-                                    key={tIdx}
-                                    className={cn(
-                                      "inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-mono font-bold transition-transform hover:scale-105",
-                                      isMissing
-                                        ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30"
-                                        : isOverflow
-                                        ? "bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30"
-                                        : "bg-primary/10 text-primary border border-primary/20"
-                                    )}
-                                  >
-                                    {t.teacherCode} ({t.periods})
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 px-1.5 py-0.5 rounded border border-amber-500/30 font-mono">
-                                ⚠️ 0/{cell.demandPeriods}
-                              </span>
-                            )}
-
-                            {isMissing && cell.teachers.length > 0 && (
-                              <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 font-mono">
-                                (-{cell.missingCount}p)
-                              </span>
-                            )}
-                            {isOverflow && (
-                              <span className="text-[9px] font-bold text-rose-600 dark:text-rose-400 font-mono">
-                                (+{cell.overflowCount}p)
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
-
-                    {/* Total Class Periods Column */}
-                    <td className="py-2 px-3 text-center font-bold font-mono text-primary sticky right-0 bg-card/95 backdrop-blur-xs z-10">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-md",
-                        row.totalClassAssigned !== row.totalClassDemand
-                          ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                          : "bg-primary/10 text-primary"
-                      )}>
-                        {row.totalClassAssigned}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                      {/* Total Periods Column */}
+                      <td className="py-2 px-3 text-center font-bold font-mono text-primary sticky right-0 bg-card/95 backdrop-blur-xs z-10">
+                        <span className={cn(
+                          "px-2 py-0.5 rounded-md",
+                          !selectedTeacherObj && row.totalClassAssigned !== row.totalClassDemand
+                            ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                            : "bg-primary/10 text-primary"
+                        )}>
+                          {rowTeacherPeriods}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
             {/* Footer Summary Row */}
@@ -722,7 +1009,14 @@ export function RoutineAllotmentOverviewTab({
                 {distinctSubjectNames.map((subName) => {
                   const colTotal = filteredClassMatrix.reduce((sum, r) => {
                     const cell = r.cells[subName];
-                    return sum + (cell?.assignedPeriods || 0);
+                    if (!cell) return sum;
+                    if (!selectedTeacherObj) return sum + (cell.assignedPeriods || 0);
+                    const matching = cell.teachers.filter(
+                      (t) =>
+                        t.teacherId === selectedTeacherObj.teacherId ||
+                        t.teacherCode.toUpperCase() === selectedTeacherObj.teacherCode.toUpperCase()
+                    );
+                    return sum + matching.reduce((s, t) => s + t.periods, 0);
                   }, 0);
                   return (
                     <td key={subName} className="py-2.5 px-2.5 text-center font-mono border-r">
@@ -731,7 +1025,7 @@ export function RoutineAllotmentOverviewTab({
                   );
                 })}
                 <td className="py-2.5 px-3 text-center font-mono text-primary sticky right-0 bg-muted/95 backdrop-blur-xs z-10 text-sm">
-                  {grandTotalClassAssigned}
+                  {grandTotalShowingPeriods}
                 </td>
               </tr>
             </tfoot>

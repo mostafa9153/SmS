@@ -250,32 +250,52 @@ export function RoutineDemandAllotmentTab({
               const altSecKey2 = `${cls.className}_${cls.section}`;
 
               teachers.forEach((t) => {
-                const explicitP =
-                  t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}::${s.name}`];
+                const allowedSecs = t.classSections?.[cls.className];
+                if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+                  const isAllowed = allowedSecs.some(
+                    (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === cls.section.toLowerCase()
+                  );
+                  if (!isAllowed) {
+                    return;
+                  }
+                }
 
-                const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+              const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+                (k) =>
+                  k.startsWith(`${cls.className}::`) ||
+                  k.startsWith(`${cls.className}-`) ||
+                  k.startsWith(`${cls.className}_`)
+              );
 
-                const hasSecSub =
-                  (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
-                  (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
-                  (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
+              const hasSecSub =
+                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
+                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
+                (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
 
-                const isQualified =
-                  hasExplicitSubjPeriod ||
-                  hasSecSub ||
-                  (!t.sectionSubjects?.[secKey] &&
-                    !t.sectionSubjects?.[altSecKey] &&
-                    t.qualifiedClasses?.includes(cls.className) &&
-                    t.classSubjects?.[cls.className]?.includes(s.name) &&
-                    (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section)));
+              // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
+              const isQualified =
+                hasSecSub ||
+                (!hasSecConfig &&
+                  allowedSecs === undefined &&
+                  t.qualifiedClasses?.includes(cls.className) &&
+                  t.classSubjects?.[cls.className]?.includes(s.name));
 
                 if (isQualified) {
+                  const explicitP =
+                    t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}-${cls.section}::${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}_${cls.section}::${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}::${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}-${s.name}`] ??
+                    t.subjectPeriods?.[`${cls.className}_${s.name}`];
+
                   const p =
                     explicitP ??
                     t.sectionPeriods?.[secKey] ??
+                    t.sectionPeriods?.[altSecKey] ??
+                    t.sectionPeriods?.[altSecKey2] ??
                     t.classPeriods?.[cls.className] ??
                     defaultPeriods;
 
@@ -404,32 +424,52 @@ export function RoutineDemandAllotmentTab({
             const altSecKey2 = `${cls.className}_${cls.section}`;
 
             teachers.forEach((t) => {
-              const explicitP =
-                t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-                t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
-                t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
-                t.subjectPeriods?.[`${cls.className}::${s.name}`];
+              const allowedSecs = t.classSections?.[cls.className];
+              if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+                const isAllowed = allowedSecs.some(
+                  (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === cls.section.toLowerCase()
+                );
+                if (!isAllowed) {
+                  return;
+                }
+              }
 
-              const hasExplicitSubjPeriod = Boolean(explicitP && Number(explicitP) > 0);
+              const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
+                (k) =>
+                  k.startsWith(`${cls.className}::`) ||
+                  k.startsWith(`${cls.className}-`) ||
+                  k.startsWith(`${cls.className}_`)
+              );
 
               const hasSecSub =
                 (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
                 (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
                 (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
 
+              // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
               const isQualified =
-                hasExplicitSubjPeriod ||
                 hasSecSub ||
-                (!t.sectionSubjects?.[secKey] &&
-                  !t.sectionSubjects?.[altSecKey] &&
+                (!hasSecConfig &&
+                  allowedSecs === undefined &&
                   t.qualifiedClasses?.includes(cls.className) &&
-                  t.classSubjects?.[cls.className]?.includes(s.name) &&
-                  (!t.classSections?.[cls.className] || t.classSections[cls.className].includes(cls.section)));
+                  t.classSubjects?.[cls.className]?.includes(s.name));
 
               if (isQualified) {
+                const explicitP =
+                  t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}-${cls.section}::${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}_${cls.section}::${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}::${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}-${s.name}`] ??
+                  t.subjectPeriods?.[`${cls.className}_${s.name}`];
+
                 const p =
                   explicitP ??
                   t.sectionPeriods?.[secKey] ??
+                  t.sectionPeriods?.[altSecKey] ??
+                  t.sectionPeriods?.[altSecKey2] ??
                   t.classPeriods?.[cls.className] ??
                   defaultPeriods;
 
@@ -484,7 +524,7 @@ export function RoutineDemandAllotmentTab({
           section: cls.section,
           stream: null,
           isHs: false,
-          subjectsCount: classSubs.length,
+          subjectsCount: dedupedSubs.length,
           demandPeriods: demand,
           capacityPeriods: weeklyCapacity,
           assignedPeriods: assigned,

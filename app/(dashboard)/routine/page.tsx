@@ -1,8 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import {
+  calculateTotalSchoolSectionDemand,
+  calculateTotalTeacherAllottedWorkload,
+  calculateTotalSchoolClassCapacity,
+} from "@/lib/routine/routine-helpers";
 import {
   fetchRoutineFullState,
   saveRoutineSettingsDb,
@@ -383,6 +388,19 @@ function RoutineSetupPageContent() {
     setAssignments((prev) => prev.filter((a) => a.teacherId !== id));
   };
 
+  // Grand stats for Quick Setup Stats Ribbon
+  const totalSchoolCapacity = useMemo(() => {
+    return calculateTotalSchoolClassCapacity(classes, settings);
+  }, [classes, settings]);
+
+  const totalSchoolDemand = useMemo(() => {
+    return calculateTotalSchoolSectionDemand(classes, subjects);
+  }, [classes, subjects]);
+
+  const { totalWorkload: totalTeacherWorkload, assignedTeacherCount } = useMemo(() => {
+    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments);
+  }, [teachers, classes, subjects, assignments]);
+
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
     { id: "classes", label: "Classes", icon: School, count: classes.length },
@@ -396,7 +414,7 @@ function RoutineSetupPageContent() {
   return (
     <div className="space-y-5 w-full">
       {/* Quick Setup Stats Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
           <span className="text-[11px] font-medium text-muted-foreground">Working Schedule</span>
           <div className="flex items-baseline gap-1.5 mt-1">
@@ -406,34 +424,26 @@ function RoutineSetupPageContent() {
         </div>
 
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] font-medium text-muted-foreground">Configured Classes</span>
+          <span className="text-[11px] font-medium text-muted-foreground">Class Capacity</span>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{classes.length}</span>
-            <span className="text-[11px] text-muted-foreground">sections</span>
+            <span className="text-base font-bold text-foreground font-mono">{totalSchoolCapacity} p/wk</span>
+            <span className="text-[11px] text-muted-foreground font-mono">({classes.length} sections)</span>
           </div>
         </div>
 
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] font-medium text-muted-foreground">Curriculum Subjects</span>
+          <span className="text-[11px] font-medium text-muted-foreground">Subject Demand</span>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{subjects.length}</span>
-            <span className="text-[11px] text-muted-foreground">courses</span>
+            <span className="text-base font-bold text-foreground font-mono">{totalSchoolDemand} p/wk</span>
+            <span className="text-[11px] text-muted-foreground font-mono">({subjects.length} subjects)</span>
           </div>
         </div>
 
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
-          <span className="text-[11px] font-medium text-muted-foreground">Active Faculty</span>
+          <span className="text-[11px] font-medium text-muted-foreground">Teacher Allotted</span>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{teachers.length}</span>
-            <span className="text-[11px] text-muted-foreground">teachers</span>
-          </div>
-        </div>
-
-        <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs col-span-2 sm:col-span-1">
-          <span className="text-[11px] font-medium text-muted-foreground">Dedicated Rooms</span>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{rooms.length}</span>
-            <span className="text-[11px] text-muted-foreground">facilities</span>
+            <span className="text-base font-bold text-foreground font-mono">{totalTeacherWorkload} p/wk</span>
+            <span className="text-[11px] text-muted-foreground font-mono">({assignedTeacherCount} / {teachers.length} teachers)</span>
           </div>
         </div>
       </div>
