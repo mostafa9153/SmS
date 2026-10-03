@@ -247,7 +247,7 @@ export async function generateRoutineServerAction(
   assignments: RoutineAssignment[],
   rooms: RoutineRoom[] = []
 ): Promise<GeneratedRoutine> {
-  const result = generateRoutine(settings, classes, teachers, subjects, assignments, rooms);
+  const result = await generateRoutine(settings, classes, teachers, subjects, assignments, rooms);
   if (result.success) {
     await saveGeneratedRoutineDb(result);
   }

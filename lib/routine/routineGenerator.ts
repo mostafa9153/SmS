@@ -320,7 +320,7 @@ export class RoutineSolver {
     };
   }
 
-  public solve(maxIterations: number = 140000): GeneratedRoutine {
+  public async solve(maxIterations: number = 140000): Promise<GeneratedRoutine> {
     const startTime = Date.now();
     const validation = this.validatePreconditions();
     if (!validation.isValid) {
@@ -483,7 +483,7 @@ export class RoutineSolver {
     // Run 2-Phase CSP Solver
     // Phase 1: Strict mode
     // Phase 2: Relaxed soft constraints mode (soft time preferences, relaxed daily/consecutive caps)
-    const runSolverPhase = (phase: number, iterBudget: number): { solved: boolean; iters: number; relaxed: string[] } => {
+    const runSolverPhase = async (phase: number, iterBudget: number): Promise<{ solved: boolean; iters: number; relaxed: string[] }> => {
       const isRelaxed = phase === 2;
       const relaxedItems: string[] = [];
 
@@ -727,32 +727,34 @@ export class RoutineSolver {
 
       let localIters = 0;
 
-      const solveBacktrack = (idx: number): boolean => {
+      const solveBacktrack = async (idx: number, domains: number[]): Promise<boolean> => {
         if (idx > maxPlacedDepth) {
           maxPlacedDepth = idx;
         }
         if (idx >= units.length) return true;
         localIters++;
+        
+        // Yield to UI thread every 500 iterations to prevent "Page Unresponsive" freezing
+        if (localIters % 500 === 0) {
+          await new Promise(r => setTimeout(r, 0));
+        }
+
         if (localIters > iterBudget) return false;
 
-        // FIX 2: Dynamic MRV
+        // FIX 2 & PERFORMANCE FIX: Dynamic MRV using cached O(1) domains
         let u: Unit | null = null;
         let minMrv = Infinity;
         let bestTieScore = -Infinity;
-        for (const unplaced of units) {
+        for (let i = 0; i < units.length; i++) {
+          const unplaced = units[i];
           if (unplaced.slot === null) {
-            // FIX 4 addition: Do not consider units in a symmetry group if their predecessor is not placed yet.
+            // Do not consider units in a symmetry group if their predecessor is not placed yet.
             if (unplaced.symmIndex !== undefined && unplaced.symmIndex > 0) {
               const prev = symmPredecessor.get(unplaced.uid);
               if (prev && prev.slot === null) continue;
             }
 
-            let options = 0;
-            for (let d = 0; d < D; d++) {
-              for (let p = 0; p < P; p++) {
-                if (checkSlot(unplaced, d, p, false)) options++;
-              }
-            }
+            const options = domains[i];
             
             // Re-apply original sorting heuristics as tie-breakers for MRV
             const isCT = unplaced.isClassTeacherUnit && unplaced.targetFirstPeriods > 0 ? 1 : 0;
@@ -856,27 +858,34 @@ export class RoutineSolver {
           place(u, c.dPos, c.pPos, true);
           
           let forwardCheckFailed = false;
-          for (const unplaced of units) {
-            if (unplaced.slot === null && (unplaced.tid === u!.tid || unplaced.cid === u!.cid)) {
-              let hasOption = false;
-              for (let d = 0; d < D; d++) {
-                for (let p = 0; p < P; p++) {
-                  if (checkSlot(unplaced, d, p, false)) {
-                    hasOption = true;
-                    break;
+          const nextDomains = [...domains]; // O(N) clone, very fast for N=500
+          
+          // MAC (Maintaining Arc Consistency): only recompute domains for affected units
+          for (let i = 0; i < units.length; i++) {
+            const unplaced = units[i];
+            if (unplaced.slot === null) {
+              if (unplaced.tid === u!.tid || unplaced.cid === u!.cid || (u!.rid && unplaced.rid === u!.rid)) {
+                let hasOption = false;
+                let optionsCount = 0;
+                for (let d = 0; d < D; d++) {
+                  for (let p = 0; p < P; p++) {
+                    if (checkSlot(unplaced, d, p, false)) {
+                      hasOption = true;
+                      optionsCount++;
+                    }
                   }
                 }
-                if (hasOption) break;
-              }
-              if (!hasOption) {
-                forwardCheckFailed = true;
-                break;
+                if (!hasOption) {
+                  forwardCheckFailed = true;
+                  break;
+                }
+                nextDomains[i] = optionsCount;
               }
             }
           }
 
           if (!forwardCheckFailed) {
-            if (solveBacktrack(idx + 1)) {
+            if (await solveBacktrack(idx + 1, nextDomains)) {
               unitBottlenecks.delete(u!.uid);
               return true;
             }
@@ -887,13 +896,18 @@ export class RoutineSolver {
         return false;
       };
 
-      const solved = solveBacktrack(0);
+      const initialDomains = new Array(units.length).fill(0);
+      for (let i = 0; i < units.length; i++) {
+        initialDomains[i] = units[i].mrv;
+      }
+
+      const solved = await solveBacktrack(0, initialDomains);
       return { solved, iters: localIters, relaxed: relaxedItems };
     };
 
     // Execute Phase 1 (Strict Solver)
     const phase1Budget = Math.floor(maxIterations * 0.45);
-    const phase1Result = runSolverPhase(1, phase1Budget);
+    const phase1Result = await runSolverPhase(1, phase1Budget);
 
     let finalSolved = phase1Result.solved;
     let totalIterations = phase1Result.iters;
@@ -906,7 +920,7 @@ export class RoutineSolver {
       unitBottlenecks.clear();
 
       const phase2Budget = maxIterations - totalIterations;
-      const phase2Result = runSolverPhase(2, phase2Budget);
+      const phase2Result = await runSolverPhase(2, phase2Budget);
       finalSolved = phase2Result.solved;
       totalIterations += phase2Result.iters;
       winningPhase = 2;
@@ -1170,15 +1184,15 @@ export function validateRoutineData(
 /**
  * Top-level convenience routine generation function
  */
-export function generateRoutine(
+export async function generateRoutine(
   settings: RoutineSettings,
   classes: RoutineClass[],
   teachers: RoutineTeacher[],
   subjects: RoutineSubject[],
   assignments: RoutineAssignment[],
   rooms: RoutineRoom[] = []
-): GeneratedRoutine {
+): Promise<GeneratedRoutine> {
   const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms);
-  return solver.solve();
+  return await solver.solve();
 }
 

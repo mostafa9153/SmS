@@ -93,10 +93,11 @@ function runComprehensiveTests() {
     { id: 'a15', classId: 'c3', subjectId: 's5', teacherId: 't5', periodsPerWeek: 2 },
   ];
 
+async function runAllTests() {
   const val1 = validateRoutineData(baseSettings, classes, teachers, subjects, assignments, rooms);
   assert(val1.isValid, 'Pre-flight validation passes for valid dataset');
 
-  const res1 = generateRoutine(baseSettings, classes, teachers, subjects, assignments, rooms);
+  const res1 = await generateRoutine(baseSettings, classes, teachers, subjects, assignments, rooms);
   assert(res1.success, 'Routine generated successfully without contradiction');
   console.log(`Generated in ${res1.executionTimeMs}ms with ${res1.iterations} iterations.`);
 
@@ -208,7 +209,7 @@ function runComprehensiveTests() {
     { id: 'ha7', classId: 'c1', subjectId: 's7', teacherId: 't2', periodsPerWeek: 5 },
   ];
 
-  const res4 = generateRoutine(baseSettings, [classes[0]], teachers, heavySubjects, heavyAssignments2, rooms);
+  const res4 = await generateRoutine(baseSettings, [classes[0]], teachers, heavySubjects, heavyAssignments2, rooms);
   assert(res4.success, 'Two-phase solver succeeds by auto-relaxing soft morning bounds & Saturday pigeonhole');
   assert(res4.stats?.placedUnits === 40, 'All 40 units successfully placed');
   console.log(`Phase used: ${res4.stats?.phase}, Iterations: ${res4.iterations}, Time: ${res4.executionTimeMs}ms`);
@@ -236,7 +237,7 @@ function runComprehensiveTests() {
   const impossibleAvailAssignments: RoutineAssignment[] = [
     { id: 'ia1', classId: 'c1', subjectId: 's1', teacherId: 't_locked', periodsPerWeek: 6 },
   ];
-  const res5 = generateRoutine(baseSettings, [classes[0]], restrictedTeachers, heavySubjects, impossibleAvailAssignments, rooms);
+  const res5 = await generateRoutine(baseSettings, [classes[0]], restrictedTeachers, heavySubjects, impossibleAvailAssignments, rooms);
   assert(!res5.success, 'Solver correctly identifies impossibility when teacher slots are insufficient');
   assert(Boolean(res5.diagnosticItems && res5.diagnosticItems.length > 0), 'Rich diagnostic items returned on failure');
   const diag = res5.diagnosticItems![0];
@@ -247,6 +248,9 @@ function runComprehensiveTests() {
   console.log('\n=========================================');
   console.log('ALL RIGOROUS SOLVER ASSERTIONS PASSED (100% SUITE)!');
   console.log('=========================================\n');
+}
+
+runAllTests().catch(console.error);
 }
 
 runComprehensiveTests();

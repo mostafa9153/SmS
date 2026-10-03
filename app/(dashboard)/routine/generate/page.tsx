@@ -88,7 +88,7 @@ export default function RoutineGeneratePage() {
       activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
       setAssignments(activeAssignments);
     }
-    const result = generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms);
+    const result = await generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms);
     if (result.success) {
       await saveGeneratedRoutineDb(result);
     }
