@@ -338,6 +338,7 @@ export interface StudentResult {
     gender: Gender;
     studentUniqueCode?: string;
     presentSemester?: Semester | null;
+    boardRegistrationNo?: string;
   };
 }
 

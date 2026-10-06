@@ -23,7 +23,9 @@ import {
   FileSpreadsheet,
   BarChart2,
   AlertCircle,
+  Printer,
 } from "lucide-react";
+import { EvaluationPrintDialog } from "@/components/results/evaluation-print-dialog";
 import {
   getClassResults,
   saveStudentResult,
@@ -83,6 +85,7 @@ export default function ResultsClient() {
   const subjectParam = searchParams.get("subject");
   const yearParam = searchParams.get("year");
   const semesterParam = searchParams.get("semester") as Semester | null;
+  const genderParam = searchParams.get("gender") as "Male" | "Female" | null;
   const viewParam = searchParams.get("view") as "subject_batch" | "class_summary" | null;
 
   // Primary State
@@ -92,6 +95,9 @@ export default function ResultsClient() {
   });
   const [selectedClass, setSelectedClassState] = useState<string>(classParam || "V");
   const [selectedSection, setSelectedSectionState] = useState<string>(sectionParam || "A");
+  const [selectedGender, setSelectedGenderState] = useState<"ALL" | "Male" | "Female">(
+    genderParam === "Male" || genderParam === "Female" ? genderParam : "ALL"
+  );
   const [selectedSemester, setSelectedSemesterState] = useState<Semester | "ALL">(semesterParam || "ALL");
   const [selectedExam, setSelectedExamState] = useState<string>(examParam || "1st Summative Evaluation");
   const [selectedSubject, setSelectedSubjectState] = useState<string>(subjectParam || "");
@@ -101,6 +107,7 @@ export default function ResultsClient() {
   const [localQuery, setLocalQuery] = useState<string>("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
   const [promotionPolicy, setPromotionPolicy] = useState<PromotionPolicy>(getSavedPromotionPolicy());
 
   const isHs = selectedClass === "XI" || selectedClass === "XII";
@@ -152,9 +159,6 @@ export default function ResultsClient() {
         "Sem 1 Final",
         "Sem 2 Final",
         "Supplementary Examination",
-        "1st Summative Evaluation",
-        "2nd Summative Evaluation",
-        "Annual Examination",
       ];
     }
     if (selectedClass === "XII") {
@@ -162,8 +166,6 @@ export default function ResultsClient() {
         "Sem 3 Final",
         "Sem 4 Final",
         "Compartmental Examination",
-        "Selection Test",
-        "Annual Examination",
       ];
     }
     if (selectedClass === "X") {
@@ -172,7 +174,6 @@ export default function ResultsClient() {
         "2nd Summative Evaluation",
         "Selection Test",
         "Supplementary / Re-test",
-        "Annual Examination",
       ];
     }
     return [
@@ -180,9 +181,15 @@ export default function ResultsClient() {
       "2nd Summative Evaluation",
       "3rd Summative Evaluation",
       "Supplementary / Re-test",
-      "Annual Examination",
     ];
   }, [selectedClass]);
+
+  // Ensure selected exam is valid for current class
+  useEffect(() => {
+    if (!selectedExam || !examOptions.includes(selectedExam)) {
+      setSelectedExamState(examOptions[0] || "Sem 1 Final");
+    }
+  }, [examOptions, selectedExam]);
 
   // Subject full marks breakdown for current class & exam
   const subjectFullMarksInfo: SubjectFullMarksInfo = useMemo(() => {
@@ -202,6 +209,7 @@ export default function ResultsClient() {
         (key === "class" && val === "V") ||
         (key === "section" && val === "A") ||
         (key === "semester" && val === "ALL") ||
+        (key === "gender" && val === "ALL") ||
         (key === "year" && val === String(currentYear)) ||
         (key === "view" && val === "subject_batch")
       ) {
@@ -232,6 +240,11 @@ export default function ResultsClient() {
   const handleSelectSection = (sec: string) => {
     setSelectedSectionState(sec);
     updateResultUrl({ section: sec });
+  };
+
+  const handleSelectGender = (gender: "ALL" | "Male" | "Female") => {
+    setSelectedGenderState(gender);
+    updateResultUrl({ gender: gender === "ALL" ? null : gender });
   };
 
   const handleSelectSemester = (sem: Semester | "ALL") => {
@@ -530,24 +543,54 @@ export default function ResultsClient() {
     }
   };
 
-  // Filtered Results List
+  // Filtered & Sorted Results List
   const filteredResults = useMemo(() => {
     if (!summary?.results) return [];
     let list = summary.results;
 
+    // 1. Gender Filter (Boys / Girls / All)
+    if (selectedGender !== "ALL") {
+      list = list.filter((r) => {
+        const g = (r.student?.gender || "").toLowerCase().trim();
+        if (selectedGender === "Male") return g === "male" || g === "boy" || g === "m";
+        if (selectedGender === "Female") return g === "female" || g === "girl" || g === "f";
+        return true;
+      });
+    }
+
+    // 2. Search Query Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (r) =>
           (r.student?.name || "").toLowerCase().includes(q) ||
           (r.student?.schoolId || "").toLowerCase().includes(q) ||
+          (r.student?.boardRegistrationNo || "").toLowerCase().includes(q) ||
           (r.student?.pen || "").toLowerCase().includes(q) ||
           String(r.roll).includes(q)
       );
     }
 
+    // 3. Serial Ordering
+    // For Class XI & XII (isHs): arranged sequentially by Registration Number (boardRegistrationNo)
+    // For other classes: arranged serially by Roll number
+    if (isHs) {
+      list = [...list].sort((a, b) => {
+        const regA = a.student?.boardRegistrationNo?.trim() || "";
+        const regB = b.student?.boardRegistrationNo?.trim() || "";
+        if (regA && regB) {
+          return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+        }
+        if (regA && !regB) return -1;
+        if (!regA && regB) return 1;
+        return (a.roll || 0) - (b.roll || 0);
+      });
+    } else {
+      list = [...list].sort((a, b) => (a.roll || 0) - (b.roll || 0));
+    }
+
     return list;
-  }, [summary, searchQuery]);
+  }, [summary, searchQuery, selectedGender, isHs]);
 
   // Rank Badge Formatter
   const renderRankBadge = (rank?: number) => {
@@ -703,6 +746,35 @@ export default function ResultsClient() {
               </div>
             </div>
 
+            {/* Touch Gender Pills */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Select Gender</label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: "ALL", label: "All Genders" },
+                  { value: "Male", label: "Boys" },
+                  { value: "Female", label: "Girls" },
+                ].map((g) => {
+                  const isSelected = selectedGender === g.value;
+                  return (
+                    <button
+                      key={g.value}
+                      type="button"
+                      onClick={() => handleSelectGender(g.value as any)}
+                      className={cn(
+                        "min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer border",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                          : "bg-card border-border/80 text-foreground hover:bg-muted"
+                      )}
+                    >
+                      {g.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="pt-2 sticky bottom-0 bg-background pb-2">
               <button
                 type="button"
@@ -766,6 +838,18 @@ export default function ResultsClient() {
             onChange={handleSelectSection}
             placeholder="Section"
             options={sectionOptions}
+          />
+
+          {/* Gender filter (All / Boys / Girls) */}
+          <FilterSelect
+            value={selectedGender}
+            onChange={(v) => handleSelectGender(v as "ALL" | "Male" | "Female")}
+            placeholder="Gender"
+            options={[
+              { label: "All Genders", value: "ALL" },
+              { label: "Boys", value: "Male" },
+              { label: "Girls", value: "Female" },
+            ]}
           />
 
           {/* Semester filter (Higher Secondary Class XI / XII Only) */}
@@ -904,6 +988,18 @@ export default function ResultsClient() {
               <span>Re-Rank</span>
             </button>
 
+            {/* Print Register Action Button */}
+            <button
+              type="button"
+              onClick={() => setIsPrintModalOpen(true)}
+              disabled={isLoading || filteredResults.length === 0}
+              className="flex items-center justify-center gap-1.5 min-h-[40px] sm:min-h-[36px] rounded-xl border border-border/80 bg-card px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-all disabled:opacity-50 shadow-2xs cursor-pointer text-foreground"
+              title="Print All Subjects Marks & Evaluation Register"
+            >
+              <Printer className="h-3.5 w-3.5 text-primary" />
+              <span>Print Register</span>
+            </button>
+
             {/* Primary Action Button (Subject Batch Save) */}
             {activeView === "subject_batch" && (
               <button
@@ -960,7 +1056,7 @@ export default function ResultsClient() {
                       Student Name
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-40">
-                      School ID
+                      {isHs ? "Reg No" : "School ID"}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground tracking-wider uppercase w-14">
                       Sec
@@ -1033,7 +1129,13 @@ export default function ResultsClient() {
                             {r.student?.name}
                           </td>
                           <td className="px-4 py-3 font-mono text-muted-foreground text-xs">
-                            {r.student?.schoolId}
+                            {isHs ? (
+                              <div className="font-semibold text-foreground">
+                                {r.student?.boardRegistrationNo || <span className="text-muted-foreground/40 italic">—</span>}
+                              </div>
+                            ) : (
+                              <div>{r.student?.schoolId}</div>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center font-semibold text-muted-foreground">
                             {r.section}
@@ -1271,7 +1373,10 @@ export default function ResultsClient() {
 
                       <div className="flex items-center justify-between pt-2 border-t text-xs">
                         <span className="text-muted-foreground">
-                          ID: <strong className="font-mono text-foreground">{r.student?.schoolId}</strong>
+                          {isHs ? "Reg No: " : "ID: "}
+                          <strong className="font-mono text-foreground">
+                            {isHs ? (r.student?.boardRegistrationNo || "—") : r.student?.schoolId}
+                          </strong>
                         </span>
                         <span className="font-mono font-bold">
                           Total: {score.isAbsent ? "AB (0)" : `${subTotal} / ${subjectFullMarksInfo.totalFull}`}
@@ -1348,7 +1453,7 @@ export default function ResultsClient() {
                       Student Name
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground tracking-wider uppercase w-40">
-                      School ID / PEN
+                      {isHs ? "Reg No / PEN" : "School ID / PEN"}
                     </th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-muted-foreground tracking-wider uppercase w-14">
                       Sec
@@ -1414,7 +1519,11 @@ export default function ResultsClient() {
                             {r.student?.name}
                           </td>
                           <td className="px-4 py-3 font-mono text-muted-foreground text-xs">
-                            <div>{r.student?.schoolId}</div>
+                            <div>
+                              {isHs
+                                ? (r.student?.boardRegistrationNo || <span className="text-muted-foreground/40 italic">—</span>)
+                                : r.student?.schoolId}
+                            </div>
                             {r.student?.pen && (
                               <div className="text-[10px] text-muted-foreground/70">PEN: {r.student.pen}</div>
                             )}
@@ -1526,7 +1635,10 @@ export default function ResultsClient() {
                             <span className="font-bold text-xs text-foreground">{r.student?.name}</span>
                           </div>
                           <div className="text-[11px] font-mono text-muted-foreground">
-                            {r.student?.schoolId} • Sec {r.section}
+                            {isHs
+                              ? (r.student?.boardRegistrationNo ? `Reg: ${r.student.boardRegistrationNo}` : `ID: ${r.student?.schoolId}`)
+                              : r.student?.schoolId}
+                            {" • Sec "}{r.section}
                             {r.student?.presentSemester && ` • ${r.student.presentSemester}`}
                           </div>
                         </div>
@@ -1812,6 +1924,18 @@ export default function ResultsClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 6. EVALUATION & MARKS REGISTER PRINT MODAL */}
+      <EvaluationPrintDialog
+        open={isPrintModalOpen}
+        onOpenChange={setIsPrintModalOpen}
+        students={filteredResults}
+        academicYear={academicYear}
+        selectedClass={selectedClass}
+        selectedSection={selectedSection}
+        selectedExam={selectedExam}
+        subjects={classSubjects}
+      />
     </div>
   );
 }

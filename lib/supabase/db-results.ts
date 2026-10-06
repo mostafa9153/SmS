@@ -73,7 +73,7 @@ export async function dbGetResultsByClass(
   // 1. Fetch all students currently in this class & section
   let studentsQuery = supabase
     .from("students")
-    .select("id, name, school_id, pen, gender, present_class, present_section, present_roll, student_unique_code, present_semester")
+    .select("id, name, school_id, pen, gender, present_class, present_section, present_roll, student_unique_code, present_semester, board_registration_no")
     .eq("present_class", normClass)
     .order("present_roll", { ascending: true });
 
@@ -159,6 +159,7 @@ export async function dbGetResultsByClass(
           gender: s.gender,
           studentUniqueCode: s.student_unique_code || undefined,
           presentSemester: s.present_semester || undefined,
+          boardRegistrationNo: s.board_registration_no || undefined,
         },
       };
     }
@@ -199,6 +200,7 @@ export async function dbGetResultsByClass(
         gender: s.gender,
         studentUniqueCode: s.student_unique_code || undefined,
         presentSemester: s.present_semester || undefined,
+        boardRegistrationNo: s.board_registration_no || undefined,
       },
     };
   });
