@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { TeacherAvailabilityMatrix } from "./teacher-availability-matrix";
 
 export interface TeacherEditorFormProps {
   isSubmitting: boolean;
@@ -98,7 +99,7 @@ export function TeacherEditorForm({
   classSectionsMap,
   classPeriodsMap,
   activeSectionTab,
-  availSlots: _availSlots,
+  availSlots,
   presetClasses,
   staffList,
   selectableStaffList,
@@ -110,7 +111,7 @@ export function TeacherEditorForm({
   currentClassTeacherMap,
   conflictTeacher,
   classSubjectsDictionary,
-  settings: _settings,
+  settings,
   onSave,
   onCancel,
   onStaffDropdownChange,
@@ -127,8 +128,8 @@ export function TeacherEditorForm({
   onSubjectPeriodChange,
   onSetActiveSectionTab,
   onSelectSection,
-  onTogglePeriod: _onTogglePeriod,
-  onSetPreset: _onSetPreset,
+  onTogglePeriod,
+  onSetPreset,
   getClassSections,
   getSectionSubjects,
   getSubjectPeriod,
@@ -784,6 +785,14 @@ export function TeacherEditorForm({
           </div>
         )}
       </div>
+
+      {/* Weekly Period Availability Matrix */}
+      <TeacherAvailabilityMatrix
+        settings={settings}
+        availSlots={availSlots}
+        togglePeriod={onTogglePeriod}
+        setPreset={onSetPreset}
+      />
 
       <div className="flex justify-end gap-2 pt-2 border-t">
         <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-8 text-xs">

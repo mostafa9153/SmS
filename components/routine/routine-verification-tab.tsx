@@ -177,6 +177,27 @@ export function RoutineVerificationTab({
           targetTeacher: t.name,
         });
       }
+
+      // Check Teacher Availability Matrix physical limits
+      if (t.availableSlots) {
+        let totalOpenSlots = 0;
+        workingDays.forEach((day) => {
+          if (t.availableSlots && t.availableSlots[day]) {
+            totalOpenSlots += t.availableSlots[day].length;
+          }
+        });
+        if (load > totalOpenSlots) {
+          issues.push({
+            id: `availability_deficit_${t.id}`,
+            type: "error",
+            category: "availability_conflict",
+            title: `Availability Conflict: ${t.name} (${load} p/wk > ${totalOpenSlots} slots)`,
+            description: `Teacher ${t.name} is assigned ${load} periods per week, but their Availability Matrix only has ${totalOpenSlots} periods marked as available. This is a mathematical impossibility.`,
+            solution: `Go to Setup Hub → Teachers → Edit ${t.name} and open more periods in the Availability Matrix, or reduce their assigned workload.`,
+            targetTeacher: t.name,
+          });
+        }
+      }
     });
 
     // 3. Class by Class Curriculum, Morning Saturation & Teacher Coverage Check
@@ -322,7 +343,56 @@ export function RoutineVerificationTab({
       });
     });
 
-    // 4. Lab Double Period Feasibility
+    // 4. Room Utilization Check
+    const roomLoadMap: Record<string, number> = {};
+    activeAssignments.forEach((a) => {
+      if (a.roomId) {
+        roomLoadMap[a.roomId] = (roomLoadMap[a.roomId] || 0) + a.periodsPerWeek;
+      }
+    });
+
+    rooms.forEach((r) => {
+      const load = roomLoadMap[r.id] || 0;
+      // Room max capacity: Assuming rooms are open all working days, full schedule
+      const maxCapacity =
+        fullDaysCount * regP + halfDaysCount * halfP;
+      
+      if (load > maxCapacity) {
+        issues.push({
+          id: `room_overflow_${r.id}`,
+          type: "error",
+          category: "capacity_overflow",
+          title: `Room Capacity Exceeded: ${r.name}`,
+          description: `Room "${r.name}" is assigned to host ${load} periods/week, but the school only has ${maxCapacity} total slots available per week.`,
+          solution: `Reduce classes assigned to this room, or add another room.`,
+        });
+      }
+    });
+
+    // 5. Class Teacher Clash Check
+    const classTeacherMap: Record<string, string[]> = {};
+    teachers.forEach((t) => {
+      if (t.classTeacherOf) {
+        const targetCls = t.classTeacherOf.trim().toLowerCase();
+        if (!classTeacherMap[targetCls]) classTeacherMap[targetCls] = [];
+        classTeacherMap[targetCls].push(t.name);
+      }
+    });
+
+    Object.entries(classTeacherMap).forEach(([cls, tNames]) => {
+      if (tNames.length > 1) {
+        issues.push({
+          id: `ct_clash_${cls}`,
+          type: "error",
+          category: "availability_conflict",
+          title: `Class Teacher Clash: ${cls.toUpperCase()}`,
+          description: `Multiple teachers (${tNames.join(", ")}) are assigned as the Class Teacher for "${cls}". Since Class Teachers are prioritized for the 1st period, this creates an impossible conflict.`,
+          solution: `Go to Setup Hub → Teachers and ensure only one teacher is marked as the Class Teacher for a specific section.`,
+        });
+      }
+    });
+
+    // 6. Lab Double Period Feasibility
     subjects
       .filter((s) => s.isLab)
       .forEach((labSubj) => {

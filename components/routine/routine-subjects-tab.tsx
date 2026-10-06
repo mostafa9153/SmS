@@ -1251,12 +1251,15 @@ export function RoutineSubjectsTab({
             <Badge variant="secondary" className="text-[10px] font-mono font-bold">
               {currentClassSubjects.length} Subjects
             </Badge>
-            <Badge variant="outline" className="text-[10px] font-mono font-bold bg-primary/10 text-primary border-primary/30">
-              {currentClassTotalPeriods} p/wk / section
+            <Badge 
+              variant={currentClassTotalPeriods > 44 ? "destructive" : "outline"} 
+              className={cn("text-[10px] font-mono font-bold", currentClassTotalPeriods <= 44 && "bg-primary/10 text-primary border-primary/30")}
+            >
+              {currentClassTotalPeriods} p/wk / section {currentClassTotalPeriods > 44 && "(Overload!)"}
             </Badge>
             {activeClassSections.length > 0 && (
               <Badge variant="outline" className="text-[10px] font-mono text-foreground font-semibold border-border/80">
-                Total: {activeClassSectionsTotalPeriods} p/wk ({activeClassSections.length} Sections: {activeClassSections.map((c) => c.section).join(", ")})
+                Total: {activeClassSectionsTotalPeriods} p/wk ({activeClassSections.length} Sections)
               </Badge>
             )}
           </div>
@@ -1397,7 +1400,14 @@ export function RoutineSubjectsTab({
                   min={1}
                   max={18}
                   value={dlgPeriodsPerWeek}
-                  onChange={(e) => setDlgPeriodsPerWeek(parseInt(e.target.value, 10) || 1)}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10) || 1;
+                    setDlgPeriodsPerWeek(val);
+                    if (!dlgIsLab && val >= 6) {
+                      setDlgAllowMulti(true);
+                      if (dlgMaxPerDay < 2) setDlgMaxPerDay(2);
+                    }
+                  }}
                   className="h-8 text-xs font-mono font-semibold"
                   required
                 />
@@ -1408,7 +1418,13 @@ export function RoutineSubjectsTab({
                 <Label className="text-xs font-semibold">Period Format</Label>
                 <Select
                   value={dlgIsLab ? "lab" : "single"}
-                  onValueChange={(val) => setDlgIsLab(val === "lab")}
+                  onValueChange={(val) => {
+                    const isLab = val === "lab";
+                    setDlgIsLab(isLab);
+                    if (!isLab && dlgPeriodsPerWeek >= 6) {
+                      setDlgAllowMulti(true);
+                    }
+                  }}
                 >
                   <SelectTrigger className="h-8 text-xs font-medium bg-background">
                     <SelectValue placeholder="Format">
@@ -1466,15 +1482,24 @@ export function RoutineSubjectsTab({
             </div>
 
             {/* Allow Multi-Period */}
-            <label className="flex items-center gap-2 text-xs font-medium cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={dlgAllowMulti}
-                onChange={(e) => setDlgAllowMulti(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-              />
-              <span>Allow multiple periods in the same day</span>
-            </label>
+            <div className="space-y-1">
+              <label className={cn("flex items-center gap-2 text-xs font-medium select-none", (!dlgIsLab && dlgPeriodsPerWeek >= 7) ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
+                <input
+                  type="checkbox"
+                  checked={dlgAllowMulti}
+                  onChange={(e) => setDlgAllowMulti(e.target.checked)}
+                  disabled={!dlgIsLab && dlgPeriodsPerWeek >= 7}
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <span>Allow multiple periods in the same day</span>
+              </label>
+              {(!dlgIsLab && dlgPeriodsPerWeek >= 7) && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-500 font-medium ml-6">Required lock: 7+ periods exceeds 6 working days.</p>
+              )}
+              {(!dlgIsLab && dlgPeriodsPerWeek === 6) && (
+                <p className="text-[10px] text-muted-foreground ml-6">Recommended: 6 periods usually requires 2/day because Saturday is a half-day.</p>
+              )}
+            </div>
 
             {dlgAllowMulti && (
               <div className="flex items-center gap-2">

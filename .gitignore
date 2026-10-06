@@ -45,5 +45,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# python
+python-backend/venv/
+python-backend/__pycache__/
+venv/
+__pycache__/
+*.pyc
+
+# temporary test files
+test_ts_solver*.ts
+scripts/patch*.js
+scripts/test-*.ts
 scratch/
 supabase/.temp/
+
