@@ -4,6 +4,19 @@
  * and dynamic calculations for West Bengal Board (WBBSE/WBCHSE) schools.
  */
 
+export interface MarksSplitVariation {
+  id: string; // e.g. "var-40-10", "var-35-15", "var-50-0"
+  name: string; // e.g. "Theory (40) + Project (10)"
+  written: number; // e.g. 40
+  practical: number; // e.g. 10
+}
+
+export const DEFAULT_HS_SPLIT_VARIATIONS: MarksSplitVariation[] = [
+  { id: "var-40-10", name: "Theory (40) + Project (10)", written: 40, practical: 10 },
+  { id: "var-35-15", name: "Theory (35) + Practical / Lab (15)", written: 35, practical: 15 },
+  { id: "var-50-0", name: "Full Theory Only (50 + 0)", written: 50, practical: 0 },
+];
+
 export interface ClassMarksScheme {
   classCode: string; // "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"
   className: string; // "Class V", "Class VI", etc.
@@ -31,13 +44,24 @@ export interface ClassMarksScheme {
   evenSemesterPractical?: number; // Sem 2 (Class XI) / Sem 4 (Class XII) Project/Practical (Default: 10)
   evenSemesterMarks?: number;     // Sem 2 / Sem 4 Total (Default: 50)
 
+  // Configured Marks Split Variations for this class
+  splitVariations?: MarksSplitVariation[];
+
   // Per-Subject Custom Written vs Practical/Project Marks Distribution Map
   subjectMarksBreakdown?: Record<string, {
     written?: number;
     practical?: number;
+    variationId?: string;
   }>;
 
   notes?: string;
+}
+
+export function getSchemeSplitVariations(scheme?: ClassMarksScheme): MarksSplitVariation[] {
+  if (scheme?.splitVariations && scheme.splitVariations.length > 0) {
+    return scheme.splitVariations;
+  }
+  return DEFAULT_HS_SPLIT_VARIATIONS;
 }
 
 /**
