@@ -245,30 +245,31 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             if day_vars:
                 model.Add(sum(day_vars) <= tch_cap)
 
-    consec_max = settings.tchConsecMax + 1 if is_relaxed else settings.tchConsecMax
-    for t_id in teacher_occupancy:
-        for d in range(D):
-            blocks = []
-            current_block = []
-            for p in range(P):
-                current_block.append(p)
-                p_num = p + 1
-                if p_num in settings.breaks:
+    if not is_relaxed and settings.tchConsecMax > 0:
+        consec_max = settings.tchConsecMax
+        for t_id in teacher_occupancy:
+            for d in range(D):
+                blocks = []
+                current_block = []
+                for p in range(P):
+                    current_block.append(p)
+                    p_num = p + 1
+                    if p_num in settings.breaks:
+                        blocks.append(current_block)
+                        current_block = []
+                if current_block:
                     blocks.append(current_block)
-                    current_block = []
-            if current_block:
-                blocks.append(current_block)
-                
-            for block in blocks:
-                if len(block) > consec_max:
-                    for i in range(len(block) - consec_max):
-                        window_periods = block[i : i + consec_max + 1]
-                        window_vars = []
-                        for wp in window_periods:
-                            if teacher_occupancy[t_id][d][wp]:
-                                window_vars.extend(teacher_occupancy[t_id][d][wp])
-                        if window_vars:
-                            model.Add(sum(window_vars) <= consec_max)
+                    
+                for block in blocks:
+                    if len(block) > consec_max:
+                        for i in range(len(block) - consec_max):
+                            window_periods = block[i : i + consec_max + 1]
+                            window_vars = []
+                            for wp in window_periods:
+                                if teacher_occupancy[t_id][d][wp]:
+                                    window_vars.extend(teacher_occupancy[t_id][d][wp])
+                            if window_vars:
+                                model.Add(sum(window_vars) <= consec_max)
 
     # Objectives
     obj_vars = []
