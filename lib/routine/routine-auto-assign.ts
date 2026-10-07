@@ -132,7 +132,19 @@ export function autoBuildRoutineAssignments(
           t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`];
 
         if (secSubs !== undefined) {
-          return Array.isArray(secSubs) && secSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
+          return (
+            Array.isArray(secSubs) &&
+            secSubs.some((s) => {
+              const sClean = s.trim().toLowerCase();
+              return (
+                sClean === subjNameLower ||
+                sClean === `${subjNameLower} (theory)` ||
+                sClean === `${subjNameLower} (lab)` ||
+                sClean === `${subjNameLower} (practical)` ||
+                subjNameLower === sClean.replace(/\s*\((theory|lab|practical)\)/i, "").trim()
+              );
+            })
+          );
         }
 
         // If teacher has ANY sectionSubjects configured for this class, strictly do NOT fall back to classSubjects
@@ -148,8 +160,116 @@ export function autoBuildRoutineAssignments(
 
         const classSubs = t.classSubjects?.[cls.className] || [];
         if (classSubs.length === 0) return true; // Qualified for all subjects in this class
-        return classSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
+        return classSubs.some((s) => {
+          const sClean = s.trim().toLowerCase();
+          return (
+            sClean === subjNameLower ||
+            sClean === `${subjNameLower} (theory)` ||
+            sClean === `${subjNameLower} (lab)` ||
+            sClean === `${subjNameLower} (practical)` ||
+            subjNameLower === sClean.replace(/\s*\((theory|lab|practical)\)/i, "").trim()
+          );
+        });
       });
+
+      // Auto-assign lab room if subject is practical/lab
+      let assignedRoomId: string | null = null;
+      if (subj.isLab && rooms && rooms.length > 0) {
+        const labRooms = rooms.filter((r) => r.isLab);
+        if (labRooms.length > 0) {
+          const isComp = subjNameLower.includes("comp");
+          const matchingLab =
+            labRooms.find((r) =>
+              isComp ? r.name.toLowerCase().includes("comp") : !r.name.toLowerCase().includes("comp")
+            ) || labRooms[0];
+          assignedRoomId = matchingLab.id;
+        }
+      }
+
+      // Check if this is a split Theory + Lab subject
+      const isSplitSubject =
+        subj.isLab && (subj.theoryPeriods ?? 0) > 0 && (subj.labPeriods ?? 0) > 0;
+
+      if (isSplitSubject) {
+        const theoryDemand = subj.theoryPeriods || Math.max(1, weeklyPeriods - (subj.labPeriods || 2));
+        const labDemand = subj.labPeriods || 2;
+
+        // 1. Process Theory Portion
+        const theoryTeachers = qualifiedTeachers.filter((t) => {
+          const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
+          const secSubs =
+            t.sectionSubjects?.[secKey] ??
+            t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
+            t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`] ??
+            t.classSubjects?.[cls.className] ??
+            [];
+          if (secSubs.length === 0) return true;
+          return secSubs.some((s) => {
+            const sc = s.trim().toLowerCase();
+            return sc === `${subjNameLower} (theory)` || sc === subjNameLower;
+          });
+        });
+
+        // 2. Process Lab Portion
+        const labTeachers = qualifiedTeachers.filter((t) => {
+          const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
+          const secSubs =
+            t.sectionSubjects?.[secKey] ??
+            t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
+            t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`] ??
+            t.classSubjects?.[cls.className] ??
+            [];
+          if (secSubs.length === 0) return true;
+          return secSubs.some((s) => {
+            const sc = s.trim().toLowerCase();
+            return (
+              sc === `${subjNameLower} (lab)` ||
+              sc === `${subjNameLower} (practical)` ||
+              sc === subjNameLower
+            );
+          });
+        });
+
+        // Choose Theory Teacher
+        const chosenTheoryTeacher =
+          (theoryTeachers.length > 0 ? theoryTeachers : qualifiedTeachers).sort(
+            (a, b) => (teacherLoads[a.id] || 0) / (a.maxPeriods || 24) - (teacherLoads[b.id] || 0) / (b.maxPeriods || 24)
+          )[0] || teachers[0];
+
+        // Choose Lab Teacher
+        const chosenLabTeacher =
+          (labTeachers.length > 0 ? labTeachers : qualifiedTeachers).sort(
+            (a, b) => (teacherLoads[a.id] || 0) / (a.maxPeriods || 24) - (teacherLoads[b.id] || 0) / (b.maxPeriods || 24)
+          )[0] || chosenTheoryTeacher;
+
+        if (chosenTheoryTeacher) {
+          assignments.push({
+            id: crypto.randomUUID(),
+            classId: cls.id,
+            subjectId: subj.id,
+            teacherId: chosenTheoryTeacher.id,
+            roomId: null,
+            periodsPerWeek: theoryDemand,
+            isLab: false,
+          });
+          teacherLoads[chosenTheoryTeacher.id] = (teacherLoads[chosenTheoryTeacher.id] || 0) + theoryDemand;
+        }
+
+        if (chosenLabTeacher) {
+          assignments.push({
+            id: crypto.randomUUID(),
+            classId: cls.id,
+            subjectId: subj.id,
+            teacherId: chosenLabTeacher.id,
+            roomId: assignedRoomId,
+            periodsPerWeek: labDemand,
+            isLab: true,
+          });
+          teacherLoads[chosenLabTeacher.id] = (teacherLoads[chosenLabTeacher.id] || 0) + labDemand;
+        }
+
+        continue;
+      }
 
       // Check if any qualified teachers have explicit subjectPeriods configured for this class, section & subject
       const explicitTeachers: { teacher: RoutineTeacher; periods: number }[] = [];
@@ -171,20 +291,6 @@ export function autoBuildRoutineAssignments(
         }
       });
 
-      // Auto-assign lab room if subject is practical/lab
-      let assignedRoomId: string | null = null;
-      if (subj.isLab && rooms && rooms.length > 0) {
-        const labRooms = rooms.filter((r) => r.isLab);
-        if (labRooms.length > 0) {
-          const isComp = subjNameLower.includes("comp");
-          const matchingLab =
-            labRooms.find((r) =>
-              isComp ? r.name.toLowerCase().includes("comp") : !r.name.toLowerCase().includes("comp")
-            ) || labRooms[0];
-          assignedRoomId = matchingLab.id;
-        }
-      }
-
       if (explicitTeachers.length > 0) {
         // Allocate strictly the configured explicit periods without artificial inflation
         explicitTeachers.forEach(({ teacher, periods }) => {
@@ -195,6 +301,7 @@ export function autoBuildRoutineAssignments(
             teacherId: teacher.id,
             roomId: assignedRoomId,
             periodsPerWeek: periods,
+            isLab: Boolean(subj.isLab),
           });
           teacherLoads[teacher.id] = (teacherLoads[teacher.id] || 0) + periods;
         });
@@ -239,7 +346,6 @@ export function autoBuildRoutineAssignments(
       }
 
       if (chosenTeacher) {
-
         // 1. Subject-specific period override (highest priority)
         const customSubjectPeriod =
           chosenTeacher.subjectPeriods?.[`${cls.className}::${secName}::${subj.name}`] ??
@@ -274,6 +380,7 @@ export function autoBuildRoutineAssignments(
           teacherId: chosenTeacher.id,
           roomId: assignedRoomId,
           periodsPerWeek: effectivePeriods,
+          isLab: Boolean(subj.isLab),
         });
 
         teacherLoads[chosenTeacher.id] = (teacherLoads[chosenTeacher.id] || 0) + effectivePeriods;

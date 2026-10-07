@@ -105,13 +105,29 @@ export function RoutineTeachersTab({
       const clsLower = clsName.trim().toLowerCase();
 
       // Synced from Routine Subjects tab (Authoritative source)
-      const routineSubs = (subjects || [])
-        .filter((s) => !s.className || s.className.trim().toLowerCase() === clsLower)
-        .map((s) => s.name.trim());
+      const routineSubs = (subjects || []).filter(
+        (s) => !s.className || s.className.trim().toLowerCase() === clsLower
+      );
 
       if (routineSubs.length > 0) {
-        // Strictly serve subjects configured in Routine Subjects
-        map[clsName] = Array.from(new Set(routineSubs));
+        const expandedSubs: string[] = [];
+        routineSubs.forEach((s) => {
+          const sName = s.name.trim();
+          const hasSeparateTheoryAndLab = s.isLab && (s.theoryPeriods ?? 0) > 0 && (s.labPeriods ?? 0) > 0;
+          if (hasSeparateTheoryAndLab) {
+            expandedSubs.push(`${sName} (Theory)`);
+            expandedSubs.push(`${sName} (Lab)`);
+          } else if (s.isLab && (s.theoryPeriods ?? 0) === 0) {
+            expandedSubs.push(
+              sName.toLowerCase().includes("lab") || sName.toLowerCase().includes("practical")
+                ? sName
+                : `${sName} (Lab)`
+            );
+          } else {
+            expandedSubs.push(sName);
+          }
+        });
+        map[clsName] = Array.from(new Set(expandedSubs));
       } else {
         // Fallback only if no routine subjects configured yet for this class
         const dbSubs = getDatabaseSubjectsForClass(c.code || c.name);
@@ -197,12 +213,32 @@ export function RoutineTeachersTab({
   // Helper to get default weekly period for a subject in a class
   const getSubjectDefaultPeriod = useCallback(
     (clsName: string, subName: string): number => {
+      const isTheory = subName.includes("(Theory)");
+      const isLabVariant = subName.includes("(Lab)") || subName.includes("(Practical)");
+      const cleanSubName = subName.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim().toLowerCase();
+
       const matched = (subjects || []).find(
         (s) =>
-          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+          (s.name.trim().toLowerCase() === cleanSubName || s.name.trim().toLowerCase() === subName.trim().toLowerCase()) &&
           (s.className ? s.className.trim().toLowerCase() === clsName.trim().toLowerCase() : true)
       );
-      return matched?.periodsPerWeek && matched.periodsPerWeek > 0 ? matched.periodsPerWeek : 5;
+
+      if (matched) {
+        if (isTheory) {
+          return matched.theoryPeriods && matched.theoryPeriods > 0
+            ? matched.theoryPeriods
+            : matched.periodsPerWeek
+            ? Math.max(1, matched.periodsPerWeek - (matched.labPeriods || 2))
+            : 4;
+        }
+        if (isLabVariant) {
+          return matched.labPeriods && matched.labPeriods > 0
+            ? matched.labPeriods
+            : (matched.periodsPerWeek && matched.isLab ? matched.periodsPerWeek : 2);
+        }
+        return matched.periodsPerWeek && matched.periodsPerWeek > 0 ? matched.periodsPerWeek : 5;
+      }
+      return 5;
     },
     [subjects]
   );
@@ -958,16 +994,40 @@ export function RoutineTeachersTab({
   // Helper to compute live allocation breakdown across other teachers for a given class, section, and subject
   const getSubjectAllocationStats = useCallback(
     (clsName: string, sec: string, subName: string) => {
+      const isTheory = subName.includes("(Theory)");
+      const isLabVariant = subName.includes("(Lab)") || subName.includes("(Practical)");
+      const cleanSubName = subName.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim().toLowerCase();
+
       // 1. Total weekly demand from configured subjects (or fallback default 5)
       const matchedSubject = (subjects || []).find(
         (s) =>
-          s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+          (s.name.trim().toLowerCase() === cleanSubName || s.name.trim().toLowerCase() === subName.trim().toLowerCase()) &&
           (!s.className || s.className.trim().toLowerCase() === clsName.trim().toLowerCase())
       );
-      const totalDemand =
-        matchedSubject?.periodsPerWeek && matchedSubject.periodsPerWeek > 0
-          ? matchedSubject.periodsPerWeek
-          : 5;
+
+      let totalDemand = 5;
+      if (matchedSubject) {
+        if (isTheory) {
+          totalDemand =
+            matchedSubject.theoryPeriods && matchedSubject.theoryPeriods > 0
+              ? matchedSubject.theoryPeriods
+              : matchedSubject.periodsPerWeek
+              ? Math.max(1, matchedSubject.periodsPerWeek - (matchedSubject.labPeriods || 2))
+              : 4;
+        } else if (isLabVariant) {
+          totalDemand =
+            matchedSubject.labPeriods && matchedSubject.labPeriods > 0
+              ? matchedSubject.labPeriods
+              : matchedSubject.periodsPerWeek && matchedSubject.isLab
+              ? matchedSubject.periodsPerWeek
+              : 2;
+        } else {
+          totalDemand =
+            matchedSubject.periodsPerWeek && matchedSubject.periodsPerWeek > 0
+              ? matchedSubject.periodsPerWeek
+              : 5;
+        }
+      }
 
       // 2. Sections to check (if sec === "ALL", inspect all configured sections)
       const allSecs = getClassSections(clsName);

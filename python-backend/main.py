@@ -81,6 +81,7 @@ class RoutineAssignment(BaseModel):
     teacherId: str
     roomId: Optional[str] = None
     periodsPerWeek: int
+    isLab: Optional[bool] = None
 
 class GenerateRoutineRequest(BaseModel):
     settings: RoutineSettings
@@ -407,7 +408,61 @@ def generate_schedule(request: GenerateRoutineRequest):
         allow_multiple = subj.allowMultiplePerDay or auto_max_daily > 1
         
         rem = a.periodsPerWeek
-        if subj.isLab:
+        if a.isLab is True:
+            # Explicit Lab assignment for this teacher (double periods)
+            rem_lab = rem
+            while rem_lab >= 2:
+                units.append({
+                    "uid": unit_counter,
+                    "cid": a.classId,
+                    "sid": a.subjectId,
+                    "tid": a.teacherId,
+                    "rid": a.roomId,
+                    "sz": 2,
+                    "hard": subj.isHard,
+                    "multi": allow_multiple,
+                    "maxPerDay": max_daily,
+                    "timePref": subj.timePref,
+                    "isClassTeacherUnit": is_ct,
+                    "targetFirstPeriods": target_first_periods,
+                })
+                unit_counter += 1
+                rem_lab -= 2
+            if rem_lab == 1:
+                units.append({
+                    "uid": unit_counter,
+                    "cid": a.classId,
+                    "sid": a.subjectId,
+                    "tid": a.teacherId,
+                    "rid": a.roomId,
+                    "sz": 1,
+                    "hard": subj.isHard,
+                    "multi": allow_multiple,
+                    "maxPerDay": max_daily,
+                    "timePref": subj.timePref,
+                    "isClassTeacherUnit": is_ct,
+                    "targetFirstPeriods": target_first_periods,
+                })
+                unit_counter += 1
+        elif a.isLab is False:
+            # Explicit Theory assignment for this teacher (single periods)
+            for _ in range(rem):
+                units.append({
+                    "uid": unit_counter,
+                    "cid": a.classId,
+                    "sid": a.subjectId,
+                    "tid": a.teacherId,
+                    "rid": a.roomId,
+                    "sz": 1,
+                    "hard": subj.isHard,
+                    "multi": allow_multiple,
+                    "maxPerDay": max_daily,
+                    "timePref": subj.timePref,
+                    "isClassTeacherUnit": is_ct,
+                    "targetFirstPeriods": target_first_periods,
+                })
+                unit_counter += 1
+        elif subj.isLab:
             lab_p = subj.labPeriods if subj.labPeriods is not None else min(2, a.periodsPerWeek)
             theory_p = subj.theoryPeriods if subj.theoryPeriods is not None else max(0, a.periodsPerWeek - lab_p)
             

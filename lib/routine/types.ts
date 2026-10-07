@@ -87,6 +87,7 @@ export interface RoutineAssignment {
   teacherId: string;
   roomId?: string | null;
   periodsPerWeek: number;
+  isLab?: boolean;
 }
 
 export interface RoutineCellData {
