@@ -91,10 +91,10 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         workingDays: setRow.working_days || [0, 1, 2, 3, 4, 5],
         periodsPerDay: setRow.periods_per_day || 8,
         halfDays: setRow.half_days || [5],
-        halfDayPeriods: setRow.half_day_periods || 4,
+        halfDayPeriods: setRow.half_day_periods ?? 3,
         breaks: setRow.breaks || [4],
         tchDailyMax: setRow.tch_daily_max || 5,
-        tchConsecMax: setRow.tch_consec_max || 3,
+        tchConsecMax: setRow.tch_consec_max ?? 2,
       };
     }
 

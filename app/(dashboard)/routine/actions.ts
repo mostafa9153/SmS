@@ -38,10 +38,10 @@ const RoutineSettingsSchema = z.object({
   workingDays: z.array(z.number().int().min(0).max(6)).default([0, 1, 2, 3, 4, 5]),
   periodsPerDay: z.number().int().min(1).max(12).default(8),
   halfDays: z.array(z.number().int().min(0).max(6)).default([5]),
-  halfDayPeriods: z.number().int().min(1).max(8).default(4),
+  halfDayPeriods: z.number().int().min(1).max(8).default(3),
   breaks: z.array(z.number().int().min(1).max(12)).default([4]),
   tchDailyMax: z.number().int().min(1).max(12).default(5),
-  tchConsecMax: z.number().int().min(1).max(8).default(3),
+  tchConsecMax: z.number().int().min(1).max(8).default(2),
 });
 
 const RoomSchema = z.object({

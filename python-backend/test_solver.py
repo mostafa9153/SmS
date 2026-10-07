@@ -5,10 +5,10 @@ payload = {
         "workingDays": [1, 2, 3, 4, 5],
         "periodsPerDay": 8,
         "halfDays": [5],
-        "halfDayPeriods": 4,
+        "halfDayPeriods": 3,
         "breaks": [4],
         "tchDailyMax": 6,
-        "tchConsecMax": 3
+        "tchConsecMax": 2
     },
     "classes": [
         {"id": "c1", "className": "Class 10", "section": "A", "dailyPeriods": 8}

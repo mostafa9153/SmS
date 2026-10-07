@@ -68,7 +68,7 @@ export function RoutineViewerTab({
 
   const activeDays = routine?.days || settings.workingDays;
   const halfDays = settings.halfDays || [];
-  const maxHalfP = settings.halfDayPeriods || 4;
+  const maxHalfP = settings.halfDayPeriods || 3;
 
   // Auto-sync initial selections when data loads
   React.useEffect(() => {

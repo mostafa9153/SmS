@@ -23,10 +23,10 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
   workingDays: [0, 1, 2, 3, 4, 5],
   periodsPerDay: 8,
   halfDays: [5],
-  halfDayPeriods: 4,
+  halfDayPeriods: 3,
   breaks: [4],
   tchDailyMax: 5,
-  tchConsecMax: 3,
+  tchConsecMax: 2,
 };
 
 export interface RoutineRoom {

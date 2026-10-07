@@ -33,7 +33,7 @@ export function TeacherAvailabilityMatrix({
         {settings.workingDays.map((dIdx) => {
           const dayPeriods = availSlots[dIdx] || [];
           const isHalf = settings.halfDays?.includes(dIdx);
-          const maxP = isHalf ? settings.halfDayPeriods || 4 : settings.periodsPerDay;
+          const maxP = isHalf ? settings.halfDayPeriods || 3 : settings.periodsPerDay;
 
           return (
             <div

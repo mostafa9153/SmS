@@ -133,7 +133,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    halfDayPeriods: parseInt(e.target.value, 10) || 4,
+                    halfDayPeriods: parseInt(e.target.value, 10) || 3,
                   })
                 }
                 className="h-9 text-xs"
@@ -179,7 +179,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    tchConsecMax: parseInt(e.target.value, 10) || 3,
+                    tchConsecMax: parseInt(e.target.value, 10) || 2,
                   })
                 }
                 className="h-9 text-xs"
