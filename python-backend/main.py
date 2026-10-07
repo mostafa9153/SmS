@@ -221,22 +221,21 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
                     model.Add(sum(day_vars) <= max_daily_allowed)
 
     # Enforce strictly: Max Daily Periods / Teacher
+    half_days_count = len(half_days)
+    full_days_count_total = len(working_days) - half_days_count
     for t_id in teacher_occupancy:
         t_units = [u for u in units if u["tid"] == t_id]
         if not t_units: continue
         
         load = teacher_load_map.get(t_id, 0)
+        # Flawless fallback: if teacher's load exceeds the total possible slots using tchDailyMax, expand it minimally
+        half_day_contrib = half_days_count * min(settings.tchDailyMax, settings.halfDayPeriods)
+        full_day_req = math.ceil(max(0, load - half_day_contrib) / max(1, full_days_count_total)) if full_days_count_total > 0 else 0
+        base_cap_full = max(settings.tchDailyMax, full_day_req)
+        base_cap_half = min(settings.tchDailyMax, settings.halfDayPeriods)
         
         for d_idx, day_val in enumerate(working_days):
-            tch_cap = min(settings.tchDailyMax, settings.halfDayPeriods) if day_val in half_days else settings.tchDailyMax
-            # Strictly enforce without relaxation, but if the teacher's load literally exceeds the maximum possible slots, 
-            # we must expand it minimally to prevent an unfeasible model, though UI validation should prevent this.
-            total_possible_slots_weekly = (len(working_days) - len(half_days)) * settings.tchDailyMax + len(half_days) * min(settings.tchDailyMax, settings.halfDayPeriods)
-            if load > total_possible_slots_weekly:
-                 tch_cap = math.ceil(load / len(working_days)) # Fallback if assignment exceeds capacity
-                 
-            if phase == 3:
-                tch_cap += 1
+            tch_cap = base_cap_half if day_val in half_days else base_cap_full
             
             day_vars = []
             for u in t_units:
@@ -244,34 +243,35 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
                 for p in range(P):
                     if (u["uid"], d_idx, p) in x:
                         day_vars.append(x[(u["uid"], d_idx, p)] * sz)
-            if day_vars:
+            if day_vars and phase < 3:
                 model.Add(sum(day_vars) <= tch_cap)
 
     # Enforce strictly: Max Consecutive Periods
-    consec_max = settings.tchConsecMax + 1 if phase == 3 else settings.tchConsecMax
-    for t_id in teacher_occupancy:
-        for d in range(D):
-            blocks = []
-            current_block = []
-            for p in range(P):
-                current_block.append(p)
-                p_num = p + 1
-                if p_num in settings.breaks:
+    if phase < 3:
+        consec_max = settings.tchConsecMax
+        for t_id in teacher_occupancy:
+            for d in range(D):
+                blocks = []
+                current_block = []
+                for p in range(P):
+                    current_block.append(p)
+                    p_num = p + 1
+                    if p_num in settings.breaks:
+                        blocks.append(current_block)
+                        current_block = []
+                if current_block:
                     blocks.append(current_block)
-                    current_block = []
-            if current_block:
-                blocks.append(current_block)
-                
-            for block in blocks:
-                if len(block) > consec_max:
-                    for i in range(len(block) - consec_max):
-                        window_periods = block[i : i + consec_max + 1]
-                        window_vars = []
-                        for wp in window_periods:
-                            if teacher_occupancy[t_id][d][wp]:
-                                window_vars.extend(teacher_occupancy[t_id][d][wp])
-                        if window_vars:
-                            model.Add(sum(window_vars) <= consec_max)
+                    
+                for block in blocks:
+                    if len(block) > consec_max:
+                        for i in range(len(block) - consec_max):
+                            window_periods = block[i : i + consec_max + 1]
+                            window_vars = []
+                            for wp in window_periods:
+                                if teacher_occupancy[t_id][d][wp]:
+                                    window_vars.extend(teacher_occupancy[t_id][d][wp])
+                            if window_vars:
+                                model.Add(sum(window_vars) <= consec_max)
 
     # Objectives
     obj_vars = []
