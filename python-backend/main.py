@@ -99,7 +99,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
     half_days = settings.halfDays
     full_days_count = len([d for d in working_days if d not in half_days])
     break_p = min(settings.breaks) if settings.breaks else P // 2
-    is_relaxed = phase == 2
+    is_relaxed = phase >= 2
 
     teachers_map = {t.id: t for t in request.teachers}
     classes_map = {c.id: c for c in request.classes}
@@ -234,6 +234,9 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             total_possible_slots_weekly = (len(working_days) - len(half_days)) * settings.tchDailyMax + len(half_days) * min(settings.tchDailyMax, settings.halfDayPeriods)
             if load > total_possible_slots_weekly:
                  tch_cap = math.ceil(load / len(working_days)) # Fallback if assignment exceeds capacity
+                 
+            if phase == 3:
+                tch_cap += 1
             
             day_vars = []
             for u in t_units:
@@ -245,7 +248,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
                 model.Add(sum(day_vars) <= tch_cap)
 
     # Enforce strictly: Max Consecutive Periods
-    consec_max = settings.tchConsecMax
+    consec_max = settings.tchConsecMax + 1 if phase == 3 else settings.tchConsecMax
     for t_id in teacher_occupancy:
         for d in range(D):
             blocks = []
@@ -298,7 +301,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             
             if day_vars:
                 day_sum = sum(day_vars)
-                dev = model.NewIntVar(0, P, f"dev_{t_id}_{d_idx}")
+                dev = model.NewIntVar(0, 1000, f"dev_{t_id}_{d_idx}")
                 model.Add(dev >= day_sum - target_max)
                 model.Add(dev >= target_min - day_sum)
                 obj_vars.append(dev * 50)
@@ -326,9 +329,9 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
                 m_sum = sum(morning_vars) if morning_vars else 0
                 a_sum = sum(afternoon_vars) if afternoon_vars else 0
                 
-                diff_ma = model.NewIntVar(-P, P, f"diff_ma_{t_id}_{d_idx}")
+                diff_ma = model.NewIntVar(-1000, 1000, f"diff_ma_{t_id}_{d_idx}")
                 model.Add(diff_ma == m_sum - a_sum)
-                abs_diff_ma = model.NewIntVar(0, P, f"abs_diff_ma_{t_id}_{d_idx}")
+                abs_diff_ma = model.NewIntVar(0, 1000, f"abs_diff_ma_{t_id}_{d_idx}")
                 model.AddAbsEquality(abs_diff_ma, diff_ma)
                 
                 obj_vars.append(abs_diff_ma * 50)
@@ -604,6 +607,11 @@ def generate_schedule(request: GenerateRoutineRequest):
         solver, x = run_solver_phase(request, units, 2)
         phase = 2
         
+    # Phase 3 if Phase 2 fails
+    if not x:
+        solver, x = run_solver_phase(request, units, 3)
+        phase = 3
+        
     if x:
         grid = {}
         for c in request.classes:
@@ -634,7 +642,11 @@ def generate_schedule(request: GenerateRoutineRequest):
                             grid[cid][d][p] = cell
                         break
                         
-        active_relaxations = ["Soft time preferences"] if phase == 2 else []
+        active_relaxations = []
+        if phase >= 2:
+            active_relaxations.append("Soft time preferences")
+        if phase == 3:
+            active_relaxations.append("Fatigue bounds relaxed")
         return {
             "success": True,
             "grid": grid,
