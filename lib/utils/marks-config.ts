@@ -23,9 +23,13 @@ export interface ClassMarksScheme {
   annualWritten?: number;
   annualPractical?: number;
 
-  // Higher Secondary Semester Evaluation (50 Marks per Semester) - (XI & XII)
-  oddSemesterMarks?: number;  // Sem 1 (Class XI) / Sem 3 (Class XII) - Default: 50
-  evenSemesterMarks?: number; // Sem 2 (Class XI) / Sem 4 (Class XII) - Default: 50
+  // Higher Secondary Semester Evaluation - (XI & XII)
+  oddSemesterWritten?: number;    // Sem 1 (Class XI) / Sem 3 (Class XII) Written/Theory (Default: 40)
+  oddSemesterPractical?: number;  // Sem 1 (Class XI) / Sem 3 (Class XII) Project/Practical (Default: 10)
+  oddSemesterMarks?: number;      // Sem 1 / Sem 3 Total (Default: 50)
+  evenSemesterWritten?: number;   // Sem 2 (Class XI) / Sem 4 (Class XII) Written/Theory (Default: 40)
+  evenSemesterPractical?: number; // Sem 2 (Class XI) / Sem 4 (Class XII) Project/Practical (Default: 10)
+  evenSemesterMarks?: number;     // Sem 2 / Sem 4 Total (Default: 50)
 
   notes?: string;
 }
@@ -254,15 +258,19 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Chemistry",
       "Mathematics",
     ],
-    oddSemesterMarks: 50,  // Semester 1: 50 Marks per subject
-    evenSemesterMarks: 50, // Semester 2: 50 Marks per subject
-    firstSummativeWritten: 50,
-    firstSummativePractical: 0,
-    secondSummativeWritten: 50,
-    secondSummativePractical: 0,
-    annualWritten: 50,
-    annualPractical: 0,
-    notes: "Higher Secondary (WBCHSE): Semester 1 (50) + Semester 2 (50) = 100/sub (500 Marks Total)",
+    oddSemesterWritten: 40,
+    oddSemesterPractical: 10,
+    oddSemesterMarks: 50,  // Semester 1: 40 written + 10 project/practical = 50 Marks per subject
+    evenSemesterWritten: 40,
+    evenSemesterPractical: 10,
+    evenSemesterMarks: 50, // Semester 2: 40 written + 10 project/practical = 50 Marks per subject
+    firstSummativeWritten: 40,
+    firstSummativePractical: 10,
+    secondSummativeWritten: 40,
+    secondSummativePractical: 10,
+    annualWritten: 40,
+    annualPractical: 10,
+    notes: "Higher Secondary (WBCHSE): Sem 1 (40w + 10p = 50) + Sem 2 (40w + 10p = 50) = 100/sub (500 Marks Total)",
   },
   {
     classCode: "XII",
@@ -276,15 +284,19 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Chemistry",
       "Mathematics",
     ],
-    oddSemesterMarks: 50,  // Semester 3: 50 Marks per subject
-    evenSemesterMarks: 50, // Semester 4: 50 Marks per subject
-    firstSummativeWritten: 50,
-    firstSummativePractical: 0,
-    secondSummativeWritten: 50,
-    secondSummativePractical: 0,
-    annualWritten: 50,
-    annualPractical: 0,
-    notes: "HS Final (WBCHSE): Semester 3 (50) + Semester 4 (50) = 100/sub (500 Marks Total)",
+    oddSemesterWritten: 40,
+    oddSemesterPractical: 10,
+    oddSemesterMarks: 50,  // Semester 3: 40 written + 10 project/practical = 50 Marks per subject
+    evenSemesterWritten: 40,
+    evenSemesterPractical: 10,
+    evenSemesterMarks: 50, // Semester 4: 40 written + 10 project/practical = 50 Marks per subject
+    firstSummativeWritten: 40,
+    firstSummativePractical: 10,
+    secondSummativeWritten: 40,
+    secondSummativePractical: 10,
+    annualWritten: 40,
+    annualPractical: 10,
+    notes: "HS Final (WBCHSE): Sem 3 (40w + 10p = 50) + Sem 4 (40w + 10p = 50) = 100/sub (500 Marks Total)",
   },
 ];
 
@@ -341,8 +353,22 @@ export function computeSchemeTotals(scheme: ClassMarksScheme) {
   const isHs = scheme.classCode === "XI" || scheme.classCode === "XII" || scheme.isSemesterSystem;
 
   if (isHs) {
-    const oddSemSubTotal = Number(scheme.oddSemesterMarks) || 50;
-    const evenSemSubTotal = Number(scheme.evenSemesterMarks) || 50;
+    const oddWritten = scheme.oddSemesterWritten !== undefined
+      ? Number(scheme.oddSemesterWritten)
+      : (scheme.firstSummativeWritten !== undefined ? Number(scheme.firstSummativeWritten) : 40);
+    const oddPractical = scheme.oddSemesterPractical !== undefined
+      ? Number(scheme.oddSemesterPractical)
+      : (scheme.firstSummativePractical !== undefined ? Number(scheme.firstSummativePractical) : 10);
+    const oddSemSubTotal = oddWritten + oddPractical;
+
+    const evenWritten = scheme.evenSemesterWritten !== undefined
+      ? Number(scheme.evenSemesterWritten)
+      : (scheme.secondSummativeWritten !== undefined ? Number(scheme.secondSummativeWritten) : 40);
+    const evenPractical = scheme.evenSemesterPractical !== undefined
+      ? Number(scheme.evenSemesterPractical)
+      : (scheme.secondSummativePractical !== undefined ? Number(scheme.secondSummativePractical) : 10);
+    const evenSemSubTotal = evenWritten + evenPractical;
+
     const oddExamTotal = count * oddSemSubTotal;
     const evenExamTotal = count * evenSemSubTotal;
     const grandTotal = oddExamTotal + evenExamTotal;
@@ -355,6 +381,10 @@ export function computeSchemeTotals(scheme: ClassMarksScheme) {
       firstExamTotal: oddExamTotal,
       secondExamTotal: evenExamTotal,
       annualExamTotal: grandTotal,
+      oddWritten,
+      oddPractical,
+      evenWritten,
+      evenPractical,
       oddSemSubTotal,
       evenSemSubTotal,
       oddExamTotal,
@@ -600,14 +630,33 @@ export function getSubjectFullMarks(className: string, examName?: string): Subje
   );
   const slot = resolveExamSlot(examName);
 
-  // Classes XI & XII (Higher Secondary - 50 Marks per subject per semester)
+  // Classes XI & XII (Higher Secondary - Semester System: Written + Practical/Project per subject)
   if (standardKey === "XI" || standardKey === "XII" || matched?.isSemesterSystem) {
-    const semMarks = (slot === "1st" ? matched?.oddSemesterMarks : matched?.evenSemesterMarks) || 50;
+    let written = 40;
+    let practical = 10;
+    if (matched) {
+      if (slot === "1st") {
+        written = matched.oddSemesterWritten !== undefined
+          ? matched.oddSemesterWritten
+          : (matched.firstSummativeWritten !== undefined ? matched.firstSummativeWritten : 40);
+        practical = matched.oddSemesterPractical !== undefined
+          ? matched.oddSemesterPractical
+          : (matched.firstSummativePractical !== undefined ? matched.firstSummativePractical : 10);
+      } else {
+        written = matched.evenSemesterWritten !== undefined
+          ? matched.evenSemesterWritten
+          : (matched.secondSummativeWritten !== undefined ? matched.secondSummativeWritten : 40);
+        practical = matched.evenSemesterPractical !== undefined
+          ? matched.evenSemesterPractical
+          : (matched.secondSummativePractical !== undefined ? matched.secondSummativePractical : 10);
+      }
+    }
+    const total = written + practical;
     return {
-      writtenFull: semMarks,
-      practicalFull: 0,
-      totalFull: semMarks,
-      hasPractical: false,
+      writtenFull: written,
+      practicalFull: practical,
+      totalFull: total,
+      hasPractical: practical > 0,
     };
   }
 

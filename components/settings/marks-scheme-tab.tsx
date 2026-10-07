@@ -60,6 +60,10 @@ export function MarksSchemeTab() {
   const [editScheme2ndPractical, setEditScheme2ndPractical] = useState<number>(0);
   const [editSchemeAnnualWritten, setEditSchemeAnnualWritten] = useState<number>(50);
   const [editSchemeAnnualPractical, setEditSchemeAnnualPractical] = useState<number>(0);
+  const [editSchemeOddWritten, setEditSchemeOddWritten] = useState<number>(40);
+  const [editSchemeOddPractical, setEditSchemeOddPractical] = useState<number>(10);
+  const [editSchemeEvenWritten, setEditSchemeEvenWritten] = useState<number>(40);
+  const [editSchemeEvenPractical, setEditSchemeEvenPractical] = useState<number>(10);
   const [editSchemeOddSemMarks, setEditSchemeOddSemMarks] = useState<number>(50);
   const [editSchemeEvenSemMarks, setEditSchemeEvenSemMarks] = useState<number>(50);
   const [editSchemeNotes, setEditSchemeNotes] = useState<string>("");
@@ -134,8 +138,26 @@ export function MarksSchemeTab() {
     setEditScheme2ndPractical(scheme.secondSummativePractical || 0);
     setEditSchemeAnnualWritten(scheme.annualWritten || 0);
     setEditSchemeAnnualPractical(scheme.annualPractical || 0);
-    setEditSchemeOddSemMarks(scheme.oddSemesterMarks || 50);
-    setEditSchemeEvenSemMarks(scheme.evenSemesterMarks || 50);
+
+    const oddW = scheme.oddSemesterWritten !== undefined
+      ? scheme.oddSemesterWritten
+      : (scheme.firstSummativeWritten !== undefined ? scheme.firstSummativeWritten : 40);
+    const oddP = scheme.oddSemesterPractical !== undefined
+      ? scheme.oddSemesterPractical
+      : (scheme.firstSummativePractical !== undefined ? scheme.firstSummativePractical : 10);
+    const evenW = scheme.evenSemesterWritten !== undefined
+      ? scheme.evenSemesterWritten
+      : (scheme.secondSummativeWritten !== undefined ? scheme.secondSummativeWritten : 40);
+    const evenP = scheme.evenSemesterPractical !== undefined
+      ? scheme.evenSemesterPractical
+      : (scheme.secondSummativePractical !== undefined ? scheme.secondSummativePractical : 10);
+
+    setEditSchemeOddWritten(oddW);
+    setEditSchemeOddPractical(oddP);
+    setEditSchemeEvenWritten(evenW);
+    setEditSchemeEvenPractical(evenP);
+    setEditSchemeOddSemMarks(oddW + oddP);
+    setEditSchemeEvenSemMarks(evenW + evenP);
     setEditSchemeNotes(scheme.notes || "");
   };
 
@@ -143,19 +165,25 @@ export function MarksSchemeTab() {
     e.preventDefault();
     if (!editingScheme) return;
 
+    const isHs = editingScheme.classCode === "XI" || editingScheme.classCode === "XII" || editingScheme.isSemesterSystem;
+
     const updated: ClassMarksScheme[] = marksSchemes.map((s) => {
       if (s.classCode === editingScheme.classCode) {
         return {
           ...s,
           subjectCount: editSchemeSubjectCount,
-          firstSummativeWritten: editScheme1stWritten,
-          firstSummativePractical: editScheme1stPractical,
-          secondSummativeWritten: editScheme2ndWritten,
-          secondSummativePractical: editScheme2ndPractical,
-          annualWritten: editSchemeAnnualWritten,
-          annualPractical: editSchemeAnnualPractical,
-          oddSemesterMarks: editSchemeOddSemMarks,
-          evenSemesterMarks: editSchemeEvenSemMarks,
+          firstSummativeWritten: isHs ? editSchemeOddWritten : editScheme1stWritten,
+          firstSummativePractical: isHs ? editSchemeOddPractical : editScheme1stPractical,
+          secondSummativeWritten: isHs ? editSchemeEvenWritten : editScheme2ndWritten,
+          secondSummativePractical: isHs ? editSchemeEvenPractical : editScheme2ndPractical,
+          annualWritten: isHs ? editSchemeEvenWritten : editSchemeAnnualWritten,
+          annualPractical: isHs ? editSchemeEvenPractical : editSchemeAnnualPractical,
+          oddSemesterWritten: editSchemeOddWritten,
+          oddSemesterPractical: editSchemeOddPractical,
+          oddSemesterMarks: editSchemeOddWritten + editSchemeOddPractical,
+          evenSemesterWritten: editSchemeEvenWritten,
+          evenSemesterPractical: editSchemeEvenPractical,
+          evenSemesterMarks: editSchemeEvenWritten + editSchemeEvenPractical,
           notes: editSchemeNotes.trim() || undefined,
         };
       }
@@ -461,12 +489,30 @@ export function MarksSchemeTab() {
                           </Badge>
                         </td>
 
-                        <td className="px-4 py-3 font-mono font-medium text-foreground">
-                          {scheme.oddSemesterMarks || 50} Marks / sub
+                        <td className="px-4 py-3">
+                          <div className="space-y-0.5">
+                            <div className="font-bold font-mono text-foreground text-xs">
+                              {totals.firstExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {totals.oddWritten !== undefined ? totals.oddWritten : 40}w
+                              <span className="text-amber-600 font-semibold"> + {totals.oddPractical !== undefined ? totals.oddPractical : 10}p</span>
+                              <span className="text-neutral-500 font-mono"> ({totals.oddSemSubTotal}/sub)</span>
+                            </div>
+                          </div>
                         </td>
 
-                        <td className="px-4 py-3 font-mono font-medium text-foreground">
-                          {scheme.evenSemesterMarks || 50} Marks / sub
+                        <td className="px-4 py-3">
+                          <div className="space-y-0.5">
+                            <div className="font-bold font-mono text-foreground text-xs">
+                              {totals.secondExamTotal} <span className="text-[10px] text-muted-foreground font-normal">Marks</span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground">
+                              {totals.evenWritten !== undefined ? totals.evenWritten : 40}w
+                              <span className="text-amber-600 font-semibold"> + {totals.evenPractical !== undefined ? totals.evenPractical : 10}p</span>
+                              <span className="text-neutral-500 font-mono"> ({totals.evenSemSubTotal}/sub)</span>
+                            </div>
+                          </div>
                         </td>
 
                         <td className="px-4 py-3 text-right font-mono font-extrabold text-xs bg-indigo-500/5 border-l border-r border-indigo-500/15">
@@ -775,27 +821,80 @@ export function MarksSchemeTab() {
             <form onSubmit={handleSaveEditScheme} className="space-y-4 pt-2">
               {editingScheme.classCode === "XI" || editingScheme.classCode === "XII" ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Odd Semester (Marks)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editSchemeOddSemMarks}
-                        onChange={(e) => setEditSchemeOddSemMarks(parseFloat(e.target.value) || 0)}
-                        className="text-xs font-mono h-8"
-                      />
+                  {/* Odd Semester Configuration */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">
+                        {editingScheme.classCode === "XI" ? "Odd Semester (Sem 1)" : "Odd Semester (Sem 3)"}
+                      </span>
+                      <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {editSchemeOddWritten + editSchemeOddPractical} Marks / sub
+                      </span>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-semibold">Even Semester (Marks)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editSchemeEvenSemMarks}
-                        onChange={(e) => setEditSchemeEvenSemMarks(parseFloat(e.target.value) || 0)}
-                        className="text-xs font-mono h-8"
-                      />
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Written / Theory</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeOddWritten}
+                          onChange={(e) => setEditSchemeOddWritten(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeOddPractical}
+                          onChange={(e) => setEditSchemeOddPractical(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Even Semester Configuration */}
+                  <div className="p-2.5 rounded-lg border space-y-1.5 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1">
+                      <span className="text-xs font-bold text-foreground">
+                        {editingScheme.classCode === "XI" ? "Even Semester (Sem 2)" : "Even Semester (Sem 4)"}
+                      </span>
+                      <span className="text-[11px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                        {editSchemeEvenWritten + editSchemeEvenPractical} Marks / sub
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 pt-0.5">
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Written / Theory</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeEvenWritten}
+                          onChange={(e) => setEditSchemeEvenWritten(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={editSchemeEvenPractical}
+                          onChange={(e) => setEditSchemeEvenPractical(parseFloat(e.target.value) || 0)}
+                          className="text-xs font-mono h-7"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Grand Total Preview */}
+                  <div className="rounded-lg p-2.5 bg-indigo-500/5 border border-indigo-500/20 flex items-center justify-between text-xs">
+                    <span className="font-semibold text-muted-foreground">Grand Total Marks (Annual):</span>
+                    <span className="font-mono font-extrabold text-xs text-indigo-700 dark:text-indigo-300">
+                      {editSchemeSubjectCount * (editSchemeOddWritten + editSchemeOddPractical + editSchemeEvenWritten + editSchemeEvenPractical)} Marks
+                    </span>
                   </div>
                 </div>
               ) : (
