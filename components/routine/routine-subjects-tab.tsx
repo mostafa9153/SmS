@@ -260,7 +260,7 @@ export function RoutineSubjectsTab({
   const [dlgName, setDlgName] = useState("");
   const [dlgPeriodFormat, setDlgPeriodFormat] = useState<"single" | "both" | "lab">("single");
   const [dlgTheoryPeriods, setDlgTheoryPeriods] = useState<number>(5);
-  const [dlgLabPeriods, setDlgLabPeriods] = useState<number>(2);
+  const [dlgLabSessions, setDlgLabSessions] = useState<number>(1);
   const [dlgPeriodsPerWeek, setDlgPeriodsPerWeek] = useState<number>(5);
   const [dlgIsLab, setDlgIsLab] = useState(false);
   const [dlgTimePref, setDlgTimePref] = useState<"any" | "morning" | "afternoon">("any");
@@ -587,12 +587,14 @@ export function RoutineSubjectsTab({
     setDlgName(s.name);
 
     const isLab = Boolean(s.isLab);
-    const theoryP = s.theoryPeriods !== undefined && s.theoryPeriods !== null
-      ? s.theoryPeriods
-      : (isLab ? Math.max(1, (s.periodsPerWeek || 6) - (s.labPeriods || 2)) : (s.periodsPerWeek || 5));
-    const labP = s.labPeriods !== undefined && s.labPeriods !== null
+    const totalP = s.periodsPerWeek || (isLab ? 6 : 5);
+    const labSlots = s.labPeriods !== undefined && s.labPeriods !== null
       ? s.labPeriods
       : (isLab ? 2 : 0);
+    const labSessions = Math.max(1, Math.round(labSlots / 2));
+    const theoryP = s.theoryPeriods !== undefined && s.theoryPeriods !== null
+      ? s.theoryPeriods
+      : (isLab ? Math.max(0, totalP - (labSessions * 2)) : totalP);
 
     const format: "single" | "both" | "lab" = isLab
       ? (theoryP > 0 ? "both" : "lab")
@@ -600,8 +602,8 @@ export function RoutineSubjectsTab({
 
     setDlgPeriodFormat(format);
     setDlgTheoryPeriods(theoryP);
-    setDlgLabPeriods(labP > 0 ? labP : 2);
-    setDlgPeriodsPerWeek(format === "single" ? theoryP : format === "lab" ? (labP > 0 ? labP : 2) : (theoryP + (labP > 0 ? labP : 2)));
+    setDlgLabSessions(labSessions);
+    setDlgPeriodsPerWeek(format === "single" ? theoryP : format === "lab" ? (labSessions * 2) : (theoryP + (labSessions * 2)));
     setDlgIsLab(isLab);
     setDlgTimePref(s.timePref || "any");
     setDlgAllowMulti(Boolean(s.allowMultiplePerDay));
@@ -617,7 +619,7 @@ export function RoutineSubjectsTab({
     setDlgName("");
     setDlgPeriodFormat("single");
     setDlgTheoryPeriods(5);
-    setDlgLabPeriods(2);
+    setDlgLabSessions(1);
     setDlgPeriodsPerWeek(5);
     setDlgIsLab(false);
     setDlgTimePref("any");
@@ -763,12 +765,8 @@ export function RoutineSubjectsTab({
 
       const effectiveIsLab = dlgPeriodFormat === "both" || dlgPeriodFormat === "lab";
       const effectiveTheory = dlgPeriodFormat === "lab" ? 0 : Number(dlgTheoryPeriods) || 0;
-      const effectiveLab = dlgPeriodFormat === "single" ? 0 : Number(dlgLabPeriods) || 0;
-      const effectiveTotal = dlgPeriodFormat === "single"
-        ? (Number(dlgTheoryPeriods) || 5)
-        : dlgPeriodFormat === "lab"
-        ? (Number(dlgLabPeriods) || 2)
-        : ((Number(dlgTheoryPeriods) || 4) + (Number(dlgLabPeriods) || 2));
+      const effectiveLabSlots = dlgPeriodFormat === "single" ? 0 : (Number(dlgLabSessions) || 1) * 2;
+      const effectiveTotal = effectiveTheory + effectiveLabSlots;
 
       if (dialogMode === "edit" && editId) {
         const subjectBeingEdited = subjects.find((s) => s.id === editId);
@@ -781,7 +779,7 @@ export function RoutineSubjectsTab({
           isHard: false,
           isLab: effectiveIsLab,
           theoryPeriods: effectiveTheory,
-          labPeriods: effectiveLab,
+          labPeriods: effectiveLabSlots,
           timePref: dlgTimePref,
           allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
           maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
@@ -804,7 +802,7 @@ export function RoutineSubjectsTab({
           isHard: false,
           isLab: effectiveIsLab,
           theoryPeriods: effectiveTheory,
-          labPeriods: effectiveLab,
+          labPeriods: effectiveLabSlots,
           timePref: dlgTimePref,
           allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
           maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
@@ -1496,20 +1494,21 @@ export function RoutineSubjectsTab({
                   setDlgIsLab(isLab);
                   if (val === "both") {
                     const th = dlgTheoryPeriods > 0 ? dlgTheoryPeriods : 4;
-                    const lb = dlgLabPeriods > 0 ? dlgLabPeriods : 2;
+                    const lbSessions = dlgLabSessions > 0 ? dlgLabSessions : 1;
                     setDlgTheoryPeriods(th);
-                    setDlgLabPeriods(lb);
-                    setDlgPeriodsPerWeek(th + lb);
-                    if (th + lb >= 6) setDlgAllowMulti(true);
+                    setDlgLabSessions(lbSessions);
+                    const tot = th + (lbSessions * 2);
+                    setDlgPeriodsPerWeek(tot);
+                    if (tot >= 6) setDlgAllowMulti(true);
                   } else if (val === "single") {
                     const th = dlgTheoryPeriods > 0 ? dlgTheoryPeriods : 5;
                     setDlgTheoryPeriods(th);
                     setDlgPeriodsPerWeek(th);
                     if (th >= 6) setDlgAllowMulti(true);
                   } else if (val === "lab") {
-                    const lb = dlgLabPeriods > 0 ? dlgLabPeriods : 2;
-                    setDlgLabPeriods(lb);
-                    setDlgPeriodsPerWeek(lb);
+                    const lbSessions = dlgLabSessions > 0 ? dlgLabSessions : 1;
+                    setDlgLabSessions(lbSessions);
+                    setDlgPeriodsPerWeek(lbSessions * 2);
                   }
                 }}
               >
@@ -1518,7 +1517,7 @@ export function RoutineSubjectsTab({
                     {dlgPeriodFormat === "both"
                       ? "Theory + Practical Lab (1 Th + 2 Lab Slots)"
                       : dlgPeriodFormat === "lab"
-                      ? "Practical Lab Only (2 Slots)"
+                      ? "Practical Lab Only (2 Slots per Class)"
                       : "Single Period (1 Slot / Theory)"}
                   </SelectValue>
                 </SelectTrigger>
@@ -1530,7 +1529,7 @@ export function RoutineSubjectsTab({
                     Theory + Practical Lab (1 Th + 2 Lab Slots)
                   </SelectItem>
                   <SelectItem value="lab" className="text-xs">
-                    Practical Lab Only (2 Slots)
+                    Practical Lab Only (2 Slots per Class)
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -1549,67 +1548,73 @@ export function RoutineSubjectsTab({
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10) || 1;
                       setDlgTheoryPeriods(val);
-                      const tot = val + dlgLabPeriods;
+                      const tot = val + (dlgLabSessions * 2);
                       setDlgPeriodsPerWeek(tot);
                       if (tot >= 6) setDlgAllowMulti(true);
                     }}
                     className="h-8 text-xs font-mono font-semibold"
                     required
                   />
-                  <span className="text-[10px] text-muted-foreground">1 Slot each</span>
+                  <span className="text-[10px] text-muted-foreground">{dlgTheoryPeriods} Single Slot(s)</span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-foreground">Lab Periods / Week</Label>
+                  <Label className="text-xs font-semibold text-foreground">Lab Classes / Week</Label>
                   <Input
                     type="number"
-                    min={2}
-                    max={8}
-                    step={2}
-                    value={dlgLabPeriods}
+                    min={1}
+                    max={6}
+                    step={1}
+                    value={dlgLabSessions}
                     onChange={(e) => {
-                      const val = parseInt(e.target.value, 10) || 2;
-                      setDlgLabPeriods(val);
-                      const tot = dlgTheoryPeriods + val;
+                      const val = parseInt(e.target.value, 10) || 1;
+                      setDlgLabSessions(val);
+                      const tot = dlgTheoryPeriods + (val * 2);
                       setDlgPeriodsPerWeek(tot);
                       if (tot >= 6) setDlgAllowMulti(true);
                     }}
                     className="h-8 text-xs font-mono font-semibold"
                     required
                   />
-                  <span className="text-[10px] text-muted-foreground">2 Slots (Lab Class)</span>
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {dlgLabSessions} × 2 = {dlgLabSessions * 2} Slots (Double Period)
+                  </span>
                 </div>
 
                 <div className="col-span-2 pt-1.5 border-t border-blue-500/20 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-muted-foreground">Total Weekly Periods:</span>
+                  <span className="font-semibold text-muted-foreground">Total Weekly Timetable Slots:</span>
                   <Badge variant="outline" className="font-mono text-xs font-bold bg-background text-primary border-primary/30">
-                    {dlgTheoryPeriods + dlgLabPeriods} p/wk ({dlgTheoryPeriods} Th + {dlgLabPeriods} Lab)
+                    {dlgTheoryPeriods + (dlgLabSessions * 2)} p/wk ({dlgTheoryPeriods} Th + {dlgLabSessions * 2} Lab)
                   </Badge>
                 </div>
               </div>
             ) : dlgPeriodFormat === "lab" ? (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border bg-blue-500/5 border-blue-500/20">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Lab Periods / Week *</Label>
+                  <Label className="text-xs font-semibold">Lab Classes / Week *</Label>
                   <Input
                     type="number"
-                    min={2}
-                    max={12}
-                    step={2}
-                    value={dlgLabPeriods}
+                    min={1}
+                    max={6}
+                    step={1}
+                    value={dlgLabSessions}
                     onChange={(e) => {
-                      const val = parseInt(e.target.value, 10) || 2;
-                      setDlgLabPeriods(val);
-                      setDlgPeriodsPerWeek(val);
+                      const val = parseInt(e.target.value, 10) || 1;
+                      setDlgLabSessions(val);
+                      setDlgPeriodsPerWeek(val * 2);
                     }}
                     className="h-8 text-xs font-mono font-semibold"
                     required
                   />
-                </div>
-                <div className="space-y-1.5 flex flex-col justify-end pb-1.5">
-                  <span className="text-[11px] text-muted-foreground font-mono font-medium">
-                    = {Math.floor(dlgLabPeriods / 2)} Double Lab Sessions
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    {dlgLabSessions} × 2 = {dlgLabSessions * 2} Slots (Double Period)
                   </span>
+                </div>
+                <div className="col-span-2 pt-1.5 border-t border-blue-500/20 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-muted-foreground">Total Weekly Timetable Slots:</span>
+                  <Badge variant="outline" className="font-mono text-xs font-bold bg-background text-primary border-primary/30">
+                    {dlgLabSessions * 2} p/wk ({dlgLabSessions} Lab Class{dlgLabSessions > 1 ? "es" : ""})
+                  </Badge>
                 </div>
               </div>
             ) : (
