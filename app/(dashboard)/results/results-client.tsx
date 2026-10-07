@@ -62,6 +62,15 @@ import {
 import { normalizeSubjectName } from "@/lib/utils/marksheet-calc";
 import { StatusBadge } from "@/components/students/status-badge";
 
+function sanitizeScoreInput(val: string, maxMarks: number): string {
+  if (val === "" || val === undefined || val === null) return "";
+  const num = parseFloat(val);
+  if (isNaN(num)) return "";
+  if (num < 0) return "0";
+  if (maxMarks > 0 && num > maxMarks) return String(maxMarks);
+  return val;
+}
+
 const CLASS_OPTIONS = [
   { value: "V", label: "Class V" },
   { value: "VI", label: "Class VI" },
@@ -358,8 +367,12 @@ export default function ResultsClient() {
       if (!summary?.results) return;
       const entries = summary.results.map((r) => {
         const score = subjectBatchScores[r.studentId] || { written: "", practical: "", isAbsent: false };
-        const wNum = parseFloat(score.written) || 0;
-        const pNum = parseFloat(score.practical) || 0;
+        const rawW = parseFloat(score.written);
+        const rawP = parseFloat(score.practical);
+        const maxW = subjectFullMarksInfo.writtenFull;
+        const maxP = subjectFullMarksInfo.practicalFull;
+        const wNum = isNaN(rawW) ? 0 : Math.min(maxW, Math.max(0, rawW));
+        const pNum = isNaN(rawP) ? 0 : Math.min(maxP, Math.max(0, rawP));
         return {
           studentId: r.studentId,
           roll: r.roll,
@@ -481,18 +494,22 @@ export default function ResultsClient() {
 
     classSubjects.forEach((sub) => {
       const entry = modalStudentScores[sub] || { theory: "", practical: "", suppTheory: "", suppPractical: "" };
-      const tNum = parseFloat(entry.theory) || 0;
-      const pNum = parseFloat(entry.practical) || 0;
-      const subTotal = tNum + pNum;
-
-      const suppTNum = entry.suppTheory !== "" && !isNaN(parseFloat(entry.suppTheory)) ? parseFloat(entry.suppTheory) : undefined;
-      const suppPNum = entry.suppPractical !== "" && !isNaN(parseFloat(entry.suppPractical)) ? parseFloat(entry.suppPractical) : undefined;
-      const hasSupp = suppTNum !== undefined || suppPNum !== undefined;
-      const suppTot = hasSupp ? (suppTNum ?? tNum) + (suppPNum ?? pNum) : undefined;
-
       const maxWritten = subjectFullMarksInfo.writtenFull;
       const maxPractical = subjectFullMarksInfo.practicalFull;
       const maxSubTotal = subjectFullMarksInfo.totalFull;
+
+      const rawT = parseFloat(entry.theory);
+      const rawP = parseFloat(entry.practical);
+      const tNum = isNaN(rawT) ? 0 : Math.min(maxWritten, Math.max(0, rawT));
+      const pNum = isNaN(rawP) ? 0 : Math.min(maxPractical, Math.max(0, rawP));
+      const subTotal = tNum + pNum;
+
+      const rawSuppT = entry.suppTheory !== "" && !isNaN(parseFloat(entry.suppTheory)) ? parseFloat(entry.suppTheory) : undefined;
+      const rawSuppP = entry.suppPractical !== "" && !isNaN(parseFloat(entry.suppPractical)) ? parseFloat(entry.suppPractical) : undefined;
+      const suppTNum = rawSuppT !== undefined ? Math.min(maxWritten, Math.max(0, rawSuppT)) : undefined;
+      const suppPNum = rawSuppP !== undefined ? Math.min(maxPractical, Math.max(0, rawSuppP)) : undefined;
+      const hasSupp = suppTNum !== undefined || suppPNum !== undefined;
+      const suppTot = hasSupp ? (suppTNum ?? tNum) + (suppPNum ?? pNum) : undefined;
 
       const evalT = suppTNum !== undefined ? suppTNum : tNum;
       const evalP = suppPNum !== undefined ? suppPNum : pNum;
@@ -1152,7 +1169,7 @@ export default function ResultsClient() {
                               placeholder={`0 to ${subjectFullMarksInfo.writtenFull}`}
                               value={score.written}
                               onChange={(e) => {
-                                const val = e.target.value;
+                                const val = sanitizeScoreInput(e.target.value, subjectFullMarksInfo.writtenFull);
                                 setSubjectBatchScores((prev) => ({
                                   ...prev,
                                   [r.studentId]: {
@@ -1181,7 +1198,7 @@ export default function ResultsClient() {
                                 placeholder={`0 to ${subjectFullMarksInfo.practicalFull}`}
                                 value={score.practical}
                                 onChange={(e) => {
-                                  const val = e.target.value;
+                                  const val = sanitizeScoreInput(e.target.value, subjectFullMarksInfo.practicalFull);
                                   setSubjectBatchScores((prev) => ({
                                     ...prev,
                                     [r.studentId]: {
@@ -1334,7 +1351,7 @@ export default function ResultsClient() {
                             placeholder="0"
                             value={score.written}
                             onChange={(e) => {
-                              const val = e.target.value;
+                              const val = sanitizeScoreInput(e.target.value, subjectFullMarksInfo.writtenFull);
                               setSubjectBatchScores((prev) => ({
                                 ...prev,
                                 [r.studentId]: { ...prev[r.studentId], written: val },
@@ -1358,7 +1375,7 @@ export default function ResultsClient() {
                               placeholder="0"
                               value={score.practical}
                               onChange={(e) => {
-                                const val = e.target.value;
+                                const val = sanitizeScoreInput(e.target.value, subjectFullMarksInfo.practicalFull);
                                 setSubjectBatchScores((prev) => ({
                                   ...prev,
                                   [r.studentId]: { ...prev[r.studentId], practical: val },
@@ -1765,11 +1782,12 @@ export default function ResultsClient() {
                             max={maxWritten}
                             value={entry.theory}
                             onChange={(e) => {
+                              const val = sanitizeScoreInput(e.target.value, maxWritten);
                               setModalStudentScores((prev) => ({
                                 ...prev,
                                 [sub]: {
                                   ...prev[sub],
-                                  theory: e.target.value,
+                                  theory: val,
                                   practical: prev[sub]?.practical || "",
                                   suppTheory: prev[sub]?.suppTheory || "",
                                   suppPractical: prev[sub]?.suppPractical || "",
@@ -1789,11 +1807,12 @@ export default function ResultsClient() {
                               max={maxPractical}
                               value={entry.practical}
                               onChange={(e) => {
+                                const val = sanitizeScoreInput(e.target.value, maxPractical);
                                 setModalStudentScores((prev) => ({
                                   ...prev,
                                   [sub]: {
                                     theory: prev[sub]?.theory || "",
-                                    practical: e.target.value,
+                                    practical: val,
                                     suppTheory: prev[sub]?.suppTheory || "",
                                     suppPractical: prev[sub]?.suppPractical || "",
                                   },
@@ -1844,12 +1863,13 @@ export default function ResultsClient() {
                               max={maxWritten}
                               value={entry.suppTheory}
                               onChange={(e) => {
+                                const val = sanitizeScoreInput(e.target.value, maxWritten);
                                 setModalStudentScores((prev) => ({
                                   ...prev,
                                   [sub]: {
                                     theory: prev[sub]?.theory || "",
                                     practical: prev[sub]?.practical || "",
-                                    suppTheory: e.target.value,
+                                    suppTheory: val,
                                     suppPractical: prev[sub]?.suppPractical || "",
                                   },
                                 }));
@@ -1866,13 +1886,14 @@ export default function ResultsClient() {
                                 max={maxPractical}
                                 value={entry.suppPractical}
                                 onChange={(e) => {
+                                  const val = sanitizeScoreInput(e.target.value, maxPractical);
                                   setModalStudentScores((prev) => ({
                                     ...prev,
                                     [sub]: {
                                       theory: prev[sub]?.theory || "",
                                       practical: prev[sub]?.practical || "",
                                       suppTheory: prev[sub]?.suppTheory || "",
-                                      suppPractical: e.target.value,
+                                      suppPractical: val,
                                     },
                                   }));
                                   setModalError(null);
