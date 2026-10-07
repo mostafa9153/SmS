@@ -42,6 +42,7 @@ import {
   getSavedPromotionPolicy,
   savePromotionPolicy,
   computeSchemeTotals,
+  getDefaultHsSubjectMarks,
 } from "@/lib/utils/marks-config";
 import {
   syncMarksSchemeSubjectToRoutine,
@@ -67,6 +68,9 @@ export function MarksSchemeTab() {
   const [editSchemeOddSemMarks, setEditSchemeOddSemMarks] = useState<number>(50);
   const [editSchemeEvenSemMarks, setEditSchemeEvenSemMarks] = useState<number>(50);
   const [editSchemeNotes, setEditSchemeNotes] = useState<string>("");
+  const [editSubjectBreakdown, setEditSubjectBreakdown] = useState<
+    Record<string, { written?: number; practical?: number }>
+  >({});
 
   // Class Subject Selection State
   const [selectedSubjectClass, setSelectedSubjectClass] = useState<string>("V");
@@ -139,6 +143,8 @@ export function MarksSchemeTab() {
     setEditSchemeAnnualWritten(scheme.annualWritten || 0);
     setEditSchemeAnnualPractical(scheme.annualPractical || 0);
 
+    const isHs = scheme.classCode === "XI" || scheme.classCode === "XII" || scheme.isSemesterSystem;
+
     const oddW = scheme.oddSemesterWritten !== undefined
       ? scheme.oddSemesterWritten
       : (scheme.firstSummativeWritten !== undefined ? scheme.firstSummativeWritten : 40);
@@ -159,6 +165,24 @@ export function MarksSchemeTab() {
     setEditSchemeOddSemMarks(oddW + oddP);
     setEditSchemeEvenSemMarks(evenW + evenP);
     setEditSchemeNotes(scheme.notes || "");
+
+    const initialBreakdown: Record<string, { written?: number; practical?: number }> = {};
+    const existingBreakdown = scheme.subjectMarksBreakdown || {};
+
+    (scheme.subjects || []).forEach((sub) => {
+      if (existingBreakdown[sub]) {
+        initialBreakdown[sub] = { ...existingBreakdown[sub] };
+      } else if (isHs) {
+        const smart = getDefaultHsSubjectMarks(sub);
+        initialBreakdown[sub] = { written: smart.written, practical: smart.practical };
+      } else {
+        initialBreakdown[sub] = {
+          written: scheme.firstSummativeWritten || 0,
+          practical: scheme.firstSummativePractical || 0,
+        };
+      }
+    });
+    setEditSubjectBreakdown(initialBreakdown);
   };
 
   const handleSaveEditScheme = (e: React.FormEvent) => {
@@ -184,6 +208,7 @@ export function MarksSchemeTab() {
           evenSemesterWritten: editSchemeEvenWritten,
           evenSemesterPractical: editSchemeEvenPractical,
           evenSemesterMarks: editSchemeEvenWritten + editSchemeEvenPractical,
+          subjectMarksBreakdown: Object.keys(editSubjectBreakdown).length > 0 ? editSubjectBreakdown : undefined,
           notes: editSchemeNotes.trim() || undefined,
         };
       }
@@ -810,7 +835,7 @@ export function MarksSchemeTab() {
 
       {/* EDIT MARKS SCHEME MODAL */}
       <Dialog open={!!editingScheme} onOpenChange={(open) => !open && setEditingScheme(null)}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">
               Edit Marks Scheme: {editingScheme?.className}
@@ -833,7 +858,7 @@ export function MarksSchemeTab() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 pt-0.5">
                       <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Written / Theory</Label>
+                        <Label className="text-[10px] text-muted-foreground">Written / Theory (Default)</Label>
                         <Input
                           type="number"
                           min="0"
@@ -843,7 +868,7 @@ export function MarksSchemeTab() {
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
+                        <Label className="text-[10px] text-muted-foreground">Practical / Project (Default)</Label>
                         <Input
                           type="number"
                           min="0"
@@ -867,7 +892,7 @@ export function MarksSchemeTab() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 pt-0.5">
                       <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Written / Theory</Label>
+                        <Label className="text-[10px] text-muted-foreground">Written / Theory (Default)</Label>
                         <Input
                           type="number"
                           min="0"
@@ -877,7 +902,7 @@ export function MarksSchemeTab() {
                         />
                       </div>
                       <div className="space-y-0.5">
-                        <Label className="text-[10px] text-muted-foreground">Practical / Project</Label>
+                        <Label className="text-[10px] text-muted-foreground">Practical / Project (Default)</Label>
                         <Input
                           type="number"
                           min="0"
@@ -886,6 +911,150 @@ export function MarksSchemeTab() {
                           className="text-xs font-mono h-7"
                         />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Per-Subject Custom Written vs Practical Division Table */}
+                  <div className="p-3 rounded-lg border space-y-2 bg-card">
+                    <div className="flex items-center justify-between border-b pb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-foreground">
+                          Per-Subject Distribution
+                        </span>
+                        <Badge variant="outline" className="text-[10px] font-mono">
+                          {(editingScheme.subjects || []).length} Subjects
+                        </Badge>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const autoMap: Record<string, { written?: number; practical?: number }> = {};
+                          (editingScheme.subjects || []).forEach((sub) => {
+                            const smart = getDefaultHsSubjectMarks(sub);
+                            autoMap[sub] = { written: smart.written, practical: smart.practical };
+                          });
+                          setEditSubjectBreakdown(autoMap);
+                          showToast({
+                            type: "info",
+                            title: "WBCHSE Splits Applied",
+                            description: "Applied Lab (35+15) & Non-Lab (40+10) splits automatically.",
+                          });
+                        }}
+                        className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 cursor-pointer underline"
+                      >
+                        Auto WBCHSE Splits
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-56">
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-muted/90 backdrop-blur-xs text-muted-foreground text-[10px]">
+                          <tr className="border-b">
+                            <th className="py-1 px-2 text-left font-semibold">Subject</th>
+                            <th className="py-1 px-1 text-center font-semibold w-20">Theory</th>
+                            <th className="py-1 px-1 text-center font-semibold w-20">Practical</th>
+                            <th className="py-1 px-1 text-center font-semibold w-12">Total</th>
+                            <th className="py-1 px-1 text-right font-semibold w-24">Presets</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/40">
+                          {(editingScheme.subjects || []).map((sub) => {
+                            const item = editSubjectBreakdown[sub] || getDefaultHsSubjectMarks(sub);
+                            const w = item.written !== undefined ? item.written : 40;
+                            const p = item.practical !== undefined ? item.practical : 10;
+                            const tot = w + p;
+
+                            return (
+                              <tr key={sub} className="hover:bg-muted/20">
+                                <td className="py-1.5 px-2 font-medium text-foreground">
+                                  <span className="truncate block max-w-[150px]" title={sub}>
+                                    {sub}
+                                  </span>
+                                </td>
+                                <td className="py-1.5 px-1 text-center">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={w}
+                                    onChange={(e) => {
+                                      const newW = parseFloat(e.target.value) || 0;
+                                      setEditSubjectBreakdown((prev) => ({
+                                        ...prev,
+                                        [sub]: {
+                                          written: newW,
+                                          practical: prev[sub]?.practical !== undefined ? prev[sub].practical : p,
+                                        },
+                                      }));
+                                    }}
+                                    className="text-xs font-mono h-7 text-center w-16 mx-auto"
+                                  />
+                                </td>
+                                <td className="py-1.5 px-1 text-center">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={p}
+                                    onChange={(e) => {
+                                      const newP = parseFloat(e.target.value) || 0;
+                                      setEditSubjectBreakdown((prev) => ({
+                                        ...prev,
+                                        [sub]: {
+                                          written: prev[sub]?.written !== undefined ? prev[sub].written : w,
+                                          practical: newP,
+                                        },
+                                      }));
+                                    }}
+                                    className="text-xs font-mono h-7 text-center w-16 mx-auto"
+                                  />
+                                </td>
+                                <td className="py-1.5 px-1 text-center font-mono font-bold text-foreground">
+                                  {tot}
+                                </td>
+                                <td className="py-1.5 px-1 text-right space-x-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditSubjectBreakdown((prev) => ({
+                                        ...prev,
+                                        [sub]: { written: 40, practical: 10 },
+                                      }))
+                                    }
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold transition-all cursor-pointer",
+                                      w === 40 && p === 10
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                        : "bg-muted text-muted-foreground hover:text-foreground"
+                                    )}
+                                    title="40 Theory + 10 Project"
+                                  >
+                                    40+10
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditSubjectBreakdown((prev) => ({
+                                        ...prev,
+                                        [sub]: { written: 35, practical: 15 },
+                                      }))
+                                    }
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold transition-all cursor-pointer",
+                                      w === 35 && p === 15
+                                        ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                                        : "bg-muted text-muted-foreground hover:text-foreground"
+                                    )}
+                                    title="35 Theory + 15 Practical"
+                                  >
+                                    35+15
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
 

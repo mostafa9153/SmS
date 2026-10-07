@@ -288,14 +288,18 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                         <th className="border border-black py-0 text-left px-1.5 font-black uppercase text-[7.5px] text-black tracking-wide">
                           TOTAL MARKS
                         </th>
-                        {cleanSubjects.map((_, sIdx) => (
-                          <th
-                            key={`sub-sub-${sIdx}`}
-                            className="border border-black text-center py-0.5 font-mono font-bold text-[8px] text-black"
-                          >
-                            {defaultFullMarks}
-                          </th>
-                        ))}
+                        {cleanSubjects.map((sub, sIdx) => {
+                          const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                          const subMarks = subInfo.totalFull > 0 ? String(subInfo.totalFull) : defaultFullMarks;
+                          return (
+                            <th
+                              key={`sub-sub-${sIdx}`}
+                              className="border border-black text-center py-0.5 font-mono font-bold text-[8px] text-black"
+                            >
+                              {subMarks}
+                            </th>
+                          );
+                        })}
                       </tr>
 
                       {/* Class Section Divider Bar */}

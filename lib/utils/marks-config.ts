@@ -31,7 +31,39 @@ export interface ClassMarksScheme {
   evenSemesterPractical?: number; // Sem 2 (Class XI) / Sem 4 (Class XII) Project/Practical (Default: 10)
   evenSemesterMarks?: number;     // Sem 2 / Sem 4 Total (Default: 50)
 
+  // Per-Subject Custom Written vs Practical/Project Marks Distribution Map
+  subjectMarksBreakdown?: Record<string, {
+    written?: number;
+    practical?: number;
+  }>;
+
   notes?: string;
+}
+
+/**
+ * Returns smart WBCHSE semester marks division for a given HS subject.
+ * Lab/Practical subjects: 35 Written + 15 Practical
+ * Non-lab/Project subjects: 40 Written + 10 Project
+ */
+export function getDefaultHsSubjectMarks(subjectName: string): { written: number; practical: number } {
+  const s = (subjectName || "").toLowerCase().trim();
+  const isLab =
+    s.includes("physic") ||
+    s.includes("chemist") ||
+    s.includes("bio") ||
+    s.includes("geograph") ||
+    s.includes("computer") ||
+    s.includes("statistic") ||
+    s.includes("nutrit") ||
+    s.includes("psychol") ||
+    s.includes("music") ||
+    s.includes("visual") ||
+    s.includes("physical edu");
+
+  if (isLab) {
+    return { written: 35, practical: 15 };
+  }
+  return { written: 40, practical: 10 };
 }
 
 export interface SubjectCategory {
@@ -618,7 +650,7 @@ export interface SubjectFullMarksInfo {
 /**
  * Returns exact written vs practical / project full marks for a single subject in a given class & exam.
  */
-export function getSubjectFullMarks(className: string, examName?: string): SubjectFullMarksInfo {
+export function getSubjectFullMarks(className: string, examName?: string, subjectName?: string): SubjectFullMarksInfo {
   const norm = (className || "V").toUpperCase().trim().replace(/^CLASS\s+/i, "");
   const digitMap: Record<string, string> = {
     "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
@@ -630,11 +662,31 @@ export function getSubjectFullMarks(className: string, examName?: string): Subje
   );
   const slot = resolveExamSlot(examName);
 
+  // Check if there is an explicit custom breakdown for this subject in the scheme
+  let customBreakdown: { written?: number; practical?: number } | undefined = undefined;
+  if (matched?.subjectMarksBreakdown && subjectName) {
+    const sNorm = subjectName.trim().toLowerCase();
+    for (const [k, v] of Object.entries(matched.subjectMarksBreakdown)) {
+      if (k.trim().toLowerCase() === sNorm) {
+        customBreakdown = v;
+        break;
+      }
+    }
+  }
+
   // Classes XI & XII (Higher Secondary - Semester System: Written + Practical/Project per subject)
   if (standardKey === "XI" || standardKey === "XII" || matched?.isSemesterSystem) {
     let written = 40;
     let practical = 10;
-    if (matched) {
+
+    if (customBreakdown) {
+      if (customBreakdown.written !== undefined) written = Number(customBreakdown.written);
+      if (customBreakdown.practical !== undefined) practical = Number(customBreakdown.practical);
+    } else if (subjectName) {
+      const smartDefault = getDefaultHsSubjectMarks(subjectName);
+      written = smartDefault.written;
+      practical = smartDefault.practical;
+    } else if (matched) {
       if (slot === "1st") {
         written = matched.oddSemesterWritten !== undefined
           ? matched.oddSemesterWritten
@@ -663,7 +715,9 @@ export function getSubjectFullMarks(className: string, examName?: string): Subje
   // Classes V to VIII (5 to 8): Written only (No practical/project)
   if (["V", "VI", "VII", "VIII"].includes(standardKey)) {
     let written = 50;
-    if (matched) {
+    if (customBreakdown?.written !== undefined) {
+      written = Number(customBreakdown.written);
+    } else if (matched) {
       if (slot === "1st") written = matched.firstSummativeWritten || 20;
       else if (slot === "2nd") written = matched.secondSummativeWritten || 30;
       else written = matched.annualWritten || 50;
@@ -682,7 +736,10 @@ export function getSubjectFullMarks(className: string, examName?: string): Subje
   // Classes IX & X (9 & 10): Written + Project & Practical (40+10 in 1st/2nd, 90+10 in Annual)
   let written = 90;
   let practical = 10;
-  if (matched) {
+  if (customBreakdown) {
+    if (customBreakdown.written !== undefined) written = Number(customBreakdown.written);
+    if (customBreakdown.practical !== undefined) practical = Number(customBreakdown.practical);
+  } else if (matched) {
     if (slot === "1st") {
       written = matched.firstSummativeWritten || 40;
       practical = matched.firstSummativePractical ?? 10;

@@ -200,10 +200,10 @@ export default function ResultsClient() {
     }
   }, [examOptions, selectedExam]);
 
-  // Subject full marks breakdown for current class & exam
+  // Subject full marks breakdown for current class, exam & selected subject
   const subjectFullMarksInfo: SubjectFullMarksInfo = useMemo(() => {
-    return getSubjectFullMarks(selectedClass, selectedExam);
-  }, [selectedClass, selectedExam]);
+    return getSubjectFullMarks(selectedClass, selectedExam, selectedSubject);
+  }, [selectedClass, selectedExam, selectedSubject]);
 
   // Class total full marks across all subjects
   const currentClassFullMarks = getDynamicClassFullMarks(selectedClass, selectedExam);
@@ -494,9 +494,10 @@ export default function ResultsClient() {
 
     classSubjects.forEach((sub) => {
       const entry = modalStudentScores[sub] || { theory: "", practical: "", suppTheory: "", suppPractical: "" };
-      const maxWritten = subjectFullMarksInfo.writtenFull;
-      const maxPractical = subjectFullMarksInfo.practicalFull;
-      const maxSubTotal = subjectFullMarksInfo.totalFull;
+      const subFullInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+      const maxWritten = subFullInfo.writtenFull;
+      const maxPractical = subFullInfo.practicalFull;
+      const maxSubTotal = subFullInfo.totalFull;
 
       const rawT = parseFloat(entry.theory);
       const rawP = parseFloat(entry.practical);
@@ -1731,16 +1732,16 @@ export default function ResultsClient() {
                 <thead className="bg-muted/60 border-b">
                   <tr>
                     <th className="px-3 py-2 text-left font-semibold text-muted-foreground">Subject</th>
-                    <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-24">
-                      Written ({subjectFullMarksInfo.writtenFull})
+                    <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-28">
+                      Written / Theory
                     </th>
                     {subjectFullMarksInfo.hasPractical && (
-                      <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-24">
-                        Practical ({subjectFullMarksInfo.practicalFull})
+                      <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-28">
+                        Practical / Project
                       </th>
                     )}
                     <th className="px-2 py-2 text-right font-semibold text-muted-foreground w-16">Total</th>
-                    <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-24">Status</th>
+                    <th className="px-2 py-2 text-center font-semibold text-muted-foreground w-20">Status</th>
                     <th className="px-2 py-2 text-center font-semibold text-muted-foreground bg-primary/5 w-44">
                       Supplementary / Re-test
                     </th>
@@ -1749,12 +1750,14 @@ export default function ResultsClient() {
                 <tbody className="divide-y divide-border/50">
                   {classSubjects.map((sub) => {
                     const entry = modalStudentScores[sub] || { theory: "", practical: "", suppTheory: "", suppPractical: "" };
+                    const subFullInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                    const maxWritten = subFullInfo.writtenFull;
+                    const maxPractical = subFullInfo.practicalFull;
+                    const maxSubTotal = subFullInfo.totalFull;
+
                     const tVal = parseFloat(entry.theory) || 0;
                     const pVal = parseFloat(entry.practical) || 0;
                     const subTotal = tVal + pVal;
-                    const maxWritten = subjectFullMarksInfo.writtenFull;
-                    const maxPractical = subjectFullMarksInfo.practicalFull;
-                    const maxSubTotal = subjectFullMarksInfo.totalFull;
 
                     const reqSubPassPct = promotionPolicy.subjectPassPercentage ?? promotionPolicy.minPassPercentage ?? 30;
                     const tPass = maxWritten > 0 ? (tVal / maxWritten) * 100 >= (promotionPolicy.theoryPassPercentage ?? 30) : true;
@@ -1773,7 +1776,10 @@ export default function ResultsClient() {
                     return (
                       <tr key={sub} className="hover:bg-muted/20">
                         <td className="px-3 py-2 font-medium text-foreground">
-                          {sub}
+                          <div className="font-semibold">{sub}</div>
+                          <div className="text-[10px] text-muted-foreground font-mono">
+                            Max: {maxWritten}w + {maxPractical}p = {maxSubTotal}
+                          </div>
                         </td>
                         <td className="px-2 py-2 text-center">
                           <input
@@ -1795,33 +1801,37 @@ export default function ResultsClient() {
                               }));
                               setModalError(null);
                             }}
-                            placeholder="0"
+                            placeholder={`0 to ${maxWritten}`}
                             className="w-full text-center font-mono text-xs rounded-xl border py-1 bg-background outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                           />
                         </td>
                         {subjectFullMarksInfo.hasPractical && (
                           <td className="px-2 py-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              max={maxPractical}
-                              value={entry.practical}
-                              onChange={(e) => {
-                                const val = sanitizeScoreInput(e.target.value, maxPractical);
-                                setModalStudentScores((prev) => ({
-                                  ...prev,
-                                  [sub]: {
-                                    theory: prev[sub]?.theory || "",
-                                    practical: val,
-                                    suppTheory: prev[sub]?.suppTheory || "",
-                                    suppPractical: prev[sub]?.suppPractical || "",
-                                  },
-                                }));
-                                setModalError(null);
-                              }}
-                              placeholder="0"
-                              className="w-full text-center font-mono text-xs rounded-xl border py-1 bg-background outline-none focus:ring-1 focus:ring-primary shadow-2xs"
-                            />
+                            {subFullInfo.hasPractical ? (
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxPractical}
+                                value={entry.practical}
+                                onChange={(e) => {
+                                  const val = sanitizeScoreInput(e.target.value, maxPractical);
+                                  setModalStudentScores((prev) => ({
+                                    ...prev,
+                                    [sub]: {
+                                      theory: prev[sub]?.theory || "",
+                                      practical: val,
+                                      suppTheory: prev[sub]?.suppTheory || "",
+                                      suppPractical: prev[sub]?.suppPractical || "",
+                                    },
+                                  }));
+                                  setModalError(null);
+                                }}
+                                placeholder={`0 to ${maxPractical}`}
+                                className="w-full text-center font-mono text-xs rounded-xl border py-1 bg-background outline-none focus:ring-1 focus:ring-primary shadow-2xs"
+                              />
+                            ) : (
+                              <span className="text-muted-foreground/40 text-xs">—</span>
+                            )}
                           </td>
                         )}
                         <td className="px-2 py-2 text-right font-mono font-bold text-foreground">
@@ -1879,7 +1889,7 @@ export default function ResultsClient() {
                               title="Supplementary / Re-test Written Marks"
                               className="w-1/2 text-center font-mono text-[11px] rounded-lg border py-1 bg-background outline-none focus:ring-1 focus:ring-primary shadow-2xs placeholder:text-[10px]"
                             />
-                            {subjectFullMarksInfo.hasPractical ? (
+                            {subFullInfo.hasPractical ? (
                               <input
                                 type="number"
                                 min="0"
