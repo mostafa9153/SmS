@@ -220,22 +220,21 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
                 if day_vars:
                     model.Add(sum(day_vars) <= max_daily_allowed)
 
-    half_days_count = len(half_days)
-    full_days_count_total = len(working_days) - half_days_count
+    # Enforce strictly: Max Daily Periods / Teacher
     for t_id in teacher_occupancy:
         t_units = [u for u in units if u["tid"] == t_id]
         if not t_units: continue
         
         load = teacher_load_map.get(t_id, 0)
-        half_day_contrib = half_days_count * min(settings.tchDailyMax, settings.halfDayPeriods)
-        full_day_req = math.ceil(max(0, load - half_day_contrib) / max(1, full_days_count_total)) if full_days_count_total > 0 else 0
-        base_cap_full = max(settings.tchDailyMax, full_day_req)
-        base_cap_half = min(settings.tchDailyMax, settings.halfDayPeriods)
         
         for d_idx, day_val in enumerate(working_days):
-            tch_cap = base_cap_half if day_val in half_days else base_cap_full
-            if is_relaxed:
-                tch_cap += 1
+            tch_cap = min(settings.tchDailyMax, settings.halfDayPeriods) if day_val in half_days else settings.tchDailyMax
+            # Strictly enforce without relaxation, but if the teacher's load literally exceeds the maximum possible slots, 
+            # we must expand it minimally to prevent an unfeasible model, though UI validation should prevent this.
+            total_possible_slots_weekly = (len(working_days) - len(half_days)) * settings.tchDailyMax + len(half_days) * min(settings.tchDailyMax, settings.halfDayPeriods)
+            if load > total_possible_slots_weekly:
+                 tch_cap = math.ceil(load / len(working_days)) # Fallback if assignment exceeds capacity
+            
             day_vars = []
             for u in t_units:
                 sz = u["sz"]
@@ -245,7 +244,8 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             if day_vars:
                 model.Add(sum(day_vars) <= tch_cap)
 
-    consec_max = settings.tchConsecMax + 1 if is_relaxed else settings.tchConsecMax
+    # Enforce strictly: Max Consecutive Periods
+    consec_max = settings.tchConsecMax
     for t_id in teacher_occupancy:
         for d in range(D):
             blocks = []
@@ -634,7 +634,7 @@ def generate_schedule(request: GenerateRoutineRequest):
                             grid[cid][d][p] = cell
                         break
                         
-        active_relaxations = ["Soft time preferences", "Fatigue bounds relaxed"] if phase == 2 else []
+        active_relaxations = ["Soft time preferences"] if phase == 2 else []
         return {
             "success": True,
             "grid": grid,
