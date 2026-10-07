@@ -15,6 +15,7 @@ import {
   X,
   Info,
   Check,
+  FlaskConical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,8 @@ import {
   savePromotionPolicy,
   computeSchemeTotals,
   getDefaultHsSubjectMarks,
+  isSubjectLab,
+  isDefaultLabSubject,
 } from "@/lib/utils/marks-config";
 import {
   syncMarksSchemeSubjectToRoutine,
@@ -81,6 +84,7 @@ export function MarksSchemeTab() {
   const [selectedSubjectStream, setSelectedSubjectStream] = useState<"all" | "Common" | "Science" | "Arts" | "Commerce">("all");
   const [selectedNewSubjectToAdd, setSelectedNewSubjectToAdd] = useState<string>("");
   const [customSubjectName, setCustomSubjectName] = useState<string>("");
+  const [newSubjectIsLab, setNewSubjectIsLab] = useState<boolean>(false);
 
   // Promotion & Pass Criteria State
   const [promotionPolicy, setPromotionPolicy] = useState<PromotionPolicy>(DEFAULT_PROMOTION_POLICY);
@@ -242,7 +246,52 @@ export function MarksSchemeTab() {
     }
   };
 
-  const handleAddSubjectToClass = (classCode: string, subjectName: string) => {
+  const handleToggleSubjectLab = (classCode: string, subjectName: string) => {
+    const target = marksSchemes.find((s) => s.classCode === classCode);
+    if (!target) return;
+
+    const cleanSub = subjectName.trim();
+    const currentIsLab = isSubjectLab(target, cleanSub);
+    const newIsLab = !currentIsLab;
+
+    let currentLabList = Array.isArray(target.labSubjects) ? [...target.labSubjects] : [];
+    if (!target.labSubjects) {
+      currentLabList = (target.subjects || []).filter((sub) => isDefaultLabSubject(sub));
+    }
+
+    let nextLabList: string[];
+    if (newIsLab) {
+      if (!currentLabList.some((s) => s.toLowerCase().trim() === cleanSub.toLowerCase().trim())) {
+        nextLabList = [...currentLabList, cleanSub];
+      } else {
+        nextLabList = currentLabList;
+      }
+    } else {
+      nextLabList = currentLabList.filter((s) => s.toLowerCase().trim() !== cleanSub.toLowerCase().trim());
+    }
+
+    const updated = marksSchemes.map((s) => {
+      if (s.classCode === classCode) {
+        return {
+          ...s,
+          labSubjects: nextLabList,
+        };
+      }
+      return s;
+    });
+
+    setMarksSchemes(updated);
+    saveMarksSchemes(updated);
+    syncMarksSchemeSubjectToRoutine(classCode, cleanSub, newIsLab);
+
+    showToast({
+      type: "success",
+      title: newIsLab ? "Lab Class Configured" : "Lab Disabled",
+      description: `"${cleanSub}" ${newIsLab ? "has a 2-period Practical Lab in Routine." : "is set to Theory only."}`,
+    });
+  };
+
+  const handleAddSubjectToClass = (classCode: string, subjectName: string, isLabParam?: boolean) => {
     const cleanSub = subjectName.trim();
     if (!cleanSub) return;
 
@@ -259,13 +308,25 @@ export function MarksSchemeTab() {
       return;
     }
 
+    const effectiveIsLab = isLabParam !== undefined ? isLabParam : newSubjectIsLab;
     const newSubs = [...existing, cleanSub];
+
+    let currentLabList = Array.isArray(target.labSubjects) ? [...target.labSubjects] : [];
+    if (!target.labSubjects) {
+      currentLabList = existing.filter((sub) => isDefaultLabSubject(sub));
+    }
+
+    const nextLabList = effectiveIsLab && !currentLabList.some((s) => s.toLowerCase().trim() === cleanSub.toLowerCase().trim())
+      ? [...currentLabList, cleanSub]
+      : currentLabList.filter((s) => s.toLowerCase().trim() !== cleanSub.toLowerCase().trim());
+
     const updated = marksSchemes.map((s) => {
       if (s.classCode === classCode) {
         return {
           ...s,
           subjects: newSubs,
           subjectCount: newSubs.length,
+          labSubjects: nextLabList,
         };
       }
       return s;
@@ -273,16 +334,17 @@ export function MarksSchemeTab() {
 
     setMarksSchemes(updated);
     saveMarksSchemes(updated);
-    syncMarksSchemeSubjectToRoutine(classCode, cleanSub);
+    syncMarksSchemeSubjectToRoutine(classCode, cleanSub, effectiveIsLab);
 
     showToast({
       type: "success",
       title: "Subject Added",
-      description: `Added "${cleanSub}" to ${target.className} curriculum.`,
+      description: `Added "${cleanSub}" (${effectiveIsLab ? "Theory + Lab" : "Theory"}) to ${target.className}.`,
     });
 
     setSelectedNewSubjectToAdd("");
     setCustomSubjectName("");
+    setNewSubjectIsLab(false);
   };
 
   const handleRemoveSubjectFromClass = (classCode: string, subjectToRemove: string) => {
@@ -669,6 +731,7 @@ export function MarksSchemeTab() {
                 <div className="flex flex-wrap gap-2 pt-1">
                   {filteredSubjects.map((sub) => {
                     const sStream = isHs ? detectSubjectStream(sub) : null;
+                    const isSubLab = isSubjectLab(activeScheme, sub);
                     return (
                       <span
                         key={sub}
@@ -691,6 +754,20 @@ export function MarksSchemeTab() {
                         )}
                         <button
                           type="button"
+                          onClick={() => handleToggleSubjectLab(activeScheme.classCode, sub)}
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded cursor-pointer transition-all",
+                            isSubLab
+                              ? "bg-blue-600 text-white shadow-2xs hover:bg-blue-700"
+                              : "bg-background/80 text-muted-foreground hover:text-foreground hover:bg-background border border-border/60"
+                          )}
+                          title={isSubLab ? "Lab Subject (Click to change to Theory Only)" : "Theory Only (Click to configure 2-period Practical Lab)"}
+                        >
+                          <FlaskConical className="w-2.5 h-2.5" />
+                          <span>{isSubLab ? "Lab" : "+ Lab"}</span>
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveSubjectFromClass(activeScheme.classCode, sub)}
                           className="text-muted-foreground hover:text-destructive transition-colors ml-0.5 cursor-pointer"
                           title="Remove subject"
@@ -708,7 +785,10 @@ export function MarksSchemeTab() {
                       value={selectedNewSubjectToAdd}
                       onChange={(val) => {
                         setSelectedNewSubjectToAdd(val);
-                        if (val) setCustomSubjectName("");
+                        if (val) {
+                          setCustomSubjectName("");
+                          setNewSubjectIsLab(isDefaultLabSubject(val));
+                        }
                       }}
                       placeholder="Choose from Master Subject Bank..."
                       options={MASTER_SUBJECT_BANK.flatMap((cat) =>
@@ -727,17 +807,31 @@ export function MarksSchemeTab() {
                     />
                   </div>
 
-                  <div className="w-full sm:w-48">
+                  <div className="w-full sm:w-44">
                     <Input
                       placeholder="Or custom subject..."
                       value={customSubjectName}
                       onChange={(e) => {
                         setCustomSubjectName(e.target.value);
-                        if (e.target.value) setSelectedNewSubjectToAdd("");
+                        if (e.target.value) {
+                          setSelectedNewSubjectToAdd("");
+                          setNewSubjectIsLab(isDefaultLabSubject(e.target.value));
+                        }
                       }}
                       className={cn("h-9 text-xs", isCustomDuplicate && "border-amber-500 focus-visible:ring-amber-500/30 text-amber-900 dark:text-amber-300")}
                     />
                   </div>
+
+                  <label className="flex items-center gap-1.5 text-xs font-semibold select-none cursor-pointer whitespace-nowrap bg-background border px-2.5 py-1.5 rounded-lg shrink-0 hover:border-primary/50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={newSubjectIsLab}
+                      onChange={(e) => setNewSubjectIsLab(e.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                    />
+                    <FlaskConical className={cn("w-3.5 h-3.5", newSubjectIsLab ? "text-primary" : "text-muted-foreground")} />
+                    <span className={cn(newSubjectIsLab ? "text-primary font-bold" : "text-muted-foreground")}>Lab Subject</span>
+                  </label>
 
                   <Button
                     type="button"
@@ -746,7 +840,7 @@ export function MarksSchemeTab() {
                     onClick={() => {
                       const subToAdd = selectedNewSubjectToAdd || customSubjectName;
                       if (subToAdd) {
-                        handleAddSubjectToClass(activeScheme.classCode, subToAdd);
+                        handleAddSubjectToClass(activeScheme.classCode, subToAdd, newSubjectIsLab);
                       } else {
                         showToast({
                           type: "info",
@@ -756,7 +850,7 @@ export function MarksSchemeTab() {
                       }
                     }}
                     className={cn(
-                      "w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 px-4 shadow-xs",
+                      "w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 px-4 shadow-xs shrink-0",
                       isCustomDuplicate
                         ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
                         : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"

@@ -164,28 +164,43 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
 
     if (!subjError) {
       if (subjRows && subjRows.length > 0) {
-        const dbSubjects: RoutineSubject[] = subjRows.map((s: any) => ({
-          id: s.id,
-          name: s.name,
-          className: s.class_name || s.className || null,
-          classId: s.class_id || s.classId || null,
-          stream: s.stream || null,
-          isCommon: Boolean(s.is_common ?? s.isCommon),
-          isHard: Boolean(s.is_hard),
-          isLab: Boolean(s.is_lab),
-          timePref: s.time_pref || "any",
-          allowMultiplePerDay: Boolean(s.allow_multiple_per_day),
-          maxPerDay:
-            s.max_per_day !== undefined && s.max_per_day !== null
-              ? Number(s.max_per_day)
-              : Boolean(s.allow_multiple_per_day)
-              ? 2
-              : 1,
-          periodsPerWeek:
+        const dbSubjects: RoutineSubject[] = subjRows.map((s: any) => {
+          const isLab = Boolean(s.is_lab);
+          const totalP =
             s.periods_per_week !== undefined && s.periods_per_week !== null
               ? Number(s.periods_per_week)
-              : 5,
-        }));
+              : isLab ? 6 : 5;
+          const labP =
+            s.lab_periods !== undefined && s.lab_periods !== null
+              ? Number(s.lab_periods)
+              : isLab ? 2 : 0;
+          const theoryP =
+            s.theory_periods !== undefined && s.theory_periods !== null
+              ? Number(s.theory_periods)
+              : isLab ? Math.max(0, totalP - labP) : totalP;
+
+          return {
+            id: s.id,
+            name: s.name,
+            className: s.class_name || s.className || null,
+            classId: s.class_id || s.classId || null,
+            stream: s.stream || null,
+            isCommon: Boolean(s.is_common ?? s.isCommon),
+            isHard: Boolean(s.is_hard),
+            isLab,
+            theoryPeriods: theoryP,
+            labPeriods: labP,
+            timePref: s.time_pref || "any",
+            allowMultiplePerDay: Boolean(s.allow_multiple_per_day),
+            maxPerDay:
+              s.max_per_day !== undefined && s.max_per_day !== null
+                ? Number(s.max_per_day)
+                : Boolean(s.allow_multiple_per_day)
+                ? 2
+                : 1,
+            periodsPerWeek: totalP,
+          };
+        });
 
         // Strict canonical deduplication to ensure zero duplicate subjects
         const dedupedSubjects: RoutineSubject[] = [];
@@ -687,6 +702,20 @@ export async function upsertSubjectDb(subj: {
   const id = subj.id || (existingIdx > -1 ? currentSubjects[existingIdx].id : crypto.randomUUID());
 
   // 1. Immediately update localStorage
+  const isLab = Boolean(subj.isLab);
+  const totalP =
+    subj.periodsPerWeek !== undefined && subj.periodsPerWeek !== null
+      ? Number(subj.periodsPerWeek)
+      : isLab ? 6 : 5;
+  const labP =
+    subj.labPeriods !== undefined && subj.labPeriods !== null
+      ? Number(subj.labPeriods)
+      : isLab ? 2 : 0;
+  const theoryP =
+    subj.theoryPeriods !== undefined && subj.theoryPeriods !== null
+      ? Number(subj.theoryPeriods)
+      : isLab ? Math.max(0, totalP - labP) : totalP;
+
   const subjectObj: RoutineSubject = {
     id,
     name: subj.name.trim(),
@@ -695,7 +724,9 @@ export async function upsertSubjectDb(subj: {
     stream: subj.stream || null,
     isCommon: Boolean(subj.isCommon),
     isHard: Boolean(subj.isHard),
-    isLab: Boolean(subj.isLab),
+    isLab,
+    theoryPeriods: theoryP,
+    labPeriods: labP,
     timePref: subj.timePref || "any",
     allowMultiplePerDay: Boolean(subj.allowMultiplePerDay),
     maxPerDay:
@@ -704,10 +735,7 @@ export async function upsertSubjectDb(subj: {
         : Boolean(subj.allowMultiplePerDay)
         ? 2
         : 1,
-    periodsPerWeek:
-      subj.periodsPerWeek !== undefined && subj.periodsPerWeek !== null
-        ? Number(subj.periodsPerWeek)
-        : 5,
+    periodsPerWeek: totalP,
     sortOrder: subj.sortOrder !== undefined ? subj.sortOrder : null,
   };
 
@@ -795,6 +823,20 @@ export async function batchUpsertSubjectsDb(
 
     const id = s.id || (existingMatch ? existingMatch.id : crypto.randomUUID());
 
+    const isLab = Boolean(s.isLab);
+    const totalP =
+      s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
+        ? Number(s.periodsPerWeek)
+        : isLab ? 6 : 5;
+    const labP =
+      s.labPeriods !== undefined && s.labPeriods !== null
+        ? Number(s.labPeriods)
+        : isLab ? 2 : 0;
+    const theoryP =
+      s.theoryPeriods !== undefined && s.theoryPeriods !== null
+        ? Number(s.theoryPeriods)
+        : isLab ? Math.max(0, totalP - labP) : totalP;
+
     return {
       id,
       name: s.name.trim(),
@@ -803,7 +845,9 @@ export async function batchUpsertSubjectsDb(
       stream: s.stream || null,
       isCommon: Boolean(s.isCommon),
       isHard: Boolean(s.isHard),
-      isLab: Boolean(s.isLab),
+      isLab,
+      theoryPeriods: theoryP,
+      labPeriods: labP,
       timePref: s.timePref || "any",
       allowMultiplePerDay: Boolean(s.allowMultiplePerDay),
       maxPerDay:
@@ -812,10 +856,7 @@ export async function batchUpsertSubjectsDb(
           : Boolean(s.allowMultiplePerDay)
           ? 2
           : 1,
-      periodsPerWeek:
-        s.periodsPerWeek !== undefined && s.periodsPerWeek !== null
-          ? Number(s.periodsPerWeek)
-          : 5,
+      periodsPerWeek: totalP,
       sortOrder: s.sortOrder !== undefined ? s.sortOrder : null,
     };
   });

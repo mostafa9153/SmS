@@ -51,6 +51,8 @@ export interface RoutineSubject {
   isCommon?: boolean; // true if common across all streams of the class (e.g. Bengali, English)
   isHard: boolean;
   isLab: boolean;
+  theoryPeriods?: number | null;
+  labPeriods?: number | null;
   timePref: "any" | "morning" | "afternoon";
   allowMultiplePerDay: boolean;
   maxPerDay?: number | null;

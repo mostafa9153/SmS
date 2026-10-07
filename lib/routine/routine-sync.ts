@@ -12,6 +12,7 @@ import {
   getSavedMarksSchemes,
   saveMarksSchemes,
   type ClassMarksScheme,
+  isSubjectLab,
 } from "@/lib/utils/marks-config";
 import {
   detectSubjectStream,
@@ -324,7 +325,8 @@ export function syncBatchRoutineSubjectsToMarksSchemes(
  */
 export async function syncMarksSchemeSubjectToRoutine(
   classCode: string,
-  subjectName: string
+  subjectName: string,
+  isLabExplicit?: boolean
 ): Promise<void> {
   if (typeof window === "undefined" || !subjectName.trim()) return;
 
@@ -342,7 +344,34 @@ export async function syncMarksSchemeSubjectToRoutine(
       (s: any) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
     );
 
-    if (exactMatch) return;
+    const schemes = getSavedMarksSchemes();
+    const targetScheme = schemes.find((s) => normalizeClassToCode(s.classCode) === normalizeClassToCode(classCode));
+    const isLab = isLabExplicit !== undefined ? isLabExplicit : isSubjectLab(targetScheme, cleanName);
+    const theoryPeriods = isLab ? 4 : 5;
+    const labPeriods = isLab ? 2 : 0;
+    const totalPeriods = theoryPeriods + labPeriods;
+
+    if (exactMatch) {
+      // If isLab changed, update existing
+      if (exactMatch.is_lab !== isLab) {
+        await upsertSubjectDb({
+          id: exactMatch.id,
+          name: cleanName,
+          className,
+          periodsPerWeek: totalPeriods,
+          theoryPeriods,
+          labPeriods,
+          isLab,
+          isHard: Boolean(exactMatch.is_hard),
+          timePref: exactMatch.time_pref || "any",
+          allowMultiplePerDay: Boolean(exactMatch.allow_multiple_per_day) || isLab,
+          maxPerDay: exactMatch.max_per_day || (isLab ? 2 : 1),
+          stream: detectSubjectStream(cleanName, exactMatch.stream),
+        });
+        window.dispatchEvent(new Event("sms_routine_state_updated"));
+      }
+      return;
+    }
 
     // Check if stripped match exists that can be renamed (e.g. "Bengali" -> "Bengali (1st Language)")
     const strippedMatch = currentSubjects.find((s: any) => isSameSubject(s.name, cleanName));
@@ -352,32 +381,32 @@ export async function syncMarksSchemeSubjectToRoutine(
         id: strippedMatch.id,
         name: cleanName,
         className,
-        periodsPerWeek: strippedMatch.periods_per_week || 5,
-        isLab: Boolean(strippedMatch.is_lab),
+        periodsPerWeek: strippedMatch.periods_per_week || totalPeriods,
+        theoryPeriods: strippedMatch.theory_periods || theoryPeriods,
+        labPeriods: strippedMatch.lab_periods || labPeriods,
+        isLab,
         isHard: false,
         timePref: strippedMatch.time_pref || "any",
-        allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day),
-        maxPerDay: strippedMatch.max_per_day || 1,
+        allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day) || isLab,
+        maxPerDay: strippedMatch.max_per_day || (isLab ? 2 : 1),
         stream: detectSubjectStream(cleanName, strippedMatch.stream),
       });
       window.dispatchEvent(new Event("sms_routine_state_updated"));
       return;
     }
 
-    const lower = cleanName.toLowerCase();
-    const isLab = lower.includes("lab") || lower.includes("practical");
-    const periods = 5;
-
     const newSubject: RoutineSubject = {
       id: crypto.randomUUID(),
       name: cleanName,
       className,
-      periodsPerWeek: periods,
+      periodsPerWeek: totalPeriods,
+      theoryPeriods,
+      labPeriods,
       isLab,
       isHard: false,
       timePref: "any",
-      allowMultiplePerDay: false,
-      maxPerDay: 1,
+      allowMultiplePerDay: isLab,
+      maxPerDay: isLab ? 2 : 1,
       stream: detectSubjectStream(cleanName),
     };
 
@@ -387,7 +416,7 @@ export async function syncMarksSchemeSubjectToRoutine(
     showToast({
       type: "success",
       title: "Subject Synced to Routine",
-      description: `"${cleanName}" was added to ${className} with 5 p/wk in Routine.`,
+      description: `"${cleanName}" was added to ${className} (${isLab ? "4 Th + 2 Lab = 6 p/wk" : "5 p/wk"}) in Routine.`,
     });
   } catch (err) {
     console.warn("syncMarksSchemeSubjectToRoutine error:", err);
@@ -500,6 +529,11 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
 
       for (const subName of schemeSubjects) {
         const cleanTarget = subName.trim();
+        const isLab = isSubjectLab(scheme, cleanTarget);
+        const theoryPeriods = isLab ? 4 : 5;
+        const labPeriods = isLab ? 2 : 0;
+        const totalPeriods = theoryPeriods + labPeriods;
+
         const exactMatch = routineSubjects.find(
           (s: any) =>
             s.class_name &&
@@ -520,27 +554,29 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
               id: strippedMatch.id,
               name: cleanTarget,
               className,
-              periodsPerWeek: strippedMatch.periods_per_week || 5,
-              isLab: Boolean(strippedMatch.is_lab),
+              periodsPerWeek: strippedMatch.periods_per_week || totalPeriods,
+              theoryPeriods: strippedMatch.theory_periods || theoryPeriods,
+              labPeriods: strippedMatch.lab_periods || labPeriods,
+              isLab,
               isHard: false,
               timePref: strippedMatch.time_pref || "any",
-              allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day),
-              maxPerDay: strippedMatch.max_per_day || 1,
+              allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day) || isLab,
+              maxPerDay: strippedMatch.max_per_day || (isLab ? 2 : 1),
               stream: detectSubjectStream(cleanTarget, strippedMatch.stream),
             });
           } else {
-            const lower = cleanTarget.toLowerCase();
-            const isLab = lower.includes("lab") || lower.includes("practical");
             toUpsert.push({
               id: crypto.randomUUID(),
               name: cleanTarget,
               className,
-              periodsPerWeek: 5,
+              periodsPerWeek: totalPeriods,
+              theoryPeriods,
+              labPeriods,
               isLab,
               isHard: false,
               timePref: "any",
-              allowMultiplePerDay: false,
-              maxPerDay: 1,
+              allowMultiplePerDay: isLab,
+              maxPerDay: isLab ? 2 : 1,
               stream: detectSubjectStream(cleanTarget),
             });
           }

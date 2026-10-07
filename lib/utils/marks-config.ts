@@ -22,6 +22,7 @@ export interface ClassMarksScheme {
   className: string; // "Class V", "Class VI", etc.
   subjectCount: number; // Number of subjects
   subjects?: string[]; // Configured subject list for this class
+  labSubjects?: string[]; // Configured list of subjects that have practical / lab classes
   isSemesterSystem?: boolean; // true for Higher Secondary (XI & XII)
   
   // 1st Summative Evaluation (per subject) - Secondary (V - X)
@@ -65,13 +66,12 @@ export function getSchemeSplitVariations(scheme?: ClassMarksScheme): MarksSplitV
 }
 
 /**
- * Returns smart WBCHSE semester marks division for a given HS subject.
- * Lab/Practical subjects: 35 Written + 15 Practical
- * Non-lab/Project subjects: 40 Written + 10 Project
+ * Checks if a subject is naturally a lab/practical subject by default
  */
-export function getDefaultHsSubjectMarks(subjectName: string): { written: number; practical: number } {
-  const s = (subjectName || "").toLowerCase().trim();
-  const isLab =
+export function isDefaultLabSubject(subjectName?: string): boolean {
+  if (!subjectName) return false;
+  const s = subjectName.toLowerCase().trim();
+  return (
     s.includes("physic") ||
     s.includes("chemist") ||
     s.includes("bio") ||
@@ -82,9 +82,38 @@ export function getDefaultHsSubjectMarks(subjectName: string): { written: number
     s.includes("psychol") ||
     s.includes("music") ||
     s.includes("visual") ||
-    s.includes("physical edu");
+    s.includes("physical edu") ||
+    s.includes("lab") ||
+    s.includes("practical") ||
+    s.includes("science")
+  );
+}
 
-  if (isLab) {
+/**
+ * Checks whether a subject in a given class scheme has Lab / Practical enabled
+ */
+export function isSubjectLab(scheme?: ClassMarksScheme, subjectName?: string): boolean {
+  if (!subjectName) return false;
+  const clean = (str: string) => str.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
+  const targetClean = clean(subjectName);
+
+  if (scheme && Array.isArray(scheme.labSubjects)) {
+    return scheme.labSubjects.some((sub) => {
+      const sClean = clean(sub);
+      return sClean === targetClean || sub.trim().toLowerCase() === subjectName.trim().toLowerCase();
+    });
+  }
+
+  return isDefaultLabSubject(subjectName);
+}
+
+/**
+ * Returns smart WBCHSE semester marks division for a given HS subject.
+ * Lab/Practical subjects: 35 Written + 15 Practical
+ * Non-lab/Project subjects: 40 Written + 10 Project
+ */
+export function getDefaultHsSubjectMarks(subjectName: string): { written: number; practical: number } {
+  if (isDefaultLabSubject(subjectName)) {
     return { written: 35, practical: 15 };
   }
   return { written: 40, practical: 10 };
@@ -182,6 +211,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Our Environment",
       "Health & Physical Education",
     ],
+    labSubjects: [],
     firstSummativeWritten: 20,
     firstSummativePractical: 0,
     secondSummativeWritten: 30,
@@ -204,6 +234,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Environment & Geography",
       "Health & Physical Education",
     ],
+    labSubjects: ["Environment & Science", "Environment & Geography"],
     firstSummativeWritten: 30,
     firstSummativePractical: 0,
     secondSummativeWritten: 50,
@@ -227,6 +258,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Geography",
       "Health & Physical Education",
     ],
+    labSubjects: ["Environment & Science", "Geography"],
     firstSummativeWritten: 30,
     firstSummativePractical: 0,
     secondSummativeWritten: 50,
@@ -250,6 +282,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Geography",
       "Health & Physical Education",
     ],
+    labSubjects: ["Environment & Science", "Geography"],
     firstSummativeWritten: 30,
     firstSummativePractical: 0,
     secondSummativeWritten: 50,
@@ -272,6 +305,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "History",
       "Geography",
     ],
+    labSubjects: ["Physical Science", "Life Science", "Geography"],
     firstSummativeWritten: 40,
     firstSummativePractical: 10,
     secondSummativeWritten: 40,
@@ -294,6 +328,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "History",
       "Geography",
     ],
+    labSubjects: ["Physical Science", "Life Science", "Geography"],
     firstSummativeWritten: 40,
     firstSummativePractical: 10,
     secondSummativeWritten: 40,
@@ -314,6 +349,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Chemistry",
       "Mathematics",
     ],
+    labSubjects: ["Physics", "Chemistry", "Biological Sciences", "Computer Science", "Geography", "Modern Computer Application", "Statistics", "Nutrition"],
     oddSemesterWritten: 40,
     oddSemesterPractical: 10,
     oddSemesterMarks: 50,  // Semester 1: 40 written + 10 project/practical = 50 Marks per subject
@@ -340,6 +376,7 @@ export const DEFAULT_MARKS_SCHEMES: ClassMarksScheme[] = [
       "Chemistry",
       "Mathematics",
     ],
+    labSubjects: ["Physics", "Chemistry", "Biological Sciences", "Computer Science", "Geography", "Modern Computer Application", "Statistics", "Nutrition"],
     oddSemesterWritten: 40,
     oddSemesterPractical: 10,
     oddSemesterMarks: 50,  // Semester 3: 40 written + 10 project/practical = 50 Marks per subject

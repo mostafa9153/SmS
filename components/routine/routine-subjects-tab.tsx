@@ -61,7 +61,15 @@ import { setLocalRoutineState } from "@/lib/supabase/db-routine";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
-import { syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import {
+  syncAllSubjectsFromPresetsToRoutine,
+  normalizeClassToCode,
+} from "@/lib/routine/routine-sync";
+import {
+  getSavedMarksSchemes,
+  isSubjectLab,
+  isDefaultLabSubject,
+} from "@/lib/utils/marks-config";
 
 import {
   getDynamicClassList,
@@ -250,6 +258,9 @@ export function RoutineSubjectsTab({
 
   // Dialog-specific edit form state (independent from the add form)
   const [dlgName, setDlgName] = useState("");
+  const [dlgPeriodFormat, setDlgPeriodFormat] = useState<"single" | "both" | "lab">("single");
+  const [dlgTheoryPeriods, setDlgTheoryPeriods] = useState<number>(5);
+  const [dlgLabPeriods, setDlgLabPeriods] = useState<number>(2);
   const [dlgPeriodsPerWeek, setDlgPeriodsPerWeek] = useState<number>(5);
   const [dlgIsLab, setDlgIsLab] = useState(false);
   const [dlgTimePref, setDlgTimePref] = useState<"any" | "morning" | "afternoon">("any");
@@ -264,6 +275,13 @@ export function RoutineSubjectsTab({
   const [isSavedRecently, setIsSavedRecently] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [marksSchemeVersion, setMarksSchemeVersion] = useState(0);
+  const [marksSchemes, setMarksSchemes] = useState<any[]>([]);
+
+  useEffect(() => {
+    try {
+      setMarksSchemes(getSavedMarksSchemes());
+    } catch {}
+  }, [marksSchemeVersion]);
 
   // Drag-to-reorder: localOrder[classKey] = ordered array of subject ids
   const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
@@ -567,8 +585,24 @@ export function RoutineSubjectsTab({
     setEditId(s.id);
     const stream = detectSubjectStream(s.name, s.stream);
     setDlgName(s.name);
-    setDlgPeriodsPerWeek(s.periodsPerWeek || (s.isLab ? 2 : 5));
-    setDlgIsLab(Boolean(s.isLab));
+
+    const isLab = Boolean(s.isLab);
+    const theoryP = s.theoryPeriods !== undefined && s.theoryPeriods !== null
+      ? s.theoryPeriods
+      : (isLab ? Math.max(1, (s.periodsPerWeek || 6) - (s.labPeriods || 2)) : (s.periodsPerWeek || 5));
+    const labP = s.labPeriods !== undefined && s.labPeriods !== null
+      ? s.labPeriods
+      : (isLab ? 2 : 0);
+
+    const format: "single" | "both" | "lab" = isLab
+      ? (theoryP > 0 ? "both" : "lab")
+      : "single";
+
+    setDlgPeriodFormat(format);
+    setDlgTheoryPeriods(theoryP);
+    setDlgLabPeriods(labP > 0 ? labP : 2);
+    setDlgPeriodsPerWeek(format === "single" ? theoryP : format === "lab" ? (labP > 0 ? labP : 2) : (theoryP + (labP > 0 ? labP : 2)));
+    setDlgIsLab(isLab);
     setDlgTimePref(s.timePref || "any");
     setDlgAllowMulti(Boolean(s.allowMultiplePerDay));
     setDlgMaxPerDay(s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2);
@@ -581,6 +615,9 @@ export function RoutineSubjectsTab({
   const handleOpenAddDialog = React.useCallback(() => {
     setEditId(null);
     setDlgName("");
+    setDlgPeriodFormat("single");
+    setDlgTheoryPeriods(5);
+    setDlgLabPeriods(2);
     setDlgPeriodsPerWeek(5);
     setDlgIsLab(false);
     setDlgTimePref("any");
@@ -592,7 +629,6 @@ export function RoutineSubjectsTab({
     setEditDialogOpen(true);
   }, []);
 
-
   // Handle choosing a preset subject chip
   const handleSelectPresetChip = React.useCallback((subName: string) => {
     const canonicalInput = subName.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
@@ -603,12 +639,12 @@ export function RoutineSubjectsTab({
     });
 
     if (existing) {
-      // Already added â€” open edit dialog for it
+      // Already added — open edit dialog for it
       handleEdit(existing);
       return;
     }
 
-    // New subject â€” just fill the add form
+    // New subject — just fill the add form
     setEditId(null);
     setName(subName);
     const lower = subName.toLowerCase();
@@ -616,7 +652,16 @@ export function RoutineSubjectsTab({
     setFormStream(detected);
     setIsCommonSubject(detected === "Common");
 
-    if (lower.includes("lab") || lower.includes("practical")) {
+    const matchingScheme = marksSchemes.find(
+      (sc) => normalizeClassToCode(sc.classCode) === normalizeClassToCode(activeClass)
+    );
+    const isLabPreset = matchingScheme ? isSubjectLab(matchingScheme, subName) : isDefaultLabSubject(subName);
+
+    if (isLabPreset) {
+      setIsLab(true);
+      setPeriodsPerWeek(6);
+      setAllowMulti(true);
+    } else if (lower.includes("lab") || lower.includes("practical")) {
       setIsLab(true);
       setPeriodsPerWeek(2);
     } else if (lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental")) {
@@ -626,7 +671,7 @@ export function RoutineSubjectsTab({
       setIsLab(false);
       setPeriodsPerWeek(5);
     }
-  }, [currentClassSubjects, handleEdit]);
+  }, [currentClassSubjects, handleEdit, marksSchemes, activeClass]);
 
 
   // Submit Handler
@@ -716,6 +761,15 @@ export function RoutineSubjectsTab({
           : dlgFormStream
         : null;
 
+      const effectiveIsLab = dlgPeriodFormat === "both" || dlgPeriodFormat === "lab";
+      const effectiveTheory = dlgPeriodFormat === "lab" ? 0 : Number(dlgTheoryPeriods) || 0;
+      const effectiveLab = dlgPeriodFormat === "single" ? 0 : Number(dlgLabPeriods) || 0;
+      const effectiveTotal = dlgPeriodFormat === "single"
+        ? (Number(dlgTheoryPeriods) || 5)
+        : dlgPeriodFormat === "lab"
+        ? (Number(dlgLabPeriods) || 2)
+        : ((Number(dlgTheoryPeriods) || 4) + (Number(dlgLabPeriods) || 2));
+
       if (dialogMode === "edit" && editId) {
         const subjectBeingEdited = subjects.find((s) => s.id === editId);
         await onSaveSubject({
@@ -725,11 +779,13 @@ export function RoutineSubjectsTab({
           stream: finalStream,
           isCommon: dlgIsCommon || finalStream === "Common",
           isHard: false,
-          isLab: dlgIsLab,
+          isLab: effectiveIsLab,
+          theoryPeriods: effectiveTheory,
+          labPeriods: effectiveLab,
           timePref: dlgTimePref,
-          allowMultiplePerDay: dlgAllowMulti,
-          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : 1,
-          periodsPerWeek: Number(dlgPeriodsPerWeek) || 5,
+          allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
+          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
+          periodsPerWeek: effectiveTotal,
         });
       } else {
         // Add mode
@@ -746,11 +802,13 @@ export function RoutineSubjectsTab({
           stream: finalStream,
           isCommon: dlgIsCommon || finalStream === "Common",
           isHard: false,
-          isLab: dlgIsLab,
+          isLab: effectiveIsLab,
+          theoryPeriods: effectiveTheory,
+          labPeriods: effectiveLab,
           timePref: dlgTimePref,
-          allowMultiplePerDay: dlgAllowMulti,
-          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : 1,
-          periodsPerWeek: Number(dlgPeriodsPerWeek) || 5,
+          allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
+          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
+          periodsPerWeek: effectiveTotal,
         });
       }
       setEditDialogOpen(false);
@@ -1347,12 +1405,37 @@ export function RoutineSubjectsTab({
                     const detected = detectSubjectStream(val);
                     setDlgFormStream(detected);
                     setDlgIsCommon(detected === "Common");
-                    if (lower.includes("lab") || lower.includes("practical")) {
-                      setDlgIsLab(true); setDlgPeriodsPerWeek(2);
+
+                    const matchingScheme = marksSchemes.find(
+                      (sc) => normalizeClassToCode(sc.classCode) === normalizeClassToCode(targetClassForForm)
+                    );
+                    const isLabPreset = matchingScheme ? isSubjectLab(matchingScheme, val) : isDefaultLabSubject(val);
+
+                    if (isLabPreset) {
+                      setDlgPeriodFormat("both");
+                      setDlgIsLab(true);
+                      setDlgTheoryPeriods(4);
+                      setDlgLabPeriods(2);
+                      setDlgPeriodsPerWeek(6);
+                      setDlgAllowMulti(true);
+                    } else if (lower.includes("lab") || lower.includes("practical")) {
+                      setDlgPeriodFormat("lab");
+                      setDlgIsLab(true);
+                      setDlgTheoryPeriods(0);
+                      setDlgLabPeriods(2);
+                      setDlgPeriodsPerWeek(2);
                     } else if (lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental")) {
-                      setDlgIsLab(false); setDlgPeriodsPerWeek(2);
+                      setDlgPeriodFormat("single");
+                      setDlgIsLab(false);
+                      setDlgTheoryPeriods(2);
+                      setDlgLabPeriods(0);
+                      setDlgPeriodsPerWeek(2);
                     } else {
-                      setDlgIsLab(false); setDlgPeriodsPerWeek(5);
+                      setDlgPeriodFormat("single");
+                      setDlgIsLab(false);
+                      setDlgTheoryPeriods(5);
+                      setDlgLabPeriods(0);
+                      setDlgPeriodsPerWeek(5);
                     }
                   }}
                 >
@@ -1367,10 +1450,22 @@ export function RoutineSubjectsTab({
                       const isAdded = currentClassSubjects.some(
                         (s) => s.name.trim().toLowerCase() === sub.trim().toLowerCase()
                       );
+                      const matchingScheme = marksSchemes.find(
+                        (sc) => normalizeClassToCode(sc.classCode) === normalizeClassToCode(targetClassForForm)
+                      );
+                      const isSubLabPreset = matchingScheme ? isSubjectLab(matchingScheme, sub) : isDefaultLabSubject(sub);
+
                       return (
                         <SelectItem key={sub} value={sub} className="text-xs">
                           <div className="flex items-center justify-between w-full gap-2">
-                            <span>{sub}</span>
+                            <span className="flex items-center gap-1.5">
+                              <span>{sub}</span>
+                              {isSubLabPreset && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200">
+                                  Lab
+                                </Badge>
+                              )}
+                            </span>
                             {isAdded && (
                               <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">(Added)</span>
                             )}
@@ -1390,54 +1485,164 @@ export function RoutineSubjectsTab({
               )}
             </div>
 
+            {/* Period Format Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Period Format</Label>
+              <Select
+                value={dlgPeriodFormat}
+                onValueChange={(val: "single" | "both" | "lab") => {
+                  setDlgPeriodFormat(val);
+                  const isLab = val === "both" || val === "lab";
+                  setDlgIsLab(isLab);
+                  if (val === "both") {
+                    const th = dlgTheoryPeriods > 0 ? dlgTheoryPeriods : 4;
+                    const lb = dlgLabPeriods > 0 ? dlgLabPeriods : 2;
+                    setDlgTheoryPeriods(th);
+                    setDlgLabPeriods(lb);
+                    setDlgPeriodsPerWeek(th + lb);
+                    if (th + lb >= 6) setDlgAllowMulti(true);
+                  } else if (val === "single") {
+                    const th = dlgTheoryPeriods > 0 ? dlgTheoryPeriods : 5;
+                    setDlgTheoryPeriods(th);
+                    setDlgPeriodsPerWeek(th);
+                    if (th >= 6) setDlgAllowMulti(true);
+                  } else if (val === "lab") {
+                    const lb = dlgLabPeriods > 0 ? dlgLabPeriods : 2;
+                    setDlgLabPeriods(lb);
+                    setDlgPeriodsPerWeek(lb);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs font-medium bg-background">
+                  <SelectValue placeholder="Format">
+                    {dlgPeriodFormat === "both"
+                      ? "Theory + Practical Lab (1 Th + 2 Lab Slots)"
+                      : dlgPeriodFormat === "lab"
+                      ? "Practical Lab Only (2 Slots)"
+                      : "Single Period (1 Slot / Theory)"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single" className="text-xs">
+                    Single Period (1 Slot / Theory)
+                  </SelectItem>
+                  <SelectItem value="both" className="text-xs">
+                    Theory + Practical Lab (1 Th + 2 Lab Slots)
+                  </SelectItem>
+                  <SelectItem value="lab" className="text-xs">
+                    Practical Lab Only (2 Slots)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Dynamic Period Inputs depending on Format */}
+            {dlgPeriodFormat === "both" ? (
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl border bg-blue-500/5 border-blue-500/20">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground">Theory Periods / Week</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={12}
+                    value={dlgTheoryPeriods}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 1;
+                      setDlgTheoryPeriods(val);
+                      const tot = val + dlgLabPeriods;
+                      setDlgPeriodsPerWeek(tot);
+                      if (tot >= 6) setDlgAllowMulti(true);
+                    }}
+                    className="h-8 text-xs font-mono font-semibold"
+                    required
+                  />
+                  <span className="text-[10px] text-muted-foreground">1 Slot each</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground">Lab Periods / Week</Label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={8}
+                    step={2}
+                    value={dlgLabPeriods}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 2;
+                      setDlgLabPeriods(val);
+                      const tot = dlgTheoryPeriods + val;
+                      setDlgPeriodsPerWeek(tot);
+                      if (tot >= 6) setDlgAllowMulti(true);
+                    }}
+                    className="h-8 text-xs font-mono font-semibold"
+                    required
+                  />
+                  <span className="text-[10px] text-muted-foreground">2 Slots (Lab Class)</span>
+                </div>
+
+                <div className="col-span-2 pt-1.5 border-t border-blue-500/20 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-muted-foreground">Total Weekly Periods:</span>
+                  <Badge variant="outline" className="font-mono text-xs font-bold bg-background text-primary border-primary/30">
+                    {dlgTheoryPeriods + dlgLabPeriods} p/wk ({dlgTheoryPeriods} Th + {dlgLabPeriods} Lab)
+                  </Badge>
+                </div>
+              </div>
+            ) : dlgPeriodFormat === "lab" ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Lab Periods / Week *</Label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={12}
+                    step={2}
+                    value={dlgLabPeriods}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 2;
+                      setDlgLabPeriods(val);
+                      setDlgPeriodsPerWeek(val);
+                    }}
+                    className="h-8 text-xs font-mono font-semibold"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5 flex flex-col justify-end pb-1.5">
+                  <span className="text-[11px] text-muted-foreground font-mono font-medium">
+                    = {Math.floor(dlgLabPeriods / 2)} Double Lab Sessions
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Periods / Week *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={18}
+                    value={dlgTheoryPeriods}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10) || 1;
+                      setDlgTheoryPeriods(val);
+                      setDlgPeriodsPerWeek(val);
+                      if (val >= 6) {
+                        setDlgAllowMulti(true);
+                        if (dlgMaxPerDay < 2) setDlgMaxPerDay(2);
+                      }
+                    }}
+                    className="h-8 text-xs font-mono font-semibold"
+                    required
+                  />
+                </div>
+                <div className="space-y-1.5 flex flex-col justify-end pb-1.5">
+                  <span className="text-[11px] text-muted-foreground font-mono font-medium">
+                    = {dlgTheoryPeriods} Single Periods / wk
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Periods / Week */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Periods / Week *</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={18}
-                  value={dlgPeriodsPerWeek}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10) || 1;
-                    setDlgPeriodsPerWeek(val);
-                    if (!dlgIsLab && val >= 6) {
-                      setDlgAllowMulti(true);
-                      if (dlgMaxPerDay < 2) setDlgMaxPerDay(2);
-                    }
-                  }}
-                  className="h-8 text-xs font-mono font-semibold"
-                  required
-                />
-              </div>
-
-              {/* Period Format */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Period Format</Label>
-                <Select
-                  value={dlgIsLab ? "lab" : "single"}
-                  onValueChange={(val) => {
-                    const isLab = val === "lab";
-                    setDlgIsLab(isLab);
-                    if (!isLab && dlgPeriodsPerWeek >= 6) {
-                      setDlgAllowMulti(true);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs font-medium bg-background">
-                    <SelectValue placeholder="Format">
-                      {dlgIsLab ? "Practical Lab (2 Slots)" : "Single Period (1 Slot)"}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single" className="text-xs">Single Period (1 Slot)</SelectItem>
-                    <SelectItem value="lab" className="text-xs">Practical Lab (2 Slots)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Time Window */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Time Window</Label>
@@ -1640,12 +1845,40 @@ const SubjectTableRow = React.memo(function SubjectTableRow({
         )}
       </td>
       <td className="py-2.5 px-4 font-mono font-semibold text-foreground">
-        <Badge variant="secondary" className="text-[10px] font-mono font-bold">
-          {s.periodsPerWeek || 5} p/wk
-        </Badge>
+        {s.isLab && (s.theoryPeriods ?? 0) > 0 ? (
+          <div className="space-y-0.5">
+            <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+              {s.periodsPerWeek || ((s.theoryPeriods || 4) + (s.labPeriods || 2))} p/wk
+            </Badge>
+            <span className="text-[10px] text-muted-foreground block font-mono">
+              {s.theoryPeriods || 4} Th + {s.labPeriods || 2} Lab
+            </span>
+          </div>
+        ) : s.isLab ? (
+          <div className="space-y-0.5">
+            <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+              {s.periodsPerWeek || 2} p/wk
+            </Badge>
+            <span className="text-[10px] text-blue-600 dark:text-blue-400 block font-semibold">
+              Lab Only
+            </span>
+          </div>
+        ) : (
+          <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+            {s.periodsPerWeek || 5} p/wk
+          </Badge>
+        )}
       </td>
       <td className="py-2.5 px-4">
-        {s.isLab ? (
+        {s.isLab && (s.theoryPeriods ?? 0) > 0 ? (
+          <Badge
+            variant="secondary"
+            className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 gap-1 font-medium"
+          >
+            <FlaskConical className="w-2.5 h-2.5 text-blue-600" />
+            Theory + Lab (2 Slots)
+          </Badge>
+        ) : s.isLab ? (
           <Badge
             variant="secondary"
             className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 gap-1 font-medium"

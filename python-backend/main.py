@@ -54,6 +54,8 @@ class RoutineSubject(BaseModel):
     maxPerDay: Optional[int] = None
     periodsPerWeek: Optional[int] = None
     sortOrder: Optional[int] = None
+    theoryPeriods: Optional[int] = None
+    labPeriods: Optional[int] = None
 
 class RoutineTeacher(BaseModel):
     id: str
@@ -406,7 +408,11 @@ def generate_schedule(request: GenerateRoutineRequest):
         
         rem = a.periodsPerWeek
         if subj.isLab:
-            while rem >= 2:
+            lab_p = subj.labPeriods if subj.labPeriods is not None else min(2, a.periodsPerWeek)
+            theory_p = subj.theoryPeriods if subj.theoryPeriods is not None else max(0, a.periodsPerWeek - lab_p)
+            
+            rem_lab = lab_p
+            while rem_lab >= 2:
                 units.append({
                     "uid": unit_counter,
                     "cid": a.classId,
@@ -422,8 +428,25 @@ def generate_schedule(request: GenerateRoutineRequest):
                     "targetFirstPeriods": target_first_periods,
                 })
                 unit_counter += 1
-                rem -= 2
-            if rem == 1:
+                rem_lab -= 2
+            if rem_lab == 1:
+                units.append({
+                    "uid": unit_counter,
+                    "cid": a.classId,
+                    "sid": a.subjectId,
+                    "tid": a.teacherId,
+                    "rid": a.roomId,
+                    "sz": 1,
+                    "hard": subj.isHard,
+                    "multi": allow_multiple,
+                    "maxPerDay": max_daily,
+                    "timePref": subj.timePref,
+                    "isClassTeacherUnit": is_ct,
+                    "targetFirstPeriods": target_first_periods,
+                })
+                unit_counter += 1
+            
+            for _ in range(theory_p):
                 units.append({
                     "uid": unit_counter,
                     "cid": a.classId,
