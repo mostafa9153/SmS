@@ -273,6 +273,66 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
     # Objectives
     obj_vars = []
     
+    # Teacher Workload Smoothing (Daily balance) & Morning/Afternoon Balance
+    for t_id in teacher_occupancy:
+        t_units = [u for u in units if u["tid"] == t_id]
+        if not t_units: continue
+        
+        load = teacher_load_map.get(t_id, 0)
+        total_cap = sum(settings.halfDayPeriods if d_val in half_days else settings.tchDailyMax for d_val in working_days)
+        if total_cap == 0: total_cap = 1
+        
+        for d_idx, day_val in enumerate(working_days):
+            # Daily load balance
+            day_cap = settings.halfDayPeriods if day_val in half_days else settings.tchDailyMax
+            expected = load * day_cap / total_cap
+            target_min = math.floor(expected)
+            target_max = math.ceil(expected)
+            
+            day_vars = []
+            for u in t_units:
+                sz = u["sz"]
+                for p in range(P):
+                    if (u["uid"], d_idx, p) in x:
+                        day_vars.append(x[(u["uid"], d_idx, p)] * sz)
+            
+            if day_vars:
+                day_sum = sum(day_vars)
+                dev = model.NewIntVar(0, P, f"dev_{t_id}_{d_idx}")
+                model.Add(dev >= day_sum - target_max)
+                model.Add(dev >= target_min - day_sum)
+                obj_vars.append(dev * 50)
+                
+            # Morning/Afternoon balance
+            morning_vars = []
+            afternoon_vars = []
+            for u in t_units:
+                sz = u["sz"]
+                for p in range(P):
+                    if (u["uid"], d_idx, p) in x:
+                        p_num = p + 1
+                        if sz == 2:
+                            if p_num <= break_p: morning_vars.append(x[(u["uid"], d_idx, p)])
+                            else: afternoon_vars.append(x[(u["uid"], d_idx, p)])
+                            
+                            p_num2 = p_num + 1
+                            if p_num2 <= break_p: morning_vars.append(x[(u["uid"], d_idx, p)])
+                            else: afternoon_vars.append(x[(u["uid"], d_idx, p)])
+                        else:
+                            if p_num <= break_p: morning_vars.append(x[(u["uid"], d_idx, p)])
+                            else: afternoon_vars.append(x[(u["uid"], d_idx, p)])
+                            
+            if morning_vars or afternoon_vars:
+                m_sum = sum(morning_vars) if morning_vars else 0
+                a_sum = sum(afternoon_vars) if afternoon_vars else 0
+                
+                diff_ma = model.NewIntVar(-P, P, f"diff_ma_{t_id}_{d_idx}")
+                model.Add(diff_ma == m_sum - a_sum)
+                abs_diff_ma = model.NewIntVar(0, P, f"abs_diff_ma_{t_id}_{d_idx}")
+                model.AddAbsEquality(abs_diff_ma, diff_ma)
+                
+                obj_vars.append(abs_diff_ma * 50)
+
     # Hard subjects preference (earlier)
     for u in units:
         if u["hard"]:
