@@ -332,7 +332,7 @@ export class RoutineSolver {
         rooms: Array.from(this.rooms.values()),
       };
 
-      const res = await fetch('http://localhost:8000/generate-routine', {
+      const res = await fetch('/api/routine/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
