@@ -12,7 +12,7 @@ import {
   DAY_NAMES,
   RoutineGrid,
 } from "@/lib/routine/types";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
 import {
   Printer,
@@ -413,117 +413,210 @@ export function RoutineViewerTab({
   };
 
   
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!routine) {
       showToast({ title: "No routine to export", variant: "error" });
       return;
     }
-
-    const wb = XLSX.utils.book_new();
-
-    const maxPeriods = settings.periodsPerDay;
-    const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
-
-    // 1. Master Sheet
-    const masterData = [];
-    settings.workingDays.forEach((dIdx) => {
-      masterData.push(["--- " + DAY_NAMES[dIdx] + " ---"]);
-      masterData.push(headerRow);
+    
+    try {
+      showToast({ title: "Generating styled Excel file...", variant: "default" });
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "SMS Web App";
       
+      const maxPeriods = settings.periodsPerDay;
+      const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+      
+      // Reusable styles
+      const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } };
+      const headerFont = { color: { argb: 'FFFFFFFF' }, bold: true };
+      const dayRowFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FA' } };
+      
+      const borderAll = {
+        top: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+        left: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+        bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
+        right: { style: 'thin', color: { argb: 'FFBFBFBF' } }
+      };
+
+      const applyTableStyles = (sheet, startRow, rowCount, colCount) => {
+        sheet.getColumn(1).width = 25;
+        for (let i = 2; i <= colCount; i++) {
+          sheet.getColumn(i).width = 18;
+        }
+
+        for (let r = startRow; r < startRow + rowCount; r++) {
+          for (let c = 1; c <= colCount; c++) {
+             const cell = sheet.getCell(r, c);
+             cell.border = borderAll;
+             cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          }
+        }
+        
+        for (let c = 1; c <= colCount; c++) {
+           const cell = sheet.getCell(startRow, c);
+           cell.fill = headerFill;
+           cell.font = headerFont;
+        }
+      };
+
+      // --- 1. MASTER SHEET ---
+      const wsMaster = workbook.addWorksheet("Master");
+      let mRowIdx = 1;
+
+      settings.workingDays.forEach((dIdx) => {
+        const titleRow = wsMaster.getRow(mRowIdx);
+        titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " ---";
+        titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF333333' } };
+        titleRow.getCell(1).fill = dayRowFill;
+        wsMaster.mergeCells(mRowIdx, 1, mRowIdx, maxPeriods + 1);
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        mRowIdx++;
+
+        const startTblRow = mRowIdx;
+        wsMaster.getRow(mRowIdx).values = headerRow;
+        mRowIdx++;
+
+        classes.forEach((c) => {
+          const classLimit = c.dailyPeriods || maxPeriods;
+          const rowData = [c.className + " - " + c.section];
+          
+          for (let p = 1; p <= maxPeriods; p++) {
+            if (p > classLimit) {
+              rowData.push("");
+            } else {
+              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+              if (cellData) {
+                 const subj = subjectMap.get(cellData.sid);
+                 const tch = teacherMap.get(cellData.tid);
+                 rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+              } else {
+                 rowData.push("-");
+              }
+            }
+          }
+          wsMaster.getRow(mRowIdx).values = rowData;
+          mRowIdx++;
+        });
+        
+        applyTableStyles(wsMaster, startTblRow, mRowIdx - startTblRow, maxPeriods + 1);
+        mRowIdx += 2;
+      });
+
+      // --- 2. CLASS-WISE SHEET ---
+      const wsClass = workbook.addWorksheet("Class-wise");
+      let cRowIdx = 1;
+
       classes.forEach((c) => {
-        const classLimit = c.dailyPeriods || maxPeriods;
-        const row = [c.className + " - " + c.section];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          if (p > classLimit) {
-            row.push("");
-          } else {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData) {
-               const subj = subjectMap.get(cellData.sid);
-               const tch = teacherMap.get(cellData.tid);
-               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
-            } else {
-               row.push("-");
-            }
-          }
-        }
-        masterData.push(row);
-      });
-      masterData.push([]); 
-    });
-    const wsMaster = XLSX.utils.aoa_to_sheet(masterData);
-    XLSX.utils.book_append_sheet(wb, wsMaster, "Master");
+        const titleRow = wsClass.getRow(cRowIdx);
+        titleRow.getCell(1).value = "Class: " + c.className + " - " + c.section;
+        titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF9C0006' } };
+        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC7CE' } };
+        wsClass.mergeCells(cRowIdx, 1, cRowIdx, maxPeriods + 1);
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        titleRow.height = 25;
+        cRowIdx++;
 
-    // 2. Class-wise Sheet
-    const classWiseData = [];
-    classes.forEach((c) => {
-      classWiseData.push(["Class: " + c.className + " - " + c.section]);
-      classWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
-      
-      settings.workingDays.forEach((dIdx) => {
-        const classLimit = c.dailyPeriods || maxPeriods;
-        const row = [DAY_NAMES[dIdx]];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          if (p > classLimit) {
-            row.push("");
-          } else {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData) {
-               const subj = subjectMap.get(cellData.sid);
-               const tch = teacherMap.get(cellData.tid);
-               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
-            } else {
-               row.push("-");
-            }
-          }
-        }
-        classWiseData.push(row);
-      });
-      classWiseData.push([]);
-    });
-    const wsClass = XLSX.utils.aoa_to_sheet(classWiseData);
-    XLSX.utils.book_append_sheet(wb, wsClass, "Class-wise");
+        const startTblRow = cRowIdx;
+        wsClass.getRow(cRowIdx).values = ["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+        cRowIdx++;
 
-    // 3. Teacher-wise Sheet
-    const teacherWiseData = [];
-    teachers.forEach((tch) => {
-      teacherWiseData.push(["Teacher: " + tch.name + " (" + tch.shortName + ")"]);
-      teacherWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
-      
-      settings.workingDays.forEach((dIdx) => {
-        const row = [DAY_NAMES[dIdx]];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          let foundCell = null;
-          let foundClass = null;
+        settings.workingDays.forEach((dIdx) => {
+          const classLimit = c.dailyPeriods || maxPeriods;
+          const rowData = [DAY_NAMES[dIdx]];
           
-          for (const c of classes) {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData && cellData.tid === tch.id) {
-              foundCell = cellData;
-              foundClass = c;
-              break;
+          for (let p = 1; p <= maxPeriods; p++) {
+            if (p > classLimit) {
+              rowData.push("");
+            } else {
+              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+              if (cellData) {
+                 const subj = subjectMap.get(cellData.sid);
+                 const tch = teacherMap.get(cellData.tid);
+                 rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+              } else {
+                 rowData.push("-");
+              }
             }
           }
-          
-          if (foundCell) {
-             const subj = subjectMap.get(foundCell.sid);
-             row.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
-          } else {
-             row.push("-");
-          }
-        }
-        teacherWiseData.push(row);
-      });
-      teacherWiseData.push([]);
-    });
-    const wsTeacher = XLSX.utils.aoa_to_sheet(teacherWiseData);
-    XLSX.utils.book_append_sheet(wb, wsTeacher, "Teachers");
+          wsClass.getRow(cRowIdx).values = rowData;
+          wsClass.getRow(cRowIdx - 1).height = 40; 
+          cRowIdx++;
+        });
 
-    XLSX.writeFile(wb, "Routine_Export.xlsx");
-    showToast({ title: "Routine exported successfully", variant: "success" });
+        applyTableStyles(wsClass, startTblRow, cRowIdx - startTblRow, maxPeriods + 1);
+        cRowIdx += 2;
+      });
+
+      // --- 3. TEACHER-WISE SHEET ---
+      const wsTeacher = workbook.addWorksheet("Teachers");
+      let tRowIdx = 1;
+
+      teachers.forEach((tch) => {
+        const titleRow = wsTeacher.getRow(tRowIdx);
+        titleRow.getCell(1).value = "Teacher: " + tch.name + " (" + tch.shortName + ")";
+        titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF006100' } };
+        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC6EFCE' } };
+        wsTeacher.mergeCells(tRowIdx, 1, tRowIdx, maxPeriods + 1);
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        titleRow.height = 25;
+        tRowIdx++;
+
+        const startTblRow = tRowIdx;
+        wsTeacher.getRow(tRowIdx).values = ["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+        tRowIdx++;
+
+        settings.workingDays.forEach((dIdx) => {
+          const rowData = [DAY_NAMES[dIdx]];
+          
+          for (let p = 1; p <= maxPeriods; p++) {
+            let foundCell = null;
+            let foundClass = null;
+            
+            for (const c of classes) {
+              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+              if (cellData && cellData.tid === tch.id) {
+                foundCell = cellData;
+                foundClass = c;
+                break;
+              }
+            }
+            
+            if (foundCell) {
+               const subj = subjectMap.get(foundCell.sid);
+               rowData.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
+            } else {
+               rowData.push("-");
+            }
+          }
+          wsTeacher.getRow(tRowIdx).values = rowData;
+          wsTeacher.getRow(tRowIdx - 1).height = 40;
+          tRowIdx++;
+        });
+
+        applyTableStyles(wsTeacher, startTblRow, tRowIdx - startTblRow, maxPeriods + 1);
+        tRowIdx += 2;
+      });
+
+      // Export
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "Routine_Export_Pro.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      showToast({ title: "Routine exported beautifully!", variant: "success" });
+    } catch (err) {
+      console.error(err);
+      showToast({ title: "Failed to export Excel", variant: "error" });
+    }
   };
 
   const handlePrint = () => {
