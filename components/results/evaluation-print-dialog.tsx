@@ -169,7 +169,7 @@ export const EvaluationPrintDialog: React.FC<EvaluationPrintDialogProps> = ({
                 transformOrigin: "top center",
                 transition: "transform 0.15s ease-out",
               }}
-              className="w-[210mm] shrink-0"
+              className="w-[420mm] shrink-0"
             >
               <EvaluationRegisterPrintable
                 students={students}

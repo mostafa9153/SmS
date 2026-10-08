@@ -125,7 +125,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
               display: none;
             }
             @page {
-              size: 210mm 297mm;
+              size: 420mm 297mm; /* A3 Landscape */
               margin: 0;
             }
             @media print {
@@ -144,7 +144,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
-                width: 210mm !important;
+                width: 420mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 background: white !important;
@@ -155,7 +155,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                 color: black !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                width: 210mm !important;
+                width: 420mm !important;
                 height: auto !important;
                 overflow: visible !important;
                 -webkit-print-color-adjust: exact !important;
@@ -177,7 +177,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                 box-shadow: none !important;
                 border: none !important;
                 margin: 0 auto !important;
-                width: 210mm !important;
+                width: 420mm !important;
                 height: 290mm !important;
                 max-height: 290mm !important;
                 page-break-inside: avoid !important;
@@ -206,7 +206,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
             </div>
 
             {/* A4 Sheet Container */}
-            <div className="evaluation-page-sheet w-[210mm] h-[290mm] max-h-[290mm] mx-auto p-[2mm_4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0 print:h-[290mm]">
+            <div className="evaluation-page-sheet w-[420mm] h-[290mm] max-h-[290mm] mx-auto p-[2mm_4mm] box-border overflow-hidden bg-white text-black relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0 print:h-[290mm]">
               {/* Subtle Large School Logo Watermark */}
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                 <img
