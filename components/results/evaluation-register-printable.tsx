@@ -314,16 +314,21 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                           Student Name
                         </th>
                         {/* Subject Columns (Uniform Equal Space) */}
-                        {cleanSubjects.map((sub, sIdx) => (
-                          <th
-                            key={`sub-header-${sIdx}`}
-                            className="border border-black text-center text-[7px] font-extrabold uppercase px-0.5 py-0.5 leading-tight overflow-hidden break-words"
-                          >
-                            <span className="block line-clamp-2">
-                              {sub.replace(/\(.*?\)/g, "").trim().toUpperCase()}
-                            </span>
-                          </th>
-                        ))}
+                        {cleanSubjects.map((sub, sIdx) => {
+                          const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                          const isSplit = subInfo.hasPractical && subInfo.practicalFull > 0;
+                          return (
+                            <th
+                              key={`sub-header-${sIdx}`}
+                              colSpan={isSplit ? 2 : 1}
+                              className="border border-black text-center text-[7px] font-extrabold uppercase px-0.5 py-0.5 leading-tight overflow-hidden break-words"
+                            >
+                              <span className="block line-clamp-2">
+                                {sub.replace(/\(.*?\)/g, "").trim().toUpperCase()}
+                              </span>
+                            </th>
+                          );
+                        })}
                       </tr>
 
                       {/* Sub-header row for Total Marks */}
@@ -335,6 +340,21 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                         </th>
                         {cleanSubjects.map((sub, sIdx) => {
                           const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                          const isSplit = subInfo.hasPractical && subInfo.practicalFull > 0;
+                          
+                          if (isSplit) {
+                            return (
+                              <React.Fragment key={`sub-sub-${sIdx}`}>
+                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[7px] text-black">
+                                  W:{subInfo.writtenFull}
+                                </th>
+                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[7px] text-black">
+                                  P:{subInfo.practicalFull}
+                                </th>
+                              </React.Fragment>
+                            );
+                          }
+                          
                           const subMarks = subInfo.totalFull > 0 ? String(subInfo.totalFull) : defaultFullMarks;
                           return (
                             <th
@@ -350,7 +370,10 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                       {/* Class Section Divider Bar */}
                       <tr className="bg-neutral-100 h-[5mm]">
                         <td
-                          colSpan={3 + cleanSubjects.length}
+                          colSpan={3 + cleanSubjects.reduce((acc, sub) => {
+                            const info = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                            return acc + (info.hasPractical && info.practicalFull > 0 ? 2 : 1);
+                          }, 0)}
                           className="border border-black text-center font-black text-[8px] py-0.5 uppercase tracking-widest text-black"
                         >
                           CLASS: {selectedClass} - {selectedSection}
@@ -375,11 +398,28 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                               {regNoDisplay}
                             </td>
                             {/* Student Name */}
-                            <td className="border border-black text-left px-1.5 font-bold text-[8.5px] uppercase truncate max-w-[48mm]">
+                            <td className="border border-black text-left px-1.5 font-bold text-[8.5px] uppercase truncate max-w-[35mm]">
                               {st.student?.name || "—"}
                             </td>
                             {/* Subject Marks */}
                             {cleanSubjects.map((sub, sIdx) => {
+                              const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                              const isSplit = subInfo.hasPractical && subInfo.practicalFull > 0;
+                              
+                              if (isSplit) {
+                                const { wScore, pScore } = printMode === "with_marks" ? getSubjectSplitScores(st, sub) : { wScore: "", pScore: "" };
+                                return (
+                                  <React.Fragment key={`score-${sIdx}`}>
+                                    <td className="border border-black text-center font-mono font-bold text-[9px] px-0.5">
+                                      {wScore}
+                                    </td>
+                                    <td className="border border-black text-center font-mono font-bold text-[9px] px-0.5">
+                                      {pScore}
+                                    </td>
+                                  </React.Fragment>
+                                );
+                              }
+                              
                               const scoreVal = printMode === "with_marks" ? getSubjectScore(st, sub) : "";
                               return (
                                 <td
@@ -400,9 +440,19 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                           <td className="border border-black text-center text-[8.5px]">&nbsp;</td>
                           <td className="border border-black">&nbsp;</td>
                           <td className="border border-black">&nbsp;</td>
-                          {cleanSubjects.map((_, sIdx) => (
-                            <td key={`pad-sub-${sIdx}`} className="border border-black">&nbsp;</td>
-                          ))}
+                          {cleanSubjects.map((sub, sIdx) => {
+                            const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                            const isSplit = subInfo.hasPractical && subInfo.practicalFull > 0;
+                            if (isSplit) {
+                              return (
+                                <React.Fragment key={`pad-sub-${sIdx}`}>
+                                  <td className="border border-black">&nbsp;</td>
+                                  <td className="border border-black">&nbsp;</td>
+                                </React.Fragment>
+                              );
+                            }
+                            return <td key={`pad-sub-${sIdx}`} className="border border-black">&nbsp;</td>;
+                          })}
                         </tr>
                       ))}
                     </tbody>
