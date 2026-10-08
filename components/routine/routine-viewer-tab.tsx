@@ -412,6 +412,120 @@ export function RoutineViewerTab({
     }
   };
 
+  
+  const handleExportExcel = () => {
+    if (!routine) {
+      showToast({ title: "No routine to export", variant: "error" });
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    const maxPeriods = settings.periodsPerDay;
+    const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+
+    // 1. Master Sheet
+    const masterData = [];
+    settings.workingDays.forEach((dIdx) => {
+      masterData.push(["--- " + DAY_NAMES[dIdx] + " ---"]);
+      masterData.push(headerRow);
+      
+      classes.forEach((c) => {
+        const classLimit = c.dailyPeriods || maxPeriods;
+        const row = [c.className + " - " + c.section];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          if (p > classLimit) {
+            row.push("");
+          } else {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData) {
+               const subj = subjectMap.get(cellData.sid);
+               const tch = teacherMap.get(cellData.tid);
+               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+            } else {
+               row.push("-");
+            }
+          }
+        }
+        masterData.push(row);
+      });
+      masterData.push([]); 
+    });
+    const wsMaster = XLSX.utils.aoa_to_sheet(masterData);
+    XLSX.utils.book_append_sheet(wb, wsMaster, "Master");
+
+    // 2. Class-wise Sheet
+    const classWiseData = [];
+    classes.forEach((c) => {
+      classWiseData.push(["Class: " + c.className + " - " + c.section]);
+      classWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
+      
+      settings.workingDays.forEach((dIdx) => {
+        const classLimit = c.dailyPeriods || maxPeriods;
+        const row = [DAY_NAMES[dIdx]];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          if (p > classLimit) {
+            row.push("");
+          } else {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData) {
+               const subj = subjectMap.get(cellData.sid);
+               const tch = teacherMap.get(cellData.tid);
+               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+            } else {
+               row.push("-");
+            }
+          }
+        }
+        classWiseData.push(row);
+      });
+      classWiseData.push([]);
+    });
+    const wsClass = XLSX.utils.aoa_to_sheet(classWiseData);
+    XLSX.utils.book_append_sheet(wb, wsClass, "Class-wise");
+
+    // 3. Teacher-wise Sheet
+    const teacherWiseData = [];
+    teachers.forEach((tch) => {
+      teacherWiseData.push(["Teacher: " + tch.name + " (" + tch.shortName + ")"]);
+      teacherWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
+      
+      settings.workingDays.forEach((dIdx) => {
+        const row = [DAY_NAMES[dIdx]];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          let foundCell = null;
+          let foundClass = null;
+          
+          for (const c of classes) {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData && cellData.tid === tch.id) {
+              foundCell = cellData;
+              foundClass = c;
+              break;
+            }
+          }
+          
+          if (foundCell) {
+             const subj = subjectMap.get(foundCell.sid);
+             row.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
+          } else {
+             row.push("-");
+          }
+        }
+        teacherWiseData.push(row);
+      });
+      teacherWiseData.push([]);
+    });
+    const wsTeacher = XLSX.utils.aoa_to_sheet(teacherWiseData);
+    XLSX.utils.book_append_sheet(wb, wsTeacher, "Teachers");
+
+    XLSX.writeFile(wb, "Routine_Export.xlsx");
+    showToast({ title: "Routine exported successfully", variant: "success" });
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -1010,121 +1124,7 @@ export function RoutineViewerTab({
                                         ? `${cls?.className || "?"} ${cls?.section || ""}`
                                         : `${cls?.className || "?"} ${cls?.section || ""} • ${tch?.shortName || tch?.name || ""}`;
 
-                                    
-  const handleExportExcel = () => {
-    if (!routine) {
-      showToast({ title: "No routine to export", variant: "error" });
-      return;
-    }
-
-    const wb = XLSX.utils.book_new();
-
-    const maxPeriods = settings.periodsPerDay;
-    const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
-
-    // 1. Master Sheet
-    const masterData = [];
-    settings.workingDays.forEach((dIdx) => {
-      masterData.push(["--- " + DAY_NAMES[dIdx] + " ---"]);
-      masterData.push(headerRow);
-      
-      classes.forEach((c) => {
-        const classLimit = c.dailyPeriods || maxPeriods;
-        const row = [c.className + " - " + c.section];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          if (p > classLimit) {
-            row.push("");
-          } else {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData) {
-               const subj = subjectMap.get(cellData.sid);
-               const tch = teacherMap.get(cellData.tid);
-               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
-            } else {
-               row.push("-");
-            }
-          }
-        }
-        masterData.push(row);
-      });
-      masterData.push([]); 
-    });
-    const wsMaster = XLSX.utils.aoa_to_sheet(masterData);
-    XLSX.utils.book_append_sheet(wb, wsMaster, "Master");
-
-    // 2. Class-wise Sheet
-    const classWiseData = [];
-    classes.forEach((c) => {
-      classWiseData.push(["Class: " + c.className + " - " + c.section]);
-      classWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
-      
-      settings.workingDays.forEach((dIdx) => {
-        const classLimit = c.dailyPeriods || maxPeriods;
-        const row = [DAY_NAMES[dIdx]];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          if (p > classLimit) {
-            row.push("");
-          } else {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData) {
-               const subj = subjectMap.get(cellData.sid);
-               const tch = teacherMap.get(cellData.tid);
-               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
-            } else {
-               row.push("-");
-            }
-          }
-        }
-        classWiseData.push(row);
-      });
-      classWiseData.push([]);
-    });
-    const wsClass = XLSX.utils.aoa_to_sheet(classWiseData);
-    XLSX.utils.book_append_sheet(wb, wsClass, "Class-wise");
-
-    // 3. Teacher-wise Sheet
-    const teacherWiseData = [];
-    teachers.forEach((tch) => {
-      teacherWiseData.push(["Teacher: " + tch.name + " (" + tch.shortName + ")"]);
-      teacherWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
-      
-      settings.workingDays.forEach((dIdx) => {
-        const row = [DAY_NAMES[dIdx]];
-        
-        for (let p = 1; p <= maxPeriods; p++) {
-          let foundCell = null;
-          let foundClass = null;
-          
-          for (const c of classes) {
-            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-            if (cellData && cellData.tid === tch.id) {
-              foundCell = cellData;
-              foundClass = c;
-              break;
-            }
-          }
-          
-          if (foundCell) {
-             const subj = subjectMap.get(foundCell.sid);
-             row.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
-          } else {
-             row.push("-");
-          }
-        }
-        teacherWiseData.push(row);
-      });
-      teacherWiseData.push([]);
-    });
-    const wsTeacher = XLSX.utils.aoa_to_sheet(teacherWiseData);
-    XLSX.utils.book_append_sheet(wb, wsTeacher, "Teachers");
-
-    XLSX.writeFile(wb, "Routine_Export.xlsx");
-    showToast({ title: "Routine exported successfully", variant: "success" });
-  };
-
-  return (
+                                    return (
                                       <div
                                         className={cn(
                                           "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
