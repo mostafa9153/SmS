@@ -468,7 +468,7 @@ export function calculateClassWeeklyCapacity(
   const cLimit =
     cls && cls.dailyPeriods && cls.dailyPeriods >= 1 ? cls.dailyPeriods : periodsPerDay;
   const halfDays = (settings && Array.isArray(settings.halfDays) ? settings.halfDays : [5]);
-  const halfDayPeriods = (settings && Number(settings.halfDayPeriods)) || 3;
+  const halfDayPeriods = (settings && Number(settings.halfDayPeriods)) || 4;
 
   let totalSlots = 0;
   for (const d of workingDays) {

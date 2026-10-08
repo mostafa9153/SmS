@@ -84,7 +84,7 @@ export function RoutineVerificationTab({
   const totalWeeklyTeachingPeriodsPerClass = useMemo(() => {
     const days = settings.workingDays || [0, 1, 2, 3, 4, 5];
     const halfDays = settings.halfDays || [5];
-    const halfP = settings.halfDayPeriods || 3;
+    const halfP = settings.halfDayPeriods || 4;
     const regP = settings.periodsPerDay || 8;
 
     let total = 0;
@@ -120,7 +120,7 @@ export function RoutineVerificationTab({
 
     const workingDays = settings.workingDays || [0, 1, 2, 3, 4, 5];
     const halfDays = settings.halfDays || [5];
-    const halfP = settings.halfDayPeriods || 3;
+    const halfP = settings.halfDayPeriods || 4;
     const regP = settings.periodsPerDay || 8;
     const fullDaysCount = workingDays.filter((d) => !halfDays.includes(d)).length;
     const halfDaysCount = workingDays.filter((d) => halfDays.includes(d)).length;

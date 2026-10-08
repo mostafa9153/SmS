@@ -133,7 +133,7 @@ export function RoutineClassesTab({
       const dp = dailyP && dailyP > 0 ? dailyP : globalP;
       const workingDays = settings?.workingDays || [0, 1, 2, 3, 4, 5];
       const halfDays = settings?.halfDays || [5];
-      const halfDayPeriods = settings?.halfDayPeriods || 3;
+      const halfDayPeriods = settings?.halfDayPeriods || 4;
 
       let total = 0;
       workingDays.forEach((d) => {

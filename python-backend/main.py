@@ -49,13 +49,13 @@ class RoutineSubject(BaseModel):
     isCommon: Optional[bool] = None
     isHard: bool
     isLab: bool
+    theoryPeriods: Optional[int] = None
+    labPeriods: Optional[int] = None
     timePref: Literal["any", "morning", "afternoon"]
     allowMultiplePerDay: bool
     maxPerDay: Optional[int] = None
     periodsPerWeek: Optional[int] = None
     sortOrder: Optional[int] = None
-    theoryPeriods: Optional[int] = None
-    labPeriods: Optional[int] = None
 
 class RoutineTeacher(BaseModel):
     id: str
@@ -103,18 +103,18 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
 
     teachers_map = {t.id: t for t in request.teachers}
     classes_map = {c.id: c for c in request.classes}
-    
     teacher_load_map = {}
-    for a in request.assignments:
-        teacher_load_map[a.teacherId] = teacher_load_map.get(a.teacherId, 0) + a.periodsPerWeek
-        
+    for u in units:
+        tid = u["tid"]
+        teacher_load_map[tid] = teacher_load_map.get(tid, 0) + u["sz"]
+
     model = cp_model.CpModel()
     x = {}
-    
+
     class_occupancy = {c.id: [[[] for _ in range(P)] for _ in range(D)] for c in request.classes}
     teacher_occupancy = {t.id: [[[] for _ in range(P)] for _ in range(D)] for t in request.teachers}
-    room_occupancy = {r.id: [[[] for _ in range(P)] for _ in range(D)] for r in (request.rooms or [])}
-    
+    room_occupancy = {r.id: [[[] for _ in range(P)] for _ in range(D)] for r in request.rooms}
+
     for u in units:
         u_id = u["uid"]
         cid = u["cid"]
@@ -245,31 +245,30 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             if day_vars:
                 model.Add(sum(day_vars) <= tch_cap)
 
-    if not is_relaxed and settings.tchConsecMax > 0:
-        consec_max = settings.tchConsecMax
-        for t_id in teacher_occupancy:
-            for d in range(D):
-                blocks = []
-                current_block = []
-                for p in range(P):
-                    current_block.append(p)
-                    p_num = p + 1
-                    if p_num in settings.breaks:
-                        blocks.append(current_block)
-                        current_block = []
-                if current_block:
+    consec_max = settings.tchConsecMax + 1 if is_relaxed else settings.tchConsecMax
+    for t_id in teacher_occupancy:
+        for d in range(D):
+            blocks = []
+            current_block = []
+            for p in range(P):
+                current_block.append(p)
+                p_num = p + 1
+                if p_num in settings.breaks:
                     blocks.append(current_block)
-                    
-                for block in blocks:
-                    if len(block) > consec_max:
-                        for i in range(len(block) - consec_max):
-                            window_periods = block[i : i + consec_max + 1]
-                            window_vars = []
-                            for wp in window_periods:
-                                if teacher_occupancy[t_id][d][wp]:
-                                    window_vars.extend(teacher_occupancy[t_id][d][wp])
-                            if window_vars:
-                                model.Add(sum(window_vars) <= consec_max)
+                    current_block = []
+            if current_block:
+                blocks.append(current_block)
+                
+            for block in blocks:
+                if len(block) > consec_max:
+                    for i in range(len(block) - consec_max):
+                        window_periods = block[i : i + consec_max + 1]
+                        window_vars = []
+                        for wp in window_periods:
+                            if teacher_occupancy[t_id][d][wp]:
+                                window_vars.extend(teacher_occupancy[t_id][d][wp])
+                        if window_vars:
+                            model.Add(sum(window_vars) <= consec_max)
 
     # Objectives
     obj_vars = []
@@ -325,7 +324,6 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
             model.Add(bounded_sum <= sum(first_period_vars))
             obj_vars.append(bounded_sum * -800)
                         
-                        
     # Soft Time Preference penalties in Phase 2
     if is_relaxed:
         for u in units:
@@ -350,7 +348,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
         model.Minimize(sum(obj_vars))
 
     solver = cp_model.CpSolver()
-    solver.parameters.max_time_in_seconds = 10.0
+    solver.parameters.max_time_in_seconds = 15.0
     status = solver.Solve(model)
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
         return solver, x
@@ -409,44 +407,7 @@ def generate_schedule(request: GenerateRoutineRequest):
         allow_multiple = subj.allowMultiplePerDay or auto_max_daily > 1
         
         rem = a.periodsPerWeek
-        if a.isLab is True:
-            # Explicit Lab assignment for this teacher (double periods)
-            rem_lab = rem
-            while rem_lab >= 2:
-                units.append({
-                    "uid": unit_counter,
-                    "cid": a.classId,
-                    "sid": a.subjectId,
-                    "tid": a.teacherId,
-                    "rid": a.roomId,
-                    "sz": 2,
-                    "hard": subj.isHard,
-                    "multi": allow_multiple,
-                    "maxPerDay": max_daily,
-                    "timePref": subj.timePref,
-                    "isClassTeacherUnit": is_ct,
-                    "targetFirstPeriods": target_first_periods,
-                })
-                unit_counter += 1
-                rem_lab -= 2
-            if rem_lab == 1:
-                units.append({
-                    "uid": unit_counter,
-                    "cid": a.classId,
-                    "sid": a.subjectId,
-                    "tid": a.teacherId,
-                    "rid": a.roomId,
-                    "sz": 1,
-                    "hard": subj.isHard,
-                    "multi": allow_multiple,
-                    "maxPerDay": max_daily,
-                    "timePref": subj.timePref,
-                    "isClassTeacherUnit": is_ct,
-                    "targetFirstPeriods": target_first_periods,
-                })
-                unit_counter += 1
-        elif a.isLab is False:
-            # Explicit Theory assignment for this teacher (single periods)
+        if a.isLab is False:
             for _ in range(rem):
                 units.append({
                     "uid": unit_counter,
@@ -463,12 +424,8 @@ def generate_schedule(request: GenerateRoutineRequest):
                     "targetFirstPeriods": target_first_periods,
                 })
                 unit_counter += 1
-        elif subj.isLab:
-            lab_p = subj.labPeriods if subj.labPeriods is not None else min(2, a.periodsPerWeek)
-            theory_p = subj.theoryPeriods if subj.theoryPeriods is not None else max(0, a.periodsPerWeek - lab_p)
-            
-            rem_lab = lab_p
-            while rem_lab >= 2:
+        elif subj.isLab or a.isLab is True:
+            while rem >= 2:
                 units.append({
                     "uid": unit_counter,
                     "cid": a.classId,
@@ -484,25 +441,8 @@ def generate_schedule(request: GenerateRoutineRequest):
                     "targetFirstPeriods": target_first_periods,
                 })
                 unit_counter += 1
-                rem_lab -= 2
-            if rem_lab == 1:
-                units.append({
-                    "uid": unit_counter,
-                    "cid": a.classId,
-                    "sid": a.subjectId,
-                    "tid": a.teacherId,
-                    "rid": a.roomId,
-                    "sz": 1,
-                    "hard": subj.isHard,
-                    "multi": allow_multiple,
-                    "maxPerDay": max_daily,
-                    "timePref": subj.timePref,
-                    "isClassTeacherUnit": is_ct,
-                    "targetFirstPeriods": target_first_periods,
-                })
-                unit_counter += 1
-            
-            for _ in range(theory_p):
+                rem -= 2
+            if rem == 1:
                 units.append({
                     "uid": unit_counter,
                     "cid": a.classId,
