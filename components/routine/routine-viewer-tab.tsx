@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   GeneratedRoutine,
@@ -12,9 +12,11 @@ import {
   DAY_NAMES,
   RoutineGrid,
 } from "@/lib/routine/types";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import {
   Printer,
+  FileDown,
   Calendar,
   Users,
   School,
@@ -26,6 +28,9 @@ import {
   RotateCcw,
   GripVertical,
   AlertTriangle,
+  ChevronDown,
+  Check,
+  Filter,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -43,6 +48,98 @@ interface RoutineViewerTabProps {
 }
 
 type ViewMode = "master" | "class" | "teacher" | "room";
+
+function ViewerDropdown({
+  value,
+  onChange,
+  options,
+  icon,
+  labelPrefix,
+  placeholder = "Select...",
+  className,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  options: { value: string; label: string }[];
+  icon?: React.ReactNode;
+  labelPrefix?: string;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  const selected = options.find((o) => o.value === value);
+
+  return (
+    <div className="relative inline-block" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "h-8 px-2.5 rounded-md border border-input bg-background hover:bg-muted/40 text-xs font-medium flex items-center gap-1.5 transition-all shadow-2xs select-none cursor-pointer",
+          isOpen && "ring-1 ring-primary border-primary",
+          className
+        )}
+      >
+        {icon && <span className="text-muted-foreground">{icon}</span>}
+        {labelPrefix && (
+          <span className="text-muted-foreground text-[11px] font-normal">{labelPrefix}:</span>
+        )}
+        <span className="truncate max-w-[130px] font-semibold text-foreground">
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 shrink-0 ml-0.5",
+            isOpen && "rotate-180 text-primary"
+          )}
+        />
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1 min-w-[140px] max-w-[240px] rounded-lg border border-border bg-popover text-popover-foreground p-1 shadow-lg z-50 animate-in fade-in-0 zoom-in-95 duration-100 max-h-[260px] overflow-y-auto">
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer",
+                  isSelected
+                    ? "bg-primary text-primary-foreground font-semibold"
+                    : "text-foreground hover:bg-muted"
+                )}
+              >
+                <span className="truncate">{opt.label}</span>
+                {isSelected && <Check className="h-3.5 w-3.5 shrink-0 ml-1.5" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function RoutineViewerTab({
   routine: initialRoutine,
@@ -72,6 +169,7 @@ export function RoutineViewerTab({
 
   const [viewMode, setViewMode] = useState<ViewMode>("master");
   const [masterDayIdx, setMasterDayIdx] = useState<number>(0);
+  const [masterSectionFilter, setMasterSectionFilter] = useState<string>("ALL");
   const [selectedClassId, setSelectedClassId] = useState<string>(sortedClasses[0]?.id || "");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || "");
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || "");
@@ -84,6 +182,60 @@ export function RoutineViewerTab({
   const activeDays = routine?.days || settings.workingDays;
   const halfDays = settings.halfDays || [];
   const maxHalfP = settings.halfDayPeriods || 4;
+
+  // Distinct class names list
+  const distinctClassNames = useMemo(() => {
+    const set = new Set<string>();
+    const list: string[] = [];
+    sortedClasses.forEach((c) => {
+      if (!set.has(c.className)) {
+        set.add(c.className);
+        list.push(c.className);
+      }
+    });
+    return list;
+  }, [sortedClasses]);
+
+  // Selected class object
+  const currentClassObj = useMemo(() => {
+    return classMap.get(selectedClassId) || sortedClasses[0];
+  }, [classMap, selectedClassId, sortedClasses]);
+
+  const currentClassName = currentClassObj?.className || distinctClassNames[0] || "";
+
+  // Available sections for the current selected class
+  const availableSectionsForCurrentClass = useMemo(() => {
+    return sortedClasses.filter((c) => c.className === currentClassName);
+  }, [sortedClasses, currentClassName]);
+
+  // Distinct section names across all classes for master section filter
+  const allDistinctSectionNames = useMemo(() => {
+    const set = new Set<string>();
+    const list: string[] = [];
+    sortedClasses.forEach((c) => {
+      const sec = c.section || "A";
+      if (!set.has(sec)) {
+        set.add(sec);
+        list.push(sec);
+      }
+    });
+    return list;
+  }, [sortedClasses]);
+
+  // Classes filtered for Master view
+  const displayedMasterClasses = useMemo(() => {
+    if (masterSectionFilter === "ALL") return sortedClasses;
+    return sortedClasses.filter((c) => (c.section || "A") === masterSectionFilter);
+  }, [sortedClasses, masterSectionFilter]);
+
+  const handleSelectClass = (clsName: string) => {
+    const match = sortedClasses.find((c) => c.className === clsName);
+    if (match) setSelectedClassId(match.id);
+  };
+
+  const handleSelectSection = (classId: string) => {
+    setSelectedClassId(classId);
+  };
 
   // Auto-sync initial selections when data loads
   React.useEffect(() => {
@@ -354,49 +506,100 @@ export function RoutineViewerTab({
           )}
         </div>
 
-        {/* Dynamic Selector Dropdown & Actions */}
-        <div className="flex items-center gap-2">
+        {/* Dynamic Selector Dropdowns & Actions */}
+        <div className="flex items-center flex-wrap gap-2">
+          {/* Master View Controls: Day + Section Filter */}
           {viewMode === "master" && (
-            <select
-              value={masterDayIdx}
-              onChange={(e) => setMasterDayIdx(parseInt(e.target.value, 10))}
-              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
-            >
-              {activeDays.map((dIdx, idx) => (
-                <option key={dIdx} value={idx}>
-                  {DAY_NAMES[dIdx]} {halfDays.includes(dIdx) ? "(Half Day)" : ""}
-                </option>
-              ))}
-            </select>
+            <>
+              <ViewerDropdown
+                value={String(masterDayIdx)}
+                onChange={(v) => setMasterDayIdx(parseInt(v, 10))}
+                options={activeDays.map((dIdx, idx) => ({
+                  value: String(idx),
+                  label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
+                }))}
+                labelPrefix="Day"
+                icon={<Calendar className="w-3.5 h-3.5" />}
+              />
+
+              <ViewerDropdown
+                value={masterSectionFilter}
+                onChange={setMasterSectionFilter}
+                options={[
+                  { value: "ALL", label: "All Sections" },
+                  ...allDistinctSectionNames.map((sec) => ({
+                    value: sec,
+                    label: `Section ${sec}`,
+                  })),
+                ]}
+                labelPrefix="Section"
+                icon={<Filter className="w-3.5 h-3.5" />}
+              />
+            </>
           )}
 
+          {/* Class-wise View Controls: Class Dropdown + Section Dropdown */}
           {viewMode === "class" && (
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
-            >
-              {sortedClasses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.className} {c.section}
-                </option>
-              ))}
-            </select>
+            <>
+              <ViewerDropdown
+                value={currentClassName}
+                onChange={handleSelectClass}
+                options={distinctClassNames.map((name) => ({
+                  value: name,
+                  label: name,
+                }))}
+                labelPrefix="Class"
+                icon={<School className="w-3.5 h-3.5" />}
+              />
+
+              <ViewerDropdown
+                value={selectedClassId}
+                onChange={handleSelectSection}
+                options={availableSectionsForCurrentClass.map((c) => ({
+                  value: c.id,
+                  label: `Section ${c.section}`,
+                }))}
+                labelPrefix="Section"
+              />
+
+              {(() => {
+                const selectedClass = classMap.get(selectedClassId);
+                const ct = selectedClass
+                  ? teachers.find((t) => {
+                      if (!t.classTeacherOf) return false;
+                      const fullLabel = `${selectedClass.className}${selectedClass.section && selectedClass.section !== "ALL" ? ` - ${selectedClass.section}` : ""}`.toLowerCase();
+                      return (
+                        t.classTeacherOf.toLowerCase() === fullLabel ||
+                        t.classTeacherOf.toLowerCase() === selectedClass.className.toLowerCase()
+                      );
+                    })
+                  : null;
+                return ct ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-[11px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 h-8 px-2.5 flex items-center"
+                  >
+                    CT: {ct.name} ({ct.shortName})
+                  </Badge>
+                ) : null;
+              })()}
+            </>
           )}
 
+          {/* Teacher-wise View Controls */}
           {viewMode === "teacher" && (
             <>
-              <select
+              <ViewerDropdown
                 value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary max-w-[200px]"
-              >
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.shortName || "-"}) {t.primarySubject ? `[${t.primarySubject}]` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedTeacherId}
+                options={teachers.map((t) => ({
+                  value: t.id,
+                  label: `${t.name} (${t.shortName || "-"})`,
+                }))}
+                labelPrefix="Faculty"
+                icon={<Users className="w-3.5 h-3.5" />}
+                className="max-w-[200px]"
+              />
               {(() => {
                 const tch = teacherMap.get(selectedTeacherId);
                 return tch && (tch.primarySubject || tch.classTeacherOf) ? (
@@ -420,18 +623,18 @@ export function RoutineViewerTab({
             </>
           )}
 
+          {/* Room-wise View Controls */}
           {viewMode === "room" && (
-            <select
+            <ViewerDropdown
               value={selectedRoomId}
-              onChange={(e) => setSelectedRoomId(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium focus:ring-1 focus:ring-primary"
-            >
-              {rooms.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} {r.isLab ? "(Lab)" : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setSelectedRoomId}
+              options={rooms.map((r) => ({
+                value: r.id,
+                label: `${r.name}${r.isLab ? " (Lab)" : ""}`,
+              }))}
+              labelPrefix="Room"
+              icon={<Building2 className="w-3.5 h-3.5" />}
+            />
           )}
 
           {viewMode === "master" && history.length > 0 && (
@@ -446,7 +649,18 @@ export function RoutineViewerTab({
             </Button>
           )}
 
-          <Button
+          
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportExcel}
+              className="h-8 text-xs font-semibold gap-1.5 bg-background shadow-xs"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Export Excel</span>
+            </Button>
+
+<Button
             variant="outline"
             size="sm"
             onClick={handlePrint}
@@ -462,7 +676,7 @@ export function RoutineViewerTab({
       <div className="hidden print:block text-center border-b pb-3 mb-4">
         <h1 className="text-xl font-bold uppercase tracking-tight">Academic Routine & Master Timetable</h1>
         <div className="text-xs text-muted-foreground font-semibold mt-0.5">
-          {viewMode === "master" && `Master Schedule — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}`}
+          {viewMode === "master" && `Master Schedule — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterSectionFilter !== "ALL" ? ` (Section ${masterSectionFilter})` : ""}`}
           {viewMode === "class" && (
             <>
               Class Schedule — {classMap.get(selectedClassId)?.className || ""}{" "}
@@ -528,7 +742,7 @@ export function RoutineViewerTab({
               {/* MASTER VIEW (Day-wise: Rows = Classes) */}
               {viewMode === "master" && (
                 <>
-                  {sortedClasses.map((c) => {
+                  {displayedMasterClasses.map((c) => {
                     const dPos = masterDayIdx || 0;
                     const actDay = activeDays[dPos];
                     const maxPForDay = halfDays.includes(actDay)
@@ -796,7 +1010,121 @@ export function RoutineViewerTab({
                                         ? `${cls?.className || "?"} ${cls?.section || ""}`
                                         : `${cls?.className || "?"} ${cls?.section || ""} • ${tch?.shortName || tch?.name || ""}`;
 
-                                    return (
+                                    
+  const handleExportExcel = () => {
+    if (!routine) {
+      showToast({ title: "No routine to export", variant: "error" });
+      return;
+    }
+
+    const wb = XLSX.utils.book_new();
+
+    const maxPeriods = settings.periodsPerDay;
+    const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+
+    // 1. Master Sheet
+    const masterData = [];
+    settings.workingDays.forEach((dIdx) => {
+      masterData.push(["--- " + DAY_NAMES[dIdx] + " ---"]);
+      masterData.push(headerRow);
+      
+      classes.forEach((c) => {
+        const classLimit = c.dailyPeriods || maxPeriods;
+        const row = [c.className + " - " + c.section];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          if (p > classLimit) {
+            row.push("");
+          } else {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData) {
+               const subj = subjectMap.get(cellData.sid);
+               const tch = teacherMap.get(cellData.tid);
+               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+            } else {
+               row.push("-");
+            }
+          }
+        }
+        masterData.push(row);
+      });
+      masterData.push([]); 
+    });
+    const wsMaster = XLSX.utils.aoa_to_sheet(masterData);
+    XLSX.utils.book_append_sheet(wb, wsMaster, "Master");
+
+    // 2. Class-wise Sheet
+    const classWiseData = [];
+    classes.forEach((c) => {
+      classWiseData.push(["Class: " + c.className + " - " + c.section]);
+      classWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
+      
+      settings.workingDays.forEach((dIdx) => {
+        const classLimit = c.dailyPeriods || maxPeriods;
+        const row = [DAY_NAMES[dIdx]];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          if (p > classLimit) {
+            row.push("");
+          } else {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData) {
+               const subj = subjectMap.get(cellData.sid);
+               const tch = teacherMap.get(cellData.tid);
+               row.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+            } else {
+               row.push("-");
+            }
+          }
+        }
+        classWiseData.push(row);
+      });
+      classWiseData.push([]);
+    });
+    const wsClass = XLSX.utils.aoa_to_sheet(classWiseData);
+    XLSX.utils.book_append_sheet(wb, wsClass, "Class-wise");
+
+    // 3. Teacher-wise Sheet
+    const teacherWiseData = [];
+    teachers.forEach((tch) => {
+      teacherWiseData.push(["Teacher: " + tch.name + " (" + tch.shortName + ")"]);
+      teacherWiseData.push(["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))]);
+      
+      settings.workingDays.forEach((dIdx) => {
+        const row = [DAY_NAMES[dIdx]];
+        
+        for (let p = 1; p <= maxPeriods; p++) {
+          let foundCell = null;
+          let foundClass = null;
+          
+          for (const c of classes) {
+            const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+            if (cellData && cellData.tid === tch.id) {
+              foundCell = cellData;
+              foundClass = c;
+              break;
+            }
+          }
+          
+          if (foundCell) {
+             const subj = subjectMap.get(foundCell.sid);
+             row.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
+          } else {
+             row.push("-");
+          }
+        }
+        teacherWiseData.push(row);
+      });
+      teacherWiseData.push([]);
+    });
+    const wsTeacher = XLSX.utils.aoa_to_sheet(teacherWiseData);
+    XLSX.utils.book_append_sheet(wb, wsTeacher, "Teachers");
+
+    XLSX.writeFile(wb, "Routine_Export.xlsx");
+    showToast({ title: "Routine exported successfully", variant: "success" });
+  };
+
+  return (
                                       <div
                                         className={cn(
                                           "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all",
