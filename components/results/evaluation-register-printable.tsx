@@ -195,7 +195,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
             className="evaluation-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center"
           >
             {/* Screen Page Indicator */}
-            <div className="print:hidden text-[11px] font-mono font-medium text-neutral-500 mb-2 flex items-center space-x-2">
+            <div className="print:hidden text-[17px] font-mono font-medium text-neutral-500 mb-2 flex items-center space-x-2">
               <span className="bg-neutral-800 text-neutral-200 px-2 py-0.5 rounded border border-neutral-700">
                 Page {pageIdx + 1} of {totalPages}
               </span>
@@ -231,43 +231,43 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                         alt="Logo"
                         className="w-8 h-8 object-contain mb-0.5"
                       />
-                      <span className="text-[7.5px] font-mono font-bold leading-none">
+                      <span className="text-[11px] font-mono font-bold leading-none">
                         EMS REG
                       </span>
-                      <span className="text-[7px] font-mono text-neutral-600 leading-tight">
+                      <span className="text-[11px] font-mono text-neutral-600 leading-tight">
                         PG {pageIdx + 1}-{totalPages}
                       </span>
                     </div>
 
                     {/* Center Box: School Name & Subtitle */}
                     <div className="col-span-8 border-r border-black p-1 flex flex-col items-center justify-center text-center">
-                      <h1 className="text-[13px] sm:text-[14px] font-black uppercase tracking-tight text-black leading-tight">
+                      <h1 className="text-[20px] sm:text-[21px] font-black uppercase tracking-tight text-black leading-tight">
                         {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"}
                       </h1>
-                      <p className="text-[8px] sm:text-[8.5px] font-extrabold uppercase text-neutral-800 tracking-wider mt-0.5 leading-none">
+                      <p className="text-[12px] sm:text-[13px] font-extrabold uppercase text-neutral-800 tracking-wider mt-0.5 leading-none">
                         STUDENT EXAM ATTENDANCE & SCRIPT REGISTER
                       </p>
                     </div>
 
                     {/* Right Box: Class / Section & Student Count */}
                     <div className="col-span-2 p-1 flex flex-col items-center justify-center text-center">
-                      <span className="text-[9px] font-black font-mono leading-tight">
+                      <span className="text-[14px] font-black font-mono leading-tight">
                         {isHs ? `CLASS ${selectedClass}` : `SEC: ${selectedSection}`}
                       </span>
-                      <span className="text-[7px] font-bold text-neutral-700 leading-tight mt-0.5">
+                      <span className="text-[11px] font-bold text-neutral-700 leading-tight mt-0.5">
                         Total: {students.length}
                       </span>
                     </div>
                   </div>
 
                   {/* Sub-Header Horizontal Bar */}
-                  <div className="border-x border-b border-black bg-neutral-100/90 px-2 py-0.5 text-[8.5px] font-bold flex items-center justify-between text-black">
+                  <div className="border-x border-b border-black bg-neutral-100/90 px-2 py-0.5 text-[13px] font-bold flex items-center justify-between text-black">
                     <div className="flex items-center gap-1.5 uppercase font-extrabold">
                       <span>CLASS: {selectedClass} - {selectedSection}</span>
                       <span>•</span>
                       <span>{selectedExam} - {academicYear}</span>
                     </div>
-                    <div className="font-mono text-[8px] text-neutral-700">
+                    <div className="font-mono text-[12px] text-neutral-700">
                       Page Students: {pageStudents.length}
                     </div>
                   </div>
@@ -302,15 +302,15 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                     <thead className="shrink-0">
                       <tr className="bg-neutral-50 h-[6.5mm]">
                         {/* Roll */}
-                        <th className="border border-black text-center text-[8.5px] font-extrabold uppercase py-0.5">
+                        <th className="border border-black text-center text-[13px] font-extrabold uppercase py-0.5">
                           Roll
                         </th>
                         {/* Reg No / School ID */}
-                        <th className="border border-black text-center text-[8.5px] font-extrabold uppercase py-0.5">
+                        <th className="border border-black text-center text-[13px] font-extrabold uppercase py-0.5">
                           {isHs ? "Reg No" : "School ID"}
                         </th>
                         {/* Student Name */}
-                        <th className="border border-black text-left px-1.5 text-[8.5px] font-extrabold uppercase py-0.5 truncate">
+                        <th className="border border-black text-left px-1.5 text-[13px] font-extrabold uppercase py-0.5 truncate">
                           Student Name
                         </th>
                         {/* Subject Columns (Uniform Equal Space) */}
@@ -321,7 +321,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                             <th
                               key={`sub-header-${sIdx}`}
                               colSpan={isSplit ? 2 : 1}
-                              className="border border-black text-center text-[7px] font-extrabold uppercase px-0.5 py-0.5 leading-tight overflow-hidden break-words"
+                              className="border border-black text-center text-[11px] font-extrabold uppercase px-0.5 py-0.5 leading-tight overflow-hidden break-words"
                             >
                               <span className="block line-clamp-2">
                                 {sub.replace(/\(.*?\)/g, "").trim().toUpperCase()}
@@ -332,10 +332,10 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                       </tr>
 
                       {/* Sub-header row for Total Marks */}
-                      <tr className="bg-neutral-50/50 text-neutral-800 text-[7px] font-mono h-[5.5mm]">
+                      <tr className="bg-neutral-50/50 text-neutral-800 text-[11px] font-mono h-[5.5mm]">
                         <th className="border border-black py-0" />
                         <th className="border border-black py-0" />
-                        <th className="border border-black py-0 text-left px-1.5 font-black uppercase text-[7.5px] text-black tracking-wide">
+                        <th className="border border-black py-0 text-left px-1.5 font-black uppercase text-[11px] text-black tracking-wide">
                           TOTAL MARKS
                         </th>
                         {cleanSubjects.map((sub, sIdx) => {
@@ -345,10 +345,10 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                           if (isSplit) {
                             return (
                               <React.Fragment key={`sub-sub-${sIdx}`}>
-                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[7px] text-black">
+                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[11px] text-black">
                                   W:{subInfo.writtenFull}
                                 </th>
-                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[7px] text-black">
+                                <th className="border border-black text-center py-0.5 font-mono font-bold text-[11px] text-black">
                                   P:{subInfo.practicalFull}
                                 </th>
                               </React.Fragment>
@@ -359,7 +359,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                           return (
                             <th
                               key={`sub-sub-${sIdx}`}
-                              className="border border-black text-center py-0.5 font-mono font-bold text-[8px] text-black"
+                              className="border border-black text-center py-0.5 font-mono font-bold text-[12px] text-black"
                             >
                               {subMarks}
                             </th>
@@ -374,7 +374,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                             const info = getSubjectFullMarks(selectedClass, selectedExam, sub);
                             return acc + (info.hasPractical && info.practicalFull > 0 ? 2 : 1);
                           }, 0)}
-                          className="border border-black text-center font-black text-[8px] py-0.5 uppercase tracking-widest text-black"
+                          className="border border-black text-center font-black text-[12px] py-0.5 uppercase tracking-widest text-black"
                         >
                           CLASS: {selectedClass} - {selectedSection}
                         </td>
@@ -390,15 +390,15 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                         return (
                           <tr key={`st-${st.studentId || rIdx}`} className="h-[7.5mm]">
                             {/* Roll */}
-                            <td className="border border-black text-center font-mono font-bold text-[8.5px] px-0.5">
+                            <td className="border border-black text-center font-mono font-bold text-[13px] px-0.5">
                               {st.roll < 10 ? `0${st.roll}` : st.roll}
                             </td>
                             {/* Reg No / School ID */}
-                            <td className="border border-black text-center font-mono font-medium text-[8px] px-1">
+                            <td className="border border-black text-center font-mono font-medium text-[12px] px-1">
                               {regNoDisplay}
                             </td>
                             {/* Student Name */}
-                            <td className="border border-black text-left px-1.5 font-bold text-[8.5px] uppercase truncate max-w-[35mm]">
+                            <td className="border border-black text-left px-1.5 font-bold text-[13px] uppercase truncate max-w-[35mm]">
                               {st.student?.name || "—"}
                             </td>
                             {/* Subject Marks */}
@@ -410,10 +410,10 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                                 const { wScore, pScore } = printMode === "with_marks" ? getSubjectSplitScores(st, sub) : { wScore: "", pScore: "" };
                                 return (
                                   <React.Fragment key={`score-${sIdx}`}>
-                                    <td className="border border-black text-center font-mono font-bold text-[9px] px-0.5">
+                                    <td className="border border-black text-center font-mono font-bold text-[14px] px-0.5">
                                       {wScore}
                                     </td>
-                                    <td className="border border-black text-center font-mono font-bold text-[9px] px-0.5">
+                                    <td className="border border-black text-center font-mono font-bold text-[14px] px-0.5">
                                       {pScore}
                                     </td>
                                   </React.Fragment>
@@ -424,7 +424,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                               return (
                                 <td
                                   key={`score-${sIdx}`}
-                                  className="border border-black text-center font-mono font-bold text-[9px] px-1"
+                                  className="border border-black text-center font-mono font-bold text-[14px] px-1"
                                 >
                                   {scoreVal}
                                 </td>
@@ -437,7 +437,7 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                       {/* Pad empty rows if fewer than studentsPerPage on the final page */}
                       {Array.from({ length: Math.max(0, studentsPerPage - pageStudents.length) }).map((_, padIdx) => (
                         <tr key={`pad-${padIdx}`} className="h-[7.5mm]">
-                          <td className="border border-black text-center text-[8.5px]">&nbsp;</td>
+                          <td className="border border-black text-center text-[13px]">&nbsp;</td>
                           <td className="border border-black">&nbsp;</td>
                           <td className="border border-black">&nbsp;</td>
                           {cleanSubjects.map((sub, sIdx) => {
@@ -460,9 +460,9 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                 </div>
 
                 {/* 3. BOTTOM FOOTER & SIGNATURE BLOCK */}
-                <div className="shrink-0 pt-1 border-t border-black grid grid-cols-3 text-[8px] font-bold text-black items-end">
+                <div className="shrink-0 pt-1 border-t border-black grid grid-cols-3 text-[12px] font-bold text-black items-end">
                   <div className="text-left">
-                    <span className="block text-[7px] text-neutral-600 font-normal">Generated:</span>
+                    <span className="block text-[11px] text-neutral-600 font-normal">Generated:</span>
                     <span>{new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
                   </div>
                   <div className="text-center">
