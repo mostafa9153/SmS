@@ -106,6 +106,8 @@ interface RoutineSubjectsTabProps {
     isCommon?: boolean;
     isHard?: boolean;
     isLab?: boolean;
+    theoryPeriods?: number | null;
+    labPeriods?: number | null;
     timePref?: "any" | "morning" | "afternoon";
     allowMultiplePerDay?: boolean;
     maxPerDay?: number | null;
@@ -1413,26 +1415,26 @@ export function RoutineSubjectsTab({
                       setDlgPeriodFormat("both");
                       setDlgIsLab(true);
                       setDlgTheoryPeriods(4);
-                      setDlgLabPeriods(2);
+                      setDlgLabSessions(2);
                       setDlgPeriodsPerWeek(6);
                       setDlgAllowMulti(true);
                     } else if (lower.includes("lab") || lower.includes("practical")) {
                       setDlgPeriodFormat("lab");
                       setDlgIsLab(true);
                       setDlgTheoryPeriods(0);
-                      setDlgLabPeriods(2);
+                      setDlgLabSessions(2);
                       setDlgPeriodsPerWeek(2);
                     } else if (lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental")) {
                       setDlgPeriodFormat("single");
                       setDlgIsLab(false);
                       setDlgTheoryPeriods(2);
-                      setDlgLabPeriods(0);
+                      setDlgLabSessions(0);
                       setDlgPeriodsPerWeek(2);
                     } else {
                       setDlgPeriodFormat("single");
                       setDlgIsLab(false);
                       setDlgTheoryPeriods(5);
-                      setDlgLabPeriods(0);
+                      setDlgLabSessions(0);
                       setDlgPeriodsPerWeek(5);
                     }
                   }}
@@ -1488,7 +1490,7 @@ export function RoutineSubjectsTab({
               <Label className="text-xs font-semibold">Period Format</Label>
               <Select
                 value={dlgPeriodFormat}
-                onValueChange={(val: "single" | "both" | "lab") => {
+                onValueChange={(val: any) => {
                   setDlgPeriodFormat(val);
                   const isLab = val === "both" || val === "lab";
                   setDlgIsLab(isLab);

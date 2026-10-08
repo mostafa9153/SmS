@@ -667,6 +667,8 @@ export async function upsertSubjectDb(subj: {
   isCommon?: boolean;
   isHard?: boolean;
   isLab?: boolean;
+  theoryPeriods?: number | null;
+  labPeriods?: number | null;
   timePref?: "any" | "morning" | "afternoon";
   allowMultiplePerDay?: boolean;
   maxPerDay?: number | null;
@@ -798,6 +800,8 @@ export async function batchUpsertSubjectsDb(
     isCommon?: boolean;
     isHard?: boolean;
     isLab?: boolean;
+    theoryPeriods?: number | null;
+    labPeriods?: number | null;
     timePref?: "any" | "morning" | "afternoon";
     allowMultiplePerDay?: boolean;
     maxPerDay?: number | null;
