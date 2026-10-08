@@ -768,6 +768,8 @@ export async function upsertSubjectDb(subj: {
     if (subj.maxPerDay !== undefined) payload.max_per_day = subj.maxPerDay;
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
     if (subj.sortOrder !== undefined) payload.sort_order = subj.sortOrder;
+    if (subj.theoryPeriods !== undefined) payload.theory_periods = subj.theoryPeriods;
+    if (subj.labPeriods !== undefined) payload.lab_periods = subj.labPeriods;
 
     const { error } = await supabase.from("routine_subjects").upsert(payload);
     if (error) {
