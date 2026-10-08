@@ -49,6 +49,39 @@ function getSubjectScore(result: StudentResult, subjectName: string): string {
   return rawVal !== "" ? String(rawVal) : "";
 }
 
+function getSubjectSplitScores(result: StudentResult, subjectName: string): { wScore: string; pScore: string } {
+  if (!result.subjectMarks) return { wScore: "", pScore: "" };
+
+  let rawVal: any = undefined;
+  for (const [k, v] of Object.entries(result.subjectMarks)) {
+    if (
+      normalizeSubjectName(k) === normalizeSubjectName(subjectName) ||
+      k.toLowerCase().trim() === subjectName.toLowerCase().trim()
+    ) {
+      rawVal = v;
+      break;
+    }
+  }
+
+  if (rawVal === undefined || rawVal === null) return { wScore: "", pScore: "" };
+
+  if (typeof rawVal === "object") {
+    if (rawVal.isAbsent) return { wScore: "AB", pScore: "AB" };
+    
+    let wScore = "";
+    let pScore = "";
+    if (rawVal.written !== undefined && rawVal.written !== null && rawVal.written !== "") wScore = String(rawVal.written);
+    else if (rawVal.theory !== undefined && rawVal.theory !== null && rawVal.theory !== "") wScore = String(rawVal.theory);
+    
+    if (rawVal.practical !== undefined && rawVal.practical !== null && rawVal.practical !== "") pScore = String(rawVal.practical);
+    else if (rawVal.project !== undefined && rawVal.project !== null && rawVal.project !== "") pScore = String(rawVal.project);
+    
+    return { wScore, pScore };
+  }
+
+  return { wScore: "", pScore: "" };
+}
+
 export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintableProps> = ({
   students,
   academicYear,
@@ -244,15 +277,27 @@ export const EvaluationRegisterPrintable: React.FC<EvaluationRegisterPrintablePr
                 <div className="flex-1 w-full my-0 overflow-hidden flex flex-col">
                   <table className="w-full h-full table-fixed border-collapse border border-black text-black">
                     <colgroup>
-                      <col style={{ width: "7%" }} />
-                      <col style={{ width: "15%" }} />
-                      <col style={{ width: "24%" }} />
-                      {cleanSubjects.map((_, sIdx) => (
-                        <col
-                          key={`col-sub-${sIdx}`}
-                          style={{ width: `${54 / cleanSubjects.length}%` }}
-                        />
-                      ))}
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "20%" }} />
+                      {cleanSubjects.map((sub, sIdx) => {
+                        const subInfo = getSubjectFullMarks(selectedClass, selectedExam, sub);
+                        const isSplit = subInfo.hasPractical && subInfo.practicalFull > 0;
+                        if (isSplit) {
+                          return (
+                            <React.Fragment key={`col-sub-${sIdx}`}>
+                              <col style={{ width: `${(64 / cleanSubjects.length) / 2}%` }} />
+                              <col style={{ width: `${(64 / cleanSubjects.length) / 2}%` }} />
+                            </React.Fragment>
+                          );
+                        }
+                        return (
+                          <col
+                            key={`col-sub-${sIdx}`}
+                            style={{ width: `${64 / cleanSubjects.length}%` }}
+                          />
+                        );
+                      })}
                     </colgroup>
                     <thead className="shrink-0">
                       <tr className="bg-neutral-50 h-[6.5mm]">
