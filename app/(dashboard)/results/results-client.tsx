@@ -2023,7 +2023,7 @@ function FilterSelect({
           isOpen && "ring-2 ring-primary/25 border-primary shadow-xs"
         )}
       >
-        <span className="truncate max-w-[170px]">
+        <span suppressHydrationWarning className="truncate max-w-[170px]">
           {selectedOption ? selectedOption.label : placeholder}
         </span>
         <ChevronDown
