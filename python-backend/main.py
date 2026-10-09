@@ -356,6 +356,8 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
 
 
 def generate_schedule(request: GenerateRoutineRequest):
+    # Generate schedule
+
     settings = request.settings
     working_days = sorted(settings.workingDays)
     P = settings.periodsPerDay
@@ -424,7 +426,7 @@ def generate_schedule(request: GenerateRoutineRequest):
                     "targetFirstPeriods": target_first_periods,
                 })
                 unit_counter += 1
-        elif subj.isLab or a.isLab is True:
+        elif a.isLab is True or (subj.isLab and a.isLab is not False):
             while rem >= 2:
                 units.append({
                     "uid": unit_counter,
