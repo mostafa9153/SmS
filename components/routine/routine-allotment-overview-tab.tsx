@@ -28,7 +28,11 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
-import { generateInitials } from "@/lib/routine/routine-helpers";
+import {
+  generateInitials,
+  getTeacherSubjectPeriod,
+  isTeacherAssignedToSubject,
+} from "@/lib/routine/routine-helpers";
 
 interface RoutineAllotmentOverviewTabProps {
   classes: RoutineClass[];
@@ -189,11 +193,14 @@ export function RoutineAllotmentOverviewTab({
     };
 
     subjects.forEach((s) => {
-      if (s.name && !subMap.has(s.name.trim())) {
-        subMap.set(s.name.trim(), {
-          name: s.name.trim(),
-          priority: getSubjectPriority(s.name),
-        });
+      if (s.name) {
+        const canonical = s.name.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim();
+        if (canonical && !subMap.has(canonical)) {
+          subMap.set(canonical, {
+            name: canonical,
+            priority: getSubjectPriority(canonical),
+          });
+        }
       }
     });
 
@@ -201,11 +208,14 @@ export function RoutineAllotmentOverviewTab({
       if (t.classSubjects) {
         Object.values(t.classSubjects).forEach((subs) => {
           subs.forEach((s) => {
-            if (s && !subMap.has(s.trim())) {
-              subMap.set(s.trim(), {
-                name: s.trim(),
-                priority: getSubjectPriority(s),
-              });
+            if (s) {
+              const canonical = s.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim();
+              if (canonical && !subMap.has(canonical)) {
+                subMap.set(canonical, {
+                  name: canonical,
+                  priority: getSubjectPriority(canonical),
+                });
+              }
             }
           });
         });
@@ -239,12 +249,13 @@ export function RoutineAllotmentOverviewTab({
       let hasIssues = false;
 
       distinctSubjectNames.forEach((subName) => {
+        const cleanSubName = subName.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim().toLowerCase();
         const hasExplicitForClass = subjects.some(
           (s) => s.className && s.className.trim().toLowerCase() === cls.className.trim().toLowerCase()
         );
         const matchedSubject = subjects.find(
           (s) =>
-            s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
+            (s.name.trim().toLowerCase() === cleanSubName || s.name.trim().toLowerCase() === subName.trim().toLowerCase()) &&
             (hasExplicitForClass
               ? s.className && s.className.trim().toLowerCase() === cls.className.trim().toLowerCase()
               : !s.className || s.className.trim().toLowerCase() === cls.className.trim().toLowerCase())
@@ -261,7 +272,9 @@ export function RoutineAllotmentOverviewTab({
         const directAssignments = assignments.filter((a) => {
           if (a.classId !== cls.id) return false;
           const matchedSub = subjects.find((s) => s.id === a.subjectId);
-          return matchedSub && matchedSub.name.trim().toLowerCase() === subName.trim().toLowerCase();
+          if (!matchedSub) return false;
+          const cleanMatched = matchedSub.name.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim().toLowerCase();
+          return cleanMatched === cleanSubName || matchedSub.name.trim().toLowerCase() === subName.trim().toLowerCase();
         });
 
         if (directAssignments.length > 0) {
@@ -279,56 +292,14 @@ export function RoutineAllotmentOverviewTab({
           });
         } else {
           teachers.forEach((t) => {
-            const secKey = `${cls.className}::${cls.section}`;
-            const altSecKey = `${cls.className}-${cls.section}`;
-            const altSecKey2 = `${cls.className}_${cls.section}`;
-
-            const allowedSecs = t.classSections?.[cls.className];
-            if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
-              const isAllowed = allowedSecs.some(
-                (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === cls.section.toLowerCase()
+            if (isTeacherAssignedToSubject(t, cls.className, cls.section, subName)) {
+              const p = getTeacherSubjectPeriod(
+                t,
+                cls.className,
+                cls.section,
+                subName,
+                demandPeriods > 0 ? demandPeriods : 5
               );
-              if (!isAllowed) {
-                return;
-              }
-            }
-
-            const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
-              (k) =>
-                k.startsWith(`${cls.className}::`) ||
-                k.startsWith(`${cls.className}-`) ||
-                k.startsWith(`${cls.className}_`)
-            );
-
-            const hasSecSub =
-              (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(subName)) ||
-              (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(subName)) ||
-              (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(subName));
-
-            const isAssigned =
-              hasSecSub ||
-              (!hasSecConfig &&
-                allowedSecs === undefined &&
-                t.qualifiedClasses?.includes(cls.className) &&
-                t.classSubjects?.[cls.className]?.includes(subName));
-
-            if (isAssigned) {
-              const explicitP =
-                t.subjectPeriods?.[`${cls.className}::${cls.section}::${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}-${cls.section}-${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}_${cls.section}_${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}-${cls.section}::${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}_${cls.section}::${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}::${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}-${subName}`] ??
-                t.subjectPeriods?.[`${cls.className}_${subName}`];
-
-              const p =
-                explicitP != null && Number(explicitP) > 0
-                  ? Number(explicitP)
-                  : demandPeriods > 0
-                  ? demandPeriods
-                  : 5;
 
               const tInfo = teacherCodeMap.get(t.id);
               cellTeachers.push({

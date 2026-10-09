@@ -46,6 +46,8 @@ import {
   calculateClassWeeklyCapacity,
   parseSectionAndStream,
   HS_STREAM_PRESETS,
+  getTeacherSubjectPeriod,
+  isTeacherAssignedToSubject,
 } from "@/lib/routine/routine-helpers";
 import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
@@ -245,61 +247,15 @@ export function RoutineDemandAllotmentTab({
               });
             } else {
               // Fallback to configured teacher profiles
-              const secKey = `${cls.className}::${cls.section}`;
-              const altSecKey = `${cls.className}-${cls.section}`;
-              const altSecKey2 = `${cls.className}_${cls.section}`;
-
               teachers.forEach((t) => {
-                const allowedSecs = t.classSections?.[cls.className];
-                if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
-                  const isAllowed = allowedSecs.some(
-                    (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === cls.section.toLowerCase()
+                if (isTeacherAssignedToSubject(t, cls.className, cls.section, s.name)) {
+                  const numericP = getTeacherSubjectPeriod(
+                    t,
+                    cls.className,
+                    cls.section,
+                    s.name,
+                    defaultPeriods
                   );
-                  if (!isAllowed) {
-                    return;
-                  }
-                }
-
-              const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
-                (k) =>
-                  k.startsWith(`${cls.className}::`) ||
-                  k.startsWith(`${cls.className}-`) ||
-                  k.startsWith(`${cls.className}_`)
-              );
-
-              const hasSecSub =
-                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
-                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
-                (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
-
-              // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
-              const isQualified =
-                hasSecSub ||
-                (!hasSecConfig &&
-                  allowedSecs === undefined &&
-                  t.qualifiedClasses?.includes(cls.className) &&
-                  t.classSubjects?.[cls.className]?.includes(s.name));
-
-                if (isQualified) {
-                  const explicitP =
-                    t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}-${cls.section}::${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}_${cls.section}::${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}::${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}-${s.name}`] ??
-                    t.subjectPeriods?.[`${cls.className}_${s.name}`];
-
-                  const p =
-                    explicitP ??
-                    t.sectionPeriods?.[secKey] ??
-                    t.sectionPeriods?.[altSecKey] ??
-                    t.sectionPeriods?.[altSecKey2] ??
-                    t.classPeriods?.[cls.className] ??
-                    defaultPeriods;
-
-                  const numericP = Number(p) || defaultPeriods;
                   teacherItems.push({
                     teacherId: t.id,
                     name: t.name,
@@ -419,61 +375,15 @@ export function RoutineDemandAllotmentTab({
             });
           } else {
             // Fallback to configured teacher profiles
-            const secKey = `${cls.className}::${cls.section}`;
-            const altSecKey = `${cls.className}-${cls.section}`;
-            const altSecKey2 = `${cls.className}_${cls.section}`;
-
             teachers.forEach((t) => {
-              const allowedSecs = t.classSections?.[cls.className];
-              if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
-                const isAllowed = allowedSecs.some(
-                  (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === cls.section.toLowerCase()
+              if (isTeacherAssignedToSubject(t, cls.className, cls.section, s.name)) {
+                const numericP = getTeacherSubjectPeriod(
+                  t,
+                  cls.className,
+                  cls.section,
+                  s.name,
+                  defaultPeriods
                 );
-                if (!isAllowed) {
-                  return;
-                }
-              }
-
-              const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
-                (k) =>
-                  k.startsWith(`${cls.className}::`) ||
-                  k.startsWith(`${cls.className}-`) ||
-                  k.startsWith(`${cls.className}_`)
-              );
-
-              const hasSecSub =
-                (t.sectionSubjects?.[secKey] && t.sectionSubjects[secKey].includes(s.name)) ||
-                (t.sectionSubjects?.[altSecKey] && t.sectionSubjects[altSecKey].includes(s.name)) ||
-                (t.sectionSubjects?.[altSecKey2] && t.sectionSubjects[altSecKey2].includes(s.name));
-
-              // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
-              const isQualified =
-                hasSecSub ||
-                (!hasSecConfig &&
-                  allowedSecs === undefined &&
-                  t.qualifiedClasses?.includes(cls.className) &&
-                  t.classSubjects?.[cls.className]?.includes(s.name));
-
-              if (isQualified) {
-                const explicitP =
-                  t.subjectPeriods?.[`${cls.className}::${cls.section}::${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}-${cls.section}-${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}_${cls.section}_${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}-${cls.section}::${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}_${cls.section}::${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}::${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}-${s.name}`] ??
-                  t.subjectPeriods?.[`${cls.className}_${s.name}`];
-
-                const p =
-                  explicitP ??
-                  t.sectionPeriods?.[secKey] ??
-                  t.sectionPeriods?.[altSecKey] ??
-                  t.sectionPeriods?.[altSecKey2] ??
-                  t.classPeriods?.[cls.className] ??
-                  defaultPeriods;
-
-                const numericP = Number(p) || defaultPeriods;
                 teacherItems.push({
                   teacherId: t.id,
                   name: t.name,

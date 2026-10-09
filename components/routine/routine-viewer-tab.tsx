@@ -415,12 +415,12 @@ export function RoutineViewerTab({
   
   const handleExportExcel = async () => {
     if (!routine) {
-      showToast({ title: "No routine to export", variant: "error" });
+      showToast({ title: "No routine to export", type: "error" });
       return;
     }
     
     try {
-      showToast({ title: "Generating styled Excel file...", variant: "default" });
+      showToast({ title: "Generating styled Excel file...", type: "info" });
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "SMS Web App";
       
@@ -428,18 +428,18 @@ export function RoutineViewerTab({
       const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
       
       // Reusable styles
-      const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } };
+      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } };
       const headerFont = { color: { argb: 'FFFFFFFF' }, bold: true };
-      const dayRowFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FA' } };
+      const dayRowFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FA' } };
       
-      const borderAll = {
+      const borderAll: any = {
         top: { style: 'thin', color: { argb: 'FFBFBFBF' } },
         left: { style: 'thin', color: { argb: 'FFBFBFBF' } },
         bottom: { style: 'thin', color: { argb: 'FFBFBFBF' } },
         right: { style: 'thin', color: { argb: 'FFBFBFBF' } }
       };
 
-      const applyTableStyles = (sheet, startRow, rowCount, colCount) => {
+      const applyTableStyles = (sheet: any, startRow: number, rowCount: number, colCount: number) => {
         sheet.getColumn(1).width = 25;
         for (let i = 2; i <= colCount; i++) {
           sheet.getColumn(i).width = 18;
@@ -523,7 +523,7 @@ export function RoutineViewerTab({
 
         settings.workingDays.forEach((dIdx) => {
           const classLimit = c.dailyPeriods || maxPeriods;
-          const rowData = [DAY_NAMES[dIdx]];
+          const rowData: any[] = [DAY_NAMES[dIdx]];
           
           for (let p = 1; p <= maxPeriods; p++) {
             if (p > classLimit) {
@@ -567,11 +567,11 @@ export function RoutineViewerTab({
         tRowIdx++;
 
         settings.workingDays.forEach((dIdx) => {
-          const rowData = [DAY_NAMES[dIdx]];
+          const rowData: any[] = [DAY_NAMES[dIdx]];
           
           for (let p = 1; p <= maxPeriods; p++) {
-            let foundCell = null;
-            let foundClass = null;
+            let foundCell: any = null;
+            let foundClass: any = null;
             
             for (const c of classes) {
               const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
@@ -582,7 +582,7 @@ export function RoutineViewerTab({
               }
             }
             
-            if (foundCell) {
+            if (foundCell && foundClass) {
                const subj = subjectMap.get(foundCell.sid);
                rowData.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
             } else {
@@ -612,10 +612,10 @@ export function RoutineViewerTab({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      showToast({ title: "Routine exported beautifully!", variant: "success" });
+      showToast({ title: "Routine exported beautifully!", type: "success" });
     } catch (err) {
       console.error(err);
-      showToast({ title: "Failed to export Excel", variant: "error" });
+      showToast({ title: "Failed to export Excel", type: "error" });
     }
   };
 

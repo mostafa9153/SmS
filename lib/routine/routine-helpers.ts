@@ -75,6 +75,31 @@ export function getTeacherSubjectPeriod(
     return Number(specificVal);
   }
 
+  // 1b. Check if split Theory and Lab / Practical variants exist in subjectPeriods and sum them
+  const theoryVal =
+    teacher.subjectPeriods?.[`${cls}::${sec}::${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}::${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}::${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}-${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}_${sub} (Theory)`];
+
+  const labVal =
+    teacher.subjectPeriods?.[`${cls}::${sec}::${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}::${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}::${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}-${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}_${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}::${sec}::${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}::${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}::${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sec}-${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sec}_${sub} (Practical)`];
+
+  const splitSum = (Number(theoryVal) || 0) + (Number(labVal) || 0);
+  if (splitSum > 0) {
+    return splitSum;
+  }
+
   // 2. Class-subject general override
   const clsVal =
     teacher.subjectPeriods?.[`${cls}::${sub}`] ??
@@ -82,6 +107,23 @@ export function getTeacherSubjectPeriod(
     teacher.subjectPeriods?.[`${cls}_${sub}`];
   if (clsVal !== undefined && clsVal !== null && Number(clsVal) > 0) {
     return Number(clsVal);
+  }
+
+  // 2b. Class-level split Theory + Lab override
+  const clsTheory =
+    teacher.subjectPeriods?.[`${cls}::${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sub} (Theory)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sub} (Theory)`];
+  const clsLab =
+    teacher.subjectPeriods?.[`${cls}::${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sub} (Lab)`] ??
+    teacher.subjectPeriods?.[`${cls}::${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}-${sub} (Practical)`] ??
+    teacher.subjectPeriods?.[`${cls}_${sub} (Practical)`];
+  const clsSplitSum = (Number(clsTheory) || 0) + (Number(clsLab) || 0);
+  if (clsSplitSum > 0) {
+    return clsSplitSum;
   }
 
   // 3. Section direct period
@@ -100,6 +142,76 @@ export function getTeacherSubjectPeriod(
   }
 
   return fallbackDefault ?? 5;
+}
+
+/**
+ * Checks whether a teacher is assigned to teach a specific subject in a class and section.
+ * Handles split Theory/Lab subject variants (e.g., "Geography" matches "Geography (Theory)" or "Geography (Lab)").
+ */
+export function isTeacherAssignedToSubject(
+  teacher: RoutineTeacher,
+  className: string,
+  section: string,
+  subjectName: string
+): boolean {
+  const cls = (className || "").trim();
+  const sec = (section || "").trim();
+  const sub = (subjectName || "").trim().toLowerCase();
+  const subClean = sub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+
+  const allowedSecs = teacher.classSections?.[cls];
+  if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
+    const isAllowed = allowedSecs.some(
+      (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === sec.toLowerCase()
+    );
+    if (!isAllowed) return false;
+  }
+
+  const hasSecConfig = Object.keys(teacher.sectionSubjects || {}).some(
+    (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+  );
+
+  const matchesSub = (s: string) => {
+    const sLower = s.trim().toLowerCase();
+    const sClean = sLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+    return sLower === sub || sClean === subClean || sClean === sub;
+  };
+
+  const secKey = `${cls}::${sec}`;
+  const altSecKey = `${cls}-${sec}`;
+  const altSecKey2 = `${cls}_${sec}`;
+
+  const secSubs =
+    teacher.sectionSubjects?.[secKey] ??
+    teacher.sectionSubjects?.[altSecKey] ??
+    teacher.sectionSubjects?.[altSecKey2];
+
+  const hasSecSub = Array.isArray(secSubs) && secSubs.some(matchesSub);
+  if (hasSecSub) return true;
+
+  // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
+  if (hasSecConfig) return false;
+
+  if (allowedSecs === undefined && teacher.qualifiedClasses?.includes(cls)) {
+    const classSubs = teacher.classSubjects?.[cls] || [];
+    if (classSubs.some(matchesSub)) return true;
+  }
+
+  // Check explicit subjectPeriods map as well
+  if (teacher.subjectPeriods && Object.keys(teacher.subjectPeriods).length > 0) {
+    const hasExplicit = Object.keys(teacher.subjectPeriods).some((k) => {
+      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("-") : k.split("_");
+      if (parts.length >= 2 && parts[0].trim().toLowerCase() === cls.toLowerCase()) {
+        const keySub = parts[parts.length - 1].trim().toLowerCase();
+        const keySubClean = keySub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+        return keySub === sub || keySubClean === subClean;
+      }
+      return false;
+    });
+    if (hasExplicit) return true;
+  }
+
+  return false;
 }
 
 /**
