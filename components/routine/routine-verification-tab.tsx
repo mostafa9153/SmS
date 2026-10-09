@@ -19,6 +19,7 @@ import {
   detectSubjectStream,
   calculateTotalSchoolSectionDemand,
   calculateTotalTeacherAllottedWorkload,
+  isTeacherQualifiedForSubject,
 } from "@/lib/routine/routine-helpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -317,16 +318,9 @@ export function RoutineVerificationTab({
           });
         }
 
-        const subjNameLower = subj.name.trim().toLowerCase();
-        const qualifiedTeachers = teachers.filter((t) => {
-          const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
-          const classQualified = qClasses.length === 0 || qClasses.includes(clsNameLower);
-          if (!classQualified) return false;
-
-          const classSubs = t.classSubjects?.[cls.className] || [];
-          if (classSubs.length === 0) return true;
-          return classSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
-        });
+        const qualifiedTeachers = teachers.filter((t) =>
+          isTeacherQualifiedForSubject(t, cls.className, subj.name, cls.section)
+        );
 
         if (qualifiedTeachers.length === 0) {
           issues.push({
@@ -760,16 +754,9 @@ export function RoutineVerificationTab({
                   }
 
                   return clsSubjects.map((subj, sIdx) => {
-                    const subjNameLower = subj.name.trim().toLowerCase();
-                    const qualifiedTeachers = teachers.filter((t) => {
-                      const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
-                      const classQualified = qClasses.length === 0 || qClasses.includes(clsNameLower);
-                      if (!classQualified) return false;
-
-                      const classSubs = t.classSubjects?.[cls.className] || [];
-                      if (classSubs.length === 0) return true;
-                      return classSubs.some((s) => s.trim().toLowerCase() === subjNameLower);
-                    });
+                    const qualifiedTeachers = teachers.filter((t) =>
+                      isTeacherQualifiedForSubject(t, cls.className, subj.name, cls.section)
+                    );
 
                     const isCovered = qualifiedTeachers.length > 0;
                     const reqPeriods = subj.periodsPerWeek || (subj.isLab ? 2 : 5);

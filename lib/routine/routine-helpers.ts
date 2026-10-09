@@ -215,6 +215,87 @@ export function isTeacherAssignedToSubject(
 }
 
 /**
+ * Checks whether a teacher is qualified to teach a specific subject in a class (and optional section).
+ * Handles split Theory/Lab/Practical subject names, section assignments, and period mappings.
+ */
+export function isTeacherQualifiedForSubject(
+  teacher: RoutineTeacher,
+  className: string,
+  subjectName: string,
+  section?: string
+): boolean {
+  const cls = (className || "").trim();
+  const clsLower = cls.toLowerCase();
+  const sub = (subjectName || "").trim().toLowerCase();
+  const subClean = sub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+
+  // 1. Check class qualification
+  const qClasses = (teacher.qualifiedClasses || []).map((c) => c.toLowerCase());
+  const classQualified = qClasses.length === 0 || qClasses.includes(clsLower);
+  if (!classQualified) return false;
+
+  // 2. Check section qualification if section is provided
+  if (section && isTeacherAssignedToSubject(teacher, cls, section, subjectName)) {
+    return true;
+  }
+
+  const matchesSub = (s: string) => {
+    const sLower = s.trim().toLowerCase();
+    const sClean = sLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+    return sLower === sub || sClean === subClean || sClean === sub;
+  };
+
+  // 3. Check sectionSubjects for this class if any section config matches
+  const secKeys = Object.keys(teacher.sectionSubjects || {}).filter(
+    (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+  );
+  if (secKeys.length > 0) {
+    if (section) {
+      const secKey = `${cls}::${section.trim()}`;
+      const altSecKey = `${cls}-${section.trim()}`;
+      const altSecKey2 = `${cls}_${section.trim()}`;
+      const secSubs =
+        teacher.sectionSubjects?.[secKey] ??
+        teacher.sectionSubjects?.[altSecKey] ??
+        teacher.sectionSubjects?.[altSecKey2];
+      if (Array.isArray(secSubs) && secSubs.some(matchesSub)) {
+        return true;
+      }
+      return false;
+    } else {
+      // If no specific section was requested, check any section in this class
+      for (const k of secKeys) {
+        const subs = teacher.sectionSubjects?.[k] || [];
+        if (subs.some(matchesSub)) return true;
+      }
+    }
+  }
+
+  // 4. Check classSubjects
+  const classSubs = teacher.classSubjects?.[cls] || [];
+  if (classSubs.some(matchesSub)) return true;
+
+  // 5. Check subjectPeriods
+  if (teacher.subjectPeriods && Object.keys(teacher.subjectPeriods).length > 0) {
+    const hasExplicit = Object.keys(teacher.subjectPeriods).some((k) => {
+      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("_") : k.split("_");
+      if (parts.length >= 2 && parts[0].trim().toLowerCase() === clsLower) {
+        const keySub = parts[parts.length - 1].trim().toLowerCase();
+        const keySubClean = keySub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+        return keySub === sub || keySubClean === subClean;
+      }
+      return false;
+    });
+    if (hasExplicit) return true;
+  }
+
+  // 6. If no specific subjects or sections are configured for this class, teacher is eligible for all subjects
+  if (classSubs.length === 0 && secKeys.length === 0) return true;
+
+  return false;
+}
+
+/**
  * Safely retrieves section period override with backwards compatibility
  */
 export function getTeacherSectionPeriod(

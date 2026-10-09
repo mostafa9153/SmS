@@ -451,16 +451,22 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
 
     // Safety Guard: Check if any teacher is assigned to this subject for this class
     const cleanSubLower = subjectName.trim().toLowerCase();
+    const cleanSubTrimmed = cleanSubLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+    const isMatch = (s: string) => {
+      const sLower = s.trim().toLowerCase();
+      const sClean = sLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+      return sLower === cleanSubLower || sClean === cleanSubTrimmed || sClean === cleanSubLower;
+    };
     const assignedTeacher = teachers.find((t) => {
       const classSubs = t.classSubjects?.[className] || t.classSubjects?.[classCode] || [];
-      if (classSubs.some((s) => s.trim().toLowerCase() === cleanSubLower)) {
+      if (classSubs.some(isMatch)) {
         return true;
       }
       if (t.sectionSubjects) {
         for (const [key, subs] of Object.entries(t.sectionSubjects)) {
           if (
             (key.startsWith(`${className}::`) || key.startsWith(`${classCode}::`)) &&
-            subs.some((s) => s.trim().toLowerCase() === cleanSubLower)
+            subs.some(isMatch)
           ) {
             return true;
           }
