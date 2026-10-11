@@ -17,6 +17,7 @@ export interface EmsAdmitCardPrintableProps {
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   showSignature?: boolean;
   orientation?: "portrait" | "landscape";
+  cardsPerPage?: number;
 }
 
 interface StudentAdmitItem {
@@ -57,6 +58,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   targetRoomId = "ALL",
   showSignature = true,
   orientation = "portrait",
+  cardsPerPage = 8,
 }) => {
   // Resolve school head signature URL
   const headSignatureSrc =
@@ -117,10 +119,11 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
     return (a.studentRoll || 0) - (b.studentRoll || 0);
   });
 
-  // Chunk students into pages: 20 for landscape (4 columns x 5 rows) or 21 for portrait (3 columns x 7 rows)
+  // Chunk students into pages: 8 cards (2x4 portrait or 4x2 landscape) or legacy mini (21 portrait / 20 landscape)
+  const isEightPerPage = (cardsPerPage ?? 8) === 8;
   const isLandscape = orientation === "landscape";
-  const numCols = isLandscape ? 4 : 3;
-  const numRows = isLandscape ? 5 : 7;
+  const numCols = isEightPerPage ? (isLandscape ? 4 : 2) : (isLandscape ? 4 : 3);
+  const numRows = isEightPerPage ? (isLandscape ? 2 : 4) : (isLandscape ? 5 : 7);
   const CARDS_PER_PAGE = numCols * numRows;
   const pages: StudentAdmitItem[][] = [];
   for (let i = 0; i < students.length; i += CARDS_PER_PAGE) {
@@ -158,7 +161,11 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
             </span>
             <span>•</span>
             <span>
-              {pageStudents.length} Admit Cards ({isLandscape ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page"})
+              {pageStudents.length} Admit Cards (
+              {isEightPerPage
+                ? (isLandscape ? "4×2 Landscape • 8/Page" : "2×4 Portrait • 8/Page")
+                : (isLandscape ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page")}
+              )
             </span>
           </div>
 
@@ -166,17 +173,21 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
             className={cn(
               "ems-admit-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
               isLandscape
-                ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[2mm_3.5mm]"
-                : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[2mm_4mm]"
+                ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[3mm_4.5mm]"
+                : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[3mm_4.5mm]"
             )}
           >
-            {/* Grid: 4 cols x 5 rows in Landscape or 3 cols x 7 rows in Portrait */}
+            {/* Grid: 2 cols x 4 rows in Portrait for 8/Page, or legacy 3x7 / 4x5 */}
             <div
               className={cn(
                 "h-full w-full",
-                isLandscape
-                  ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
-                  : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                isEightPerPage
+                  ? isLandscape
+                    ? "grid grid-cols-4 grid-rows-[repeat(2,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[2.8mm]"
+                    : "grid grid-cols-2 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[2.8mm]"
+                  : isLandscape
+                    ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                    : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
               )}
             >
               {toColumnMajorGrid(pageStudents, numCols, numRows).map((item, slotIdx) => {
@@ -192,130 +203,208 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                 return (
                   <div
                     key={`card-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                    className="relative border border-dashed border-neutral-300 rounded-[3px] p-[1.5mm] flex flex-col justify-between overflow-hidden bg-white h-full box-border"
+                    className={cn(
+                      "relative border border-dashed border-neutral-300 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
+                      isEightPerPage ? "p-[2.5mm_3mm]" : "p-[1.5mm]"
+                    )}
                   >
-                  {/* Repeated subtle watermark logo */}
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-                    <img
-                      src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                      alt="Watermark"
-                      loading="eager"
-                      decoding="async"
-                      className="w-14 h-14 object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]"
-                    />
-                  </div>
-
-                  {/* Card Top: School Name & Exam Title */}
-                  <div className="relative z-10 border-b border-neutral-200 pb-0.5 mb-0.5 flex items-center justify-between leading-none">
-                    <div className="min-w-0 pr-1">
-                      <h4 className="text-[8.5px] font-black uppercase tracking-tight text-neutral-900 truncate leading-tight">
-                        {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
-                      </h4>
-                      <p className="text-[7.5px] font-bold text-neutral-600 tracking-tight leading-none mt-0.5 flex items-center gap-1">
-                        <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
-                        {examHalf && (
-                          <span className="text-[7px] font-black uppercase text-neutral-950 border border-neutral-900 px-1 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
-                            [ {examHalf} ]
-                          </span>
+                    {/* Repeated subtle watermark logo */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                      <img
+                        src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                        alt="Watermark"
+                        loading="eager"
+                        decoding="async"
+                        className={cn(
+                          "object-contain opacity-[0.14] grayscale print:filter-none print:opacity-[0.13]",
+                          isEightPerPage ? "w-20 h-20" : "w-14 h-14"
                         )}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <span className="text-[8.5px] font-black border border-neutral-900 text-neutral-950 px-1.5 py-0.5 rounded-[2px] uppercase tracking-wider bg-transparent leading-none">
-                        ADMIT
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Card Middle: Student Profile & Seating Info */}
-                  <div className="relative z-10 grid grid-cols-12 gap-1 my-auto items-center">
-                    {/* Left Col: Student Profile (7 cols) */}
-                    <div className="col-span-7 flex flex-col justify-center space-y-0.5 min-w-0 pr-0.5">
-                      <div className="truncate">
-                        <span className="text-[15.5px] font-black uppercase text-neutral-950 block truncate leading-tight tracking-tight">
-                          {item.studentName}
-                        </span>
-                      </div>
-
-                      {(() => {
-                        const isHs = isHigherSecondaryClass(item.studentClass);
-                        const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
-                        const regVal = (item.studentRegNo || "").trim();
-
-                        return (
-                          <>
-                            <div className="flex items-center space-x-1 text-[12.5px] text-neutral-800 font-bold leading-tight">
-                              <span>
-                                Class:{" "}
-                                <strong className="font-black text-neutral-950 text-[14.5px]">
-                                  {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
-                                </strong>
-                              </span>
-                            </div>
-
-                            <div className="pt-0.5">
-                              {isHs && regVal ? (
-                                <span className="text-[11px] font-black text-neutral-950 px-1.5 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-tight leading-none inline-block truncate max-w-full">
-                                  REG: {regVal}
-                                </span>
-                              ) : (
-                                <span className="text-[13px] font-black text-neutral-950 px-2 py-0.5 rounded-[2px] border-[1.2px] border-neutral-900 tracking-wide leading-none inline-block">
-                                  ROLL: {String(item.studentRoll).padStart(2, "0")}
-                                </span>
-                              )}
-                            </div>
-                          </>
-                        );
-                      })()}
+                      />
                     </div>
 
-                    {/* Right Col: Location, Bench Column & Bench Number (5 cols) */}
-                    <div className="col-span-5 flex flex-col justify-center text-right pl-1 border-l border-neutral-200/80 space-y-0.5">
-                      <div>
-                        <span className="text-[16.5px] font-black text-neutral-950 block leading-tight tracking-tight">
-                          {formatRoomName(item.roomNumber)}
-                        </span>
-                        {item.floor && (
-                          <span className="text-[10px] font-bold text-neutral-500 block truncate leading-tight">
-                            {item.floor}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="pt-0.5 mt-0.5 border-t border-neutral-200/80">
-                        <div className="text-[12.5px] font-black text-neutral-950 leading-tight">
-                          <span>Col </span>
-                          <strong className="font-black text-neutral-950 text-[14.5px]">{item.columnIndex}</strong>
-                          <span className="text-neutral-400 mx-1">•</span>
-                          <span>Bench </span>
-                          <strong className="font-black text-neutral-950 text-[14.5px]">{item.benchIndex}</strong>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Card Bottom: Issue Date & Authorized Sign */}
-                  <div className="relative z-10 border-t border-neutral-200/90 pt-0.5 flex items-end justify-between leading-none">
-                    <div className="text-[7px] text-neutral-500 pb-0.5">
-                      Issued: <span className="font-bold text-neutral-700">{issueDate}</span>
-                    </div>
-
-                    <div className="flex flex-col items-end justify-end">
-                      {showSignature && headSignatureSrc ? (
-                        <div className="h-[11px] flex items-end justify-end -mb-0.5">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {/* Card Top: School Name & Exam Title */}
+                    <div className={cn(
+                      "relative z-10 border-b border-neutral-200 flex items-center justify-between leading-none",
+                      isEightPerPage ? "pb-1 mb-0.5" : "pb-0.5 mb-0.5"
+                    )}>
+                      <div className="min-w-0 pr-1 flex items-center gap-1.5">
+                        {isEightPerPage && schoolProfile.schoolLogoUrl && (
                           <img
-                            src={headSignatureSrc}
-                            alt="Signature"
-                            className="max-h-[11px] max-w-[50px] object-contain select-none mix-blend-multiply"
+                            src={schoolProfile.schoolLogoUrl}
+                            alt="Logo"
+                            className="w-5 h-5 object-contain shrink-0"
                           />
+                        )}
+                        <div className="min-w-0">
+                          <h4 className={cn(
+                            "font-black uppercase tracking-tight text-neutral-900 truncate leading-tight",
+                            isEightPerPage ? "text-[11.5px]" : "text-[8.5px]"
+                          )}>
+                            {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
+                          </h4>
+                          <p className={cn(
+                            "font-bold text-neutral-600 tracking-tight leading-none mt-0.5 flex items-center gap-1",
+                            isEightPerPage ? "text-[9.5px]" : "text-[7.5px]"
+                          )}>
+                            <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
+                            {examHalf && (
+                              <span className={cn(
+                                "font-black uppercase text-neutral-950 border border-neutral-900 px-1 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent",
+                                isEightPerPage ? "text-[8px]" : "text-[7px]"
+                              )}>
+                                [ {examHalf} ]
+                              </span>
+                            )}
+                          </p>
                         </div>
-                      ) : null}
-                      <span className="text-[7px] font-bold text-neutral-800 uppercase tracking-tight leading-tight">
-                        Authorized Signatory
-                      </span>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className={cn(
+                          "font-black border border-neutral-900 text-neutral-950 rounded-[2px] uppercase tracking-wider bg-transparent leading-none",
+                          isEightPerPage ? "text-[10px] px-2 py-0.5" : "text-[8.5px] px-1.5 py-0.5"
+                        )}>
+                          ADMIT
+                        </span>
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Card Middle: Student Profile & Seating Info */}
+                    <div className={cn(
+                      "relative z-10 grid grid-cols-12 gap-1.5 my-auto items-center",
+                      isEightPerPage ? "py-1" : "py-0.5"
+                    )}>
+                      {/* Left Col: Student Profile (7 cols) */}
+                      <div className="col-span-7 flex flex-col justify-center space-y-1 min-w-0 pr-0.5">
+                        <div>
+                          <span className={cn(
+                            "font-black uppercase text-neutral-950 block leading-tight tracking-tight",
+                            isEightPerPage ? "text-[17px]" : "text-[15.5px] truncate"
+                          )}>
+                            {item.studentName}
+                          </span>
+                        </div>
+
+                        {(() => {
+                          const isHs = isHigherSecondaryClass(item.studentClass);
+                          const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
+                          const regVal = (item.studentRegNo || "").trim();
+
+                          return (
+                            <>
+                              <div className={cn(
+                                "flex items-center space-x-1 text-neutral-800 font-bold leading-tight",
+                                isEightPerPage ? "text-[13.5px]" : "text-[12.5px]"
+                              )}>
+                                <span>
+                                  Class:{" "}
+                                  <strong className={cn(
+                                    "font-black text-neutral-950",
+                                    isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                                  )}>
+                                    {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                                  </strong>
+                                </span>
+                              </div>
+
+                              <div className="pt-0.5">
+                                {isHs && regVal ? (
+                                  <span className={cn(
+                                    "font-black text-neutral-950 rounded-[2px] border-[1.2px] border-neutral-900 tracking-tight leading-none inline-block truncate max-w-full",
+                                    isEightPerPage ? "text-[12px] px-2 py-0.5" : "text-[11px] px-1.5 py-0.5"
+                                  )}>
+                                    REG: {regVal}
+                                  </span>
+                                ) : (
+                                  <span className={cn(
+                                    "font-black text-neutral-950 rounded-[2px] border-[1.4px] border-neutral-900 tracking-wide leading-none inline-block",
+                                    isEightPerPage ? "text-[14px] px-2 py-0.5" : "text-[13px] px-2 py-0.5"
+                                  )}>
+                                    ROLL: {String(item.studentRoll).padStart(2, "0")}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Right Col: Location, Bench Column & Bench Number (5 cols) */}
+                      <div className="col-span-5 flex flex-col justify-center text-right pl-1.5 border-l border-neutral-200/90 space-y-0.5">
+                        <div>
+                          <span className={cn(
+                            "font-black text-neutral-950 block leading-tight tracking-tight",
+                            isEightPerPage ? "text-[18.5px]" : "text-[16.5px]"
+                          )}>
+                            {formatRoomName(item.roomNumber)}
+                          </span>
+                          {item.floor && (
+                            <span className={cn(
+                              "font-bold text-neutral-500 block truncate leading-tight",
+                              isEightPerPage ? "text-[10.5px] mt-0.5" : "text-[10px]"
+                            )}>
+                              {item.floor}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="pt-0.5 mt-0.5 border-t border-neutral-200/90">
+                          <div className={cn(
+                            "font-black text-neutral-950 leading-tight",
+                            isEightPerPage ? "text-[13.5px]" : "text-[12.5px]"
+                          )}>
+                            <span>Col </span>
+                            <strong className={cn(
+                              "font-black text-neutral-950",
+                              isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                            )}>{item.columnIndex}</strong>
+                            <span className="text-neutral-400 mx-1">•</span>
+                            <span>Bench </span>
+                            <strong className={cn(
+                              "font-black text-neutral-950",
+                              isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                            )}>{item.benchIndex}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Bottom: Issue Date & Authorized Sign */}
+                    <div className={cn(
+                      "relative z-10 border-t border-neutral-200/90 flex items-end justify-between leading-none",
+                      isEightPerPage ? "pt-1" : "pt-0.5"
+                    )}>
+                      <div className={cn(
+                        "text-neutral-500 pb-0.5",
+                        isEightPerPage ? "text-[8px]" : "text-[7px]"
+                      )}>
+                        Issued: <span className="font-bold text-neutral-700">{issueDate}</span>
+                      </div>
+
+                      <div className="flex flex-col items-end justify-end">
+                        {showSignature && headSignatureSrc ? (
+                          <div className={cn(
+                            "flex items-end justify-end",
+                            isEightPerPage ? "h-[15px] -mb-1" : "h-[11px] -mb-0.5"
+                          )}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={headSignatureSrc}
+                              alt="Signature"
+                              className={cn(
+                                "object-contain select-none mix-blend-multiply",
+                                isEightPerPage ? "max-h-[15px] max-w-[60px]" : "max-h-[11px] max-w-[50px]"
+                              )}
+                            />
+                          </div>
+                        ) : null}
+                        <span className={cn(
+                          "font-bold text-neutral-800 uppercase tracking-tight leading-tight",
+                          isEightPerPage ? "text-[8px]" : "text-[7px]"
+                        )}>
+                          Authorized Signatory
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 );
               })}

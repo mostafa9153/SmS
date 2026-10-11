@@ -62,6 +62,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [activeDoc, setActiveDoc] = useState<PrintDocType>(defaultDoc);
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
   const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
@@ -543,14 +544,54 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
               {/* Admit Cards: Orientation, Issue Date & Headmaster Signature */}
               {activeDoc === "admit" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {/* Page Orientation Selector */}
-                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5 sm:col-span-2">
+                  {/* Cards Per Page Selector */}
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
                     <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
                       <span className="font-semibold text-xs flex items-center gap-1.5">
-                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Page Orientation & Grid
+                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Cards / Page
                       </span>
                       <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                        {orientation === "landscape" ? "4×5 Grid (20 Cards/A4)" : "3×7 Grid (21 Cards/A4)"}
+                        {admitCardsPerPage === 8 ? "8 Cards" : "Mini"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 dark:bg-slate-900 p-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setAdmitCardsPerPage(8)}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          admitCardsPerPage === 8
+                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>8 / Page</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAdmitCardsPerPage(21)}
+                        className={cn(
+                          "py-1.5 px-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5",
+                          admitCardsPerPage !== 8
+                            ? "bg-white dark:bg-slate-800 text-indigo-700 dark:text-indigo-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        )}
+                      >
+                        <span>Mini ({orientation === "landscape" ? "20" : "21"})</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Page Orientation Selector */}
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                      <span className="font-semibold text-xs flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-500" /> Orientation
+                      </span>
+                      <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                        {admitCardsPerPage === 8
+                          ? (orientation === "landscape" ? "4×2 Grid (8/A4)" : "2×4 Grid (8/A4)")
+                          : (orientation === "landscape" ? "4×5 Grid (20/A4)" : "3×7 Grid (21/A4)")}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 bg-slate-200/60 dark:bg-slate-900 p-1 rounded-lg border border-slate-200/80 dark:border-slate-800">
@@ -564,7 +605,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                             : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                         )}
                       >
-                        <span>Portrait (3×7 • 21 Cards)</span>
+                        <span>Portrait</span>
                       </button>
                       <button
                         type="button"
@@ -576,7 +617,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                             : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                         )}
                       >
-                        <span>Landscape (4×5 • 20 Cards)</span>
+                        <span>Landscape</span>
                       </button>
                     </div>
                   </div>
@@ -1076,6 +1117,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       showSignature={showAdmitSignature}
                       examHalf={examHalf}
                       orientation={orientation}
+                      cardsPerPage={admitCardsPerPage}
                     />
                   )}
 
@@ -1146,6 +1188,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             showSignature={showAdmitSignature}
             examHalf={examHalf}
             orientation={orientation}
+            cardsPerPage={admitCardsPerPage}
           />
         )}
 

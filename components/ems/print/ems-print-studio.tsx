@@ -75,6 +75,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   const [activeDoc, setActiveDoc] = useState<PrintDocType>(defaultDoc);
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
   const [zoom, setZoom] = useState<number>(0.85);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
   const [isRoomPopoverOpen, setIsRoomPopoverOpen] = useState<boolean>(false);
@@ -343,6 +344,38 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          {/* Admit Cards: 8 / Page vs Mini (21) layout switcher */}
+          {activeDoc === "admit" && (
+            <div className="inline-flex p-0.5 rounded-xl bg-muted/80 border border-border/80 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setAdmitCardsPerPage(8)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                  admitCardsPerPage === 8
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Standard 8 Cards per Page (2×4 Grid)"
+              >
+                8 / Page
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdmitCardsPerPage(21)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer select-none",
+                  admitCardsPerPage !== 8
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title="Mini Admit Cards (21/Page Portrait or 20/Page Landscape)"
+              >
+                Mini ({orientation === "landscape" ? "20" : "21"})
+              </button>
+            </div>
+          )}
+
           {/* Orientation Switcher (Portrait / Landscape) for Admit Cards & Bench Slips */}
           {(activeDoc === "admit" || activeDoc === "slips") && (
             <div className="inline-flex p-0.5 rounded-xl bg-muted/80 border border-border/80 shadow-2xs">
@@ -355,7 +388,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                     ? "bg-indigo-600 text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
-                title={activeDoc === "admit" ? "Portrait (3×7 • 21 Cards)" : "Portrait (3×19 • 57 Slips)"}
+                title={activeDoc === "admit" ? (admitCardsPerPage === 8 ? "Portrait (2×4 • 8 Cards)" : "Portrait (3×7 • 21 Cards)") : "Portrait (3×19 • 57 Slips)"}
               >
                 Portrait
               </button>
@@ -368,7 +401,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                     ? "bg-indigo-600 text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
-                title={activeDoc === "admit" ? "Landscape (4×5 • 20 Cards)" : "Landscape (4×14 • 56 Slips)"}
+                title={activeDoc === "admit" ? (admitCardsPerPage === 8 ? "Landscape (4×2 • 8 Cards)" : "Landscape (4×5 • 20 Cards)") : "Landscape (4×14 • 56 Slips)"}
               >
                 Landscape
               </button>
@@ -459,7 +492,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   activeDoc === "admit" ? "bg-indigo-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                {orientation === "landscape" ? "20/A4" : "21/A4"}
+                {admitCardsPerPage === 8 ? "8/A4" : (orientation === "landscape" ? "20/A4" : "21/A4")}
               </span>
             </button>
 
@@ -705,7 +738,45 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           <div className="pt-3 border-t border-border/70 rounded-xl bg-muted/25 p-3.5 sm:p-4 space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
             {/* FOR ADMIT CARDS */}
             {activeDoc === "admit" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-foreground">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Cards / Page</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
+                      {admitCardsPerPage === 8 ? "8 Cards" : "Mini"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setAdmitCardsPerPage(8)}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        admitCardsPerPage === 8
+                          ? "bg-background text-indigo-600 dark:text-indigo-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      8 / Page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAdmitCardsPerPage(21)}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        admitCardsPerPage !== 8
+                          ? "bg-background text-indigo-600 dark:text-indigo-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Mini ({orientation === "landscape" ? "20" : "21"})
+                    </button>
+                  </div>
+                </div>
+
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between text-foreground">
                     <span className="font-bold text-xs flex items-center gap-1.5">
@@ -713,7 +784,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       <span>Orientation</span>
                     </span>
                     <span className="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                      {orientation === "landscape" ? "4×5 Grid (20/A4)" : "3×7 Grid (21/A4)"}
+                      {admitCardsPerPage === 8
+                        ? (orientation === "landscape" ? "4×2 Grid (8/A4)" : "2×4 Grid (8/A4)")
+                        : (orientation === "landscape" ? "4×5 Grid (20/A4)" : "3×7 Grid (21/A4)")}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
@@ -727,7 +800,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      Portrait (21)
+                      Portrait
                     </button>
                     <button
                       type="button"
@@ -739,7 +812,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      Landscape (20)
+                      Landscape
                     </button>
                   </div>
                 </div>
@@ -1089,6 +1162,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   showSignature={showAdmitSignature}
                   examHalf={examHalf}
                   orientation={orientation}
+                  cardsPerPage={admitCardsPerPage}
                 />
               )}
 
@@ -1155,6 +1229,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               showSignature={showAdmitSignature}
               examHalf={examHalf}
               orientation={orientation}
+              cardsPerPage={admitCardsPerPage}
             />
           )}
 
