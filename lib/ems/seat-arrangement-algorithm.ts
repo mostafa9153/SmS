@@ -147,11 +147,16 @@ export function buildClassStudentPool(
             return true;
           });
 
-          // Natural alphanumeric sort by boardRegistrationNo (or fallback to schoolId / roll)
+          // Natural alphanumeric sort by boardRegistrationNo
           matching.sort((a, b) => {
-            const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
-            const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
-            return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+            const regA = (a.boardRegistrationNo || "").trim();
+            const regB = (b.boardRegistrationNo || "").trim();
+            if (regA && regB) {
+              return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+            }
+            if (regA && !regB) return -1;
+            if (!regA && regB) return 1;
+            return (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0);
           });
 
           // Filter by regNoFrom / regNoTo if provided
@@ -165,10 +170,18 @@ export function buildClassStudentPool(
           }
           if (cfg.regNoTo && cfg.regNoTo.trim()) {
             const toVal = cfg.regNoTo.trim();
-            const toIdx = filtered.findLastIndex((s) => (s.boardRegistrationNo || "").trim().localeCompare(toVal, undefined, { numeric: true }) <= 0);
+            const toIdx = filtered.findLastIndex((s) => {
+              const reg = (s.boardRegistrationNo || "").trim();
+              return Boolean(reg) && reg.localeCompare(toVal, undefined, { numeric: true }) <= 0;
+            });
             if (toIdx !== -1) {
               filtered = filtered.slice(0, toIdx + 1);
             }
+          }
+
+          if (cfg.excludedStudentIds && cfg.excludedStudentIds.length > 0) {
+            const exclSet = new Set(cfg.excludedStudentIds);
+            filtered = filtered.filter((s) => !exclSet.has(s.id));
           }
 
           classStudents.push(...filtered);
@@ -183,7 +196,7 @@ export function buildClassStudentPool(
 
         cfgs.forEach((cfg) => {
           const normCfgSec = normalizeSectionCode(cfg.section);
-          const matching = allStudents.filter((s) => {
+          let matching = allStudents.filter((s) => {
             if (s.currentStatus && s.currentStatus !== "Continuing") return false;
             if (normalizeClassCode(s.presentClass) !== normClass) return false;
             if (normCfgSec && normalizeSectionCode(s.presentSection) !== normCfgSec) return false;
@@ -192,6 +205,11 @@ export function buildClassStudentPool(
             if (cfg.rollTo && roll > cfg.rollTo) return false;
             return true;
           });
+
+          if (cfg.excludedStudentIds && cfg.excludedStudentIds.length > 0) {
+            const exclSet = new Set(cfg.excludedStudentIds);
+            matching = matching.filter((s) => !exclSet.has(s.id));
+          }
 
           matching.sort((a, b) => (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0));
           classStudents.push(...matching);
@@ -221,9 +239,14 @@ export function buildClassStudentPool(
     if (isHigherSecondaryClass(normClass)) {
       // HS Classes: natural sort by Board Reg No
       list.sort((a, b) => {
-        const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
-        const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
-        return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+        const regA = (a.boardRegistrationNo || "").trim();
+        const regB = (b.boardRegistrationNo || "").trim();
+        if (regA && regB) {
+          return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+        }
+        if (regA && !regB) return -1;
+        if (!regA && regB) return 1;
+        return (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0);
       });
     } else {
       // Junior Classes: Section A first (rolls ascending), then Section B...

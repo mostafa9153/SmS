@@ -67,6 +67,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
       {activeRooms.map((room, roomIdx) => {
         // Extract occupied seats for this room
         const occupiedSeats = room.seats.filter((s) => !s.isVacant && s.studentName);
+        const hasHsInRoom = occupiedSeats.some((s) => isHigherSecondaryClass(s.studentClass));
 
         // Group students by Class + Section / Stream
         const classMap = new Map<string, StudentRowItem[]>();
@@ -276,19 +277,21 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                         <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[36px] text-center font-black p-1 text-[9px] shrink-0"
+                            className={`border-r-[1.5px] border-black ${hasHsInRoom ? "w-[36px]" : "w-[42px]"} text-center font-black p-1 text-[9px] shrink-0`}
                           >
                             Roll
                           </th>
+                          {hasHsInRoom && (
+                            <th
+                              rowSpan={2}
+                              className="border-r-[1.5px] border-black w-[76px] text-center font-black p-1 text-[9px] shrink-0"
+                            >
+                              Reg No
+                            </th>
+                          )}
                           <th
                             rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[76px] text-center font-black p-1 text-[9px] shrink-0"
-                          >
-                            Reg No
-                          </th>
-                          <th
-                            rowSpan={2}
-                            className="border-r-[1.5px] border-black w-[150px] text-left font-black p-1 pl-2 text-[9.5px] truncate shrink-0"
+                            className={`border-r-[1.5px] border-black ${hasHsInRoom ? "w-[150px]" : "w-[170px]"} text-left font-black p-1 pl-2 text-[9.5px] truncate shrink-0`}
                           >
                             Student Name
                           </th>
@@ -297,7 +300,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             <th
                               key={`th-subject-${i}`}
                               className="border-r border-black font-black text-center p-1 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                              style={{ width: `calc((100% - 262px) / ${numCols})` }}
+                              style={{ width: `calc((100% - ${hasHsInRoom ? "262px" : "212px"}) / ${numCols})` }}
                             >
                               {headerText}
                             </th>
@@ -336,7 +339,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
-                                  colSpan={3 + numCols}
+                                  colSpan={(hasHsInRoom ? 3 : 2) + numCols}
                                   className="text-center font-black text-[10.5px] uppercase tracking-widest text-black py-0.5"
                                 >
                                   {row.title}
@@ -353,7 +356,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
-                                  colSpan={3}
+                                  colSpan={hasHsInRoom ? 3 : 2}
                                   className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
                                 >
                                   TOTAL PRESENT:
@@ -376,7 +379,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
-                                  colSpan={3}
+                                  colSpan={hasHsInRoom ? 3 : 2}
                                   className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
                                 >
                                   TOTAL ABSENT:
@@ -399,7 +402,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 style={{ height: "6.2mm" }}
                               >
                                 <td
-                                  colSpan={3}
+                                  colSpan={hasHsInRoom ? 3 : 2}
                                   className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
                                 >
                                   INVIGILATOR SIGN:
@@ -427,9 +430,11 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5">
                                 {student ? String(student.roll).padStart(2, "0") : ""}
                               </td>
-                              <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5">
-                                {regVal || "-"}
-                              </td>
+                              {hasHsInRoom && (
+                                <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5">
+                                  {regVal || "-"}
+                                </td>
+                              )}
                               <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none">
                                 {student ? student.name : ""}
                               </td>

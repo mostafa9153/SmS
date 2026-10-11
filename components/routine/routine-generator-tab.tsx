@@ -31,6 +31,7 @@ import {
   Table2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { RoutineHistorySection } from "@/components/routine/routine-history-section";
 
 interface RoutineGeneratorTabProps {
   settings: RoutineSettings;
@@ -62,6 +63,7 @@ export function RoutineGeneratorTab({
   const [isAutoBuilding, setIsAutoBuilding] = useState(false);
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [generationResult, setGenerationResult] = useState<GeneratedRoutine | null>(null);
+  const [lastGeneratedTime, setLastGeneratedTime] = useState<number>(Date.now());
 
   // Pre-flight checks status
   const hasWorkingDays = settings.workingDays.length > 0 && settings.periodsPerDay > 0;
@@ -99,6 +101,7 @@ export function RoutineGeneratorTab({
     try {
       const res = await onGenerate();
       setGenerationResult(res);
+      setLastGeneratedTime(Date.now());
       if (res.success) {
         setReport({ isValid: true, errors: [], warnings: [] });
       }
@@ -501,6 +504,12 @@ export function RoutineGeneratorTab({
           )}
         </div>
       )}
+
+      {/* Generation History (Last 10 Runs - Auto-Pruned) */}
+      <RoutineHistorySection
+        lastGeneratedTime={lastGeneratedTime}
+        onSelectRoutine={(routine) => setGenerationResult(routine)}
+      />
 
       {/* Workflow Navigation */}
       <div className="pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">

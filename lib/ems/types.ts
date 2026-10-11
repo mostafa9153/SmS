@@ -4,6 +4,8 @@ export type ExamType =
   | "1st Summative Evaluation"
   | "2nd Summative Evaluation"
   | "3rd Summative Evaluation"
+  | "Test Examination"
+  | "3rd Summative Evaluation / Test Examination"
   | "Sem I"
   | "Sem II";
 
@@ -11,9 +13,87 @@ export const EXAM_TYPES: ExamType[] = [
   "1st Summative Evaluation",
   "2nd Summative Evaluation",
   "3rd Summative Evaluation",
+  "Test Examination",
+  "3rd Summative Evaluation / Test Examination",
   "Sem I",
   "Sem II",
 ];
+
+export const EMS_ELIGIBLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI"] as const;
+
+export function getExamTypesForClasses(classes: string[]): ExamType[] {
+  if (!classes || classes.length === 0) {
+    return ["1st Summative Evaluation", "2nd Summative Evaluation", "3rd Summative Evaluation"];
+  }
+  const cleanCodes = classes.map((c) => c.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, ""));
+  const hasHs = cleanCodes.some((c) => c === "XI" || c === "11");
+  const has10 = cleanCodes.some((c) => c === "X" || c === "10");
+  const hasJunior = cleanCodes.some((c) => ["V", "VI", "VII", "VIII", "IX", "5", "6", "7", "8", "9"].includes(c));
+
+  // If only HS (Class 11) is selected
+  if (hasHs && !has10 && !hasJunior) {
+    return ["Sem I", "Sem II"];
+  }
+
+  // If only Class 10 is selected
+  if (has10 && !hasJunior && !hasHs) {
+    return ["1st Summative Evaluation", "2nd Summative Evaluation", "Test Examination"];
+  }
+
+  // If Class 10 is selected together with junior classes (5 to 9)
+  if (has10 && hasJunior && !hasHs) {
+    return [
+      "1st Summative Evaluation",
+      "2nd Summative Evaluation",
+      "3rd Summative Evaluation / Test Examination",
+    ];
+  }
+
+  // If HS is mixed with other classes
+  if (hasHs) {
+    return [
+      "1st Summative Evaluation",
+      "2nd Summative Evaluation",
+      has10 && hasJunior
+        ? "3rd Summative Evaluation / Test Examination"
+        : has10
+        ? "Test Examination"
+        : "3rd Summative Evaluation",
+      "Sem I",
+      "Sem II",
+    ];
+  }
+
+  // Default for junior classes (5 to 9)
+  return ["1st Summative Evaluation", "2nd Summative Evaluation", "3rd Summative Evaluation"];
+}
+
+export function getExamTypesForClass(classCode?: string): ExamType[] {
+  return getExamTypesForClasses(classCode ? [classCode] : []);
+}
+
+// Compact label helper for UI dropdowns where space is tight
+export function getExamTypeDisplayLabel(type: ExamType): string {
+  if (type === "3rd Summative Evaluation / Test Examination") {
+    return "3rd Summative / Test Examination";
+  }
+  return type;
+}
+
+// Full class-smart exam title resolver for student-specific printouts (admit cards, desk slips)
+export function getStudentExamTitle(examType: string, studentClass?: string): string {
+  if (
+    examType === "3rd Summative Evaluation / Test Examination" ||
+    examType === "3rd Summative / Test Examination"
+  ) {
+    const clean = (studentClass || "").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+    if (clean === "X" || clean === "10") {
+      return "Test Examination";
+    }
+    return "3rd Summative Evaluation";
+  }
+  return examType;
+}
 
 export type ExamHalf = "1st Half" | "2nd Half";
 
@@ -135,6 +215,7 @@ export interface AutoAllocationClassInput {
   regNoFrom?: string; // e.g. "WB10001" (For HS Class 11 & 12)
   regNoTo?: string; // e.g. "WB10050" (For HS Class 11 & 12)
   isHsClass?: boolean;
+  excludedStudentIds?: string[]; // IDs of manually deselected/excluded students
 }
 
 export interface AutoAllocationConfig {

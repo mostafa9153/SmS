@@ -15,6 +15,10 @@ import {
   upsertAssignmentDb,
   deleteAssignmentDb,
   saveGeneratedRoutineDb,
+  fetchGeneratedRoutineHistoryDb,
+  activateGeneratedRoutineDb,
+  deleteGeneratedRoutineHistoryDb,
+  RoutineHistoryEntry,
   RoutineFullState,
 } from "@/lib/supabase/db-routine";
 import {
@@ -252,4 +256,16 @@ export async function generateRoutineServerAction(
     await saveGeneratedRoutineDb(result);
   }
   return result;
+}
+
+export async function getRoutineHistoryAction(): Promise<RoutineHistoryEntry[]> {
+  return await fetchGeneratedRoutineHistoryDb(10);
+}
+
+export async function activateRoutineHistoryAction(id: string): Promise<GeneratedRoutine | null> {
+  return await activateGeneratedRoutineDb(id);
+}
+
+export async function deleteRoutineHistoryAction(id: string): Promise<boolean> {
+  return await deleteGeneratedRoutineHistoryDb(id);
 }

@@ -45,6 +45,7 @@ export interface HsStudentStats {
   regNoTo: string;
   missingRegCount: number;
   missingStudents: Student[];
+  excludedCount?: number;
 }
 
 export const calculateHsStudentStats = (
@@ -53,7 +54,8 @@ export const calculateHsStudentStats = (
   stream: string = "ALL",
   gender: string = "ALL",
   customRegNoFrom?: string,
-  customRegNoTo?: string
+  customRegNoTo?: string,
+  excludedStudentIds: string[] = []
 ): HsStudentStats => {
   const normClass = normalizeClassCode(className);
   const streamShort = stream && stream !== "ALL" ? toShortStream(stream) : null;
@@ -87,14 +89,20 @@ export const calculateHsStudentStats = (
       regNoTo: customRegNoTo || "",
       missingRegCount: 0,
       missingStudents: [],
+      excludedCount: 0,
     };
   }
 
   // Sort by board registration number (natural alphanumeric sort)
   const sorted = [...matched].sort((a, b) => {
-    const regA = (a.boardRegistrationNo || "").trim() || `${a.presentRoll}`;
-    const regB = (b.boardRegistrationNo || "").trim() || `${b.presentRoll}`;
-    return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+    const regA = (a.boardRegistrationNo || "").trim();
+    const regB = (b.boardRegistrationNo || "").trim();
+    if (regA && regB) {
+      return regA.localeCompare(regB, undefined, { numeric: true, sensitivity: "base" });
+    }
+    if (regA && !regB) return -1;
+    if (!regA && regB) return 1;
+    return (Number(a.presentRoll) || 0) - (Number(b.presentRoll) || 0);
   });
 
   const validRegs = sorted
@@ -118,13 +126,20 @@ export const calculateHsStudentStats = (
   if (effectiveRegTo && effectiveRegTo.trim()) {
     const toVal = effectiveRegTo.trim();
     const toIdx = inRange.findLastIndex(
-      (s) => (s.boardRegistrationNo || "").trim().localeCompare(toVal, undefined, { numeric: true }) <= 0
+      (s) => {
+        const reg = (s.boardRegistrationNo || "").trim();
+        return Boolean(reg) && reg.localeCompare(toVal, undefined, { numeric: true }) <= 0;
+      }
     );
     if (toIdx !== -1) inRange = inRange.slice(0, toIdx + 1);
   }
 
+  const excludedSet = new Set(excludedStudentIds);
+  const excludedCount = inRange.filter((s) => excludedSet.has(s.id)).length;
+  const activeCount = inRange.length - excludedCount;
+
   return {
-    count: inRange.length,
+    count: activeCount,
     totalEnrolled: matched.length,
     minRegNo,
     maxRegNo,
@@ -132,6 +147,7 @@ export const calculateHsStudentStats = (
     regNoTo: effectiveRegTo,
     missingRegCount: missingStudents.length,
     missingStudents,
+    excludedCount,
   };
 };
 

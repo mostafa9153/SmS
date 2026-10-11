@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AllocatedRoom } from "@/lib/ems/types";
+import { AllocatedRoom, getStudentExamTitle } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/ems/ems-config-loader";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
@@ -212,7 +212,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
                       </h4>
                       <p className="text-[7.5px] font-bold text-neutral-600 tracking-tight leading-none mt-0.5 flex items-center gap-1">
-                        <span>{formatShortExam(examType, academicYear)}</span>
+                        <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
                         {examHalf && (
                           <span className="text-[7px] font-black uppercase text-neutral-950 border border-neutral-900 px-1 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent">
                             [ {examHalf} ]

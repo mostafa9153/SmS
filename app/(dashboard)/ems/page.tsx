@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EmsStepperMap, StepItem } from "@/components/ems/ems-stepper-map";
 import { VisualRoomBlueprint } from "@/components/ems/visual-room-blueprint";
@@ -36,6 +36,10 @@ import {
   EmsRoom,
   ExamType,
   EXAM_TYPES,
+  EMS_ELIGIBLE_CLASSES,
+  getExamTypesForClasses,
+  getExamTypesForClass,
+  getExamTypeDisplayLabel,
   AutoAllocationClassInput,
   AutoAllocationConfig,
   ManualColumnInput,
@@ -76,6 +80,7 @@ import {
   GripVertical,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ArrowUpDown,
 } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
@@ -102,6 +107,7 @@ import {
   calculateHsStudentStats,
   MissingHsRegistrationDialog,
 } from "@/components/ems/auto-allocation-wizard";
+import { StudentRosterDialog } from "@/components/ems/student-roster-dialog";
 
 // Sort class groups strictly in consecutive order: 5, 6, 7, 8, 9, 10, 11, 12 (V..XII)
 const sortClassGroups = (groups: ClassGroupConfig[]): ClassGroupConfig[] => {
@@ -117,6 +123,7 @@ export interface SectionStudentStats {
   rollTo: number;
   missingRolls?: number[];
   missingFormatted?: string;
+  excludedCount?: number;
 }
 
 // Calculate enrolled student stats & roll range for a given class and section from actual DB records
@@ -125,7 +132,8 @@ const calculateSectionStudentStats = (
   className: string,
   sectionName: string,
   customRollFrom?: number,
-  customRollTo?: number
+  customRollTo?: number,
+  excludedStudentIds: string[] = []
 ): SectionStudentStats => {
   const targetClass = normalizeClassCode(className);
   const targetSec = normalizeSectionCode(sectionName);
@@ -145,6 +153,7 @@ const calculateSectionStudentStats = (
       maxRoll: 35,
       rollFrom: customRollFrom ?? 1,
       rollTo: customRollTo ?? 35,
+      excludedCount: 0,
     };
   }
 
@@ -169,6 +178,10 @@ const calculateSectionStudentStats = (
     return true;
   });
 
+  const excludedSet = new Set(excludedStudentIds);
+  const excludedCount = inRange.filter((s) => excludedSet.has(s.id)).length;
+  const activeCount = inRange.length - excludedCount;
+
   // Calculate missing roll numbers in range [effectiveRollFrom, effectiveRollTo]
   const presentRollSet = new Set(validRolls);
   const missingRolls: number[] = [];
@@ -179,7 +192,7 @@ const calculateSectionStudentStats = (
   }
 
   return {
-    count: inRange.length,
+    count: activeCount,
     totalEnrolled: matched.length,
     minRoll,
     maxRoll,
@@ -187,6 +200,7 @@ const calculateSectionStudentStats = (
     rollTo: effectiveRollTo,
     missingRolls,
     missingFormatted: formatMissingRolls(missingRolls),
+    excludedCount,
   };
 };
 
@@ -210,12 +224,13 @@ export interface ClassGroupSectionConfig {
   section: string;
   rollFrom: number;
   rollTo: number;
-  enrolledCount: number; // Actual active continuing students in DB matching [rollFrom, rollTo]
+  enrolledCount: number; // Actual active continuing students in DB matching [rollFrom, rollTo] minus excluded
   totalEnrolled?: number;
   minRoll?: number;
   maxRoll?: number;
   missingRolls?: number[];
   missingFormatted?: string;
+  excludedStudentIds?: string[];
 }
 
 export interface ClassGroupConfig {
@@ -226,7 +241,55 @@ export interface ClassGroupConfig {
   gender?: string;
   regNoFrom?: string;
   regNoTo?: string;
+  excludedStudentIds?: string[];
 }
+
+export const buildClassGroupConfig = (
+  code: string,
+  students: Student[] = []
+): ClassGroupConfig => {
+  const isHs = isHigherSecondaryClass(code);
+  if (isHs) {
+    const stats = calculateHsStudentStats(students, code, "ALL", "ALL");
+    return {
+      id: `grp-${code.toLowerCase()}-${Date.now()}`,
+      class: code,
+      sections: [
+        {
+          section: "ALL",
+          rollFrom: 1,
+          rollTo: 9999,
+          enrolledCount: stats.count,
+          totalEnrolled: stats.totalEnrolled,
+        },
+      ],
+      stream: "ALL",
+      gender: "ALL",
+      regNoFrom: stats.minRegNo,
+      regNoTo: stats.maxRegNo,
+    };
+  }
+
+  const availSecs = getSectionsForClass(code, students);
+  return {
+    id: `grp-${code.toLowerCase()}-${Date.now()}`,
+    class: code,
+    sections: availSecs.map((sec) => {
+      const stats = calculateSectionStudentStats(students, code, sec);
+      return {
+        section: sec,
+        rollFrom: stats.rollFrom,
+        rollTo: stats.rollTo,
+        enrolledCount: stats.count,
+        totalEnrolled: stats.totalEnrolled,
+        minRoll: stats.minRoll,
+        maxRoll: stats.maxRoll,
+        missingRolls: stats.missingRolls,
+        missingFormatted: stats.missingFormatted,
+      };
+    }),
+  };
+};
 
 interface MissingRollsWarningButtonProps {
   classNameCode: string;
@@ -250,6 +313,7 @@ function MissingRollsWarningButton({
   missingFormatted,
 }: MissingRollsWarningButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside
@@ -257,6 +321,7 @@ function MissingRollsWarningButton({
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setIsPinned(false);
       }
     }
     if (isOpen) {
@@ -271,25 +336,51 @@ function MissingRollsWarningButton({
 
   const expectedCount = Math.max(0, rollTo - rollFrom + 1);
 
+  const handleToggleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPinned) {
+      setIsPinned(false);
+      setIsOpen(false);
+    } else {
+      setIsPinned(true);
+      setIsOpen(true);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (!isPinned) {
+      setIsOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isPinned) {
+      setIsOpen(false);
+    }
+  };
+
+  const handleClose = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsPinned(false);
+    setIsOpen(false);
+  };
+
   return (
     <div
       ref={containerRef}
       className="relative inline-flex items-center"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {/* Yellow Warning Triangle Icon Button */}
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsOpen((prev) => !prev);
-        }}
+        onClick={handleToggleClick}
         className={cn(
           "h-6 w-6 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 flex items-center justify-center cursor-pointer transition-all shadow-2xs active:scale-95 shrink-0",
-          isOpen && "ring-2 ring-amber-500/40 bg-amber-500/25 text-amber-700 dark:text-amber-300"
+          (isOpen || isPinned) && "ring-2 ring-amber-500/40 bg-amber-500/25 text-amber-700 dark:text-amber-300"
         )}
-        title={`Click or hover to view ${missingRolls.length} missing roll numbers`}
+        title={isPinned ? "Click to close missing rolls popover" : `Click to pin open or hover to view ${missingRolls.length} missing roll numbers`}
         aria-label="View missing roll numbers"
       >
         <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
@@ -303,12 +394,12 @@ function MissingRollsWarningButton({
         >
           {/* Popover Header */}
           <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 min-w-0">
               <div className="p-1 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
                 <AlertTriangle className="h-3.5 w-3.5" />
               </div>
-              <div>
-                <h5 className="text-xs font-bold text-foreground">
+              <div className="min-w-0">
+                <h5 className="text-xs font-bold text-foreground truncate">
                   Class {classNameCode}-{section} Missing Rolls
                 </h5>
                 <p className="text-[10px] text-muted-foreground font-mono">
@@ -316,12 +407,22 @@ function MissingRollsWarningButton({
                 </p>
               </div>
             </div>
-            <Badge
-              variant="outline"
-              className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0"
-            >
-              {missingRolls.length} Missing
-            </Badge>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Badge
+                variant="outline"
+                className="text-[10px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+              >
+                {missingRolls.length} Missing
+              </Badge>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="h-5 w-5 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors"
+                title="Close"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
           </div>
 
           {/* Formatted Short Summary */}
@@ -354,6 +455,180 @@ function MissingRollsWarningButton({
           <p className="text-[10px] text-muted-foreground/80 leading-tight italic pt-0.5 border-t border-border/40">
             * These missing rolls are excluded so seated students are placed without gaps.
           </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmsClassMultiSelect({
+  selectedClasses,
+  onChange,
+}: {
+  selectedClasses: string[];
+  onChange: (classes: string[]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Normalize selected classes to clean base Roman codes (e.g. "V-A" -> "V")
+  const normalizedSelected = useMemo(() => {
+    return Array.from(
+      new Set(
+        selectedClasses
+          .map((c: string) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()))
+          .filter(Boolean)
+      )
+    );
+  }, [selectedClasses]);
+
+  // If caller provided un-normalized items (e.g. from legacy state "V-A"), sanitize immediately
+  useEffect(() => {
+    if (
+      selectedClasses.length > 0 &&
+      (selectedClasses.length !== normalizedSelected.length ||
+        selectedClasses.some((c: string, i: number) => c !== normalizedSelected[i]))
+    ) {
+      onChange(normalizedSelected);
+    }
+  }, [selectedClasses, normalizedSelected, onChange]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
+  const toggleClass = (code: string) => {
+    const norm = normalizeClassCode(code);
+    if (normalizedSelected.includes(norm)) {
+      onChange(normalizedSelected.filter((c: string) => c !== norm));
+    } else {
+      const combined = [...normalizedSelected, norm].sort(
+        (a: string, b: string) => getClassNumericRank(a) - getClassNumericRank(b)
+      );
+      onChange(combined);
+    }
+  };
+
+  const displayText =
+    normalizedSelected.length === 0
+      ? "Select Classes *"
+      : normalizedSelected.length <= 3
+      ? normalizedSelected.map((c: string) => `Class ${c}`).join(", ")
+      : `${normalizedSelected.length} Classes (${normalizedSelected.join(", ")})`;
+
+  return (
+    <div className="relative w-full" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-full h-10 px-3 py-2 rounded-xl border border-input bg-background text-left text-xs transition-all flex items-center justify-between gap-2 shadow-2xs hover:border-primary/50 focus:outline-hidden focus:ring-2 focus:ring-primary/20 cursor-pointer",
+          isOpen && "ring-2 ring-primary/20 border-primary"
+        )}
+      >
+        <span
+          className={cn(
+            "truncate",
+            normalizedSelected.length === 0
+              ? "text-muted-foreground font-normal"
+              : "font-semibold text-foreground"
+          )}
+        >
+          {displayText}
+        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {normalizedSelected.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] font-mono font-bold px-1.5 py-0 h-5">
+              {normalizedSelected.length}
+            </Badge>
+          )}
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              isOpen && "rotate-180 text-primary"
+            )}
+          />
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-2xl border border-border bg-popover/95 p-2 shadow-2xl backdrop-blur-md animate-in fade-in-0 zoom-in-95 space-y-2">
+          {/* Quick presets */}
+          <div className="flex items-center gap-1 flex-wrap pb-1.5 border-b border-border/60">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+              Quick:
+            </span>
+            <button
+              type="button"
+              onClick={() => onChange(["V", "VI", "VII", "VIII", "IX"])}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            >
+              V–IX (Junior)
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(["V", "VI", "VII", "VIII", "IX", "X"])}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            >
+              V–X (Secondary)
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange(["XI"])}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            >
+              Class XI
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange([...EMS_ELIGIBLE_CLASSES])}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+            >
+              All (V–XI)
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-muted hover:bg-destructive/10 hover:text-destructive transition-colors cursor-pointer ml-auto"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Classes Checklist */}
+          <div className="grid grid-cols-2 gap-1 max-h-56 overflow-y-auto p-0.5">
+            {EMS_ELIGIBLE_CLASSES.map((cls) => {
+              const isSelected = normalizedSelected.includes(cls);
+              return (
+                <button
+                  key={cls}
+                  type="button"
+                  onClick={() => toggleClass(cls)}
+                  className={cn(
+                    "flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer text-left",
+                    isSelected
+                      ? "bg-primary/10 text-primary border border-primary/30"
+                      : "hover:bg-muted/60 text-foreground border border-transparent"
+                  )}
+                >
+                  <span>Class {cls}</span>
+                  {isSelected ? (
+                    <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                  ) : (
+                    <div className="h-3.5 w-3.5 rounded border border-border/80 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -423,6 +698,7 @@ function EmsMasterPageContent() {
 
   // Step 1: Session & Exam
   const [academicYear, setAcademicYear] = useState<number>(() => new Date().getFullYear());
+  const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [examType, setExamType] = useState<ExamType>("1st Summative Evaluation");
 
   // Step 2: Class & Students (Group-wise with multi-section auto-select & DB roll ranges)
@@ -479,6 +755,30 @@ function EmsMasterPageContent() {
   const [mismatchReport, setMismatchReport] = useState<MismatchReport | null>(null);
   const [mismatchModalOpen, setMismatchModalOpen] = useState(false);
   const [pendingAllocation, setPendingAllocation] = useState<ExamAllocation | null>(null);
+
+  // Student Roster Dialog State (for manual inclusion / exclusion)
+  const [rosterModalState, setRosterModalState] = useState<{
+    open: boolean;
+    groupId: string;
+    sectionName?: string;
+    classCode: string;
+    title: string;
+    students: Student[];
+    rollFrom?: number;
+    rollTo?: number;
+    regNoFrom?: string;
+    regNoTo?: string;
+    isHs: boolean;
+    excludedIds: string[];
+  }>({
+    open: false,
+    groupId: "",
+    classCode: "",
+    title: "",
+    students: [],
+    isHs: false,
+    excludedIds: [],
+  });
 
   // Dynamic classes from DB
   const [availableClasses, setAvailableClasses] = useState<string[]>(() => getDynamicClassCodes());
@@ -546,20 +846,6 @@ function EmsMasterPageContent() {
       }
     });
 
-    // Restore active or most recent allocation on reload
-    const activeAlloc = getActiveAllocation() || (savedAllocs.length > 0 ? savedAllocs[0] : null);
-    if (activeAlloc) {
-      setGeneratedAllocation((prev) => prev || activeAlloc);
-      if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
-      if (activeAlloc.examType) setExamType(activeAlloc.examType);
-      if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
-        setActiveBlueprintRoomId((prev) => prev || activeAlloc.roomAllocations[0].roomId);
-        setSelectedRoomIds((prev) =>
-          prev.length === 0 ? activeAlloc.roomAllocations.map((r) => r.roomId) : prev
-        );
-      }
-    }
-
     // Restore step if URL or sessionStorage has step
     const stepQuery = searchParams.get("step");
     let targetStep = 1;
@@ -583,36 +869,42 @@ function EmsMasterPageContent() {
         doneSteps.push(i);
       }
       setCompletedSteps((prev) => Array.from(new Set([...prev, ...doneSteps])));
+
+      // Restore active allocation on reload ONLY when user is already in step > 1
+      const activeAlloc = getActiveAllocation();
+      if (activeAlloc) {
+        setGeneratedAllocation(activeAlloc);
+        if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
+        if (activeAlloc.examType) setExamType(activeAlloc.examType);
+        const allocClasses = activeAlloc.summary?.classesAllocated || (activeAlloc as any)?.classesConfig?.map((c: any) => c.class);
+        if (allocClasses && allocClasses.length > 0) {
+          const cleaned = allocClasses
+            .map((c: string) => normalizeClassCode(c.split("-")[0].trim()))
+            .filter(Boolean);
+          setSelectedClasses(Array.from(new Set(cleaned)));
+        }
+        if (activeAlloc.roomAllocations && activeAlloc.roomAllocations.length > 0) {
+          setActiveBlueprintRoomId(activeAlloc.roomAllocations[0].roomId);
+          setSelectedRoomIds(activeAlloc.roomAllocations.map((r) => r.roomId));
+        }
+      }
     }
 
-    // Fetch continuing students & initialize class groups with all sections and auto-fetched roll ranges
+    // Fetch continuing students & initialize class groups
     fetchContinuingStudents().then((loadedStudents) => {
       setAllStudents(loadedStudents);
       setStudentsLoading(false);
 
-      const defaultClassCodes = ["V", "VI"];
-      const initialGroups: ClassGroupConfig[] = defaultClassCodes.map((code, idx) => {
-        const availSecs = getSectionsForClass(code, loadedStudents);
-        return {
-          id: `grp-${code.toLowerCase()}-${idx}-${Date.now()}`,
-          class: code,
-          sections: availSecs.map((sec) => {
-            const stats = calculateSectionStudentStats(loadedStudents, code, sec);
-            return {
-              section: sec,
-              rollFrom: stats.rollFrom,
-              rollTo: stats.rollTo,
-              enrolledCount: stats.count,
-              totalEnrolled: stats.totalEnrolled,
-              minRoll: stats.minRoll,
-              maxRoll: stats.maxRoll,
-            };
-          }),
-        };
-      });
-
       setClassGroups((prev) => {
-        if (prev.length === 0) return sortClassGroups(initialGroups);
+        if (prev.length === 0) {
+          if (selectedClasses.length > 0) {
+            return sortClassGroups(
+              selectedClasses.map((code) => buildClassGroupConfig(code, loadedStudents))
+            );
+          }
+          return [];
+        }
+
         // If already present, refresh ranges and enrolled counts with loaded students
         const updated = prev.map((g) => {
           const isHs = isHigherSecondaryClass(g.class);
@@ -690,6 +982,7 @@ function EmsMasterPageContent() {
             regNoFrom: g.regNoFrom,
             regNoTo: g.regNoTo,
             isHsClass: true,
+            excludedStudentIds: g.excludedStudentIds || [],
           },
         ];
       }
@@ -699,6 +992,7 @@ function EmsMasterPageContent() {
         rollFrom: s.rollFrom,
         rollTo: s.rollTo,
         isHsClass: false,
+        excludedStudentIds: s.excludedStudentIds || [],
       }));
     });
     setClasses(flattened);
@@ -875,7 +1169,8 @@ function EmsMasterPageContent() {
           updated.stream || "ALL",
           updated.gender || "ALL",
           updated.regNoFrom,
-          updated.regNoTo
+          updated.regNoTo,
+          g.excludedStudentIds || []
         );
         return {
           ...updated,
@@ -886,6 +1181,7 @@ function EmsMasterPageContent() {
               rollTo: 9999,
               enrolledCount: stats.count,
               totalEnrolled: stats.totalEnrolled,
+              excludedStudentIds: g.excludedStudentIds || [],
             },
           ],
         };
@@ -902,7 +1198,10 @@ function EmsMasterPageContent() {
           allStudents,
           g.class,
           g.stream || "ALL",
-          g.gender || "ALL"
+          g.gender || "ALL",
+          undefined,
+          undefined,
+          g.excludedStudentIds || []
         );
         return {
           ...g,
@@ -915,6 +1214,7 @@ function EmsMasterPageContent() {
               rollTo: 9999,
               enrolledCount: stats.count,
               totalEnrolled: stats.totalEnrolled,
+              excludedStudentIds: g.excludedStudentIds || [],
             },
           ],
         };
@@ -922,8 +1222,132 @@ function EmsMasterPageContent() {
     );
   };
 
-  // Handler: Remove an entire class group
+  // Handlers for Student Roster Modal (Manual inclusion/exclusion)
+  const handleOpenRosterForSection = (group: ClassGroupConfig, sec: ClassGroupSectionConfig) => {
+    const targetClass = normalizeClassCode(group.class);
+    const targetSec = normalizeSectionCode(sec.section);
+    const sectionStudents = allStudents.filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      return (
+        normalizeClassCode(s.presentClass) === targetClass &&
+        normalizeSectionCode(s.presentSection) === targetSec
+      );
+    });
+
+    setRosterModalState({
+      open: true,
+      groupId: group.id,
+      sectionName: sec.section,
+      classCode: group.class,
+      title: `Class ${group.class} - Section ${sec.section}`,
+      students: sectionStudents,
+      rollFrom: sec.rollFrom,
+      rollTo: sec.rollTo,
+      isHs: false,
+      excludedIds: sec.excludedStudentIds || [],
+    });
+  };
+
+  const handleOpenRosterForHs = (group: ClassGroupConfig) => {
+    const targetClass = normalizeClassCode(group.class);
+    const streamShort = group.stream && group.stream !== "ALL" ? toShortStream(group.stream) : null;
+    const isBoyFilter =
+      group.gender && group.gender !== "ALL"
+        ? group.gender.toLowerCase().startsWith("boy") || group.gender.toLowerCase() === "male"
+        : null;
+
+    const hsStudents = allStudents.filter((s) => {
+      if (s.currentStatus && s.currentStatus !== "Continuing") return false;
+      if (normalizeClassCode(s.presentClass) !== targetClass) return false;
+      if (streamShort && toShortStream(s.academicStream) !== streamShort) return false;
+      if (isBoyFilter !== null) {
+        if (isBoyFilter && s.gender !== "Male") return false;
+        if (!isBoyFilter && s.gender !== "Female") return false;
+      }
+      return true;
+    });
+
+    setRosterModalState({
+      open: true,
+      groupId: group.id,
+      classCode: group.class,
+      title: `Class ${group.class} (${group.stream || "ALL"} Stream)`,
+      students: hsStudents,
+      regNoFrom: group.regNoFrom,
+      regNoTo: group.regNoTo,
+      isHs: true,
+      excludedIds: group.excludedStudentIds || [],
+    });
+  };
+
+  const handleSaveRosterExclusions = (excludedIds: string[]) => {
+    if (rosterModalState.isHs) {
+      setClassGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== rosterModalState.groupId) return g;
+          const stats = calculateHsStudentStats(
+            allStudents,
+            g.class,
+            g.stream || "ALL",
+            g.gender || "ALL",
+            g.regNoFrom,
+            g.regNoTo,
+            excludedIds
+          );
+          return {
+            ...g,
+            excludedStudentIds: excludedIds,
+            sections: [
+              {
+                section: "ALL",
+                rollFrom: 1,
+                rollTo: 9999,
+                enrolledCount: stats.count,
+                totalEnrolled: stats.totalEnrolled,
+                excludedStudentIds: excludedIds,
+              },
+            ],
+          };
+        })
+      );
+    } else {
+      setClassGroups((prev) =>
+        prev.map((g) => {
+          if (g.id !== rosterModalState.groupId) return g;
+          return {
+            ...g,
+            sections: g.sections.map((s) => {
+              if (s.section !== rosterModalState.sectionName) return s;
+              const stats = calculateSectionStudentStats(
+                allStudents,
+                g.class,
+                s.section,
+                s.rollFrom,
+                s.rollTo,
+                excludedIds
+              );
+              return {
+                ...s,
+                excludedStudentIds: excludedIds,
+                enrolledCount: stats.count,
+                totalEnrolled: stats.totalEnrolled,
+              };
+            }),
+          };
+        })
+      );
+    }
+  };
+
+  // Handler: Remove an entire class group (keeps Step 1 selectedClasses in sync)
   const handleRemoveClassGroup = (groupId: string) => {
+    const target = classGroups.find((g) => g.id === groupId);
+    if (target) {
+      const norm = normalizeClassCode(target.class);
+      setSelectedClasses((prev) =>
+        prev.filter((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()) !== norm)
+      );
+    }
     setClassGroups((prev) => prev.filter((g) => g.id !== groupId));
   };
 
@@ -989,7 +1413,8 @@ function EmsMasterPageContent() {
               g.class,
               sectionName,
               updatedRollFrom,
-              updatedRollTo
+              updatedRollTo,
+              s.excludedStudentIds || []
             );
             return {
               ...s,
@@ -1010,22 +1435,28 @@ function EmsMasterPageContent() {
     setClassGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
-        const stats = calculateSectionStudentStats(allStudents, g.class, sectionName);
         return {
           ...g,
-          sections: g.sections.map((s) =>
-            s.section === sectionName
-              ? {
-                  ...s,
-                  rollFrom: stats.rollFrom,
-                  rollTo: stats.rollTo,
-                  enrolledCount: stats.count,
-                  totalEnrolled: stats.totalEnrolled,
-                  minRoll: stats.minRoll,
-                  maxRoll: stats.maxRoll,
-                }
-              : s
-          ),
+          sections: g.sections.map((s) => {
+            if (s.section !== sectionName) return s;
+            const stats = calculateSectionStudentStats(
+              allStudents,
+              g.class,
+              sectionName,
+              undefined,
+              undefined,
+              s.excludedStudentIds || []
+            );
+            return {
+              ...s,
+              rollFrom: stats.rollFrom,
+              rollTo: stats.rollTo,
+              enrolledCount: stats.count,
+              totalEnrolled: stats.totalEnrolled,
+              minRoll: stats.minRoll,
+              maxRoll: stats.maxRoll,
+            };
+          }),
         };
       })
     );
@@ -1039,7 +1470,14 @@ function EmsMasterPageContent() {
         return {
           ...g,
           sections: g.sections.map((s) => {
-            const stats = calculateSectionStudentStats(allStudents, g.class, s.section);
+            const stats = calculateSectionStudentStats(
+              allStudents,
+              g.class,
+              s.section,
+              undefined,
+              undefined,
+              s.excludedStudentIds || []
+            );
             return {
               ...s,
               rollFrom: stats.rollFrom,
@@ -1171,7 +1609,8 @@ function EmsMasterPageContent() {
         g.stream || "ALL",
         g.gender || "ALL",
         g.regNoFrom,
-        g.regNoTo
+        g.regNoTo,
+        g.excludedStudentIds || []
       );
       return sum + stats.count;
     }
@@ -1194,6 +1633,28 @@ function EmsMasterPageContent() {
 
   // Step transitions
   const handleProceedFromStep1 = () => {
+    if (selectedClasses.length === 0) {
+      alert("Please select at least one class.");
+      return;
+    }
+    const cleanClasses = Array.from(
+      new Set(
+        selectedClasses
+          .map((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()))
+          .filter(Boolean)
+      )
+    );
+    setClassGroups((prev) => {
+      const existingMap = new Map(
+        prev.map((g) => [normalizeClassCode(g.class), g])
+      );
+      const merged = cleanClasses.map((cls) => {
+        const existing = existingMap.get(cls);
+        if (existing) return existing;
+        return buildClassGroupConfig(cls, allStudents);
+      });
+      return sortClassGroups(merged);
+    });
     markStepDone(1);
     setStep(2);
   };
@@ -1389,7 +1850,7 @@ function EmsMasterPageContent() {
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Examination Session Details
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                   Academic Year *
@@ -1405,12 +1866,31 @@ function EmsMasterPageContent() {
 
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                  Exam Type (Summative Evaluation) *
+                  Participating Classes *
+                </label>
+                <EmsClassMultiSelect
+                  selectedClasses={selectedClasses}
+                  onChange={(newClasses) => {
+                    setSelectedClasses(newClasses);
+                    const validTypes = getExamTypesForClasses(newClasses);
+                    if (!validTypes.includes(examType)) {
+                      setExamType(validTypes[0]);
+                    }
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                  Exam Type *
                 </label>
                 <CustomSelect
                   value={examType}
                   onChange={(val) => setExamType(val as ExamType)}
-                  options={EXAM_TYPES.map((t) => ({ label: t, value: t }))}
+                  options={getExamTypesForClasses(selectedClasses).map((t) => ({
+                    label: getExamTypeDisplayLabel(t),
+                    value: t,
+                  }))}
                   searchable={false}
                 />
               </div>
@@ -1485,6 +1965,13 @@ function EmsMasterPageContent() {
                             setGeneratedAllocation(plan);
                             if (plan.academicYear) setAcademicYear(plan.academicYear);
                             if (plan.examType) setExamType(plan.examType);
+                            const planClasses = plan.summary?.classesAllocated || (plan as any)?.classesConfig?.map((c: any) => c.class);
+                            if (planClasses && planClasses.length > 0) {
+                              const cleaned = planClasses
+                                .map((c: string) => normalizeClassCode(c.split("-")[0].trim()))
+                                .filter(Boolean);
+                              setSelectedClasses(Array.from(new Set(cleaned)));
+                            }
                             setActiveBlueprintRoomId(plan.roomAllocations[0]?.roomId || "");
                             setSelectedRoomIds(plan.roomAllocations.map((r) => r.roomId));
                             markStepDone(1);
@@ -1505,6 +1992,13 @@ function EmsMasterPageContent() {
                             setGeneratedAllocation(plan);
                             if (plan.academicYear) setAcademicYear(plan.academicYear);
                             if (plan.examType) setExamType(plan.examType);
+                            const planClasses = plan.summary?.classesAllocated || (plan as any)?.classesConfig?.map((c: any) => c.class);
+                            if (planClasses && planClasses.length > 0) {
+                              const cleaned = planClasses
+                                .map((c: string) => normalizeClassCode(c.split("-")[0].trim()))
+                                .filter(Boolean);
+                              setSelectedClasses(Array.from(new Set(cleaned)));
+                            }
                             setActiveBlueprintRoomId(plan.roomAllocations[0]?.roomId || "");
                             setSelectedRoomIds(plan.roomAllocations.map((r) => r.roomId));
                             markStepDone(1);
@@ -1569,22 +2063,6 @@ function EmsMasterPageContent() {
               >
                 {classGroups.length} Classes • {classes.length} Sections • {totalStudentsExpected} Students
               </Badge>
-
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={classGroups.length >= availableClasses.length}
-                onClick={handleAddClassGroup}
-                className="h-8 text-xs font-semibold gap-1.5 hover:border-primary/40 hover:bg-primary/5 text-foreground cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs"
-                title={
-                  classGroups.length >= availableClasses.length
-                    ? "All available classes are already configured"
-                    : "Add another class group"
-                }
-              >
-                <Plus className="h-3.5 w-3.5 text-primary" /> Add Class Group
-              </Button>
             </div>
           </div>
 
@@ -1593,15 +2071,16 @@ function EmsMasterPageContent() {
             {classGroups.length === 0 ? (
               <div className="p-8 text-center border border-dashed rounded-2xl space-y-3 bg-muted/10">
                 <p className="text-xs text-muted-foreground font-medium">
-                  No classes configured. Click below to add a class group.
+                  No classes selected. Please choose participating classes in Step 1.
                 </p>
                 <Button
                   type="button"
                   size="sm"
-                  onClick={handleAddClassGroup}
+                  variant="outline"
+                  onClick={() => setStep(1)}
                   className="text-xs font-semibold gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add Class Group
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Step 1
                 </Button>
               </div>
             ) : (
@@ -1618,7 +2097,8 @@ function EmsMasterPageContent() {
                       g.stream || "ALL",
                       g.gender || "ALL",
                       g.regNoFrom,
-                      g.regNoTo
+                      g.regNoTo,
+                      g.excludedStudentIds || []
                     )
                   : null;
 
@@ -1641,11 +2121,6 @@ function EmsMasterPageContent() {
                         (sec.rollFrom !== stats.rollFrom || sec.rollTo !== stats.rollTo)
                       );
                     });
-
-                const selectableClassOptions = availableClasses.map((opt) => ({
-                  label: `Class ${opt}`,
-                  value: opt,
-                }));
 
                 return (
                   <div
@@ -1671,16 +2146,9 @@ function EmsMasterPageContent() {
                         </span>
 
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-muted-foreground">Class:</span>
-                          <div className="w-34 sm:w-40">
-                            <CustomSelect
-                              value={g.class}
-                              onChange={(val) => handleChangeGroupClass(g.id, String(val))}
-                              options={selectableClassOptions}
-                              searchable={false}
-                              className="text-xs font-bold h-8"
-                            />
-                          </div>
+                          <span className="text-sm font-bold text-foreground tracking-tight">
+                            Class {g.class}
+                          </span>
                         </div>
 
                         <Badge
@@ -1810,15 +2278,22 @@ function EmsMasterPageContent() {
 
                               <Badge
                                 variant="secondary"
+                                onClick={() => handleOpenRosterForHs(g)}
                                 className={cn(
-                                  "h-8 px-2.5 text-[11px] font-mono font-bold border shrink-0 flex items-center gap-1.5 transition-colors",
+                                  "h-8 px-2.5 text-[11px] font-mono font-bold border shrink-0 flex items-center gap-1.5 transition-all cursor-pointer hover:border-primary/50 hover:bg-primary/5 shadow-2xs",
                                   hsStats.count > 0
                                     ? "border-border/70 bg-background text-foreground"
                                     : "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
                                 )}
+                                title="Click to view full roster and select/deselect candidates"
                               >
                                 <Users className="h-3 w-3 text-primary" />
                                 <span>{hsStats.count} Candidates</span>
+                                {g.excludedStudentIds && g.excludedStudentIds.length > 0 && (
+                                  <span className="text-rose-600 dark:text-rose-400 font-semibold text-[10px]">
+                                    ({g.excludedStudentIds.length} Excluded)
+                                  </span>
+                                )}
                               </Badge>
                             </div>
                           </div>
@@ -1974,15 +2449,22 @@ function EmsMasterPageContent() {
 
                                   <Badge
                                     variant="secondary"
+                                    onClick={() => handleOpenRosterForSection(g, sec)}
                                     className={cn(
-                                      "h-7 px-2.5 text-[11px] font-mono font-bold border shrink-0 flex items-center gap-1.5 transition-colors",
+                                      "h-7 px-2.5 text-[11px] font-mono font-bold border shrink-0 flex items-center gap-1.5 transition-all cursor-pointer hover:border-primary/50 hover:bg-primary/5 shadow-2xs",
                                       sec.enrolledCount > 0
                                         ? "border-border/70 bg-background text-foreground"
                                         : "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
                                     )}
+                                    title="Click to view full roster and select/deselect candidates"
                                   >
                                     <Users className="h-3 w-3 text-primary" />
                                     <span>{sec.enrolledCount} Candidates</span>
+                                    {sec.excludedStudentIds && sec.excludedStudentIds.length > 0 && (
+                                      <span className="text-rose-600 dark:text-rose-400 font-semibold text-[10px]">
+                                        ({sec.excludedStudentIds.length} Excluded)
+                                      </span>
+                                    )}
                                   </Badge>
 
                                   <Button
@@ -2522,6 +3004,21 @@ function EmsMasterPageContent() {
           setRooms(updated);
         }}
         initialRoom={editingRoom}
+      />
+
+      {/* Student Roster Dialog for Manual Inclusion / Exclusion */}
+      <StudentRosterDialog
+        isOpen={rosterModalState.open}
+        onClose={() => setRosterModalState((prev) => ({ ...prev, open: false }))}
+        title={rosterModalState.title}
+        students={rosterModalState.students}
+        rollFrom={rosterModalState.rollFrom}
+        rollTo={rosterModalState.rollTo}
+        regNoFrom={rosterModalState.regNoFrom}
+        regNoTo={rosterModalState.regNoTo}
+        isHs={rosterModalState.isHs}
+        initialExcludedIds={rosterModalState.excludedIds}
+        onSave={handleSaveRosterExclusions}
       />
 
       {/* Mismatch Notification Modal */}
