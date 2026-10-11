@@ -122,19 +122,14 @@ export function RoutineHistorySection({
     <div className="bg-card border rounded-lg p-5 shadow-xs space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3.5">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <History className="w-5 h-5 text-primary" />
-            <h2 className="text-base font-bold tracking-tight text-foreground">
-              Generation History (সর্বশেষ ১০টি রুটিন)
-            </h2>
-            <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-              Auto-Prune Active (Max 10)
-            </Badge>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            সর্বশেষ ১০টি জেনারেট হওয়া রুটিনের তালিকা। পুরনো রুটিনগুলো ডাটাবেস থেকে স্বয়ংক্রিয়ভাবে মুছে ফেলা হয়।
-          </p>
+        <div className="flex items-center gap-2">
+          <History className="w-5 h-5 text-primary" />
+          <h2 className="text-base font-bold tracking-tight text-foreground">
+            Generation History
+          </h2>
+          <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
+            Auto-Prune Active (Max 10)
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2">
@@ -159,16 +154,16 @@ export function RoutineHistorySection({
       {isLoading && history.length === 0 ? (
         <div className="py-12 flex flex-col items-center justify-center text-xs text-muted-foreground gap-2">
           <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-          <span>রুটিন হিস্ট্রি লোড হচ্ছে...</span>
+          <span>Loading routine history...</span>
         </div>
       ) : history.length === 0 ? (
         <div className="py-10 border border-dashed rounded-lg flex flex-col items-center justify-center text-center p-6 bg-muted/5">
           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-2">
             <Clock className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-semibold text-foreground">কোনো পূর্ববর্তী রুটিন নেই</h3>
+          <h3 className="text-sm font-semibold text-foreground">No Routine History Found</h3>
           <p className="text-xs text-muted-foreground max-w-sm mt-1">
-            উপরে &quot;Generate Timetable&quot; বাটনে ক্লিক করে রুটিন তৈরি করুন। এখানে স্বয়ংক্রিয়ভাবে সর্বশেষ ১০টি রুটিনের হিস্ট্রি সংরক্ষিত থাকবে।
+            Generate a timetable above to view past runs.
           </p>
         </div>
       ) : (

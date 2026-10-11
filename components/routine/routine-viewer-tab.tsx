@@ -31,6 +31,7 @@ import {
   ChevronDown,
   Check,
   Filter,
+  UserCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,7 @@ interface RoutineViewerTabProps {
   rooms: RoutineRoom[];
 }
 
-type ViewMode = "master" | "class" | "teacher" | "room";
+type ViewMode = "master" | "master-teacher" | "class" | "teacher" | "room";
 
 function ViewerDropdown({
   value,
@@ -227,6 +228,27 @@ export function RoutineViewerTab({
     if (masterSectionFilter === "ALL") return sortedClasses;
     return sortedClasses.filter((c) => (c.section || "A") === masterSectionFilter);
   }, [sortedClasses, masterSectionFilter]);
+
+  // Master Faculty filter & list for Master Teacher-wise view
+  const [masterFacultyFilter, setMasterFacultyFilter] = useState<string>("ALL");
+
+  const distinctFacultySubjects = useMemo(() => {
+    const set = new Set<string>();
+    teachers.forEach((t) => {
+      if (t.primarySubject && t.primarySubject.trim()) {
+        set.add(t.primarySubject.trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [teachers]);
+
+  const displayedMasterTeachers = useMemo(() => {
+    let list = [...teachers].sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name));
+    if (masterFacultyFilter !== "ALL") {
+      list = list.filter((t) => t.primarySubject?.trim() === masterFacultyFilter);
+    }
+    return list;
+  }, [teachers, masterFacultyFilter]);
 
   const handleSelectClass = (clsName: string) => {
     const match = sortedClasses.find((c) => c.className === clsName);
@@ -460,8 +482,8 @@ export function RoutineViewerTab({
         }
       };
 
-      // --- 1. MASTER SHEET ---
-      const wsMaster = workbook.addWorksheet("Master");
+      // --- 1. MASTER (DAY-WISE) SHEET ---
+      const wsMaster = workbook.addWorksheet("Master (Day-wise)");
       let mRowIdx = 1;
 
       settings.workingDays.forEach((dIdx) => {
@@ -496,6 +518,7 @@ export function RoutineViewerTab({
             }
           }
           wsMaster.getRow(mRowIdx).values = rowData;
+          wsMaster.getRow(mRowIdx).height = 36;
           mRowIdx++;
         });
         
@@ -503,7 +526,74 @@ export function RoutineViewerTab({
         mRowIdx += 2;
       });
 
-      // --- 2. CLASS-WISE SHEET ---
+      // --- 2. MASTER (TEACHER-WISE) SHEET ---
+      const wsMasterTeacher = workbook.addWorksheet("Master (Teacher-wise)");
+      let mtRowIdx = 1;
+      const teacherHeaderRow = ["Teacher / Faculty", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
+      const teacherDayRowFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
+      const teacherHeaderFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF385723' } };
+
+      const sortedFaculty = [...teachers].sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name));
+
+      settings.workingDays.forEach((dIdx) => {
+        const titleRow = wsMasterTeacher.getRow(mtRowIdx);
+        titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " (Teacher Master) ---";
+        titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF274E13' } };
+        titleRow.getCell(1).fill = teacherDayRowFill;
+        wsMasterTeacher.mergeCells(mtRowIdx, 1, mtRowIdx, maxPeriods + 1);
+        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+        mtRowIdx++;
+
+        const startTblRow = mtRowIdx;
+        wsMasterTeacher.getRow(mtRowIdx).values = teacherHeaderRow;
+        mtRowIdx++;
+
+        sortedFaculty.forEach((tch) => {
+          const rowData: any[] = [
+            tch.name + (tch.shortName ? ` (${tch.shortName})` : "") + (tch.primarySubject ? ` [${tch.primarySubject}]` : "")
+          ];
+
+          for (let p = 1; p <= maxPeriods; p++) {
+            const pPos = p - 1;
+            let assignedClass: RoutineClass | null = null;
+            let assignedCell: any = null;
+
+            for (const c of classes) {
+              const cellData = routine.grid[c.id]?.[dIdx]?.[pPos];
+              if (cellData && cellData.tid === tch.id) {
+                assignedClass = c;
+                assignedCell = cellData;
+                break;
+              }
+            }
+
+            if (assignedClass && assignedCell) {
+              const subj = subjectMap.get(assignedCell.sid);
+              const room = assignedCell.rid ? roomMap.get(assignedCell.rid) : null;
+              let text = `${assignedClass.className}-${assignedClass.section}\n${subj?.name || "Unknown"}`;
+              if (assignedCell.lab) text += " (Lab)";
+              if (room) text += `\n[${room.name}]`;
+              rowData.push(text);
+            } else {
+              rowData.push("-");
+            }
+          }
+
+          wsMasterTeacher.getRow(mtRowIdx).values = rowData;
+          wsMasterTeacher.getRow(mtRowIdx).height = 36;
+          mtRowIdx++;
+        });
+
+        applyTableStyles(wsMasterTeacher, startTblRow, mtRowIdx - startTblRow, maxPeriods + 1);
+        for (let c = 1; c <= maxPeriods + 1; c++) {
+          const hCell = wsMasterTeacher.getCell(startTblRow, c);
+          hCell.fill = teacherHeaderFill;
+          hCell.font = headerFont;
+        }
+        mtRowIdx += 2;
+      });
+
+      // --- 3. CLASS-WISE SHEET ---
       const wsClass = workbook.addWorksheet("Class-wise");
       let cRowIdx = 1;
 
@@ -670,6 +760,20 @@ export function RoutineViewerTab({
 
           <button
             type="button"
+            onClick={() => setViewMode("master-teacher")}
+            className={cn(
+              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
+              viewMode === "master-teacher"
+                ? "bg-background text-foreground shadow-xs font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Users className="h-3.5 w-3.5" />
+            <span>Master (Teacher-wise)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setViewMode("class")}
             className={cn(
               "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
@@ -692,7 +796,7 @@ export function RoutineViewerTab({
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <Users className="h-3.5 w-3.5" />
+            <UserCheck className="h-3.5 w-3.5" />
             <span>Teacher-wise</span>
           </button>
 
@@ -715,7 +819,7 @@ export function RoutineViewerTab({
 
         {/* Dynamic Selector Dropdowns & Actions */}
         <div className="flex items-center flex-wrap gap-2">
-          {/* Master View Controls: Day + Section Filter */}
+          {/* Master Day-wise View Controls: Day + Section Filter */}
           {viewMode === "master" && (
             <>
               <ViewerDropdown
@@ -742,6 +846,38 @@ export function RoutineViewerTab({
                 labelPrefix="Section"
                 icon={<Filter className="w-3.5 h-3.5" />}
               />
+            </>
+          )}
+
+          {/* Master Teacher-wise View Controls: Day + Subject Filter */}
+          {viewMode === "master-teacher" && (
+            <>
+              <ViewerDropdown
+                value={String(masterDayIdx)}
+                onChange={(v) => setMasterDayIdx(parseInt(v, 10))}
+                options={activeDays.map((dIdx, idx) => ({
+                  value: String(idx),
+                  label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
+                }))}
+                labelPrefix="Day"
+                icon={<Calendar className="w-3.5 h-3.5" />}
+              />
+
+              {distinctFacultySubjects.length > 0 && (
+                <ViewerDropdown
+                  value={masterFacultyFilter}
+                  onChange={setMasterFacultyFilter}
+                  options={[
+                    { value: "ALL", label: "All Faculty" },
+                    ...distinctFacultySubjects.map((sub) => ({
+                      value: sub,
+                      label: sub,
+                    })),
+                  ]}
+                  labelPrefix="Department"
+                  icon={<Filter className="w-3.5 h-3.5" />}
+                />
+              )}
             </>
           )}
 
@@ -883,7 +1019,8 @@ export function RoutineViewerTab({
       <div className="hidden print:block text-center border-b pb-3 mb-4">
         <h1 className="text-xl font-bold uppercase tracking-tight">Academic Routine & Master Timetable</h1>
         <div className="text-xs text-muted-foreground font-semibold mt-0.5">
-          {viewMode === "master" && `Master Schedule — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterSectionFilter !== "ALL" ? ` (Section ${masterSectionFilter})` : ""}`}
+          {viewMode === "master" && `Master Schedule (Day-wise) — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterSectionFilter !== "ALL" ? ` (Section ${masterSectionFilter})` : ""}`}
+          {viewMode === "master-teacher" && `Master Faculty Schedule (Teacher-wise) — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterFacultyFilter !== "ALL" ? ` (${masterFacultyFilter})` : ""}`}
           {viewMode === "class" && (
             <>
               Class Schedule — {classMap.get(selectedClassId)?.className || ""}{" "}
@@ -922,8 +1059,12 @@ export function RoutineViewerTab({
           <table className="w-full text-xs text-center border-collapse">
             <thead>
               <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
-                <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-32 font-bold">
-                  {viewMode === "master" ? "Class \\ Period" : "Day \\ Period"}
+                <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-36 font-bold">
+                  {viewMode === "master"
+                    ? "Class \\ Period"
+                    : viewMode === "master-teacher"
+                    ? "Teacher \\ Period"
+                    : "Day \\ Period"}
                 </th>
                 {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
                   const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
@@ -1137,8 +1278,134 @@ export function RoutineViewerTab({
                 </>
               )}
 
+              {/* MASTER TEACHER-WISE (Day-wise: Rows = Teachers) */}
+              {viewMode === "master-teacher" && (
+                <>
+                  {displayedMasterTeachers.map((tch) => {
+                    const dPos = masterDayIdx || 0;
+                    const actDay = activeDays[dPos];
+                    const maxPForDay = halfDays.includes(actDay)
+                      ? maxHalfP
+                      : settings.periodsPerDay;
+
+                    return (
+                      <tr key={tch.id} className="hover:bg-muted/20 transition-colors">
+                        <td className="py-2.5 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                          <div className="font-bold text-foreground text-xs leading-tight">
+                            {tch.name}
+                          </div>
+                          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <span className="font-mono font-semibold text-primary">{tch.shortName || "-"}</span>
+                            {tch.primarySubject && (
+                              <span className="truncate max-w-[90px] text-muted-foreground font-normal">
+                                • {tch.primarySubject}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
+                          const isGray = p > maxPForDay;
+                          const pPos = p - 1;
+                          const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
+
+                          const assigned: { c: RoutineClass; cell: any }[] = [];
+                          if (!isGray) {
+                            for (const c of classes) {
+                              const cell = routine.grid[c.id]?.[dPos]?.[pPos];
+                              if (cell && cell.tid === tch.id) {
+                                assigned.push({ c, cell });
+                              }
+                            }
+                          }
+
+                          return (
+                            <React.Fragment key={p}>
+                              {isGray ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
+                                >
+                                  -
+                                </td>
+                              ) : assigned.length === 0 ? (
+                                <td
+                                  className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black"
+                                >
+                                  <div className="h-16 flex items-center justify-center text-xs font-mono text-muted-foreground/25">
+                                    -
+                                  </div>
+                                </td>
+                              ) : (
+                                <td
+                                  className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all"
+                                >
+                                  {assigned.map(({ c, cell }, aIdx) => {
+                                    const subj = subjectMap.get(cell.sid);
+                                    const rm = cell.rid ? roomMap.get(cell.rid) : null;
+                                    const hasClash = assigned.length > 1;
+
+                                    return (
+                                      <div
+                                        key={aIdx}
+                                        className={cn(
+                                          "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs select-none",
+                                          cell.lab
+                                            ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                            : "bg-background border-border",
+                                          subj?.isHard && "border-l-4 border-l-amber-500",
+                                          hasClash && "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                                        )}
+                                      >
+                                        <div className="flex items-start justify-between gap-1">
+                                          <span className="font-bold text-foreground text-[11px] truncate block leading-tight flex-1">
+                                            {c.className} - {c.section}
+                                          </span>
+                                          {hasClash && (
+                                            <span
+                                              title="Faculty double-booked in this period!"
+                                              className="text-[9px] font-bold text-destructive flex items-center gap-0.5 bg-destructive/15 px-1 rounded shrink-0"
+                                            >
+                                              <AlertTriangle className="w-2.5 h-2.5" /> Clash
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                                          <span className="font-semibold text-primary truncate max-w-[85px]">
+                                            {subj?.name || "?"} {cell.lab ? "(Lab)" : ""}
+                                          </span>
+                                          {rm && (
+                                            <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
+                                              {rm.name.split(" ")[0]}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </td>
+                              )}
+                              {hasBreakAfter && (
+                                <td
+                                  className={cn(
+                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                    p >= maxPForDay
+                                      ? "bg-muted/30 text-muted-foreground/30"
+                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                  )}
+                                >
+                                  {p < maxPForDay ? "Tiffin" : "-"}
+                                </td>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </>
+              )}
+
               {/* CLASS-WISE / TEACHER-WISE / ROOM-WISE (Rows = Days) */}
-              {viewMode !== "master" && (
+              {viewMode !== "master" && viewMode !== "master-teacher" && (
                 <>
                   {activeDays.map((dIdx, dPos) => {
                     const maxPForDay = halfDays.includes(dIdx)
