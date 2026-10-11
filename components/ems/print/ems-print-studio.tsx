@@ -76,6 +76,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
+  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(32);
   const [zoom, setZoom] = useState<number>(0.85);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
   const [isRoomPopoverOpen, setIsRoomPopoverOpen] = useState<boolean>(false);
@@ -241,10 +242,17 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   );
 
   const cardsPerPage = orientation === "landscape" ? 20 : 21;
-  const slipsPerPage = orientation === "landscape" ? 56 : 57;
+  const effectiveSlipsPerPage =
+    benchSlipsPerPage === 32
+      ? 32
+      : benchSlipsPerPage === 24
+        ? 24
+        : orientation === "landscape"
+          ? 56
+          : 57;
 
-  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / cardsPerPage) || 1;
-  const totalPagesSlips = Math.ceil(totalOccupiedStudents / slipsPerPage) || 1;
+  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / (admitCardsPerPage === 8 ? 8 : cardsPerPage)) || 1;
+  const totalPagesSlips = Math.ceil(totalOccupiedStudents / effectiveSlipsPerPage) || 1;
   const totalPagesAttendance =
     selectedRooms.reduce((acc, r) => {
       const studentCount = r.seats.filter((s) => !s.isVacant && s.studentName).length;
@@ -517,7 +525,13 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                {orientation === "landscape" ? "56/A4" : "57/A4"}
+                {benchSlipsPerPage === 32
+                  ? "32/A4"
+                  : benchSlipsPerPage === 24
+                    ? "24/A4"
+                    : orientation === "landscape"
+                      ? "56/A4"
+                      : "57/A4"}
               </span>
             </button>
 
@@ -863,6 +877,113 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               </div>
             )}
 
+            {/* FOR BENCH SLIPS */}
+            {activeDoc === "slips" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-foreground">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Slips / Page</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      {benchSlipsPerPage === 32 ? "32 Slips (4×8)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setBenchSlipsPerPage(32)}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        benchSlipsPerPage === 32
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      32 / Page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBenchSlipsPerPage(24)}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        benchSlipsPerPage === 24
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      24 / Page
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBenchSlipsPerPage(57)}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        benchSlipsPerPage === 57
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      57 Mini
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
+                  <div className="flex items-center justify-between text-foreground">
+                    <span className="font-bold text-xs flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>Orientation</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                      {orientation === "landscape" ? "Landscape" : "Portrait"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("portrait")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "portrait"
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Portrait
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOrientation("landscape")}
+                      className={cn(
+                        "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
+                        orientation === "landscape"
+                          ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Landscape
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-card rounded-xl border border-border/90 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs text-foreground block">
+                      Cutting Space
+                    </span>
+                    <span className="text-[11px] text-muted-foreground truncate block mt-0.5">
+                      {benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-md">
+                    ✂ Ready
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* FOR ATTENDANCE SHEET */}
             {activeDoc === "attendance" && (
               <div className="space-y-3">
@@ -1174,6 +1295,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   schoolProfile={schoolProfile}
                   targetRoomId={targetRoomId}
                   orientation={orientation}
+                  slipsPerPage={benchSlipsPerPage}
                 />
               )}
 
@@ -1241,6 +1363,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               schoolProfile={schoolProfile}
               targetRoomId={targetRoomId}
               orientation={orientation}
+              slipsPerPage={benchSlipsPerPage}
             />
           )}
 

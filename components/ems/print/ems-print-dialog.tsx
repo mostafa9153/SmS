@@ -63,6 +63,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
+  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(32);
   const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
@@ -163,10 +164,17 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   );
 
   const cardsPerPage = orientation === "landscape" ? 20 : 21;
-  const slipsPerPage = orientation === "landscape" ? 56 : 57;
+  const effectiveSlipsPerPage =
+    benchSlipsPerPage === 32
+      ? 32
+      : benchSlipsPerPage === 24
+        ? 24
+        : orientation === "landscape"
+          ? 56
+          : 57;
 
-  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / cardsPerPage) || 1;
-  const totalPagesSlips = Math.ceil(totalOccupiedStudents / slipsPerPage) || 1;
+  const totalPagesAdmit = Math.ceil(totalOccupiedStudents / (admitCardsPerPage === 8 ? 8 : cardsPerPage)) || 1;
+  const totalPagesSlips = Math.ceil(totalOccupiedStudents / effectiveSlipsPerPage) || 1;
   const totalPagesAttendance = selectedRooms.length || 1;
   const totalPagesGate = selectedRooms.length || 1;
 
@@ -372,7 +380,13 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                       )}
                     >
-                      {orientation === "landscape" ? "56/A4" : "57/A4"}
+                      {benchSlipsPerPage === 32
+                        ? "32/A4"
+                        : benchSlipsPerPage === 24
+                          ? "24/A4"
+                          : orientation === "landscape"
+                            ? "56/A4"
+                            : "57/A4"}
                     </span>
                   </div>
                   <div>
@@ -663,6 +677,113 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       />
                       <div className="w-8 h-4.5 bg-slate-300 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Bench Slips: Layout & Cutting Space */}
+              {activeDoc === "slips" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-foreground">
+                      <span className="font-bold text-xs flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Slips / Page</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        {benchSlipsPerPage === 32 ? "32 Slips (4×8)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setBenchSlipsPerPage(32)}
+                        className={cn(
+                          "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                          benchSlipsPerPage === 32
+                            ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        32 / Page
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBenchSlipsPerPage(24)}
+                        className={cn(
+                          "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                          benchSlipsPerPage === 24
+                            ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        24 / Page
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setBenchSlipsPerPage(57)}
+                        className={cn(
+                          "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                          benchSlipsPerPage === 57
+                            ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        57 Mini
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-1.5 shadow-2xs">
+                    <div className="flex items-center justify-between text-foreground">
+                      <span className="font-bold text-xs flex items-center gap-1.5">
+                        <Sliders className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Orientation</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                        {orientation === "landscape" ? "Landscape" : "Portrait"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("portrait")}
+                        className={cn(
+                          "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                          orientation === "portrait"
+                            ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-muted-foreground hover:text-foreground"
+                          )}
+                      >
+                        Portrait
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("landscape")}
+                        className={cn(
+                          "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
+                          orientation === "landscape"
+                            ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        Landscape
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-2xl border border-slate-200/90 dark:border-slate-800 flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="font-bold text-xs text-foreground block">
+                        Cutting Space
+                      </span>
+                      <span className="text-[11px] text-muted-foreground truncate block mt-0.5">
+                        {benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-md">
+                      ✂ Ready
+                    </span>
                   </div>
                 </div>
               )}
@@ -1129,6 +1250,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       schoolProfile={schoolProfile}
                       targetRoomId={targetRoomId}
                       orientation={orientation}
+                      slipsPerPage={benchSlipsPerPage}
                     />
                   )}
 
@@ -1200,6 +1322,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
             orientation={orientation}
+            slipsPerPage={benchSlipsPerPage}
           />
         )}
 

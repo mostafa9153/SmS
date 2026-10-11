@@ -14,6 +14,7 @@ export interface EmsBenchSlipsPrintableProps {
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   orientation?: "portrait" | "landscape";
+  slipsPerPage?: number; // 32 (default: 4x8), 24 (3x8), or 57 (mini)
 }
 
 interface StudentBenchSlipItem {
@@ -37,6 +38,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   schoolProfile,
   targetRoomId = "ALL",
   orientation = "portrait",
+  slipsPerPage = 32,
 }) => {
   // Filter target rooms
   const activeRooms =
@@ -91,10 +93,28 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
     return (a.studentRoll || 0) - (b.studentRoll || 0);
   });
 
-  // Chunk slips into pages: 56 for landscape (4 columns x 14 rows) or 57 for portrait (3 columns x 19 rows)
+  // Chunk slips into pages based on slipsPerPage and orientation:
+  // - 32 per page (Default): 4 cols x 8 rows in Portrait; 8 cols x 4 rows in Landscape
+  // - 24 per page (3x8): 3 cols x 8 rows in Portrait; 6 cols x 4 rows in Landscape
+  // - 57 per page (Mini): 3 cols x 19 rows in Portrait; 4 cols x 14 rows in Landscape (56)
   const isLandscape = orientation === "landscape";
-  const numCols = isLandscape ? 4 : 3;
-  const numRows = isLandscape ? 14 : 19;
+  const resolvedSlipsPerPage = slipsPerPage ?? 32;
+
+  let numCols: number;
+  let numRows: number;
+
+  if (resolvedSlipsPerPage === 24) {
+    numCols = isLandscape ? 6 : 3;
+    numRows = isLandscape ? 4 : 8;
+  } else if (resolvedSlipsPerPage === 57 || resolvedSlipsPerPage === 56) {
+    numCols = isLandscape ? 4 : 3;
+    numRows = isLandscape ? 14 : 19;
+  } else {
+    // Default: 32 slips per page
+    numCols = isLandscape ? 8 : 4;
+    numRows = isLandscape ? 4 : 8;
+  }
+
   const SLIPS_PER_PAGE = numCols * numRows;
   const pages: StudentBenchSlipItem[][] = [];
   for (let i = 0; i < slips.length; i += SLIPS_PER_PAGE) {
@@ -104,6 +124,8 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   if (pages.length === 0) {
     pages.push([]);
   }
+
+  const isMini = resolvedSlipsPerPage === 57 || resolvedSlipsPerPage === 56;
 
   return (
     <div
@@ -131,7 +153,17 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             </span>
             <span>•</span>
             <span>
-              {pageSlips.length} Bench Slips ({isLandscape ? "4×14 Landscape • 56/Page" : "3×19 Portrait • 57/Page"})
+              {pageSlips.length} Bench Slips ({
+                resolvedSlipsPerPage === 32
+                  ? isLandscape ? "8×4 Landscape • 32/Page" : "4×8 Portrait • 32/Page"
+                  : resolvedSlipsPerPage === 24
+                    ? isLandscape ? "6×4 Landscape • 24/Page" : "3×8 Portrait • 24/Page"
+                    : isLandscape ? "4×14 Landscape • 56/Page" : "3×19 Portrait • 57/Page"
+              })
+            </span>
+            <span>•</span>
+            <span className="text-emerald-500 font-semibold">
+              {!isMini ? "3mm Cut Space • Dashed Border" : "Mini Compact"}
             </span>
           </div>
 
@@ -139,17 +171,30 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             className={cn(
               "ems-slips-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
               isLandscape
-                ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[1mm_3mm]"
-                : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[1mm_3mm]"
+                ? "landscape w-[297mm] h-[206mm] max-h-[206mm]"
+                : "portrait w-[210mm] h-[294mm] max-h-[294mm]",
+              isMini
+                ? "p-[1mm_3mm]"
+                : isLandscape
+                  ? "p-[3mm_4mm]"
+                  : "p-[3.5mm_4mm]"
             )}
           >
-            {/* 4 Columns x 14 Rows Grid in Landscape (56 Slips) OR 3 Columns x 19 Rows Grid in Portrait (57 Slips) */}
+            {/* Grid Layout with dedicated cutting gaps */}
             <div
               className={cn(
                 "h-full w-full",
-                isLandscape
-                  ? "grid grid-cols-4 grid-rows-[repeat(14,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
-                  : "grid grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
+                isMini
+                  ? isLandscape
+                    ? "grid grid-cols-4 grid-rows-[repeat(14,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
+                    : "grid grid-cols-3 grid-rows-[repeat(19,minmax(0,1fr))] gap-x-[1.8mm] gap-y-[0.3mm]"
+                  : resolvedSlipsPerPage === 24
+                    ? isLandscape
+                      ? "grid grid-cols-6 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[3mm]"
+                      : "grid grid-cols-3 grid-rows-[repeat(8,minmax(0,1fr))] gap-x-[3.8mm] gap-y-[2.8mm]"
+                    : isLandscape
+                      ? "grid grid-cols-8 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[2.8mm] gap-y-[3mm]"
+                      : "grid grid-cols-4 grid-rows-[repeat(8,minmax(0,1fr))] gap-x-[3.2mm] gap-y-[2.8mm]"
               )}
             >
               {toColumnMajorGrid(pageSlips, numCols, numRows).map((item, slotIdx) => {
@@ -157,7 +202,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                   return (
                     <div
                       key={`empty-slip-${pageIndex}-${slotIdx}`}
-                      className="border border-dashed border-neutral-100 rounded-[2px] h-full"
+                      className="border border-dashed border-neutral-100 rounded-[3px] h-full"
                     />
                   );
                 }
@@ -167,77 +212,146 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                 const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
                 const regVal = (item.studentRegNo || "").trim();
 
+                // Compact 2-line layout for 57 Mini slips
+                if (isMini) {
+                  return (
+                    <div
+                      key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
+                      className={cn(
+                        "relative border border-dashed border-neutral-300 rounded-[2px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
+                        isLandscape ? "px-[1.5mm] py-[0.5mm]" : "px-[2mm] py-[0.8mm]"
+                      )}
+                    >
+                      <span className={cn("absolute -top-1 -right-0.5 text-neutral-400 select-none pointer-events-none opacity-40", isLandscape ? "text-[6px]" : "text-[7px]")}>
+                        ✂
+                      </span>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                        <img
+                          src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                          alt="Watermark"
+                          loading="eager"
+                          decoding="async"
+                          className={cn("object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]", isLandscape ? "w-8 h-8" : "w-9 h-9")}
+                        />
+                      </div>
+                      <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
+                        {isHs ? (
+                          <div
+                            className={cn(
+                              "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
+                              isLandscape
+                                ? regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
+                                : regVal.length > 10 ? "text-[13px]" : regVal.length > 7 ? "text-[14px]" : "text-[15.5px]"
+                            )}
+                            title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
+                          >
+                            {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
+                          </div>
+                        ) : (
+                          <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono", isLandscape ? "text-[15.5px]" : "text-[17.5px]")}>
+                            ROLL {String(item.studentRoll).padStart(2, "0")}
+                          </div>
+                        )}
+                        <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1 tracking-tight", isLandscape ? "text-[11px]" : "text-[12.5px]")}>
+                          {item.studentName}
+                        </div>
+                      </div>
+                      <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
+                        <div className={cn("font-bold text-neutral-700 leading-none truncate min-w-0", isLandscape ? "text-[9.5px]" : "text-[10.5px]")}>
+                          Class:{" "}
+                          <span className={cn("font-black text-neutral-950", isLandscape ? "text-[10.5px]" : "text-[11.5px]")}>
+                            {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                          </span>
+                        </div>
+                        <div className={cn("flex items-center justify-end space-x-1 font-bold text-neutral-800 leading-none shrink-0", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                          <span className={cn("font-black text-neutral-950 bg-neutral-100 px-1 py-[0.5px] rounded border border-neutral-300 leading-none", isLandscape ? "text-[9px]" : "text-[10px]")}>{displayRoom}</span>
+                          <span className="text-neutral-400 text-[7px]">•</span>
+                          <span className={cn("text-neutral-600", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                            Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
+                          </span>
+                          <span className={cn("bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1 py-[0.5px] rounded leading-none", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                            Seat S{item.seatPosition}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Generous 3-line layout for 32 or 24 slips per page with proper cutting space
                 return (
                   <div
                     key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                    className={cn(
-                      "relative border border-dashed border-neutral-300 rounded-[2px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
-                      isLandscape ? "px-[1.5mm] py-[0.5mm]" : "px-[2mm] py-[0.8mm]"
-                    )}
+                    className="relative border border-dashed border-neutral-300 print:border-neutral-400 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border px-[2.5mm] py-[1.8mm]"
                   >
-                    {/* Micro Cut Indicator Icon */}
-                    <span className={cn("absolute -top-1 -right-0.5 text-neutral-400 select-none pointer-events-none opacity-40", isLandscape ? "text-[6px]" : "text-[7px]")}>
+                    {/* Corner Cut Indicator */}
+                    <span className="absolute -top-1 -right-0.5 text-neutral-400 select-none pointer-events-none opacity-40 text-[7px]">
                       ✂
                     </span>
 
-                    {/* School Logo Watermark in Background */}
+                    {/* School Logo Watermark */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                       <img
                         src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
                         alt="Watermark"
                         loading="eager"
                         decoding="async"
-                        className={cn("object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]", isLandscape ? "w-8 h-8" : "w-9 h-9")}
+                        className="w-8 h-8 object-contain opacity-[0.11] grayscale print:filter-none print:opacity-[0.10]"
                       />
                     </div>
 
-                    {/* Line 1: Big Roll or Reg No (Left) & Student Name (Right) */}
+                    {/* Line 1: Roll / Reg (Left) & Room + Seat Badge (Right) */}
                     <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
                       {isHs ? (
                         <div
                           className={cn(
                             "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
-                            isLandscape
-                              ? regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
-                              : regVal.length > 10 ? "text-[13px]" : regVal.length > 7 ? "text-[14px]" : "text-[15.5px]"
+                            regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
                           )}
                           title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
                         >
                           {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
                         </div>
                       ) : (
-                        <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono", isLandscape ? "text-[15.5px]" : "text-[17.5px]")}>
+                        <div className="font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono text-[14.5px]">
                           ROLL {String(item.studentRoll).padStart(2, "0")}
                         </div>
                       )}
-                      <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1 tracking-tight", isLandscape ? "text-[11px]" : "text-[12.5px]")}>
+
+                      <div className="flex items-center gap-1 shrink-0 leading-none">
+                        <span className="font-extrabold text-neutral-900 bg-neutral-100 border border-neutral-300 px-1 py-[1px] rounded text-[9px] leading-tight">
+                          {displayRoom}
+                        </span>
+                        <span className="font-black text-indigo-950 bg-indigo-50 border border-indigo-200 px-1 py-[1px] rounded text-[9px] leading-tight">
+                          S{item.seatPosition}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Line 2: Student Full Name */}
+                    <div className="relative z-10 py-0.5">
+                      <div className="font-black uppercase text-neutral-950 tracking-tight text-[11.5px] leading-tight truncate">
                         {item.studentName}
                       </div>
                     </div>
 
-                    {/* Line 2: Class & Section/Stream (Left) & Room, Col, Bench, Seat (Right) */}
-                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
-                      <div className={cn("font-bold text-neutral-700 leading-none truncate min-w-0", isLandscape ? "text-[9.5px]" : "text-[10.5px]")}>
+                    {/* Line 3: Class & Desk Position */}
+                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5 border-t border-neutral-100">
+                      <div className="font-bold text-neutral-700 leading-none truncate min-w-0 text-[10px]">
                         Class:{" "}
-                        <span className={cn("font-black text-neutral-950", isLandscape ? "text-[10.5px]" : "text-[11.5px]")}>
-                          {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                        <span className="font-black text-neutral-950 text-[10.5px]">
+                          {isHs ? `${item.studentClass}-${streamText}` : `${item.studentClass}-${item.studentSection}`}
                         </span>
                       </div>
-                      <div className={cn("flex items-center justify-end space-x-1 font-bold text-neutral-800 leading-none shrink-0", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
-                        <span className={cn("font-black text-neutral-950 bg-neutral-100 px-1 py-[0.5px] rounded border border-neutral-300 leading-none", isLandscape ? "text-[9px]" : "text-[10px]")}>{displayRoom}</span>
-                        <span className="text-neutral-400 text-[7px]">•</span>
-                        <span className={cn("text-neutral-600", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                      <div className="flex items-center space-x-1 font-bold text-neutral-800 leading-none shrink-0 text-[8.5px]">
+                        <span className="text-neutral-600">
                           Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
-                        </span>
-                        <span className={cn("bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1 py-[0.5px] rounded leading-none", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
-                          Seat S{item.seatPosition}
                         </span>
                       </div>
                     </div>
                   </div>
                 );
               })}
-
             </div>
           </div>
         </div>
