@@ -462,9 +462,9 @@ export function RoutineViewerTab({
       };
 
       const applyTableStyles = (sheet: any, startRow: number, rowCount: number, colCount: number) => {
-        sheet.getColumn(1).width = 25;
+        sheet.getColumn(1).width = 20;
         for (let i = 2; i <= colCount; i++) {
-          sheet.getColumn(i).width = 18;
+          sheet.getColumn(i).width = 23;
         }
 
         for (let r = startRow; r < startRow + rowCount; r++) {
@@ -518,7 +518,7 @@ export function RoutineViewerTab({
             }
           }
           wsMaster.getRow(mRowIdx).values = rowData;
-          wsMaster.getRow(mRowIdx).height = 36;
+          wsMaster.getRow(mRowIdx).height = 44;
           mRowIdx++;
         });
         
@@ -580,7 +580,7 @@ export function RoutineViewerTab({
           }
 
           wsMasterTeacher.getRow(mtRowIdx).values = rowData;
-          wsMasterTeacher.getRow(mtRowIdx).height = 36;
+          wsMasterTeacher.getRow(mtRowIdx).height = 44;
           mtRowIdx++;
         });
 
@@ -630,7 +630,7 @@ export function RoutineViewerTab({
             }
           }
           wsClass.getRow(cRowIdx).values = rowData;
-          wsClass.getRow(cRowIdx - 1).height = 40; 
+          wsClass.getRow(cRowIdx).height = 48; 
           cRowIdx++;
         });
 
@@ -638,7 +638,7 @@ export function RoutineViewerTab({
         cRowIdx += 2;
       });
 
-      // --- 3. TEACHER-WISE SHEET ---
+      // --- 4. TEACHER-WISE SHEET ---
       const wsTeacher = workbook.addWorksheet("Teachers");
       let tRowIdx = 1;
 
@@ -680,7 +680,7 @@ export function RoutineViewerTab({
             }
           }
           wsTeacher.getRow(tRowIdx).values = rowData;
-          wsTeacher.getRow(tRowIdx - 1).height = 40;
+          wsTeacher.getRow(tRowIdx).height = 48;
           tRowIdx++;
         });
 
