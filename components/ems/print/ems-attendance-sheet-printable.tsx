@@ -370,37 +370,45 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
 
                         return (
                           <div key={`chunk-table-${chunk.classKey}-${chunkIdx}`} className="w-full">
-                            <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed">
-                              <thead>
-                                {/* Class Header Banner */}
-                                <tr className="border-b-[1.2px] border-black bg-neutral-200/95 h-[5.6mm]">
-                                  <th
-                                    colSpan={(isHs ? 3 : 2) + classNumCols}
-                                    className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5 h-[5.6mm]"
-                                  >
-                                    CLASS: {chunk.classKey}
-                                  </th>
-                                </tr>
+                            {/* Class Header Banner */}
+                            <div className="w-full border-[1.5px] border-b-0 border-black bg-neutral-200/95 text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5 h-[5.6mm] flex items-center justify-center">
+                              CLASS: {chunk.classKey}
+                            </div>
 
+                            <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed">
+                              {/* Strict Column Width Definition: Forces browser table engine */}
+                              <colgroup>
+                                <col style={{ width: "24px" }} />
+                                {isHs && <col style={{ width: "68px" }} />}
+                                <col style={{ width: isHs ? "225px" : "285px" }} />
+                                {classSubjects.map((_, colIdx) => (
+                                  <col key={`col-sub-${colIdx}`} />
+                                ))}
+                              </colgroup>
+
+                              <thead>
                                 {/* Dynamic Subject Column Headers for THIS Specific Class */}
                                 <tr className="bg-neutral-100/90 border-b-[1.2px] border-black h-[6.0mm]">
                                   <th
                                     rowSpan={2}
-                                    className="border-r-[1.5px] border-black w-[28px] text-center font-black p-0 text-[9px] shrink-0"
+                                    style={{ width: "24px" }}
+                                    className="border-r-[1.5px] border-black text-center font-black p-0 text-[8.5px] tracking-tight shrink-0 overflow-hidden"
                                   >
                                     Roll
                                   </th>
                                   {isHs && (
                                     <th
                                       rowSpan={2}
-                                      className="border-r-[1.5px] border-black w-[70px] text-center font-black p-0 text-[9px] shrink-0"
+                                      style={{ width: "68px" }}
+                                      className="border-r-[1.5px] border-black text-center font-black p-0 text-[8.5px] shrink-0 overflow-hidden"
                                     >
                                       Reg No
                                     </th>
                                   )}
                                   <th
                                     rowSpan={2}
-                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[196px]" : "w-[236px]"} text-left font-black p-0.5 pl-1.5 text-[9.5px] truncate shrink-0`}
+                                    style={{ width: isHs ? "225px" : "285px" }}
+                                    className="border-r-[1.5px] border-black text-left font-black p-0.5 pl-2 text-[10px] shrink-0 overflow-hidden"
                                   >
                                     Student Name
                                   </th>
@@ -408,7 +416,6 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                     <th
                                       key={`th-sub-${chunkIdx}-${i}`}
                                       className="border-r border-black font-black text-center p-0.5 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                                      style={{ width: `calc((100% - ${isHs ? "294px" : "264px"}) / ${classNumCols})` }}
                                     >
                                       {headerText}
                                     </th>
@@ -449,15 +456,24 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                       className="border-b border-black/70 hover:bg-neutral-50/50 h-[7.15mm]"
                                       style={{ height: "7.15mm" }}
                                     >
-                                      <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none px-0.5 h-[7.15mm]">
+                                      <td
+                                        style={{ width: "24px" }}
+                                        className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none px-0.5 h-[7.15mm] overflow-hidden"
+                                      >
                                         {String(student.roll).padStart(2, "0")}
                                       </td>
                                       {isHs && (
-                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
+                                        <td
+                                          style={{ width: "68px" }}
+                                          className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none px-0.5 h-[7.15mm] overflow-hidden"
+                                        >
                                           {regVal || "-"}
                                         </td>
                                       )}
-                                      <td className="border-r-[1.5px] border-black px-1.5 font-bold text-[10px] tracking-tight uppercase truncate text-neutral-950 leading-tight h-[7.15mm]">
+                                      <td
+                                        style={{ width: isHs ? "225px" : "285px" }}
+                                        className="border-r-[1.5px] border-black px-2 font-bold text-[10.5px] tracking-tight uppercase text-neutral-950 leading-tight h-[7.15mm] whitespace-nowrap overflow-hidden"
+                                      >
                                         {student.name}
                                       </td>
                                       {classSubjects.map((_, colI) => (
