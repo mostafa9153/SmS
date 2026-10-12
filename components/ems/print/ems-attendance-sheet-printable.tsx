@@ -271,8 +271,8 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                   </div>
 
                   {/* REGISTER TABLE: Multi-Subject Dynamic Columns with Separate Roll and Reg No */}
-                  <div className="flex flex-col h-full flex-1 min-h-0 mt-0.5">
-                    <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed h-full">
+                  <div className="flex-1 flex flex-col justify-start min-h-0 mt-0.5">
+                    <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed">
                       <thead>
                         <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
                           <th
@@ -329,18 +329,18 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           })}
                         </tr>
                       </thead>
-                      <tbody className="flex-1">
+                      <tbody>
                         {pageRows.map((row, idx) => {
                           if (row.type === "header") {
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b-[1.2px] border-black bg-neutral-200/90"
+                                className="border-b-[1.2px] border-black bg-neutral-200/90 h-[5.8mm]"
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={(hasHsInRoom ? 3 : 2) + numCols}
-                                  className="text-center font-black text-[10.5px] uppercase tracking-widest text-black py-0.5"
+                                  className="text-center font-black text-[10.5px] uppercase tracking-widest text-black py-0.5 h-[5.8mm]"
                                 >
                                   {row.title}
                                 </td>
@@ -352,19 +352,19 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b border-black bg-neutral-100 font-bold"
+                                className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.8mm]"
                                 >
                                   TOTAL PRESENT:
                                 </td>
                                 {columns.map((_, colI) => (
                                   <td
                                     key={`total-p-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0"
+                                    className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
                                   />
                                 ))}
                               </tr>
@@ -375,19 +375,19 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b border-black bg-neutral-100 font-bold"
+                                className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
                                 style={{ height: "5.8mm" }}
                               >
                                 <td
                                   colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.8mm]"
                                 >
                                   TOTAL ABSENT:
                                 </td>
                                 {columns.map((_, colI) => (
                                   <td
                                     key={`total-a-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0"
+                                    className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
                                   />
                                 ))}
                               </tr>
@@ -398,21 +398,31 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                             return (
                               <tr
                                 key={`row-${idx}`}
-                                className="border-b-[1.5px] border-black bg-neutral-50 font-bold"
+                                className="border-b-[1.5px] border-black bg-neutral-50 font-bold h-[6.2mm]"
                                 style={{ height: "6.2mm" }}
                               >
                                 <td
                                   colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900"
+                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900 h-[6.2mm]"
                                 >
                                   INVIGILATOR SIGN:
                                 </td>
                                 {columns.map((_, colI) => (
                                   <td
                                     key={`sign-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0"
+                                    className="border-r border-black/80 bg-white text-center p-0 h-[6.2mm]"
                                   />
                                 ))}
+                              </tr>
+                            );
+                          }
+
+                          if (row.type === "empty") {
+                            return (
+                              <tr key={`row-${idx}`} className="border-b border-black/70 h-[6.5mm]" style={{ height: "6.5mm" }}>
+                                <td colSpan={(hasHsInRoom ? 3 : 2) + numCols} className="text-center text-neutral-400 py-1 text-[9px] h-[6.5mm]">
+                                  No students allocated
+                                </td>
                               </tr>
                             );
                           }
@@ -424,25 +434,25 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           return (
                             <tr
                               key={`row-${idx}`}
-                              className="border-b border-black/70 hover:bg-neutral-50/50"
-                              style={{ height: "6.5mm", minHeight: "6.5mm" }}
+                              className="border-b border-black/70 hover:bg-neutral-50/50 h-[6.5mm]"
+                              style={{ height: "6.5mm" }}
                             >
-                              <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5">
+                              <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5 h-[6.5mm]">
                                 {student ? String(student.roll).padStart(2, "0") : ""}
                               </td>
                               {hasHsInRoom && (
-                                <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5">
+                                <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[6.5mm]">
                                   {regVal || "-"}
                                 </td>
                               )}
-                              <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none">
+                              <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none h-[6.5mm]">
                                 {student ? student.name : ""}
                               </td>
                               {/* Dynamic Signature/Script Boxes */}
                               {columns.map((_, colI) => (
                                 <td
                                   key={`cell-${idx}-${colI}`}
-                                  className="border-r border-black/70 text-center p-0"
+                                  className="border-r border-black/70 text-center p-0 h-[6.5mm]"
                                 />
                               ))}
                             </tr>
