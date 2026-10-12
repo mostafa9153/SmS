@@ -363,9 +363,9 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                       </div>
                     ) : (
                       pageData.chunks.map((chunk, chunkIdx) => {
-                        const classSubjects = chunk.subjects;
-                        const classDates = chunk.dates;
-                        const classNumCols = classSubjects.length || 1;
+                        const classSubjects = chunk.subjects && chunk.subjects.length > 0 ? chunk.subjects : ["Subject 1"];
+                        const classDates = chunk.dates || [];
+                        const classNumCols = classSubjects.length;
                         const isHs = chunk.isHs;
 
                         return (
