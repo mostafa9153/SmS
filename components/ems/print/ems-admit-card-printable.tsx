@@ -377,8 +377,8 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
 
                     {/* Card Bottom: Issue Date & Authorized Sign */}
                     <div className={cn(
-                      "relative z-10 border-t-[1.2px] border-neutral-900/90 flex items-end justify-between leading-none",
-                      isEightPerPage ? "pt-1" : "pt-0.5"
+                      "relative z-10 border-t border-neutral-300/80 flex items-end justify-between leading-none",
+                      isEightPerPage ? "pt-1.5" : "pt-0.5"
                     )}>
                       <div className={cn(
                         "text-neutral-500 pb-0.5",
@@ -387,11 +387,11 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         Issued: <span className="font-bold text-neutral-800 font-mono">{issueDate}</span>
                       </div>
 
-                      <div className="flex flex-col items-end justify-end">
+                      <div className="flex flex-col items-center justify-end">
                         {showSignature && headSignatureSrc ? (
                           <div className={cn(
-                            "flex items-end justify-end",
-                            isEightPerPage ? "h-[16px] -mb-1" : "h-[11px] -mb-0.5"
+                            "flex items-end justify-center relative",
+                            isEightPerPage ? "h-[38px] -mb-1 -top-1.5" : "h-[22px] -mb-0.5 -top-0.5"
                           )}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -399,13 +399,15 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                               alt="Signature"
                               className={cn(
                                 "object-contain select-none mix-blend-multiply",
-                                isEightPerPage ? "max-h-[16px] max-w-[65px]" : "max-h-[11px] max-w-[50px]"
+                                isEightPerPage ? "max-h-[38px] max-w-[130px]" : "max-h-[22px] max-w-[80px]"
                               )}
                             />
                           </div>
-                        ) : null}
+                        ) : (
+                          <div className={cn(isEightPerPage ? "h-[28px]" : "h-[16px]")} />
+                        )}
                         <span className={cn(
-                          "font-black text-neutral-800 uppercase tracking-wider leading-tight",
+                          "font-black text-neutral-800 uppercase tracking-wider leading-tight text-center",
                           isEightPerPage ? "text-[8px]" : "text-[7px]"
                         )}>
                           Authorized Signatory
