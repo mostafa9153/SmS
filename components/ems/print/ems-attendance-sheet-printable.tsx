@@ -386,21 +386,21 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 <tr className="bg-neutral-100/90 border-b-[1.2px] border-black h-[6.0mm]">
                                   <th
                                     rowSpan={2}
-                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[36px]" : "w-[42px]"} text-center font-black p-0.5 text-[9.5px] shrink-0`}
+                                    className="border-r-[1.5px] border-black w-[28px] text-center font-black p-0 text-[9px] shrink-0"
                                   >
                                     Roll
                                   </th>
                                   {isHs && (
                                     <th
                                       rowSpan={2}
-                                      className="border-r-[1.5px] border-black w-[76px] text-center font-black p-0.5 text-[9.5px] shrink-0"
+                                      className="border-r-[1.5px] border-black w-[70px] text-center font-black p-0 text-[9px] shrink-0"
                                     >
                                       Reg No
                                     </th>
                                   )}
                                   <th
                                     rowSpan={2}
-                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[150px]" : "w-[170px]"} text-left font-black p-0.5 pl-2 text-[10px] truncate shrink-0`}
+                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[196px]" : "w-[236px]"} text-left font-black p-0.5 pl-1.5 text-[9.5px] truncate shrink-0`}
                                   >
                                     Student Name
                                   </th>
@@ -408,7 +408,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                     <th
                                       key={`th-sub-${chunkIdx}-${i}`}
                                       className="border-r border-black font-black text-center p-0.5 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                                      style={{ width: `calc((100% - ${isHs ? "262px" : "212px"}) / ${classNumCols})` }}
+                                      style={{ width: `calc((100% - ${isHs ? "294px" : "264px"}) / ${classNumCols})` }}
                                     >
                                       {headerText}
                                     </th>
@@ -449,15 +449,15 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                       className="border-b border-black/70 hover:bg-neutral-50/50 h-[7.15mm]"
                                       style={{ height: "7.15mm" }}
                                     >
-                                      <td className="border-r-[1.5px] border-black text-center font-black text-[10px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
+                                      <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none px-0.5 h-[7.15mm]">
                                         {String(student.roll).padStart(2, "0")}
                                       </td>
                                       {isHs && (
-                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9.5px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
+                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
                                           {regVal || "-"}
                                         </td>
                                       )}
-                                      <td className="border-r-[1.5px] border-black px-2 font-black text-[11px] uppercase truncate text-neutral-950 leading-none h-[7.15mm]">
+                                      <td className="border-r-[1.5px] border-black px-1.5 font-bold text-[10px] tracking-tight uppercase truncate text-neutral-950 leading-tight h-[7.15mm]">
                                         {student.name}
                                       </td>
                                       {classSubjects.map((_, colI) => (
