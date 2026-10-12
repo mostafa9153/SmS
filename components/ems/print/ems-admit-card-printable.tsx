@@ -175,6 +175,10 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                 : (isLandscape ? "4×5 Landscape • 20/Page" : "3×7 Portrait • 21/Page")}
               )
             </span>
+            <span>•</span>
+            <span className="text-emerald-500 font-semibold">
+              Scissor Cut Lines (✂) • Safe Cut Space
+            </span>
           </div>
 
           <div
@@ -185,37 +189,35 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                 : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[3mm_4.5mm]"
             )}
           >
-            {/* Grid: 2 cols x 4 rows in Portrait for 8/Page, or legacy 3x7 / 4x5 */}
+              {/* Grid: 2 cols x 4 rows in Portrait for 8/Page, or legacy 3x7 / 4x5 */}
             <div
               className={cn(
                 "h-full w-full",
                 isEightPerPage
                   ? isLandscape
-                    ? "grid grid-cols-4 grid-rows-[repeat(2,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[2.8mm]"
-                    : "grid grid-cols-2 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[2.8mm]"
+                    ? "grid grid-cols-4 grid-rows-[repeat(2,minmax(0,1fr))] gap-x-[4.5mm] gap-y-[3.5mm]"
+                    : "grid grid-cols-2 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[4.5mm] gap-y-[3.5mm]"
                   : isLandscape
-                    ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
-                    : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2mm] gap-y-[1.2mm]"
+                    ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2.4mm] gap-y-[1.6mm]"
+                    : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2.4mm] gap-y-[1.6mm]"
               )}
             >
               {toColumnMajorGrid(pageStudents, numCols, numRows).map((item, slotIdx) => {
-                if (!item) {
-                  return (
-                    <div
-                      key={`empty-cell-${pageIndex}-${slotIdx}`}
-                      className="border border-dashed border-neutral-100 rounded-[3px] h-full"
-                    />
-                  );
-                }
+                const col = slotIdx % numCols;
+                const row = Math.floor(slotIdx / numCols);
+                const hasColRight = col < numCols - 1;
+                const hasRowBottom = row < numRows - 1;
 
                 return (
-                  <div
-                    key={`card-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                    className={cn(
-                      "relative border border-dashed border-neutral-300 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
-                      isEightPerPage ? "p-[2.5mm_3mm]" : "p-[1.5mm]"
-                    )}
-                  >
+                  <div key={`slot-wrap-${pageIndex}-${slotIdx}`} className="relative h-full w-full">
+                    {item ? (
+                      <div
+                        key={`card-${pageIndex}-${slotIdx}-${item.studentRoll}`}
+                        className={cn(
+                          "relative border border-dashed border-neutral-300 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
+                          isEightPerPage ? "p-[2.5mm_3mm]" : "p-[1.5mm]"
+                        )}
+                      >
                     {/* Repeated subtle watermark logo */}
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
                       <img
@@ -414,6 +416,53 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         </span>
                       </div>
                     </div>
+                  </div>
+                ) : (
+                  <div
+                    key={`empty-cell-${pageIndex}-${slotIdx}`}
+                    className="border border-dashed border-neutral-100 rounded-[3px] h-full"
+                  />
+                )}
+
+                    {/* Dedicated Cutting Mark with Scissor between columns */}
+                    {hasColRight && (
+                      <div
+                        className={cn(
+                          "absolute top-0 bottom-0 pointer-events-none flex items-center justify-center z-20",
+                          isEightPerPage ? "-right-[2.25mm] w-0" : "-right-[1.2mm] w-0"
+                        )}
+                      >
+                        <div className="w-0 h-full border-r border-dashed border-neutral-400/80 print:border-neutral-500" />
+                        <span
+                          className={cn(
+                            "absolute bg-white px-0.5 text-neutral-500 print:text-neutral-700 select-none leading-none rotate-90 font-mono",
+                            isEightPerPage ? "text-[8.5px]" : "text-[7px]"
+                          )}
+                        >
+                          ✂
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Dedicated Cutting Mark with Scissor between rows */}
+                    {hasRowBottom && (
+                      <div
+                        className={cn(
+                          "absolute left-0 right-0 pointer-events-none flex items-center justify-center z-20",
+                          isEightPerPage ? "-bottom-[1.75mm] h-0" : "-bottom-[0.8mm] h-0"
+                        )}
+                      >
+                        <div className="w-full h-0 border-b border-dashed border-neutral-400/80 print:border-neutral-500" />
+                        <span
+                          className={cn(
+                            "absolute bg-white px-1 text-neutral-500 print:text-neutral-700 select-none leading-none font-mono",
+                            isEightPerPage ? "text-[8.5px]" : "text-[7px]"
+                          )}
+                        >
+                          ✂
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
