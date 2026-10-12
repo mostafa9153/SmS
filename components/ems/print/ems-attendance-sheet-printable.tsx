@@ -185,36 +185,36 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
           };
         });
 
-        // Chunk students into pages: Target ~32 students per page (max 35)
-        // If multiple classes in the room fit on the page, they are placed together as sequential sub-tables!
-        const TARGET_STUDENTS_PER_PAGE = 32;
+        // Chunk students into pages: Target 33 students per page
+        // 33 rows at 7.15mm completely fill the page down to the footer, eliminating the bottom gap
+        const TARGET_STUDENTS_PER_PAGE = 33;
         const pages: { chunks: PageClassChunk[] }[] = [];
 
         if (classDataList.length === 0) {
           pages.push({ chunks: [] });
         } else {
           let currentPageChunks: PageClassChunk[] = [];
-          let currentStudentCount = 0;
+          let currentSlotsUsed = 0; // Total vertical row-equivalent slots on current page (33 max)
 
           classDataList.forEach((clsData) => {
             let remainingStudents = [...clsData.students];
             let isFirstChunk = true;
 
             while (remainingStudents.length > 0) {
-              const spaceAvailable = TARGET_STUDENTS_PER_PAGE - currentStudentCount;
+              // Table header overhead if this is a subsequent sub-table on the same page
+              const extraHeaderSlots = currentPageChunks.length > 0 ? 2 : 0;
+              const slotsAvailable = Math.max(0, TARGET_STUDENTS_PER_PAGE - currentSlotsUsed - extraHeaderSlots);
 
-              // If page already has at least 20 students and this class won't fit reasonably, start new page
-              if (spaceAvailable < 8 && currentStudentCount > 0) {
+              // If page has very little remaining space (< 5 slots) and already has students, push to next page
+              if (slotsAvailable < 5 && currentSlotsUsed > 0) {
                 pages.push({ chunks: currentPageChunks });
                 currentPageChunks = [];
-                currentStudentCount = 0;
+                currentSlotsUsed = 0;
                 continue;
               }
 
-              const takeCount = Math.min(
-                remainingStudents.length,
-                Math.max(spaceAvailable, TARGET_STUDENTS_PER_PAGE)
-              );
+              const maxTake = Math.max(slotsAvailable, currentSlotsUsed === 0 ? TARGET_STUDENTS_PER_PAGE : 0);
+              const takeCount = Math.min(remainingStudents.length, maxTake);
               const slice = remainingStudents.slice(0, takeCount);
               remainingStudents = remainingStudents.slice(takeCount);
 
@@ -232,12 +232,14 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               });
 
               isFirstChunk = false;
-              currentStudentCount += slice.length;
+              // Summary rows take ~2 slots when a class ends
+              const summarySlots = isLastChunk ? 2 : 0;
+              currentSlotsUsed += slice.length + extraHeaderSlots + summarySlots;
 
-              if (currentStudentCount >= TARGET_STUDENTS_PER_PAGE && remainingStudents.length > 0) {
+              if (currentSlotsUsed >= TARGET_STUDENTS_PER_PAGE && remainingStudents.length > 0) {
                 pages.push({ chunks: currentPageChunks });
                 currentPageChunks = [];
-                currentStudentCount = 0;
+                currentSlotsUsed = 0;
               }
             }
           });
@@ -384,21 +386,21 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 <tr className="bg-neutral-100/90 border-b-[1.2px] border-black h-[6.0mm]">
                                   <th
                                     rowSpan={2}
-                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[36px]" : "w-[42px]"} text-center font-black p-0.5 text-[9px] shrink-0`}
+                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[36px]" : "w-[42px]"} text-center font-black p-0.5 text-[9.5px] shrink-0`}
                                   >
                                     Roll
                                   </th>
                                   {isHs && (
                                     <th
                                       rowSpan={2}
-                                      className="border-r-[1.5px] border-black w-[76px] text-center font-black p-0.5 text-[9px] shrink-0"
+                                      className="border-r-[1.5px] border-black w-[76px] text-center font-black p-0.5 text-[9.5px] shrink-0"
                                     >
                                       Reg No
                                     </th>
                                   )}
                                   <th
                                     rowSpan={2}
-                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[150px]" : "w-[170px]"} text-left font-black p-0.5 pl-2 text-[9.5px] truncate shrink-0`}
+                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[150px]" : "w-[170px]"} text-left font-black p-0.5 pl-2 text-[10px] truncate shrink-0`}
                                   >
                                     Student Name
                                   </th>
@@ -438,30 +440,30 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                               </thead>
 
                               <tbody>
-                                {/* Student Rows: Uniform fixed height of 6.2mm */}
+                                {/* Student Rows: Uniform fixed height of 7.15mm (33 rows fill the page cleanly) */}
                                 {chunk.students.map((student, stIdx) => {
                                   const regVal = student.regNo?.trim();
                                   return (
                                     <tr
                                       key={`student-row-${chunkIdx}-${student.roll}-${stIdx}`}
-                                      className="border-b border-black/70 hover:bg-neutral-50/50 h-[6.2mm]"
-                                      style={{ height: "6.2mm" }}
+                                      className="border-b border-black/70 hover:bg-neutral-50/50 h-[7.15mm]"
+                                      style={{ height: "7.15mm" }}
                                     >
-                                      <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5 h-[6.2mm]">
+                                      <td className="border-r-[1.5px] border-black text-center font-black text-[10px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
                                         {String(student.roll).padStart(2, "0")}
                                       </td>
                                       {isHs && (
-                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[6.2mm]">
+                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9.5px] p-0 leading-none truncate px-0.5 h-[7.15mm]">
                                           {regVal || "-"}
                                         </td>
                                       )}
-                                      <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none h-[6.2mm]">
+                                      <td className="border-r-[1.5px] border-black px-2 font-black text-[11px] uppercase truncate text-neutral-950 leading-none h-[7.15mm]">
                                         {student.name}
                                       </td>
                                       {classSubjects.map((_, colI) => (
                                         <td
                                           key={`cell-${chunkIdx}-${stIdx}-${colI}`}
-                                          className="border-r border-black/70 text-center p-0 h-[6.2mm]"
+                                          className="border-r border-black/70 text-center p-0 h-[7.15mm]"
                                         />
                                       ))}
                                     </tr>
@@ -472,55 +474,55 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                                 {chunk.isLastChunkOfClass && (
                                   <>
                                     <tr
-                                      className="border-b border-black bg-neutral-100 font-bold h-[5.6mm]"
-                                      style={{ height: "5.6mm" }}
+                                      className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
+                                      style={{ height: "5.8mm" }}
                                     >
                                       <td
                                         colSpan={isHs ? 3 : 2}
-                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.6mm]"
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9.5px] text-neutral-900 h-[5.8mm]"
                                       >
                                         TOTAL PRESENT:
                                       </td>
                                       {classSubjects.map((_, colI) => (
                                         <td
                                           key={`total-p-${chunkIdx}-${colI}`}
-                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.6mm]"
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
                                         />
                                       ))}
                                     </tr>
 
                                     <tr
-                                      className="border-b border-black bg-neutral-100 font-bold h-[5.6mm]"
-                                      style={{ height: "5.6mm" }}
+                                      className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
+                                      style={{ height: "5.8mm" }}
                                     >
                                       <td
                                         colSpan={isHs ? 3 : 2}
-                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.6mm]"
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9.5px] text-neutral-900 h-[5.8mm]"
                                       >
                                         TOTAL ABSENT:
                                       </td>
                                       {classSubjects.map((_, colI) => (
                                         <td
                                           key={`total-a-${chunkIdx}-${colI}`}
-                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.6mm]"
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
                                         />
                                       ))}
                                     </tr>
 
                                     <tr
-                                      className="border-b-[1.5px] border-black bg-neutral-50 font-bold h-[5.8mm]"
-                                      style={{ height: "5.8mm" }}
+                                      className="border-b-[1.5px] border-black bg-neutral-50 font-bold h-[6.0mm]"
+                                      style={{ height: "6.0mm" }}
                                     >
                                       <td
                                         colSpan={isHs ? 3 : 2}
-                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900 h-[5.8mm]"
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[6.0mm]"
                                       >
                                         INVIGILATOR SIGN:
                                       </td>
                                       {classSubjects.map((_, colI) => (
                                         <td
                                           key={`sign-${chunkIdx}-${colI}`}
-                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[6.0mm]"
                                         />
                                       ))}
                                     </tr>
