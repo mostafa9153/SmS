@@ -38,9 +38,18 @@ import {
 
 import {
   getDynamicSubjectsForClasses,
+  getDatabaseSubjectsForClass,
   syncAllEmsConfigsFromDb,
   formatRoomName,
 } from "@/lib/ems/ems-config-loader";
+import { isHigherSecondaryClass } from "@/lib/ems/seat-arrangement-algorithm";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 
@@ -91,6 +100,178 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     );
   }, [allocation]);
 
+  // Dynamic subjects list based on loaded allocation classes
+  const availableSubjects = useMemo(() => {
+    const subsSet = new Set<string>();
+    uniqueClasses.forEach((cls) => {
+      const classSubs = getDatabaseSubjectsForClass(cls);
+      if (classSubs && classSubs.length > 0) {
+        classSubs.forEach((s) => subsSet.add(s));
+      }
+    });
+
+    if (subsSet.size === 0) {
+      return [
+        "Bengali",
+        "English",
+        "Mathematics",
+        "Physical Science",
+        "Life Science",
+        "History",
+        "Geography",
+        "Physics",
+        "Chemistry",
+        "Biology",
+        "Computer Application",
+        "Health & Physical Education",
+      ];
+    }
+
+    return Array.from(subsSet);
+  }, [uniqueClasses]);
+
+  // Helper to load clean preset subjects for any class
+  const loadPresetSubjectsForClass = (cls: string): string[] => {
+    const cleanCls = (cls || "VII").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+    const subs = getDatabaseSubjectsForClass(cleanCls, [], false);
+    if (subs && subs.length > 0) return subs;
+    return isHigherSecondaryClass(cleanCls)
+      ? ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biology"]
+      : ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"];
+  };
+
+  const [classSubjectsConfig, setClassSubjectsConfig] = useState<Record<string, { headers: string[]; dates: string[] }>>(() => {
+    const init: Record<string, { headers: string[]; dates: string[] }> = {};
+    uniqueClasses.forEach((cls) => {
+      const subs = loadPresetSubjectsForClass(cls);
+      init[cls] = {
+        headers: subs,
+        dates: Array(subs.length).fill(""),
+      };
+    });
+    return init;
+  });
+
+  const [selectedClassTab, setSelectedClassTab] = useState<string>(() => uniqueClasses[0] || "");
+
+  // Update classSubjectsConfig whenever uniqueClasses change or missing
+  useEffect(() => {
+    setClassSubjectsConfig((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+      uniqueClasses.forEach((cls) => {
+        if (!updated[cls] || updated[cls].headers.length === 0) {
+          const subs = loadPresetSubjectsForClass(cls);
+          updated[cls] = {
+            headers: subs,
+            dates: Array(subs.length).fill(""),
+          };
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+
+    if (uniqueClasses.length > 0 && (!selectedClassTab || !uniqueClasses.includes(selectedClassTab))) {
+      setSelectedClassTab(uniqueClasses[0]);
+    }
+  }, [uniqueClasses]);
+
+  const activeClass = selectedClassTab || uniqueClasses[0] || "";
+  const activeClassConfig = classSubjectsConfig[activeClass] || {
+    headers: getDynamicSubjectsForClasses(uniqueClasses, allocation.examType),
+    dates: Array(getDynamicSubjectsForClasses(uniqueClasses, allocation.examType).length).fill(""),
+  };
+
+  const getClassesForSubject = (subjectName: string): string[] => {
+    if (!subjectName) return [];
+    const clean = subjectName.trim().toLowerCase();
+    return uniqueClasses.filter((c) => {
+      const list = classSubjectsConfig[c]?.headers || [];
+      return list.some((s) => s.trim().toLowerCase() === clean);
+    });
+  };
+
+  const handleActiveHeaderChange = (index: number, val: string) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      const nextHeaders = [...cur.headers];
+      nextHeaders[index] = val;
+      return { ...prev, [activeClass]: { ...cur, headers: nextHeaders } };
+    });
+  };
+
+  const handleActiveDateChange = (index: number, val: string) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      const nextDates = [...cur.dates];
+      nextDates[index] = val;
+      return { ...prev, [activeClass]: { ...cur, dates: nextDates } };
+    });
+  };
+
+  const handleActiveAddSubject = () => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      if (cur.headers.length >= 10) return prev;
+      return {
+        ...prev,
+        [activeClass]: {
+          headers: [...cur.headers, `Subject ${cur.headers.length + 1}`],
+          dates: [...cur.dates, ""],
+        },
+      };
+    });
+  };
+
+  const handleActiveRemoveSubject = (index: number) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      if (cur.headers.length <= 1) return prev;
+      return {
+        ...prev,
+        [activeClass]: {
+          headers: cur.headers.filter((_, i) => i !== index),
+          dates: cur.dates.filter((_, i) => i !== index),
+        },
+      };
+    });
+  };
+
+  const handleActiveResetSubjects = () => {
+    const defaults = loadPresetSubjectsForClass(activeClass);
+    setClassSubjectsConfig((prev) => ({
+      ...prev,
+      [activeClass]: {
+        headers: defaults,
+        dates: Array(defaults.length).fill(""),
+      },
+    }));
+  };
+
+  const handleActiveFillConsecutiveDates = (startOffset = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + startOffset);
+    const newDates: string[] = [];
+    const cur = new Date(d);
+    const count = activeClassConfig.headers.length;
+    while (newDates.length < count) {
+      if (cur.getDay() !== 0) {
+        const day = String(cur.getDate()).padStart(2, "0");
+        const month = String(cur.getMonth() + 1).padStart(2, "0");
+        newDates.push(`${day}/${month}`);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    setClassSubjectsConfig((prev) => ({
+      ...prev,
+      [activeClass]: {
+        ...activeClassConfig,
+        dates: newDates,
+      },
+    }));
+  };
+
   const [examHeaders, setExamHeaders] = useState<string[]>(() =>
     getDynamicSubjectsForClasses(uniqueClasses, allocation.examType)
   );
@@ -103,12 +284,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     syncAllEmsConfigsFromDb().then(({ profile }) => {
       setSchoolProfile(profile);
     });
-
-    // Auto-update subjects based on allocated classes and examType
-    const defaultSubs = getDynamicSubjectsForClasses(uniqueClasses, allocation.examType);
-    setExamHeaders(defaultSubs);
-    setExamDates(Array(defaultSubs.length).fill(""));
-  }, [open, allocation, uniqueClasses]);
+  }, [open]);
 
   // Real-time listener for school profile changes across tabs/windows
   useEffect(() => {
@@ -788,17 +964,55 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </div>
               )}
 
-              {/* Attendance Sheet: Dynamic Headers & Dates */}
+              {/* Attendance Sheet: Dynamic Headers & Dates per Class */}
               {activeDoc === "attendance" && (
                 <div className="p-3.5 bg-slate-50/90 dark:bg-slate-950/70 rounded-2xl border border-slate-200/90 dark:border-slate-800 space-y-3 shadow-2xs">
+                  {/* Class Tabs Switcher if Multiple Classes */}
+                  {uniqueClasses.length > 1 && (
+                    <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 px-2 uppercase tracking-wider">
+                        Select Class:
+                      </span>
+                      {uniqueClasses.map((cls) => {
+                        const isSelected = activeClass === cls;
+                        const count = classSubjectsConfig[cls]?.headers?.length || 0;
+                        return (
+                          <button
+                            key={cls}
+                            type="button"
+                            onClick={() => setSelectedClassTab(cls)}
+                            className={cn(
+                              "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 select-none",
+                              isSelected
+                                ? "bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 shadow-xs border border-indigo-200/80 dark:border-indigo-800/80"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+                            )}
+                          >
+                            <span>Class {cls}</span>
+                            <span
+                              className={cn(
+                                "text-[10px] font-mono px-1.5 py-0.2 rounded font-bold",
+                                isSelected
+                                  ? "bg-indigo-100 dark:bg-indigo-900/80 text-indigo-800 dark:text-indigo-200"
+                                  : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                              )}
+                            >
+                              {count} subs
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-2.5">
                     <div>
                       <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <Sliders className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                        <span>Subject Columns ({examHeaders.length})</span>
+                        <span>Class {activeClass} Subjects ({activeClassConfig.headers.length})</span>
                       </span>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Add or remove columns dynamically. Columns auto-expand on printed sheet.
+                        Auto-loaded from presets. Each class prints its own subject columns & dates.
                       </p>
                     </div>
 
@@ -807,8 +1021,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handleAddSubjectColumn}
-                        disabled={examHeaders.length >= 10}
+                        onClick={handleActiveAddSubject}
+                        disabled={activeClassConfig.headers.length >= 10}
                         className="h-7 text-[10px] font-bold px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-900/50 cursor-pointer rounded-lg gap-1"
                         title="Add Subject Column"
                       >
@@ -818,9 +1032,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={handleResetSubjects}
+                        onClick={handleActiveResetSubjects}
                         className="h-7 text-[10px] font-bold px-2 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer rounded-lg gap-1"
-                        title="Reset to default subjects"
+                        title="Reset to default subjects for this class"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Reset</span>
@@ -829,7 +1043,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => handleFillConsecutiveDates(0)}
+                        onClick={() => handleActiveFillConsecutiveDates(0)}
                         className="h-7 text-[10px] font-bold px-2 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-900/50 cursor-pointer rounded-lg gap-1"
                         title="Fill consecutive exam dates starting today"
                       >
@@ -841,11 +1055,16 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         variant="ghost"
                         size="sm"
                         onClick={() => {
-                          setExamHeaders(Array(examHeaders.length).fill(""));
-                          setExamDates(Array(examHeaders.length).fill(""));
+                          setClassSubjectsConfig((prev) => ({
+                            ...prev,
+                            [activeClass]: {
+                              headers: Array(activeClassConfig.headers.length).fill(""),
+                              dates: Array(activeClassConfig.dates.length).fill(""),
+                            },
+                          }));
                         }}
                         className="h-7 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 px-2 cursor-pointer rounded-lg"
-                        title="Clear all subjects and dates"
+                        title="Clear subjects and dates for this class"
                       >
                         Clear
                       </Button>
@@ -853,127 +1072,86 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                   </div>
 
                   {/* Dynamic Columns Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {examHeaders.map((headerVal, idx) => (
-                      <div
-                        key={`header-box-${idx}`}
-                        className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
-                            Sub {idx + 1}
-                          </span>
-                          {examHeaders.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSubjectColumn(idx)}
-                              className="text-muted-foreground hover:text-rose-600 p-0.5 rounded transition-colors cursor-pointer"
-                              title="Remove this subject column"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                    {activeClassConfig.headers.map((headerVal, idx) => {
+                      const sharedClasses = getClassesForSubject(headerVal);
+                      const classBadgeText = sharedClasses.length > 0 ? sharedClasses.join(", ") : activeClass;
 
-                        {/* Subject Name Input */}
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
-                            Subject
-                          </span>
-                          <input
-                            type="text"
-                            value={headerVal || ""}
-                            onChange={(e) => handleHeaderChange(idx, e.target.value)}
-                            placeholder={`Subject ${idx + 1}`}
-                            className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-semibold placeholder:text-muted-foreground/60 transition-colors"
-                          />
-                        </div>
-
-                        {/* Date Input */}
-                        <div className="space-y-0.5">
-                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
-                            Date
-                          </span>
-                          <input
-                            type="text"
-                            value={examDates[idx] || ""}
-                            onChange={(e) => handleDateChange(idx, e.target.value)}
-                            placeholder="DD/MM"
-                            className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Quick Subject & Date Chips */}
-                  <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 space-y-2">
-                    {/* Subject Chips */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
-                        Quick Subject:
-                      </span>
-                      {["Bengali", "English", "Mathematics", "Phy Science", "Life Science", "History", "Geography", "Health & PE"].map((sub) => (
-                        <button
-                          key={sub}
-                          type="button"
-                          onClick={() => {
-                            const nextHeaders = [...examHeaders];
-                            const emptyIdx = nextHeaders.findIndex(
-                              (h) => !h.trim() || h.startsWith("Exam ") || h.startsWith("Subject ")
-                            );
-                            if (emptyIdx !== -1) {
-                              nextHeaders[emptyIdx] = sub;
-                            } else {
-                              nextHeaders[0] = sub;
-                            }
-                            setExamHeaders(nextHeaders);
-                          }}
-                          className="text-[10px] bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:border-indigo-300 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md transition-all cursor-pointer select-none font-medium"
+                      return (
+                        <div
+                          key={`header-box-${activeClass}-${idx}`}
+                          className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
                         >
-                          + {sub}
-                        </button>
-                      ))}
-                    </div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
+                              Sub {idx + 1}
+                            </span>
 
-                    {/* Date Chips */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[10px] text-muted-foreground font-semibold shrink-0">
-                        Quick Date:
-                      </span>
-                      {(() => {
-                        const today = new Date();
-                        const d1 = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        const d2 = `${String(tomorrow.getDate()).padStart(2, "0")}/${String(tomorrow.getMonth() + 1).padStart(2, "0")}`;
-                        const dayAfter = new Date(today);
-                        dayAfter.setDate(dayAfter.getDate() + 2);
-                        const d3 = `${String(dayAfter.getDate()).padStart(2, "0")}/${String(dayAfter.getMonth() + 1).padStart(2, "0")}`;
+                            {/* Class Badge: Shows which classes have this subject! */}
+                            <span
+                              className="text-[9px] font-mono font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 px-1.5 py-0.5 rounded truncate max-w-[110px]"
+                              title={`Assigned to: Class ${classBadgeText}`}
+                            >
+                              Class {classBadgeText}
+                            </span>
 
-                        return [
-                          { label: `Today (${d1})`, val: d1 },
-                          { label: `Tomorrow (${d2})`, val: d2 },
-                          { label: `+2 Days (${d3})`, val: d3 },
-                        ].map((chip) => (
-                          <button
-                            key={chip.val}
-                            type="button"
-                            onClick={() => handleAddQuickDate(chip.val)}
-                            className="text-[10px] bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 hover:border-emerald-300 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md transition-all cursor-pointer select-none font-mono font-medium"
-                          >
-                            + {chip.label}
-                          </button>
-                        ));
-                      })()}
-                      <button
-                        type="button"
-                        onClick={() => setExamDates(Array(examHeaders.length).fill(""))}
-                        className="text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent px-2 py-0.5 rounded-md transition-all cursor-pointer select-none"
-                      >
-                        Clear Dates
-                      </button>
-                    </div>
+                            {activeClassConfig.headers.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleActiveRemoveSubject(idx)}
+                                className="text-muted-foreground hover:text-rose-600 p-0.5 rounded transition-colors cursor-pointer"
+                                title="Remove this subject column"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Subject Selector */}
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                              Subject
+                            </span>
+                            <Select
+                              value={headerVal || ""}
+                              onValueChange={(val: string | null) => {
+                                handleActiveHeaderChange(idx, val || "");
+                              }}
+                            >
+                              <SelectTrigger className="h-7 text-xs bg-muted/30 hover:bg-muted/50 focus-visible:bg-background border-border/60 rounded-md px-2 py-0.5 text-foreground font-semibold">
+                                <SelectValue placeholder="Select Subject" />
+                              </SelectTrigger>
+                              <SelectContent className="rounded-xl min-w-44 z-[60]">
+                                {availableSubjects.map((sub) => (
+                                  <SelectItem key={sub} value={sub} className="text-xs">
+                                    {sub}
+                                  </SelectItem>
+                                ))}
+                                {headerVal && !availableSubjects.includes(headerVal) && (
+                                  <SelectItem value={headerVal} className="text-xs">
+                                    {headerVal}
+                                  </SelectItem>
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Date Input */}
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                              Date
+                            </span>
+                            <input
+                              type="text"
+                              value={activeClassConfig.dates[idx] || ""}
+                              onChange={(e) => handleActiveDateChange(idx, e.target.value)}
+                              placeholder="DD/MM/YYYY"
+                              className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1261,8 +1439,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       examType={allocation.examType}
                       schoolProfile={schoolProfile}
                       targetRoomId={targetRoomId}
-                      examHeaders={examHeaders}
-                      examDates={examDates}
+                      classSubjectsMap={classSubjectsConfig}
+                      examHeaders={activeClassConfig.headers}
+                      examDates={activeClassConfig.dates}
                       examHalf={examHalf}
                     />
                   )}
@@ -1333,8 +1512,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             examType={allocation.examType}
             schoolProfile={schoolProfile}
             targetRoomId={targetRoomId}
-            examHeaders={examHeaders}
-            examDates={examDates}
+            classSubjectsMap={classSubjectsConfig}
+            examHeaders={activeClassConfig.headers}
+            examDates={activeClassConfig.dates}
             examHalf={examHalf}
           />
         )}

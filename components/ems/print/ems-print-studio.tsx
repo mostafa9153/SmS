@@ -42,6 +42,7 @@ import {
   syncAllEmsConfigsFromDb,
   formatRoomName,
 } from "@/lib/ems/ems-config-loader";
+import { isHigherSecondaryClass } from "@/lib/ems/seat-arrangement-algorithm";
 import { getSavedMarksSchemes } from "@/lib/utils/marks-config";
 import {
   Select,
@@ -164,6 +165,148 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     return Array.from(subsSet);
   }, [uniqueClasses]);
 
+  // Helper to load clean preset subjects for any class
+  const loadPresetSubjectsForClass = (cls: string): string[] => {
+    const cleanCls = (cls || "VII").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+    const subs = getDatabaseSubjectsForClass(cleanCls, [], false);
+    if (subs && subs.length > 0) return subs;
+    return isHigherSecondaryClass(cleanCls)
+      ? ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biology"]
+      : ["Bengali", "English", "Mathematics", "Physical Science", "Life Science", "History", "Geography"];
+  };
+
+  const [classSubjectsConfig, setClassSubjectsConfig] = useState<Record<string, { headers: string[]; dates: string[] }>>(() => {
+    const init: Record<string, { headers: string[]; dates: string[] }> = {};
+    uniqueClasses.forEach((cls) => {
+      const subs = loadPresetSubjectsForClass(cls);
+      init[cls] = {
+        headers: subs,
+        dates: Array(subs.length).fill(""),
+      };
+    });
+    return init;
+  });
+
+  const [selectedClassTab, setSelectedClassTab] = useState<string>(() => uniqueClasses[0] || "");
+
+  // Update classSubjectsConfig whenever uniqueClasses change or missing
+  useEffect(() => {
+    setClassSubjectsConfig((prev) => {
+      let changed = false;
+      const updated = { ...prev };
+      uniqueClasses.forEach((cls) => {
+        if (!updated[cls] || updated[cls].headers.length === 0) {
+          const subs = loadPresetSubjectsForClass(cls);
+          updated[cls] = {
+            headers: subs,
+            dates: Array(subs.length).fill(""),
+          };
+          changed = true;
+        }
+      });
+      return changed ? updated : prev;
+    });
+
+    if (uniqueClasses.length > 0 && (!selectedClassTab || !uniqueClasses.includes(selectedClassTab))) {
+      setSelectedClassTab(uniqueClasses[0]);
+    }
+  }, [uniqueClasses]);
+
+  const activeClass = selectedClassTab || uniqueClasses[0] || "";
+  const activeClassConfig = classSubjectsConfig[activeClass] || {
+    headers: getDynamicSubjectsForClasses(uniqueClasses, allocation.examType),
+    dates: Array(getDynamicSubjectsForClasses(uniqueClasses, allocation.examType).length).fill(""),
+  };
+
+  const getClassesForSubject = (subjectName: string): string[] => {
+    if (!subjectName) return [];
+    const clean = subjectName.trim().toLowerCase();
+    return uniqueClasses.filter((c) => {
+      const list = classSubjectsConfig[c]?.headers || [];
+      return list.some((s) => s.trim().toLowerCase() === clean);
+    });
+  };
+
+  const handleActiveHeaderChange = (index: number, val: string) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      const nextHeaders = [...cur.headers];
+      nextHeaders[index] = val;
+      return { ...prev, [activeClass]: { ...cur, headers: nextHeaders } };
+    });
+  };
+
+  const handleActiveDateChange = (index: number, val: string) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      const nextDates = [...cur.dates];
+      nextDates[index] = val;
+      return { ...prev, [activeClass]: { ...cur, dates: nextDates } };
+    });
+  };
+
+  const handleActiveAddSubject = () => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      if (cur.headers.length >= 10) return prev;
+      return {
+        ...prev,
+        [activeClass]: {
+          headers: [...cur.headers, `Subject ${cur.headers.length + 1}`],
+          dates: [...cur.dates, ""],
+        },
+      };
+    });
+  };
+
+  const handleActiveRemoveSubject = (index: number) => {
+    setClassSubjectsConfig((prev) => {
+      const cur = prev[activeClass] || { headers: [...activeClassConfig.headers], dates: [...activeClassConfig.dates] };
+      if (cur.headers.length <= 1) return prev;
+      return {
+        ...prev,
+        [activeClass]: {
+          headers: cur.headers.filter((_, i) => i !== index),
+          dates: cur.dates.filter((_, i) => i !== index),
+        },
+      };
+    });
+  };
+
+  const handleActiveResetSubjects = () => {
+    const defaults = loadPresetSubjectsForClass(activeClass);
+    setClassSubjectsConfig((prev) => ({
+      ...prev,
+      [activeClass]: {
+        headers: defaults,
+        dates: Array(defaults.length).fill(""),
+      },
+    }));
+  };
+
+  const handleActiveFillConsecutiveDates = (startOffset = 0) => {
+    const d = new Date();
+    d.setDate(d.getDate() + startOffset);
+    const newDates: string[] = [];
+    const cur = new Date(d);
+    const count = activeClassConfig.headers.length;
+    while (newDates.length < count) {
+      if (cur.getDay() !== 0) {
+        const day = String(cur.getDate()).padStart(2, "0");
+        const month = String(cur.getMonth() + 1).padStart(2, "0");
+        newDates.push(`${day}/${month}`);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    setClassSubjectsConfig((prev) => ({
+      ...prev,
+      [activeClass]: {
+        ...activeClassConfig,
+        dates: newDates,
+      },
+    }));
+  };
+
   const [examHeaders, setExamHeaders] = useState<string[]>(() =>
     getDynamicSubjectsForClasses(uniqueClasses, allocation.examType)
   );
@@ -176,12 +319,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     syncAllEmsConfigsFromDb().then(({ profile }) => {
       setSchoolProfile(profile);
     });
-
-    // Auto-update subjects based on allocated classes
-    const defaultSubs = getDynamicSubjectsForClasses(uniqueClasses, allocation.examType);
-    setExamHeaders(defaultSubs);
-    setExamDates(Array(defaultSubs.length).fill(""));
-  }, [allocation, uniqueClasses]);
+  }, []);
 
   // Real-time listener for school profile changes across tabs/windows
   useEffect(() => {
@@ -987,13 +1125,51 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             {/* FOR ATTENDANCE SHEET */}
             {activeDoc === "attendance" && (
               <div className="space-y-3">
+                {/* Class Tabs Switcher if Multiple Classes */}
+                {uniqueClasses.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-muted/70 rounded-xl border border-border/70">
+                    <span className="text-[10px] font-bold text-muted-foreground px-2 uppercase tracking-wider">
+                      Select Class:
+                    </span>
+                    {uniqueClasses.map((cls) => {
+                      const isSelected = activeClass === cls;
+                      const count = classSubjectsConfig[cls]?.headers?.length || 0;
+                      return (
+                        <button
+                          key={cls}
+                          type="button"
+                          onClick={() => setSelectedClassTab(cls)}
+                          className={cn(
+                            "px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 select-none",
+                            isSelected
+                              ? "bg-background text-indigo-600 dark:text-indigo-300 shadow-xs border border-border/80"
+                              : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                          )}
+                        >
+                          <span>Class {cls}</span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-mono px-1.5 py-0.2 rounded font-bold",
+                              isSelected
+                                ? "bg-indigo-100 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {count} subs
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-foreground">
-                      Subject Columns ({examHeaders.length})
+                      Subject Columns - Class {activeClass} ({activeClassConfig.headers.length})
                     </span>
                     <span className="text-[10px] text-muted-foreground">
-                      Columns dynamically resize on the printed attendance sheet
+                      Auto-loaded from presets. Each class gets its own exact subjects on printed sheets.
                     </span>
                   </div>
 
@@ -1002,8 +1178,8 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleAddSubjectColumn}
-                      disabled={examHeaders.length >= 10}
+                      onClick={handleActiveAddSubject}
+                      disabled={activeClassConfig.headers.length >= 10}
                       className="h-7 text-xs font-bold gap-1 rounded-lg border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 cursor-pointer"
                     >
                       <span>+ Add Subject</span>
@@ -1012,7 +1188,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={handleResetSubjects}
+                      onClick={handleActiveResetSubjects}
                       className="h-7 text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
                     >
                       Reset Defaults
@@ -1020,73 +1196,87 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   </div>
                 </div>
 
-                {/* Dynamic Subject Columns Grid */}
+                {/* Dynamic Subject Columns Grid for Active Class */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-2">
-                  {examHeaders.map((headerVal, idx) => (
-                    <div
-                      key={`header-box-${idx}`}
-                      className="rounded-xl border border-border bg-card p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
-                          Sub {idx + 1}
-                        </span>
-                        {examHeaders.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveSubjectColumn(idx)}
-                            className="text-muted-foreground hover:text-rose-600 p-0.5 rounded transition-colors cursor-pointer"
-                            title="Remove this subject column"
+                  {activeClassConfig.headers.map((headerVal, idx) => {
+                    const sharedClasses = getClassesForSubject(headerVal);
+                    const classBadgeText = sharedClasses.length > 0 ? sharedClasses.join(", ") : activeClass;
+
+                    return (
+                      <div
+                        key={`header-box-${activeClass}-${idx}`}
+                        className="rounded-xl border border-border bg-card p-2 space-y-1.5 shadow-2xs focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/30 transition-all group"
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-bold font-mono text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 select-none">
+                            Sub {idx + 1}
+                          </span>
+
+                          {/* Class Badge: Shows which classes have this subject! */}
+                          <span
+                            className="text-[9.5px] font-mono font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60 px-1.5 py-0.5 rounded truncate max-w-[110px]"
+                            title={`Assigned to: Class ${classBadgeText}`}
                           >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
+                            Class {classBadgeText}
+                          </span>
 
-                      {/* Subject Dropdown Selector */}
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
-                          Subject
-                        </span>
-                        <Select
-                          value={headerVal || ""}
-                          onValueChange={(val: string | null) => {
-                            handleHeaderChange(idx, val || "");
-                          }}
-                        >
-                          <SelectTrigger className="h-7 text-xs bg-muted/30 hover:bg-muted/50 focus-visible:bg-background border-border/60 rounded-md px-2 py-0.5 text-foreground font-semibold">
-                            <SelectValue placeholder="Select Subject" />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl min-w-44 z-[60]">
-                            {availableSubjects.map((sub) => (
-                              <SelectItem key={sub} value={sub} className="text-xs">
-                                {sub}
-                              </SelectItem>
-                            ))}
-                            {headerVal && !availableSubjects.includes(headerVal) && (
-                              <SelectItem value={headerVal} className="text-xs">
-                                {headerVal}
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                          {activeClassConfig.headers.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleActiveRemoveSubject(idx)}
+                              className="text-muted-foreground hover:text-rose-600 p-0.5 rounded transition-colors cursor-pointer"
+                              title="Remove this subject column"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
 
-                      {/* Date Input */}
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
-                          Date
-                        </span>
-                        <input
-                          type="text"
-                          value={examDates[idx] || ""}
-                          onChange={(e) => handleDateChange(idx, e.target.value)}
-                          placeholder="DD/MM/YYYY"
-                          className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
-                        />
+                        {/* Subject Selector */}
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                            Subject
+                          </span>
+                          <Select
+                            value={headerVal || ""}
+                            onValueChange={(val: string | null) => {
+                              handleActiveHeaderChange(idx, val || "");
+                            }}
+                          >
+                            <SelectTrigger className="h-7 text-xs bg-muted/30 hover:bg-muted/50 focus-visible:bg-background border-border/60 rounded-md px-2 py-0.5 text-foreground font-semibold">
+                              <SelectValue placeholder="Select Subject" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl min-w-44 z-[60]">
+                              {availableSubjects.map((sub) => (
+                                <SelectItem key={sub} value={sub} className="text-xs">
+                                  {sub}
+                                </SelectItem>
+                              ))}
+                              {headerVal && !availableSubjects.includes(headerVal) && (
+                                <SelectItem value={headerVal} className="text-xs">
+                                  {headerVal}
+                                </SelectItem>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Date Input */}
+                        <div className="space-y-0.5">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground/80 tracking-wider block">
+                            Date
+                          </span>
+                          <input
+                            type="text"
+                            value={activeClassConfig.dates[idx] || ""}
+                            onChange={(e) => handleActiveDateChange(idx, e.target.value)}
+                            placeholder="DD/MM/YYYY"
+                            className="w-full text-xs bg-muted/30 hover:bg-muted/50 focus:bg-background rounded-md px-1.5 py-1 border border-border/60 outline-none text-foreground font-mono text-[11px] placeholder:text-muted-foreground/60 transition-colors"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1306,9 +1496,10 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   examType={allocation.examType}
                   schoolProfile={schoolProfile}
                   targetRoomId={targetRoomId}
-                  examHeaders={examHeaders}
-                  examDates={examDates}
+                  examHeaders={activeClassConfig.headers}
+                  examDates={activeClassConfig.dates}
                   examHalf={examHalf}
+                  classSubjectsMap={classSubjectsConfig}
                 />
               )}
 
@@ -1374,9 +1565,10 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               examType={allocation.examType}
               schoolProfile={schoolProfile}
               targetRoomId={targetRoomId}
-              examHeaders={examHeaders}
-              examDates={examDates}
+              examHeaders={activeClassConfig.headers}
+              examDates={activeClassConfig.dates}
               examHalf={examHalf}
+              classSubjectsMap={classSubjectsConfig}
             />
           )}
 

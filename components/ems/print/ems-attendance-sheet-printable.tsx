@@ -1,10 +1,15 @@
 "use client";
 
 import React from "react";
-import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
+import { AllocatedRoom } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
-import { formatRoomName, getClassNumericRank } from "@/lib/ems/ems-config-loader";
+import { formatRoomName, getClassNumericRank, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
+
+export interface ClassSubjectConfig {
+  headers: string[];
+  dates: string[];
+}
 
 export interface EmsAttendanceSheetPrintableProps {
   rooms: AllocatedRoom[];
@@ -13,8 +18,9 @@ export interface EmsAttendanceSheetPrintableProps {
   examHalf?: "1st Half" | "2nd Half";
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
-  examHeaders?: string[]; // Array of strings for Subjects
-  examDates?: string[]; // Array of strings for Exam dates
+  examHeaders?: string[]; // Fallback array of strings for Subjects
+  examDates?: string[]; // Fallback array of strings for Exam dates
+  classSubjectsMap?: Record<string, ClassSubjectConfig>; // Specific subjects and dates per class!
   layoutMode?: string; // Kept for interface backward compatibility
 }
 
@@ -28,6 +34,17 @@ interface StudentRowItem {
   isHs: boolean;
 }
 
+interface PageClassChunk {
+  classKey: string;
+  cleanClass: string;
+  isHs: boolean;
+  students: StudentRowItem[];
+  subjects: string[];
+  dates: string[];
+  isLastChunkOfClass: boolean;
+  isFirstChunkOfClass: boolean;
+}
+
 export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintableProps> = ({
   rooms,
   academicYear,
@@ -37,20 +54,51 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
   targetRoomId = "ALL",
   examHeaders = ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biology"],
   examDates = [],
+  classSubjectsMap = {},
 }) => {
-  // Dynamically resolve subject columns list
-  const cleanHeaders = (examHeaders && examHeaders.length > 0)
+  // Global fallback clean headers
+  const globalCleanHeaders = (examHeaders && examHeaders.length > 0)
     ? examHeaders.filter((h) => h !== undefined && h !== null && h.trim() !== "")
     : ["Bengali", "English", "Physics", "Chemistry", "Mathematics", "Biology"];
-
-  const columns = cleanHeaders.length > 0 ? cleanHeaders : ["Exam 1", "Exam 2", "Exam 3", "Exam 4", "Exam 5", "Exam 6"];
-  const numCols = columns.length;
 
   // Filter target rooms
   const activeRooms =
     targetRoomId === "ALL"
       ? rooms
       : rooms.filter((r) => r.roomId === targetRoomId);
+
+  // Helper to resolve subjects and dates for a specific class
+  const resolveClassSubjectsAndDates = (classStr: string) => {
+    const cleanCls = (classStr || "VII")
+      .trim()
+      .toUpperCase()
+      .replace(/^CLASS\s*[-_]?\s*/i, "")
+      .split("-")[0]
+      .trim();
+
+    // Check direct key or clean class key in map
+    const cfg = classSubjectsMap[cleanCls] || classSubjectsMap[classStr];
+    if (cfg && Array.isArray(cfg.headers) && cfg.headers.length > 0) {
+      return {
+        subjects: cfg.headers.filter(Boolean),
+        dates: cfg.dates || [],
+      };
+    }
+
+    // Fallback from database presets
+    const dbSubs = getDatabaseSubjectsForClass(cleanCls, [], false);
+    if (dbSubs && dbSubs.length > 0) {
+      return {
+        subjects: dbSubs,
+        dates: Array(dbSubs.length).fill(""),
+      };
+    }
+
+    return {
+      subjects: globalCleanHeaders,
+      dates: examDates,
+    };
+  };
 
   return (
     <div className="ems-print-attendance-wrapper w-full bg-white text-neutral-950 font-sans print:p-0 print:m-0">
@@ -67,7 +115,6 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
       {activeRooms.map((room, roomIdx) => {
         // Extract occupied seats for this room
         const occupiedSeats = room.seats.filter((s) => !s.isVacant && s.studentName);
-        const hasHsInRoom = occupiedSeats.some((s) => isHigherSecondaryClass(s.studentClass));
 
         // Group students by Class + Section / Stream
         const classMap = new Map<string, StudentRowItem[]>();
@@ -111,62 +158,98 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
         });
         const classLabel = classKeys.length > 0 ? `Class: ${classKeys.join(", ")}` : "";
 
-        // Collect all students in this room maintaining class sorting
-        const allRoomStudents: { student: StudentRowItem; classKey: string }[] = [];
-        classKeys.forEach((key) => {
-          const list = classMap.get(key) || [];
-          list.forEach((s) => {
-            allRoomStudents.push({ student: s, classKey: key });
-          });
+        // Build list of classes with their full student lists and resolved subjects/dates
+        interface ClassData {
+          classKey: string;
+          cleanClass: string;
+          isHs: boolean;
+          students: StudentRowItem[];
+          subjects: string[];
+          dates: string[];
+        }
+
+        const classDataList: ClassData[] = classKeys.map((key) => {
+          const students = classMap.get(key) || [];
+          const rawClass = students[0]?.studentClass || key;
+          const cleanClass = rawClass.replace(/^CLASS\s*[-_]?\s*/i, "").split("-")[0].trim();
+          const isHs = students.length > 0 && students[0].isHs;
+          const { subjects, dates } = resolveClassSubjectsAndDates(rawClass);
+
+          return {
+            classKey: key,
+            cleanClass,
+            isHs,
+            students,
+            subjects,
+            dates,
+          };
         });
 
-        // Chunk strictly by 30 students per page
-        const STUDENTS_PER_PAGE = 30;
-        const studentBatches: { student: StudentRowItem; classKey: string }[][] = [];
-        if (allRoomStudents.length === 0) {
-          studentBatches.push([]);
+        // Chunk students into pages: Target ~32 students per page (max 35)
+        // If multiple classes in the room fit on the page, they are placed together as sequential sub-tables!
+        const TARGET_STUDENTS_PER_PAGE = 32;
+        const pages: { chunks: PageClassChunk[] }[] = [];
+
+        if (classDataList.length === 0) {
+          pages.push({ chunks: [] });
         } else {
-          for (let i = 0; i < allRoomStudents.length; i += STUDENTS_PER_PAGE) {
-            studentBatches.push(allRoomStudents.slice(i, i + STUDENTS_PER_PAGE));
+          let currentPageChunks: PageClassChunk[] = [];
+          let currentStudentCount = 0;
+
+          classDataList.forEach((clsData) => {
+            let remainingStudents = [...clsData.students];
+            let isFirstChunk = true;
+
+            while (remainingStudents.length > 0) {
+              const spaceAvailable = TARGET_STUDENTS_PER_PAGE - currentStudentCount;
+
+              // If page already has at least 20 students and this class won't fit reasonably, start new page
+              if (spaceAvailable < 8 && currentStudentCount > 0) {
+                pages.push({ chunks: currentPageChunks });
+                currentPageChunks = [];
+                currentStudentCount = 0;
+                continue;
+              }
+
+              const takeCount = Math.min(
+                remainingStudents.length,
+                Math.max(spaceAvailable, TARGET_STUDENTS_PER_PAGE)
+              );
+              const slice = remainingStudents.slice(0, takeCount);
+              remainingStudents = remainingStudents.slice(takeCount);
+
+              const isLastChunk = remainingStudents.length === 0;
+
+              currentPageChunks.push({
+                classKey: clsData.classKey,
+                cleanClass: clsData.cleanClass,
+                isHs: clsData.isHs,
+                students: slice,
+                subjects: clsData.subjects,
+                dates: clsData.dates,
+                isFirstChunkOfClass: isFirstChunk,
+                isLastChunkOfClass: isLastChunk,
+              });
+
+              isFirstChunk = false;
+              currentStudentCount += slice.length;
+
+              if (currentStudentCount >= TARGET_STUDENTS_PER_PAGE && remainingStudents.length > 0) {
+                pages.push({ chunks: currentPageChunks });
+                currentPageChunks = [];
+                currentStudentCount = 0;
+              }
+            }
+          });
+
+          if (currentPageChunks.length > 0) {
+            pages.push({ chunks: currentPageChunks });
           }
         }
 
-        // Prepare rows for the table
-        type RowData =
-          | { type: "header"; title: string; isHs: boolean }
-          | { type: "student"; student: StudentRowItem; index: number }
-          | { type: "total_present"; className: string }
-          | { type: "total_absent"; className: string }
-          | { type: "invigilator_sign"; className: string }
-          | { type: "empty" };
-
         const displayRoom = formatRoomName(room.roomNumber);
 
-        return studentBatches.map((batch, pageIdx) => {
-          // Group batch students by class
-          const batchClassMap = new Map<string, StudentRowItem[]>();
-          batch.forEach((item) => {
-            if (!batchClassMap.has(item.classKey)) {
-              batchClassMap.set(item.classKey, []);
-            }
-            batchClassMap.get(item.classKey)!.push(item.student);
-          });
-
-          const pageRows: RowData[] = [];
-          batchClassMap.forEach((students, key) => {
-            const isHs = students.length > 0 && students[0].isHs;
-            pageRows.push({ type: "header", title: `CLASS: ${key}`, isHs });
-            students.forEach((s, i) => pageRows.push({ type: "student", student: s, index: i }));
-            // Summary rows at the end of each class: Total Present, Total Absent, Invigilator Sign
-            pageRows.push({ type: "total_present", className: key });
-            pageRows.push({ type: "total_absent", className: key });
-            pageRows.push({ type: "invigilator_sign", className: key });
-          });
-
-          if (pageRows.length === 0) {
-            pageRows.push({ type: "empty" });
-          }
-
+        return pages.map((pageData, pageIdx) => {
           return (
             <div
               key={`attendance-room-${room.roomId}-page-${pageIdx}`}
@@ -176,7 +259,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
               <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
                 <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
                   Room {roomIdx + 1} of {activeRooms.length}
-                  {studentBatches.length > 1 ? ` (Page ${pageIdx + 1}/${studentBatches.length})` : ""}
+                  {pages.length > 1 ? ` (Page ${pageIdx + 1}/${pages.length})` : ""}
                 </span>
                 <span>•</span>
                 <span>
@@ -194,7 +277,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                     alt="School Logo Watermark"
                     loading="eager"
                     decoding="async"
-                    className="w-96 h-96 object-contain opacity-[0.15] grayscale select-none print:filter-none print:opacity-[0.14]"
+                    className="w-96 h-96 object-contain opacity-[0.14] grayscale select-none print:filter-none print:opacity-[0.13]"
                   />
                 </div>
 
@@ -216,7 +299,7 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                           </span>
                           <span className="text-[7.5px] font-mono font-bold text-neutral-600 block">
                             PG {roomIdx + 1}
-                            {studentBatches.length > 1 ? `-${pageIdx + 1}` : ""}
+                            {pages.length > 1 ? `-${pageIdx + 1}` : ""}
                           </span>
                         </div>
                       </div>
@@ -270,210 +353,199 @@ export const EmsAttendanceSheetPrintable: React.FC<EmsAttendanceSheetPrintablePr
                     </div>
                   </div>
 
-                  {/* REGISTER TABLE: Multi-Subject Dynamic Columns with Separate Roll and Reg No */}
-                  <div className="flex-1 flex flex-col justify-start min-h-0 mt-0.5">
-                    <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed">
-                      <thead>
-                        <tr className="bg-neutral-100/90 border-b-[1.2px] border-black">
-                          <th
-                            rowSpan={2}
-                            className={`border-r-[1.5px] border-black ${hasHsInRoom ? "w-[36px]" : "w-[42px]"} text-center font-black p-1 text-[9px] shrink-0`}
-                          >
-                            Roll
-                          </th>
-                          {hasHsInRoom && (
-                            <th
-                              rowSpan={2}
-                              className="border-r-[1.5px] border-black w-[76px] text-center font-black p-1 text-[9px] shrink-0"
-                            >
-                              Reg No
-                            </th>
-                          )}
-                          <th
-                            rowSpan={2}
-                            className={`border-r-[1.5px] border-black ${hasHsInRoom ? "w-[150px]" : "w-[170px]"} text-left font-black p-1 pl-2 text-[9.5px] truncate shrink-0`}
-                          >
-                            Student Name
-                          </th>
-                          {/* Dynamic Subject Columns */}
-                          {columns.map((headerText, i) => (
-                            <th
-                              key={`th-subject-${i}`}
-                              className="border-r border-black font-black text-center p-1 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
-                              style={{ width: `calc((100% - ${hasHsInRoom ? "262px" : "212px"}) / ${numCols})` }}
-                            >
-                              {headerText}
-                            </th>
-                          ))}
-                        </tr>
-                        <tr className="bg-white border-b-[1.5px] border-black">
-                          {/* Dynamic Date Row */}
-                          {columns.map((_, i) => {
-                            const dateVal = examDates?.[i]?.trim();
-                            return (
-                              <th
-                                key={`th-date-${i}`}
-                                className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-800 h-[5mm]"
-                              >
-                                {dateVal ? (
-                                  <span className="font-mono font-bold tracking-tight text-[8.5px] text-black">
-                                    {dateVal}
-                                  </span>
-                                ) : (
-                                  <span className="font-mono tracking-widest text-neutral-400 select-none">
-                                    &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;
-                                  </span>
+                  {/* REGISTER TABLES CONTAINER: Class-Specific Sub-Tables with Their Own Subject Columns */}
+                  <div className="flex-1 flex flex-col justify-start min-h-0 mt-0.5 space-y-2">
+                    {pageData.chunks.length === 0 ? (
+                      <div className="border border-black p-4 text-center text-neutral-400 font-bold text-xs">
+                        No students allocated in this room
+                      </div>
+                    ) : (
+                      pageData.chunks.map((chunk, chunkIdx) => {
+                        const classSubjects = chunk.subjects;
+                        const classDates = chunk.dates;
+                        const classNumCols = classSubjects.length || 1;
+                        const isHs = chunk.isHs;
+
+                        return (
+                          <div key={`chunk-table-${chunk.classKey}-${chunkIdx}`} className="w-full">
+                            <table className="w-full border-collapse border-[1.5px] border-black text-[9px] table-fixed">
+                              <thead>
+                                {/* Class Header Banner */}
+                                <tr className="border-b-[1.2px] border-black bg-neutral-200/95 h-[5.6mm]">
+                                  <th
+                                    colSpan={(isHs ? 3 : 2) + classNumCols}
+                                    className="text-center font-black text-[10px] uppercase tracking-widest text-black py-0.5 h-[5.6mm]"
+                                  >
+                                    CLASS: {chunk.classKey}
+                                  </th>
+                                </tr>
+
+                                {/* Dynamic Subject Column Headers for THIS Specific Class */}
+                                <tr className="bg-neutral-100/90 border-b-[1.2px] border-black h-[6.0mm]">
+                                  <th
+                                    rowSpan={2}
+                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[36px]" : "w-[42px]"} text-center font-black p-0.5 text-[9px] shrink-0`}
+                                  >
+                                    Roll
+                                  </th>
+                                  {isHs && (
+                                    <th
+                                      rowSpan={2}
+                                      className="border-r-[1.5px] border-black w-[76px] text-center font-black p-0.5 text-[9px] shrink-0"
+                                    >
+                                      Reg No
+                                    </th>
+                                  )}
+                                  <th
+                                    rowSpan={2}
+                                    className={`border-r-[1.5px] border-black ${isHs ? "w-[150px]" : "w-[170px]"} text-left font-black p-0.5 pl-2 text-[9.5px] truncate shrink-0`}
+                                  >
+                                    Student Name
+                                  </th>
+                                  {classSubjects.map((headerText, i) => (
+                                    <th
+                                      key={`th-sub-${chunkIdx}-${i}`}
+                                      className="border-r border-black font-black text-center p-0.5 text-[9px] overflow-hidden leading-tight truncate uppercase tracking-wider text-black"
+                                      style={{ width: `calc((100% - ${isHs ? "262px" : "212px"}) / ${classNumCols})` }}
+                                    >
+                                      {headerText}
+                                    </th>
+                                  ))}
+                                </tr>
+
+                                {/* Date Row for THIS Specific Class */}
+                                <tr className="bg-white border-b-[1.5px] border-black h-[5.0mm]">
+                                  {classSubjects.map((_, i) => {
+                                    const dateVal = classDates?.[i]?.trim();
+                                    return (
+                                      <th
+                                        key={`th-date-${chunkIdx}-${i}`}
+                                        className="border-r border-black font-semibold text-center px-0.5 py-0.5 text-[8.5px] text-neutral-800 h-[5.0mm]"
+                                      >
+                                        {dateVal ? (
+                                          <span className="font-mono font-bold tracking-tight text-[8.5px] text-black">
+                                            {dateVal}
+                                          </span>
+                                        ) : (
+                                          <span className="font-mono tracking-widest text-neutral-400 select-none">
+                                            &nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;/&nbsp;&nbsp;
+                                          </span>
+                                        )}
+                                      </th>
+                                    );
+                                  })}
+                                </tr>
+                              </thead>
+
+                              <tbody>
+                                {/* Student Rows: Uniform fixed height of 6.2mm */}
+                                {chunk.students.map((student, stIdx) => {
+                                  const regVal = student.regNo?.trim();
+                                  return (
+                                    <tr
+                                      key={`student-row-${chunkIdx}-${student.roll}-${stIdx}`}
+                                      className="border-b border-black/70 hover:bg-neutral-50/50 h-[6.2mm]"
+                                      style={{ height: "6.2mm" }}
+                                    >
+                                      <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5 h-[6.2mm]">
+                                        {String(student.roll).padStart(2, "0")}
+                                      </td>
+                                      {isHs && (
+                                        <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[6.2mm]">
+                                          {regVal || "-"}
+                                        </td>
+                                      )}
+                                      <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none h-[6.2mm]">
+                                        {student.name}
+                                      </td>
+                                      {classSubjects.map((_, colI) => (
+                                        <td
+                                          key={`cell-${chunkIdx}-${stIdx}-${colI}`}
+                                          className="border-r border-black/70 text-center p-0 h-[6.2mm]"
+                                        />
+                                      ))}
+                                    </tr>
+                                  );
+                                })}
+
+                                {/* Summary Rows for THIS Class at the conclusion of the class */}
+                                {chunk.isLastChunkOfClass && (
+                                  <>
+                                    <tr
+                                      className="border-b border-black bg-neutral-100 font-bold h-[5.6mm]"
+                                      style={{ height: "5.6mm" }}
+                                    >
+                                      <td
+                                        colSpan={isHs ? 3 : 2}
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.6mm]"
+                                      >
+                                        TOTAL PRESENT:
+                                      </td>
+                                      {classSubjects.map((_, colI) => (
+                                        <td
+                                          key={`total-p-${chunkIdx}-${colI}`}
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.6mm]"
+                                        />
+                                      ))}
+                                    </tr>
+
+                                    <tr
+                                      className="border-b border-black bg-neutral-100 font-bold h-[5.6mm]"
+                                      style={{ height: "5.6mm" }}
+                                    >
+                                      <td
+                                        colSpan={isHs ? 3 : 2}
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.6mm]"
+                                      >
+                                        TOTAL ABSENT:
+                                      </td>
+                                      {classSubjects.map((_, colI) => (
+                                        <td
+                                          key={`total-a-${chunkIdx}-${colI}`}
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.6mm]"
+                                        />
+                                      ))}
+                                    </tr>
+
+                                    <tr
+                                      className="border-b-[1.5px] border-black bg-neutral-50 font-bold h-[5.8mm]"
+                                      style={{ height: "5.8mm" }}
+                                    >
+                                      <td
+                                        colSpan={isHs ? 3 : 2}
+                                        className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900 h-[5.8mm]"
+                                      >
+                                        INVIGILATOR SIGN:
+                                      </td>
+                                      {classSubjects.map((_, colI) => (
+                                        <td
+                                          key={`sign-${chunkIdx}-${colI}`}
+                                          className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
+                                        />
+                                      ))}
+                                    </tr>
+                                  </>
                                 )}
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pageRows.map((row, idx) => {
-                          if (row.type === "header") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b-[1.2px] border-black bg-neutral-200/90 h-[5.8mm]"
-                                style={{ height: "5.8mm" }}
-                              >
-                                <td
-                                  colSpan={(hasHsInRoom ? 3 : 2) + numCols}
-                                  className="text-center font-black text-[10.5px] uppercase tracking-widest text-black py-0.5 h-[5.8mm]"
-                                >
-                                  {row.title}
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          if (row.type === "total_present") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
-                                style={{ height: "5.8mm" }}
-                              >
-                                <td
-                                  colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.8mm]"
-                                >
-                                  TOTAL PRESENT:
-                                </td>
-                                {columns.map((_, colI) => (
-                                  <td
-                                    key={`total-p-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
-                                  />
-                                ))}
-                              </tr>
-                            );
-                          }
-
-                          if (row.type === "total_absent") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b border-black bg-neutral-100 font-bold h-[5.8mm]"
-                                style={{ height: "5.8mm" }}
-                              >
-                                <td
-                                  colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[9px] text-neutral-900 h-[5.8mm]"
-                                >
-                                  TOTAL ABSENT:
-                                </td>
-                                {columns.map((_, colI) => (
-                                  <td
-                                    key={`total-a-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0 h-[5.8mm]"
-                                  />
-                                ))}
-                              </tr>
-                            );
-                          }
-
-                          if (row.type === "invigilator_sign") {
-                            return (
-                              <tr
-                                key={`row-${idx}`}
-                                className="border-b-[1.5px] border-black bg-neutral-50 font-bold h-[6.2mm]"
-                                style={{ height: "6.2mm" }}
-                              >
-                                <td
-                                  colSpan={hasHsInRoom ? 3 : 2}
-                                  className="border-r-[1.5px] border-black px-2 text-right font-black uppercase text-[8.5px] text-neutral-900 h-[6.2mm]"
-                                >
-                                  INVIGILATOR SIGN:
-                                </td>
-                                {columns.map((_, colI) => (
-                                  <td
-                                    key={`sign-${idx}-${colI}`}
-                                    className="border-r border-black/80 bg-white text-center p-0 h-[6.2mm]"
-                                  />
-                                ))}
-                              </tr>
-                            );
-                          }
-
-                          if (row.type === "empty") {
-                            return (
-                              <tr key={`row-${idx}`} className="border-b border-black/70 h-[6.5mm]" style={{ height: "6.5mm" }}>
-                                <td colSpan={(hasHsInRoom ? 3 : 2) + numCols} className="text-center text-neutral-400 py-1 text-[9px] h-[6.5mm]">
-                                  No students allocated
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          const isStudent = row.type === "student";
-                          const student = isStudent ? row.student : null;
-                          const regVal = student?.regNo?.trim();
-
-                          return (
-                            <tr
-                              key={`row-${idx}`}
-                              className="border-b border-black/70 hover:bg-neutral-50/50 h-[6.5mm]"
-                              style={{ height: "6.5mm" }}
-                            >
-                              <td className="border-r-[1.5px] border-black text-center font-black text-[9.5px] p-0 leading-none truncate px-0.5 h-[6.5mm]">
-                                {student ? String(student.roll).padStart(2, "0") : ""}
-                              </td>
-                              {hasHsInRoom && (
-                                <td className="border-r-[1.5px] border-black text-center font-mono font-bold text-[9px] p-0 leading-none truncate px-0.5 h-[6.5mm]">
-                                  {regVal || "-"}
-                                </td>
-                              )}
-                              <td className="border-r-[1.5px] border-black px-2 font-black text-[10.5px] uppercase truncate text-neutral-950 leading-none h-[6.5mm]">
-                                {student ? student.name : ""}
-                              </td>
-                              {/* Dynamic Signature/Script Boxes */}
-                              {columns.map((_, colI) => (
-                                <td
-                                  key={`cell-${idx}-${colI}`}
-                                  className="border-r border-black/70 text-center p-0 h-[6.5mm]"
-                                />
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
-                </div>
 
-                {/* REGISTER FOOTER */}
-                <div className="border-t-[1.5px] border-black pt-1 mt-1 flex items-center justify-between text-[8px] font-bold text-neutral-700">
-                  <span>
-                    Room: <strong className="text-black text-[9px]">{displayRoom}</strong> • Total Capacity: <strong>{room.totalSeats}</strong> • Allocated: <strong>{room.occupiedSeats}</strong>
-                  </span>
-                  <span className="uppercase tracking-wider text-black">
-                    {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"} EXAMINATION CONTROL DEPARTMENT
-                  </span>
-                  <span>
-                    Headmaster / Centre In-Charge Sign: __________________
-                  </span>
+                  {/* REGISTER FOOTER */}
+                  <div className="border-t-[1.5px] border-black pt-1 mt-1 flex items-center justify-between text-[8px] font-bold text-neutral-700">
+                    <span>
+                      Room: <strong className="text-black text-[9px]">{displayRoom}</strong> • Total Capacity: <strong>{room.totalSeats}</strong> • Allocated: <strong>{room.occupiedSeats}</strong>
+                    </span>
+                    <span className="uppercase tracking-wider text-black">
+                      {schoolProfile.schoolName || "MARIGACHI HIGH SCHOOL (H.S.)"} EXAMINATION CONTROL DEPARTMENT
+                    </span>
+                    <span>
+                      Headmaster / Centre In-Charge Sign: __________________
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
