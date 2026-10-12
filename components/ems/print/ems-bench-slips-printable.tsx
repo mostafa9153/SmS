@@ -198,157 +198,189 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
               )}
             >
               {toColumnMajorGrid(pageSlips, numCols, numRows).map((item, slotIdx) => {
-                if (!item) {
-                  return (
-                    <div
-                      key={`empty-slip-${pageIndex}-${slotIdx}`}
-                      className="border border-dashed border-neutral-100 rounded-[3px] h-full"
-                    />
-                  );
-                }
+                const col = slotIdx % numCols;
+                const row = Math.floor(slotIdx / numCols);
+                const hasColRight = col < numCols - 1;
+                const hasRowBottom = row < numRows - 1;
 
-                const displayRoom = formatRoomName(item.roomNumber);
-                const isHs = isHigherSecondaryClass(item.studentClass);
-                const streamText = item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci";
-                const regVal = (item.studentRegNo || "").trim();
+                const cutOffsetX = isMini
+                  ? "0.9mm"
+                  : resolvedSlipsPerPage === 24
+                    ? isLandscape ? "1.75mm" : "1.9mm"
+                    : isLandscape ? "1.4mm" : "1.6mm";
 
-                // Compact 2-line layout for 57 Mini slips
-                if (isMini) {
-                  return (
-                    <div
-                      key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                      className={cn(
-                        "relative border border-dashed border-neutral-300 rounded-[2px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
-                        isLandscape ? "px-[1.5mm] py-[0.5mm]" : "px-[2mm] py-[0.8mm]"
-                      )}
-                    >
-                      <span className={cn("absolute -top-1 -right-0.5 text-neutral-400 select-none pointer-events-none opacity-40", isLandscape ? "text-[6px]" : "text-[7px]")}>
-                        ✂
-                      </span>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-                        <img
-                          src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                          alt="Watermark"
-                          loading="eager"
-                          decoding="async"
-                          className={cn("object-contain opacity-[0.15] grayscale print:filter-none print:opacity-[0.14]", isLandscape ? "w-8 h-8" : "w-9 h-9")}
-                        />
-                      </div>
-                      <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
-                        {isHs ? (
-                          <div
-                            className={cn(
-                              "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
-                              isLandscape
-                                ? regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
-                                : regVal.length > 10 ? "text-[13px]" : regVal.length > 7 ? "text-[14px]" : "text-[15.5px]"
-                            )}
-                            title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
-                          >
-                            {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
-                          </div>
-                        ) : (
-                          <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono", isLandscape ? "text-[15.5px]" : "text-[17.5px]")}>
-                            ROLL {String(item.studentRoll).padStart(2, "0")}
-                          </div>
-                        )}
-                        <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1 tracking-tight", isLandscape ? "text-[11px]" : "text-[12.5px]")}>
-                          {item.studentName}
-                        </div>
-                      </div>
-                      <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
-                        <div className={cn("font-bold text-neutral-700 leading-none truncate min-w-0", isLandscape ? "text-[9.5px]" : "text-[10.5px]")}>
-                          Class:{" "}
-                          <span className={cn("font-black text-neutral-950", isLandscape ? "text-[10.5px]" : "text-[11.5px]")}>
-                            {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
-                          </span>
-                        </div>
-                        <div className={cn("flex items-center justify-end space-x-1 font-bold text-neutral-800 leading-none shrink-0", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
-                          <span className={cn("font-black text-neutral-950 bg-neutral-100 px-1 py-[0.5px] rounded border border-neutral-300 leading-none", isLandscape ? "text-[9px]" : "text-[10px]")}>{displayRoom}</span>
-                          <span className="text-neutral-400 text-[7px]">•</span>
-                          <span className={cn("text-neutral-600", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
-                            Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
-                          </span>
-                          <span className={cn("bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1 py-[0.5px] rounded leading-none", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
-                            Seat S{item.seatPosition}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
+                const cutOffsetY = isMini
+                  ? "0.15mm"
+                  : resolvedSlipsPerPage === 24
+                    ? isLandscape ? "1.5mm" : "1.4mm"
+                    : isLandscape ? "1.5mm" : "1.4mm";
 
-                // Generous 3-line layout for 32 or 24 slips per page with proper cutting space
+                const displayRoom = item ? formatRoomName(item.roomNumber) : "";
+                const isHs = item ? isHigherSecondaryClass(item.studentClass) : false;
+                const streamText = item ? (item.studentStream || (item.studentSection ? toShortStream(item.studentSection) : "") || "Sci") : "";
+                const regVal = item ? (item.studentRegNo || "").trim() : "";
+
                 return (
-                  <div
-                    key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                    className="relative border border-dashed border-neutral-300 print:border-neutral-400 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border px-[2.5mm] py-[1.8mm]"
-                  >
-                    {/* Corner Cut Indicator */}
-                    <span className="absolute -top-1 -right-0.5 text-neutral-400 select-none pointer-events-none opacity-40 text-[7px]">
-                      ✂
-                    </span>
-
-                    {/* School Logo Watermark */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
-                      <img
-                        src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
-                        alt="Watermark"
-                        loading="eager"
-                        decoding="async"
-                        className="w-8 h-8 object-contain opacity-[0.11] grayscale print:filter-none print:opacity-[0.10]"
-                      />
-                    </div>
-
-                    {/* Line 1: Roll / Reg (Left) & Room + Seat Badge (Right) */}
-                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
-                      {isHs ? (
+                  <div key={`slip-slot-wrap-${pageIndex}-${slotIdx}`} className="relative h-full w-full">
+                    {item ? (
+                      isMini ? (
                         <div
+                          key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
                           className={cn(
-                            "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
-                            regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
+                            "relative border border-dashed border-neutral-300 rounded-[2px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
+                            isLandscape ? "px-[1.5mm] py-[0.5mm]" : "px-[2mm] py-[0.8mm]"
                           )}
-                          title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
                         >
-                          {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
+                          {/* School Logo Watermark: 60% of card */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                            <img
+                              src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                              alt="Watermark"
+                              loading="eager"
+                              decoding="async"
+                              className="h-[60%] max-h-[60%] max-w-[60%] object-contain opacity-[0.14] grayscale print:filter-none print:opacity-[0.13] select-none"
+                            />
+                          </div>
+                          <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
+                            {isHs ? (
+                              <div
+                                className={cn(
+                                  "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
+                                  isLandscape
+                                    ? regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
+                                    : regVal.length > 10 ? "text-[13px]" : regVal.length > 7 ? "text-[14px]" : "text-[15.5px]"
+                                )}
+                                title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
+                              >
+                                {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
+                              </div>
+                            ) : (
+                              <div className={cn("font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono", isLandscape ? "text-[15.5px]" : "text-[17.5px]")}>
+                                ROLL {String(item.studentRoll).padStart(2, "0")}
+                              </div>
+                            )}
+                            <div className={cn("font-black uppercase text-neutral-950 truncate text-right leading-none min-w-0 flex-1 pl-1 tracking-tight", isLandscape ? "text-[11px]" : "text-[12.5px]")}>
+                              {item.studentName}
+                            </div>
+                          </div>
+                          <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5">
+                            <div className={cn("font-bold text-neutral-700 leading-none truncate min-w-0", isLandscape ? "text-[9.5px]" : "text-[10.5px]")}>
+                              Class:{" "}
+                              <span className={cn("font-black text-neutral-950", isLandscape ? "text-[10.5px]" : "text-[11.5px]")}>
+                                {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
+                              </span>
+                            </div>
+                            <div className={cn("flex items-center justify-end space-x-1 font-bold text-neutral-800 leading-none shrink-0", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                              <span className={cn("font-black text-neutral-950 bg-neutral-100 px-1 py-[0.5px] rounded border border-neutral-300 leading-none", isLandscape ? "text-[9px]" : "text-[10px]")}>{displayRoom}</span>
+                              <span className="text-neutral-400 text-[7px]">•</span>
+                              <span className={cn("text-neutral-600", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                                Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
+                              </span>
+                              <span className={cn("bg-indigo-50 border border-indigo-200 text-indigo-950 font-black px-1 py-[0.5px] rounded leading-none", isLandscape ? "text-[7.5px]" : "text-[8.5px]")}>
+                                Seat S{item.seatPosition}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       ) : (
-                        <div className="font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono text-[14.5px]">
-                          ROLL {String(item.studentRoll).padStart(2, "0")}
+                        <div
+                          key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
+                          className="relative border border-dashed border-neutral-300 print:border-neutral-400 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border px-[2.5mm] py-[1.8mm]"
+                        >
+                          {/* School Logo Watermark: 60% of card */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                            <img
+                              src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                              alt="Watermark"
+                              loading="eager"
+                              decoding="async"
+                              className="h-[60%] max-h-[60%] max-w-[60%] object-contain opacity-[0.13] grayscale print:filter-none print:opacity-[0.12] select-none"
+                            />
+                          </div>
+
+                          {/* Line 1: Roll / Reg (Left) & Room + Seat Badge (Right) */}
+                          <div className="relative z-10 flex items-center justify-between gap-1 leading-none">
+                            {isHs ? (
+                              <div
+                                className={cn(
+                                  "font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono",
+                                  regVal.length > 10 ? "text-[12px]" : regVal.length > 7 ? "text-[13px]" : "text-[14px]"
+                                )}
+                                title={regVal ? `Reg No: ${regVal}` : `Roll ${item.studentRoll}`}
+                              >
+                                {regVal ? `REG ${regVal}` : `ROLL ${String(item.studentRoll).padStart(2, "0")}`}
+                              </div>
+                            ) : (
+                              <div className="font-black text-neutral-950 tracking-tight leading-none shrink-0 font-mono text-[14.5px]">
+                                ROLL {String(item.studentRoll).padStart(2, "0")}
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-1 shrink-0 leading-none">
+                              <span className="font-extrabold text-neutral-900 bg-neutral-100 border border-neutral-300 px-1 py-[1px] rounded text-[9px] leading-tight">
+                                {displayRoom}
+                              </span>
+                              <span className="font-black text-indigo-950 bg-indigo-50 border border-indigo-200 px-1 py-[1px] rounded text-[9px] leading-tight">
+                                S{item.seatPosition}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Line 2: Student Full Name */}
+                          <div className="relative z-10 py-0.5">
+                            <div className="font-black uppercase text-neutral-950 tracking-tight text-[11.5px] leading-tight truncate">
+                              {item.studentName}
+                            </div>
+                          </div>
+
+                          {/* Line 3: Class & Desk Position */}
+                          <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5 border-t border-neutral-100">
+                            <div className="font-bold text-neutral-700 leading-none truncate min-w-0 text-[10px]">
+                              Class:{" "}
+                              <span className="font-black text-neutral-950 text-[10.5px]">
+                                {isHs ? `${item.studentClass}-${streamText}` : `${item.studentClass}-${item.studentSection}`}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-1 font-bold text-neutral-800 leading-none shrink-0 text-[8.5px]">
+                              <span className="text-neutral-600">
+                                Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                      )}
+                      )
+                    ) : (
+                      <div
+                        key={`empty-slip-${pageIndex}-${slotIdx}`}
+                        className="border border-dashed border-neutral-100 rounded-[3px] h-full"
+                      />
+                    )}
 
-                      <div className="flex items-center gap-1 shrink-0 leading-none">
-                        <span className="font-extrabold text-neutral-900 bg-neutral-100 border border-neutral-300 px-1 py-[1px] rounded text-[9px] leading-tight">
-                          {displayRoom}
-                        </span>
-                        <span className="font-black text-indigo-950 bg-indigo-50 border border-indigo-200 px-1 py-[1px] rounded text-[9px] leading-tight">
-                          S{item.seatPosition}
+                    {/* Dedicated Cutting Mark with Scissor between columns */}
+                    {hasColRight && (
+                      <div
+                        className="absolute top-0 bottom-0 pointer-events-none flex items-center justify-center z-20 w-0"
+                        style={{ right: `-${cutOffsetX}` }}
+                      >
+                        <div className="w-0 h-full border-r border-dashed border-neutral-400/80 print:border-neutral-500" />
+                        <span className="absolute bg-white px-0.5 text-[7px] text-neutral-500 print:text-neutral-700 select-none leading-none rotate-90 font-mono">
+                          ✂
                         </span>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Line 2: Student Full Name */}
-                    <div className="relative z-10 py-0.5">
-                      <div className="font-black uppercase text-neutral-950 tracking-tight text-[11.5px] leading-tight truncate">
-                        {item.studentName}
-                      </div>
-                    </div>
-
-                    {/* Line 3: Class & Desk Position */}
-                    <div className="relative z-10 flex items-center justify-between gap-1 leading-none pt-0.5 border-t border-neutral-100">
-                      <div className="font-bold text-neutral-700 leading-none truncate min-w-0 text-[10px]">
-                        Class:{" "}
-                        <span className="font-black text-neutral-950 text-[10.5px]">
-                          {isHs ? `${item.studentClass}-${streamText}` : `${item.studentClass}-${item.studentSection}`}
+                    {/* Dedicated Cutting Mark with Scissor between rows */}
+                    {hasRowBottom && (
+                      <div
+                        className="absolute left-0 right-0 pointer-events-none flex items-center justify-center z-20 h-0"
+                        style={{ bottom: `-${cutOffsetY}` }}
+                      >
+                        <div className="w-full h-0 border-b border-dashed border-neutral-400/80 print:border-neutral-500" />
+                        <span className="absolute bg-white px-1 text-[7px] text-neutral-500 print:text-neutral-700 select-none leading-none font-mono">
+                          ✂
                         </span>
                       </div>
-                      <div className="flex items-center space-x-1 font-bold text-neutral-800 leading-none shrink-0 text-[8.5px]">
-                        <span className="text-neutral-600">
-                          Col <strong className="font-black text-neutral-950">{item.columnIndex}</strong> • B-<strong className="font-black text-neutral-950">{item.benchIndex}</strong>
-                        </span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
