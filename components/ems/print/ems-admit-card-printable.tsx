@@ -48,6 +48,14 @@ function formatShortExam(examType: string, academicYear: number | string): strin
   return `${shortened} ${academicYear}`;
 }
 
+// Helper to format floor text neatly: e.g. "2nd" -> "2nd Floor"
+function formatFloorText(floor?: string): string {
+  if (!floor) return "";
+  const trimmed = floor.trim();
+  if (/floor/i.test(trimmed)) return trimmed;
+  return `${trimmed} Floor`;
+}
+
 export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   rooms,
   academicYear,
@@ -216,52 +224,51 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         loading="eager"
                         decoding="async"
                         className={cn(
-                          "object-contain opacity-[0.14] grayscale print:filter-none print:opacity-[0.13]",
-                          isEightPerPage ? "w-20 h-20" : "w-14 h-14"
+                          "object-contain opacity-[0.11] grayscale select-none print:filter-none print:opacity-[0.10]",
+                          isEightPerPage ? "w-28 h-28" : "w-16 h-16"
                         )}
                       />
                     </div>
 
-                    {/* Card Top: School Name & Exam Title */}
+                    {/* Card Top: School Crest, Name, Exam Title & ADMIT badge */}
                     <div className={cn(
-                      "relative z-10 border-b border-neutral-200 flex items-center justify-between leading-none",
-                      isEightPerPage ? "pb-1 mb-0.5" : "pb-0.5 mb-0.5"
+                      "relative z-10 border-b-[1.2px] border-neutral-900/90 flex items-center justify-between leading-none",
+                      isEightPerPage ? "pb-1.5 mb-1" : "pb-0.5 mb-0.5"
                     )}>
-                      <div className="min-w-0 pr-1 flex items-center gap-1.5">
-                        {isEightPerPage && schoolProfile.schoolLogoUrl && (
-                          <img
-                            src={schoolProfile.schoolLogoUrl}
-                            alt="Logo"
-                            className="w-5 h-5 object-contain shrink-0"
-                          />
-                        )}
+                      <div className="min-w-0 pr-1 flex items-center gap-2">
+                        <img
+                          src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                          alt="School Logo"
+                          className={cn(
+                            "object-contain shrink-0",
+                            isEightPerPage ? "w-9 h-9" : "w-6 h-6"
+                          )}
+                        />
                         <div className="min-w-0">
                           <h4 className={cn(
-                            "font-black uppercase tracking-tight text-neutral-900 truncate leading-tight",
-                            isEightPerPage ? "text-[11.5px]" : "text-[8.5px]"
+                            "font-black uppercase tracking-tight text-neutral-950 truncate leading-tight",
+                            isEightPerPage ? "text-[12.5px]" : "text-[8.5px]"
                           )}>
                             {schoolProfile.schoolName || "Marigachi High School (H.S.)"}
                           </h4>
                           <p className={cn(
-                            "font-bold text-neutral-600 tracking-tight leading-none mt-0.5 flex items-center gap-1",
+                            "font-semibold text-neutral-600 tracking-tight leading-none mt-0.5 truncate flex items-center gap-1",
                             isEightPerPage ? "text-[9.5px]" : "text-[7.5px]"
                           )}>
                             <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
                             {examHalf && (
-                              <span className={cn(
-                                "font-black uppercase text-neutral-950 border border-neutral-900 px-1 py-[0.5px] rounded-[2px] leading-none bg-neutral-100 print:bg-transparent",
-                                isEightPerPage ? "text-[8px]" : "text-[7px]"
-                              )}>
-                                [ {examHalf} ]
-                              </span>
+                              <>
+                                <span className="text-neutral-400 font-normal mx-0.5">•</span>
+                                <span className="font-bold text-neutral-900">{examHalf}</span>
+                              </>
                             )}
                           </p>
                         </div>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-right pl-1">
                         <span className={cn(
-                          "font-black border border-neutral-900 text-neutral-950 rounded-[2px] uppercase tracking-wider bg-transparent leading-none",
-                          isEightPerPage ? "text-[10px] px-2 py-0.5" : "text-[8.5px] px-1.5 py-0.5"
+                          "font-black border-[1.5px] border-black text-black rounded-[2px] uppercase tracking-wider bg-transparent leading-none inline-block",
+                          isEightPerPage ? "text-[9.5px] px-2 py-1" : "text-[8px] px-1.5 py-0.5"
                         )}>
                           ADMIT
                         </span>
@@ -278,7 +285,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         <div>
                           <span className={cn(
                             "font-black uppercase text-neutral-950 block leading-tight tracking-tight",
-                            isEightPerPage ? "text-[17px]" : "text-[15.5px] truncate"
+                            isEightPerPage ? "text-[16.5px]" : "text-[14.5px] truncate"
                           )}>
                             {item.studentName}
                           </span>
@@ -293,13 +300,13 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                             <>
                               <div className={cn(
                                 "flex items-center space-x-1 text-neutral-800 font-bold leading-tight",
-                                isEightPerPage ? "text-[13.5px]" : "text-[12.5px]"
+                                isEightPerPage ? "text-[13px]" : "text-[11.5px]"
                               )}>
                                 <span>
                                   Class:{" "}
                                   <strong className={cn(
                                     "font-black text-neutral-950",
-                                    isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                                    isEightPerPage ? "text-[15px]" : "text-[13.5px]"
                                   )}>
                                     {isHs ? `${item.studentClass} - ${streamText}` : `${item.studentClass} - ${item.studentSection}`}
                                   </strong>
@@ -309,15 +316,15 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                               <div className="pt-0.5">
                                 {isHs && regVal ? (
                                   <span className={cn(
-                                    "font-black text-neutral-950 rounded-[2px] border-[1.2px] border-neutral-900 tracking-tight leading-none inline-block truncate max-w-full",
+                                    "font-black text-neutral-950 rounded-[2px] border-[1.4px] border-neutral-900 tracking-tight leading-none inline-block truncate max-w-full bg-neutral-50/50",
                                     isEightPerPage ? "text-[12px] px-2 py-0.5" : "text-[11px] px-1.5 py-0.5"
                                   )}>
                                     REG: {regVal}
                                   </span>
                                 ) : (
                                   <span className={cn(
-                                    "font-black text-neutral-950 rounded-[2px] border-[1.4px] border-neutral-900 tracking-wide leading-none inline-block",
-                                    isEightPerPage ? "text-[14px] px-2 py-0.5" : "text-[13px] px-2 py-0.5"
+                                    "font-black text-neutral-950 rounded-[2px] border-[1.4px] border-neutral-900 tracking-wide leading-none inline-block bg-neutral-50/50",
+                                    isEightPerPage ? "text-[13.5px] px-2.5 py-0.5" : "text-[12px] px-2 py-0.5"
                                   )}>
                                     ROLL: {String(item.studentRoll).padStart(2, "0")}
                                   </span>
@@ -333,16 +340,16 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         <div>
                           <span className={cn(
                             "font-black text-neutral-950 block leading-tight tracking-tight",
-                            isEightPerPage ? "text-[18.5px]" : "text-[16.5px]"
+                            isEightPerPage ? "text-[19px]" : "text-[16.5px]"
                           )}>
                             {formatRoomName(item.roomNumber)}
                           </span>
                           {item.floor && (
                             <span className={cn(
                               "font-bold text-neutral-500 block truncate leading-tight",
-                              isEightPerPage ? "text-[10.5px] mt-0.5" : "text-[10px]"
+                              isEightPerPage ? "text-[10px] mt-0.5" : "text-[9px]"
                             )}>
-                              {item.floor}
+                              {formatFloorText(item.floor)}
                             </span>
                           )}
                         </div>
@@ -350,18 +357,18 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         <div className="pt-0.5 mt-0.5 border-t border-neutral-200/90">
                           <div className={cn(
                             "font-black text-neutral-950 leading-tight",
-                            isEightPerPage ? "text-[13.5px]" : "text-[12.5px]"
+                            isEightPerPage ? "text-[13px]" : "text-[11.5px]"
                           )}>
                             <span>Col </span>
                             <strong className={cn(
                               "font-black text-neutral-950",
-                              isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                              isEightPerPage ? "text-[15px]" : "text-[13.5px]"
                             )}>{item.columnIndex}</strong>
                             <span className="text-neutral-400 mx-1">•</span>
                             <span>Bench </span>
                             <strong className={cn(
                               "font-black text-neutral-950",
-                              isEightPerPage ? "text-[15.5px]" : "text-[14.5px]"
+                              isEightPerPage ? "text-[15px]" : "text-[13.5px]"
                             )}>{item.benchIndex}</strong>
                           </div>
                         </div>
@@ -370,21 +377,21 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
 
                     {/* Card Bottom: Issue Date & Authorized Sign */}
                     <div className={cn(
-                      "relative z-10 border-t border-neutral-200/90 flex items-end justify-between leading-none",
+                      "relative z-10 border-t-[1.2px] border-neutral-900/90 flex items-end justify-between leading-none",
                       isEightPerPage ? "pt-1" : "pt-0.5"
                     )}>
                       <div className={cn(
                         "text-neutral-500 pb-0.5",
-                        isEightPerPage ? "text-[8px]" : "text-[7px]"
+                        isEightPerPage ? "text-[8.5px]" : "text-[7px]"
                       )}>
-                        Issued: <span className="font-bold text-neutral-700">{issueDate}</span>
+                        Issued: <span className="font-bold text-neutral-800 font-mono">{issueDate}</span>
                       </div>
 
                       <div className="flex flex-col items-end justify-end">
                         {showSignature && headSignatureSrc ? (
                           <div className={cn(
                             "flex items-end justify-end",
-                            isEightPerPage ? "h-[15px] -mb-1" : "h-[11px] -mb-0.5"
+                            isEightPerPage ? "h-[16px] -mb-1" : "h-[11px] -mb-0.5"
                           )}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -392,13 +399,13 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                               alt="Signature"
                               className={cn(
                                 "object-contain select-none mix-blend-multiply",
-                                isEightPerPage ? "max-h-[15px] max-w-[60px]" : "max-h-[11px] max-w-[50px]"
+                                isEightPerPage ? "max-h-[16px] max-w-[65px]" : "max-h-[11px] max-w-[50px]"
                               )}
                             />
                           </div>
                         ) : null}
                         <span className={cn(
-                          "font-bold text-neutral-800 uppercase tracking-tight leading-tight",
+                          "font-black text-neutral-800 uppercase tracking-wider leading-tight",
                           isEightPerPage ? "text-[8px]" : "text-[7px]"
                         )}>
                           Authorized Signatory
