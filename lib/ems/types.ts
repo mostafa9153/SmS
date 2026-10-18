@@ -175,6 +175,8 @@ export interface ExamAllocation {
     classesAllocated: string[];
     mismatches?: MismatchReport;
   };
+  routinesByClass?: Record<string, ExamRoutineItem[]>;
+  examStartTime?: string;
 }
 
 // Data mismatch notification structures
@@ -218,6 +220,13 @@ export interface AutoAllocationClassInput {
   excludedStudentIds?: string[]; // IDs of manually deselected/excluded students
 }
 
+export interface ExamRoutineItem {
+  id?: string;
+  date: string;
+  day: string;
+  subject: string;
+}
+
 export interface AutoAllocationConfig {
   academicYear: number;
   examType: ExamType;
@@ -226,6 +235,8 @@ export interface AutoAllocationConfig {
   strategy?: "alternate-columns" | "interleaved-seats";
   studentsPerBench?: number; // Direct user input for students per bench!
   roomClassMap?: Record<string, string[]>; // Map roomId -> allowed class codes (e.g. ["VIII", "IX"])
+  routinesByClass?: Record<string, ExamRoutineItem[]>;
+  examStartTime?: string;
 }
 
 // Manual Column Allocation configuration

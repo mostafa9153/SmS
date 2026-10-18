@@ -89,6 +89,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
     return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   });
   const [showAdmitSignature, setShowAdmitSignature] = useState<boolean>(true);
+  const [includeBackSideRoutine, setIncludeBackSideRoutine] = useState<boolean>(true);
 
   // Dynamically extract unique classes in this exam allocation
   const uniqueClasses = useMemo(() => {
@@ -854,6 +855,27 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       <div className="w-8 h-4.5 bg-slate-300 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
                   </div>
+
+                  <div className="p-3 bg-slate-50/90 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-semibold text-xs text-slate-800 dark:text-neutral-200 block">
+                        Back Routine
+                      </span>
+                      <span className="text-[10px] text-slate-500 dark:text-neutral-400 truncate block">
+                        Both-side duplex print
+                      </span>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={includeBackSideRoutine}
+                        onChange={(e) => setIncludeBackSideRoutine(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4.5 bg-slate-300 dark:bg-neutral-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -1417,6 +1439,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                       examHalf={examHalf}
                       orientation={orientation}
                       cardsPerPage={admitCardsPerPage}
+                      routinesByClass={allocation.routinesByClass}
+                      examStartTime={allocation.examStartTime}
+                      includeBackSideRoutine={includeBackSideRoutine}
                     />
                   )}
 
@@ -1490,6 +1515,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
             examHalf={examHalf}
             orientation={orientation}
             cardsPerPage={admitCardsPerPage}
+            routinesByClass={allocation.routinesByClass}
+            examStartTime={allocation.examStartTime}
+            includeBackSideRoutine={includeBackSideRoutine}
           />
         )}
 

@@ -199,6 +199,19 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
     router.push("/reports");
   };
 
+  const handleGoToWelfareReport = () => {
+    onOpenChange(false);
+    const params = new URLSearchParams();
+    if (activeFilters.class) params.set("class", activeFilters.class);
+    if (activeFilters.section) params.set("section", activeFilters.section);
+    if (activeFilters.gender) params.set("gender", activeFilters.gender);
+    if (activeFilters.socialCategory) params.set("category", activeFilters.socialCategory);
+    if (activeFilters.status) params.set("status", activeFilters.status);
+    if (activeFilters.admissionYear) params.set("sessionYear", String(activeFilters.admissionYear));
+    const qs = params.toString();
+    router.push(qs ? `/reports/welfare?${qs}` : "/reports/welfare");
+  };
+
   // Compute active filters list for display
   const activeFilterBadges: string[] = [];
   if (activeFilters.query) activeFilterBadges.push(`Search: "${activeFilters.query}"`);
@@ -292,19 +305,34 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
                 <span className="text-xs font-bold text-foreground">Quick Presets & Templates</span>
               </div>
 
-              {/* Redirect to Official Classic Report */}
-              <button
-                type="button"
-                onClick={handleGoToClassicReport}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1.5 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
-                title="Go to official West Bengal Students Strength Tabulation Report"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                <span>Classic Report</span>
-                <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-200">
-                  Tabulation ↗
-                </span>
-              </button>
+              {/* Action Buttons for Tabulation and Welfare Register */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGoToWelfareReport}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-700 dark:text-blue-300 border border-blue-500/30 px-3 py-1.5 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Go to official Student Welfare & Goods Distribution Register"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Welfare Report</span>
+                  <span className="rounded bg-blue-500/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-blue-800 dark:text-blue-200">
+                    Register ↗
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleGoToClassicReport}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-3 py-1.5 text-xs font-bold transition-all shadow-2xs active:scale-95 cursor-pointer"
+                  title="Go to official West Bengal Students Strength Tabulation Report"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Classic Report</span>
+                  <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[9px] font-mono uppercase tracking-wider text-amber-800 dark:text-amber-200">
+                    Tabulation ↗
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Presets List */}

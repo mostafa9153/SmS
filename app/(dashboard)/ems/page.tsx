@@ -47,6 +47,7 @@ import {
   ExamAllocation,
   SeatAssignment,
   MismatchReport,
+  ExamRoutineItem,
 } from "@/lib/ems/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +82,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   ArrowUpDown,
+  Calendar,
 } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
 import { EmsPrintStudio } from "@/components/ems/print/ems-print-studio";
@@ -92,6 +95,7 @@ import {
   getDynamicSectionsForClass,
   getClassNumericRank,
   syncAllEmsConfigsFromDb,
+  getDatabaseSubjectsForClass,
 } from "@/lib/ems/ems-config-loader";
 import { useSchoolProfile, getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
@@ -700,6 +704,49 @@ function EmsMasterPageContent() {
   const [academicYear, setAcademicYear] = useState<number>(() => new Date().getFullYear());
   const [selectedClasses, setSelectedClasses] = useState<string[]>([]);
   const [examType, setExamType] = useState<ExamType>("1st Summative Evaluation");
+  const [examStartTime, setExamStartTime] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("sms_ems_exam_start_time") || "11:00 AM";
+    }
+    return "11:00 AM";
+  });
+  const [routinesByClass, setRoutinesByClass] = useState<Record<string, ExamRoutineItem[]>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_ems_exam_routines");
+        if (saved) return JSON.parse(saved);
+      } catch {}
+    }
+    return {};
+  });
+  const [activeRoutineClass, setActiveRoutineClass] = useState<string>("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_ems_exam_start_time", examStartTime);
+      } catch {}
+    }
+  }, [examStartTime]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("sms_ems_exam_routines", JSON.stringify(routinesByClass));
+      } catch {}
+    }
+  }, [routinesByClass]);
+
+  useEffect(() => {
+    if (selectedClasses.length > 0) {
+      const cleanNorms = selectedClasses.map((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()));
+      if (!activeRoutineClass || !cleanNorms.includes(activeRoutineClass)) {
+        setActiveRoutineClass(cleanNorms[0]);
+      }
+    } else {
+      setActiveRoutineClass("");
+    }
+  }, [selectedClasses, activeRoutineClass]);
 
   // Step 2: Class & Students (Group-wise with multi-section auto-select & DB roll ranges)
   const [classGroups, setClassGroups] = useState<ClassGroupConfig[]>([]);
@@ -709,6 +756,33 @@ function EmsMasterPageContent() {
   const [missingHsModalOpen, setMissingHsModalOpen] = useState<boolean>(false);
   const [missingHsList, setMissingHsList] = useState<MissingHsStudentInfo[]>([]);
   const [pendingHsProceedAction, setPendingHsProceedAction] = useState<(() => void) | null>(null);
+
+  // Auto-populate preset subjects for newly selected classes if routine is empty
+  useEffect(() => {
+    if (selectedClasses.length === 0) return;
+
+    setRoutinesByClass((prev) => {
+      let changed = false;
+      const nextRoutines = { ...prev };
+
+      selectedClasses.forEach((cls) => {
+        const norm = normalizeClassCode(cls.split(/[-_\s]/)[0]?.trim());
+        if (norm && (!nextRoutines[norm] || nextRoutines[norm].length === 0)) {
+          const presetSubs = getDatabaseSubjectsForClass(norm, allStudents);
+          if (presetSubs && presetSubs.length > 0) {
+            nextRoutines[norm] = presetSubs.map((sub) => ({
+              date: "",
+              day: "",
+              subject: sub,
+            }));
+            changed = true;
+          }
+        }
+      });
+
+      return changed ? nextRoutines : prev;
+    });
+  }, [selectedClasses, allStudents]);
 
   // Step 3: Room & Benches Setup
   const [studentsPerBench, setStudentsPerBench] = useState<number>(3); // DIRECT INPUT! (Default 3 Students per Bench)
@@ -745,6 +819,63 @@ function EmsMasterPageContent() {
   const handleMoveRoom = (index: number, direction: "up" | "down") => {
     const targetIndex = direction === "up" ? index - 1 : index + 1;
     reorderRooms(index, targetIndex);
+  };
+
+  // Section Drag-and-drop & Reorder state
+  const [draggedSectionKey, setDraggedSectionKey] = useState<string | null>(null);
+  const [dragOverSectionKey, setDragOverSectionKey] = useState<string | null>(null);
+
+  // Persistence helpers for custom section sequence
+  const saveCustomSectionOrders = (groups: ClassGroupConfig[]) => {
+    if (typeof window === "undefined") return;
+    try {
+      const orders: Record<string, string[]> = {};
+      groups.forEach((g) => {
+        if (g.sections && g.sections.length > 0) {
+          orders[normalizeClassCode(g.class)] = g.sections.map((s) => s.section);
+        }
+      });
+      localStorage.setItem("sms_ems_section_orders", JSON.stringify(orders));
+    } catch {}
+  };
+
+  const getCustomSectionOrders = (): Record<string, string[]> => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem("sms_ems_section_orders");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  };
+
+  // Reorder sections helper within a class group
+  const handleReorderSections = (groupId: string, fromIndex: number, toIndex: number) => {
+    setClassGroups((prev) => {
+      const updated = prev.map((g) => {
+        if (g.id !== groupId) return g;
+        if (
+          fromIndex === toIndex ||
+          fromIndex < 0 ||
+          toIndex < 0 ||
+          fromIndex >= g.sections.length ||
+          toIndex >= g.sections.length
+        ) {
+          return g;
+        }
+        const newSecs = [...g.sections];
+        const [moved] = newSecs.splice(fromIndex, 1);
+        newSecs.splice(toIndex, 0, moved);
+        return { ...g, sections: newSecs };
+      });
+      saveCustomSectionOrders(updated);
+      return updated;
+    });
+  };
+
+  const handleMoveSection = (groupId: string, index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    handleReorderSections(groupId, index, targetIndex);
   };
 
   const [activeBlueprintRoomId, setActiveBlueprintRoomId] = useState<string>("");
@@ -876,6 +1007,8 @@ function EmsMasterPageContent() {
         setGeneratedAllocation(activeAlloc);
         if (activeAlloc.academicYear) setAcademicYear(activeAlloc.academicYear);
         if (activeAlloc.examType) setExamType(activeAlloc.examType);
+        if (activeAlloc.examStartTime) setExamStartTime(activeAlloc.examStartTime);
+        if (activeAlloc.routinesByClass) setRoutinesByClass(activeAlloc.routinesByClass);
         const allocClasses = activeAlloc.summary?.classesAllocated || (activeAlloc as any)?.classesConfig?.map((c: any) => c.class);
         if (allocClasses && allocClasses.length > 0) {
           const cleaned = allocClasses
@@ -934,14 +1067,30 @@ function EmsMasterPageContent() {
           }
 
           const availSecs = getSectionsForClass(g.class, loadedStudents);
+          const savedOrders = getCustomSectionOrders();
+          const savedOrderForClass = savedOrders[normalizeClassCode(g.class)];
+
+          let rawSections = g.sections.length > 0 ? g.sections : availSecs.map((s) => ({
+            section: s,
+            rollFrom: 1,
+            rollTo: 35,
+            enrolledCount: 0,
+          }));
+
+          if (savedOrderForClass && savedOrderForClass.length > 0) {
+            rawSections = [...rawSections].sort((a, b) => {
+              const idxA = savedOrderForClass.indexOf(a.section);
+              const idxB = savedOrderForClass.indexOf(b.section);
+              if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+              if (idxA !== -1) return -1;
+              if (idxB !== -1) return 1;
+              return a.section.localeCompare(b.section);
+            });
+          }
+
           return {
             ...g,
-            sections: (g.sections.length > 0 ? g.sections : availSecs.map((s) => ({
-              section: s,
-              rollFrom: 1,
-              rollTo: 35,
-              enrolledCount: 0,
-            }))).map((sec) => {
+            sections: rawSections.map((sec) => {
               const stats = calculateSectionStudentStats(
                 loadedStudents,
                 g.class,
@@ -1026,7 +1175,20 @@ function EmsMasterPageContent() {
       ];
     } else {
       const allSecs = getSectionsForClass(nextClass, allStudents);
-      newSections = allSecs.map((sec) => {
+      const savedOrders = getCustomSectionOrders();
+      const savedOrderForClass = savedOrders[normalizeClassCode(nextClass)];
+      let orderedSecs = allSecs;
+      if (savedOrderForClass && savedOrderForClass.length > 0) {
+        orderedSecs = [...allSecs].sort((a, b) => {
+          const idxA = savedOrderForClass.indexOf(a);
+          const idxB = savedOrderForClass.indexOf(b);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.localeCompare(b);
+        });
+      }
+      newSections = orderedSecs.map((sec) => {
         const stats = calculateSectionStudentStats(allStudents, nextClass, sec);
         return {
           section: sec,
@@ -1631,6 +1793,187 @@ function EmsMasterPageContent() {
     }
   };
 
+  // Step 1: Routine Management Helpers
+  const [draggedRowIndex, setDraggedRowIndex] = useState<number | null>(null);
+
+  const activeClassSubjects = useMemo(() => {
+    if (!activeRoutineClass) return [];
+    return getDatabaseSubjectsForClass(activeRoutineClass, allStudents);
+  }, [activeRoutineClass, allStudents]);
+
+  const currentClassRoutine = useMemo(() => {
+    if (!activeRoutineClass) return [];
+    return routinesByClass[activeRoutineClass] || [];
+  }, [activeRoutineClass, routinesByClass]);
+
+  const handleRoutineDateChange = (idx: number, newDate: string) => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    let dayName = "";
+    if (newDate) {
+      const d = new Date(newDate + "T00:00:00");
+      if (!isNaN(d.getTime())) {
+        dayName = d.toLocaleDateString("en-US", { weekday: "long" });
+      }
+    }
+    setRoutinesByClass((prev) => {
+      const list = [...(prev[normClass] || [])];
+      list[idx] = {
+        ...list[idx],
+        date: newDate,
+        day: dayName,
+      };
+      return { ...prev, [normClass]: list };
+    });
+  };
+
+  const handleRoutineSubjectText = (idx: number, subject: string) => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    setRoutinesByClass((prev) => {
+      const list = [...(prev[normClass] || [])];
+      list[idx] = { ...list[idx], subject };
+      return { ...prev, [normClass]: list };
+    });
+  };
+
+  const handleMoveRow = (fromIndex: number, toIndex: number) => {
+    const normClass = activeRoutineClass;
+    if (!normClass || fromIndex === toIndex) return;
+
+    setRoutinesByClass((prev) => {
+      const list = [...(prev[normClass] || [])];
+      if (fromIndex < 0 || fromIndex >= list.length || toIndex < 0 || toIndex >= list.length) {
+        return prev;
+      }
+      const [movedItem] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, movedItem);
+      return { ...prev, [normClass]: list };
+    });
+  };
+
+  const formatLocalDate = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const handleAutoFillConsecutiveDates = () => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    const list = routinesByClass[normClass] || [];
+    if (list.length === 0) return;
+
+    let baseD: Date;
+    if (list[0].date) {
+      baseD = new Date(list[0].date + "T00:00:00");
+    } else {
+      baseD = new Date();
+      if (baseD.getDay() === 0) baseD.setDate(baseD.getDate() + 1);
+    }
+
+    if (isNaN(baseD.getTime())) {
+      baseD = new Date();
+      if (baseD.getDay() === 0) baseD.setDate(baseD.getDate() + 1);
+    }
+
+    let currD = new Date(baseD.getTime());
+    const updated = list.map((item, i) => {
+      if (i === 0) {
+        const dStr = formatLocalDate(currD);
+        const dayStr = currD.toLocaleDateString("en-US", { weekday: "long" });
+        return { ...item, date: dStr, day: dayStr };
+      }
+      currD.setDate(currD.getDate() + 1);
+      if (currD.getDay() === 0) currD.setDate(currD.getDate() + 1);
+      const dStr = formatLocalDate(currD);
+      const dayStr = currD.toLocaleDateString("en-US", { weekday: "long" });
+      return { ...item, date: dStr, day: dayStr };
+    });
+
+    setRoutinesByClass((prev) => ({
+      ...prev,
+      [normClass]: updated,
+    }));
+  };
+
+  const handleResetToPresetSubjects = () => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    const presetSubs = getDatabaseSubjectsForClass(normClass, allStudents);
+    if (!presetSubs || presetSubs.length === 0) return;
+    setRoutinesByClass((prev) => ({
+      ...prev,
+      [normClass]: presetSubs.map((sub) => ({
+        date: "",
+        day: "",
+        subject: sub,
+      })),
+    }));
+  };
+
+  const handleAddRoutineRow = () => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    setRoutinesByClass((prev) => {
+      const list = [...(prev[normClass] || [])];
+      let nextDate = "";
+      let nextDay = "";
+      if (list.length > 0 && list[list.length - 1].date) {
+        const prevD = new Date(list[list.length - 1].date + "T00:00:00");
+        if (!isNaN(prevD.getTime())) {
+          prevD.setDate(prevD.getDate() + 1);
+          if (prevD.getDay() === 0) prevD.setDate(prevD.getDate() + 1);
+          nextDate = formatLocalDate(prevD);
+          nextDay = prevD.toLocaleDateString("en-US", { weekday: "long" });
+        }
+      }
+      return {
+        ...prev,
+        [normClass]: [...list, { date: nextDate, day: nextDay, subject: "" }],
+      };
+    });
+  };
+
+  const handleRemoveRoutineRow = (idx: number) => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    setRoutinesByClass((prev) => {
+      const list = (prev[normClass] || []).filter((_, i) => i !== idx);
+      return { ...prev, [normClass]: list };
+    });
+  };
+
+  const handleCopyRoutineToAllClasses = () => {
+    const normClass = activeRoutineClass;
+    if (!normClass) return;
+    const currentList = routinesByClass[normClass] || [];
+    if (currentList.length === 0) return;
+    setRoutinesByClass((prev) => {
+      const updated = { ...prev };
+      selectedClasses.forEach((c) => {
+        const targetNorm = normalizeClassCode(c.split(/[-_\s]/)[0]?.trim());
+        if (targetNorm && targetNorm !== normClass) {
+          const targetList = updated[targetNorm] || [];
+          if (targetList.length > 0) {
+            updated[targetNorm] = targetList.map((targetItem, i) => {
+              const sourceItem = currentList[i];
+              return {
+                ...targetItem,
+                date: sourceItem ? sourceItem.date : targetItem.date,
+                day: sourceItem ? sourceItem.day : targetItem.day,
+              };
+            });
+          } else {
+            updated[targetNorm] = currentList.map((item) => ({ ...item }));
+          }
+        }
+      });
+      return updated;
+    });
+  };
+
   // Step transitions
   const handleProceedFromStep1 = () => {
     if (selectedClasses.length === 0) {
@@ -1701,6 +2044,8 @@ function EmsMasterPageContent() {
           selectedRoomIds,
           studentsPerBench,
           roomClassMap,
+          routinesByClass,
+          examStartTime,
         };
 
         const { allocation, mismatchReport: report } = generateAutoAllocation(
@@ -1850,7 +2195,7 @@ function EmsMasterPageContent() {
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Examination Session Details
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
                   Academic Year *
@@ -1894,9 +2239,289 @@ function EmsMasterPageContent() {
                   searchable={false}
                 />
               </div>
-            </div>
 
-            <div className="pt-2 flex justify-end">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
+                  Exam Start Time *
+                </label>
+                <Input
+                  type="text"
+                  value={examStartTime}
+                  onChange={(e) => setExamStartTime(e.target.value)}
+                  placeholder="e.g. 11:00 AM"
+                  className="h-10 text-xs font-semibold rounded-xl bg-background"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Class-wise Examination Routine Builder */}
+          {selectedClasses.length > 0 && (
+            <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Class-wise Examination Routine
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAutoFillConsecutiveDates}
+                    className="h-7 text-xs font-semibold gap-1.5 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 cursor-pointer"
+                    title="Auto-fill consecutive exam dates skipping Sundays"
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    <span>Auto-Fill Dates</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResetToPresetSubjects}
+                    className="h-7 text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                    title="Reset to default preset subjects for this class"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Reset Subjects</span>
+                  </Button>
+
+                  {selectedClasses.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyRoutineToAllClasses}
+                      className="h-7 text-xs font-semibold gap-1.5 text-muted-foreground hover:text-foreground cursor-pointer"
+                      title="Copy current class routine dates to all participating classes"
+                    >
+                      <span>Copy to All Classes</span>
+                    </Button>
+                  )}
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddRoutineRow}
+                    className="h-7 text-xs font-semibold gap-1.5 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Subject</span>
+                  </Button>
+                </div>
+              </div>
+
+              {/* Class Tabs */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {selectedClasses.map((cls) => {
+                  const norm = normalizeClassCode(cls.split(/[-_\s]/)[0]?.trim());
+                  const isSelected = activeRoutineClass === norm;
+                  const count = routinesByClass[norm]?.length || 0;
+                  return (
+                    <button
+                      key={norm}
+                      type="button"
+                      onClick={() => setActiveRoutineClass(norm)}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 select-none",
+                        isSelected
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span>Class {norm}</span>
+                      <span
+                        className={cn(
+                          "text-[10px] font-mono px-1.5 py-0.2 rounded font-bold",
+                          isSelected
+                            ? "bg-primary-foreground/20 text-primary-foreground"
+                            : "bg-background text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Routine Table for Active Class */}
+              {activeRoutineClass && (
+                <div className="space-y-2">
+                  {currentClassRoutine.length === 0 ? (
+                    <div className="p-6 text-center rounded-xl border border-dashed border-border/80 bg-muted/20 space-y-3">
+                      <p className="text-xs text-muted-foreground">
+                        No subjects in routine for Class {activeRoutineClass}.
+                      </p>
+                      <div className="flex items-center justify-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={handleResetToPresetSubjects}
+                          className="text-xs font-semibold gap-1.5 cursor-pointer"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" />
+                          <span>Load Preset Subjects</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={handleAddRoutineRow}
+                          className="text-xs font-semibold gap-1.5 cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Add Subject</span>
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border/80 overflow-hidden bg-background">
+                      <div className="flex items-center gap-2 p-2.5 bg-muted/50 border-b border-border/80 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        <div className="w-14 text-center shrink-0">Order</div>
+                        <div className="w-36 sm:w-44 shrink-0">Date</div>
+                        <div className="w-28 sm:w-36 shrink-0">Day</div>
+                        <div className="flex-1 min-w-0">Subject (Auto-loaded)</div>
+                        <div className="w-10 text-right shrink-0"></div>
+                      </div>
+
+                      <div className="divide-y divide-border/60">
+                        {currentClassRoutine.map((item, idx) => (
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData("text/plain", String(idx));
+                              setDraggedRowIndex(idx);
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = "move";
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              const from =
+                                draggedRowIndex !== null
+                                  ? draggedRowIndex
+                                  : parseInt(e.dataTransfer.getData("text/plain"), 10);
+                              if (!isNaN(from) && from !== idx) {
+                                handleMoveRow(from, idx);
+                              }
+                              setDraggedRowIndex(null);
+                            }}
+                            onDragEnd={() => setDraggedRowIndex(null)}
+                            className={cn(
+                              "flex items-center gap-2 p-2 sm:p-2.5 text-xs transition-colors group",
+                              draggedRowIndex === idx
+                                ? "opacity-40 bg-primary/10 border-dashed border-primary"
+                                : "hover:bg-muted/30"
+                            )}
+                          >
+                            {/* Drag Handle & Order Controls */}
+                            <div className="w-14 flex items-center justify-center gap-0.5 shrink-0 text-muted-foreground">
+                              <span
+                                className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted hover:text-foreground transition-colors"
+                                title="Drag to reorder exam routine"
+                              >
+                                <GripVertical className="h-4 w-4" />
+                              </span>
+                              <div className="flex flex-col">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => handleMoveRow(idx, idx - 1)}
+                                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed leading-none"
+                                  title="Move up"
+                                >
+                                  <ChevronUp className="h-3 w-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === currentClassRoutine.length - 1}
+                                  onClick={() => handleMoveRow(idx, idx + 1)}
+                                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed leading-none"
+                                  title="Move down"
+                                >
+                                  <ChevronDown className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Date Input */}
+                            <div className="w-36 sm:w-44 shrink-0">
+                              <Input
+                                type="date"
+                                value={item.date}
+                                onChange={(e) => handleRoutineDateChange(idx, e.target.value)}
+                                className="h-8 text-xs font-mono rounded-lg bg-background border-input"
+                              />
+                            </div>
+
+                            {/* Auto Day Display */}
+                            <div className="w-28 sm:w-36 shrink-0 flex items-center">
+                              <span
+                                className={cn(
+                                  "text-xs font-semibold px-2 py-1 rounded-md inline-block truncate",
+                                  item.day
+                                    ? "bg-primary/10 text-primary border border-primary/20"
+                                    : "text-muted-foreground italic"
+                                )}
+                              >
+                                {item.day || "Select date"}
+                              </span>
+                            </div>
+
+                            {/* Subject Direct Input (Preset Auto-Loaded, Editable) */}
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="text"
+                                value={item.subject}
+                                onChange={(e) => handleRoutineSubjectText(idx, e.target.value)}
+                                placeholder="Subject name"
+                                className="h-8 text-xs font-semibold rounded-lg bg-background border-input text-foreground"
+                              />
+                            </div>
+
+                            {/* Remove Row Button */}
+                            <div className="w-10 text-right shrink-0">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveRoutineRow(idx)}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                                title="Remove exam day"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end">
+                <Button
+                  onClick={handleProceedFromStep1}
+                  className="text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
+                >
+                  Configure Classes & Students <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* When no classes selected yet, show proceed button inside box */}
+          {selectedClasses.length === 0 && (
+            <div className="flex justify-end">
               <Button
                 onClick={handleProceedFromStep1}
                 className="text-xs font-semibold gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
@@ -1904,7 +2529,7 @@ function EmsMasterPageContent() {
                 Configure Classes & Students <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
-          </div>
+          )}
 
           {/* Recent Exam Seating Plans History (Last 10 Saved Arrangements) */}
           {savedAllocations.length > 0 && (
@@ -1965,6 +2590,8 @@ function EmsMasterPageContent() {
                             setGeneratedAllocation(plan);
                             if (plan.academicYear) setAcademicYear(plan.academicYear);
                             if (plan.examType) setExamType(plan.examType);
+                            if (plan.examStartTime) setExamStartTime(plan.examStartTime);
+                            if (plan.routinesByClass) setRoutinesByClass(plan.routinesByClass);
                             const planClasses = plan.summary?.classesAllocated || (plan as any)?.classesConfig?.map((c: any) => c.class);
                             if (planClasses && planClasses.length > 0) {
                               const cleaned = planClasses
@@ -1992,6 +2619,8 @@ function EmsMasterPageContent() {
                             setGeneratedAllocation(plan);
                             if (plan.academicYear) setAcademicYear(plan.academicYear);
                             if (plan.examType) setExamType(plan.examType);
+                            if (plan.examStartTime) setExamStartTime(plan.examStartTime);
+                            if (plan.routinesByClass) setRoutinesByClass(plan.routinesByClass);
                             const planClasses = plan.summary?.classesAllocated || (plan as any)?.classesConfig?.map((c: any) => c.class);
                             if (planClasses && planClasses.length > 0) {
                               const cleaned = planClasses
@@ -2343,19 +2972,95 @@ function EmsMasterPageContent() {
                             </div>
                           </div>
                         ) : (
-                          g.sections.map((sec) => {
+                          g.sections.map((sec, secIdx) => {
                             const dbStats = calculateSectionStudentStats(allStudents, g.class, sec.section);
                             const isModified =
                               dbStats.totalEnrolled > 0 &&
                               (sec.rollFrom !== dbStats.rollFrom || sec.rollTo !== dbStats.rollTo);
+                            const itemKey = `${g.id}-${sec.section}`;
+                            const isDraggingThis = draggedSectionKey === itemKey;
+                            const isDragOverThis = dragOverSectionKey === itemKey;
 
                             return (
                               <div
                                 key={sec.section}
-                                className="px-3.5 py-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData("text/plain", JSON.stringify({ groupId: g.id, index: secIdx }));
+                                  e.dataTransfer.effectAllowed = "move";
+                                  setDraggedSectionKey(itemKey);
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.dataTransfer.dropEffect = "move";
+                                  if (dragOverSectionKey !== itemKey) {
+                                    setDragOverSectionKey(itemKey);
+                                  }
+                                }}
+                                onDragLeave={() => {
+                                  if (dragOverSectionKey === itemKey) {
+                                    setDragOverSectionKey(null);
+                                  }
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  try {
+                                    const raw = e.dataTransfer.getData("text/plain");
+                                    const parsed = JSON.parse(raw);
+                                    if (parsed && parsed.groupId === g.id && typeof parsed.index === "number" && parsed.index !== secIdx) {
+                                      handleReorderSections(g.id, parsed.index, secIdx);
+                                    }
+                                  } catch {}
+                                  setDraggedSectionKey(null);
+                                  setDragOverSectionKey(null);
+                                }}
+                                onDragEnd={() => {
+                                  setDraggedSectionKey(null);
+                                  setDragOverSectionKey(null);
+                                }}
+                                className={cn(
+                                  "px-3.5 py-2.5 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/30 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 relative group",
+                                  isDraggingThis && "opacity-40 scale-[0.99] border-dashed border-primary shadow-inner",
+                                  isDragOverThis && "ring-2 ring-primary ring-offset-1 bg-primary/10 border-primary scale-[1.01] shadow-xs"
+                                )}
                               >
-                                {/* Left: Section Badge & Database Info */}
-                                <div className="flex items-center gap-2.5 min-w-[200px] flex-wrap">
+                                {/* Left: Drag Handle, Quick Up/Down, Section Badge & Database Info */}
+                                <div className="flex items-center gap-2 min-w-[200px] flex-wrap">
+                                  {/* Drag Handle & Up/Down Controls */}
+                                  <div className="flex items-center gap-0.5 shrink-0 mr-0.5">
+                                    <div
+                                      title="Drag to reorder section priority"
+                                      className="p-1 -ml-1 text-muted-foreground/40 hover:text-foreground cursor-grab active:cursor-grabbing shrink-0"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <GripVertical className="h-4 w-4" />
+                                    </div>
+
+                                    {g.sections.length > 1 && (
+                                      <div className="flex items-center -space-x-1" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                          type="button"
+                                          disabled={secIdx === 0}
+                                          onClick={() => handleMoveSection(g.id, secIdx, "up")}
+                                          className="p-0.5 text-muted-foreground/60 hover:text-primary disabled:opacity-20 disabled:hover:text-muted-foreground/60 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                          title={`Move Section ${sec.section} Up`}
+                                        >
+                                          <ChevronUp className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={secIdx === g.sections.length - 1}
+                                          onClick={() => handleMoveSection(g.id, secIdx, "down")}
+                                          className="p-0.5 text-muted-foreground/60 hover:text-primary disabled:opacity-20 disabled:hover:text-muted-foreground/60 cursor-pointer disabled:cursor-not-allowed transition-colors"
+                                          title={`Move Section ${sec.section} Down`}
+                                        >
+                                          <ChevronDown className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+
                                   <span className="px-2.5 py-0.5 rounded-md bg-primary/12 text-primary border border-primary/20 font-bold text-xs font-mono">
                                     Section {sec.section}
                                   </span>
@@ -2630,6 +3335,16 @@ function EmsMasterPageContent() {
                     </span>
                     <span className="text-[11px] text-muted-foreground">
                       ({selectedRooms.length} of {rooms.length} Rooms)
+                    </span>
+                  </div>
+
+                  <span className="text-muted-foreground/30 hidden sm:inline">•</span>
+
+                  <div className="flex items-center gap-1.5">
+                    <Layers className="h-4 w-4 text-primary" />
+                    <span className="text-muted-foreground">Benches:</span>
+                    <span className="font-bold font-mono text-foreground text-sm">
+                      {totalBenches}
                     </span>
                   </div>
 

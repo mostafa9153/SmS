@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { AllocatedRoom, getStudentExamTitle } from "@/lib/ems/types";
+import { AllocatedRoom, getStudentExamTitle, ExamRoutineItem } from "@/lib/ems/types";
 import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/ems/ems-config-loader";
-import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
+import { isHigherSecondaryClass, toShortStream, normalizeClassCode } from "@/lib/ems/seat-arrangement-algorithm";
 import { cn } from "@/lib/utils";
 
 export interface EmsAdmitCardPrintableProps {
@@ -18,6 +18,9 @@ export interface EmsAdmitCardPrintableProps {
   showSignature?: boolean;
   orientation?: "portrait" | "landscape";
   cardsPerPage?: number;
+  routinesByClass?: Record<string, ExamRoutineItem[]>;
+  examStartTime?: string;
+  includeBackSideRoutine?: boolean;
 }
 
 interface StudentAdmitItem {
@@ -67,6 +70,9 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
   showSignature = true,
   orientation = "portrait",
   cardsPerPage = 8,
+  routinesByClass,
+  examStartTime,
+  includeBackSideRoutine = true,
 }) => {
   // Resolve school head signature URL
   const headSignatureSrc =
@@ -160,13 +166,23 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
           `,
         }}
       />
-      {pages.map((pageStudents, pageIndex) => (
-        <div key={`admit-page-wrap-${pageIndex}`} className="ems-print-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center">
-          {/* Visual Page Counter in Screen Preview */}
-          <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
-            <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
-              Page {pageIndex + 1} of {pages.length}
-            </span>
+      {pages.map((pageStudents, pageIndex) => {
+        const frontGrid = toColumnMajorGrid(pageStudents, numCols, numRows);
+        const backGrid = frontGrid.map((_, slotIdx) => {
+          const col = slotIdx % numCols;
+          const row = Math.floor(slotIdx / numCols);
+          const mirroredCol = numCols - 1 - col;
+          return frontGrid[row * numCols + mirroredCol];
+        });
+
+        return (
+          <React.Fragment key={`admit-page-bundle-${pageIndex}`}>
+            <div key={`admit-page-wrap-${pageIndex}`} className="ems-print-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center">
+              {/* Visual Page Counter in Screen Preview */}
+              <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
+                <span className="bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded border border-neutral-700">
+                  Page {pageIndex + 1} of {pages.length} {includeBackSideRoutine ? "(Front)" : ""}
+                </span>
             <span>•</span>
             <span>
               {pageStudents.length} Admit Cards (
@@ -202,7 +218,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                     : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2.4mm] gap-y-[1.6mm]"
               )}
             >
-              {toColumnMajorGrid(pageStudents, numCols, numRows).map((item, slotIdx) => {
+              {frontGrid.map((item, slotIdx) => {
                 const col = slotIdx % numCols;
                 const row = Math.floor(slotIdx / numCols);
                 const hasColRight = col < numCols - 1;
@@ -258,6 +274,12 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                             isEightPerPage ? "text-[9.5px]" : "text-[7.5px]"
                           )}>
                             <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
+                            {examStartTime && (
+                              <>
+                                <span className="text-neutral-400 font-normal mx-0.5">•</span>
+                                <span className="font-bold text-neutral-900">{examStartTime}</span>
+                              </>
+                            )}
                             {examHalf && (
                               <>
                                 <span className="text-neutral-400 font-normal mx-0.5">•</span>
@@ -469,7 +491,249 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
             </div>
           </div>
         </div>
-      ))}
+
+        {/* Back Page (Duplex Routine Page) */}
+        {includeBackSideRoutine && (
+          <div key={`admit-page-wrap-back-${pageIndex}`} className="ems-print-page-break mb-8 last:mb-0 print:mb-0 flex flex-col items-center">
+            {/* Visual Page Counter in Screen Preview */}
+            <div className="print:hidden text-[11px] font-mono font-medium text-neutral-400 mb-2 flex items-center space-x-2">
+              <span className="bg-amber-800/80 text-amber-200 px-2 py-0.5 rounded border border-amber-700">
+                Page {pageIndex + 1} of {pages.length} (Back Side - Class Routine)
+              </span>
+              <span>•</span>
+              <span className="text-amber-400 font-semibold">
+                Duplex Mirrored (Flip on Long Edge)
+              </span>
+            </div>
+
+            <div
+              className={cn(
+                "ems-admit-sheet mx-auto box-border overflow-hidden bg-white relative flex flex-col justify-between shadow-2xl ring-1 ring-black/10 print:shadow-none print:ring-0",
+                isLandscape
+                  ? "landscape w-[297mm] h-[206mm] max-h-[206mm] p-[3mm_4.5mm]"
+                  : "portrait w-[210mm] h-[294mm] max-h-[294mm] p-[3mm_4.5mm]"
+              )}
+            >
+              {/* Back Grid: Mirrored columns so cutting line aligns front to back */}
+              <div
+                className={cn(
+                  "h-full w-full",
+                  isEightPerPage
+                    ? isLandscape
+                      ? "grid grid-cols-4 grid-rows-[repeat(2,minmax(0,1fr))] gap-x-[4.5mm] gap-y-[3.5mm]"
+                      : "grid grid-cols-2 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[4.5mm] gap-y-[3.5mm]"
+                    : isLandscape
+                      ? "grid grid-cols-4 grid-rows-[repeat(5,minmax(0,1fr))] gap-x-[2.4mm] gap-y-[1.6mm]"
+                      : "grid grid-cols-3 grid-rows-[repeat(7,minmax(0,1fr))] gap-x-[2.4mm] gap-y-[1.6mm]"
+                )}
+              >
+                {backGrid.map((item, slotIdx) => {
+                  const col = slotIdx % numCols;
+                  const row = Math.floor(slotIdx / numCols);
+                  const hasColRight = col < numCols - 1;
+                  const hasRowBottom = row < numRows - 1;
+
+                  return (
+                    <div key={`back-slot-wrap-${pageIndex}-${slotIdx}`} className="relative h-full w-full">
+                      {item ? (
+                        <div
+                          key={`back-card-${pageIndex}-${slotIdx}-${item.studentRoll}`}
+                          className={cn(
+                            "relative border border-dashed border-neutral-300 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border",
+                            isEightPerPage ? "p-[2.5mm_3mm]" : "p-[1.5mm]"
+                          )}
+                        >
+                          {/* Watermark logo */}
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">
+                            <img
+                              src={schoolProfile.schoolLogoUrl || "/school-logo.png"}
+                              alt="Watermark"
+                              loading="eager"
+                              decoding="async"
+                              className={cn(
+                                "object-contain opacity-[0.08] grayscale select-none print:filter-none print:opacity-[0.07]",
+                                isEightPerPage ? "w-24 h-24" : "w-14 h-14"
+                              )}
+                            />
+                          </div>
+
+                          {/* Card Top: Examination Routine header */}
+                          <div
+                            className={cn(
+                              "relative z-10 border-b-[1.2px] border-neutral-900/90 flex items-center justify-between leading-none",
+                              isEightPerPage ? "pb-1 mb-1" : "pb-0.5 mb-0.5"
+                            )}
+                          >
+                            <div className="min-w-0 pr-1 flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  "font-black uppercase tracking-tight text-neutral-950 truncate leading-tight",
+                                  isEightPerPage ? "text-[11.5px]" : "text-[8.5px]"
+                                )}
+                              >
+                                EXAM ROUTINE • CLASS {item.studentClass}
+                              </span>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <span
+                                className={cn(
+                                  "font-bold text-neutral-600 uppercase tracking-wider leading-none inline-block font-mono",
+                                  isEightPerPage ? "text-[9.5px]" : "text-[8px]"
+                                )}
+                              >
+                                ROLL: {String(item.studentRoll).padStart(2, "0")}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Routine Table */}
+                          <div className="relative z-10 flex-1 overflow-hidden flex flex-col justify-start">
+                            {(() => {
+                              const classRoutine = routinesByClass?.[item.studentClass] || [];
+                              if (!classRoutine || classRoutine.length === 0) {
+                                return (
+                                  <div className="flex-1 flex items-center justify-center text-center p-2">
+                                    <span className="text-[10px] text-neutral-400 font-medium">Routine not configured</span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <table className="w-full border-collapse text-left">
+                                  <thead>
+                                    <tr className="border-b border-neutral-800 bg-neutral-100/90">
+                                      <th
+                                        className={cn(
+                                          "font-bold text-neutral-900 uppercase border-r border-neutral-300 py-0.5 px-1.5",
+                                          isEightPerPage ? "text-[9px] w-[30%]" : "text-[7.5px] w-[30%]"
+                                        )}
+                                      >
+                                        Date
+                                      </th>
+                                      <th
+                                        className={cn(
+                                          "font-bold text-neutral-900 uppercase border-r border-neutral-300 py-0.5 px-1.5",
+                                          isEightPerPage ? "text-[9px] w-[28%]" : "text-[7.5px] w-[28%]"
+                                        )}
+                                      >
+                                        Day
+                                      </th>
+                                      <th
+                                        className={cn(
+                                          "font-bold text-neutral-900 uppercase py-0.5 px-1.5",
+                                          isEightPerPage ? "text-[9px]" : "text-[7.5px]"
+                                        )}
+                                      >
+                                        Subject
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-neutral-200">
+                                    {classRoutine.map((rItem, rIdx) => {
+                                      const dateDisplay = rItem.date
+                                        ? (() => {
+                                            const parts = rItem.date.split("-");
+                                            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : rItem.date;
+                                          })()
+                                        : "-";
+
+                                      return (
+                                        <tr key={`r-row-${rIdx}`} className="leading-tight">
+                                          <td
+                                            className={cn(
+                                              "font-semibold text-neutral-900 border-r border-neutral-200 py-0.5 px-1.5 whitespace-nowrap",
+                                              isEightPerPage ? "text-[9.5px]" : "text-[8px]"
+                                            )}
+                                          >
+                                            {dateDisplay}
+                                          </td>
+                                          <td
+                                            className={cn(
+                                              "font-medium text-neutral-700 border-r border-neutral-200 py-0.5 px-1.5 whitespace-nowrap",
+                                              isEightPerPage ? "text-[9px]" : "text-[7.5px]"
+                                            )}
+                                          >
+                                            {rItem.day || "-"}
+                                          </td>
+                                          <td
+                                            className={cn(
+                                              "font-bold text-neutral-950 py-0.5 px-1.5 truncate",
+                                              isEightPerPage ? "text-[9.5px]" : "text-[8px]"
+                                            )}
+                                          >
+                                            {rItem.subject || "-"}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              );
+                            })()}
+                          </div>
+
+                          {/* Card Bottom: Minimal school note */}
+                          <div
+                            className={cn(
+                              "relative z-10 border-t border-neutral-200/90 pt-1 flex items-center justify-between text-neutral-500",
+                              isEightPerPage ? "text-[8px]" : "text-[7px]"
+                            )}
+                          >
+                            <span className="truncate">{schoolProfile.schoolName || "Marigachi High School (H.S.)"}</span>
+                            <span className="font-mono">{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
+                          </div>
+
+                          {/* Cutting Mark between columns */}
+                          {hasColRight && (
+                            <div
+                              className={cn(
+                                "absolute top-0 bottom-0 pointer-events-none flex items-center justify-center z-20",
+                                isEightPerPage ? "-right-[2.25mm] w-0" : "-right-[1.2mm] w-0"
+                              )}
+                            >
+                              <div className="w-0 h-full border-r border-dashed border-neutral-400/80 print:border-neutral-500" />
+                              <span
+                                className={cn(
+                                  "absolute bg-white px-0.5 text-neutral-500 print:text-neutral-700 select-none leading-none rotate-90 font-mono",
+                                  isEightPerPage ? "text-[8.5px]" : "text-[7px]"
+                                )}
+                              >
+                                ✂
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Cutting Mark between rows */}
+                          {hasRowBottom && (
+                            <div
+                              className={cn(
+                                "absolute left-0 right-0 pointer-events-none flex items-center justify-center z-20",
+                                isEightPerPage ? "-bottom-[1.75mm] h-0" : "-bottom-[0.8mm] h-0"
+                              )}
+                            >
+                              <div className="w-full h-0 border-b border-dashed border-neutral-400/80 print:border-neutral-500" />
+                              <span
+                                className={cn(
+                                  "absolute bg-white px-1 text-neutral-500 print:text-neutral-700 select-none leading-none font-mono",
+                                  isEightPerPage ? "text-[8.5px]" : "text-[7px]"
+                                )}
+                              >
+                                ✂
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </div>
+      )}
+    </React.Fragment>
+  );
+})}
     </div>
   );
 };

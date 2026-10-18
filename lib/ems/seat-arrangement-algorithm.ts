@@ -187,13 +187,7 @@ export function buildClassStudentPool(
           classStudents.push(...filtered);
         });
       } else {
-        // Classes V to X (Junior classes - 100% untouched behavior):
-        cfgs.sort((a, b) => {
-          const secA = normalizeSectionCode(a.section);
-          const secB = normalizeSectionCode(b.section);
-          return secA.localeCompare(secB, undefined, { numeric: true });
-        });
-
+        // Classes V to X (Junior classes - preserves custom section order configured by user):
         cfgs.forEach((cfg) => {
           const normCfgSec = normalizeSectionCode(cfg.section);
           let matching = allStudents.filter((s) => {

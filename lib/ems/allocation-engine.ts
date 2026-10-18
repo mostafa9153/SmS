@@ -535,13 +535,19 @@ export function generateAutoAllocation(
   const classGroupsMap = new Map<string, Student[]>();
   let totalStudentsNeeded = 0;
 
-  // Sort class inputs so that within the same class, Section A comes first, then Section B, then Section C...
+  // Preserve the user's custom section order from config.classes
+  const classOrderMap = new Map<string, number>();
+  config.classes.forEach((c) => {
+    const norm = normalizeClassCode(c.class);
+    if (!classOrderMap.has(norm)) {
+      classOrderMap.set(norm, classOrderMap.size);
+    }
+  });
+
   const sortedClassInputs = [...config.classes].sort((a, b) => {
-    const classComp = a.class.localeCompare(b.class);
-    if (classComp !== 0) return classComp;
-    const secA = normalizeSectionCode(a.section);
-    const secB = normalizeSectionCode(b.section);
-    return secA.localeCompare(secB, undefined, { numeric: true });
+    const orderA = classOrderMap.get(normalizeClassCode(a.class)) ?? 0;
+    const orderB = classOrderMap.get(normalizeClassCode(b.class)) ?? 0;
+    return orderA - orderB;
   });
 
   sortedClassInputs.forEach((c) => {
@@ -803,6 +809,8 @@ export function generateAutoAllocation(
         items: mismatchItems,
       },
     },
+    routinesByClass: config.routinesByClass,
+    examStartTime: config.examStartTime,
   };
 
   return {

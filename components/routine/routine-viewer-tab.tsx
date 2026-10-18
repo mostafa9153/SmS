@@ -48,6 +48,39 @@ interface RoutineViewerTabProps {
   rooms: RoutineRoom[];
 }
 
+function getSubjectShort(name: string): string {
+  if (!name) return "?";
+  const cleaned = name.trim();
+  const upper = cleaned.toUpperCase();
+  if (upper.includes("BENGALI") || upper.includes("BANGLA")) return "BEN";
+  if (upper.includes("ENGLISH")) return "ENG";
+  if (upper.includes("MATH")) return "MATH";
+  if (upper.includes("PHYSICAL SCIENCE") || upper.includes("PHYSICS")) return "PSC";
+  if (upper.includes("LIFE SCIENCE") || upper.includes("BIOLOGY")) return "LSC";
+  if (upper.includes("CHEMISTRY")) return "CHEM";
+  if (upper.includes("HISTORY")) return "HIST";
+  if (upper.includes("GEOGRAPHY")) return "GEO";
+  if (upper.includes("PHILOSOPHY")) return "PHIL";
+  if (upper.includes("ENVIRONMENT")) return "EVS";
+  if (upper.includes("SANSKRIT")) return "SNS";
+  if (upper.includes("COMPUTER")) return "COMP";
+  if (upper.includes("HEALTH") || upper.includes("PHYSICAL EDUCATION")) return "P.ED";
+  if (upper.includes("WORK EDUCATION")) return "W.ED";
+  if (upper.includes("ARABIC")) return "ARB";
+  if (cleaned.length <= 4) return cleaned.toUpperCase();
+  const words = cleaned.split(/\s+/);
+  if (words.length > 1) {
+    return words.slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  }
+  return cleaned.slice(0, 4).toUpperCase();
+}
+
+function getClassShort(className: string, section?: string): string {
+  const shortCls = className.replace(/Class\s*/i, "").trim();
+  if (!section || section === "ALL") return shortCls;
+  return `${shortCls}-${section}`;
+}
+
 type ViewMode = "master" | "master-teacher" | "class" | "teacher" | "room";
 
 function ViewerDropdown({
@@ -161,15 +194,17 @@ export function RoutineViewerTab({
 
   const [routine, setRoutine] = useState<GeneratedRoutine | null>(initialRoutine);
   const [history, setHistory] = useState<RoutineGrid[]>([]);
-  const [draggedPos, setDraggedPos] = useState<{ classId: string; pPos: number } | null>(null);
-  const [dragOverPos, setDragOverPos] = useState<{ classId: string; pPos: number } | null>(null);
+  const [draggedPos, setDraggedPos] = useState<{ classId: string; dPos: number; pPos: number } | null>(null);
+  const [dragOverPos, setDragOverPos] = useState<{ classId: string; dPos: number; pPos: number } | null>(null);
 
   useEffect(() => {
     setRoutine(initialRoutine);
   }, [initialRoutine]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("master");
-  const [masterDayIdx, setMasterDayIdx] = useState<number>(0);
+  const [masterDaySelection, setMasterDaySelection] = useState<string>("0");
+  const isAllDaysMaster = masterDaySelection === "ALL" && (viewMode === "master" || viewMode === "master-teacher");
+  const masterDayIdx = masterDaySelection === "ALL" ? 0 : (parseInt(masterDaySelection, 10) || 0);
   const [masterSectionFilter, setMasterSectionFilter] = useState<string>("ALL");
   const [selectedClassId, setSelectedClassId] = useState<string>(sortedClasses[0]?.id || "");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || "");
@@ -272,50 +307,66 @@ export function RoutineViewerTab({
     if (!selectedRoomId && rooms.length > 0) setSelectedRoomId(rooms[0].id);
   }, [rooms, selectedRoomId]);
 
-  // Compute teacher double-booking clashes for current active master day
+  // Compute teacher double-booking clashes for current active master day(s)
   const dayClashes = useMemo(() => {
-    if (!routine?.grid || viewMode !== "master") return new Map<string, string>();
+    if (!routine?.grid || (viewMode !== "master" && viewMode !== "master-teacher")) return new Map<string, string>();
     const map = new Map<string, string>();
-    const dPos = masterDayIdx || 0;
+    const dPositions = isAllDaysMaster
+      ? activeDays.map((_, idx) => idx)
+      : [masterDayIdx];
 
-    for (let pPos = 0; pPos < settings.periodsPerDay; pPos++) {
-      const teacherClassMap = new Map<string, string[]>();
-      for (const [cid, classSchedule] of Object.entries(routine.grid)) {
-        const cell = classSchedule?.[dPos]?.[pPos];
-        if (cell?.tid) {
-          const list = teacherClassMap.get(cell.tid) || [];
-          list.push(cid);
-          teacherClassMap.set(cell.tid, list);
+    for (const dPos of dPositions) {
+      for (let pPos = 0; pPos < settings.periodsPerDay; pPos++) {
+        const teacherClassMap = new Map<string, string[]>();
+        for (const [cid, classSchedule] of Object.entries(routine.grid)) {
+          const cell = classSchedule?.[dPos]?.[pPos];
+          if (cell?.tid) {
+            const list = teacherClassMap.get(cell.tid) || [];
+            list.push(cid);
+            teacherClassMap.set(cell.tid, list);
+          }
         }
-      }
 
-      for (const [tid, cids] of teacherClassMap.entries()) {
-        if (cids.length > 1) {
-          const tch = teacherMap.get(tid);
-          const tName = tch?.shortName || tch?.name || "Teacher";
-          cids.forEach((cid) => {
-            const otherClasses = cids
-              .filter((id) => id !== cid)
-              .map((id) => `${classMap.get(id)?.className || ""}-${classMap.get(id)?.section || ""}`)
-              .join(", ");
-            map.set(`${cid}_${pPos}`, `Clash: ${tName} has duplicate class in ${otherClasses}`);
-          });
+        for (const [tid, cids] of teacherClassMap.entries()) {
+          if (cids.length > 1) {
+            const tch = teacherMap.get(tid);
+            const tName = tch?.shortName || tch?.name || "Teacher";
+            cids.forEach((cid) => {
+              const otherClasses = cids
+                .filter((id) => id !== cid)
+                .map((id) => `${classMap.get(id)?.className || ""}-${classMap.get(id)?.section || ""}`)
+                .join(", ");
+              map.set(`${cid}_${dPos}_${pPos}`, `Clash: ${tName} has duplicate class in ${otherClasses}`);
+              map.set(`${cid}_${pPos}`, `Clash: ${tName} has duplicate class in ${otherClasses}`);
+            });
+          }
         }
       }
     }
     return map;
-  }, [routine?.grid, masterDayIdx, settings.periodsPerDay, teacherMap, classMap, viewMode]);
+  }, [routine?.grid, isAllDaysMaster, activeDays, masterDayIdx, settings.periodsPerDay, teacherMap, classMap, viewMode]);
 
   const handleCellSwap = async (
     sourceClassId: string,
+    sourceDPos: number,
     sourcePPos: number,
     targetClassId: string,
+    targetDPos: number,
     targetPPos: number
   ) => {
     if (!routine || !routine.grid) return;
-    if (sourceClassId === targetClassId && sourcePPos === targetPPos) return;
+    if (sourceClassId === targetClassId && sourceDPos === targetDPos && sourcePPos === targetPPos) return;
 
-    const dPos = masterDayIdx || 0;
+    if (sourceDPos !== targetDPos) {
+      showToast({
+        type: "warning",
+        title: "Same Day Swap Only",
+        description: "Periods can only be swapped within the same day.",
+      });
+      return;
+    }
+
+    const dPos = sourceDPos;
     const sourceClass = classMap.get(sourceClassId);
     const targetClass = classMap.get(targetClassId);
     const sourceCell = routine.grid[sourceClassId]?.[dPos]?.[sourcePPos] || null;
@@ -823,12 +874,15 @@ export function RoutineViewerTab({
           {viewMode === "master" && (
             <>
               <ViewerDropdown
-                value={String(masterDayIdx)}
-                onChange={(v) => setMasterDayIdx(parseInt(v, 10))}
-                options={activeDays.map((dIdx, idx) => ({
-                  value: String(idx),
-                  label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
-                }))}
+                value={masterDaySelection}
+                onChange={setMasterDaySelection}
+                options={[
+                  { value: "ALL", label: "All Days (Full Week)" },
+                  ...activeDays.map((dIdx, idx) => ({
+                    value: String(idx),
+                    label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
+                  })),
+                ]}
                 labelPrefix="Day"
                 icon={<Calendar className="w-3.5 h-3.5" />}
               />
@@ -853,12 +907,15 @@ export function RoutineViewerTab({
           {viewMode === "master-teacher" && (
             <>
               <ViewerDropdown
-                value={String(masterDayIdx)}
-                onChange={(v) => setMasterDayIdx(parseInt(v, 10))}
-                options={activeDays.map((dIdx, idx) => ({
-                  value: String(idx),
-                  label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
-                }))}
+                value={masterDaySelection}
+                onChange={setMasterDaySelection}
+                options={[
+                  { value: "ALL", label: "All Days (Full Week)" },
+                  ...activeDays.map((dIdx, idx) => ({
+                    value: String(idx),
+                    label: `${DAY_NAMES[dIdx]}${halfDays.includes(dIdx) ? " (Half)" : ""}`,
+                  })),
+                ]}
                 labelPrefix="Day"
                 icon={<Calendar className="w-3.5 h-3.5" />}
               />
@@ -1019,8 +1076,8 @@ export function RoutineViewerTab({
       <div className="hidden print:block text-center border-b pb-3 mb-4">
         <h1 className="text-xl font-bold uppercase tracking-tight">Academic Routine & Master Timetable</h1>
         <div className="text-xs text-muted-foreground font-semibold mt-0.5">
-          {viewMode === "master" && `Master Schedule (Day-wise) — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterSectionFilter !== "ALL" ? ` (Section ${masterSectionFilter})` : ""}`}
-          {viewMode === "master-teacher" && `Master Faculty Schedule (Teacher-wise) — ${DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterFacultyFilter !== "ALL" ? ` (${masterFacultyFilter})` : ""}`}
+          {viewMode === "master" && `Master Schedule (Day-wise) — ${masterDaySelection === "ALL" ? "All Days (Full Week)" : DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterSectionFilter !== "ALL" ? ` (Section ${masterSectionFilter})` : ""}`}
+          {viewMode === "master-teacher" && `Master Faculty Schedule (Teacher-wise) — ${masterDaySelection === "ALL" ? "All Days (Full Week)" : DAY_NAMES[activeDays[masterDayIdx] || 0]}${masterFacultyFilter !== "ALL" ? ` (${masterFacultyFilter})` : ""}`}
           {viewMode === "class" && (
             <>
               Class Schedule — {classMap.get(selectedClassId)?.className || ""}{" "}
@@ -1058,79 +1115,190 @@ export function RoutineViewerTab({
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-center border-collapse">
             <thead>
-              <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
-                <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-36 font-bold">
-                  {viewMode === "master"
-                    ? "Class \\ Period"
-                    : viewMode === "master-teacher"
-                    ? "Teacher \\ Period"
-                    : "Day \\ Period"}
-                </th>
-                {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                  const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
-                  return (
-                    <React.Fragment key={p}>
-                      <th className="py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px]">
-                        <span>Period {p}</span>
-                      </th>
-                      {hasBreakAfter && (
-                        <th className="py-2.5 px-2 border-r border-border print:border-black min-w-[70px] bg-amber-500/15 text-amber-800 dark:text-amber-300 font-bold">
-                          <div className="flex items-center justify-center gap-1">
-                            <Coffee className="w-3 h-3 text-amber-600" />
-                            <span>Recess</span>
+              {isAllDaysMaster ? (
+                <>
+                  <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
+                    <th
+                      rowSpan={2}
+                      className="py-2.5 px-3 text-left border-r border-b border-border print:border-black w-40 min-w-[140px] font-bold sticky left-0 z-30 bg-muted shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]"
+                    >
+                      {viewMode === "master" ? "Class \\ Day" : "Teacher \\ Day"}
+                    </th>
+                    {activeDays.map((dIdx) => {
+                      const isHalf = halfDays.includes(dIdx);
+                      const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
+                      return (
+                        <th
+                          key={dIdx}
+                          colSpan={dayPeriods}
+                          className="py-1.5 px-2 text-center border-r last:border-r-0 border-b border-border print:border-black font-bold bg-muted/90 text-foreground"
+                        >
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className="font-bold">{DAY_NAMES[dIdx]}</span>
+                            {isHalf && (
+                              <span className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                                (Half)
+                              </span>
+                            )}
                           </div>
                         </th>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tr>
+                      );
+                    })}
+                  </tr>
+                  <tr className="bg-muted/50 border-b text-foreground font-semibold print:bg-gray-50 print:text-black">
+                    {activeDays.map((dIdx) => {
+                      const isHalf = halfDays.includes(dIdx);
+                      const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
+                      return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => (
+                        <th
+                          key={`${dIdx}_${p}`}
+                          className={cn(
+                            "py-1 px-0.5 border-r last:border-r-0 border-border print:border-black text-[10px] font-semibold text-center w-[60px] min-w-[55px] max-w-[65px] bg-muted/40",
+                            p === dayPeriods && "border-r-2 border-r-border/80"
+                          )}
+                        >
+                          P{p}
+                        </th>
+                      ));
+                    })}
+                  </tr>
+                </>
+              ) : (
+                <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
+                  <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-36 font-bold">
+                    {viewMode === "master"
+                      ? "Class \\ Period"
+                      : viewMode === "master-teacher"
+                      ? "Teacher \\ Period"
+                      : "Day \\ Period"}
+                  </th>
+                  {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
+                    const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
+                    return (
+                      <React.Fragment key={p}>
+                        <th className="py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px]">
+                          <span>Period {p}</span>
+                        </th>
+                        {hasBreakAfter && (
+                          <th className="py-2.5 px-2 border-r border-border print:border-black min-w-[70px] bg-amber-500/15 text-amber-800 dark:text-amber-300 font-bold">
+                            <div className="flex items-center justify-center gap-1">
+                              <Coffee className="w-3 h-3 text-amber-600" />
+                              <span>Recess</span>
+                            </div>
+                          </th>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tr>
+              )}
             </thead>
             <tbody className="divide-y divide-border print:divide-black">
               {/* MASTER VIEW (Day-wise: Rows = Classes) */}
               {viewMode === "master" && (
                 <>
-                  {displayedMasterClasses.map((c) => {
-                    const dPos = masterDayIdx || 0;
-                    const actDay = activeDays[dPos];
-                    const maxPForDay = halfDays.includes(actDay)
-                      ? maxHalfP
-                      : settings.periodsPerDay;
-                    const classLimit = c.dailyPeriods || settings.periodsPerDay;
+                  {isAllDaysMaster ? (
+                    displayedMasterClasses.map((c) => {
+                      const classLimit = c.dailyPeriods || settings.periodsPerDay;
+                      return (
+                        <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-2 px-2.5 text-left font-bold text-foreground bg-card border-r border-border print:border-black sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] whitespace-nowrap w-40 min-w-[140px]">
+                            <div className="font-bold text-xs">{c.className} - {c.section}</div>
+                          </td>
+                          {activeDays.map((dIdx, dPos) => {
+                            const actDay = dIdx;
+                            const maxPForDay = halfDays.includes(actDay) ? maxHalfP : settings.periodsPerDay;
+                            const dayPeriods = halfDays.includes(actDay) ? maxHalfP : settings.periodsPerDay;
 
-                    return (
-                      <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
-                          {c.className} - {c.section}
-                        </td>
-                        {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                          const isGray = p > maxPForDay || p > classLimit;
-                          const pPos = p - 1;
-                          const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
-                          const cellData = isGray ? null : routine.grid[c.id]?.[dPos]?.[pPos];
-                          const isSource = draggedPos?.classId === c.id && draggedPos?.pPos === pPos;
-                          const isTarget = dragOverPos?.classId === c.id && dragOverPos?.pPos === pPos;
-                          const clashReason = dayClashes.get(`${c.id}_${pPos}`);
+                            return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => {
+                              const isGray = p > maxPForDay || p > classLimit;
+                              const pPos = p - 1;
+                              const cellData = isGray ? null : routine.grid[c.id]?.[dPos]?.[pPos];
+                              const isSource = draggedPos?.classId === c.id && draggedPos?.dPos === dPos && draggedPos?.pPos === pPos;
+                              const isTarget = dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos;
+                              const clashReason = dayClashes.get(`${c.id}_${dPos}_${pPos}`);
+                              const isLastInDay = p === dayPeriods;
 
-                          return (
-                            <React.Fragment key={p}>
-                              {isGray ? (
+                              if (isGray) {
+                                return (
+                                  <td
+                                    key={`${dPos}_${p}`}
+                                    className={cn(
+                                      "py-1 px-0.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono text-center text-xs w-[60px] min-w-[55px] max-w-[65px] h-12",
+                                      isLastInDay && "border-r-2 border-r-border/80"
+                                    )}
+                                  >
+                                    -
+                                  </td>
+                                );
+                              }
+
+                              if (!cellData) {
+                                return (
+                                  <td
+                                    key={`${dPos}_${p}`}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = "move";
+                                      if (dragOverPos?.classId !== c.id || dragOverPos?.dPos !== dPos || dragOverPos?.pPos !== pPos) {
+                                        setDragOverPos({ classId: c.id, dPos, pPos });
+                                      }
+                                    }}
+                                    onDragLeave={() => {
+                                      if (dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos) {
+                                        setDragOverPos(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      setDragOverPos(null);
+                                      setDraggedPos(null);
+                                      try {
+                                        const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+                                        const data = JSON.parse(raw);
+                                        if (data?.classId) {
+                                          handleCellSwap(data.classId, data.dPos ?? dPos, data.pPos, c.id, dPos, pPos);
+                                        }
+                                      } catch (err) {
+                                        console.error("Drop parse error:", err);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "py-1 px-0.5 border-r border-border last:border-r-0 transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12",
+                                      isLastInDay && "border-r-2 border-r-border/80",
+                                      isTarget ? "bg-primary/20 ring-2 ring-inset ring-primary" : "text-muted-foreground/30 hover:bg-muted/30"
+                                    )}
+                                  >
+                                    <div className="h-full flex items-center justify-center text-xs font-mono">
+                                      {isTarget ? (
+                                        <span className="text-[9px] font-bold text-primary animate-pulse">Move</span>
+                                      ) : (
+                                        "·"
+                                      )}
+                                    </div>
+                                  </td>
+                                );
+                              }
+
+                              const subj = subjectMap.get(cellData.sid);
+                              const tch = teacherMap.get(cellData.tid);
+                              const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
+                              const subShort = getSubjectShort(subj?.name || "");
+                              const tchShort = tch?.shortName || tch?.name || "?";
+                              const fullTooltip = `${c.className} ${c.section} | ${DAY_NAMES[actDay]} Period ${p}\nSubject: ${subj?.name || "?"}\nFaculty: ${tch?.name || "?"} (${tchShort})\n${rm ? `Room: ${rm.name}` : ""}${clashReason ? `\n${clashReason}` : ""}`;
+
+                              return (
                                 <td
-                                  className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
-                                >
-                                  -
-                                </td>
-                              ) : !cellData ? (
-                                <td
+                                  key={`${dPos}_${p}`}
                                   onDragOver={(e) => {
                                     e.preventDefault();
                                     e.dataTransfer.dropEffect = "move";
-                                    if (dragOverPos?.classId !== c.id || dragOverPos?.pPos !== pPos) {
-                                      setDragOverPos({ classId: c.id, pPos });
+                                    if (dragOverPos?.classId !== c.id || dragOverPos?.dPos !== dPos || dragOverPos?.pPos !== pPos) {
+                                      setDragOverPos({ classId: c.id, dPos, pPos });
                                     }
                                   }}
                                   onDragLeave={() => {
-                                    if (dragOverPos?.classId === c.id && dragOverPos?.pPos === pPos) {
+                                    if (dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos) {
                                       setDragOverPos(null);
                                     }
                                   }}
@@ -1142,265 +1310,468 @@ export function RoutineViewerTab({
                                       const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
                                       const data = JSON.parse(raw);
                                       if (data?.classId) {
-                                        handleCellSwap(data.classId, data.pPos, c.id, pPos);
+                                        handleCellSwap(data.classId, data.dPos ?? dPos, data.pPos, c.id, dPos, pPos);
                                       }
                                     } catch (err) {
                                       console.error("Drop parse error:", err);
                                     }
                                   }}
                                   className={cn(
-                                    "py-2 px-1.5 border-r border-border last:border-r-0 transition-all select-none print:border-black",
-                                    isTarget
-                                      ? "bg-primary/20 ring-2 ring-inset ring-primary"
-                                      : "text-muted-foreground/30 hover:bg-muted/30"
+                                    "py-0.5 px-0.5 border-r border-border last:border-r-0 h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
+                                    isLastInDay && "border-r-2 border-r-border/80",
+                                    isTarget && "bg-primary/20 ring-2 ring-inset ring-primary scale-[1.02] shadow-xs z-10"
                                   )}
                                 >
-                                  <div className="h-16 flex items-center justify-center text-xs font-mono">
-                                    {isTarget ? (
-                                      <span className="text-[10px] font-bold text-primary animate-pulse">Move here</span>
-                                    ) : (
-                                      "·"
+                                  <div
+                                    draggable={true}
+                                    title={fullTooltip}
+                                    onDragStart={(e) => {
+                                      setDraggedPos({ classId: c.id, dPos, pPos });
+                                      const payload = JSON.stringify({ classId: c.id, dPos, pPos });
+                                      e.dataTransfer.setData("application/json", payload);
+                                      e.dataTransfer.setData("text/plain", payload);
+                                      e.dataTransfer.effectAllowed = "move";
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedPos(null);
+                                      setDragOverPos(null);
+                                    }}
+                                    className={cn(
+                                      "h-full w-full rounded p-1 flex flex-col justify-center items-center text-center border shadow-2xs transition-all cursor-grab active:cursor-grabbing select-none leading-none overflow-hidden",
+                                      cellData.lab
+                                        ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                        : "bg-background border-border hover:border-primary/50",
+                                      subj?.isHard && "border-t-2 border-t-amber-500",
+                                      clashReason && "border-destructive bg-destructive/15 ring-1 ring-destructive",
+                                      isSource && "opacity-30 scale-95 ring-1 ring-dashed ring-primary"
                                     )}
+                                  >
+                                    <span className={cn(
+                                      "font-bold text-[10px] truncate max-w-full block leading-tight",
+                                      clashReason ? "text-destructive" : "text-foreground"
+                                    )}>
+                                      {subShort}
+                                    </span>
+                                    <span className="font-mono text-[9px] text-primary truncate max-w-full block mt-0.5 font-semibold">
+                                      {tchShort}
+                                    </span>
                                   </div>
                                 </td>
-                              ) : (
-                                <td
-                                  onDragOver={(e) => {
-                                    e.preventDefault();
-                                    e.dataTransfer.dropEffect = "move";
-                                    if (dragOverPos?.classId !== c.id || dragOverPos?.pPos !== pPos) {
-                                      setDragOverPos({ classId: c.id, pPos });
-                                    }
-                                  }}
-                                  onDragLeave={() => {
-                                    if (dragOverPos?.classId === c.id && dragOverPos?.pPos === pPos) {
-                                      setDragOverPos(null);
-                                    }
-                                  }}
-                                  onDrop={(e) => {
-                                    e.preventDefault();
-                                    setDragOverPos(null);
-                                    setDraggedPos(null);
-                                    try {
-                                      const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
-                                      const data = JSON.parse(raw);
-                                      if (data?.classId) {
-                                        handleCellSwap(data.classId, data.pPos, c.id, pPos);
+                              );
+                            });
+                          })}
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    displayedMasterClasses.map((c) => {
+                      const dPos = masterDayIdx || 0;
+                      const actDay = activeDays[dPos];
+                      const maxPForDay = halfDays.includes(actDay)
+                        ? maxHalfP
+                        : settings.periodsPerDay;
+                      const classLimit = c.dailyPeriods || settings.periodsPerDay;
+
+                      return (
+                        <tr key={c.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-3 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                            {c.className} - {c.section}
+                          </td>
+                          {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
+                            const isGray = p > maxPForDay || p > classLimit;
+                            const pPos = p - 1;
+                            const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
+                            const cellData = isGray ? null : routine.grid[c.id]?.[dPos]?.[pPos];
+                            const isSource = draggedPos?.classId === c.id && draggedPos?.dPos === dPos && draggedPos?.pPos === pPos;
+                            const isTarget = dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos;
+                            const clashReason = dayClashes.get(`${c.id}_${dPos}_${pPos}`) || dayClashes.get(`${c.id}_${pPos}`);
+
+                            return (
+                              <React.Fragment key={p}>
+                                {isGray ? (
+                                  <td
+                                    className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
+                                  >
+                                    -
+                                  </td>
+                                ) : !cellData ? (
+                                  <td
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = "move";
+                                      if (dragOverPos?.classId !== c.id || dragOverPos?.dPos !== dPos || dragOverPos?.pPos !== pPos) {
+                                        setDragOverPos({ classId: c.id, dPos, pPos });
                                       }
-                                    } catch (err) {
-                                      console.error("Drop parse error:", err);
-                                    }
-                                  }}
-                                  className={cn(
-                                    "py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all",
-                                    isTarget && "bg-primary/20 ring-2 ring-inset ring-primary scale-[1.02] shadow-sm z-10"
-                                  )}
-                                >
-                                  {(() => {
-                                    const subj = subjectMap.get(cellData.sid);
-                                    const tch = teacherMap.get(cellData.tid);
-                                    const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
-                                    return (
-                                      <div
-                                        draggable={true}
-                                        onDragStart={(e) => {
-                                          setDraggedPos({ classId: c.id, pPos });
-                                          const payload = JSON.stringify({ classId: c.id, pPos });
-                                          e.dataTransfer.setData("application/json", payload);
-                                          e.dataTransfer.setData("text/plain", payload);
-                                          e.dataTransfer.effectAllowed = "move";
-                                        }}
-                                        onDragEnd={() => {
-                                          setDraggedPos(null);
-                                          setDragOverPos(null);
-                                        }}
-                                        className={cn(
-                                          "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all cursor-grab active:cursor-grabbing select-none group",
-                                          cellData.lab
-                                            ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
-                                            : "bg-background border-border hover:border-primary/50 hover:shadow-xs",
-                                          subj?.isHard && "border-l-4 border-l-amber-500",
-                                          clashReason && "border-destructive bg-destructive/10 ring-1 ring-destructive",
-                                          isSource && "opacity-30 scale-95 ring-2 ring-dashed ring-primary"
-                                        )}
-                                      >
-                                        <div className="flex items-start justify-between gap-1">
-                                          <span className="font-bold text-foreground text-[11px] truncate block leading-tight flex-1">
-                                            {subj?.name || "?"} {cellData.lab ? "(Lab)" : ""}
-                                          </span>
-                                          {clashReason ? (
-                                            <span
-                                              title={clashReason}
-                                              className="text-[9px] font-bold text-destructive flex items-center gap-0.5 bg-destructive/15 px-1 rounded shrink-0"
-                                            >
-                                              <AlertTriangle className="w-2.5 h-2.5" /> Clash
-                                            </span>
-                                          ) : (
-                                            <GripVertical className="w-2.5 h-2.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0 mt-0.5" />
+                                    }}
+                                    onDragLeave={() => {
+                                      if (dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos) {
+                                        setDragOverPos(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      setDragOverPos(null);
+                                      setDraggedPos(null);
+                                      try {
+                                        const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+                                        const data = JSON.parse(raw);
+                                        if (data?.classId) {
+                                          handleCellSwap(data.classId, data.dPos ?? dPos, data.pPos, c.id, dPos, pPos);
+                                        }
+                                      } catch (err) {
+                                        console.error("Drop parse error:", err);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "py-2 px-1.5 border-r border-border last:border-r-0 transition-all select-none print:border-black",
+                                      isTarget
+                                        ? "bg-primary/20 ring-2 ring-inset ring-primary"
+                                        : "text-muted-foreground/30 hover:bg-muted/30"
+                                    )}
+                                  >
+                                    <div className="h-16 flex items-center justify-center text-xs font-mono">
+                                      {isTarget ? (
+                                        <span className="text-[10px] font-bold text-primary animate-pulse">Move here</span>
+                                      ) : (
+                                        "·"
+                                      )}
+                                    </div>
+                                  </td>
+                                ) : (
+                                  <td
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = "move";
+                                      if (dragOverPos?.classId !== c.id || dragOverPos?.dPos !== dPos || dragOverPos?.pPos !== pPos) {
+                                        setDragOverPos({ classId: c.id, dPos, pPos });
+                                      }
+                                    }}
+                                    onDragLeave={() => {
+                                      if (dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos) {
+                                        setDragOverPos(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      setDragOverPos(null);
+                                      setDraggedPos(null);
+                                      try {
+                                        const raw = e.dataTransfer.getData("application/json") || e.dataTransfer.getData("text/plain");
+                                        const data = JSON.parse(raw);
+                                        if (data?.classId) {
+                                          handleCellSwap(data.classId, data.dPos ?? dPos, data.pPos, c.id, dPos, pPos);
+                                        }
+                                      } catch (err) {
+                                        console.error("Drop parse error:", err);
+                                      }
+                                    }}
+                                    className={cn(
+                                      "py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all",
+                                      isTarget && "bg-primary/20 ring-2 ring-inset ring-primary scale-[1.02] shadow-sm z-10"
+                                    )}
+                                  >
+                                    {(() => {
+                                      const subj = subjectMap.get(cellData.sid);
+                                      const tch = teacherMap.get(cellData.tid);
+                                      const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
+                                      return (
+                                        <div
+                                          draggable={true}
+                                          onDragStart={(e) => {
+                                            setDraggedPos({ classId: c.id, dPos, pPos });
+                                            const payload = JSON.stringify({ classId: c.id, dPos, pPos });
+                                            e.dataTransfer.setData("application/json", payload);
+                                            e.dataTransfer.setData("text/plain", payload);
+                                            e.dataTransfer.effectAllowed = "move";
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedPos(null);
+                                            setDragOverPos(null);
+                                          }}
+                                          className={cn(
+                                            "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs transition-all cursor-grab active:cursor-grabbing select-none group",
+                                            cellData.lab
+                                              ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                              : "bg-background border-border hover:border-primary/50 hover:shadow-xs",
+                                            subj?.isHard && "border-l-4 border-l-amber-500",
+                                            clashReason && "border-destructive bg-destructive/10 ring-1 ring-destructive",
+                                            isSource && "opacity-30 scale-95 ring-2 ring-dashed ring-primary"
                                           )}
-                                        </div>
-                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
-                                          <span className={cn(
-                                            "font-semibold font-mono",
-                                            clashReason ? "text-destructive font-bold" : "text-primary"
-                                          )}>
-                                            {tch?.shortName || tch?.name || "?"}
-                                          </span>
-                                          {rm && (
-                                            <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
-                                              {rm.name.split(" ")[0]}
+                                        >
+                                          <div className="flex items-start justify-between gap-1">
+                                            <span className="font-bold text-foreground text-[11px] truncate block leading-tight flex-1">
+                                              {subj?.name || "?"} {cellData.lab ? "(Lab)" : ""}
                                             </span>
-                                          )}
+                                            {clashReason ? (
+                                              <span
+                                                title={clashReason}
+                                                className="text-[9px] font-bold text-destructive flex items-center gap-0.5 bg-destructive/15 px-1 rounded shrink-0"
+                                              >
+                                                <AlertTriangle className="w-2.5 h-2.5" /> Clash
+                                              </span>
+                                            ) : (
+                                              <GripVertical className="w-2.5 h-2.5 text-muted-foreground/30 group-hover:text-muted-foreground shrink-0 mt-0.5" />
+                                            )}
+                                          </div>
+                                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                                            <span className={cn(
+                                              "font-semibold font-mono",
+                                              clashReason ? "text-destructive font-bold" : "text-primary"
+                                            )}>
+                                              {tch?.shortName || tch?.name || "?"}
+                                            </span>
+                                            {rm && (
+                                              <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
+                                                {rm.name.split(" ")[0]}
+                                              </span>
+                                            )}
+                                          </div>
                                         </div>
-                                      </div>
-                                    );
-                                  })()}
-                                </td>
-                              )}
-                              {hasBreakAfter && (
-                                <td
-                                  className={cn(
-                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
-                                    p >= maxPForDay
-                                      ? "bg-muted/30 text-muted-foreground/30"
-                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                                  )}
-                                >
-                                  {p < maxPForDay ? "Tiffin" : "-"}
-                                </td>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                                      );
+                                    })()}
+                                  </td>
+                                )}
+                                {hasBreakAfter && (
+                                  <td
+                                    className={cn(
+                                      "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                      p >= maxPForDay
+                                        ? "bg-muted/30 text-muted-foreground/30"
+                                        : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    )}
+                                  >
+                                    {p < maxPForDay ? "Tiffin" : "-"}
+                                  </td>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
                 </>
               )}
 
               {/* MASTER TEACHER-WISE (Day-wise: Rows = Teachers) */}
               {viewMode === "master-teacher" && (
                 <>
-                  {displayedMasterTeachers.map((tch) => {
-                    const dPos = masterDayIdx || 0;
-                    const actDay = activeDays[dPos];
-                    const maxPForDay = halfDays.includes(actDay)
-                      ? maxHalfP
-                      : settings.periodsPerDay;
+                  {isAllDaysMaster ? (
+                    displayedMasterTeachers.map((tch) => {
+                      return (
+                        <tr key={tch.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-2 px-2.5 text-left font-bold text-foreground bg-card border-r border-border print:border-black sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] whitespace-nowrap w-40 min-w-[140px]">
+                            <div className="font-bold text-xs truncate max-w-[130px]">{tch.name}</div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <span className="font-mono font-semibold text-primary">{tch.shortName || "-"}</span>
+                              {tch.primarySubject && (
+                                <span className="truncate max-w-[80px] text-muted-foreground font-normal">
+                                  • {tch.primarySubject}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {activeDays.map((dIdx, dPos) => {
+                            const isHalf = halfDays.includes(dIdx);
+                            const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
 
-                    return (
-                      <tr key={tch.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-2.5 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
-                          <div className="font-bold text-foreground text-xs leading-tight">
-                            {tch.name}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                            <span className="font-mono font-semibold text-primary">{tch.shortName || "-"}</span>
-                            {tch.primarySubject && (
-                              <span className="truncate max-w-[90px] text-muted-foreground font-normal">
-                                • {tch.primarySubject}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
-                          const isGray = p > maxPForDay;
-                          const pPos = p - 1;
-                          const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
-
-                          const assigned: { c: RoutineClass; cell: any }[] = [];
-                          if (!isGray) {
-                            for (const c of classes) {
-                              const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                              if (cell && cell.tid === tch.id) {
-                                assigned.push({ c, cell });
+                            return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => {
+                              const pPos = p - 1;
+                              const isLastInDay = p === dayPeriods;
+                              const assigned: { c: RoutineClass; cell: any }[] = [];
+                              for (const c of classes) {
+                                const cell = routine.grid[c.id]?.[dPos]?.[pPos];
+                                if (cell && cell.tid === tch.id) {
+                                  assigned.push({ c, cell });
+                                }
                               }
-                            }
-                          }
 
-                          return (
-                            <React.Fragment key={p}>
-                              {isGray ? (
+                              if (assigned.length === 0) {
+                                return (
+                                  <td
+                                    key={`${dPos}_${p}`}
+                                    className={cn(
+                                      "py-1 px-0.5 border-r border-border last:border-r-0 text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12 text-center",
+                                      isLastInDay && "border-r-2 border-r-border/80"
+                                    )}
+                                  >
+                                    <div className="h-full flex items-center justify-center text-xs font-mono text-muted-foreground/25">
+                                      -
+                                    </div>
+                                  </td>
+                                );
+                              }
+
+                              return (
                                 <td
-                                  className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
-                                >
-                                  -
-                                </td>
-                              ) : assigned.length === 0 ? (
-                                <td
-                                  className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black"
-                                >
-                                  <div className="h-16 flex items-center justify-center text-xs font-mono text-muted-foreground/25">
-                                    -
-                                  </div>
-                                </td>
-                              ) : (
-                                <td
-                                  className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all"
+                                  key={`${dPos}_${p}`}
+                                  className={cn(
+                                    "py-0.5 px-0.5 border-r border-border last:border-r-0 h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
+                                    isLastInDay && "border-r-2 border-r-border/80"
+                                  )}
                                 >
                                   {assigned.map(({ c, cell }, aIdx) => {
                                     const subj = subjectMap.get(cell.sid);
                                     const rm = cell.rid ? roomMap.get(cell.rid) : null;
                                     const hasClash = assigned.length > 1;
+                                    const clsShort = getClassShort(c.className, c.section);
+                                    const subShort = getSubjectShort(subj?.name || "");
+                                    const fullTooltip = `Teacher: ${tch.name} (${tch.shortName})\nDay: ${DAY_NAMES[dIdx]}, Period ${p}\nClass: ${c.className} ${c.section}\nSubject: ${subj?.name || "?"}\n${rm ? `Room: ${rm.name}` : ""}${hasClash ? "\nWARNING: Teacher is double-booked!" : ""}`;
 
                                     return (
                                       <div
                                         key={aIdx}
+                                        title={fullTooltip}
                                         className={cn(
-                                          "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs select-none",
+                                          "h-full w-full rounded p-1 flex flex-col justify-center items-center text-center border shadow-2xs select-none leading-none overflow-hidden",
                                           cell.lab
                                             ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
                                             : "bg-background border-border",
-                                          subj?.isHard && "border-l-4 border-l-amber-500",
-                                          hasClash && "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                                          subj?.isHard && "border-t-2 border-t-amber-500",
+                                          hasClash && "border-destructive bg-destructive/15 ring-1 ring-destructive"
                                         )}
                                       >
-                                        <div className="flex items-start justify-between gap-1">
-                                          <span className="font-bold text-foreground text-[11px] truncate block leading-tight flex-1">
-                                            {c.className} - {c.section}
-                                          </span>
-                                          {hasClash && (
-                                            <span
-                                              title="Faculty double-booked in this period!"
-                                              className="text-[9px] font-bold text-destructive flex items-center gap-0.5 bg-destructive/15 px-1 rounded shrink-0"
-                                            >
-                                              <AlertTriangle className="w-2.5 h-2.5" /> Clash
-                                            </span>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
-                                          <span className="font-semibold text-primary truncate max-w-[85px]">
-                                            {subj?.name || "?"} {cell.lab ? "(Lab)" : ""}
-                                          </span>
-                                          {rm && (
-                                            <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
-                                              {rm.name.split(" ")[0]}
-                                            </span>
-                                          )}
-                                        </div>
+                                        <span className={cn(
+                                          "font-bold text-[10px] truncate max-w-full block leading-tight",
+                                          hasClash ? "text-destructive" : "text-foreground"
+                                        )}>
+                                          {clsShort}
+                                        </span>
+                                        <span className="font-semibold text-[9px] text-primary truncate max-w-full block mt-0.5">
+                                          {subShort}
+                                        </span>
                                       </div>
                                     );
                                   })}
                                 </td>
+                              );
+                            });
+                          })}
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    displayedMasterTeachers.map((tch) => {
+                      const dPos = masterDayIdx || 0;
+                      const actDay = activeDays[dPos];
+                      const maxPForDay = halfDays.includes(actDay)
+                        ? maxHalfP
+                        : settings.periodsPerDay;
+
+                      return (
+                        <tr key={tch.id} className="hover:bg-muted/20 transition-colors">
+                          <td className="py-2.5 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                            <div className="font-bold text-foreground text-xs leading-tight">
+                              {tch.name}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <span className="font-mono font-semibold text-primary">{tch.shortName || "-"}</span>
+                              {tch.primarySubject && (
+                                <span className="truncate max-w-[90px] text-muted-foreground font-normal">
+                                  • {tch.primarySubject}
+                                </span>
                               )}
-                              {hasBreakAfter && (
-                                <td
-                                  className={cn(
-                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
-                                    p >= maxPForDay
-                                      ? "bg-muted/30 text-muted-foreground/30"
-                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                                  )}
-                                >
-                                  {p < maxPForDay ? "Tiffin" : "-"}
-                                </td>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
+                            </div>
+                          </td>
+                          {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
+                            const isGray = p > maxPForDay;
+                            const pPos = p - 1;
+                            const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
+
+                            const assigned: { c: RoutineClass; cell: any }[] = [];
+                            if (!isGray) {
+                              for (const c of classes) {
+                                const cell = routine.grid[c.id]?.[dPos]?.[pPos];
+                                if (cell && cell.tid === tch.id) {
+                                  assigned.push({ c, cell });
+                                }
+                              }
+                            }
+
+                            return (
+                              <React.Fragment key={p}>
+                                {isGray ? (
+                                  <td
+                                    className="py-2 px-1.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono"
+                                  >
+                                    -
+                                  </td>
+                                ) : assigned.length === 0 ? (
+                                  <td
+                                    className="py-2 px-1.5 border-r border-border last:border-r-0 text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black"
+                                  >
+                                    <div className="h-16 flex items-center justify-center text-xs font-mono text-muted-foreground/25">
+                                      -
+                                    </div>
+                                  </td>
+                                ) : (
+                                  <td
+                                    className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all"
+                                  >
+                                    {assigned.map(({ c, cell }, aIdx) => {
+                                      const subj = subjectMap.get(cell.sid);
+                                      const rm = cell.rid ? roomMap.get(cell.rid) : null;
+                                      const hasClash = assigned.length > 1;
+
+                                      return (
+                                        <div
+                                          key={aIdx}
+                                          className={cn(
+                                            "h-full rounded-md p-1.5 flex flex-col justify-between text-left border shadow-2xs select-none",
+                                            cell.lab
+                                              ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
+                                              : "bg-background border-border",
+                                            subj?.isHard && "border-l-4 border-l-amber-500",
+                                            hasClash && "border-destructive bg-destructive/10 ring-1 ring-destructive"
+                                          )}
+                                        >
+                                          <div className="flex items-start justify-between gap-1">
+                                            <span className="font-bold text-foreground text-[11px] truncate block leading-tight flex-1">
+                                              {c.className} - {c.section}
+                                            </span>
+                                            {hasClash && (
+                                              <span
+                                                title="Faculty double-booked in this period!"
+                                                className="text-[9px] font-bold text-destructive flex items-center gap-0.5 bg-destructive/15 px-1 rounded shrink-0"
+                                              >
+                                                <AlertTriangle className="w-2.5 h-2.5" /> Clash
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1">
+                                            <span className="font-semibold text-primary truncate max-w-[85px]">
+                                              {subj?.name || "?"} {cell.lab ? "(Lab)" : ""}
+                                            </span>
+                                            {rm && (
+                                              <span className="bg-amber-500/20 text-amber-800 dark:text-amber-300 px-1 py-0.2 rounded text-[9px] font-bold">
+                                                {rm.name.split(" ")[0]}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </td>
+                                )}
+                                {hasBreakAfter && (
+                                  <td
+                                    className={cn(
+                                      "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                      p >= maxPForDay
+                                        ? "bg-muted/30 text-muted-foreground/30"
+                                        : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                    )}
+                                  >
+                                    {p < maxPForDay ? "Tiffin" : "-"}
+                                  </td>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })
+                  )}
                 </>
               )}
 

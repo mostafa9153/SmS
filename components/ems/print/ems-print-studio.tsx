@@ -119,6 +119,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
     return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
   });
   const [showAdmitSignature, setShowAdmitSignature] = useState<boolean>(true);
+  const [includeBackSideRoutine, setIncludeBackSideRoutine] = useState<boolean>(true);
 
   // Dynamically extract unique classes in this exam allocation
   const uniqueClasses = useMemo(() => {
@@ -890,7 +891,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
           <div className="pt-3 border-t border-border/70 rounded-xl bg-muted/25 p-3.5 sm:p-4 space-y-3 animate-in fade-in-0 slide-in-from-top-2 duration-200">
             {/* FOR ADMIT CARDS */}
             {activeDoc === "admit" && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 <div className="p-3 bg-card rounded-xl border border-border/90 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between text-foreground">
                     <span className="font-bold text-xs flex items-center gap-1.5">
@@ -1007,6 +1008,27 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       type="checkbox"
                       checked={showAdmitSignature}
                       onChange={(e) => setShowAdmitSignature(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                  </label>
+                </div>
+
+                <div className="p-3 bg-card rounded-xl border border-border/90 flex items-center justify-between gap-2 shadow-2xs">
+                  <div className="min-w-0">
+                    <span className="font-bold text-xs text-foreground block">
+                      Back Routine
+                    </span>
+                    <span className="text-[11px] text-muted-foreground truncate block mt-0.5">
+                      Both-side duplex print
+                    </span>
+                  </div>
+
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={includeBackSideRoutine}
+                      onChange={(e) => setIncludeBackSideRoutine(e.target.checked)}
                       className="sr-only peer"
                     />
                     <div className="w-9 h-5 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
@@ -1474,6 +1496,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   examHalf={examHalf}
                   orientation={orientation}
                   cardsPerPage={admitCardsPerPage}
+                  routinesByClass={allocation.routinesByClass}
+                  examStartTime={allocation.examStartTime}
+                  includeBackSideRoutine={includeBackSideRoutine}
                 />
               )}
 
@@ -1543,6 +1568,9 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
               examHalf={examHalf}
               orientation={orientation}
               cardsPerPage={admitCardsPerPage}
+              routinesByClass={allocation.routinesByClass}
+              examStartTime={allocation.examStartTime}
+              includeBackSideRoutine={includeBackSideRoutine}
             />
           )}
 
