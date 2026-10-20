@@ -14,7 +14,7 @@ export interface EmsBenchSlipsPrintableProps {
   schoolProfile: SchoolProfileData;
   targetRoomId?: string; // If undefined or "ALL", print all rooms
   orientation?: "portrait" | "landscape";
-  slipsPerPage?: number; // 32 (default: 4x8), 24 (3x8), or 57 (mini)
+  slipsPerPage?: number; // 33 (default: 3x11), 24 (3x8), or 57 (mini)
 }
 
 interface StudentBenchSlipItem {
@@ -38,7 +38,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   schoolProfile,
   targetRoomId = "ALL",
   orientation = "portrait",
-  slipsPerPage = 32,
+  slipsPerPage = 33,
 }) => {
   // Filter target rooms
   const activeRooms =
@@ -94,11 +94,11 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   });
 
   // Chunk slips into pages based on slipsPerPage and orientation:
-  // - 32 per page (Default): 4 cols x 8 rows in Portrait; 8 cols x 4 rows in Landscape
+  // - 33 per page (Default): 3 cols x 11 rows in Portrait; 11 cols x 3 rows in Landscape
   // - 24 per page (3x8): 3 cols x 8 rows in Portrait; 6 cols x 4 rows in Landscape
   // - 57 per page (Mini): 3 cols x 19 rows in Portrait; 4 cols x 14 rows in Landscape (56)
   const isLandscape = orientation === "landscape";
-  const resolvedSlipsPerPage = slipsPerPage ?? 32;
+  const resolvedSlipsPerPage = slipsPerPage === 32 ? 33 : (slipsPerPage ?? 33);
 
   let numCols: number;
   let numRows: number;
@@ -106,13 +106,15 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
   if (resolvedSlipsPerPage === 24) {
     numCols = isLandscape ? 6 : 3;
     numRows = isLandscape ? 4 : 8;
+
   } else if (resolvedSlipsPerPage === 57 || resolvedSlipsPerPage === 56) {
     numCols = isLandscape ? 4 : 3;
     numRows = isLandscape ? 14 : 19;
   } else {
-    // Default: 32 slips per page
-    numCols = isLandscape ? 8 : 4;
-    numRows = isLandscape ? 4 : 8;
+    // Default: 33 slips per page (3x11)
+    numCols = isLandscape ? 11 : 3;
+    numRows = isLandscape ? 3 : 11;
+
   }
 
   const SLIPS_PER_PAGE = numCols * numRows;
@@ -154,8 +156,8 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
             <span>•</span>
             <span>
               {pageSlips.length} Bench Slips ({
-                resolvedSlipsPerPage === 32
-                  ? isLandscape ? "8×4 Landscape • 32/Page" : "4×8 Portrait • 32/Page"
+                resolvedSlipsPerPage === 33 || resolvedSlipsPerPage === 32
+                  ? isLandscape ? "11×3 Landscape • 33/Page" : "3×11 Portrait • 33/Page"
                   : resolvedSlipsPerPage === 24
                     ? isLandscape ? "6×4 Landscape • 24/Page" : "3×8 Portrait • 24/Page"
                     : isLandscape ? "4×14 Landscape • 56/Page" : "3×19 Portrait • 57/Page"
@@ -193,8 +195,8 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                       ? "grid grid-cols-6 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[3.5mm] gap-y-[3mm]"
                       : "grid grid-cols-3 grid-rows-[repeat(8,minmax(0,1fr))] gap-x-[3.8mm] gap-y-[2.8mm]"
                     : isLandscape
-                      ? "grid grid-cols-8 grid-rows-[repeat(4,minmax(0,1fr))] gap-x-[2.8mm] gap-y-[3mm]"
-                      : "grid grid-cols-4 grid-rows-[repeat(8,minmax(0,1fr))] gap-x-[3.2mm] gap-y-[2.8mm]"
+                      ? "grid grid-cols-11 grid-rows-[repeat(3,minmax(0,1fr))] gap-x-[2mm] gap-y-[3mm]"
+                      : "grid grid-cols-3 grid-rows-[repeat(11,minmax(0,1fr))] gap-x-[3.8mm] gap-y-[2mm]"
               )}
             >
               {toColumnMajorGrid(pageSlips, numCols, numRows).map((item, slotIdx) => {
@@ -207,13 +209,13 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                   ? "0.9mm"
                   : resolvedSlipsPerPage === 24
                     ? isLandscape ? "1.75mm" : "1.9mm"
-                    : isLandscape ? "1.4mm" : "1.6mm";
+                    : isLandscape ? "1.0mm" : "1.9mm";
 
                 const cutOffsetY = isMini
                   ? "0.15mm"
                   : resolvedSlipsPerPage === 24
                     ? isLandscape ? "1.5mm" : "1.4mm"
-                    : isLandscape ? "1.5mm" : "1.4mm";
+                    : isLandscape ? "1.5mm" : "1.0mm";
 
                 const displayRoom = item ? formatRoomName(item.roomNumber) : "";
                 const isHs = item ? isHigherSecondaryClass(item.studentClass) : false;
@@ -285,7 +287,7 @@ export const EmsBenchSlipsPrintable: React.FC<EmsBenchSlipsPrintableProps> = ({
                       ) : (
                         <div
                           key={`slip-${pageIndex}-${slotIdx}-${item.studentRoll}`}
-                          className="relative border border-dashed border-neutral-300 print:border-neutral-400 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border px-[2.5mm] py-[1.8mm]"
+                          className="relative border border-dashed border-neutral-300 print:border-neutral-400 rounded-[3px] flex flex-col justify-between overflow-hidden bg-white h-full box-border px-[2.5mm] py-[1.2mm]"
                         >
                           {/* School Logo Watermark: 60% of card */}
                           <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden z-0">

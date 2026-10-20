@@ -32,6 +32,10 @@ import {
   Check,
   Filter,
   UserCheck,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -80,6 +84,74 @@ function getClassShort(className: string, section?: string): string {
   if (!section || section === "ALL") return shortCls;
   return `${shortCls}-${section}`;
 }
+
+const DAY_COLOR_THEMES = [
+  {
+    // Monday (0) - Blue
+    headerBg: "bg-blue-500/10 dark:bg-blue-950/40",
+    headerText: "text-blue-900 dark:text-blue-200",
+    headerBorder: "border-b-2 border-b-blue-500",
+    subHeaderBg: "bg-blue-500/[0.05] dark:bg-blue-950/30",
+    cellColBg: "bg-blue-500/[0.025] dark:bg-blue-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-blue-400 dark:!border-r-blue-500",
+  },
+  {
+    // Tuesday (1) - Emerald
+    headerBg: "bg-emerald-500/10 dark:bg-emerald-950/40",
+    headerText: "text-emerald-900 dark:text-emerald-200",
+    headerBorder: "border-b-2 border-b-emerald-500",
+    subHeaderBg: "bg-emerald-500/[0.05] dark:bg-emerald-950/30",
+    cellColBg: "bg-emerald-500/[0.025] dark:bg-emerald-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-emerald-400 dark:!border-r-emerald-500",
+  },
+  {
+    // Wednesday (2) - Purple
+    headerBg: "bg-purple-500/10 dark:bg-purple-950/40",
+    headerText: "text-purple-900 dark:text-purple-200",
+    headerBorder: "border-b-2 border-b-purple-500",
+    subHeaderBg: "bg-purple-500/[0.05] dark:bg-purple-950/30",
+    cellColBg: "bg-purple-500/[0.025] dark:bg-purple-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-purple-400 dark:!border-r-purple-500",
+  },
+  {
+    // Thursday (3) - Amber
+    headerBg: "bg-amber-500/10 dark:bg-amber-950/40",
+    headerText: "text-amber-900 dark:text-amber-200",
+    headerBorder: "border-b-2 border-b-amber-500",
+    subHeaderBg: "bg-amber-500/[0.05] dark:bg-amber-950/30",
+    cellColBg: "bg-amber-500/[0.025] dark:bg-amber-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-amber-400 dark:!border-r-amber-500",
+  },
+  {
+    // Friday (4) - Rose
+    headerBg: "bg-rose-500/10 dark:bg-rose-950/40",
+    headerText: "text-rose-900 dark:text-rose-200",
+    headerBorder: "border-b-2 border-b-rose-500",
+    subHeaderBg: "bg-rose-500/[0.05] dark:bg-rose-950/30",
+    cellColBg: "bg-rose-500/[0.025] dark:bg-rose-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-rose-400 dark:!border-r-rose-500",
+  },
+  {
+    // Saturday (5) - Cyan
+    headerBg: "bg-cyan-500/10 dark:bg-cyan-950/40",
+    headerText: "text-cyan-900 dark:text-cyan-200",
+    headerBorder: "border-b-2 border-b-cyan-500",
+    subHeaderBg: "bg-cyan-500/[0.05] dark:bg-cyan-950/30",
+    cellColBg: "bg-cyan-500/[0.025] dark:bg-cyan-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-cyan-400 dark:!border-r-cyan-500",
+  },
+  {
+    // Sunday (6) - Indigo
+    headerBg: "bg-indigo-500/10 dark:bg-indigo-950/40",
+    headerText: "text-indigo-900 dark:text-indigo-200",
+    headerBorder: "border-b-2 border-b-indigo-500",
+    subHeaderBg: "bg-indigo-500/[0.05] dark:bg-indigo-950/30",
+    cellColBg: "bg-indigo-500/[0.025] dark:bg-indigo-500/[0.03]",
+    dividerBorder: "!border-r-[4px] !border-double !border-r-indigo-400 dark:!border-r-indigo-500",
+  },
+];
+
+const TIFFIN_BREAK_BORDER = "!border-r-2 !border-r-foreground/60 dark:!border-r-foreground/50 print:!border-r-2 print:!border-black";
 
 type ViewMode = "master" | "master-teacher" | "class" | "teacher" | "room";
 
@@ -209,6 +281,68 @@ export function RoutineViewerTab({
   const [selectedClassId, setSelectedClassId] = useState<string>(sortedClasses[0]?.id || "");
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || "");
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || "");
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = () => {
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      if (containerRef.current && containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen().catch(() => {});
+      }
+    } else {
+      if (typeof document !== "undefined" && document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (typeof document !== "undefined" && !document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isFullscreen) {
+        if (typeof document !== "undefined" && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  useEffect(() => {
+    const currentRef = containerRef.current;
+    if (!currentRef) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          setZoomLevel((prev) => Math.min(150, prev + 10));
+        } else {
+          setZoomLevel((prev) => Math.max(60, prev - 10));
+        }
+      }
+    };
+
+    currentRef.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      currentRef.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
 
   const classMap = useMemo(() => new Map(classes.map((c) => [c.id, c])), [classes]);
   const teacherMap = useMemo(() => new Map(teachers.map((t) => [t.id, t])), [teachers]);
@@ -790,9 +924,17 @@ export function RoutineViewerTab({
   }
 
   return (
-    <div className="space-y-4 w-full">
+    <div
+      ref={containerRef}
+      className={cn(
+        "w-full transition-all",
+        isFullscreen
+          ? "fixed inset-0 z-50 bg-background flex flex-col h-screen w-screen overflow-hidden p-3 gap-2.5"
+          : "space-y-4"
+      )}
+    >
       {/* Top Toolbar (Hidden on print) */}
-      <div className="print:hidden bg-card border rounded-lg p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
+      <div className="print:hidden bg-card border rounded-lg p-2.5 sm:p-3 shadow-xs flex flex-wrap items-center justify-between gap-2.5 shrink-0">
         {/* Mode Segmented Controls */}
         <div className="flex items-center bg-muted/70 p-1 rounded-lg text-xs font-semibold gap-1 border border-border/70 overflow-x-auto">
           <button
@@ -1060,17 +1202,75 @@ export function RoutineViewerTab({
               <span className="hidden sm:inline">Export Excel</span>
             </Button>
 
-<Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="h-8 text-xs font-semibold gap-1.5 bg-background shadow-xs"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Print Timetable</span>
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="h-8 text-xs font-semibold gap-1.5 bg-background shadow-xs"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Print Timetable</span>
+            </Button>
+
+            {/* Zoom Controls */}
+            <div className="flex items-center bg-muted/60 border border-input rounded-md p-0.5 gap-0.5 shadow-2xs h-8">
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.max(60, z - 10))}
+                disabled={zoomLevel <= 60}
+                title="Zoom Out (Ctrl -)"
+                className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel(100)}
+                title="Reset Zoom to 100%"
+                className="px-1.5 h-7 text-[11px] font-mono font-bold text-foreground hover:bg-background/80 rounded transition-colors flex items-center justify-center cursor-pointer min-w-[38px]"
+              >
+                {zoomLevel}%
+              </button>
+              <button
+                type="button"
+                onClick={() => setZoomLevel((z) => Math.min(150, z + 10))}
+                disabled={zoomLevel >= 150}
+                title="Zoom In (Ctrl +)"
+                className="h-7 w-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Full Screen Toggle Button */}
+            <Button
+              variant={isFullscreen ? "default" : "outline"}
+              size="sm"
+              onClick={toggleFullscreen}
+              className={cn(
+                "h-8 text-xs font-semibold gap-1.5 shadow-xs transition-all",
+                isFullscreen
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-background hover:bg-muted"
+              )}
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="h-3.5 w-3.5" />
+                  <span>Exit Full Screen</span>
+                  <kbd className="hidden sm:inline-block ml-0.5 px-1 py-0.2 text-[9px] bg-primary-foreground/20 rounded font-mono">
+                    Esc
+                  </kbd>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="h-3.5 w-3.5 text-primary" />
+                  <span>Full Screen</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
 
       {/* Printable Sheet Header (Only visible in Print view) */}
       <div className="hidden print:block text-center border-b pb-3 mb-4">
@@ -1105,33 +1305,47 @@ export function RoutineViewerTab({
       </div>
 
       {/* Timetable Grid Container */}
-      <div className="bg-card border rounded-lg shadow-xs overflow-hidden print:border-black print:rounded-none">
+      <div
+        className={cn(
+          "bg-card border rounded-lg shadow-xs overflow-hidden print:border-black print:rounded-none",
+          isFullscreen && "flex-1 min-h-0 flex flex-col rounded-md"
+        )}
+      >
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
             @page { size: landscape; margin: 8mm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         `}} />
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs text-center border-collapse">
-            <thead>
+        <div className={cn("overflow-auto flex-1 min-h-0 relative", isFullscreen && "custom-scrollbar")}>
+          <div style={{ zoom: zoomLevel !== 100 ? `${zoomLevel}%` : undefined }} className="min-w-fit">
+            <table className="w-full text-xs text-center border-collapse">
+            <thead className="sticky top-0 z-30 shadow-2xs">
               {isAllDaysMaster ? (
                 <>
-                  <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
+                  <tr className="bg-muted border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
                     <th
                       rowSpan={2}
-                      className="py-2.5 px-3 text-left border-r border-b border-border print:border-black w-40 min-w-[140px] font-bold sticky left-0 z-30 bg-muted shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]"
+                      className="py-2.5 px-3 text-left border-r border-b border-border print:border-black w-40 min-w-[140px] font-bold sticky top-0 left-0 z-40 bg-muted shadow-[2px_2px_4px_-2px_rgba(0,0,0,0.15)]"
                     >
                       {viewMode === "master" ? "Class \\ Day" : "Teacher \\ Day"}
                     </th>
-                    {activeDays.map((dIdx) => {
+                    {activeDays.map((dIdx, dPos) => {
                       const isHalf = halfDays.includes(dIdx);
                       const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
+                      const isLastDay = dPos === activeDays.length - 1;
+                      const theme = DAY_COLOR_THEMES[dIdx % DAY_COLOR_THEMES.length];
                       return (
                         <th
                           key={dIdx}
                           colSpan={dayPeriods}
-                          className="py-1.5 px-2 text-center border-r last:border-r-0 border-b border-border print:border-black font-bold bg-muted/90 text-foreground"
+                          className={cn(
+                            "py-1.5 px-2 text-center border-b font-bold sticky top-0 z-30 backdrop-blur-xs transition-colors",
+                            theme.headerBg,
+                            theme.headerText,
+                            theme.headerBorder,
+                            !isLastDay ? theme.dividerBorder : "border-r border-border print:border-black"
+                          )}
                         >
                           <div className="flex items-center justify-center gap-1.5">
                             <span className="font-bold">{DAY_NAMES[dIdx]}</span>
@@ -1145,27 +1359,40 @@ export function RoutineViewerTab({
                       );
                     })}
                   </tr>
-                  <tr className="bg-muted/50 border-b text-foreground font-semibold print:bg-gray-50 print:text-black">
-                    {activeDays.map((dIdx) => {
+                  <tr className="bg-muted/95 border-b text-foreground font-semibold print:bg-gray-50 print:text-black">
+                    {activeDays.map((dIdx, dPos) => {
                       const isHalf = halfDays.includes(dIdx);
                       const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
-                      return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => (
-                        <th
-                          key={`${dIdx}_${p}`}
-                          className={cn(
-                            "py-1 px-0.5 border-r last:border-r-0 border-border print:border-black text-[10px] font-semibold text-center w-[60px] min-w-[55px] max-w-[65px] bg-muted/40",
-                            p === dayPeriods && "border-r-2 border-r-border/80"
-                          )}
-                        >
-                          P{p}
-                        </th>
-                      ));
+                      const isLastDay = dPos === activeDays.length - 1;
+                      const theme = DAY_COLOR_THEMES[dIdx % DAY_COLOR_THEMES.length];
+                      return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => {
+                        const isLastInDay = p === dayPeriods;
+                        const isBreakAfter = (settings.breaks || []).includes(p) && p < dayPeriods;
+                        return (
+                          <th
+                            key={`${dIdx}_${p}`}
+                            title={isBreakAfter ? `P${p} (Tiffin follows)` : `P${p}`}
+                            className={cn(
+                              "py-1 px-0.5 border-b border-border print:border-black text-[10px] font-semibold text-center w-[60px] min-w-[55px] max-w-[65px] sticky top-[33px] z-30 backdrop-blur-xs transition-colors",
+                              theme.subHeaderBg,
+                              theme.headerText,
+                              isLastInDay && !isLastDay
+                                ? theme.dividerBorder
+                                : isBreakAfter
+                                ? TIFFIN_BREAK_BORDER
+                                : "border-r border-border print:border-black"
+                            )}
+                          >
+                            P{p}
+                          </th>
+                        );
+                      });
                     })}
                   </tr>
                 </>
               ) : (
-                <tr className="bg-muted/70 border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
-                  <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-36 font-bold">
+                <tr className="bg-muted border-b text-foreground font-semibold print:bg-gray-100 print:text-black">
+                  <th className="py-2.5 px-3 text-left border-r border-border print:border-black w-36 font-bold sticky top-0 left-0 z-40 bg-muted shadow-[2px_2px_4px_-2px_rgba(0,0,0,0.15)]">
                     {viewMode === "master"
                       ? "Class \\ Period"
                       : viewMode === "master-teacher"
@@ -1176,11 +1403,11 @@ export function RoutineViewerTab({
                     const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
                     return (
                       <React.Fragment key={p}>
-                        <th className="py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px]">
+                        <th className="py-2.5 px-2 border-r last:border-r-0 border-border print:border-black min-w-[110px] sticky top-0 z-30 bg-muted/95 backdrop-blur-xs">
                           <span>Period {p}</span>
                         </th>
                         {hasBreakAfter && (
-                          <th className="py-2.5 px-2 border-r border-border print:border-black min-w-[70px] bg-amber-500/15 text-amber-800 dark:text-amber-300 font-bold">
+                          <th className="py-2.5 px-2 !border-x-2 !border-x-foreground/50 dark:!border-x-foreground/40 print:!border-black print:!border-x-2 border-b border-border min-w-[70px] bg-amber-500/15 text-amber-800 dark:text-amber-300 font-bold sticky top-0 z-30 backdrop-blur-xs">
                             <div className="flex items-center justify-center gap-1">
                               <Coffee className="w-3 h-3 text-amber-600" />
                               <span>Recess</span>
@@ -1209,6 +1436,8 @@ export function RoutineViewerTab({
                             const actDay = dIdx;
                             const maxPForDay = halfDays.includes(actDay) ? maxHalfP : settings.periodsPerDay;
                             const dayPeriods = halfDays.includes(actDay) ? maxHalfP : settings.periodsPerDay;
+                            const isLastDay = dPos === activeDays.length - 1;
+                            const theme = DAY_COLOR_THEMES[actDay % DAY_COLOR_THEMES.length];
 
                             return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => {
                               const isGray = p > maxPForDay || p > classLimit;
@@ -1218,14 +1447,22 @@ export function RoutineViewerTab({
                               const isTarget = dragOverPos?.classId === c.id && dragOverPos?.dPos === dPos && dragOverPos?.pPos === pPos;
                               const clashReason = dayClashes.get(`${c.id}_${dPos}_${pPos}`);
                               const isLastInDay = p === dayPeriods;
+                              const isDayDivider = isLastInDay && !isLastDay;
+                              const isBreakAfter = (settings.breaks || []).includes(p) && p < dayPeriods;
+                              const cellBorderClass = isDayDivider
+                                ? theme.dividerBorder
+                                : isBreakAfter
+                                ? TIFFIN_BREAK_BORDER
+                                : "border-r border-border last:border-r-0";
 
                               if (isGray) {
                                 return (
                                   <td
                                     key={`${dPos}_${p}`}
                                     className={cn(
-                                      "py-1 px-0.5 border-r border-border last:border-r-0 bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono text-center text-xs w-[60px] min-w-[55px] max-w-[65px] h-12",
-                                      isLastInDay && "border-r-2 border-r-border/80"
+                                      "py-1 px-0.5 border-border bg-muted/40 text-muted-foreground/30 print:bg-gray-50 print:border-black select-none font-mono text-center text-xs w-[60px] min-w-[55px] max-w-[65px] h-12 transition-colors",
+                                      theme.cellColBg,
+                                      cellBorderClass
                                     )}
                                   >
                                     -
@@ -1264,8 +1501,9 @@ export function RoutineViewerTab({
                                       }
                                     }}
                                     className={cn(
-                                      "py-1 px-0.5 border-r border-border last:border-r-0 transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12",
-                                      isLastInDay && "border-r-2 border-r-border/80",
+                                      "py-1 px-0.5 border-border transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12",
+                                      theme.cellColBg,
+                                      cellBorderClass,
                                       isTarget ? "bg-primary/20 ring-2 ring-inset ring-primary" : "text-muted-foreground/30 hover:bg-muted/30"
                                     )}
                                   >
@@ -1317,8 +1555,9 @@ export function RoutineViewerTab({
                                     }
                                   }}
                                   className={cn(
-                                    "py-0.5 px-0.5 border-r border-border last:border-r-0 h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
-                                    isLastInDay && "border-r-2 border-r-border/80",
+                                    "py-0.5 px-0.5 border-border h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
+                                    theme.cellColBg,
+                                    cellBorderClass,
                                     isTarget && "bg-primary/20 ring-2 ring-inset ring-primary scale-[1.02] shadow-xs z-10"
                                   )}
                                 >
@@ -1374,7 +1613,7 @@ export function RoutineViewerTab({
 
                       return (
                         <tr key={c.id} className="hover:bg-muted/20 transition-colors">
-                          <td className="py-3 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                          <td className="py-3 px-3 text-left font-bold text-foreground bg-card border-r border-border print:border-black sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] whitespace-nowrap">
                             {c.className} - {c.section}
                           </td>
                           {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
@@ -1534,7 +1773,7 @@ export function RoutineViewerTab({
                                 {hasBreakAfter && (
                                   <td
                                     className={cn(
-                                      "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                      "py-2 px-1 !border-x-2 !border-x-foreground/50 dark:!border-x-foreground/40 print:!border-black print:!border-x-2 text-center font-semibold text-[10px] select-none",
                                       p >= maxPForDay
                                         ? "bg-muted/30 text-muted-foreground/30"
                                         : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
@@ -1574,10 +1813,19 @@ export function RoutineViewerTab({
                           {activeDays.map((dIdx, dPos) => {
                             const isHalf = halfDays.includes(dIdx);
                             const dayPeriods = isHalf ? maxHalfP : settings.periodsPerDay;
+                            const isLastDay = dPos === activeDays.length - 1;
+                            const theme = DAY_COLOR_THEMES[dIdx % DAY_COLOR_THEMES.length];
 
                             return Array.from({ length: dayPeriods }, (_, i) => i + 1).map((p) => {
                               const pPos = p - 1;
                               const isLastInDay = p === dayPeriods;
+                              const isDayDivider = isLastInDay && !isLastDay;
+                              const isBreakAfter = (settings.breaks || []).includes(p) && p < dayPeriods;
+                              const cellBorderClass = isDayDivider
+                                ? theme.dividerBorder
+                                : isBreakAfter
+                                ? TIFFIN_BREAK_BORDER
+                                : "border-r border-border last:border-r-0";
                               const assigned: { c: RoutineClass; cell: any }[] = [];
                               for (const c of classes) {
                                 const cell = routine.grid[c.id]?.[dPos]?.[pPos];
@@ -1591,8 +1839,9 @@ export function RoutineViewerTab({
                                   <td
                                     key={`${dPos}_${p}`}
                                     className={cn(
-                                      "py-1 px-0.5 border-r border-border last:border-r-0 text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12 text-center",
-                                      isLastInDay && "border-r-2 border-r-border/80"
+                                      "py-1 px-0.5 border-border text-muted-foreground/30 hover:bg-muted/30 transition-all select-none print:border-black w-[60px] min-w-[55px] max-w-[65px] h-12 text-center",
+                                      theme.cellColBg,
+                                      cellBorderClass
                                     )}
                                   >
                                     <div className="h-full flex items-center justify-center text-xs font-mono text-muted-foreground/25">
@@ -1606,8 +1855,9 @@ export function RoutineViewerTab({
                                 <td
                                   key={`${dPos}_${p}`}
                                   className={cn(
-                                    "py-0.5 px-0.5 border-r border-border last:border-r-0 h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
-                                    isLastInDay && "border-r-2 border-r-border/80"
+                                    "py-0.5 px-0.5 border-border h-12 align-middle print:border-black transition-all w-[60px] min-w-[55px] max-w-[65px]",
+                                    theme.cellColBg,
+                                    cellBorderClass
                                   )}
                                 >
                                   {assigned.map(({ c, cell }, aIdx) => {
@@ -1660,7 +1910,7 @@ export function RoutineViewerTab({
 
                       return (
                         <tr key={tch.id} className="hover:bg-muted/20 transition-colors">
-                          <td className="py-2.5 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                          <td className="py-2.5 px-3 text-left font-bold text-foreground bg-card border-r border-border print:border-black sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] whitespace-nowrap">
                             <div className="font-bold text-foreground text-xs leading-tight">
                               {tch.name}
                             </div>
@@ -1756,7 +2006,7 @@ export function RoutineViewerTab({
                                 {hasBreakAfter && (
                                   <td
                                     className={cn(
-                                      "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                      "py-2 px-1 !border-x-2 !border-x-foreground/50 dark:!border-x-foreground/40 print:!border-black print:!border-x-2 text-center font-semibold text-[10px] select-none",
                                       p >= maxPForDay
                                         ? "bg-muted/30 text-muted-foreground/30"
                                         : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
@@ -1790,7 +2040,7 @@ export function RoutineViewerTab({
 
                     return (
                       <tr key={dIdx} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-3 px-3 text-left font-bold text-foreground bg-muted/30 border-r border-border print:border-black">
+                        <td className="py-3 px-3 text-left font-bold text-foreground bg-card border-r border-border print:border-black sticky left-0 z-20 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)] whitespace-nowrap">
                           {DAY_NAMES[dIdx]} {halfDays.includes(dIdx) && "(Half)"}
                         </td>
                         {Array.from({ length: settings.periodsPerDay }, (_, i) => i + 1).map((p) => {
@@ -1884,7 +2134,7 @@ export function RoutineViewerTab({
                               {hasBreakAfter && (
                                 <td
                                   className={cn(
-                                    "py-2 px-1 border-r border-border print:border-black text-center font-semibold text-[10px] select-none",
+                                    "py-2 px-1 !border-x-2 !border-x-foreground/50 dark:!border-x-foreground/40 print:!border-black print:!border-x-2 text-center font-semibold text-[10px] select-none",
                                     p >= maxPForDay
                                       ? "bg-muted/30 text-muted-foreground/30"
                                       : "bg-amber-500/10 text-amber-700 dark:text-amber-400"
@@ -1903,23 +2153,26 @@ export function RoutineViewerTab({
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 
-      {/* Workflow Navigation Footer */}
-      <div className="print:hidden pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-        <Link href="/routine/generate">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-            ← Back to Generator Engine
-          </Button>
-        </Link>
-        <Link href="/routine">
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-            <Sliders className="w-3.5 h-3.5" />
-            Adjust Setup Hub Configuration
-          </Button>
-        </Link>
-      </div>
+      {/* Workflow Navigation Footer (Hidden when full screen or print) */}
+      {!isFullscreen && (
+        <div className="print:hidden pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
+          <Link href="/routine/generate">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+              ← Back to Generator Engine
+            </Button>
+          </Link>
+          <Link href="/routine">
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+              <Sliders className="w-3.5 h-3.5" />
+              Adjust Setup Hub Configuration
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

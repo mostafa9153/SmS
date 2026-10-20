@@ -77,7 +77,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
-  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(32);
+  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(33);
   const [zoom, setZoom] = useState<number>(0.85);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
   const [isRoomPopoverOpen, setIsRoomPopoverOpen] = useState<boolean>(false);
@@ -382,8 +382,8 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
 
   const cardsPerPage = orientation === "landscape" ? 20 : 21;
   const effectiveSlipsPerPage =
-    benchSlipsPerPage === 32
-      ? 32
+    benchSlipsPerPage === 33 || benchSlipsPerPage === 32
+      ? 33
       : benchSlipsPerPage === 24
         ? 24
         : orientation === "landscape"
@@ -664,8 +664,8 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-muted text-muted-foreground"
                 )}
               >
-                {benchSlipsPerPage === 32
-                  ? "32/A4"
+                {benchSlipsPerPage === 33 || benchSlipsPerPage === 32
+                  ? "33/A4"
                   : benchSlipsPerPage === 24
                     ? "24/A4"
                     : orientation === "landscape"
@@ -1047,21 +1047,21 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       <span>Slips / Page</span>
                     </span>
                     <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                      {benchSlipsPerPage === 32 ? "32 Slips (4×8)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
+                      {benchSlipsPerPage === 33 || benchSlipsPerPage === 32 ? "33 Slips (3×11)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-1 bg-muted/60 p-1 rounded-lg border border-border/60">
                     <button
                       type="button"
-                      onClick={() => setBenchSlipsPerPage(32)}
+                      onClick={() => setBenchSlipsPerPage(33)}
                       className={cn(
                         "py-1 px-1.5 rounded-md text-xs font-bold transition-all cursor-pointer text-center",
-                        benchSlipsPerPage === 32
+                        benchSlipsPerPage === 33 || benchSlipsPerPage === 32
                           ? "bg-background text-emerald-600 dark:text-emerald-300 shadow-xs border border-border/80"
                           : "text-muted-foreground hover:text-foreground"
                       )}
                     >
-                      32 / Page
+                      33 / Page
                     </button>
                     <button
                       type="button"
@@ -1134,7 +1134,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                       Cutting Space
                     </span>
                     <span className="text-[11px] text-muted-foreground truncate block mt-0.5">
-                      {benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
+                      {benchSlipsPerPage === 33 || benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
                     </span>
                   </div>
                   <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-md">
@@ -1466,9 +1466,12 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
         {/* Scrollable Canvas Viewport with Touch Pinch-to-Zoom & Photo Lightbox */}
         <div className="flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4 pb-36 bg-muted/10 print:p-0 print:m-0 print:overflow-visible print:bg-white relative custom-scrollbar">
           <PinchZoomViewer
-            initialScale={0.85}
+            scale={zoom}
+            onScaleChange={setZoom}
             minScale={0.3}
             maxScale={3.0}
+            showControls={false}
+            enableScrollMode={true}
             title={
               activeDoc === "admit"
                 ? "EMS Admit Cards"

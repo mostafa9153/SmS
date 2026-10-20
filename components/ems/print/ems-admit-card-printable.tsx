@@ -80,6 +80,61 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
       ? schoolProfile.headSignatureUrl
       : "/hod-signature.png";
 
+  // Fallback to localStorage if routinesByClass is empty or not provided
+  const effectiveRoutines = React.useMemo(() => {
+    if (routinesByClass && Object.keys(routinesByClass).length > 0) {
+      return routinesByClass;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_ems_exam_routines");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            return parsed as Record<string, ExamRoutineItem[]>;
+          }
+        }
+      } catch {}
+    }
+    return routinesByClass || {};
+  }, [routinesByClass]);
+
+  const getClassRoutine = React.useCallback(
+    (studentClass?: string): ExamRoutineItem[] => {
+      if (!studentClass || !effectiveRoutines) return [];
+      // 1. Direct match (e.g. "VIII", "Class VIII")
+      if (effectiveRoutines[studentClass] && effectiveRoutines[studentClass].length > 0) {
+        return effectiveRoutines[studentClass];
+      }
+      // 2. Normalized match (e.g. "VIII", "Class VIII", "8")
+      const norm = normalizeClassCode(studentClass);
+      if (norm && effectiveRoutines[norm] && effectiveRoutines[norm].length > 0) {
+        return effectiveRoutines[norm];
+      }
+      // 3. Scan all keys in effectiveRoutines and match normalized code
+      const matchingKey = Object.keys(effectiveRoutines).find(
+        (k) => normalizeClassCode(k) === norm && Array.isArray(effectiveRoutines[k]) && effectiveRoutines[k].length > 0
+      );
+      if (matchingKey && effectiveRoutines[matchingKey]) {
+        return effectiveRoutines[matchingKey];
+      }
+      return [];
+    },
+    [effectiveRoutines]
+  );
+
+  // Fallback to localStorage for exam start time if not provided
+  const effectiveStartTime = React.useMemo(() => {
+    if (examStartTime && examStartTime.trim() !== "") return examStartTime.trim();
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("sms_ems_exam_start_time");
+        if (saved && saved.trim() !== "") return saved.trim();
+      } catch {}
+    }
+    return "";
+  }, [examStartTime]);
+
   // Filter target rooms
   const activeRooms =
     targetRoomId === "ALL"
@@ -274,10 +329,10 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                             isEightPerPage ? "text-[9.5px]" : "text-[7.5px]"
                           )}>
                             <span>{formatShortExam(getStudentExamTitle(examType, item.studentClass), academicYear)}</span>
-                            {examStartTime && (
+                            {effectiveStartTime && (
                               <>
                                 <span className="text-neutral-400 font-normal mx-0.5">•</span>
-                                <span className="font-bold text-neutral-900">{examStartTime}</span>
+                                <span className="font-bold text-neutral-900">Time: {effectiveStartTime}</span>
                               </>
                             )}
                             {examHalf && (
@@ -409,6 +464,11 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                         isEightPerPage ? "text-[8.5px]" : "text-[7px]"
                       )}>
                         Issued: <span className="font-bold text-neutral-800 font-mono">{issueDate}</span>
+                        {effectiveStartTime && (
+                          <span className="ml-1.5 pl-1.5 border-l border-neutral-300">
+                            Time: <span className="font-bold text-neutral-800 font-mono">{effectiveStartTime}</span>
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex flex-col items-center justify-end">
@@ -571,7 +631,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                                   isEightPerPage ? "text-[11.5px]" : "text-[8.5px]"
                                 )}
                               >
-                                EXAM ROUTINE • CLASS {item.studentClass}
+                                EXAM ROUTINE • CLASS {item.studentClass}{effectiveStartTime ? ` • ${effectiveStartTime}` : ""}
                               </span>
                             </div>
                             <div className="shrink-0 text-right">
@@ -589,7 +649,7 @@ export const EmsAdmitCardPrintable: React.FC<EmsAdmitCardPrintableProps> = ({
                           {/* Routine Table */}
                           <div className="relative z-10 flex-1 overflow-hidden flex flex-col justify-start">
                             {(() => {
-                              const classRoutine = routinesByClass?.[item.studentClass] || [];
+                              const classRoutine = getClassRoutine(item.studentClass);
                               if (!classRoutine || classRoutine.length === 0) {
                                 return (
                                   <div className="flex-1 flex items-center justify-center text-center p-2">

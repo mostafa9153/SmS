@@ -16,6 +16,7 @@ interface PinchZoomViewerProps {
   onScaleChange?: (scale: number) => void;
   scale?: number; // Optional external controlled scale
   title?: string;
+  enableScrollMode?: boolean;
 }
 
 export function PinchZoomViewer({
@@ -30,6 +31,7 @@ export function PinchZoomViewer({
   onScaleChange,
   scale: controlledScale,
   title = "Document Preview",
+  enableScrollMode = true,
 }: PinchZoomViewerProps) {
   const [internalScale, setInternalScale] = useState(initialScale);
   const currentScale = controlledScale ?? internalScale;
@@ -110,6 +112,9 @@ export function PinchZoomViewer({
       const el = containerRef.current;
       if (!el) return;
 
+      // In scroll mode, preserve natural mouse scrolling unless in fullscreen
+      if (enableScrollMode && !isFullscreen) return;
+
       // Allow dragging when zoomed in or in fullscreen
       if (!isFullscreen && currentScaleRef.current <= 1.05) return;
 
@@ -146,7 +151,7 @@ export function PinchZoomViewer({
       window.addEventListener("mousemove", handleMouseMove);
       window.addEventListener("mouseup", handleMouseUp);
     },
-    [isFullscreen]
+    [isFullscreen, enableScrollMode]
   );
 
   // Native non-passive touch listeners & wheel listeners
@@ -189,7 +194,7 @@ export function PinchZoomViewer({
         touchState.current.startPanY = panRef.current.y;
         touchState.current.isPinching = false;
 
-        if (isFullscreen || currentScaleRef.current > 1.25) {
+        if (isFullscreen || (!enableScrollMode && currentScaleRef.current > 1.25)) {
           touchState.current.isPanning = true;
           setIsInteracting(true);
         } else {
@@ -207,7 +212,7 @@ export function PinchZoomViewer({
         const ratio = dist / touchState.current.initialDistance;
         const targetScale = touchState.current.startScale * ratio;
         updateScale(targetScale);
-      } else if (e.touches.length === 1 && (isFullscreen || currentScaleRef.current > 1.25) && touchState.current.isPanning) {
+      } else if (e.touches.length === 1 && (isFullscreen || (!enableScrollMode && currentScaleRef.current > 1.25)) && touchState.current.isPanning) {
         const t = e.touches[0];
         const dx = t.clientX - touchState.current.startX;
         const dy = t.clientY - touchState.current.startY;
@@ -262,7 +267,7 @@ export function PinchZoomViewer({
       el.removeEventListener("touchcancel", handleTouchEnd);
       el.removeEventListener("wheel", handleWheel);
     };
-  }, [updateScale, handleReset, isFullscreen]);
+  }, [updateScale, handleReset, isFullscreen, enableScrollMode]);
 
   // Keyboard shortcut listener for escape and zoom
   useEffect(() => {
@@ -283,11 +288,15 @@ export function PinchZoomViewer({
       ref={containerRef}
       onMouseDown={handleMouseDown}
       style={{
-        touchAction: isFullscreen ? "none" : currentScale > 1.25 ? "none" : "pan-y",
+        touchAction: enableScrollMode && !isFullscreen ? "pan-y pinch-zoom" : isFullscreen ? "none" : currentScale > 1.25 ? "none" : "pan-y",
       }}
       className={cn(
-        "w-full rounded-2xl border border-border/70 dark:border-white/10 bg-slate-100/80 dark:bg-slate-950/60 p-2 sm:p-6 flex justify-center items-start shadow-xs relative cursor-grab active:cursor-grabbing",
-        currentScale > 1.05 ? "overflow-hidden" : "overflow-visible",
+        "w-full rounded-2xl border border-border/70 dark:border-white/10 bg-slate-100/80 dark:bg-slate-950/60 p-2 sm:p-6 flex justify-center items-start shadow-xs relative",
+        enableScrollMode && !isFullscreen
+          ? "cursor-default overflow-visible"
+          : currentScale > 1.05
+            ? "overflow-hidden cursor-grab active:cursor-grabbing"
+            : "overflow-visible cursor-default",
         "print:p-0 print:border-none print:bg-transparent print:w-full print:block print:overflow-visible",
         isFullscreen ? "h-full border-none bg-transparent shadow-none" : canvasClassName
       )}
@@ -295,7 +304,9 @@ export function PinchZoomViewer({
       <div
         ref={contentRef}
         style={{
-          transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${currentScale})`,
+          transform: enableScrollMode && !isFullscreen
+            ? `scale(${currentScale})`
+            : `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${currentScale})`,
           transformOrigin: isFullscreen ? "center center" : "top center",
           transition: isInteracting ? "none" : "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
@@ -400,11 +411,11 @@ export function PinchZoomViewer({
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium">
             <span className="hidden sm:inline-flex items-center gap-1">
               <Move className="h-3 w-3 text-primary" />
-              Pinch with 2 fingers or drag to move:
+              {enableScrollMode ? "Scroll to view pages • Zoom to inspect" : "Pinch with 2 fingers or drag to move:"}
             </span>
             <span className="sm:hidden text-[11px] flex items-center gap-1 font-semibold text-foreground">
               <Move className="h-3 w-3 text-amber-600 dark:text-[#FACC15]" />
-              Pinch &amp; Drag to inspect
+              {enableScrollMode ? "Scroll to browse pages" : "Pinch & Drag to inspect"}
             </span>
           </div>
 

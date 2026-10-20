@@ -19,6 +19,7 @@ export interface CustomSelectProps {
   placeholder?: string;
   disabled?: boolean;
   searchable?: boolean;
+  direction?: "auto" | "up" | "down";
   className?: string;
   triggerClassName?: string;
   dropdownClassName?: string;
@@ -34,6 +35,7 @@ export function CustomSelect({
   placeholder = "Select...",
   disabled = false,
   searchable = true,
+  direction = "auto",
   className,
   triggerClassName,
   dropdownClassName,
@@ -47,7 +49,18 @@ export function CustomSelect({
 
   // Auto-detect if popover should open upwards or downwards
   useEffect(() => {
-    if (isOpen && containerRef.current) {
+    if (!isOpen) return;
+
+    if (direction === "up") {
+      setOpenUpwards(true);
+      return;
+    }
+    if (direction === "down") {
+      setOpenUpwards(false);
+      return;
+    }
+
+    if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
       const spaceAbove = rect.top;
@@ -58,7 +71,7 @@ export function CustomSelect({
         setOpenUpwards(false);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, direction]);
 
   // Normalize options
   const normalizedOptions: CustomSelectOption[] = useMemo(() => {

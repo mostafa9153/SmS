@@ -583,6 +583,7 @@ export function ColumnClassAssigner({
                       }}
                       options={overflowSelectOptions}
                       placeholder="Auto Next Class"
+                      direction="up"
                       className="text-xs h-8"
                       disabled={disabled}
                     />

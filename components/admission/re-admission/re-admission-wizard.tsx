@@ -26,6 +26,7 @@ export function ReAdmissionWizard() {
   const [admissionResult, setAdmissionResult] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [skippedReview, setSkippedReview] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Restore wizard state on mount if saved
@@ -46,10 +47,12 @@ export function ReAdmissionWizard() {
               setStudentData(null);
               setAdmissionResult(null);
               setShowSuccessModal(false);
+              setSkippedReview(false);
             } else {
               if (parsed.step) setStep(parsed.step);
               if (parsed.mode) setMode(parsed.mode);
               if (parsed.studentData) setStudentData(parsed.studentData);
+              if (parsed.skippedReview !== undefined) setSkippedReview(parsed.skippedReview);
             }
           }
         }
@@ -68,7 +71,7 @@ export function ReAdmissionWizard() {
         if (!admissionResult && !showSuccessModal && step > 1 && step < 4) {
           localStorage.setItem(
             "sms_readmission_wizard_state",
-            JSON.stringify({ step, mode, studentData })
+            JSON.stringify({ step, mode, studentData, skippedReview })
           );
         } else if (step === 1 || admissionResult || showSuccessModal) {
           localStorage.removeItem("sms_readmission_wizard_state");
@@ -77,7 +80,7 @@ export function ReAdmissionWizard() {
         console.warn("Could not save re-admission state:", e);
       }
     }
-  }, [step, mode, studentData, admissionResult, showSuccessModal, isLoaded]);
+  }, [step, mode, studentData, admissionResult, showSuccessModal, skippedReview, isLoaded]);
 
   const handleRestart = () => {
     setStep(1);
@@ -85,6 +88,7 @@ export function ReAdmissionWizard() {
     setStudentData(null);
     setAdmissionResult(null);
     setShowSuccessModal(false);
+    setSkippedReview(false);
     if (typeof window !== "undefined") {
       localStorage.removeItem("sms_readmission_wizard_state");
     }
@@ -94,6 +98,7 @@ export function ReAdmissionWizard() {
     setStudentData(null);
     setAdmissionResult(null);
     setShowSuccessModal(false);
+    setSkippedReview(false);
     setStep(2); // Keep existing mode and sticky class/section
     if (typeof window !== "undefined") {
       localStorage.removeItem("sms_readmission_wizard_state");
@@ -107,7 +112,14 @@ export function ReAdmissionWizard() {
 
   const handleStep2Next = (data: any) => {
     setStudentData(data);
+    setSkippedReview(false);
     setStep(3);
+  };
+
+  const handleStep2QuickAdmit = (data: any) => {
+    setStudentData(data);
+    setSkippedReview(true);
+    setStep(4);
   };
 
   const handleStep3Next = (updatedData: any) => {
@@ -179,7 +191,8 @@ export function ReAdmissionWizard() {
             onSelectStudentForAdmission={(student) => {
               setStudentData(student);
               setMode("offline");
-              setStep(3);
+              setSkippedReview(true);
+              setStep(4);
               setShowDashboard(false);
             }}
           />
@@ -247,6 +260,7 @@ export function ReAdmissionWizard() {
         {step === 2 && mode === "offline" && (
           <Step2Offline
             onNext={handleStep2Next}
+            onQuickAdmit={handleStep2QuickAdmit}
             onBack={() => setStep(1)}
             initialClass={urlClass || undefined}
             initialSection={urlSection || undefined}
@@ -271,7 +285,7 @@ export function ReAdmissionWizard() {
 
         {step === 4 && (
           <Step4Finalize
-            onBack={() => setStep(3)}
+            onBack={() => setStep(skippedReview ? 2 : 3)}
             onAdmit={handleAdmitComplete}
             studentData={studentData}
           />

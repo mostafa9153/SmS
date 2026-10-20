@@ -480,7 +480,7 @@ function EmsClassMultiSelect({
     return Array.from(
       new Set(
         selectedClasses
-          .map((c: string) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()))
+          .map((c: string) => normalizeClassCode(c))
           .filter(Boolean)
       )
     );
@@ -739,7 +739,7 @@ function EmsMasterPageContent() {
 
   useEffect(() => {
     if (selectedClasses.length > 0) {
-      const cleanNorms = selectedClasses.map((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()));
+      const cleanNorms = selectedClasses.map((c) => normalizeClassCode(c));
       if (!activeRoutineClass || !cleanNorms.includes(activeRoutineClass)) {
         setActiveRoutineClass(cleanNorms[0]);
       }
@@ -766,7 +766,7 @@ function EmsMasterPageContent() {
       const nextRoutines = { ...prev };
 
       selectedClasses.forEach((cls) => {
-        const norm = normalizeClassCode(cls.split(/[-_\s]/)[0]?.trim());
+        const norm = normalizeClassCode(cls);
         if (norm && (!nextRoutines[norm] || nextRoutines[norm].length === 0)) {
           const presetSubs = getDatabaseSubjectsForClass(norm, allStudents);
           if (presetSubs && presetSubs.length > 0) {
@@ -1507,7 +1507,7 @@ function EmsMasterPageContent() {
     if (target) {
       const norm = normalizeClassCode(target.class);
       setSelectedClasses((prev) =>
-        prev.filter((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()) !== norm)
+        prev.filter((c) => normalizeClassCode(c) !== norm)
       );
     }
     setClassGroups((prev) => prev.filter((g) => g.id !== groupId));
@@ -1953,7 +1953,7 @@ function EmsMasterPageContent() {
     setRoutinesByClass((prev) => {
       const updated = { ...prev };
       selectedClasses.forEach((c) => {
-        const targetNorm = normalizeClassCode(c.split(/[-_\s]/)[0]?.trim());
+        const targetNorm = normalizeClassCode(c);
         if (targetNorm && targetNorm !== normClass) {
           const targetList = updated[targetNorm] || [];
           if (targetList.length > 0) {
@@ -1983,7 +1983,7 @@ function EmsMasterPageContent() {
     const cleanClasses = Array.from(
       new Set(
         selectedClasses
-          .map((c) => normalizeClassCode(c.split(/[-_\s]/)[0]?.trim()))
+          .map((c) => normalizeClassCode(c))
           .filter(Boolean)
       )
     );
@@ -2095,9 +2095,14 @@ function EmsMasterPageContent() {
   };
 
   const handleCommitArrangement = (finalAllocation: ExamAllocation) => {
-    saveAllocation(finalAllocation);
-    saveActiveAllocation(finalAllocation);
-    setGeneratedAllocation(finalAllocation);
+    const enrichedAllocation: ExamAllocation = {
+      ...finalAllocation,
+      routinesByClass: finalAllocation.routinesByClass || routinesByClass || generatedAllocation?.routinesByClass,
+      examStartTime: finalAllocation.examStartTime || examStartTime || generatedAllocation?.examStartTime,
+    };
+    saveAllocation(enrichedAllocation);
+    saveActiveAllocation(enrichedAllocation);
+    setGeneratedAllocation(enrichedAllocation);
     setSavedAllocations(getSavedAllocations());
     if (finalAllocation.roomAllocations.length > 0) {
       setActiveBlueprintRoomId(finalAllocation.roomAllocations[0].roomId);
@@ -2319,7 +2324,7 @@ function EmsMasterPageContent() {
               {/* Class Tabs */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {selectedClasses.map((cls) => {
-                  const norm = normalizeClassCode(cls.split(/[-_\s]/)[0]?.trim());
+                  const norm = normalizeClassCode(cls);
                   const isSelected = activeRoutineClass === norm;
                   const count = routinesByClass[norm]?.length || 0;
                   return (
@@ -3667,6 +3672,8 @@ function EmsMasterPageContent() {
           initialAllocation={generatedAllocation}
           onCommitArrangement={handleCommitArrangement}
           onBackToStep3={() => setStep(3)}
+          routinesByClass={routinesByClass || generatedAllocation?.routinesByClass}
+          examStartTime={examStartTime || generatedAllocation?.examStartTime}
         />
       )}
 
@@ -3676,7 +3683,11 @@ function EmsMasterPageContent() {
       {step === 5 && (
         generatedAllocation ? (
           <EmsPrintStudio
-            allocation={generatedAllocation}
+            allocation={{
+              ...generatedAllocation,
+              routinesByClass: generatedAllocation.routinesByClass || routinesByClass,
+              examStartTime: generatedAllocation.examStartTime || examStartTime,
+            }}
             onBackToStep4={() => setStep(4)}
           />
         ) : (

@@ -614,6 +614,7 @@ a:not([aria-disabled="true"]):active {
   border-top-style: solid;
   border-top-color: var(--color-border, var(--border));
   pointer-events: auto;
+  overflow: visible;
 }
 
 .ems-accordion-content {
@@ -628,4 +629,5 @@ a:not([aria-disabled="true"]):active {
 .ems-accordion-drawer.is-open .ems-accordion-content {
   transform: translateY(0);
   opacity: 1;
+  overflow: visible;
 }

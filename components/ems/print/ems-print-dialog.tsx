@@ -72,7 +72,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [targetRoomId, setTargetRoomId] = useState<string>(defaultRoomId);
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
-  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(32);
+  const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(33);
   const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
   const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
@@ -342,8 +342,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
 
   const cardsPerPage = orientation === "landscape" ? 20 : 21;
   const effectiveSlipsPerPage =
-    benchSlipsPerPage === 32
-      ? 32
+    benchSlipsPerPage === 33 || benchSlipsPerPage === 32
+      ? 33
       : benchSlipsPerPage === 24
         ? 24
         : orientation === "landscape"
@@ -557,8 +557,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         activeDoc === "slips" ? "bg-emerald-800 text-white" : "bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                       )}
                     >
-                      {benchSlipsPerPage === 32
-                        ? "32/A4"
+                      {benchSlipsPerPage === 33 || benchSlipsPerPage === 32
+                        ? "33/A4"
                         : benchSlipsPerPage === 24
                           ? "24/A4"
                           : orientation === "landscape"
@@ -889,21 +889,21 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         <span>Slips / Page</span>
                       </span>
                       <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
-                        {benchSlipsPerPage === 32 ? "32 Slips (4×8)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
+                        {benchSlipsPerPage === 33 || benchSlipsPerPage === 32 ? "33 Slips (3×11)" : benchSlipsPerPage === 24 ? "24 Slips (3×8)" : "57 Mini"}
                       </span>
                     </div>
                     <div className="grid grid-cols-3 gap-1 bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800">
                       <button
                         type="button"
-                        onClick={() => setBenchSlipsPerPage(32)}
+                        onClick={() => setBenchSlipsPerPage(33)}
                         className={cn(
                           "py-1 px-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer text-center",
-                          benchSlipsPerPage === 32
+                          benchSlipsPerPage === 33 || benchSlipsPerPage === 32
                             ? "bg-slate-100 dark:bg-slate-800 text-emerald-600 dark:text-emerald-300 shadow-xs border border-slate-200/80 dark:border-slate-700"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        32 / Page
+                        33 / Page
                       </button>
                       <button
                         type="button"
@@ -976,7 +976,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                         Cutting Space
                       </span>
                       <span className="text-[11px] text-muted-foreground truncate block mt-0.5">
-                        {benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
+                        {benchSlipsPerPage === 33 || benchSlipsPerPage === 32 || benchSlipsPerPage === 24 ? "3mm Cut Margins & Dashed Lines" : "Compact Zero-Margin"}
                       </span>
                     </div>
                     <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-2 py-1 rounded-md">
@@ -1421,6 +1421,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 minScale={0.4}
                 maxScale={2.0}
                 showControls={false}
+                enableScrollMode={true}
                 canvasClassName="p-0 border-none bg-transparent shadow-none"
               >
                 <div

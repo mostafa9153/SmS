@@ -3,7 +3,7 @@
 import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AdmissionApplicationForm, type AdmissionFormData } from "@/components/admission/admission-application-form";
 
 interface Step3ReviewProps {
@@ -137,6 +137,17 @@ export function Step3Review({ onBack, onNext, mode, initialData }: Step3ReviewPr
             </Badge>
           </div>
         </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onNext(initialData)}
+          className="h-8 px-3 text-xs font-semibold gap-1.5 hover:bg-muted shrink-0 cursor-pointer"
+          title="Proceed to Finalize without modifying profile"
+        >
+          <span>Skip to Finalize</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Button>
       </div>
 
       {/* Complete Admission Form with All 9 Pre-filled Sections */}

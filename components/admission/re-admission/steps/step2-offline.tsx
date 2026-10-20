@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Hash,
   Filter,
+  Zap,
 } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -29,6 +30,7 @@ import { toast } from "sonner";
 
 interface Step2OfflineProps {
   onNext: (studentData: Student) => void;
+  onQuickAdmit?: (studentData: Student) => void;
   onBack: () => void;
   initialClass?: string;
   initialSection?: string;
@@ -36,6 +38,7 @@ interface Step2OfflineProps {
 
 export function Step2Offline({
   onNext,
+  onQuickAdmit,
   onBack,
   initialClass,
   initialSection,
@@ -307,18 +310,32 @@ export function Step2Offline({
                         </span>
                       )}
 
-                      <Button
-                        size="sm"
-                        variant={isAdmitted ? "outline" : "default"}
-                        onClick={() => onNext(student)}
-                        className={cn(
-                          "h-7.5 sm:h-8 px-3 text-xs font-semibold gap-1 rounded-lg",
-                          !isAdmitted && "bg-primary text-primary-foreground"
-                        )}
-                      >
-                        <span>{isAdmitted ? "Edit / Re-confirm" : "Select & Continue"}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant={isAdmitted ? "outline" : "default"}
+                          onClick={() => onQuickAdmit ? onQuickAdmit(student) : onNext(student)}
+                          className={cn(
+                            "h-7.5 sm:h-8 px-2.5 text-xs font-semibold gap-1 rounded-lg",
+                            !isAdmitted && "bg-primary text-primary-foreground shadow-2xs hover:bg-primary/90"
+                          )}
+                          title="Quick re-admit without reviewing profile"
+                        >
+                          <Zap className={cn("w-3 h-3", isAdmitted ? "text-amber-500" : "fill-primary-foreground")} />
+                          <span>Quick Admit</span>
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onNext(student)}
+                          className="h-7.5 sm:h-8 px-2.5 text-xs font-semibold gap-1 rounded-lg border-border hover:bg-muted text-muted-foreground hover:text-foreground"
+                          title="Review and edit full student profile"
+                        >
+                          <span>Review Profile</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 );

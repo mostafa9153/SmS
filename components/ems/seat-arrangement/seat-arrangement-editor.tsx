@@ -8,6 +8,7 @@ import {
   AllocatedRoom,
   SeatAssignment,
   ExamType,
+  ExamRoutineItem,
 } from "@/lib/ems/types";
 import { Student } from "@/lib/types";
 import {
@@ -66,6 +67,8 @@ interface SeatArrangementEditorProps {
   initialAllocation?: ExamAllocation | null;
   onCommitArrangement: (allocation: ExamAllocation) => void;
   onBackToStep3: () => void;
+  routinesByClass?: Record<string, ExamRoutineItem[]>;
+  examStartTime?: string;
 }
 
 export function SeatArrangementEditor({
@@ -79,6 +82,8 @@ export function SeatArrangementEditor({
   initialAllocation,
   onCommitArrangement,
   onBackToStep3,
+  routinesByClass,
+  examStartTime,
 }: SeatArrangementEditorProps) {
   // Dynamically ensure rooms reflect chosen studentsPerBench capacity
   const effectiveRooms = useMemo(() => {
@@ -458,6 +463,7 @@ export function SeatArrangementEditor({
           secondaryClassCode: availableClasses[1]?.code || availableClasses[0]?.code || "",
           ...updatedObj,
         },
+  
       ];
     };
 
@@ -634,6 +640,7 @@ export function SeatArrangementEditor({
         ...activeConfig,
         columnAssignments: updatedAssignments,
       },
+
     };
     setRoomConfigs(updatedConfigs);
 
@@ -751,6 +758,7 @@ export function SeatArrangementEditor({
     );
 
     const finalAllocation: ExamAllocation = {
+      ...(initialAllocation || {}),
       id: initialAllocation?.id || `alloc-${Date.now()}`,
       title: `${examType} (${academicYear}) - ${allClasses.join(", ") || "Seating Plan"}`,
       academicYear,
@@ -764,6 +772,11 @@ export function SeatArrangementEditor({
         totalRooms: roomAllocations.length,
         classesAllocated: allClasses,
       },
+
+      routinesByClass: routinesByClass || initialAllocation?.routinesByClass,
+      examStartTime: examStartTime || initialAllocation?.examStartTime,
+
+
     };
 
     onCommitArrangement(finalAllocation);

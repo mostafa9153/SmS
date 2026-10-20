@@ -51,11 +51,11 @@ interface Step4FinalizeProps {
 }
 
 export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizeProps) {
-  const previousClass = studentData.previous_class || studentData.previousClass;
   const currentClass = studentData.presentClass || studentData.present_class || studentData.targetClass || "VI";
+  const previousClass = studentData.previous_class || studentData.previousClass || studentData.present_class || studentData.presentClass;
   const studentName = studentData.studentName || studentData.name || "Student";
 
-  const initialTargetClass = studentData.targetClass || currentClass;
+  const initialTargetClass = studentData.targetClass || CLASS_PROMOTION_MAP[currentClass] || currentClass;
 
   const [targetClass, setTargetClass] = useState<string>(initialTargetClass);
   const [section, setSection] = useState<string>(studentData.presentSection || studentData.present_section || "A");

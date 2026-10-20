@@ -12,7 +12,8 @@ import {
 // Normalize class code for robust matching
 export function normalizeClassCode(c?: string): string {
   if (!c) return "";
-  const clean = c.trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
+  let clean = c.trim().toUpperCase().replace(/^(?:CLASS|STD|GRADE)\s*[-_]?\s*/i, "").trim();
+  clean = clean.split(/[-_\s]/)[0]?.trim() || clean;
   const romanMap: Record<string, string> = {
     "1": "I", "2": "II", "3": "III", "4": "IV", "5": "V",
     "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X",
