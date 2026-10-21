@@ -396,3 +396,54 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }
 }
+
+// DELETE /api/teachers/tasks - Admin deletes a task or clears demo tasks
+export async function DELETE(req: Request) {
+  try {
+    const supabase = await createClient();
+    const { data: { user }, error: authUserError } = await supabase.auth.getUser();
+    if (authUserError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const adminClient = createAdminClient();
+    const { data: currentRole } = await adminClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    const roleLower = (currentRole?.role || "").toLowerCase();
+    const isAdmin = roleLower === "admin" || roleLower === "super admin" || roleLower === "super_admin";
+
+    if (!isAdmin) {
+      return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const taskId = searchParams.get("id");
+    const clearAll = searchParams.get("clearAll") === "true";
+
+    if (clearAll) {
+      await adminClient.from("teacher_task_assignees").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await adminClient.from("teacher_tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      return NextResponse.json({ success: true, message: "All demo tasks cleared successfully." });
+    }
+
+    if (!taskId) {
+      return NextResponse.json({ error: "Task ID is required." }, { status: 400 });
+    }
+
+    // Delete assignees first, then the task
+    await adminClient.from("teacher_task_assignees").delete().eq("task_id", taskId);
+    const { error: delErr } = await adminClient.from("teacher_tasks").delete().eq("id", taskId);
+
+    if (delErr) {
+      return NextResponse.json({ error: delErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: "Task deleted successfully." });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
+  }
+}

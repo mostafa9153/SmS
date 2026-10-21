@@ -51,6 +51,8 @@ export function UsersTab() {
   const [editRole, setEditRole] = useState<"Staff" | "Admin">("Staff");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPassword, setShowEditPassword] = useState(false);
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [editError, setEditError] = useState("");
 
   useEffect(() => {
@@ -156,17 +158,25 @@ export function UsersTab() {
       newFullName?: string;
       newRole?: "Admin" | "Staff";
       newPassword?: string;
+      adminPassword?: string;
     }) => {
       const res = await fetch("/api/admin/users", {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to update user");
+
+      let errData: any = null;
+      try {
+        errData = await res.json();
+      } catch {
+        // Fallback if response is empty or non-JSON
       }
-      return res.json();
+
+      if (!res.ok) {
+        throw new Error(errData?.error || `Failed to update user (${res.status})`);
+      }
+      return errData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -177,6 +187,9 @@ export function UsersTab() {
       });
       setEditingUser(null);
       setEditPassword("");
+      setAdminPassword("");
+      setShowEditPassword(false);
+      setShowAdminPassword(false);
       setEditError("");
     },
     onError: (err: any) => {
@@ -423,8 +436,10 @@ export function UsersTab() {
                               setEditFullName(u.fullName);
                               setEditRole(u.role);
                               setEditPassword("");
-                              setEditError("");
+                              setAdminPassword("");
                               setShowEditPassword(false);
+                              setShowAdminPassword(false);
+                              setEditError("");
                             }}
                             title="Reset password or change role"
                           >
@@ -457,17 +472,35 @@ export function UsersTab() {
       </div>
 
       {/* Edit User / Reset Password Dialog */}
-      <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+      <Dialog
+        open={!!editingUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingUser(null);
+            setEditPassword("");
+            setAdminPassword("");
+            setShowEditPassword(false);
+            setShowAdminPassword(false);
+            setEditError("");
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (!editingUser) return;
+              const isRoleChanged = editRole !== editingUser.role;
+              if (isRoleChanged && !adminPassword.trim()) {
+                setEditError("Admin password is required to change access role.");
+                return;
+              }
               updateUserMutation.mutate({
                 userId: editingUser.id,
                 newFullName: editFullName,
                 newRole: editRole,
                 newPassword: editPassword.trim() ? editPassword.trim() : undefined,
+                adminPassword: isRoleChanged ? adminPassword.trim() : undefined,
               });
             }}
           >
@@ -505,7 +538,10 @@ export function UsersTab() {
                 <Label htmlFor="editRole" className="text-xs">Access Role</Label>
                 <CustomSelect
                   value={editRole}
-                  onChange={(val) => setEditRole(val as any)}
+                  onChange={(val) => {
+                    setEditRole(val as any);
+                    setEditError("");
+                  }}
                   options={[
                     { label: "Staff (Data Entry & View)", value: "Staff" },
                     { label: "Admin (Full Control)", value: "Admin" },
@@ -514,13 +550,55 @@ export function UsersTab() {
                 />
               </div>
 
+              {editingUser && editRole !== editingUser.role && (
+                <div className="grid gap-1.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="adminPassword" className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                      <Shield className="h-3.5 w-3.5" />
+                      Admin Password (Required for Role Change)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="text-[11px] text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
+                    >
+                      {showAdminPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {showAdminPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="adminPassword"
+                      type={showAdminPassword ? "text" : "password"}
+                      value={adminPassword}
+                      onChange={(e) => {
+                        setAdminPassword(e.target.value);
+                        setEditError("");
+                      }}
+                      placeholder="Enter your admin password"
+                      autoComplete="current-password"
+                      disabled={updateUserMutation.isPending}
+                      className="pr-10 h-10 sm:h-9 text-base sm:text-xs bg-background"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      {showAdminPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-1">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="editPassword" className="text-xs">New Password (Leave blank to keep current)</Label>
                   <button
                     type="button"
                     onClick={() => setShowEditPassword(!showEditPassword)}
-                    className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium"
+                    className="text-[11px] text-primary hover:underline flex items-center gap-1 font-medium cursor-pointer"
                   >
                     {showEditPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
                     {showEditPassword ? "Hide" : "Show"}
@@ -540,14 +618,11 @@ export function UsersTab() {
                   <button
                     type="button"
                     onClick={() => setShowEditPassword(!showEditPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                   >
                     {showEditPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-[10px] text-muted-foreground leading-relaxed">
-                  🔒 সুরক্ষার কারণে পুরনো পাসওয়ার্ড ডেটাবেসে এনক্রিপ্ট থাকে। নতুন পাসওয়ার্ড সেট করতে চাইলে এখানে টাইপ করে <strong>Show Password</strong> চেপে নিশ্চিত হয়ে নিন এবং <strong>Save Changes</strong> চাপুন।
-                </p>
               </div>
             </div>
 

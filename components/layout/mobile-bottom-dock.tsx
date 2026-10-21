@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Receipt,
   UserPlus,
+  Trophy,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -41,6 +42,14 @@ const HUB_ACTIONS: HubAction[] = [
     icon: GraduationCap,
     color: "text-emerald-600 dark:text-emerald-400",
     accentBg: "bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    title: "Sports & Games",
+    desc: "Events, chest bibs & meet certificates",
+    href: "/sports",
+    icon: Trophy,
+    color: "text-rose-600 dark:text-rose-400",
+    accentBg: "bg-rose-500/10 border-rose-500/20",
   },
   {
     title: "Document Hub",
@@ -127,6 +136,15 @@ const HUB_ACTIONS: HubAction[] = [
 export function MobileBottomDock() {
   const pathname = usePathname();
   const [isHubOpen, setIsHubOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return null;
+  }
 
   const isHomeActive = pathname === "/";
   const isAdmissionActive = pathname.startsWith("/admission");
@@ -143,7 +161,7 @@ export function MobileBottomDock() {
     pathname.startsWith("/teacher-management");
   const isHubActive =
     isHubOpen ||
-    ["/results", "/teacher", "/generate", "/ems", "/settings", "/students/promotion", "/students/bulk-upload", "/admin-hub"].some(
+    ["/sports", "/results", "/teacher", "/generate", "/ems", "/settings", "/students/promotion", "/students/bulk-upload", "/admin-hub"].some(
       (prefix) => pathname.startsWith(prefix)
     );
 

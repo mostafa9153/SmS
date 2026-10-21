@@ -141,8 +141,8 @@ export async function POST(req: Request) {
   }
 }
 
-// PATCH /api/admin/users - Update user password, name, or role
-export async function PATCH(req: Request) {
+// Shared update handler for PATCH and PUT
+async function handleUpdate(req: Request) {
   try {
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
@@ -162,10 +162,55 @@ export async function PATCH(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, newPassword, newRole, newFullName } = body;
+    const { userId, newPassword, newRole, newFullName, adminPassword } = body;
 
     if (!userId) {
       return NextResponse.json({ error: "Missing user ID" }, { status: 400 });
+    }
+
+    // Fetch existing user profile
+    const { data: targetProfile, error: targetProfileError } = await adminClient
+      .from("user_roles")
+      .select("role, full_name")
+      .eq("user_id", userId)
+      .single();
+
+    if (targetProfileError || !targetProfile) {
+      return NextResponse.json({ error: "Target user not found" }, { status: 404 });
+    }
+
+    // Role change validation
+    const isRoleChanged = newRole && (newRole === "Admin" || newRole === "Staff") && newRole !== targetProfile.role;
+    if (isRoleChanged) {
+      if (!adminPassword || typeof adminPassword !== "string" || !adminPassword.trim()) {
+        return NextResponse.json({ error: "Admin password confirmation is required to change access role." }, { status: 400 });
+      }
+
+      if (!user.email) {
+        return NextResponse.json({ error: "Logged-in admin has no valid email." }, { status: 400 });
+      }
+
+      // Verify admin password with Supabase Auth
+      const { error: passVerifyError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: adminPassword,
+      });
+
+      if (passVerifyError) {
+        return NextResponse.json({ error: "Incorrect admin password. Role change unauthorized." }, { status: 401 });
+      }
+
+      // Check if demoting the last remaining Admin
+      if (targetProfile.role === "Admin" && newRole === "Staff") {
+        const { count, error: countError } = await adminClient
+          .from("user_roles")
+          .select("*", { count: "exact", head: true })
+          .eq("role", "Admin");
+
+        if (!countError && count !== null && count <= 1) {
+          return NextResponse.json({ error: "Cannot demote the last remaining Admin in the system." }, { status: 400 });
+        }
+      }
     }
 
     // 1. Update password in Supabase Auth if provided
@@ -181,9 +226,23 @@ export async function PATCH(req: Request) {
       }
     }
 
-    // 2. Update user_roles if role or name changed
+    // 2. Update user metadata if role or name changed
+    const metadataUpdates: Record<string, any> = {};
+    if (isRoleChanged) {
+      metadataUpdates.role = newRole;
+    }
+    if (newFullName && newFullName.trim()) {
+      metadataUpdates.full_name = newFullName.trim();
+    }
+    if (Object.keys(metadataUpdates).length > 0) {
+      await adminClient.auth.admin.updateUserById(userId, {
+        user_metadata: metadataUpdates,
+      });
+    }
+
+    // 3. Update user_roles if role or name changed
     const rolePatch: Record<string, any> = { updated_at: new Date().toISOString() };
-    if (newRole && (newRole === "Admin" || newRole === "Staff")) {
+    if (isRoleChanged) {
       rolePatch.role = newRole;
     }
     if (newFullName && newFullName.trim()) {
@@ -207,6 +266,16 @@ export async function PATCH(req: Request) {
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Failed to update user" }, { status: 500 });
   }
+}
+
+// PATCH /api/admin/users - Update user password, name, or role
+export async function PATCH(req: Request) {
+  return handleUpdate(req);
+}
+
+// PUT /api/admin/users - Support PUT as well
+export async function PUT(req: Request) {
+  return handleUpdate(req);
 }
 
 // DELETE /api/admin/users - Delete a user

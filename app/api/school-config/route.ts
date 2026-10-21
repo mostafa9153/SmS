@@ -15,6 +15,7 @@ const VALID_KEYS = [
   "bank_presets",
   "school_presets",
   "student_entry_presets",
+  "sports_config",
 ];
 
 const DEFAULT_SYSTEM_USER = "2e7e7a69-5c50-4dba-86ae-25614b3fc8bd";

@@ -34,7 +34,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, messages: messages || [] });
+    // Fetch faculty list for @ mentions
+    const { data: facultyRows } = await adminClient
+      .from("staff_profiles")
+      .select("id, full_name, designation, employee_type")
+      .order("full_name", { ascending: true });
+
+    const faculty = (facultyRows || []).map((f: any) => ({
+      id: f.id,
+      name: f.full_name,
+      designation: f.designation || (f.employee_type === "TEACHING" ? "Teacher" : "Staff"),
+    }));
+
+    return NextResponse.json({
+      success: true,
+      messages: messages || [],
+      faculty: faculty || [],
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to fetch messages" }, { status: 500 });
   }

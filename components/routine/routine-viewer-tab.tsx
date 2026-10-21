@@ -50,6 +50,11 @@ interface RoutineViewerTabProps {
   teachers: RoutineTeacher[];
   subjects: RoutineSubject[];
   rooms: RoutineRoom[];
+  initialViewMode?: ViewMode;
+  initialTeacherId?: string;
+  initialFullscreen?: boolean;
+  onExitFullscreen?: () => void;
+  hideViewModeSelector?: boolean;
 }
 
 function getSubjectShort(name: string): string {
@@ -254,6 +259,11 @@ export function RoutineViewerTab({
   teachers,
   subjects,
   rooms,
+  initialViewMode = "master",
+  initialTeacherId,
+  initialFullscreen = false,
+  onExitFullscreen,
+  hideViewModeSelector = false,
 }: RoutineViewerTabProps) {
   const sortedClasses = useMemo(() => {
     return [...classes].sort((a, b) => {
@@ -273,16 +283,39 @@ export function RoutineViewerTab({
     setRoutine(initialRoutine);
   }, [initialRoutine]);
 
-  const [viewMode, setViewMode] = useState<ViewMode>("master");
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [masterDaySelection, setMasterDaySelection] = useState<string>("0");
   const isAllDaysMaster = masterDaySelection === "ALL" && (viewMode === "master" || viewMode === "master-teacher");
   const masterDayIdx = masterDaySelection === "ALL" ? 0 : (parseInt(masterDaySelection, 10) || 0);
   const [masterSectionFilter, setMasterSectionFilter] = useState<string>("ALL");
   const [selectedClassId, setSelectedClassId] = useState<string>(sortedClasses[0]?.id || "");
-  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || "");
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>(
+    initialTeacherId || teachers[0]?.id || ""
+  );
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id || "");
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  useEffect(() => {
+    if (initialTeacherId) {
+      if (teachers.length > 0) {
+        const match = teachers.find(
+          (t) =>
+            t.id === initialTeacherId ||
+            t.name.toLowerCase() === initialTeacherId.toLowerCase()
+        );
+        setSelectedTeacherId(match ? match.id : initialTeacherId);
+      } else {
+        setSelectedTeacherId(initialTeacherId);
+      }
+    }
+  }, [initialTeacherId, teachers]);
+
+  useEffect(() => {
+    if (initialViewMode) {
+      setViewMode(initialViewMode);
+    }
+  }, [initialViewMode]);
+
+  const [isFullscreen, setIsFullscreen] = useState(initialFullscreen);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -297,18 +330,24 @@ export function RoutineViewerTab({
         document.exitFullscreen().catch(() => {});
       }
       setIsFullscreen(false);
+      onExitFullscreen?.();
     }
   };
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      if (typeof document !== "undefined" && !document.fullscreenElement && isFullscreen) {
-        setIsFullscreen(false);
+      if (typeof document !== "undefined") {
+        if (!document.fullscreenElement && isFullscreen) {
+          setIsFullscreen(false);
+          onExitFullscreen?.();
+        } else if (document.fullscreenElement && !isFullscreen) {
+          setIsFullscreen(true);
+        }
       }
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, [isFullscreen]);
+  }, [isFullscreen, onExitFullscreen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -317,11 +356,12 @@ export function RoutineViewerTab({
           document.exitFullscreen().catch(() => {});
         }
         setIsFullscreen(false);
+        onExitFullscreen?.();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isFullscreen]);
+  }, [isFullscreen, onExitFullscreen]);
 
   useEffect(() => {
     const currentRef = containerRef.current;
@@ -936,79 +976,93 @@ export function RoutineViewerTab({
       {/* Top Toolbar (Hidden on print) */}
       <div className="print:hidden bg-card border rounded-lg p-2.5 sm:p-3 shadow-xs flex flex-wrap items-center justify-between gap-2.5 shrink-0">
         {/* Mode Segmented Controls */}
-        <div className="flex items-center bg-muted/70 p-1 rounded-lg text-xs font-semibold gap-1 border border-border/70 overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setViewMode("master")}
-            className={cn(
-              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
-              viewMode === "master"
-                ? "bg-background text-foreground shadow-xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Calendar className="h-3.5 w-3.5" />
-            <span>Master (Day-wise)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode("master-teacher")}
-            className={cn(
-              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
-              viewMode === "master-teacher"
-                ? "bg-background text-foreground shadow-xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Users className="h-3.5 w-3.5" />
-            <span>Master (Teacher-wise)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode("class")}
-            className={cn(
-              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
-              viewMode === "class"
-                ? "bg-background text-foreground shadow-xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <School className="h-3.5 w-3.5" />
-            <span>Class-wise</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setViewMode("teacher")}
-            className={cn(
-              "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
-              viewMode === "teacher"
-                ? "bg-background text-foreground shadow-xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <UserCheck className="h-3.5 w-3.5" />
-            <span>Teacher-wise</span>
-          </button>
-
-          {rooms.length > 0 && (
+        {!hideViewModeSelector ? (
+          <div className="flex items-center bg-muted/70 p-1 rounded-lg text-xs font-semibold gap-1 border border-border/70 overflow-x-auto">
             <button
               type="button"
-              onClick={() => setViewMode("room")}
+              onClick={() => setViewMode("master")}
               className={cn(
                 "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
-                viewMode === "room"
+                viewMode === "master"
                   ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Building2 className="h-3.5 w-3.5" />
-              <span>Room-wise</span>
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Master (Day-wise)</span>
             </button>
-          )}
-        </div>
+
+            <button
+              type="button"
+              onClick={() => setViewMode("master-teacher")}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
+                viewMode === "master-teacher"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>Master (Teacher-wise)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode("class")}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
+                viewMode === "class"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <School className="h-3.5 w-3.5" />
+              <span>Class-wise</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode("teacher")}
+              className={cn(
+                "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
+                viewMode === "teacher"
+                  ? "bg-background text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <UserCheck className="h-3.5 w-3.5" />
+              <span>Teacher-wise</span>
+            </button>
+
+            {rooms.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setViewMode("room")}
+                className={cn(
+                  "px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 whitespace-nowrap",
+                  viewMode === "room"
+                    ? "bg-background text-foreground shadow-xs font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Room-wise</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <Calendar className="h-4 w-4" />
+            </div>
+            <div>
+              <p className="text-xs sm:text-sm font-bold text-foreground">
+                {teacherMap.get(selectedTeacherId)?.name || "Teacher"}&apos;s Weekly Schedule
+              </p>
+              <p className="text-[10px] text-muted-foreground">Full Week Timetable Grid</p>
+            </div>
+          </div>
+        )}
 
         {/* Dynamic Selector Dropdowns & Actions */}
         <div className="flex items-center flex-wrap gap-2">

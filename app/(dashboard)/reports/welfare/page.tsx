@@ -376,7 +376,6 @@ function WelfareReportContent() {
               <thead>
                 <tr className="bg-neutral-100 print:bg-neutral-100 font-bold text-black border-b-2 border-black">
                   <th className="border border-black py-2.5 px-1 w-[46px] text-center">Sl.</th>
-                  <th className="border border-black py-2.5 px-1 w-[65px] text-center">Class</th>
                   <th className="border border-black py-2.5 px-1 w-[60px] text-center">Roll</th>
                   <th className="border border-black py-2.5 px-2 text-left min-w-[200px]">Student Name</th>
                   <th className="border border-black py-2.5 px-2 text-left min-w-[190px]">Father&apos;s Name</th>
@@ -388,7 +387,7 @@ function WelfareReportContent() {
               <tbody>
                 {filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="border border-black py-10 text-center text-muted-foreground font-semibold text-base">
+                    <td colSpan={7} className="border border-black py-10 text-center text-muted-foreground font-semibold text-base">
                       No students found matching the selected class/filters.
                     </td>
                   </tr>
@@ -401,11 +400,6 @@ function WelfareReportContent() {
                       {/* Sl. No. */}
                       <td className="border border-black py-2.5 px-1 font-mono font-bold text-center">
                         {index + 1}
-                      </td>
-
-                      {/* Class */}
-                      <td className="border border-black py-2.5 px-1 font-bold text-center">
-                        {student.presentClass || "-"}
                       </td>
 
                       {/* Roll */}

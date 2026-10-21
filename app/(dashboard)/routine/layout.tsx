@@ -41,7 +41,10 @@ export default function RoutineLayout({ children }: RoutineLayoutProps) {
   ];
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] p-4 md:p-6 max-w-7xl mx-auto w-full space-y-5">
+    <div className={cn(
+      "flex flex-col min-h-[calc(100vh-4rem)] p-4 md:p-6 mx-auto w-full space-y-5",
+      pathname === "/routine/viewer" ? "max-w-none" : "max-w-7xl"
+    )}>
       {/* Top Header */}
       <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3.5">
         <div className="flex items-center gap-2.5">

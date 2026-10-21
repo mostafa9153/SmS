@@ -36,6 +36,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
 import type { DBCertificateRow, CertificateStats } from "@/lib/supabase/db-certificates";
@@ -284,106 +289,70 @@ const GENERATOR_MODULES: GeneratorModule[] = [
 
 /**
  * Clean, interactive Info Popover (shows description + key highlights on hover or click)
+ * Rendered via Base UI Popover & Portal so it never clips or overlaps behind neighboring elements.
  */
 function CardInfoPopover({
   module,
-  align = "right",
+  align = "end",
 }: {
   module: GeneratorModule;
-  align?: "left" | "right";
+  align?: "start" | "center" | "end";
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
   return (
-    <div
-      ref={containerRef}
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setIsOpen(true)}
-      onMouseLeave={() => setIsOpen(false)}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      }}
-    >
-      <button
-        type="button"
-        aria-label="View specifications & features"
+    <Popover modal={false}>
+      <PopoverTrigger
+        openOnHover
+        delay={80}
+        closeDelay={150}
+        aria-label={`View specifications for ${module.title}`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          setIsOpen((v) => !v);
         }}
-        className={cn(
-          "h-7 w-7 rounded-full inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-accent/80 active:scale-95 transition-all cursor-pointer",
-          isOpen && "text-primary bg-primary/10 ring-1 ring-primary/30"
-        )}
-        title="View details"
+        className="h-7 w-7 rounded-full inline-flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-accent/80 active:scale-95 transition-all cursor-pointer data-open:text-primary data-open:bg-primary/10 data-open:ring-1 data-open:ring-primary/30"
       >
         <Info className="h-3.5 w-3.5" />
-      </button>
+      </PopoverTrigger>
 
-      {isOpen && (
-        <div
-          role="tooltip"
-          className={cn(
-            "absolute top-full mt-2 z-50 w-72 max-w-[calc(100vw-3rem)] p-3.5 rounded-2xl bg-popover/98 backdrop-blur-md text-popover-foreground text-xs shadow-2xl border border-border/80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto space-y-2.5",
-            align === "right" ? "right-0" : "left-0"
-          )}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border/50 pb-2">
-            <span className="font-bold text-foreground text-xs">{module.title}</span>
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-              {module.formatBadge}
-            </Badge>
-          </div>
-
-          {/* Description */}
-          <p className="text-muted-foreground text-[11px] leading-relaxed">
-            {module.description}
-          </p>
-
-          {/* Features */}
-          <div className="space-y-1.5 pt-1 border-t border-border/40">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-              Key Specifications:
-            </p>
-            <div className="grid grid-cols-1 gap-1">
-              {module.highlights.map((h, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-[11px] text-foreground/90">
-                  <Check className="h-3 w-3 text-emerald-500 shrink-0" />
-                  <span className="truncate">{h}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Arrow */}
-          <div
-            className={cn(
-              "absolute -top-1.5 border-4 border-transparent border-b-border",
-              align === "right" ? "right-2.5" : "left-2.5"
-            )}
-          />
+      <PopoverContent
+        align={align}
+        side="bottom"
+        sideOffset={8}
+        className="w-80 max-w-[calc(100vw-2rem)] p-3.5 rounded-2xl bg-popover/98 backdrop-blur-md text-popover-foreground text-xs shadow-2xl border border-border/80 space-y-2.5 pointer-events-auto"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+          <span className="font-bold text-foreground text-xs">{module.title}</span>
+          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+            {module.formatBadge}
+          </Badge>
         </div>
-      )}
-    </div>
+
+        {/* Description */}
+        <p className="text-muted-foreground text-[11px] leading-relaxed">
+          {module.description}
+        </p>
+
+        {/* Features */}
+        <div className="space-y-1.5 pt-1 border-t border-border/40">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            Key Specifications:
+          </p>
+          <div className="grid grid-cols-1 gap-1">
+            {module.highlights.map((h, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-[11px] text-foreground/90">
+                <Check className="h-3 w-3 text-emerald-500 shrink-0" />
+                <span className="truncate">{h}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -883,7 +852,7 @@ function GenerateHubPageContent() {
                       </Badge>
 
                       {/* Info Icon Button -> Popover */}
-                      <CardInfoPopover module={mod} align="right" />
+                      <CardInfoPopover module={mod} align="end" />
                     </div>
                   </div>
 

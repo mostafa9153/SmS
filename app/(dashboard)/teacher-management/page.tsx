@@ -176,15 +176,15 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
   },
 ];
 
-const VALID_TEACHER_TABS = ["accounts", "classes", "tasks", "performance"] as const;
+const VALID_TEACHER_TABS = ["accounts", "tasks", "performance"] as const;
 
 function AdminTeacherManagementContent() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as any;
   const initialTab = tabParam && VALID_TEACHER_TABS.includes(tabParam) ? tabParam : "accounts";
-  const [activeTab, setActiveTabState] = useState<"accounts" | "classes" | "tasks" | "performance">(initialTab);
+  const [activeTab, setActiveTabState] = useState<"accounts" | "tasks" | "performance">(initialTab);
 
-  const setActiveTab = (tab: "accounts" | "classes" | "tasks" | "performance") => {
+  const setActiveTab = (tab: "accounts" | "tasks" | "performance") => {
     setActiveTabState(tab);
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
@@ -212,7 +212,6 @@ function AdminTeacherManagementContent() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [createAccountError, setCreateAccountError] = useState("");
-  const [assignClassModal, setAssignClassModal] = useState(false);
   const [createTaskModal, setCreateTaskModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [selectedTeacherForLogs, setSelectedTeacherForLogs] = useState<{ id: string; name: string } | null>(null);
@@ -265,13 +264,6 @@ function AdminTeacherManagementContent() {
     });
     setPendingPerms(updated);
   };
-
-  // New Class Assignment Form
-  const [selectedTeacherForClass, setSelectedTeacherForClass] = useState("");
-  const [selectedClass, setSelectedClass] = useState("V");
-  const [selectedSection, setSelectedSection] = useState("ALL");
-  const [selectedRoleType, setSelectedRoleType] = useState<"CLASS_TEACHER" | "SUBJECT_TEACHER">("CLASS_TEACHER");
-  const [selectedSubject, setSelectedSubject] = useState("");
 
   // New Task Form
   const [taskTitle, setTaskTitle] = useState("");
@@ -458,58 +450,6 @@ function AdminTeacherManagementContent() {
     }
   };
 
-  // Assign Teacher to Class
-  const handleAssignClass = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTeacherForClass) {
-      setErrorMsg("Please select a teacher.");
-      return;
-    }
-
-    setSubmitting(true);
-    setErrorMsg("");
-    try {
-      const res = await fetch("/api/teachers/classes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          teacherId: selectedTeacherForClass,
-          className: selectedClass,
-          section: selectedSection,
-          roleType: selectedRoleType,
-          subject: selectedSubject,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAssignClassModal(false);
-        showToast("Class assignment saved successfully.");
-        loadData();
-      } else {
-        setErrorMsg(data.error || "Failed to assign class.");
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error assigning class.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Remove Class Assignment
-  const handleRemoveAssignment = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this assignment?")) return;
-    try {
-      const res = await fetch(`/api/teachers/classes?id=${id}`, { method: "DELETE" });
-      const data = await res.json();
-      if (data.success) {
-        showToast("Assignment removed.");
-        loadData();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   // Create Task
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -571,6 +511,24 @@ function AdminTeacherManagementContent() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Delete Task
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    try {
+      const res = await fetch(`/api/teachers/tasks?id=${taskId}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Task deleted successfully");
+        loadData();
+      } else {
+        setErrorMsg(data.error || "Failed to delete task");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.message || "Failed to delete task");
     }
   };
 
@@ -753,21 +711,6 @@ function AdminTeacherManagementContent() {
           <span>Accounts & Permissions</span>
           <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'accounts' ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
             {teachers.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("classes")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 cursor-pointer ${
-            activeTab === "classes"
-              ? "bg-background text-foreground shadow-sm ring-1 ring-border/50 scale-105"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-          }`}
-        >
-          <BookOpen className="h-4 w-4" />
-          <span>Class & Subject Mapping</span>
-          <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'classes' ? 'bg-primary/10 text-primary' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
-            {assignments.length}
           </span>
         </button>
 
@@ -1009,101 +952,7 @@ function AdminTeacherManagementContent() {
         </div>
       )}
 
-
-
-      {/* ================= TAB 2: CLASS & SUBJECT MAPPING ================= */}
-      {activeTab === "classes" && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              Designate up to 2 Class Teachers per class and map Subject Teachers for continuous tracking.
-            </p>
-            <Button
-              size="sm"
-              onClick={() => setAssignClassModal(true)}
-              className="h-8 rounded-xl bg-primary text-primary-foreground font-bold text-xs gap-1.5 cursor-pointer"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Assign Class / Subject</span>
-            </Button>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {ALL_CLASSES.map((clsName) => {
-              const classAssigns = assignments.filter((a) => a.className === clsName);
-              const classTeachers = classAssigns.filter((a) => a.roleType === "CLASS_TEACHER");
-              const subjectTeachers = classAssigns.filter((a) => a.roleType === "SUBJECT_TEACHER");
-
-              return (
-                <div key={clsName} className="p-4 rounded-2xl bg-card border border-border/80 space-y-3">
-                  <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                    <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                      Class {clsName}
-                    </h3>
-                    <span className="text-[10px] text-muted-foreground font-semibold">
-                      {classTeachers.length}/2 Class Teachers
-                    </span>
-                  </div>
-
-                  {/* Class Teachers */}
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Class Teachers:
-                    </p>
-                    {classTeachers.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/80 italic">Not Assigned</p>
-                    ) : (
-                      classTeachers.map((ct) => (
-                        <div key={ct.id} className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                          <div>
-                            <p className="font-bold text-emerald-800 dark:text-emerald-300">{ct.teacherName}</p>
-                            <p className="text-[10px] text-muted-foreground">Section: {ct.section}</p>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveAssignment(ct.id)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                            aria-label="Remove"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Subject Teachers */}
-                  <div className="space-y-1.5 pt-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Subject Teachers:
-                    </p>
-                    {subjectTeachers.length === 0 ? (
-                      <p className="text-xs text-muted-foreground/80 italic">None assigned</p>
-                    ) : (
-                      subjectTeachers.map((st) => (
-                        <div key={st.id} className="flex items-center justify-between p-2 rounded-xl bg-muted/60 border border-border/60 text-xs">
-                          <div>
-                            <p className="font-semibold text-foreground">{st.teacherName}</p>
-                            <p className="text-[10px] text-muted-foreground">{st.subject || "General"} · Sec {st.section}</p>
-                          </div>
-                          <button
-                            onClick={() => handleRemoveAssignment(st.id)}
-                            className="p-1 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                            aria-label="Remove"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ================= TAB 3: TASK DELEGATION ================= */}
+      {/* ================= TAB 2: TASK DELEGATION ================= */}
       {activeTab === "tasks" && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-center justify-between">
@@ -1148,11 +997,22 @@ function AdminTeacherManagementContent() {
                       )}
                     </div>
 
-                    {task.due_date && (
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3.5 w-3.5" /> Due: {task.due_date}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {task.due_date && (
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-lg border border-border/50">
+                          <Clock className="h-3.5 w-3.5 text-amber-500" /> Due: {task.due_date}
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteTask(task.id)}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                        title="Delete Task"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Assignees and Completion Status */}
@@ -1188,13 +1048,42 @@ function AdminTeacherManagementContent() {
 
                             {/* Submitted Report View */}
                             {isSubmitted && a.completionReport && (
-                              <div className="p-2 rounded-lg bg-background/80 border border-border/60 text-[11px] space-y-1">
-                                <p className="font-semibold text-primary">Completion Report:</p>
+                              <div className="p-2.5 rounded-xl bg-background/80 border border-border/60 text-[11px] space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-bold text-primary flex items-center gap-1">
+                                    <FileCheck className="h-3 w-3" /> Completion Report:
+                                  </p>
+                                  {a.completionReport.completion_status && (
+                                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase">
+                                      {a.completionReport.completion_status}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-muted-foreground">
-                                  Students: <span className="text-foreground font-bold">{a.completionReport.students_count || 0}</span> · Collected: <span className="text-foreground font-bold">₹{a.completionReport.fees_collected || 0}</span>
+                                  Students: <span className="text-foreground font-bold">{a.completionReport.students_count || 0}</span> · Collected: <span className="text-foreground font-bold">₹{Number(a.completionReport.fees_collected || 0).toLocaleString()}</span>
                                 </p>
                                 {a.completionReport.notes && (
-                                  <p className="italic text-muted-foreground text-[10px]">“{a.completionReport.notes}”</p>
+                                  <p className="italic text-muted-foreground text-[10px] bg-muted/40 p-1.5 rounded-lg border border-border/40">“{a.completionReport.notes}”</p>
+                                )}
+                                {a.completionReport.attachments && a.completionReport.attachments.length > 0 && (
+                                  <div className="pt-1 border-t border-border/40 space-y-1">
+                                    <p className="text-[10px] font-bold text-muted-foreground">Proof Attachments ({a.completionReport.attachments.length}):</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {a.completionReport.attachments.map((att: any, attIdx: number) => (
+                                        <a
+                                          key={attIdx}
+                                          href={att.dataUrl}
+                                          download={att.name}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted/70 hover:bg-muted border border-border/60 text-[10px] text-foreground font-medium transition-colors"
+                                        >
+                                          <Download className="h-3 w-3 text-primary" />
+                                          <span className="truncate max-w-[120px]">{att.name}</span>
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -1853,146 +1742,6 @@ function AdminTeacherManagementContent() {
                     ))
                 )}
               </div>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL: Assign Class / Subject */}
-      <Dialog open={assignClassModal} onOpenChange={setAssignClassModal}>
-        <DialogContent className="rounded-3xl max-w-2xl p-0 overflow-hidden border-0">
-          <div className="flex flex-col md:flex-row w-full h-full">
-            {/* Left Panel */}
-            <div className="w-full md:w-1/3 bg-gradient-to-b from-indigo-600 to-blue-700 p-6 flex flex-col justify-between relative overflow-hidden">
-              <div className="absolute inset-0 bg-grid-white/[0.05] bg-[length:16px_16px]" />
-              <div className="relative z-10 flex flex-col gap-4">
-                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                  <BookOpen className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white mb-2">Assign Teacher</h2>
-                  <p className="text-sm text-indigo-100">
-                    Assign teachers to specific classes or subjects and set their roles.
-                  </p>
-                </div>
-                <div className="w-12 h-1 bg-white/20 rounded-full mt-2" />
-              </div>
-              <div className="relative z-10 mt-8 bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/10">
-                <p className="text-xs text-indigo-200 mb-1">Selected Teacher</p>
-                <p className="text-sm font-semibold text-white truncate">
-                  {selectedTeacherForClass 
-                    ? teachers.find(t => t.id === selectedTeacherForClass)?.fullName || "Unknown Teacher"
-                    : "No teacher selected"}
-                </p>
-              </div>
-            </div>
-
-            {/* Right Panel */}
-            <div className="w-full md:w-2/3 p-6 bg-card">
-              <form onSubmit={handleAssignClass} className="space-y-5 h-full flex flex-col">
-                <div className="space-y-4 flex-1">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-bold">Select Teacher</Label>
-                    <Select value={selectedTeacherForClass} onValueChange={(val) => setSelectedTeacherForClass(val || "")}>
-                      <SelectTrigger className="w-full h-10 rounded-2xl">
-                        <SelectValue placeholder="Select teacher..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-56">
-                        {teachers.map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.fullName} ({t.designation || "Teacher"})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-bold">Class</Label>
-                      <Select value={selectedClass} onValueChange={(val) => setSelectedClass(val || "V")}>
-                        <SelectTrigger className="w-full h-10 rounded-2xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ALL_CLASSES.map((c) => (
-                            <SelectItem key={c} value={c}>
-                              Class {c}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label className="text-sm font-bold">Section</Label>
-                      <Select value={selectedSection} onValueChange={(val) => setSelectedSection(val || "ALL")}>
-                        <SelectTrigger className="w-full h-10 rounded-2xl">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ALL_SECTIONS.map((s) => (
-                            <SelectItem key={s} value={s}>
-                              Section {s}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-sm font-bold">Role Type</Label>
-                    <Select
-                      value={selectedRoleType}
-                      onValueChange={(v: any) => setSelectedRoleType(v)}
-                    >
-                      <SelectTrigger className="w-full h-10 rounded-2xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLASS_TEACHER">
-                          Class Teacher (Max 2 per class)
-                        </SelectItem>
-                        <SelectItem value="SUBJECT_TEACHER">
-                          Subject Teacher
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {selectedRoleType === "SUBJECT_TEACHER" && (
-                    <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <Label className="text-sm font-bold">Subject Taught</Label>
-                      <Input
-                        placeholder="e.g. Mathematics, Bengali, English"
-                        value={selectedSubject}
-                        onChange={(e) => setSelectedSubject(e.target.value)}
-                        className="h-10 rounded-2xl"
-                        required
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 flex items-center justify-end gap-3 mt-4 w-full">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setAssignClassModal(false)}
-                    className="rounded-xl flex-1 md:flex-none"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={submitting}
-                    className="font-bold rounded-xl cursor-pointer px-6 flex-1 md:flex-none"
-                  >
-                    {submitting ? "Assigning..." : "Assign"}
-                  </Button>
-                </div>
-              </form>
             </div>
           </div>
         </DialogContent>

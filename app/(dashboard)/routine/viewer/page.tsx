@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   fetchRoutineFullState,
   RoutineFullState,
@@ -15,9 +16,21 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineViewerTab } from "@/components/routine/routine-viewer-tab";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, ArrowLeft } from "lucide-react";
 
-export default function RoutineViewerPage() {
+function RoutineViewerContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const viewParam = searchParams.get("view") as
+    | "master"
+    | "master-teacher"
+    | "class"
+    | "teacher"
+    | "room"
+    | null;
+  const teacherIdParam = searchParams.get("teacherId");
+  const fromParam = searchParams.get("from");
+
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<RoutineSettings>(DEFAULT_ROUTINE_SETTINGS);
   const [classes, setClasses] = useState<RoutineClass[]>([]);
@@ -61,6 +74,13 @@ export default function RoutineViewerPage() {
     };
   }, []);
 
+  const handleBack = () => {
+    if (typeof document !== "undefined" && document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+    router.push("/teacher");
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
@@ -70,13 +90,43 @@ export default function RoutineViewerPage() {
   }
 
   return (
-    <RoutineViewerTab
-      settings={settings}
-      classes={classes}
-      subjects={subjects}
-      teachers={teachers}
-      rooms={rooms}
-      routine={routine}
-    />
+    <div className="space-y-3">
+      {fromParam === "teacher" && (
+        <div className="print:hidden flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back to Teacher Workspace</span>
+          </button>
+        </div>
+      )}
+      <RoutineViewerTab
+        settings={settings}
+        classes={classes}
+        subjects={subjects}
+        teachers={teachers}
+        rooms={rooms}
+        routine={routine}
+        initialViewMode={viewParam || "master"}
+        initialTeacherId={teacherIdParam || undefined}
+      />
+    </div>
+  );
+}
+
+export default function RoutineViewerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
+          <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading routine viewer...
+        </div>
+      }
+    >
+      <RoutineViewerContent />
+    </Suspense>
   );
 }

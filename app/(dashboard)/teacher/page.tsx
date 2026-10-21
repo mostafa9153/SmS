@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -32,10 +32,26 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CheckSquare,
   History,
+  Lock,
+  UserPlus,
+  Printer,
+  Maximize2,
+  Minimize2,
+  Paperclip,
+  UploadCloud,
+  FileText,
+  Download,
+  ExternalLink,
+  Eye,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { showToast } from "@/components/ui/toast-banner";
 import { createClient } from "@/lib/supabase/client";
+import { fetchRoutineFullState, type RoutineFullState } from "@/lib/supabase/db-routine";
+import { TeacherLoungeDrawer } from "@/components/teacher/teacher-lounge-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -79,6 +95,7 @@ export default function TeacherDashboardPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [classes, setClasses] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [isActivityFeedOpen, setIsActivityFeedOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifsCount, setUnreadNotifsCount] = useState(0);
@@ -117,18 +134,22 @@ export default function TeacherDashboardPage() {
     // If Sunday, fallback to Monday, otherwise current day
     return todayName === "Sunday" ? "Monday" : todayName;
   });
+  const [routinePeriodsByDay, setRoutinePeriodsByDay] = useState<Record<string, any[]>>({});
+  const [loadingRoutine, setLoadingRoutine] = useState<boolean>(true);
+  const [activeRoutineTitle, setActiveRoutineTitle] = useState<string | null>(null);
 
-  // Marks Entry Modal State
-  const [isMarksModalOpen, setIsMarksModalOpen] = useState(false);
-  const [marksClass, setMarksClass] = useState("V");
-  const [marksSection, setMarksSection] = useState("A");
-  const [marksSubject, setMarksSubject] = useState("Mathematics");
-  const [marksExamType, setMarksExamType] = useState<"S1" | "S2" | "S3">("S1");
-  const [marksRoster, setMarksRoster] = useState<any[]>([]);
-  const [loadingMarks, setLoadingMarks] = useState(false);
-  const [savingMarks, setSavingMarks] = useState(false);
-  const [marksSaveSuccess, setMarksSaveSuccess] = useState(false);
-  const [marksError, setMarksError] = useState("");
+  // Full Routine & My Weekly Routine Navigation
+  const handleOpenMyWeekRoutine = () => {
+    const tId = profile?.staff_id || staff?.id || "";
+    router.push(`/routine/viewer?view=teacher&teacherId=${encodeURIComponent(tId)}&from=teacher`);
+  };
+
+  const handleOpenFullRoutine = () => {
+    if (typeof document !== "undefined" && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+    router.push("/routine/viewer?view=master&from=teacher");
+  };
 
   // Student Daily Attendance Modal State
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
@@ -141,22 +162,101 @@ export default function TeacherDashboardPage() {
   const [attendanceSuccessMsg, setAttendanceSuccessMsg] = useState("");
   const [attendanceError, setAttendanceError] = useState("");
 
+  // Role & Granular Permission Checks
+  const isAdmin = profile?.role === "Admin";
+  const canNewAdmission = isAdmin || Boolean(
+    profile?.permissions?.can_handle_new_admission ||
+    profile?.permissions?.can_handle_new_admission_online ||
+    profile?.permissions?.can_handle_ai_scan_admission
+  );
+  const canReAdmission = isAdmin || Boolean(profile?.permissions?.can_handle_readmission);
+  const canMarksEntry = isAdmin || Boolean(profile?.permissions?.can_enter_results);
+
   // Teacher Lounge Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<TeacherChatMessage[]>([]);
-  const [newMessageText, setNewMessageText] = useState("");
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingText, setEditingText] = useState("");
-  const chatBottomRef = useRef<HTMLDivElement>(null);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   // Task Submission Modal State
   const [selectedTaskForReport, setSelectedTaskForReport] = useState<any | null>(null);
   const [reportStudentsCount, setReportStudentsCount] = useState("");
   const [reportFeesCollected, setReportFeesCollected] = useState("");
   const [reportNotes, setReportNotes] = useState("");
+  const [reportCompletionStatus, setReportCompletionStatus] = useState<"COMPLETED" | "PARTIAL">("COMPLETED");
+  const [reportAttachments, setReportAttachments] = useState<
+    Array<{ name: string; size: number; type: string; dataUrl: string }>
+  >([]);
   const [submittingReport, setSubmittingReport] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
+  const [previewAttachment, setPreviewAttachment] = useState<{
+    name: string;
+    dataUrl: string;
+    type: string;
+  } | null>(null);
+
+  const formatAttachmentSize = (bytes: number) => {
+    if (!bytes) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const handleOpenReportModal = (task: any) => {
+    setSelectedTaskForReport(task);
+    setReportSuccess(false);
+    setAttachmentError("");
+    if (task.completionReport) {
+      setReportStudentsCount(
+        task.completionReport.students_count ? String(task.completionReport.students_count) : ""
+      );
+      setReportFeesCollected(
+        task.completionReport.fees_collected ? String(task.completionReport.fees_collected) : ""
+      );
+      setReportNotes(task.completionReport.notes || "");
+      setReportCompletionStatus(task.completionReport.completion_status || "COMPLETED");
+      setReportAttachments(task.completionReport.attachments || []);
+    } else {
+      setReportStudentsCount("");
+      setReportFeesCollected("");
+      setReportNotes("");
+      setReportCompletionStatus("COMPLETED");
+      setReportAttachments([]);
+    }
+  };
+
+  const handleAttachmentUpload = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setAttachmentError("");
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB limit
+
+    Array.from(files).forEach((file) => {
+      if (file.size > MAX_SIZE) {
+        setAttachmentError(`"${file.name}" exceeds the 5MB size limit.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        if (result) {
+          setReportAttachments((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              size: file.size,
+              type: file.type || "application/octet-stream",
+              dataUrl: result,
+            },
+          ]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRemoveAttachment = (idx: number) => {
+    setReportAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   // Push subscription setup
   useEffect(() => {
@@ -238,6 +338,143 @@ export default function TeacherDashboardPage() {
       if (absData.success) {
         setAbsences(absData.absences || []);
       }
+
+      // Fetch dynamic active routine by teacher's staff_id
+      try {
+        setLoadingRoutine(true);
+        const routineRes = await fetch("/api/teachers/routine");
+        const routineData = await routineRes.json();
+        if (routineData.success) {
+          setRoutinePeriodsByDay(routineData.periodsByDay || {});
+          if (routineData.activeRoutine?.title) {
+            setActiveRoutineTitle(routineData.activeRoutine.title);
+          }
+          if (routineData.assignedDuties && routineData.assignedDuties.length > 0) {
+            setClasses(routineData.assignedDuties);
+          }
+        }
+      } catch (rErr) {
+        console.warn("Failed to load teacher routine:", rErr);
+      } finally {
+        setLoadingRoutine(false);
+      }
+
+      // Check full routine state (both DB & LocalStorage fallback) to ensure seamless sync
+      try {
+        const fullState = await fetchRoutineFullState();
+        if (fullState) {
+          const currentStaffId = roleRow?.staff_id;
+          const currentStaffName = (roleRow?.full_name || "").toLowerCase().trim();
+          const matchedTeacher = (fullState.teachers || []).find((t: any) => {
+            if (currentStaffId && t.id === currentStaffId) return true;
+            if (t.name && currentStaffName && t.name.toLowerCase().trim() === currentStaffName) return true;
+            return false;
+          });
+
+          if (matchedTeacher) {
+            const localDuties: any[] = [];
+            if (matchedTeacher.classTeacherOf) {
+              const ctRaw = matchedTeacher.classTeacherOf;
+              let ctClass = ctRaw;
+              let ctSec = "ALL";
+              if (ctRaw.includes("-")) {
+                const parts = ctRaw.split("-");
+                ctClass = parts[0].trim();
+                ctSec = parts[1].trim();
+              } else if (ctRaw.includes(" ")) {
+                const parts = ctRaw.split(" ");
+                ctClass = parts.slice(0, -1).join(" ").trim();
+                ctSec = parts[parts.length - 1].trim();
+              }
+              localDuties.push({
+                id: `ct-${ctRaw}`,
+                roleType: "CLASS_TEACHER",
+                className: ctClass.replace(/^Class\s+/i, ""),
+                section: ctSec,
+                subject: "Class In-Charge",
+              });
+            }
+
+            // Extract from sectionSubjects
+            if (matchedTeacher.sectionSubjects) {
+              Object.entries(matchedTeacher.sectionSubjects).forEach(([csKey, subjs]: [string, any]) => {
+                const [cName, sName] = csKey.split("::");
+                (Array.isArray(subjs) ? subjs : [subjs]).forEach((sub: string) => {
+                  localDuties.push({
+                    id: `st-${csKey}-${sub}`,
+                    roleType: "SUBJECT_TEACHER",
+                    className: (cName || "Class").replace(/^Class\s+/i, ""),
+                    section: sName || "ALL",
+                    subject: sub,
+                  });
+                });
+              });
+            }
+
+            // Extract from classSubjects if not already in sectionSubjects
+            if (matchedTeacher.classSubjects) {
+              Object.entries(matchedTeacher.classSubjects).forEach(([cName, subjs]: [string, any]) => {
+                (Array.isArray(subjs) ? subjs : [subjs]).forEach((sub: string) => {
+                  const cleanClass = cName.replace(/^Class\s+/i, "");
+                  const exists = localDuties.some(
+                    (d) => d.className === cleanClass && d.subject === sub
+                  );
+                  if (!exists) {
+                    localDuties.push({
+                      id: `st-${cName}-${sub}`,
+                      roleType: "SUBJECT_TEACHER",
+                      className: cleanClass,
+                      section: "ALL",
+                      subject: sub,
+                    });
+                  }
+                });
+              });
+            }
+
+            // Extract from fullState.assignments
+            if (fullState.assignments && fullState.assignments.length > 0) {
+              fullState.assignments
+                .filter((asg: any) => asg.teacherId === matchedTeacher.id)
+                .forEach((asg: any) => {
+                  const cls = (fullState.classes || []).find((c: any) => c.id === asg.classId);
+                  const sub = (fullState.subjects || []).find((s: any) => s.id === asg.subjectId);
+                  if (cls && sub) {
+                    const rawClassName = cls.className || (cls as any).name || "Class";
+                    const cleanClass = rawClassName.replace(/^Class\s+/i, "");
+                    const exists = localDuties.some(
+                      (d) => d.className === cleanClass && d.section === (cls.section || "ALL") && d.subject === sub.name
+                    );
+                    if (!exists) {
+                      localDuties.push({
+                        id: `asg-${asg.id}`,
+                        roleType: "SUBJECT_TEACHER",
+                        className: cleanClass,
+                        section: cls.section || "ALL",
+                        subject: sub.name,
+                        periodsPerWeek: asg.periodsPerWeek,
+                      });
+                    }
+                  }
+                });
+            }
+
+            if (localDuties.length > 0) {
+              setClasses((prev) => {
+                const combined = [...prev];
+                localDuties.forEach((ld) => {
+                  if (!combined.some((c) => c.className === ld.className && c.section === ld.section && (c.subject === ld.subject || c.roleType === ld.roleType))) {
+                    combined.push(ld);
+                  }
+                });
+                return combined.length > 0 ? combined : localDuties;
+              });
+            }
+          }
+        }
+      } catch (fErr) {
+        console.warn("Routine full state fallback check:", fErr);
+      }
     } catch (err) {
       console.error("Error loading teacher dashboard:", err);
     } finally {
@@ -249,109 +486,34 @@ export default function TeacherDashboardPage() {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Load chat messages
-  const loadChatMessages = useCallback(async () => {
+  // Mark notification as read handler
+  const handleMarkNotificationRead = async (id?: string) => {
     try {
-      const res = await fetch("/api/teachers/chat?limit=50");
-      const data = await res.json();
-      if (data.success) {
-        setChatMessages(data.messages || []);
-        setTimeout(() => {
-          chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
-      }
-    } catch (err) {
-      console.error("Error loading chat messages:", err);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isChatOpen) {
-      loadChatMessages();
-    }
-  }, [isChatOpen, loadChatMessages]);
-
-  // Supabase Realtime subscription for Teacher Lounge chat
-  useEffect(() => {
-    const channel = supabase
-      .channel("public:teacher_chat_messages")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "teacher_chat_messages" },
-        () => {
-          loadChatMessages();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [supabase, loadChatMessages]);
-
-  // Handle Send Chat Message
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessageText.trim() || sendingMessage) return;
-
-    setSendingMessage(true);
-    try {
-      const res = await fetch("/api/teachers/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: newMessageText.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setNewMessageText("");
-        loadChatMessages();
-      }
-    } catch (err) {
-      console.error("Error sending message:", err);
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  // Handle Edit Message
-  const handleSaveEditedMessage = async (msgId: string) => {
-    if (!editingText.trim()) return;
-    try {
-      const res = await fetch(`/api/teachers/chat/${msgId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: editingText.trim() }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEditingMessageId(null);
-        setEditingText("");
-        loadChatMessages();
+      if (id) {
+        await fetch("/api/teachers/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        });
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+        );
+        setUnreadNotifsCount((prev) => Math.max(0, prev - 1));
       } else {
-        alert(data.error || "Failed to update message");
+        await fetch("/api/teachers/notifications", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markAllAsRead: true }),
+        });
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+        setUnreadNotifsCount(0);
       }
-    } catch (err) {
-      console.error("Error editing message:", err);
+    } catch (e) {
+      console.error("Failed to mark notification read", e);
     }
   };
 
-  // Handle Delete Message
-  const handleDeleteMessage = async (msgId: string) => {
-    if (!confirm("Are you sure you want to delete this message?")) return;
-    try {
-      const res = await fetch(`/api/teachers/chat/${msgId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (data.success) {
-        loadChatMessages();
-      } else {
-        alert(data.error || "Failed to delete message");
-      }
-    } catch (err) {
-      console.error("Error deleting message:", err);
-    }
-  };
+
 
   // Helper to format date YYYY-MM-DD
   const formatYMD = (d: Date) => {
@@ -434,94 +596,6 @@ export default function TeacherDashboardPage() {
       console.error("Error recording absence:", err);
     } finally {
       setSubmittingAbsence(false);
-    }
-  };
-
-  // Load Marks Roster for Entry Modal
-  const loadMarksRoster = useCallback(async () => {
-    if (!marksClass || !marksSubject) return;
-    setLoadingMarks(true);
-    setMarksError("");
-    try {
-      const res = await fetch(
-        `/api/teachers/marks?className=${marksClass}&section=${marksSection}&subject=${encodeURIComponent(
-          marksSubject
-        )}&examType=${marksExamType}`
-      );
-      const data = await res.json();
-      if (data.success) {
-        setMarksRoster(data.roster || []);
-      } else {
-        setMarksError(data.error || "Failed to fetch student marks roster");
-      }
-    } catch (err: any) {
-      setMarksError(err.message || "Failed to load marks roster");
-    } finally {
-      setLoadingMarks(false);
-    }
-  }, [marksClass, marksSection, marksSubject, marksExamType]);
-
-  useEffect(() => {
-    if (isMarksModalOpen) {
-      loadMarksRoster();
-    }
-  }, [isMarksModalOpen, loadMarksRoster]);
-
-  // Handle Mark Change in table
-  const handleMarkChange = (studentId: string, value: string) => {
-    setMarksRoster((prev) =>
-      prev.map((item) => {
-        if (item.studentId === studentId) {
-          const numVal = value === "" ? null : Number(value);
-          return {
-            ...item,
-            marksObtained: numVal,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  // Save Marks to Database
-  const handleSaveMarks = async () => {
-    setSavingMarks(true);
-    setMarksSaveSuccess(false);
-    setMarksError("");
-    try {
-      const payload = {
-        className: marksClass,
-        section: marksSection,
-        subject: marksSubject,
-        examType: marksExamType,
-        academicYear: new Date().getFullYear(),
-        marks: marksRoster.map((r) => ({
-          studentId: r.studentId,
-          studentName: r.studentName,
-          rollNo: r.rollNo,
-          marksObtained: r.marksObtained,
-          fullMarks: r.fullMarks || 100,
-          remarks: r.remarks,
-        })),
-      };
-
-      const res = await fetch("/api/teachers/marks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setMarksSaveSuccess(true);
-        setTimeout(() => setMarksSaveSuccess(false), 3000);
-      } else {
-        setMarksError(data.error || "Failed to save marks");
-      }
-    } catch (err: any) {
-      setMarksError(err.message || "Error saving marks");
-    } finally {
-      setSavingMarks(false);
     }
   };
 
@@ -646,6 +720,8 @@ export default function TeacherDashboardPage() {
             students_count: Number(reportStudentsCount) || 0,
             fees_collected: Number(reportFeesCollected) || 0,
             notes: reportNotes.trim(),
+            completion_status: reportCompletionStatus,
+            attachments: reportAttachments,
           },
         }),
       });
@@ -659,6 +735,7 @@ export default function TeacherDashboardPage() {
           setReportStudentsCount("");
           setReportFeesCollected("");
           setReportNotes("");
+          setReportAttachments([]);
           loadDashboardData();
         }, 1200);
       }
@@ -696,7 +773,7 @@ export default function TeacherDashboardPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-fade-in-up relative pb-20">
       {/* Welcome & Status Header */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-primary/10 border border-emerald-500/20 p-6 sm:p-8 shadow-xs backdrop-blur-xs">
+      <section className="relative rounded-3xl bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-primary/10 border border-emerald-500/20 p-6 sm:p-8 shadow-xs backdrop-blur-xs z-20">
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -739,27 +816,56 @@ export default function TeacherDashboardPage() {
 
               {/* Notifications Dropdown */}
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-card border border-border p-4 shadow-xl z-50 animate-in fade-in zoom-in-95">
-                  <div className="flex items-center justify-between pb-3 border-b border-border/60">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-                      <Bell className="h-3.5 w-3.5 text-emerald-500" /> In-App Alerts
-                    </h4>
-                    <span className="text-[11px] text-muted-foreground">{notifications.length} total</span>
+                <>
+                  <div
+                    className="fixed inset-0 z-40 bg-transparent"
+                    onClick={() => setShowNotifications(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-card border border-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+                    <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                        <Bell className="h-3.5 w-3.5 text-emerald-500" /> In-App Alerts
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground">{notifications.length} total</span>
+                        {unreadNotifsCount > 0 && (
+                          <button
+                            onClick={() => handleMarkNotificationRead()}
+                            className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline font-semibold cursor-pointer"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto divide-y divide-border/40 my-2 pr-1">
+                      {notifications.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic text-center py-4">No notifications yet.</p>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            onClick={() => !n.is_read && handleMarkNotificationRead(n.id)}
+                            className={`py-2.5 px-2 space-y-1 rounded-xl transition-colors cursor-pointer ${
+                              !n.is_read ? "bg-emerald-500/10 hover:bg-emerald-500/15" : "hover:bg-muted/40"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                                {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />}
+                                {n.title}
+                              </p>
+                              <span className="text-[9px] text-muted-foreground/80 shrink-0">
+                                {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground leading-snug">{n.message}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                  <div className="max-h-64 overflow-y-auto divide-y divide-border/40 my-2">
-                    {notifications.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic text-center py-4">No notifications yet.</p>
-                    ) : (
-                      notifications.map((n) => (
-                        <div key={n.id} className="py-2.5 px-1 space-y-1 hover:bg-muted/40 rounded-lg">
-                          <p className="text-xs font-bold text-foreground">{n.title}</p>
-                          <p className="text-[11px] text-muted-foreground leading-snug">{n.message}</p>
-                          <p className="text-[9px] text-muted-foreground/80">{new Date(n.created_at).toLocaleString()}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                </>
               )}
             </div>
 
@@ -782,7 +888,9 @@ export default function TeacherDashboardPage() {
             </Link>
           </div>
         </div>
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 h-32 w-32 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 -mt-8 -mr-8 h-32 w-32 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        </div>
       </section>
 
       {/* Performance & Collection Metrics Bar (5 Metrics) */}
@@ -1026,103 +1134,184 @@ export default function TeacherDashboardPage() {
           <div className="flex items-center gap-2">
             <Layers className="h-4 w-4 text-emerald-500" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-              Quick Faculty Tools &amp; Modules
+              Quick Faculty Tools
             </h2>
           </div>
           <span className="text-[11px] text-muted-foreground font-medium">Instant Shortcuts</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-          <Link
-            href="/student-attendance"
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-emerald-500/10 border border-border/70 hover:border-emerald-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group shadow-2xs"
-          >
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-              <UserCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Class Attendance</p>
-              <p className="text-[10px] text-muted-foreground">Roll-Call Entry</p>
-            </div>
-          </Link>
-
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* 1. New Admission */}
           <button
-            onClick={() => setIsMarksModalOpen(true)}
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-emerald-500/10 border border-border/70 hover:border-emerald-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
+            type="button"
+            onClick={() => {
+              if (!canNewAdmission) {
+                showToast({
+                  type: "error",
+                  title: "Access Restricted",
+                  description: "Admin has not granted you access for New Admission.",
+                });
+                return;
+              }
+              router.push("/admission/new");
+            }}
+            className={cn(
+              "p-3.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer group shadow-2xs",
+              canNewAdmission
+                ? "bg-muted/40 hover:bg-emerald-500/10 border-border/70 hover:border-emerald-500/40"
+                : "bg-muted/20 border-border/40 opacity-70 hover:opacity-90"
+            )}
           >
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-              <FileSpreadsheet className="h-5 w-5" />
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 shrink-0",
+                  canNewAdmission
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <UserPlus className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">New Admission</p>
+                <p className="text-[10px] text-muted-foreground">Student Registration</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Summative Marks</p>
-              <p className="text-[10px] text-muted-foreground">S1, S2, S3 Entry</p>
-            </div>
+            {!canNewAdmission && (
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                <Lock className="h-3 w-3" />
+                Locked
+              </span>
+            )}
           </button>
 
-          <Link
-            href="/admission/re"
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-blue-500/10 border border-border/70 hover:border-blue-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
+          {/* 2. Re-Admission */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!canReAdmission) {
+                showToast({
+                  type: "error",
+                  title: "Access Restricted",
+                  description: "Admin has not granted you access for Re-Admission.",
+                });
+                return;
+              }
+              router.push("/admission/re");
+            }}
+            className={cn(
+              "p-3.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer group shadow-2xs",
+              canReAdmission
+                ? "bg-muted/40 hover:bg-blue-500/10 border-border/70 hover:border-blue-500/40"
+                : "bg-muted/20 border-border/40 opacity-70 hover:opacity-90"
+            )}
           >
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
-              <UserCheck className="h-5 w-5" />
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 shrink-0",
+                  canReAdmission
+                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <RefreshCw className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">Re-Admission</p>
+                <p className="text-[10px] text-muted-foreground">Class Upgrades</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400">Re-Admission</p>
-              <p className="text-[10px] text-muted-foreground">Class Upgrades</p>
-            </div>
-          </Link>
+            {!canReAdmission && (
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                <Lock className="h-3 w-3" />
+                Locked
+              </span>
+            )}
+          </button>
 
-          <Link
-            href="/invoices"
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-teal-500/10 border border-border/70 hover:border-teal-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
+          {/* 3. Marks Entry */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!canMarksEntry) {
+                showToast({
+                  type: "error",
+                  title: "Access Restricted",
+                  description: "Admin has not granted you access for Results & Marks Entry.",
+                });
+                return;
+              }
+              router.push("/results");
+            }}
+            className={cn(
+              "p-3.5 rounded-xl border flex items-center justify-between text-left transition-all cursor-pointer group shadow-2xs",
+              canMarksEntry
+                ? "bg-muted/40 hover:bg-amber-500/10 border-border/70 hover:border-amber-500/40"
+                : "bg-muted/20 border-border/40 opacity-70 hover:opacity-90"
+            )}
           >
-            <div className="h-10 w-10 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
-              <Receipt className="h-5 w-5" />
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105 shrink-0",
+                  canMarksEntry
+                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-foreground">Marks Entry</p>
+                <p className="text-[10px] text-muted-foreground">Summative S1, S2, S3</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-teal-600 dark:group-hover:text-teal-400">Fee Invoices</p>
-              <p className="text-[10px] text-muted-foreground">Generate Receipts</p>
-            </div>
-          </Link>
-
-          <Link
-            href="/generate/marksheet"
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-purple-500/10 border border-border/70 hover:border-purple-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
-          >
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform">
-              <FileCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-purple-600 dark:group-hover:text-purple-400">Marksheets</p>
-              <p className="text-[10px] text-muted-foreground">CCE Print</p>
-            </div>
-          </Link>
-
-          <Link
-            href="/generate/admit-cards"
-            className="p-3.5 rounded-xl bg-muted/40 hover:bg-amber-500/10 border border-border/70 hover:border-amber-500/30 flex flex-col items-center justify-center text-center gap-2 transition-all cursor-pointer group"
-          >
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400">Admit Cards</p>
-              <p className="text-[10px] text-muted-foreground">Exam Passes</p>
-            </div>
-          </Link>
+            {!canMarksEntry && (
+              <span className="flex items-center gap-1 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                <Lock className="h-3 w-3" />
+                Locked
+              </span>
+            )}
+          </button>
         </div>
       </section>
 
       {/* Routine & Timetable Placeholder Card */}
       <section className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-emerald-500" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
               Daily Class Routine &amp; Timetable
             </h2>
+            <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">· Session {new Date().getFullYear()}</span>
           </div>
-          <span className="text-[11px] text-muted-foreground font-medium">Session {new Date().getFullYear()}</span>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenMyWeekRoutine}
+              className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-blue-500/30 text-blue-700 dark:text-blue-300 hover:bg-blue-500/10 cursor-pointer shadow-2xs"
+            >
+              <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              <span>My Weekly Routine</span>
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleOpenFullRoutine}
+              className="h-8 text-xs font-semibold gap-1.5 rounded-xl border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 cursor-pointer shadow-2xs"
+            >
+              <Maximize2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Full Routine</span>
+            </Button>
+          </div>
         </div>
 
         {/* Day selection tabs with Today indicator */}
@@ -1161,66 +1350,89 @@ export default function TeacherDashboardPage() {
         </div>
 
         {/* Period Slots with 1-Click Roll-Call button */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
-          {[
-            { period: "Period 1", time: "10:45 AM - 11:30 AM", cls: "X", sec: "A", subj: "Mathematics", room: "Room 102", isFirst: true },
-            { period: "Period 2", time: "11:30 AM - 12:15 PM", cls: "IX", sec: "B", subj: "Life Science", room: "Bio Lab" },
-            { period: "Period 3", time: "12:15 PM - 01:00 PM", cls: "VIII", sec: "A", subj: "Physical Science", room: "Room 105" },
-            { period: "Period 4", time: "01:30 PM - 02:15 PM", cls: "XI", sec: "A", subj: "Physics", room: "Physics Lab" },
-          ].map((slot, idx) => (
-            <div
-              key={idx}
-              className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 space-y-2.5 hover:border-emerald-500/40 transition-all flex flex-col justify-between"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                    {slot.period}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground font-medium">{slot.time}</span>
-                </div>
-                <p className="text-xs font-bold text-foreground">{slot.subj}</p>
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
-                  <span>Class {slot.cls}-{slot.sec}</span>
-                  <span className="italic">{slot.room}</span>
-                </div>
-              </div>
-
-              {/* 1-Click Quick Attendance Button for Period */}
-              <Link
-                href="/student-attendance"
-                className="w-full py-1.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+        {loadingRoutine ? (
+          <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin text-emerald-500" />
+            Loading your schedule...
+          </div>
+        ) : (routinePeriodsByDay[selectedDay] || []).length === 0 ? (
+          <div className="p-8 text-center rounded-xl bg-muted/20 border border-dashed border-border/70 text-xs text-muted-foreground">
+            No classes scheduled for {selectedDay}.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+            {(routinePeriodsByDay[selectedDay] || []).map((slot: any, idx: number) => (
+              <div
+                key={idx}
+                className="p-3.5 rounded-2xl bg-muted/30 border border-border/60 space-y-2.5 hover:border-emerald-500/40 transition-all flex flex-col justify-between"
               >
-                <UserCheck className="h-3.5 w-3.5" />
-                <span>{slot.isFirst ? "1st Period Roll-Call" : "Take Attendance"}</span>
-              </Link>
-            </div>
-          ))}
-        </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                      {slot.period}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-medium">{slot.time}</span>
+                  </div>
+                  <p className="text-xs font-bold text-foreground">
+                    {slot.subj} {slot.isLab && <span className="text-[10px] text-sky-600 font-semibold">(Lab)</span>}
+                  </p>
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/40">
+                    <span>{slot.cls?.startsWith("Class") ? slot.cls : `Class ${slot.cls}`}-{slot.sec}</span>
+                    {slot.room ? <span className="italic">{slot.room}</span> : null}
+                  </div>
+                </div>
+
+                {/* 1-Click Quick Attendance Button for Period */}
+                <Link
+                  href={`/student-attendance?class=${encodeURIComponent(slot.cls)}&section=${encodeURIComponent(slot.sec)}`}
+                  className="w-full py-1.5 px-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 hover:text-white text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>{slot.isFirst ? "1st Period Roll-Call" : "Take Attendance"}</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Assigned Duties & Classes Banner */}
       <section className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-emerald-500" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
               My Class &amp; Subject Responsibilities
             </h2>
           </div>
-          <span className="text-[11px] text-muted-foreground font-medium">Academic Year {new Date().getFullYear()}</span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Synced with Routine · {new Date().getFullYear()}
+            </span>
+          </div>
         </div>
 
         {classes.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-2">
-            No classes currently assigned. Contact School Administrator to map Class Teacher or Subject Teacher roles.
-          </p>
+          <div className="py-2 text-xs text-muted-foreground flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <p className="italic">
+              No class duties mapped in routine for this academic year yet. Once assigned in Routine, your responsibilities will automatically appear here.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenFullRoutine}
+              className="h-7 text-xs rounded-xl self-start sm:self-auto cursor-pointer"
+            >
+              View Full Routine
+            </Button>
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2.5">
             {classes.map((cls) => (
               <div
                 key={cls.id}
-                className="px-3.5 py-2 rounded-xl bg-muted/50 border border-border/70 flex items-center gap-2.5 text-xs shadow-2xs"
+                className="px-3.5 py-2 rounded-xl bg-muted/50 border border-border/70 flex items-center gap-2.5 text-xs shadow-2xs hover:border-emerald-500/40 transition-all"
               >
                 <span
                   className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
@@ -1239,6 +1451,18 @@ export default function TeacherDashboardPage() {
                     · {cls.subject}
                   </span>
                 )}
+                {cls.periodsPerWeek && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-background border border-border/60 text-muted-foreground font-semibold">
+                    {cls.periodsPerWeek} per/wk
+                  </span>
+                )}
+                <Link
+                  href={`/student-attendance?class=${encodeURIComponent(cls.className)}&section=${encodeURIComponent(cls.section)}`}
+                  title="Take Attendance for this class"
+                  className="ml-0.5 p-1 rounded-md hover:bg-emerald-500/10 text-muted-foreground hover:text-emerald-600 transition-colors"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                </Link>
               </div>
             ))}
           </div>
@@ -1318,18 +1542,78 @@ export default function TeacherDashboardPage() {
                       </p>
                     )}
 
-                    {/* If report already submitted, display summary */}
+                    {/* If report already submitted, display rich summary with attachments */}
                     {isSubmitted && task.completionReport && (
-                      <div className="mt-4 p-3 rounded-xl bg-muted/50 border border-border/80 text-[11px] text-foreground space-y-1.5">
-                        <p className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Submission Report:
-                        </p>
-                        <p className="text-muted-foreground flex items-center gap-3">
-                          <span>Students Handled: <span className="text-foreground font-bold">{task.completionReport.students_count || 0}</span></span>
-                          <span>Fees Collected: <span className="text-foreground font-bold">₹{task.completionReport.fees_collected || 0}</span></span>
-                        </p>
+                      <div className="mt-4 p-3.5 rounded-2xl bg-muted/40 border border-border/80 text-[11px] text-foreground space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 text-xs">
+                            <CheckCircle2 className="h-4 w-4" />
+                            {task.myStatus === "APPROVED" ? "Approved by Admin" : "Report Submitted"}
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            task.completionReport.completion_status === "PARTIAL"
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                              : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                          }`}>
+                            {task.completionReport.completion_status === "PARTIAL" ? "Partial" : "Completed"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          {Number(task.completionReport.students_count) > 0 && (
+                            <span className="px-2.5 py-1 rounded-lg bg-background border border-border/60 font-semibold text-foreground flex items-center gap-1.5 shadow-2xs">
+                              <User className="h-3 w-3 text-indigo-500" />
+                              Students: <strong className="font-bold">{task.completionReport.students_count}</strong>
+                            </span>
+                          )}
+                          {Number(task.completionReport.fees_collected) > 0 && (
+                            <span className="px-2.5 py-1 rounded-lg bg-background border border-border/60 font-semibold text-foreground flex items-center gap-1.5 shadow-2xs">
+                              <IndianRupee className="h-3 w-3 text-emerald-500" />
+                              Collected: <strong className="font-bold">₹{task.completionReport.fees_collected.toLocaleString()}</strong>
+                            </span>
+                          )}
+                        </div>
+
                         {task.completionReport.notes && (
-                          <p className="italic text-muted-foreground text-[10px] mt-1">&ldquo;{task.completionReport.notes}&rdquo;</p>
+                          <p className="text-muted-foreground text-xs leading-relaxed bg-background/50 p-2.5 rounded-xl border border-border/40 italic">
+                            &ldquo;{task.completionReport.notes}&rdquo;
+                          </p>
+                        )}
+
+                        {/* Attachments preview */}
+                        {task.completionReport.attachments && task.completionReport.attachments.length > 0 && (
+                          <div className="space-y-1.5 pt-1 border-t border-border/50">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Paperclip className="h-3 w-3 text-primary" />
+                              Attached Documents ({task.completionReport.attachments.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {task.completionReport.attachments.map((att: any, aIdx: number) => {
+                                const isImg = att.type?.startsWith("image/");
+                                return (
+                                  <button
+                                    key={aIdx}
+                                    type="button"
+                                    onClick={() => setPreviewAttachment(att)}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-background border border-border/70 hover:border-primary/50 text-[11px] font-medium text-foreground transition-all cursor-pointer shadow-2xs hover:bg-muted/30 group/att"
+                                  >
+                                    {isImg ? (
+                                      <img
+                                        src={att.dataUrl}
+                                        alt={att.name}
+                                        className="h-3.5 w-3.5 rounded object-cover"
+                                      />
+                                    ) : (
+                                      <FileText className="h-3.5 w-3.5 text-blue-500" />
+                                    )}
+                                    <span className="truncate max-w-[130px] font-semibold">{att.name}</span>
+                                    <span className="text-[9px] text-muted-foreground">({formatAttachmentSize(att.size)})</span>
+                                    <Eye className="h-3 w-3 text-muted-foreground group-hover/att:text-primary ml-0.5" />
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
@@ -1348,7 +1632,7 @@ export default function TeacherDashboardPage() {
                         </Button>
                         <Button
                           variant="outline"
-                          onClick={() => setSelectedTaskForReport(task)}
+                          onClick={() => handleOpenReportModal(task)}
                           className="flex-1 h-9 rounded-xl border-border bg-card hover:bg-muted text-foreground text-xs font-semibold transition-colors cursor-pointer group/btn2 shadow-2xs"
                         >
                           <FileCheck className="h-3.5 w-3.5 text-emerald-500 mr-1.5 group-hover/btn2:scale-110 transition-transform" />
@@ -1356,9 +1640,22 @@ export default function TeacherDashboardPage() {
                         </Button>
                       </>
                     ) : (
-                      <span className="text-xs font-medium text-muted-foreground flex items-center gap-2 bg-muted/40 px-3 py-1.5 rounded-lg border border-border/50 w-full justify-center">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Task completed &amp; submitted
-                      </span>
+                      <div className="flex items-center justify-between w-full gap-2">
+                        <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          {task.myStatus === "APPROVED" ? "Verified & Approved" : "Awaiting Admin Review"}
+                        </span>
+                        {task.myStatus !== "APPROVED" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenReportModal(task)}
+                            className="h-7 text-xs text-primary hover:text-primary hover:bg-primary/10 rounded-lg cursor-pointer"
+                          >
+                            <Edit2 className="h-3 w-3 mr-1" /> Edit Report
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1368,197 +1665,93 @@ export default function TeacherDashboardPage() {
         )}
       </section>
 
-      {/* Recent Collections & Generator Activity */}
-      <section className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Recent Collections & Generator Activity (Collapsible) */}
+      <section className="rounded-2xl bg-card border border-border/80 shadow-xs transition-all overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setIsActivityFeedOpen((prev) => !prev)}
+          className="w-full p-4 sm:p-5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer select-none"
+        >
           <div className="flex items-center gap-2">
             <Receipt className="h-4 w-4 text-emerald-500" />
             <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
               My Real-Time Collection &amp; Activity Feed
             </h2>
+            {activities.length > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                {activities.length}
+              </span>
+            )}
           </div>
-          <span className="text-[11px] text-muted-foreground font-medium">Live Activity Tracker</span>
-        </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground font-medium hidden sm:inline">Live Activity Tracker</span>
+            <div className="h-7 w-7 rounded-lg bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-transform">
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  isActivityFeedOpen && "rotate-180"
+                )}
+              />
+            </div>
+          </div>
+        </button>
 
-        {activities.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-4 text-center">
-            No recent re-admissions or fee collections recorded yet for this session.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-border text-[11px] text-muted-foreground">
-                  <th className="pb-2.5 font-semibold">Time</th>
-                  <th className="pb-2.5 font-semibold">Action</th>
-                  <th className="pb-2.5 font-semibold">Student Name</th>
-                  <th className="pb-2.5 font-semibold">Class / Sec</th>
-                  <th className="pb-2.5 font-semibold text-right">Fee Collected</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50 text-foreground">
-                {activities.map((act) => (
-                  <tr key={act.id} className="hover:bg-muted/40 transition-colors">
-                    <td className="py-2.5 text-muted-foreground text-[10px]">
-                      {new Date(act.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </td>
-                    <td className="py-2.5">
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold">
-                        {act.action_type.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-2.5 font-medium">{act.target_student_name || "—"}</td>
-                    <td className="py-2.5 text-muted-foreground">
-                      {act.student_class ? `Class ${act.student_class} (${act.section || "—"})` : "—"}
-                    </td>
-                    <td className="py-2.5 text-right font-bold">
-                      {act.amount_collected > 0 ? `₹${Number(act.amount_collected).toLocaleString()}` : "₹0"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {isActivityFeedOpen && (
+          <div className="px-4 pb-4 sm:px-5 sm:pb-5 pt-0 space-y-3 border-t border-border/60 animate-in fade-in-50 duration-200">
+            {activities.length === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-4 text-center">
+                No recent re-admissions or fee collections recorded yet for this session.
+              </p>
+            ) : (
+              <div className="overflow-x-auto pt-3">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-border text-[11px] text-muted-foreground">
+                      <th className="pb-2.5 font-semibold">Time</th>
+                      <th className="pb-2.5 font-semibold">Action</th>
+                      <th className="pb-2.5 font-semibold">Student Name</th>
+                      <th className="pb-2.5 font-semibold">Class / Sec</th>
+                      <th className="pb-2.5 font-semibold text-right">Fee Collected</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/50 text-foreground">
+                    {activities.map((act) => (
+                      <tr key={act.id} className="hover:bg-muted/40 transition-colors">
+                        <td className="py-2.5 text-muted-foreground text-[10px]">
+                          {new Date(act.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td className="py-2.5">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[10px] font-semibold">
+                            {act.action_type.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="py-2.5 font-medium">{act.target_student_name || "—"}</td>
+                        <td className="py-2.5 text-muted-foreground">
+                          {act.student_class ? `Class ${act.student_class} (${act.section || "—"})` : "—"}
+                        </td>
+                        <td className="py-2.5 text-right font-bold">
+                          {act.amount_collected > 0 ? `₹${Number(act.amount_collected).toLocaleString()}` : "₹0"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </section>
 
-      {/* Floating Chat Bubble & Lounge Modal */}
-      <div className="fixed bottom-6 right-6 z-50">
-        <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
-          className="h-14 w-14 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl flex items-center justify-center transition-all hover:scale-105 cursor-pointer relative"
-          title="Teacher Lounge Chat"
-        >
-          {isChatOpen ? <X className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
-        </button>
-
-        {isChatOpen && (
-          <div className="absolute bottom-16 right-0 w-80 sm:w-96 h-[480px] rounded-3xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
-            {/* Header */}
-            <div className="p-4 bg-emerald-600 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                <div>
-                  <h3 className="text-sm font-bold leading-tight">Teacher Lounge</h3>
-                  <p className="text-[10px] text-emerald-100">Live Faculty Communication</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsChatOpen(false)}
-                className="text-white/80 hover:text-white p-1 rounded-lg"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20">
-              {chatMessages.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                  <p className="text-xs">No messages yet in the lounge.</p>
-                  <p className="text-[10px]">Start the conversation below!</p>
-                </div>
-              ) : (
-                chatMessages.map((msg) => {
-                  const isMe = msg.user_id === user?.id;
-                  const isEditing = editingMessageId === msg.id;
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col ${isMe ? "items-end" : "items-start"} space-y-1`}
-                    >
-                      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground px-1">
-                        <span className="font-semibold">{isMe ? "You" : msg.sender_name}</span>
-                        <span>•</span>
-                        <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        {msg.is_edited && <span className="italic text-[9px]">(edited)</span>}
-                      </div>
-
-                      {isEditing ? (
-                        <div className="flex items-center gap-1 w-full max-w-[85%]">
-                          <Input
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="h-8 text-xs bg-background"
-                          />
-                          <Button
-                            size="sm"
-                            onClick={() => handleSaveEditedMessage(msg.id)}
-                            className="h-8 px-2 bg-emerald-600 text-white text-xs"
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingMessageId(null)}
-                            className="h-8 px-2 text-xs"
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div
-                          className={`group relative p-3 rounded-2xl max-w-[85%] text-xs ${
-                            isMe
-                              ? "bg-emerald-600 text-white rounded-br-none shadow-xs"
-                              : "bg-card border border-border text-foreground rounded-bl-none shadow-xs"
-                          } ${msg.is_deleted ? "italic opacity-60" : ""}`}
-                        >
-                          <p className="leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-
-                          {/* 1-hour Edit / Delete Actions for Author */}
-                          {isMe && !msg.is_deleted && (
-                            <div className="absolute top-1 -left-14 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 bg-background/80 p-1 rounded-md border border-border shadow-xs">
-                              <button
-                                onClick={() => {
-                                  setEditingMessageId(msg.id);
-                                  setEditingText(msg.message);
-                                }}
-                                className="text-muted-foreground hover:text-emerald-500 p-0.5"
-                                title="Edit (within 1 hour)"
-                              >
-                                <Edit2 className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="text-muted-foreground hover:text-rose-500 p-0.5"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatBottomRef} />
-            </div>
-
-            {/* Input Bar */}
-            <form onSubmit={handleSendMessage} className="p-3 border-t border-border bg-card flex items-center gap-2">
-              <Input
-                value={newMessageText}
-                onChange={(e) => setNewMessageText(e.target.value)}
-                placeholder="Share an update with colleagues..."
-                className="h-9 text-xs rounded-xl bg-background"
-              />
-              <Button
-                type="submit"
-                disabled={sendingMessage || !newMessageText.trim()}
-                className="h-9 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer"
-              >
-                {sendingMessage ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              </Button>
-            </form>
-          </div>
-        )}
-      </div>
+      {/* Modern Teacher Lounge Drawer & Screen-wide Floating Action Portal */}
+      <TeacherLoungeDrawer
+        isOpen={isChatOpen}
+        onOpen={() => setIsChatOpen(true)}
+        onClose={() => setIsChatOpen(false)}
+        currentUser={user}
+        currentProfile={profile}
+        currentStaff={staff}
+        onUnreadChange={setChatUnreadCount}
+      />
 
       {/* Mark Absence Dialog (with Shortcuts, Multi-Date Selector & Calendar) */}
       <Dialog open={isMarkAbsenceOpen} onOpenChange={setIsMarkAbsenceOpen}>
@@ -1835,275 +2028,285 @@ export default function TeacherDashboardPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Summative Marks Entry Drawer/Dialog */}
-      <Dialog open={isMarksModalOpen} onOpenChange={setIsMarksModalOpen}>
-        <DialogContent className="bg-card border-border text-foreground rounded-3xl max-w-4xl p-6 shadow-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="pb-2 border-b border-border/60">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-base font-bold flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-emerald-500" />
-                Summative Evaluation Marks Entry (S1, S2, S3)
-              </DialogTitle>
-              {marksSaveSuccess && (
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Saved Successfully!
-                </span>
-              )}
-            </div>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Enter student scores for assigned evaluation terms. Marks auto-calculate grade benchmarks.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Filter Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3 border-b border-border/40">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Class</label>
-              <Select value={marksClass} onValueChange={(val) => setMarksClass(val || "V")}>
-                <SelectTrigger className="h-8 text-xs rounded-xl bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"].map((c) => (
-                    <SelectItem key={c} value={c}>Class {c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Section</label>
-              <Select value={marksSection} onValueChange={(val) => setMarksSection(val || "ALL")}>
-                <SelectTrigger className="h-8 text-xs rounded-xl bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["ALL", "A", "B", "C", "D"].map((s) => (
-                    <SelectItem key={s} value={s}>{s === "ALL" ? "All Sections" : `Section ${s}`}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Subject</label>
-              <Select value={marksSubject} onValueChange={(val) => setMarksSubject(val || "Mathematics")}>
-                <SelectTrigger className="h-8 text-xs rounded-xl bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {[
-                    "Mathematics",
-                    "Bengali",
-                    "English",
-                    "Physical Science",
-                    "Life Science",
-                    "History",
-                    "Geography",
-                    "Physics",
-                    "Chemistry",
-                    "Biology",
-                  ].map((subj) => (
-                    <SelectItem key={subj} value={subj}>{subj}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Exam Term</label>
-              <Select value={marksExamType} onValueChange={(val: any) => setMarksExamType(val || "S1")}>
-                <SelectTrigger className="h-8 text-xs rounded-xl bg-background">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="S1">Summative 1 (S1)</SelectItem>
-                  <SelectItem value="S2">Summative 2 (S2)</SelectItem>
-                  <SelectItem value="S3">Summative 3 (S3)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {marksError && (
-            <div className="p-3 my-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              <span>{marksError}</span>
-            </div>
-          )}
-
-          {/* Roster Table */}
-          <div className="flex-1 overflow-y-auto my-3 border rounded-2xl border-border/70">
-            {loadingMarks ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-emerald-500" />
-                <p className="text-xs">Loading student roster...</p>
-              </div>
-            ) : marksRoster.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <GraduationCap className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-xs">No students found for Class {marksClass} ({marksSection}).</p>
-              </div>
-            ) : (
-              <table className="w-full text-left text-xs">
-                <thead className="bg-muted/60 border-b border-border/80 sticky top-0 z-10 text-[11px] text-muted-foreground">
-                  <tr>
-                    <th className="p-3 font-semibold">Roll</th>
-                    <th className="p-3 font-semibold">Student Name</th>
-                    <th className="p-3 font-semibold">Class / Sec</th>
-                    <th className="p-3 font-semibold text-center w-28">Score (Max 100)</th>
-                    <th className="p-3 font-semibold text-center w-24">Grade</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/50 text-foreground">
-                  {marksRoster.map((st) => (
-                    <tr key={st.studentId} className="hover:bg-muted/30">
-                      <td className="p-3 font-bold">{st.rollNo || "—"}</td>
-                      <td className="p-3 font-medium">{st.studentName}</td>
-                      <td className="p-3 text-muted-foreground">
-                        Class {st.className} ({st.section})
-                      </td>
-                      <td className="p-3 text-center">
-                        <Input
-                          type="number"
-                          min="0"
-                          max={st.fullMarks || 100}
-                          value={st.marksObtained !== null && st.marksObtained !== undefined ? st.marksObtained : ""}
-                          onChange={(e) => handleMarkChange(st.studentId, e.target.value)}
-                          placeholder="—"
-                          className="h-8 w-20 text-center mx-auto text-xs rounded-lg font-bold bg-background"
-                        />
-                      </td>
-                      <td className="p-3 text-center">
-                        <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold text-[10px]">
-                          {st.marksObtained !== null && st.marksObtained !== undefined
-                            ? st.marksObtained >= 90
-                              ? "AA"
-                              : st.marksObtained >= 80
-                              ? "A+"
-                              : st.marksObtained >= 65
-                              ? "A"
-                              : st.marksObtained >= 50
-                              ? "B+"
-                              : st.marksObtained >= 40
-                              ? "B"
-                              : st.marksObtained >= 30
-                              ? "C"
-                              : st.marksObtained >= 25
-                              ? "D"
-                              : "Needs Impr."
-                            : "—"}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <DialogFooter className="pt-2 border-t border-border/60 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {marksRoster.length} students loaded for {marksSubject} ({marksExamType})
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsMarksModalOpen(false)}
-                className="text-xs text-muted-foreground"
-              >
-                Close
-              </Button>
-              <Button
-                onClick={handleSaveMarks}
-                disabled={savingMarks || marksRoster.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer gap-1.5 shadow-xs"
-              >
-                {savingMarks ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                <span>Save All Marks</span>
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Task Completion Report Dialog */}
       <Dialog open={!!selectedTaskForReport} onOpenChange={(open) => !open && setSelectedTaskForReport(null)}>
-        <DialogContent className="bg-card border-border text-foreground rounded-3xl max-w-md p-6 shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold flex items-center gap-2">
-              <FileCheck className="h-4 w-4 text-emerald-500" />
-              Submit Task Completion Report
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Report your completed work for &quot;{selectedTaskForReport?.title}&quot; to the School Administrator.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="bg-card border-border text-foreground rounded-3xl max-w-lg p-0 overflow-hidden shadow-2xl">
+          <div className="bg-gradient-to-r from-emerald-600/15 via-teal-600/10 to-primary/10 p-5 border-b border-border/60">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold text-[10px] uppercase border border-emerald-500/30">
+                    {selectedTaskForReport?.taskType || "TASK"}
+                  </span>
+                  {selectedTaskForReport?.targetClass && (
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      Class {selectedTaskForReport.targetClass} {selectedTaskForReport.targetSection ? `(${selectedTaskForReport.targetSection})` : ""}
+                    </span>
+                  )}
+                </div>
+                <DialogTitle className="text-base font-bold text-foreground">
+                  {selectedTaskForReport?.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Submit completion breakdown, receipts, document proof &amp; remarks.
+                </DialogDescription>
+              </div>
+            </div>
+          </div>
 
           {reportSuccess ? (
-            <div className="py-8 flex flex-col items-center justify-center text-center gap-2">
-              <CheckCircle2 className="h-10 w-10 text-emerald-500 animate-bounce" />
-              <p className="text-sm font-bold text-foreground">Report Submitted Successfully!</p>
-              <p className="text-xs text-muted-foreground">The administrator has been notified.</p>
+            <div className="py-12 px-6 flex flex-col items-center justify-center text-center gap-3">
+              <div className="h-14 w-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+                <CheckCircle2 className="h-8 w-8 animate-bounce" />
+              </div>
+              <p className="text-base font-bold text-foreground">Report Submitted Successfully!</p>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                Your completion report and attached documents have been forwarded to the school administration.
+              </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmitReport} className="space-y-4 pt-2">
+            <form onSubmit={handleSubmitReport} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Status Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                  Completion Status
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setReportCompletionStatus("COMPLETED")}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      reportCompletionStatus === "COMPLETED"
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-500/20"
+                        : "bg-muted/40 border-border/70 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span>Fully Completed</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReportCompletionStatus("PARTIAL")}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      reportCompletionStatus === "PARTIAL"
+                        ? "bg-amber-500/10 border-amber-500/40 text-amber-700 dark:text-amber-400 ring-2 ring-amber-500/20"
+                        : "bg-muted/40 border-border/70 text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Clock className="h-4 w-4 text-amber-500" />
+                    <span>Partially Completed</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Numerical Metrics */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-muted-foreground">Students Handled</label>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-indigo-500" />
+                    Students / Records
+                  </label>
                   <Input
                     type="number"
                     min="0"
-                    placeholder="e.g. 25"
+                    placeholder="e.g. 28"
                     value={reportStudentsCount}
                     onChange={(e) => setReportStudentsCount(e.target.value)}
-                    className="h-9 bg-background border-border text-xs rounded-xl"
+                    className="h-10 bg-background border-border text-xs rounded-xl"
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[11px] font-semibold text-muted-foreground">Total Fees Collected (₹)</label>
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                    <IndianRupee className="h-3.5 w-3.5 text-emerald-500" />
+                    Fees / Amount (₹)
+                  </label>
                   <Input
                     type="number"
                     min="0"
-                    placeholder="e.g. 5000"
+                    placeholder="e.g. 5400"
                     value={reportFeesCollected}
                     onChange={(e) => setReportFeesCollected(e.target.value)}
-                    className="h-9 bg-background border-border text-xs rounded-xl"
+                    className="h-10 bg-background border-border text-xs rounded-xl"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[11px] font-semibold text-muted-foreground">Completion Notes / Remarks</label>
+              {/* Remarks */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-muted-foreground">
+                  Task Execution Notes &amp; Observations
+                </label>
                 <Textarea
-                  placeholder="e.g. Completed re-admission for all students in Section A. Pending 3 absent students."
+                  placeholder="Summarize the action taken, pending items, absent students, or any relevant remarks..."
                   value={reportNotes}
                   onChange={(e) => setReportNotes(e.target.value)}
-                  className="bg-background border-border text-xs rounded-xl min-h-[80px]"
+                  className="bg-background border-border text-xs rounded-xl min-h-[85px] leading-relaxed"
                   required
                 />
               </div>
 
-              <DialogFooter className="pt-2">
+              {/* File Attachments Area */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-muted-foreground flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5 text-blue-500" />
+                    Proof Attachments &amp; Documents
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">PDF, Images, Excel, Docs (Max 5MB)</span>
+                </div>
+
+                <label className="border-2 border-dashed border-border/80 hover:border-emerald-500/50 hover:bg-muted/30 transition-all rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer text-center group">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                    className="hidden"
+                    onChange={(e) => handleAttachmentUpload(e.target.files)}
+                  />
+                  <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <UploadCloud className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-semibold text-foreground">
+                    Click or drag files here to attach proof
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Bills, collection receipts, signed forms, or spreadsheets
+                  </p>
+                </label>
+
+                {attachmentError && (
+                  <p className="text-[11px] text-destructive font-medium">{attachmentError}</p>
+                )}
+
+                {/* Attached Files List */}
+                {reportAttachments.length > 0 && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Attached Files ({reportAttachments.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {reportAttachments.map((att, idx) => {
+                        const isImage = att.type?.startsWith("image/");
+                        return (
+                          <div
+                            key={idx}
+                            className="p-2.5 rounded-xl bg-muted/40 border border-border/70 flex items-center justify-between gap-2 text-xs hover:bg-muted/60 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              {isImage ? (
+                                <img
+                                  src={att.dataUrl}
+                                  alt={att.name}
+                                  className="h-8 w-8 rounded-lg object-cover border border-border/50 shrink-0"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+                                  <FileText className="h-4 w-4" />
+                                </div>
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-foreground truncate text-[11px]">
+                                  {att.name}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {formatAttachmentSize(att.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => setPreviewAttachment(att)}
+                                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer"
+                                title="Preview"
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAttachment(idx)}
+                                className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
+                                title="Remove"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="pt-3 border-t border-border/60 flex items-center justify-between gap-2">
                 <Button
                   type="button"
                   variant="ghost"
                   onClick={() => setSelectedTaskForReport(null)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  className="rounded-xl text-xs text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={submittingReport}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer gap-1.5 shadow-xs"
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-xs"
                 >
-                  {submittingReport ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  <span>Submit to Admin</span>
+                  {submittingReport ? (
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Send className="h-3.5 w-3.5" />
+                  )}
+                  <span>Submit to Administrator</span>
                 </Button>
               </DialogFooter>
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachment Preview Modal */}
+      <Dialog open={!!previewAttachment} onOpenChange={(open) => !open && setPreviewAttachment(null)}>
+        <DialogContent className="bg-card border-border text-foreground rounded-3xl max-w-2xl p-5 shadow-2xl">
+          <DialogHeader className="pb-3 border-b border-border/60 flex flex-row items-center justify-between">
+            <div>
+              <DialogTitle className="text-sm font-bold truncate max-w-md">
+                {previewAttachment?.name}
+              </DialogTitle>
+            </div>
+            {previewAttachment && (
+              <a
+                href={previewAttachment.dataUrl}
+                download={previewAttachment.name}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors shadow-2xs mr-6"
+              >
+                <Download className="h-3.5 w-3.5" /> Download
+              </a>
+            )}
+          </DialogHeader>
+          <div className="py-4 flex items-center justify-center max-h-[70vh] overflow-auto">
+            {previewAttachment?.type?.startsWith("image/") ? (
+              <img
+                src={previewAttachment.dataUrl}
+                alt={previewAttachment.name}
+                className="max-h-[60vh] max-w-full rounded-xl object-contain shadow-sm"
+              />
+            ) : (
+              <div className="p-8 text-center space-y-3">
+                <FileText className="h-16 w-16 text-primary/60 mx-auto" />
+                <p className="text-sm font-semibold">{previewAttachment?.name}</p>
+                <p className="text-xs text-muted-foreground">Document file attached.</p>
+                <a
+                  href={previewAttachment?.dataUrl}
+                  download={previewAttachment?.name}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold"
+                >
+                  <Download className="h-4 w-4" /> Download File
+                </a>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2326,6 +2529,8 @@ export default function TeacherDashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
     </div>
   );
 }

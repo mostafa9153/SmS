@@ -32,6 +32,7 @@ import {
   FileText,
   User,
   Briefcase,
+  Trophy,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -122,6 +123,12 @@ const navItems: NavItem[] = [
     href: "/generate",
     icon: <Sparkles className="h-4 w-4" />,
     iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20 group-hover:scale-110",
+  },
+  {
+    label: "Sports & Games",
+    href: "/sports",
+    icon: <Trophy className="h-4 w-4" />,
+    iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20 group-hover:scale-110",
   },
   {
     label: "EMS (Exam Manager)",
