@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Sparkles,
   Award,
+  Trophy,
   FileCheck2,
   Printer,
   Search,
@@ -205,7 +206,23 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     gradientGlow: "from-emerald-500/10 via-transparent to-transparent",
     highlights: ["Class & Section Chooser", "Filter by ID, PEN, Name & Roll", "Single & Bulk Batch Print", "Anti-Tamper QR Verification"],
   },
-  {
+    {
+    id: "sports-meet-studio",
+    title: "Sports Meet & Certificates",
+    category: "certificates",
+    categoryLabel: "Sports & Events",
+    formatBadge: "Bibs & Certs",
+    formatVariant: "emerald",
+    description:
+      "Universal athlete chest bibs, event call sheets, scorekeeper tabulation sheets, and official sports merit certificates with 1-click batch printing.",
+    href: "/sports",
+    icon: Trophy,
+    iconBg: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    accentBorder: "hover:border-rose-500/50 hover:shadow-rose-500/10",
+    gradientGlow: "from-rose-500/10 via-transparent to-transparent",
+    highlights: ["Universal Athlete Chest Bibs", "Event Call & Score Sheets", "Annual Merit Certificates", "Universal Event Filtering"],
+  },
+{
     id: "cce-marksheet",
     title: "CCE Marksheet Generator",
     category: "exams",

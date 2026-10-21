@@ -1,6 +1,6 @@
 import Link from "next/link";
 import nextDynamic from "next/dynamic";
-import { GraduationCap, Sparkles, ShieldCheck, Award } from "lucide-react";
+import { GraduationCap, Sparkles, ShieldCheck, Award, Trophy } from "lucide-react";
 import { TopMobileHeader } from "@/components/dashboard/top-mobile-header";
 import { QuickActionsBar } from "@/components/dashboard/quick-actions-bar";
 import { StatCards } from "@/components/dashboard/stat-cards";
@@ -59,7 +59,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           <Link
             href="/admission"
             className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-emerald-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] cursor-pointer"
@@ -111,7 +111,23 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <Link
+                    <Link
+            href="/sports"
+            className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-rose-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] cursor-pointer"
+          >
+            <div className="rounded-2xl bg-rose-500/10 border border-rose-500/25 p-2.5 text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform duration-200 shrink-0">
+              <Trophy className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">
+                Sports & Games
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Events, bibs & certificates
+              </p>
+            </div>
+          </Link>
+<Link
             href="/settings/users"
             className="glass-panel group flex flex-col sm:flex-row items-start sm:items-center gap-3 rounded-3xl p-4 border border-border/60 dark:border-white/10 shadow-sm dark:shadow-none hover:border-rose-500/40 transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] cursor-pointer"
           >

@@ -9,6 +9,7 @@ import {
   Sparkles,
   ClipboardCheck,
   Award,
+  Trophy,
   Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: Sparkles,
     color: "text-purple-600 dark:text-purple-400 group-hover:text-purple-500 dark:group-hover:text-purple-300",
   },
-  {
+    {
+    label: "Sports Meet",
+    href: "/sports",
+    icon: Trophy,
+    color: "text-rose-600 dark:text-rose-400 group-hover:text-rose-500 dark:group-hover:text-rose-300",
+    badge: "Live",
+  },
+{
     label: "EMS Blueprint",
     href: "/ems",
     icon: ClipboardCheck,
