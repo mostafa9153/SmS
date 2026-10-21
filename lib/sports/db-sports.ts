@@ -421,7 +421,7 @@ export async function getAllAthletesWithEvents(
             presentRoll: s.present_roll || 0,
             gender: s.gender || "All",
             photoUrl: s.photo_url,
-            status: "Registered",
+            status: "Registered" as const,
             registeredEventsCount: studentEvents.length,
             enrolledEvents: studentEvents,
           };
