@@ -85,16 +85,36 @@ export function SportsChestBibPrintableView({
               </div>
 
               {/* Massive Center Chest Number */}
-              <div className="relative z-10 flex-1 flex flex-col items-center justify-center my-2">
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-center my-1.5">
                 <span className="text-[11px] font-bold tracking-widest text-gray-500 uppercase">ATHLETE BIB #</span>
                 <div className="text-8xl font-black text-black tracking-tighter leading-none select-all font-mono py-1">
                   {participant.chestNumber}
                 </div>
-                {event && (
-                  <span className="inline-block mt-1 px-3 py-0.5 bg-black text-white text-xs font-bold uppercase rounded-full">
-                    {event.name}
-                  </span>
-                )}
+
+                {/* All Enrolled Games Displayed Together on This Single Bib */}
+                {(() => {
+                  const eventsList =
+                    participant.enrolledEvents && participant.enrolledEvents.length > 0
+                      ? participant.enrolledEvents
+                      : event
+                      ? [event.name]
+                      : [];
+
+                  if (eventsList.length === 0) return null;
+
+                  return (
+                    <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 max-w-[92%] mx-auto">
+                      {eventsList.map((evName) => (
+                        <span
+                          key={evName}
+                          className="inline-block px-2.5 py-0.5 bg-black text-white text-[11px] font-black uppercase tracking-wider rounded-md"
+                        >
+                          {evName}
+                        </span>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Athlete Details Footer */}

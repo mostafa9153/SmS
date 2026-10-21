@@ -51,6 +51,7 @@ function SportsPrintStudioContent() {
   );
   const [scale, setScale] = useState(0.9);
   const [selectedWinnerIndex, setSelectedWinnerIndex] = useState<number | "all">("all");
+  const [bibScope, setBibScope] = useState<"all" | "event">("all");
 
   const { profile: schoolProfile } = useSchoolProfile();
 
@@ -84,6 +85,18 @@ function SportsPrintStudioContent() {
     },
     enabled: Boolean(currentEvent?.id),
   });
+
+  // 3. Fetch All School Athletes with all Enrolled Events (Universal Master Bibs)
+  const { data: allAthletes = [], isLoading: isLoadingAthletes } = useQuery<SportsParticipant[]>({
+    queryKey: ["sports-all-athletes"],
+    queryFn: async () => {
+      const res = await fetch("/api/sports/athletes");
+      const json = await res.json();
+      return json.data || [];
+    },
+  });
+
+  const bibParticipants = bibScope === "all" ? allAthletes : participants;
 
   const winners = participants
     .filter((p) => p.rankPosition && p.rankPosition > 0)
@@ -240,6 +253,33 @@ function SportsPrintStudioContent() {
               ))}
             </div>
           )}
+
+          {/* Sub-selector for Bibs: Universal Master Bibs vs Selected Event */}
+          {activeTab === "bibs" && (
+            <div className="flex items-center gap-1 overflow-x-auto text-xs">
+              <span className="text-[11px] font-bold text-muted-foreground mr-1 hidden sm:inline">Scope:</span>
+              <button
+                onClick={() => setBibScope("all")}
+                className={`px-2.5 py-1 rounded-md font-bold whitespace-nowrap transition-colors ${
+                  bibScope === "all"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                All Athletes ({allAthletes.length})
+              </button>
+              <button
+                onClick={() => setBibScope("event")}
+                className={`px-2.5 py-1 rounded-md font-bold whitespace-nowrap transition-colors ${
+                  bibScope === "event"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {currentEvent?.name || "This Event"} ({participants.length})
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -281,8 +321,8 @@ function SportsPrintStudioContent() {
               />
             ) : activeTab === "bibs" ? (
               <SportsChestBibPrintableView
-                event={currentEvent}
-                participants={participants}
+                event={bibScope === "all" ? undefined : currentEvent}
+                participants={bibParticipants}
                 schoolProfile={schoolProfile}
               />
             ) : (
