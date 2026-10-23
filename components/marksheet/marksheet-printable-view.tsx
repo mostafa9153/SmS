@@ -15,9 +15,10 @@ import {
 interface MarksheetPrintableViewProps {
   data: MarksheetData;
   schoolProfile?: SchoolProfileData;
+  includeDigitalSignature?: boolean;
 }
 
-export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintableViewProps) {
+export function MarksheetPrintableView({ data, schoolProfile, includeDigitalSignature = true }: MarksheetPrintableViewProps) {
   const profile = schoolProfile || getSavedSchoolProfile();
   const effectiveHeadTitle = getEffectiveHeadTitle(profile);
   const logoSrc = profile.schoolLogoUrl && profile.schoolLogoUrl.trim() !== "" ? profile.schoolLogoUrl : "/school-logo.png";
@@ -353,12 +354,14 @@ export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintab
               {/* Headmaster / Teacher-in-Charge Signature */}
               <div className="w-[18.5%] h-[114px] flex flex-col items-center justify-end text-center pb-0.5">
                 <div className="h-[40px] flex items-end justify-center mb-0.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={signatureSrc}
-                    alt="Head Signature"
-                    className="max-h-[36px] max-w-[130px] object-contain mix-blend-multiply select-none"
-                  />
+                  {includeDigitalSignature && profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={signatureSrc}
+                      alt="Head Signature"
+                      className="max-h-[36px] max-w-[130px] object-contain mix-blend-multiply select-none"
+                    />
+                  ) : null}
                 </div>
                 <div className="text-[9.5px] font-bold text-[#14206b] leading-tight font-serif">
                   Signature of {effectiveHeadTitle}
@@ -542,9 +545,11 @@ export function MarksheetPrintableView({ data, schoolProfile }: MarksheetPrintab
 export function MarksheetPrintableBatchView({
   marksheets,
   schoolProfile,
+  includeDigitalSignature = true,
 }: {
   marksheets: MarksheetData[];
   schoolProfile?: SchoolProfileData;
+  includeDigitalSignature?: boolean;
 }) {
   return (
     <div className="w-full print:w-full space-y-8 print:space-y-0">
@@ -559,7 +564,7 @@ export function MarksheetPrintableBatchView({
             breakAfter: index < marksheets.length - 1 ? "page" : "auto",
           }}
         >
-          <MarksheetPrintableView data={ms} schoolProfile={schoolProfile} />
+          <MarksheetPrintableView data={ms} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
         </div>
       ))}
     </div>

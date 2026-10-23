@@ -24,7 +24,10 @@ export async function POST(req: Request) {
       );
     }
 
-    await updateChestNumber(studentId, chestNumber, academicYear);
+    const result = await updateChestNumber(studentId, chestNumber, academicYear);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    }
     return NextResponse.json({ success: true, message: "Chest number updated successfully" });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

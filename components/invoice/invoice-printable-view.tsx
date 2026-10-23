@@ -260,12 +260,14 @@ function CompactInvoiceSlip({
           {/* Right: Headmaster Signature */}
           <div className="text-right flex flex-col items-end space-y-0.5">
             <div className="h-5 flex items-end justify-end relative w-20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={signatureSrc}
-                alt="Head Signature"
-                className="max-h-5 object-contain select-none"
-              />
+              {data.includeDigitalSignature !== false && profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={signatureSrc}
+                  alt="Head Signature"
+                  className="max-h-5 object-contain select-none"
+                />
+              ) : null}
             </div>
             <p className="text-[8px] font-bold text-slate-950 uppercase leading-none mt-0.5">
               {effectiveHeadTitle}

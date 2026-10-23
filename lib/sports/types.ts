@@ -16,6 +16,8 @@ export interface SportsEvent {
   description?: string;
   createdAt?: string;
   participantCount?: number;
+  scoredCount?: number; // participants with a recorded best score
+  podiumCount?: number; // participants with a podium rank
 }
 
 export interface SportsConfig {

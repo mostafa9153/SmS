@@ -32,6 +32,7 @@ export interface InvoiceData {
   paymentMode: "Cash" | "Online / UPI" | "Bank Transfer" | "Cheque";
   paymentStatus: "Paid" | "Partial" | "Due";
   remarks?: string;
+  includeDigitalSignature?: boolean;
 }
 
 /**

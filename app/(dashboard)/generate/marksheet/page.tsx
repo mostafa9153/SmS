@@ -23,6 +23,7 @@ import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
@@ -76,6 +77,7 @@ function MarksheetGeneratorContent() {
 
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
   const [previewScale, setPreviewScale] = useState<number>(1.0);
   const [isFetchingResults, setIsFetchingResults] = useState(false);
   const [dbResultsLoaded, setDbResultsLoaded] = useState<{
@@ -583,10 +585,10 @@ function MarksheetGeneratorContent() {
       <div id="pure-print-container" className="hidden print:block">
         {generatorMode === "single" ? (
           <div className="w-full flex justify-center">
-            <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} />
+            <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
           </div>
         ) : (
-          <MarksheetPrintableBatchView marksheets={bulkMarksheets} schoolProfile={schoolProfile} />
+          <MarksheetPrintableBatchView marksheets={bulkMarksheets} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
         )}
       </div>
 
@@ -962,6 +964,18 @@ function MarksheetGeneratorContent() {
                     />
                   </div>
                 </div>
+
+                {/* Digital Head Signature Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <Label htmlFor="toggle-marksheet-single-sign" className="text-xs font-semibold cursor-pointer">
+                    Digital Signature
+                  </Label>
+                  <Switch
+                    id="toggle-marksheet-single-sign"
+                    checked={includeDigitalSignature}
+                    onCheckedChange={setIncludeDigitalSignature}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -991,7 +1005,7 @@ function MarksheetGeneratorContent() {
                 onScaleChange={setPreviewScale}
                 canvasClassName="min-h-[460px] sm:min-h-[580px]"
               >
-                <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} />
+                <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
               </PinchZoomViewer>
             </div>
           </div>
@@ -1142,6 +1156,18 @@ function MarksheetGeneratorContent() {
                     />
                   </div>
                 </div>
+
+                {/* Digital Head Signature Toggle */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                  <Label htmlFor="toggle-marksheet-bulk-sign" className="text-xs font-semibold cursor-pointer">
+                    Digital Signature
+                  </Label>
+                  <Switch
+                    id="toggle-marksheet-bulk-sign"
+                    checked={includeDigitalSignature}
+                    onCheckedChange={setIncludeDigitalSignature}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1199,7 +1225,7 @@ function MarksheetGeneratorContent() {
                 onScaleChange={setPreviewScale}
                 canvasClassName="min-h-[460px] sm:min-h-[580px]"
               >
-                <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} />
+                <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
               </PinchZoomViewer>
             </div>
           </div>

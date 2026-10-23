@@ -89,6 +89,7 @@ export interface StudentIDCardProps {
   cardTitle?: string;      // default: "IDENTITY CARD"
   className?: string;
   isPrintingMode?: boolean;
+  includeDigitalSignature?: boolean;
 }
 
 export function StudentIDCardPrintableView({
@@ -98,6 +99,7 @@ export function StudentIDCardPrintableView({
   validUpto,
   cardTitle = "IDENTITY CARD",
   className,
+  includeDigitalSignature = true,
 }: StudentIDCardProps) {
   // Format Date of Birth (DD/MM/YYYY)
   const formattedDOB = useMemo(() => {
@@ -376,7 +378,7 @@ export function StudentIDCardPrintableView({
 
         {/* Right: Compact Signature & Small Designation */}
         <div className="flex flex-col items-center justify-end min-w-[18mm] text-center">
-          {schoolProfile.headSignatureUrl ? (
+          {includeDigitalSignature && schoolProfile.headSignatureUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={schoolProfile.headSignatureUrl}
@@ -384,11 +386,7 @@ export function StudentIDCardPrintableView({
               className="h-[4.0mm] w-auto max-w-[18mm] object-contain mb-0.5"
             />
           ) : (
-            <div className="h-[4.0mm] flex items-center justify-center mb-0.5">
-              <svg className="h-[3.8mm] w-12 text-[#003399]" viewBox="0 0 100 30" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M5 22 C12 8, 18 26, 25 10 C32 28, 38 12, 50 18 C65 24, 75 8, 90 20 M60 5 L75 25" />
-              </svg>
-            </div>
+            <div className="h-[4.0mm] mb-0.5" />
           )}
           <span className="text-[5.2px] font-bold text-[#003366] uppercase tracking-tight leading-tight">
             {headTitle}

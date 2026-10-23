@@ -9,6 +9,7 @@ import {
   cleanAddressPart,
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
+import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
 
 export interface CharacterCertificateData {
   certificateNo: string;
@@ -19,6 +20,7 @@ export interface CharacterCertificateData {
   // Student Particulars
   studentId: string;
   studentName: string;
+  photoUrl?: string;
   gender: "Male" | "Female" | "Other";
   fatherName: string;
   motherName?: string;
@@ -41,6 +43,7 @@ export interface CharacterCertificateData {
 
   // School Metadata
   headmasterTitle?: string;
+  includeDigitalSignature?: boolean;
 }
 
 interface CertificatePrintableViewProps {
@@ -169,15 +172,19 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
             </div>
           </div>
 
-          <div className="pt-0.5">
-            <div className="inline-block relative">
-              <h2 className="text-[14.5px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#14206b] border-[#14206b]">
-                CHARACTER CERTIFICATE
-              </h2>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start px-2">
+            <div />
+            <div className="pt-0.5">
+              <div className="inline-block relative">
+                <h2 className="text-[14.5px] px-6 py-0.5 border-b-[2px] border-t-[2px] font-extrabold uppercase tracking-wider text-[#14206b] border-[#14206b]">
+                  CHARACTER CERTIFICATE
+                </h2>
+              </div>
+              <p className="text-[9px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
+                To Whom It May Concern
+              </p>
             </div>
-            <p className="text-[9px] uppercase tracking-widest text-slate-500 font-sans font-semibold mt-0.5">
-              To Whom It May Concern
-            </p>
+            <StudentPhotoBox url={data.photoUrl} className="justify-self-end" />
           </div>
         </div>
 
@@ -221,7 +228,7 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
         {/* =================================================================== */}
         {/* 4. FOOTER & SIGNATURES (SOLIDLY ANCHORED)                           */}
         {/* =================================================================== */}
-        <div className="pt-2 border-t border-slate-300 mt-auto">
+        <div className="pt-2 mt-auto">
           <div className="flex items-end justify-between px-2">
             {/* Left: Prepared by */}
             <div className="text-left space-y-0.5">
@@ -253,14 +260,25 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
               </div>
             </div>
 
-            {/* Right: Headmaster Signature & Seal */}
+            {/* Right: Headmaster / Teacher-in-Charge Signature & Seal */}
             <div className="text-center flex flex-col items-center">
-              <div className="h-7 w-28 flex items-end justify-center" />
-              <div className="border-t border-dashed border-slate-400 pt-0.5 w-32">
+              <div className="h-7 w-28 flex items-end justify-center">
+                {data.includeDigitalSignature !== false && profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={profile.headSignatureUrl}
+                    alt="Signature"
+                    className="max-h-6 object-contain"
+                  />
+                ) : null}
+              </div>
+              <div className="border-t border-dashed border-slate-400 pt-0.5 w-34">
                 <p className="text-[10.5px] font-bold text-slate-950 uppercase leading-tight">
                   ({effectiveHeadTitle})
                 </p>
               </div>
+              {/* Space for physical rubber stamp / seal below */}
+              <div className="h-14 w-34" />
             </div>
           </div>
         </div>

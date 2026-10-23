@@ -1,66 +1,68 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { SportsEvent, SportsParticipant } from "@/lib/sports/types";
+import { SportsParticipant } from "@/lib/sports/types";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  ArrowLeft,
-  Medal,
-  Save,
-  Printer,
-  Award,
-  Search,
-  X,
-} from "lucide-react";
+import { Save, Award, Search, X, Wand2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { useSportsEvents, getUnitSuffix, isLowerBetter } from "@/lib/sports/use-sports-events";
+import { SportsEventHeader } from "@/components/sports/sports-event-header";
+
+type ScoreRow = {
+  trial1: string;
+  trial2: string;
+  trial3: string;
+  bestScore: string;
+  rankPosition: number | null;
+  remarks: string;
+};
+
+const EMPTY_ROW: ScoreRow = { trial1: "", trial2: "", trial3: "", bestScore: "", rankPosition: null, remarks: "" };
+
+const GRID_COLS = {
+  field: "md:grid-cols-[36px_72px_minmax(150px,1fr)_repeat(3,72px)_84px_124px_minmax(100px,160px)]",
+  track: "md:grid-cols-[36px_72px_minmax(150px,1fr)_100px_84px_124px_minmax(100px,200px)]",
+  other: "md:grid-cols-[36px_72px_minmax(150px,1fr)_120px_124px_minmax(100px,220px)]",
+} as const;
+
+const RANK_STYLE: Record<number, string> = {
+  1: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500",
+  2: "bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500",
+  3: "bg-orange-700/15 text-orange-800 dark:text-orange-300 border-orange-700",
+};
+const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
 export default function SportsResultsPage() {
   const params = useParams();
   const eventId = params.id as string;
-  const router = useRouter();
+  return <SportsResultsView key={eventId} eventId={eventId} />;
+}
 
-  const [scores, setScores] = useState<
-    Record<
-      string,
-      {
-        trial1: string;
-        trial2: string;
-        trial3: string;
-        bestScore: string;
-        rankPosition: number | null;
-        remarks: string;
-      }
-    >
-  >({});
+function SportsResultsView({ eventId }: { eventId: string }) {
+  const [scores, setScores] = useState<Record<string, ScoreRow>>({});
+  const [savedSnapshot, setSavedSnapshot] = useState("{}");
   const [isSaving, setIsSaving] = useState(false);
+  const [autoRank, setAutoRank] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [rankFilter, setRankFilter] = useState<"all" | "podium">("all");
 
-  // 1. Fetch Event
-  const { data: events = [] } = useQuery<SportsEvent[]>({
-    queryKey: ["sports-events"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/events");
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
-
+  const { data: events = [], refetch: refetchEvents } = useSportsEvents();
   const event = events.find((e) => e.id === eventId);
   const isField = event?.category === "Field";
   const isTrack = event?.category === "Track";
+  const mode: keyof typeof GRID_COLS = isField ? "field" : isTrack ? "track" : "other";
+  const unitSuffix = getUnitSuffix(event?.measurementUnit);
+  const lowerBetter = isLowerBetter(event?.measurementUnit);
+  const canAutoRank = event?.scoringType !== "Rank_Only" && event?.measurementUnit !== "None";
 
-  // 2. Fetch Participants
-  const {
-    data: participants = [],
-    isLoading,
-    refetch,
-  } = useQuery<SportsParticipant[]>({
+  const { data: participantsData, isLoading, refetch } = useQuery<SportsParticipant[]>({
     queryKey: ["sports-participants", eventId],
     queryFn: async () => {
       const res = await fetch(`/api/sports/registrations?eventId=${eventId}`);
@@ -68,74 +70,110 @@ export default function SportsResultsPage() {
       return json.data || [];
     },
   });
+  const participants = useMemo(() => participantsData ?? [], [participantsData]);
 
-  // Initialize form state
+  // Load server values whenever fresh data arrives (also after every save)
+  const [loadedData, setLoadedData] = useState<SportsParticipant[] | undefined>(undefined);
+  if (participantsData && participantsData !== loadedData) {
+    const initial: Record<string, ScoreRow> = {};
+    participantsData.forEach((p) => {
+      initial[p.studentId] = {
+        trial1: p.trial1 || "",
+        trial2: p.trial2 || "",
+        trial3: p.trial3 || "",
+        bestScore: p.bestScore || "",
+        rankPosition: p.rankPosition ?? null,
+        remarks: p.remarks || "",
+      };
+    });
+    setLoadedData(participantsData);
+    setScores(initial);
+    setSavedSnapshot(JSON.stringify(initial));
+  }
+
+  const isDirty = useMemo(() => JSON.stringify(scores) !== savedSnapshot, [scores, savedSnapshot]);
+
   useEffect(() => {
-    if (participants.length > 0) {
-      const initial: typeof scores = {};
-      participants.forEach((p) => {
-        initial[p.studentId] = {
-          trial1: p.trial1 || "",
-          trial2: p.trial2 || "",
-          trial3: p.trial3 || "",
-          bestScore: p.bestScore || "",
-          rankPosition: p.rankPosition ?? null,
-          remarks: p.remarks || "",
-        };
-      });
-      setScores(initial);
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  const toNum = (v: string) => {
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
+
+  const computeBest = (row: ScoreRow): string => {
+    if (isField) {
+      const vals = [row.trial1, row.trial2, row.trial3].map(toNum).filter((v): v is number => v !== null);
+      if (vals.length === 0) return "";
+      return String(lowerBetter ? Math.min(...vals) : Math.max(...vals));
     }
-  }, [participants]);
-
-  const updateScoreField = (
-    studentId: string,
-    field: "trial1" | "trial2" | "trial3" | "bestScore" | "remarks",
-    value: string
-  ) => {
-    setScores((prev) => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        [field]: value,
-      },
-    }));
+    if (isTrack) {
+      const n = toNum(row.trial1);
+      return n === null ? "" : String(n);
+    }
+    return row.bestScore;
   };
 
+  // Top 3 distinct scores get 1st/2nd/3rd; ties share a rank
+  const rankAll = (scoreMap: Record<string, ScoreRow>): Record<string, ScoreRow> => {
+    const entries = participants
+      .map((p) => ({ id: p.studentId, best: toNum(scoreMap[p.studentId]?.bestScore ?? "") }))
+      .filter((x): x is { id: string; best: number } => x.best !== null)
+      .sort((a, b) => (lowerBetter ? a.best - b.best : b.best - a.best));
+
+    const result: Record<string, ScoreRow> = {};
+    for (const id in scoreMap) result[id] = { ...scoreMap[id], rankPosition: null };
+
+    let currentRank = 1;
+    for (let i = 0; i < entries.length && currentRank <= 3; i++) {
+      result[entries[i].id] = { ...result[entries[i].id], rankPosition: currentRank };
+      if (!(i + 1 < entries.length && entries[i + 1].best === entries[i].best)) currentRank++;
+    }
+    return result;
+  };
+
+  const updateScoreField = (studentId: string, field: keyof Omit<ScoreRow, "rankPosition">, value: string) => {
+    setScores((prev) => {
+      const updated: ScoreRow = { ...(prev[studentId] || EMPTY_ROW), [field]: value };
+      if (field === "trial1" || field === "trial2" || field === "trial3") {
+        updated.bestScore = computeBest(updated);
+      }
+      const next = { ...prev, [studentId]: updated };
+      return field !== "remarks" && autoRank && canAutoRank ? rankAll(next) : next;
+    });
+  };
+
+  // Manual rank pick switches auto-rank off so it isn't overwritten
   const updateRankField = (studentId: string, rank: number | null) => {
-    setScores((prev) => ({
-      ...prev,
-      [studentId]: {
-        ...prev[studentId],
-        rankPosition: rank,
-      },
-    }));
+    if (autoRank && canAutoRank) setAutoRank(false);
+    setScores((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] || EMPTY_ROW), rankPosition: rank } }));
   };
+
+  const toggleAutoRank = () => {
+    const next = !autoRank;
+    setAutoRank(next);
+    if (next) setScores((prev) => rankAll(prev));
+  };
+
+  const handleDiscard = () => setScores(JSON.parse(savedSnapshot));
 
   const handleSaveResults = async () => {
     setIsSaving(true);
     try {
-      const resultsPayload = Object.entries(scores).map(([studentId, data]) => ({
-        studentId,
-        trial1: data.trial1,
-        trial2: data.trial2,
-        trial3: data.trial3,
-        bestScore: data.bestScore,
-        rankPosition: data.rankPosition,
-        remarks: data.remarks,
-      }));
-
+      const resultsPayload = Object.entries(scores).map(([studentId, data]) => ({ studentId, ...data }));
       const res = await fetch("/api/sports/results", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId,
-          results: resultsPayload,
-        }),
+        body: JSON.stringify({ eventId, results: resultsPayload }),
       });
-
       if (!res.ok) throw new Error("Failed to save results");
-      toast.success("Event results and podium ranks saved successfully");
-      refetch();
+      toast.success("Results saved");
+      await refetch();
+      refetchEvents();
     } catch (err: any) {
       toast.error(err.message || "Failed to save results");
     } finally {
@@ -143,362 +181,351 @@ export default function SportsResultsPage() {
     }
   };
 
-  const winnersCount = Object.values(scores).filter((s) => s.rankPosition && s.rankPosition > 0).length;
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [rankFilter, setRankFilter] = useState<"all" | "podium">("all");
+  const podium = useMemo(
+    () =>
+      participants
+        .filter((p) => (scores[p.studentId]?.rankPosition || 0) > 0)
+        .sort((a, b) => (scores[a.studentId]!.rankPosition || 9) - (scores[b.studentId]!.rankPosition || 9)),
+    [participants, scores]
+  );
 
   const filteredParticipants = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
     return participants.filter((p) => {
-      const q = searchQuery.toLowerCase().trim();
-      const studentScore = scores[p.studentId];
-
-      if (rankFilter === "podium") {
-        const rank = studentScore?.rankPosition;
-        if (!rank || rank <= 0) return false;
-      }
-
+      if (rankFilter === "podium" && !((scores[p.studentId]?.rankPosition || 0) > 0)) return false;
       if (!q) return true;
-
-      const chest = (p.chestNumber || "").toLowerCase();
-      const name = (p.studentName || "").toLowerCase();
-      const schoolId = (p.schoolId || "").toLowerCase();
-      const roll = String(p.presentRoll ?? "").toLowerCase();
-      const cls = String(p.presentClass ?? "").toLowerCase();
-      const sec = String(p.presentSection ?? "").toLowerCase();
-      const classSec = `class ${cls}-${sec}`.toLowerCase();
-
-      return (
-        name.includes(q) ||
-        chest.includes(q) ||
-        `#${chest}`.includes(q) ||
-        roll === q ||
-        `#${roll}` === q ||
-        roll.includes(q) ||
-        schoolId.includes(q) ||
-        cls.includes(q) ||
-        sec.includes(q) ||
-        classSec.includes(q)
-      );
+      const haystack = [
+        p.studentName,
+        p.chestNumber,
+        `#${p.chestNumber}`,
+        p.schoolId,
+        String(p.presentRoll ?? ""),
+        `${p.presentClass}-${p.presentSection}`,
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
     });
   }, [participants, searchQuery, rankFilter, scores]);
 
+  // Enter → next athlete in the same column (Shift+Enter → previous)
+  const handleCellKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, row: number, col: number) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const target = document.querySelector<HTMLInputElement>(
+      `[data-score-row="${row + (e.shiftKey ? -1 : 1)}"][data-score-col="${col}"]`
+    );
+    target?.focus();
+    target?.select();
+  };
+
+  const cellInput = (
+    p: SportsParticipant,
+    row: number,
+    col: number,
+    field: "trial1" | "trial2" | "trial3" | "bestScore",
+    label: string,
+    placeholder: string
+  ) => (
+    <div className="min-w-0">
+      <span className="md:hidden block text-[10px] font-semibold text-muted-foreground mb-0.5">{label}</span>
+      <Input
+        value={scores[p.studentId]?.[field] ?? ""}
+        onChange={(e) => updateScoreField(p.studentId, field, e.target.value)}
+        onKeyDown={(e) => handleCellKeyDown(e, row, col)}
+        onFocus={(e) => e.target.select()}
+        data-score-row={row}
+        data-score-col={col}
+        inputMode={field === "bestScore" && mode === "other" ? "text" : "decimal"}
+        placeholder={placeholder}
+        className="h-8 text-xs text-center font-mono rounded-lg"
+      />
+    </div>
+  );
+
+  const bestCell = (best: string, label: string) => (
+    <div className="min-w-0">
+      <span className="md:hidden block text-[10px] font-semibold text-muted-foreground mb-0.5">{label}</span>
+      <div
+        className={cn(
+          "h-8 text-xs font-mono font-bold rounded-lg flex items-center justify-center px-2 border select-none",
+          best
+            ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+            : "bg-muted/40 text-muted-foreground border-transparent"
+        )}
+      >
+        {best ? `${best}${unitSuffix}` : "—"}
+      </div>
+    </div>
+  );
+
+  const winnersCount = podium.length;
+
   return (
-    <div className="p-3 sm:p-5 md:p-6 space-y-4 max-w-7xl mx-auto pb-16">
-      {/* Header - Mobile Friendly */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/sports"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 rounded-xl shrink-0"
-            )}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight truncate">Ground Scoring & Podium</h1>
-              {event && (
-                <Badge variant="outline" className="text-[10px] font-bold px-2 py-0.5 rounded-md">
-                  {event.name} ({event.category})
-                </Badge>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-          <Link
-            href={`/sports/print?eventId=${eventId}&tab=score`}
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "h-8 sm:h-9 rounded-xl text-xs font-semibold gap-1.5"
-            )}
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Score Sheet
-          </Link>
-
-          {winnersCount > 0 && (
+    <div className="p-3 sm:p-5 md:p-6 space-y-4 max-w-7xl mx-auto pb-24">
+      <SportsEventHeader
+        event={event}
+        events={events}
+        active="score"
+        actions={
+          winnersCount > 0 ? (
             <Link
               href={`/sports/print?eventId=${eventId}&tab=certificates`}
-              className={cn(
-                buttonVariants({ variant: "secondary", size: "sm" }),
-                "h-8 sm:h-9 rounded-xl text-xs font-bold gap-1.5"
-              )}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 rounded-xl text-xs font-semibold gap-1.5")}
             >
               <Award className="h-3.5 w-3.5 text-amber-500" />
               Certificates ({winnersCount})
             </Link>
-          )}
+          ) : undefined
+        }
+      />
 
-          <Button
-            onClick={handleSaveResults}
-            disabled={isSaving}
-            size="sm"
-            className="h-8 sm:h-9 rounded-xl text-xs font-bold gap-1.5 shadow-2xs"
-          >
-            <Save className="h-3.5 w-3.5" />
-            {isSaving ? "Saving..." : "Save Results"}
-          </Button>
+      {/* Live podium */}
+      {podium.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar">
+          {podium.map((p) => {
+            const rank = scores[p.studentId]!.rankPosition!;
+            const best = scores[p.studentId]?.bestScore;
+            return (
+              <div
+                key={p.studentId}
+                className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs shrink-0", RANK_STYLE[rank])}
+              >
+                <span className="text-base leading-none">{RANK_MEDAL[rank]}</span>
+                <span className="font-bold uppercase truncate max-w-[140px]">{p.studentName}</span>
+                {best && <span className="font-mono opacity-80">{best}{unitSuffix}</span>}
+              </div>
+            );
+          })}
         </div>
-      </div>
+      )}
 
-      {/* Main Scoring Table Card */}
-      <Card className="rounded-2xl p-3.5 border shadow-2xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2.5 mb-2.5">
-          <div className="flex items-center gap-2">
-            <Medal className="h-4 w-4 text-primary" />
-            <span className="font-bold text-sm">Athletes & Score Entry</span>
-            <span className="text-xs font-semibold text-muted-foreground">
-              ({participants.length})
-            </span>
+      <Card className="rounded-2xl p-3 gap-3 border shadow-2xs">
+        {/* Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
+          <div className="relative flex-1 sm:max-w-sm">
+            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Search name, chest #, roll, class..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-8 pr-8 h-8 text-xs rounded-xl"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
-          <span className="text-xs text-muted-foreground font-mono">
-            Metric: {event?.measurementUnit || "Rank"}
-          </span>
+
+          <div className="flex items-center gap-2 justify-between sm:justify-end">
+            {canAutoRank && (
+              <button
+                type="button"
+                onClick={toggleAutoRank}
+                title="Rank top 3 automatically from best score"
+                className={cn(
+                  "h-8 px-2.5 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 transition-colors",
+                  autoRank
+                    ? "bg-primary/10 text-primary border-primary/30"
+                    : "bg-background text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                Auto-rank {autoRank ? "On" : "Off"}
+              </button>
+            )}
+            <div className="inline-flex border rounded-xl p-0.5 bg-muted/40 text-[11px] font-semibold">
+              {(["all", "podium"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setRankFilter(f)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg transition-colors",
+                    rankFilter === f ? "bg-background shadow-2xs text-foreground font-bold" : "text-muted-foreground"
+                  )}
+                >
+                  {f === "all" ? `All (${participants.length})` : `Podium (${winnersCount})`}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Search & Filter Bar */}
-        {participants.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mb-3">
-            <div className="relative flex-1 max-w-sm sm:max-w-md">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search athlete by name, chest #, roll, class..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-8 h-8 text-xs rounded-xl bg-background"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+        {isLoading ? (
+          <div className="p-12 text-center text-xs text-muted-foreground">Loading...</div>
+        ) : participants.length === 0 ? (
+          <div className="p-12 text-center text-xs text-muted-foreground">
+            No athletes enrolled.{" "}
+            <Link href={`/sports/${eventId}/enroll`} className="text-primary underline font-bold">
+              Enroll students
+            </Link>
+          </div>
+        ) : (
+          <div className="border rounded-xl overflow-x-auto custom-scrollbar">
+            <div className="md:min-w-[860px]">
+              {/* Column header (desktop) */}
+              <div
+                className={cn(
+                  "hidden md:grid gap-2 px-3 py-2 bg-muted/40 border-b text-[11px] font-semibold text-muted-foreground items-center",
+                  GRID_COLS[mode]
+                )}
+              >
+                <span className="text-center">#</span>
+                <span className="text-center">Chest</span>
+                <span>Athlete</span>
+                {mode === "field" && (
+                  <>
+                    <span className="text-center">Trial 1</span>
+                    <span className="text-center">Trial 2</span>
+                    <span className="text-center">Trial 3</span>
+                    <span className="text-center font-bold text-foreground">Best</span>
+                  </>
+                )}
+                {mode === "track" && (
+                  <>
+                    <span className="text-center">Time</span>
+                    <span className="text-center font-bold text-foreground">Best</span>
+                  </>
+                )}
+                {mode === "other" && <span className="text-center">Score</span>}
+                <span className="text-center font-bold text-foreground">Rank</span>
+                <span>Remarks</span>
+              </div>
 
-            <div className="flex items-center gap-2 text-xs self-end sm:self-auto">
-              {searchQuery.trim() !== "" && (
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  Showing {filteredParticipants.length} of {participants.length}
-                </span>
-              )}
-              <div className="inline-flex border rounded-xl p-0.5 bg-muted/40 text-[11px] font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setRankFilter("all")}
-                  className={`px-2.5 py-0.5 rounded-lg transition-colors ${
-                    rankFilter === "all"
-                      ? "bg-background shadow-2xs text-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  All ({participants.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRankFilter("podium")}
-                  className={`px-2.5 py-0.5 rounded-lg transition-colors flex items-center gap-1 ${
-                    rankFilter === "podium"
-                      ? "bg-background shadow-2xs text-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Podium ({winnersCount})
-                </button>
+              <div className="divide-y">
+                {filteredParticipants.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-muted-foreground">No match.</div>
+                ) : (
+                  filteredParticipants.map((p, index) => {
+                    const row = scores[p.studentId] || EMPTY_ROW;
+                    const rank = row.rankPosition;
+
+                    return (
+                      <div
+                        key={p.studentId}
+                        className={cn(
+                          "flex flex-col gap-2 p-3 md:grid md:gap-2 md:items-center md:px-3 md:py-2 text-xs hover:bg-muted/20",
+                          GRID_COLS[mode],
+                          rank && "bg-amber-500/[0.03]"
+                        )}
+                      >
+                        {/* Identity */}
+                        <div className="flex items-center gap-2 md:contents">
+                          <span className="hidden md:block text-center font-mono text-muted-foreground">{index + 1}</span>
+                          <span className="md:text-center shrink-0">
+                            <span className="px-2 py-0.5 rounded-lg bg-muted border font-mono font-black">
+                              #{p.chestNumber}
+                            </span>
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold uppercase truncate">{p.studentName}</p>
+                            <span className="text-[10px] text-muted-foreground">
+                              {p.presentClass}-{p.presentSection} • Roll {p.presentRoll}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Scores */}
+                        <div
+                          className={cn(
+                            "grid gap-2 md:contents",
+                            mode === "field" ? "grid-cols-4" : mode === "track" ? "grid-cols-2" : "grid-cols-1"
+                          )}
+                        >
+                          {mode === "field" && (
+                            <>
+                              {cellInput(p, index, 0, "trial1", "Trial 1", "—")}
+                              {cellInput(p, index, 1, "trial2", "Trial 2", "—")}
+                              {cellInput(p, index, 2, "trial3", "Trial 3", "—")}
+                              {bestCell(row.bestScore, "Best")}
+                            </>
+                          )}
+                          {mode === "track" && (
+                            <>
+                              {cellInput(p, index, 0, "trial1", "Time", "0.00")}
+                              {bestCell(row.bestScore, "Best")}
+                            </>
+                          )}
+                          {mode === "other" && cellInput(p, index, 0, "bestScore", "Score", "—")}
+                        </div>
+
+                        {/* Rank + remarks */}
+                        <div className="grid grid-cols-2 gap-2 md:contents">
+                          <Select
+                            value={rank === null ? "none" : String(rank)}
+                            onValueChange={(val) =>
+                              updateRankField(p.studentId, val === "none" || !val ? null : parseInt(val, 10))
+                            }
+                          >
+                            <SelectTrigger
+                              size="sm"
+                              className={cn("w-full font-bold", rank ? RANK_STYLE[rank] : "text-muted-foreground")}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No rank</SelectItem>
+                              <SelectItem value="1">🥇 1st</SelectItem>
+                              <SelectItem value="2">🥈 2nd</SelectItem>
+                              <SelectItem value="3">🥉 3rd</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={row.remarks}
+                            onChange={(e) => updateScoreField(p.studentId, "remarks", e.target.value)}
+                            placeholder="Remarks"
+                            className="h-8 text-xs rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
           </div>
         )}
-
-        {isLoading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground">Loading participants...</div>
-        ) : participants.length === 0 ? (
-          <div className="p-12 text-center text-xs text-muted-foreground italic">
-            No participants enrolled in this game yet.{" "}
-            <Link href={`/sports/${eventId}/enroll`} className="text-primary underline font-bold">
-              Enroll students first
-            </Link>
-            .
-          </div>
-        ) : (
-          <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b bg-muted/40 font-semibold">
-                  <th className="p-2 w-10 text-center">Sl.</th>
-                  <th className="p-2 w-20 text-center font-mono">Chest #</th>
-                  <th className="p-2 min-w-[140px]">Athlete Name</th>
-                  <th className="p-2 w-24">Class & Sec</th>
-                  {isField ? (
-                    <>
-                      <th className="p-2 w-20 text-center">Trial 1 (m)</th>
-                      <th className="p-2 w-20 text-center">Trial 2 (m)</th>
-                      <th className="p-2 w-20 text-center">Trial 3 (m)</th>
-                      <th className="p-2 w-24 text-center font-bold">Best Score</th>
-                    </>
-                  ) : isTrack ? (
-                    <>
-                      <th className="p-2 w-24 text-center">Timing (s)</th>
-                      <th className="p-2 w-24 text-center font-bold">Best Time</th>
-                    </>
-                  ) : (
-                    <th className="p-2 w-28 text-center">Score / Note</th>
-                  )}
-                  <th className="p-2 w-36 text-center font-bold">Podium Rank</th>
-                  <th className="p-2 w-36">Remarks</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {filteredParticipants.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={isField ? 10 : isTrack ? 8 : 7}
-                      className="p-8 text-center text-xs text-muted-foreground"
-                    >
-                      No athletes found matching &quot;{searchQuery}&quot;.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredParticipants.map((p, index) => {
-                    const studentScore = scores[p.studentId] || {
-                      trial1: "",
-                      trial2: "",
-                      trial3: "",
-                      bestScore: "",
-                      rankPosition: null,
-                      remarks: "",
-                    };
-
-                    return (
-                      <tr key={p.studentId} className="hover:bg-muted/30">
-                        <td className="p-2 text-center font-mono text-muted-foreground">{index + 1}</td>
-                        <td className="p-2 text-center font-mono font-black text-xs">
-                          <span className="px-2 py-0.5 rounded-lg bg-muted border">#{p.chestNumber}</span>
-                        </td>
-                        <td className="p-2">
-                          <p className="font-bold text-foreground uppercase">{p.studentName}</p>
-                          <span className="text-[10px] text-muted-foreground font-mono">#{p.schoolId}</span>
-                        </td>
-                        <td className="p-2 font-medium">
-                          Class {p.presentClass}-{p.presentSection} (#{p.presentRoll})
-                        </td>
-
-                        {isField ? (
-                          <>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.trial1}
-                                onChange={(e) => updateScoreField(p.studentId, "trial1", e.target.value)}
-                                placeholder="4.10"
-                                className="h-7 text-xs text-center font-mono rounded-lg"
-                              />
-                            </td>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.trial2}
-                                onChange={(e) => updateScoreField(p.studentId, "trial2", e.target.value)}
-                                placeholder="4.25"
-                                className="h-7 text-xs text-center font-mono rounded-lg"
-                              />
-                            </td>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.trial3}
-                                onChange={(e) => updateScoreField(p.studentId, "trial3", e.target.value)}
-                                placeholder="4.30"
-                                className="h-7 text-xs text-center font-mono rounded-lg"
-                              />
-                            </td>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.bestScore}
-                                onChange={(e) => updateScoreField(p.studentId, "bestScore", e.target.value)}
-                                placeholder="4.30m"
-                                className="h-7 text-xs text-center font-mono font-bold bg-muted/40 rounded-lg"
-                              />
-                            </td>
-                          </>
-                        ) : isTrack ? (
-                          <>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.trial1}
-                                onChange={(e) => updateScoreField(p.studentId, "trial1", e.target.value)}
-                                placeholder="12.4s"
-                                className="h-7 text-xs text-center font-mono rounded-lg"
-                              />
-                            </td>
-                            <td className="p-1.5 text-center">
-                              <Input
-                                value={studentScore.bestScore}
-                                onChange={(e) => updateScoreField(p.studentId, "bestScore", e.target.value)}
-                                placeholder="12.4s"
-                                className="h-7 text-xs text-center font-mono font-bold bg-muted/40 rounded-lg"
-                              />
-                            </td>
-                          </>
-                        ) : (
-                          <td className="p-1.5 text-center">
-                            <Input
-                              value={studentScore.bestScore}
-                              onChange={(e) => updateScoreField(p.studentId, "bestScore", e.target.value)}
-                              placeholder="Points / Notes"
-                              className="h-7 text-xs text-center rounded-lg"
-                            />
-                          </td>
-                        )}
-
-                        <td className="p-1.5 text-center">
-                          <select
-                            value={studentScore.rankPosition === null ? "" : String(studentScore.rankPosition)}
-                            onChange={(e) =>
-                              updateRankField(
-                                p.studentId,
-                                e.target.value === "" ? null : parseInt(e.target.value, 10)
-                              )
-                            }
-                            className={`h-7 w-full rounded-lg border px-2 text-xs font-bold outline-none ${
-                              studentScore.rankPosition === 1
-                                ? "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500"
-                                : studentScore.rankPosition === 2
-                                ? "bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-500"
-                                : studentScore.rankPosition === 3
-                                ? "bg-amber-800/20 text-amber-900 dark:text-amber-200 border-amber-800"
-                                : "bg-background text-foreground"
-                            }`}
-                          >
-                            <option value="">No Rank</option>
-                            <option value="1">🥇 1st Place</option>
-                            <option value="2">🥈 2nd Place</option>
-                            <option value="3">🥉 3rd Place</option>
-                          </select>
-                        </td>
-
-                        <td className="p-1.5">
-                          <Input
-                            value={studentScore.remarks}
-                            onChange={(e) => updateScoreField(p.studentId, "remarks", e.target.value)}
-                            placeholder="Optional notes"
-                            className="h-7 text-xs rounded-lg"
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
       </Card>
+
+      {/* Sticky save bar */}
+      {participants.length > 0 && (
+        <div className="sticky bottom-3 z-20">
+          <div
+            className={cn(
+              "flex items-center justify-between gap-2 rounded-2xl border px-3 py-2 shadow-lg backdrop-blur transition-colors",
+              isDirty ? "bg-card/95 border-primary/30" : "bg-card/80"
+            )}
+          >
+            <span className="flex items-center gap-2 text-xs font-semibold">
+              <span className={cn("h-2 w-2 rounded-full", isDirty ? "bg-amber-500 animate-pulse" : "bg-emerald-500")} />
+              {isDirty ? "Unsaved changes" : "All saved"}
+            </span>
+            <div className="flex items-center gap-2">
+              {isDirty && (
+                <Button variant="ghost" size="sm" onClick={handleDiscard} className="h-8 rounded-xl text-xs gap-1.5">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Discard
+                </Button>
+              )}
+              <Button
+                onClick={handleSaveResults}
+                disabled={isSaving || !isDirty}
+                size="sm"
+                className="h-8 rounded-xl text-xs font-bold gap-1.5"
+              >
+                <Save className="h-3.5 w-3.5" />
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

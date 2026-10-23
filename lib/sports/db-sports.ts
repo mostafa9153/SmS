@@ -38,6 +38,21 @@ export async function getSportsEvents(academicYear?: number): Promise<SportsEven
         countMap[r.event_id] = (countMap[r.event_id] || 0) + 1;
       });
 
+      const { data: resData } = await supabase
+        .from("sports_event_results")
+        .select("event_id, best_score, rank_position");
+
+      const scoredMap: Record<string, number> = {};
+      const podiumMap: Record<string, number> = {};
+      (resData || []).forEach((r: any) => {
+        if (r.best_score && String(r.best_score).trim() !== "") {
+          scoredMap[r.event_id] = (scoredMap[r.event_id] || 0) + 1;
+        }
+        if (r.rank_position && r.rank_position > 0) {
+          podiumMap[r.event_id] = (podiumMap[r.event_id] || 0) + 1;
+        }
+      });
+
       return data.map((d: any) => ({
         id: d.id,
         academicYear: d.academic_year,
@@ -51,6 +66,8 @@ export async function getSportsEvents(academicYear?: number): Promise<SportsEven
         description: d.description,
         createdAt: d.created_at,
         participantCount: countMap[d.id] || 0,
+        scoredCount: scoredMap[d.id] || 0,
+        podiumCount: podiumMap[d.id] || 0,
       }));
     }
   } catch (err) {
@@ -63,9 +80,22 @@ export async function getSportsEvents(academicYear?: number): Promise<SportsEven
     countMap[r.eventId] = (countMap[r.eventId] || 0) + 1;
   });
 
+  const scoredMap: Record<string, number> = {};
+  const podiumMap: Record<string, number> = {};
+  Object.values(memoryResults).forEach((r) => {
+    if (r.bestScore && r.bestScore.trim() !== "") {
+      scoredMap[r.eventId] = (scoredMap[r.eventId] || 0) + 1;
+    }
+    if (r.rankPosition && r.rankPosition > 0) {
+      podiumMap[r.eventId] = (podiumMap[r.eventId] || 0) + 1;
+    }
+  });
+
   return memoryEvents.map((e) => ({
     ...e,
     participantCount: countMap[e.id] || 0,
+    scoredCount: scoredMap[e.id] || 0,
+    podiumCount: podiumMap[e.id] || 0,
   }));
 }
 
@@ -210,6 +240,33 @@ export async function getStudentRegistrationCounts(): Promise<Record<string, num
   return counts;
 }
 
+function getOrAssignUniversalChestNumber(
+  studentId: string,
+  academicYear: number = new Date().getFullYear()
+): string {
+  if (memoryAthletes[studentId]?.chestNumber) {
+    return memoryAthletes[studentId].chestNumber;
+  }
+  const usedNos = new Set(
+    Object.values(memoryAthletes)
+      .map((a) => parseInt(a.chestNumber, 10))
+      .filter((n) => !isNaN(n))
+  );
+  let next = 101;
+  while (usedNos.has(next)) {
+    next++;
+  }
+  const assigned = String(next);
+  memoryAthletes[studentId] = {
+    id: `ath-${studentId}`,
+    academicYear,
+    studentId,
+    chestNumber: assigned,
+    createdAt: new Date().toISOString(),
+  };
+  return assigned;
+}
+
 export async function getEventParticipants(eventId: string): Promise<SportsParticipant[]> {
   try {
     const supabase = createAdminClient();
@@ -245,6 +302,14 @@ export async function getEventParticipants(eventId: string): Promise<SportsParti
 
       const athleteMap = new Map((athleteRows || []).map((a: any) => [a.student_id, a]));
 
+      // Auto-assign any missing chest numbers to guarantee every student has a unique universal number
+      for (const sId of studentIds) {
+        if (!athleteMap.has(sId)) {
+          const autoNo = await getOrCreateChestNumber(sId);
+          athleteMap.set(sId, { student_id: sId, chest_number: autoNo });
+        }
+      }
+
       // Fetch results for this event
       const { data: resultRows } = await supabase
         .from("sports_event_results")
@@ -279,15 +344,16 @@ export async function getEventParticipants(eventId: string): Promise<SportsParti
       });
 
       return regRows.map((r: any) => {
-        const s = r.students || {};
+        const s: any = Array.isArray(r.students) ? r.students[0] || {} : r.students || {};
         const athlete = athleteMap.get(r.student_id);
         const res = resultMap.get(r.student_id);
+        const assignedChest = athlete?.chest_number || "-";
         return {
           registrationId: r.id,
           eventId: r.event_id,
           studentId: r.student_id,
           athleteId: athlete?.id,
-          chestNumber: athlete?.chest_number || "-",
+          chestNumber: assignedChest,
           studentName: s.name || "Student",
           schoolId: s.school_id || "",
           presentClass: s.present_class || "",
@@ -315,6 +381,7 @@ export async function getEventParticipants(eventId: string): Promise<SportsParti
   const regs = Object.values(memoryRegistrations).filter((r) => r.eventId === eventId);
   return regs.map((r, i) => {
     const athlete = memoryAthletes[r.studentId];
+    const chestNo = athlete?.chestNumber || getOrAssignUniversalChestNumber(r.studentId);
     const res = memoryResults[`${eventId}-${r.studentId}`];
     const studentEvents: string[] = [];
     Object.values(memoryRegistrations).forEach((reg) => {
@@ -331,12 +398,12 @@ export async function getEventParticipants(eventId: string): Promise<SportsParti
       eventId: r.eventId,
       studentId: r.studentId,
       athleteId: athlete?.id,
-      chestNumber: athlete?.chestNumber || `${100 + i + 1}`,
+      chestNumber: chestNo,
       studentName: `Student ${r.studentId.substring(0, 6)}`,
-      schoolId: `MHS/2026/${100 + i}`,
-      presentClass: "V",
+      schoolId: `MHS/2026/${chestNo}`,
+      presentClass: "VIII",
       presentSection: "A",
-      presentRoll: i + 1,
+      presentRoll: parseInt(chestNo, 10) || (i + 1),
       gender: "Male",
       laneOrHeat: r.laneOrHeat,
       status: (r.status as any) || "Registered",
@@ -402,76 +469,107 @@ export async function getAllAthletesWithEvents(
         }
       });
 
-      // Filter only athletes who actually enrolled in at least one event
-      return athleteRows
-        .filter((a: any) => (eventsMap[a.student_id] || []).length > 0)
-        .map((a: any) => {
-          const s = a.students || {};
-          const studentEvents = eventsMap[a.student_id] || [];
-          return {
-            registrationId: `ath-${a.id}`,
-            eventId: "",
-            studentId: a.student_id,
-            athleteId: a.id,
-            chestNumber: a.chest_number,
-            studentName: s.name || "Student",
-            schoolId: s.school_id || "",
-            presentClass: s.present_class || "",
-            presentSection: s.present_section || "A",
-            presentRoll: s.present_roll || 0,
-            gender: s.gender || "All",
-            photoUrl: s.photo_url,
-            status: "Registered" as const,
-            registeredEventsCount: studentEvents.length,
-            enrolledEvents: studentEvents,
-          };
-        })
-        .sort((a: any, b: any) => {
-          const numA = parseInt(a.chestNumber, 10);
-          const numB = parseInt(b.chestNumber, 10);
-          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-          return a.chestNumber.localeCompare(b.chestNumber);
+      // Deduplicate to guarantee strictly 1 row per student and 1 row per chest number
+      const seenStudents = new Set<string>();
+      const seenChestNos = new Set<string>();
+      const uniqueAthletes: SportsParticipant[] = [];
+
+      for (const a of athleteRows) {
+        if (!a.student_id || seenStudents.has(a.student_id)) continue;
+        const studentEvents = eventsMap[a.student_id] || [];
+        if (studentEvents.length === 0) continue;
+
+        const cleanChest = String(a.chest_number || "").trim();
+        if (seenChestNos.has(cleanChest)) continue;
+
+        seenStudents.add(a.student_id);
+        seenChestNos.add(cleanChest);
+
+        const s: any = Array.isArray(a.students) ? a.students[0] || {} : a.students || {};
+        uniqueAthletes.push({
+          registrationId: `ath-${a.id}`,
+          eventId: "",
+          studentId: a.student_id,
+          athleteId: a.id,
+          chestNumber: cleanChest,
+          studentName: s.name || "Student",
+          schoolId: s.school_id || "",
+          presentClass: s.present_class || "",
+          presentSection: s.present_section || "A",
+          presentRoll: s.present_roll || 0,
+          gender: s.gender || "All",
+          photoUrl: s.photo_url,
+          status: "Registered" as const,
+          registeredEventsCount: studentEvents.length,
+          enrolledEvents: studentEvents,
         });
+      }
+
+      return uniqueAthletes.sort((a, b) => {
+        const numA = parseInt(a.chestNumber, 10);
+        const numB = parseInt(b.chestNumber, 10);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+        return a.chestNumber.localeCompare(b.chestNumber);
+      });
     }
   } catch (err) {}
 
   // Memory fallback
-  return Object.values(memoryAthletes)
-    .map((ath) => {
-      const studentEvents: string[] = [];
-      Object.values(memoryRegistrations).forEach((reg) => {
-        if (reg.studentId === ath.studentId) {
-          const ev = memoryEvents.find((e) => e.id === reg.eventId);
-          if (ev && !studentEvents.includes(ev.name)) {
-            studentEvents.push(ev.name);
-          }
-        }
-      });
+  const seenMemStudents = new Set<string>();
+  const seenMemChests = new Set<string>();
+  const uniqueMem: SportsParticipant[] = [];
 
-      return {
-        registrationId: `ath-${ath.id}`,
-        eventId: "",
-        studentId: ath.studentId,
-        athleteId: ath.id,
-        chestNumber: ath.chestNumber,
-        studentName: `Student ${ath.studentId.substring(0, 6)}`,
-        schoolId: `MHS/2026/${ath.chestNumber}`,
-        presentClass: "V",
-        presentSection: "A",
-        presentRoll: 1,
-        gender: "All",
-        status: "Registered" as const,
-        registeredEventsCount: studentEvents.length,
-        enrolledEvents: studentEvents,
-      };
-    })
-    .filter((a) => a.enrolledEvents.length > 0);
+  for (const ath of Object.values(memoryAthletes)) {
+    if (seenMemStudents.has(ath.studentId)) continue;
+    const cleanChest = String(ath.chestNumber || "").trim();
+    if (seenMemChests.has(cleanChest)) continue;
+
+    const studentEvents: string[] = [];
+    Object.values(memoryRegistrations).forEach((reg) => {
+      if (reg.studentId === ath.studentId) {
+        const ev = memoryEvents.find((e) => e.id === reg.eventId);
+        if (ev && !studentEvents.includes(ev.name)) {
+          studentEvents.push(ev.name);
+        }
+      }
+    });
+
+    if (studentEvents.length === 0) continue;
+
+    seenMemStudents.add(ath.studentId);
+    seenMemChests.add(cleanChest);
+
+    uniqueMem.push({
+      registrationId: `ath-${ath.id}`,
+      eventId: "",
+      studentId: ath.studentId,
+      athleteId: ath.id,
+      chestNumber: cleanChest,
+      studentName: `Student ${ath.studentId.substring(0, 6)}`,
+      schoolId: `MHS/2026/${cleanChest}`,
+      presentClass: "VIII",
+      presentSection: "A",
+      presentRoll: parseInt(cleanChest, 10) || 1,
+      gender: "All",
+      status: "Registered" as const,
+      registeredEventsCount: studentEvents.length,
+      enrolledEvents: studentEvents,
+    });
+  }
+
+  return uniqueMem.sort((a, b) => {
+    const numA = parseInt(a.chestNumber, 10);
+    const numB = parseInt(b.chestNumber, 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return a.chestNumber.localeCompare(b.chestNumber);
+  });
 }
 
 /**
  * Assigns or gets a universal chest number for a student.
  * If student already has a chest number for this year, retains it.
  * Otherwise, generates next available sequential number (e.g. 101, 102...)
+ * Strictly guarantees uniqueness across all students.
  */
 export async function getOrCreateChestNumber(
   studentId: string,
@@ -490,33 +588,49 @@ export async function getOrCreateChestNumber(
       .maybeSingle();
 
     if (existing?.chest_number) {
-      if (preferredChestNumber && preferredChestNumber !== existing.chest_number) {
-        await supabase
+      if (preferredChestNumber && preferredChestNumber.trim() !== existing.chest_number) {
+        // Verify preferred number is not already taken by another student
+        const { data: conflict } = await supabase
           .from("sports_athletes")
-          .update({ chest_number: preferredChestNumber })
-          .eq("student_id", studentId)
-          .eq("academic_year", academicYear);
-        return preferredChestNumber;
+          .select("id")
+          .eq("academic_year", academicYear)
+          .eq("chest_number", preferredChestNumber.trim())
+          .neq("student_id", studentId)
+          .maybeSingle();
+
+        if (!conflict) {
+          await supabase
+            .from("sports_athletes")
+            .update({ chest_number: preferredChestNumber.trim() })
+            .eq("student_id", studentId)
+            .eq("academic_year", academicYear);
+          return preferredChestNumber.trim();
+        }
       }
       return existing.chest_number;
     }
 
-    let finalChestNo = preferredChestNumber;
-    if (!finalChestNo) {
-      // Determine next sequential chest number
-      const { data: allAthletes } = await supabase
-        .from("sports_athletes")
-        .select("chest_number")
-        .eq("academic_year", academicYear);
+    // Determine all currently used numbers
+    const { data: allAthletes } = await supabase
+      .from("sports_athletes")
+      .select("chest_number")
+      .eq("academic_year", academicYear);
 
-      const usedNumbers = new Set(
+    const usedNumbers = new Set(
+      (allAthletes || [])
+        .map((a: any) => String(a.chest_number).trim())
+    );
+
+    let finalChestNo = preferredChestNumber ? preferredChestNumber.trim() : "";
+    if (!finalChestNo || usedNumbers.has(finalChestNo)) {
+      const usedInts = new Set(
         (allAthletes || [])
           .map((a: any) => parseInt(a.chest_number, 10))
           .filter((n: number) => !isNaN(n))
       );
 
       let nextNum = 101;
-      while (usedNumbers.has(nextNum)) {
+      while (usedInts.has(nextNum)) {
         nextNum++;
       }
       finalChestNo = String(nextNum);
@@ -532,21 +646,21 @@ export async function getOrCreateChestNumber(
   } catch (err) {}
 
   // Memory fallback
-  if (memoryAthletes[studentId]) {
-    if (preferredChestNumber) {
-      memoryAthletes[studentId].chestNumber = preferredChestNumber;
-    }
+  if (memoryAthletes[studentId]?.chestNumber) {
     return memoryAthletes[studentId].chestNumber;
   }
 
   const existingNos = new Set(
-    Object.values(memoryAthletes).map((a) => parseInt(a.chestNumber, 10)).filter((n) => !isNaN(n))
+    Object.values(memoryAthletes).map((a) => String(a.chestNumber).trim())
   );
   let next = 101;
-  while (existingNos.has(next)) {
+  while (existingNos.has(String(next))) {
     next++;
   }
-  const assigned = preferredChestNumber || String(next);
+  const assigned = preferredChestNumber && !existingNos.has(preferredChestNumber.trim())
+    ? preferredChestNumber.trim()
+    : String(next);
+
   memoryAthletes[studentId] = {
     id: `ath-${studentId}`,
     academicYear,
@@ -665,33 +779,64 @@ export async function saveEventResults(
   return true;
 }
 
-export async function updateChestNumber(studentId: string, newChestNumber: string, academicYear = new Date().getFullYear()): Promise<boolean> {
+export async function updateChestNumber(
+  studentId: string,
+  newChestNumber: string,
+  academicYear = new Date().getFullYear()
+): Promise<{ success: boolean; error?: string }> {
+  const cleanChest = newChestNumber.trim();
+  if (!cleanChest) {
+    return { success: false, error: "Chest number cannot be empty" };
+  }
+
   try {
     const supabase = createAdminClient();
+
+    // Check if another student has this chest number in this academic year
+    const { data: conflict } = await supabase
+      .from("sports_athletes")
+      .select("student_id")
+      .eq("academic_year", academicYear)
+      .eq("chest_number", cleanChest)
+      .neq("student_id", studentId)
+      .maybeSingle();
+
+    if (conflict) {
+      return { success: false, error: `Chest number ${cleanChest} is already assigned to another student.` };
+    }
+
     await supabase
       .from("sports_athletes")
       .upsert(
         {
           student_id: studentId,
           academic_year: academicYear,
-          chest_number: newChestNumber.trim(),
+          chest_number: cleanChest,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "academic_year,student_id" }
       );
-    return true;
+    return { success: true };
   } catch (err) {}
 
+  // Check memory conflict
+  const conflictMem = Object.values(memoryAthletes).find(
+    (a) => a.chestNumber === cleanChest && a.studentId !== studentId
+  );
+  if (conflictMem) {
+    return { success: false, error: `Chest number ${cleanChest} is already assigned to another student.` };
+  }
+
   if (memoryAthletes[studentId]) {
-    memoryAthletes[studentId].chestNumber = newChestNumber.trim();
+    memoryAthletes[studentId].chestNumber = cleanChest;
   } else {
     memoryAthletes[studentId] = {
       id: `ath-${studentId}`,
       academicYear,
       studentId,
-      chestNumber: newChestNumber.trim(),
+      chestNumber: cleanChest,
       createdAt: new Date().toISOString(),
     };
   }
-  return true;
+  return { success: true };
 }

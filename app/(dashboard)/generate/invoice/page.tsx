@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { showToast } from "@/components/ui/toast-banner";
 import {
@@ -300,6 +301,7 @@ function InvoiceGeneratorContent() {
       paymentMode: "Cash",
       paymentStatus: "Paid",
       remarks: "Annual admission fee collected with thanks.",
+      includeDigitalSignature: true,
     };
   });
 
@@ -682,6 +684,7 @@ function InvoiceGeneratorContent() {
           paymentStatus: bulkPaymentStatus,
           remarks: "Annual admission fee collected with thanks.",
           isBlankTemplate: true,
+          includeDigitalSignature: invoice.includeDigitalSignature ?? true,
         };
       });
     }
@@ -709,6 +712,7 @@ function InvoiceGeneratorContent() {
         paymentMode: bulkPaymentMode,
         paymentStatus: bulkPaymentStatus,
         remarks: "Annual admission fee collected with thanks.",
+        includeDigitalSignature: invoice.includeDigitalSignature ?? true,
       };
     });
   }, [
@@ -721,6 +725,7 @@ function InvoiceGeneratorContent() {
     invoice.issueDate,
     invoice.issueTime,
     invoice.feeItems,
+    invoice.includeDigitalSignature,
     bulkSession,
     bulkClass,
     bulkSection,
@@ -1429,6 +1434,18 @@ function InvoiceGeneratorContent() {
                       triggerClassName="h-8 text-xs font-bold text-emerald-600"
                     />
                   </div>
+
+                  {/* Digital Head Signature Toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/60 col-span-1 sm:col-span-2">
+                    <Label htmlFor="toggle-invoice-single-sign" className="text-xs font-semibold cursor-pointer">
+                      Digital Signature
+                    </Label>
+                    <Switch
+                      id="toggle-invoice-single-sign"
+                      checked={invoice.includeDigitalSignature ?? true}
+                      onCheckedChange={(checked) => setInvoice((prev) => ({ ...prev, includeDigitalSignature: checked }))}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2053,6 +2070,18 @@ function InvoiceGeneratorContent() {
                       ]}
                       searchable={false}
                       triggerClassName="h-8 text-xs font-medium"
+                    />
+                  </div>
+
+                  {/* Digital Head Signature Toggle */}
+                  <div className="flex items-center justify-between pt-2 border-t border-border/60 col-span-1 sm:col-span-2">
+                    <Label htmlFor="toggle-invoice-bulk-sign" className="text-xs font-semibold cursor-pointer">
+                      Digital Signature
+                    </Label>
+                    <Switch
+                      id="toggle-invoice-bulk-sign"
+                      checked={invoice.includeDigitalSignature ?? true}
+                      onCheckedChange={(checked) => setInvoice((prev) => ({ ...prev, includeDigitalSignature: checked }))}
                     />
                   </div>
                 </div>

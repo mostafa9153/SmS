@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import {
@@ -95,6 +96,7 @@ function StudentIDCardStudioContent() {
 
   // Selected student IDs for batch printing
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
   const [previewScale, setPreviewScale] = useState<number>(1.35);
 
@@ -406,6 +408,18 @@ function StudentIDCardStudioContent() {
                   </span>
                 </div>
               </div>
+
+              {/* Digital Head Signature Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <Label htmlFor="toggle-idcard-digital-sign" className="text-xs font-semibold cursor-pointer">
+                  Digital Signature
+                </Label>
+                <Switch
+                  id="toggle-idcard-digital-sign"
+                  checked={includeDigitalSignature}
+                  onCheckedChange={setIncludeDigitalSignature}
+                />
+              </div>
             </div>
 
             {/* Student Roster Table with Multi-Select Checkboxes */}
@@ -589,6 +603,7 @@ function StudentIDCardStudioContent() {
                     academicSession={sessionString}
                     validUpto={validUptoString}
                     cardTitle={cardTitle}
+                    includeDigitalSignature={includeDigitalSignature}
                   />
                 </div>
               ) : (
@@ -845,6 +860,7 @@ function StudentIDCardStudioContent() {
               academicSession={sessionString}
               validUpto={validUptoString}
               cardTitle={cardTitle}
+              includeDigitalSignature={includeDigitalSignature}
               isPrintingMode={true}
               className="shadow-none border-none rounded-none"
             />

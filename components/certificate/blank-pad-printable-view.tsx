@@ -450,6 +450,8 @@ export function BlankPadPrintableView({ data, schoolProfile }: BlankPadPrintable
                       ({effectiveHeadTitle})
                     </p>
                   </div>
+                  {/* Space for physical rubber stamp / seal below */}
+                  <div className={isA4 ? "h-14 w-full" : "h-10 w-full"} />
                 </div>
               )}
             </div>

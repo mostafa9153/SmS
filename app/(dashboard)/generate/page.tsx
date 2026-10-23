@@ -302,6 +302,22 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     gradientGlow: "from-teal-500/10 via-transparent to-transparent",
     highlights: ["Dual Student & Counter Copy", "Itemized Fee Head Breakdown", "Single & Bulk Batch Print", "Bank / Counter Stamp Ready"],
   },
+  {
+    id: "attendance-register",
+    title: "Attendance Register",
+    category: "admissions",
+    categoryLabel: "Records & Lists",
+    formatBadge: "A3 Landscape",
+    formatVariant: "sky",
+    description:
+      "Printable class-wise student attendance register with roll number, name, father name, phone, PEN, DOB, and Aadhaar columns.",
+    href: "/generate/attendance-register",
+    icon: ClipboardList,
+    iconBg: "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30",
+    accentBorder: "hover:border-sky-500/50 hover:shadow-sky-500/10",
+    gradientGlow: "from-sky-500/10 via-transparent to-transparent",
+    highlights: ["A3 Landscape Printable", "Class & Section Selector", "School Logo Watermark", "Roll-Sorted Active Students"],
+  },
 ];
 
 /**

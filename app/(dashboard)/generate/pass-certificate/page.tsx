@@ -3,29 +3,27 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { searchStudents, getStudentById } from "@/lib/data/students";
-import { useDebounce } from "@/lib/hooks/use-debounce";
+import { getStudentById } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import {
   PassCertificatePrintableView,
   PassCertificateData,
   formatDobToWords,
 } from "@/components/certificate/pass-certificate-printable-view";
+import { StudentPicker, StudentPickerMode } from "@/components/certificate/student-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Switch } from "@/components/ui/switch";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
   ArrowLeft,
   User,
-  MapPin,
   Calendar,
-  Search,
-  CheckCircle2,
   GraduationCap,
   Eye,
   RotateCcw,
@@ -42,6 +40,7 @@ import {
   recordPrintedCertificate,
   buildPassCertInsert,
 } from "@/lib/utils/certificate-registry";
+import { cn } from "@/lib/utils";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -59,26 +58,18 @@ function PassCertificateGeneratorContent() {
   const studentIdParam = searchParams.get("studentId");
   const { profile: schoolProfile } = useSchoolProfile();
 
-  const [studentSearch, setStudentSearch] = useState("");
+  const [pickerMode, setPickerMode] = useState<StudentPickerMode>("single");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
+  const [printMode, setPrintMode] = useState<"single" | "batch">("single");
 
-  const debouncedSearch = useDebounce(studentSearch, 300);
-
-  const { data: searchResults, isLoading: isSearchLoading } = useQuery({
-    queryKey: ["students", "search", debouncedSearch],
-    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
-    enabled: debouncedSearch.length > 0,
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const { data: directStudentData, isLoading: isDirectStudentLoading } = useQuery({
+  const { data: directStudentData } = useQuery({
     queryKey: ["students", "direct", studentIdParam],
     queryFn: () => getStudentById(studentIdParam!),
     enabled: !!studentIdParam,
     staleTime: 5 * 60 * 1000,
   });
 
-  const isLoadingStudents = isSearchLoading || isDirectStudentLoading;
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
@@ -118,11 +109,11 @@ function PassCertificateGeneratorContent() {
     remarks:
       "To the best of my knowledge, she bears an exemplary moral character and upright conduct during her academic tenure. I wish her every success and prosperity in all future academic pursuits and career endeavors.",
     headmasterTitle: "Teacher-in-Charge / Headmaster",
+    includeDigitalSignature: true,
   }));
 
   const handleReset = () => {
     setSelectedStudent(null);
-    setStudentSearch("");
     const seq = getDocumentSequence("pass-certificate", currentYear);
     setCert({
       certificateNo: formatDocumentNumber("pass-certificate", seq, currentYear),
@@ -149,6 +140,7 @@ function PassCertificateGeneratorContent() {
       remarks:
         "To the best of my knowledge, she bears an exemplary moral character and upright conduct during her academic tenure. I wish her every success and prosperity in all future academic pursuits and career endeavors.",
       headmasterTitle: schoolProfile ? getEffectiveHeadTitle(schoolProfile) : "Teacher-in-Charge / Headmaster",
+      includeDigitalSignature: true,
     });
   };
 
@@ -191,6 +183,7 @@ function PassCertificateGeneratorContent() {
       ...prev,
       studentId: s.id,
       studentName: s.name,
+      photoUrl: s.photoUrl,
       gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",
       fatherName: s.fatherName || s.guardianName || "Guardian",
       motherName: s.motherName || "",
@@ -238,13 +231,49 @@ function PassCertificateGeneratorContent() {
     }
   }, [directStudentData]);
 
-  // Filter students for search dropdown
-  const filteredStudents = useMemo(() => {
-    if (directStudentData && !studentSearch) {
-      return [directStudentData];
-    }
-    return searchResults?.data || [];
-  }, [directStudentData, searchResults, studentSearch]);
+  // Pure transform used for bulk printing: builds one certificate's data from
+  // a roster student + the common settings currently set in `cert`.
+  function buildCertDataForStudent(s: Student, certNo: string): PassCertificateData {
+    const parsedAddr = parseAddress(s.address);
+    const isFemale = s.gender === "Female";
+    const pronounObject = isFemale ? "her" : "him";
+    const pronounPossessive = isFemale ? "her" : "his";
+    const pronounSubject = isFemale ? "She" : "He";
+
+    const passedCls = s.presentClass || "X";
+    const nextCls = getNextClass(passedCls);
+    const isPassedOutStatus =
+      s.currentStatus === "Passed Out" ||
+      s.currentStatus === "C.C.H.S." ||
+      passedCls === "XII" ||
+      passedCls === "X";
+
+    const dobVal = s.dob || "2010-08-15";
+    const dobWords = formatDobToWords(dobVal);
+
+    return {
+      ...cert,
+      certificateNo: certNo,
+      studentId: s.id,
+      studentName: s.name,
+      photoUrl: s.photoUrl,
+      gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",
+      fatherName: s.fatherName || s.guardianName || "Guardian",
+      motherName: s.motherName || "",
+      village: parsedAddr.village,
+      postOffice: parsedAddr.postOffice,
+      policeStation: parsedAddr.policeStation,
+      district: parsedAddr.district,
+      pincode: parsedAddr.pincode,
+      admissionYear: s.admissionYear ? String(s.admissionYear) : String(currentYear - 4),
+      passedClass: passedCls,
+      eligibleForClass: nextCls,
+      isCompletedOrPassedOut: isPassedOutStatus,
+      dateOfBirth: dobVal,
+      dateOfBirthWords: dobWords,
+      remarks: `To the best of my knowledge, ${pronounSubject.toLowerCase()} bears an exemplary moral character and upright conduct during ${pronounPossessive} academic tenure. I wish ${pronounObject} every success and prosperity in all future academic pursuits and career endeavors.`,
+    };
+  }
 
   // Handle DOB change with automatic word generation
   function handleDobChange(val: string) {
@@ -259,7 +288,8 @@ function PassCertificateGeneratorContent() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
-  const handlePrint = () => {
+  const handlePrintSingle = () => {
+    setPrintMode("single");
     const currentCertificateNo = cert.certificateNo;
     const nextSeq = certSeq + 1;
     saveDocumentSequence("pass-certificate", nextSeq, currentYear);
@@ -300,6 +330,46 @@ function PassCertificateGeneratorContent() {
       window.print();
       advanceToNext();
     }, 60);
+  };
+
+  // Bulk print: one certificate per selected student, sharing the common
+  // settings currently configured in the form (issue date, conduct, etc.)
+  const handlePrintBatch = () => {
+    if (bulkStudents.length === 0) return;
+    setPrintMode("batch");
+
+    const startSeq = certSeq;
+    const count = bulkStudents.length;
+    const endSeq = startSeq + count - 1;
+    const nextSeq = endSeq + 1;
+    saveDocumentSequence("pass-certificate", nextSeq, currentYear);
+    setCertSeq(nextSeq);
+
+    bulkStudents.forEach((student, idx) => {
+      const certNo = formatDocumentNumber("pass-certificate", startSeq + idx, currentYear);
+      const certData = buildCertDataForStudent(student, certNo);
+      recordPrintedCertificate(buildPassCertInsert(certData, String(currentYear)));
+    });
+
+    const formattedStart = formatDocumentNumber("pass-certificate", startSeq, currentYear);
+    const formattedEnd = formatDocumentNumber("pass-certificate", endSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "pass-certificate",
+        mode: "bulk",
+        startSerial: startSeq,
+        endSerial: endSeq,
+        formattedStart,
+        formattedEnd,
+        count,
+        classInfo: `${count} students (bulk)`,
+      },
+      currentYear
+    );
+
+    setTimeout(() => {
+      window.print();
+    }, 80);
   };
 
   return (
@@ -357,13 +427,24 @@ function PassCertificateGeneratorContent() {
               <span>Undo Print</span>
             </Button>
 
-            <Button
-              onClick={handlePrint}
-              className="gap-2 text-xs font-bold bg-[#0f766e] hover:bg-[#0f766e]/90 text-white shadow-xs cursor-pointer rounded-xl h-10 sm:h-9 px-3.5"
-            >
-              <Printer className="h-4 w-4 shrink-0" />
-              <span>Print (A5)</span>
-            </Button>
+            {pickerMode === "bulk" ? (
+              <Button
+                onClick={handlePrintBatch}
+                disabled={bulkStudents.length === 0}
+                className="gap-2 text-xs font-bold bg-[#0f766e] hover:bg-[#0f766e]/90 text-white shadow-xs cursor-pointer rounded-xl h-10 sm:h-9 px-3.5"
+              >
+                <Printer className="h-4 w-4 shrink-0" />
+                <span>Print Selected ({bulkStudents.length})</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={handlePrintSingle}
+                className="gap-2 text-xs font-bold bg-[#0f766e] hover:bg-[#0f766e]/90 text-white shadow-xs cursor-pointer rounded-xl h-10 sm:h-9 px-3.5"
+              >
+                <Printer className="h-4 w-4 shrink-0" />
+                <span>Print (A5)</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -381,53 +462,24 @@ function PassCertificateGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3 overflow-visible">
-              {/* Search Existing Student */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Type Student ID, Name, Roll No, or PEN..."
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="pl-8 text-xs h-8"
-                />
-                {filteredStudents.length > 0 && (
-                  <div className="absolute z-20 top-9 left-0 right-0 rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden py-1">
-                    {filteredStudents.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          applyStudentToCertificate(s);
-                          setStudentSearch("");
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-muted/70 text-xs flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <div>
-                          <div className="font-semibold text-foreground">{s.name}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            Roll: {s.presentRoll || "N/A"} &bull; Class: {s.presentClass || "N/A"} &bull; {s.id}
-                          </div>
-                        </div>
-                        <span className="text-[10px] bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded">
-                          Auto-Fill
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <StudentPicker
+                mode={pickerMode}
+                onModeChange={setPickerMode}
+                selectedStudent={selectedStudent}
+                onSelectStudent={applyStudentToCertificate}
+                onClearSelection={() => setSelectedStudent(null)}
+                selectedIds={bulkStudents.map((s) => s.id)}
+                onBulkSelectionChange={setBulkStudents}
+              />
 
-              {selectedStudent && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/40 p-2 text-xs text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  <span>
-                    Auto-filled: <strong>{selectedStudent.name}</strong> ({selectedStudent.id})
-                  </span>
-                </div>
+              {pickerMode === "bulk" && (
+                <p className="text-[10px] text-muted-foreground bg-muted/40 rounded-lg p-2 leading-relaxed">
+                  Name, address &amp; passing details are filled per student automatically at print time. The settings below (dates, signature) apply to every selected certificate.
+                </p>
               )}
 
               {/* Student Name */}
-              <div className="space-y-1">
+              <div className={cn("space-y-1", pickerMode === "bulk" && "hidden")}>
                 <Label className="text-[11px] font-semibold text-muted-foreground">
                   Student Full Name
                 </Label>
@@ -440,7 +492,7 @@ function PassCertificateGeneratorContent() {
               </div>
 
               {/* Parent Details & Gender */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-2.5", pickerMode === "bulk" && "hidden")}>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-semibold text-muted-foreground">
                     Father&apos;s / Guardian&apos;s Name
@@ -505,7 +557,7 @@ function PassCertificateGeneratorContent() {
                     placeholder="e.g. 2020"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className={cn("space-y-1", pickerMode === "bulk" && "hidden")}>
                   <Label className="text-[11px] text-muted-foreground">Passed Out / Completed Class</Label>
                   <CustomSelect
                     value={cert.passedClass}
@@ -535,8 +587,8 @@ function PassCertificateGeneratorContent() {
                 </div>
               </div>
 
-              {/* Completion Outcome Switcher */}
-              <div className="pt-2 border-t space-y-2">
+              {/* Completion Outcome Switcher (auto-computed per student in bulk mode) */}
+              <div className={cn("pt-2 border-t space-y-2", pickerMode === "bulk" && "hidden")}>
                 <Label className="text-[11px] font-semibold text-muted-foreground">
                   Certification Status Type
                 </Label>
@@ -578,7 +630,7 @@ function PassCertificateGeneratorContent() {
             </CardHeader>
             <CardContent className="p-4 space-y-3">
               {/* DOB Inputs */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-2.5", pickerMode === "bulk" && "hidden")}>
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Date of Birth (DOB)</Label>
                   <Input
@@ -600,7 +652,7 @@ function PassCertificateGeneratorContent() {
               </div>
 
               {/* Address Details */}
-              <div className="grid grid-cols-2 gap-2.5 pt-2 border-t">
+              <div className={cn("grid grid-cols-2 gap-2.5 pt-2 border-t", pickerMode === "bulk" && "hidden")}>
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Village</Label>
                   <Input
@@ -641,14 +693,27 @@ function PassCertificateGeneratorContent() {
                     className="text-xs h-8 font-mono"
                   />
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Certificate Ref No</Label>
-                  <Input
-                    value={cert.certificateNo}
-                    onChange={(e) => setCert({ ...cert, certificateNo: e.target.value })}
-                    className="text-xs h-8 font-mono"
-                  />
-                </div>
+              </div>
+
+              <div className="space-y-1 pt-2 border-t">
+                <Label className="text-[11px] text-muted-foreground">Certificate Ref No</Label>
+                <Input
+                  value={cert.certificateNo}
+                  onChange={(e) => setCert({ ...cert, certificateNo: e.target.value })}
+                  className="text-xs h-8 font-mono max-w-[200px]"
+                />
+              </div>
+
+              {/* Digital Head Signature Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <Label htmlFor="toggle-pass-digital-sign" className="text-xs font-semibold cursor-pointer">
+                  Digital Signature
+                </Label>
+                <Switch
+                  id="toggle-pass-digital-sign"
+                  checked={cert.includeDigitalSignature ?? true}
+                  onCheckedChange={(checked) => setCert({ ...cert, includeDigitalSignature: checked })}
+                />
               </div>
             </CardContent>
           </Card>
@@ -667,7 +732,7 @@ function PassCertificateGeneratorContent() {
           </div>
 
           {/* Certificate Canvas with Pinch-to-Zoom */}
-          <div id="printable-pass-certificate-canvas">
+          <div id="printable-pass-certificate-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
             <PinchZoomViewer
               initialScale={1.0}
               minScale={0.6}
@@ -679,6 +744,32 @@ function PassCertificateGeneratorContent() {
               <PassCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </PinchZoomViewer>
           </div>
+
+          {/* Bulk Print Multi-Page Container: Rendered only during print */}
+          {printMode === "batch" && (
+            <div id="printable-pass-certificate-batch" className="hidden print:block">
+              {bulkStudents.map((student, idx) => {
+                const certNo = formatDocumentNumber(
+                  "pass-certificate",
+                  certSeq - bulkStudents.length + idx,
+                  currentYear
+                );
+                const studentData = buildCertDataForStudent(student, certNo);
+                return (
+                  <div
+                    key={student.id}
+                    className="page-break"
+                    style={{
+                      pageBreakAfter: idx === bulkStudents.length - 1 ? "avoid" : "always",
+                      breakAfter: idx === bulkStudents.length - 1 ? "avoid" : "page",
+                    }}
+                  >
+                    <PassCertificatePrintableView data={studentData} schoolProfile={schoolProfile} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -706,10 +797,9 @@ function PassCertificateGeneratorContent() {
             padding: 0 !important;
             margin: 0 !important;
             width: 148mm !important;
-            height: 210mm !important;
+            height: auto !important;
             max-width: 148mm !important;
-            max-height: 210mm !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -736,6 +826,25 @@ function PassCertificateGeneratorContent() {
             height: 208mm !important;
             margin: 0 !important;
             display: block !important;
+          }
+
+          /* Bulk mode: one certificate per printed page */
+          #printable-pass-certificate-batch {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            width: 148mm !important;
+            max-width: 148mm !important;
+            display: block !important;
+          }
+
+          .page-break {
+            width: 148mm !important;
+            height: 208mm !important;
+            max-height: 208mm !important;
+            margin: 0 auto !important;
+            display: block !important;
+            box-sizing: border-box !important;
           }
 
           #pure-a5-pass-certificate-sheet {

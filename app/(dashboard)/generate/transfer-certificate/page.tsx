@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
-import { searchStudents, getStudentById } from "@/lib/data/students";
-import { useDebounce } from "@/lib/hooks/use-debounce";
+import { getStudentById } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import {
   TransferCertificatePrintableView,
@@ -12,21 +10,20 @@ import {
   LEAVING_REASONS,
   parseDobComponents,
 } from "@/components/certificate/transfer-certificate-printable-view";
+import { StudentPicker, StudentPickerMode } from "@/components/certificate/student-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Switch } from "@/components/ui/switch";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
   ArrowLeft,
   User,
-  MapPin,
   Calendar,
-  Search,
-  CheckCircle2,
   FileSpreadsheet,
   RotateCcw,
   Eye,
@@ -40,6 +37,7 @@ import {
 } from "@/lib/utils/document-sequence";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
+import { cn } from "@/lib/utils";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -57,19 +55,10 @@ function TransferCertificateGeneratorContent() {
   const studentIdParam = searchParams.get("studentId");
   const { profile: schoolProfile } = useSchoolProfile();
 
-  const [studentSearch, setStudentSearch] = useState("");
-  const debouncedSearch = useDebounce(studentSearch, 300);
-
-  // Fetch students based on search query (debounced)
-  const { data: searchResults, isLoading: isLoadingStudents } = useQuery({
-    queryKey: ["students", "search", debouncedSearch],
-    queryFn: () => searchStudents({ query: debouncedSearch }, 1, 10, "summary"),
-    enabled: debouncedSearch.trim().length > 0,
-  });
-
-  const filteredStudents = searchResults?.data || [];
-
+  const [pickerMode, setPickerMode] = useState<StudentPickerMode>("single");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
+  const [printMode, setPrintMode] = useState<"single" | "batch">("single");
   const [previewScale, setPreviewScale] = useState<number>(1.0);
 
   const currentYear = new Date().getFullYear();
@@ -112,6 +101,7 @@ function TransferCertificateGeneratorContent() {
     selectedReasonIndex: 1, // Default: Unavoidable change of residence
     customReason: "",
     hoiTitle: "Signature of HOI",
+    includeDigitalSignature: true,
   }));
 
   // Auto-sync sequence when year rolls over or on mount
@@ -148,6 +138,7 @@ function TransferCertificateGeneratorContent() {
       ...prev,
       studentId: s.id,
       studentName: s.name,
+      photoUrl: s.photoUrl,
       gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",
       fatherName: s.fatherName || s.guardianName || "Guardian",
       motherName: s.motherName || "",
@@ -199,6 +190,42 @@ function TransferCertificateGeneratorContent() {
     }
   }, [studentIdParam]);
 
+  // Pure transform used for bulk printing: builds one certificate's data from
+  // a roster student + the common settings currently set in `cert`.
+  function buildCertDataForStudent(s: Student, certNo: string): TransferCertificateData {
+    const parsedAddr = parseAddress(s.address);
+    const passedCls = s.presentClass || "IX";
+    const nextCls = getNextClass(passedCls);
+    const isPassedOutStatus =
+      s.currentStatus === "Passed Out" || s.currentStatus === "C.C.H.S." || passedCls === "XII";
+    const dobVal = s.dob || "2011-11-04";
+    const dobParsed = parseDobComponents(dobVal);
+
+    return {
+      ...cert,
+      certificateNo: certNo,
+      studentId: s.id,
+      studentName: s.name,
+      photoUrl: s.photoUrl,
+      gender: s.gender === "Female" ? "Female" : s.gender === "Male" ? "Male" : "Other",
+      fatherName: s.fatherName || s.guardianName || "Guardian",
+      motherName: s.motherName || "",
+      village: parsedAddr.village,
+      postOffice: parsedAddr.postOffice,
+      policeStation: parsedAddr.policeStation,
+      district: parsedAddr.district,
+      pincode: parsedAddr.pincode,
+      readingClass: passedCls,
+      promotedClass: nextCls,
+      isCourseCompleted: isPassedOutStatus,
+      selectedReasonIndex: isPassedOutStatus ? 3 : 1,
+      dateOfBirth: dobVal,
+      dateOfBirthDayWords: dobParsed.dayWords,
+      dateOfBirthMonthWords: dobParsed.monthWords,
+      dateOfBirthYearWords: dobParsed.yearWords,
+    };
+  }
+
   // Handle DOB change with automatic word parsing
   function handleDobChange(val: string) {
     const parsed = parseDobComponents(val);
@@ -214,7 +241,8 @@ function TransferCertificateGeneratorContent() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   // Native Direct Print Trigger (Reliable & Zero Blank Issue)
-  const handlePrint = () => {
+  const handlePrintSingle = () => {
+    setPrintMode("single");
     const currentCertificateNo = cert.certificateNo;
     const nextSeq = certSeq + 1;
     saveDocumentSequence("transfer-certificate", nextSeq, currentYear);
@@ -253,6 +281,40 @@ function TransferCertificateGeneratorContent() {
       window.print();
       advanceToNext();
     }, 60);
+  };
+
+  // Bulk print: one certificate per selected student, sharing the common
+  // settings currently configured in the form (issue date, conduct, etc.)
+  const handlePrintBatch = () => {
+    if (bulkStudents.length === 0) return;
+    setPrintMode("batch");
+
+    const startSeq = certSeq;
+    const count = bulkStudents.length;
+    const endSeq = startSeq + count - 1;
+    const nextSeq = endSeq + 1;
+    saveDocumentSequence("transfer-certificate", nextSeq, currentYear);
+    setCertSeq(nextSeq);
+
+    const formattedStart = formatDocumentNumber("transfer-certificate", startSeq, currentYear);
+    const formattedEnd = formatDocumentNumber("transfer-certificate", endSeq, currentYear);
+    recordPrintBatch(
+      {
+        docType: "transfer-certificate",
+        mode: "bulk",
+        startSerial: startSeq,
+        endSerial: endSeq,
+        formattedStart,
+        formattedEnd,
+        count,
+        classInfo: `${count} students (bulk)`,
+      },
+      currentYear
+    );
+
+    setTimeout(() => {
+      window.print();
+    }, 80);
   };
 
   return (
@@ -309,13 +371,24 @@ function TransferCertificateGeneratorContent() {
               <span>Undo Print</span>
             </Button>
 
-            <Button
-              onClick={handlePrint}
-              className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
-            >
-              <Printer className="h-4 w-4 shrink-0" />
-              <span>Print TC (A5)</span>
-            </Button>
+            {pickerMode === "bulk" ? (
+              <Button
+                onClick={handlePrintBatch}
+                disabled={bulkStudents.length === 0}
+                className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
+              >
+                <Printer className="h-4 w-4 shrink-0" />
+                <span>Print Selected ({bulkStudents.length})</span>
+              </Button>
+            ) : (
+              <Button
+                onClick={handlePrintSingle}
+                className="gap-2 text-xs font-bold bg-[#1e3a8a] hover:bg-[#1e3a8a]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
+              >
+                <Printer className="h-4 w-4 shrink-0" />
+                <span>Print TC (A5)</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -333,53 +406,24 @@ function TransferCertificateGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3 overflow-visible">
-              {/* Search Existing Student */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search by Name, Roll, Student ID, or PEN..."
-                  value={studentSearch}
-                  onChange={(e) => setStudentSearch(e.target.value)}
-                  className="pl-8 text-xs h-8"
-                />
-                {filteredStudents.length > 0 && (
-                  <div className="absolute z-20 top-9 left-0 right-0 rounded-xl border bg-popover text-popover-foreground shadow-lg overflow-hidden py-1">
-                    {filteredStudents.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => {
-                          applyStudentToCertificate(s);
-                          setStudentSearch("");
-                        }}
-                        className="w-full px-3 py-2 text-left hover:bg-muted/70 text-xs flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <div>
-                          <div className="font-semibold text-foreground">{s.name}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            Roll: {s.presentRoll || "N/A"} &bull; Class: {s.presentClass || "N/A"} &bull; {s.id}
-                          </div>
-                        </div>
-                        <span className="text-[10px] bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded">
-                          Auto-Fill
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <StudentPicker
+                mode={pickerMode}
+                onModeChange={setPickerMode}
+                selectedStudent={selectedStudent}
+                onSelectStudent={applyStudentToCertificate}
+                onClearSelection={() => setSelectedStudent(null)}
+                selectedIds={bulkStudents.map((s) => s.id)}
+                onBulkSelectionChange={setBulkStudents}
+              />
 
-              {selectedStudent && (
-                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-300 dark:border-emerald-800/40 p-2 text-xs text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                  <span>
-                    Auto-filled: <strong>{selectedStudent.name}</strong> ({selectedStudent.id})
-                  </span>
-                </div>
+              {pickerMode === "bulk" && (
+                <p className="text-[10px] text-muted-foreground bg-muted/40 rounded-lg p-2 leading-relaxed">
+                  Name, address &amp; academic details are filled per student automatically at print time. The settings below (reason, dates, signature) apply to every selected certificate.
+                </p>
               )}
 
               {/* Student Name */}
-              <div className="space-y-1">
+              <div className={cn("space-y-1", pickerMode === "bulk" && "hidden")}>
                 <Label className="text-[11px] font-semibold text-muted-foreground">
                   Student Full Name
                 </Label>
@@ -392,7 +436,7 @@ function TransferCertificateGeneratorContent() {
               </div>
 
               {/* Parent Details & Gender */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className={cn("grid grid-cols-1 sm:grid-cols-2 gap-2.5", pickerMode === "bulk" && "hidden")}>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-semibold text-muted-foreground">
                     Father&apos;s / Guardian&apos;s Name
@@ -453,7 +497,7 @@ function TransferCertificateGeneratorContent() {
                     placeholder="e.g. 2026"
                   />
                 </div>
-                <div className="space-y-1">
+                <div className={cn("space-y-1", pickerMode === "bulk" && "hidden")}>
                   <Label className="text-[11px] text-muted-foreground">Reading in Class</Label>
                   <CustomSelect
                     value={cert.readingClass}
@@ -482,8 +526,8 @@ function TransferCertificateGeneratorContent() {
                 </div>
               </div>
 
-              {/* Promotion Outcome Toggle */}
-              <div className="pt-2 border-t space-y-2">
+              {/* Promotion Outcome Toggle (auto-computed per student in bulk mode) */}
+              <div className={cn("pt-2 border-t space-y-2", pickerMode === "bulk" && "hidden")}>
                 <Label className="text-[11px] font-semibold text-muted-foreground">
                   Annual Exam / Promotion Status
                 </Label>
@@ -552,8 +596,13 @@ function TransferCertificateGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3 overflow-visible">
+              {pickerMode === "bulk" && (
+                <p className="text-[10px] text-muted-foreground bg-muted/40 rounded-lg p-2 leading-relaxed">
+                  Reason for leaving is auto-set per student (completion vs. change of residence) based on their status.
+                </p>
+              )}
               {/* Reason Selector */}
-              <div className="space-y-2">
+              <div className={cn("space-y-2", pickerMode === "bulk" && "hidden")}>
                 <div className="flex items-center justify-between">
                   <Label className="text-[11px] font-semibold text-muted-foreground">
                     Reason for Leaving (Select 1 of 5 Standard Reasons)
@@ -633,7 +682,7 @@ function TransferCertificateGeneratorContent() {
 
               {/* DOB Picker */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t">
-                <div className="space-y-1">
+                <div className={cn("space-y-1", pickerMode === "bulk" && "hidden")}>
                   <Label className="text-[11px] text-muted-foreground">Date of Birth (DOB)</Label>
                   <Input
                     type="date"
@@ -657,8 +706,8 @@ function TransferCertificateGeneratorContent() {
                 </div>
               </div>
 
-              {/* Address details */}
-              <div className="grid grid-cols-2 gap-2.5 pt-2 border-t">
+              {/* Address details (per-student in bulk mode) */}
+              <div className={cn("grid grid-cols-2 gap-2.5 pt-2 border-t", pickerMode === "bulk" && "hidden")}>
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Village</Label>
                   <Input
@@ -683,6 +732,9 @@ function TransferCertificateGeneratorContent() {
                     className="text-xs h-8"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 pt-2 border-t">
                 <div className="space-y-1">
                   <Label className="text-[11px] text-muted-foreground">Certificate Ref No</Label>
                   <Input
@@ -701,6 +753,18 @@ function TransferCertificateGeneratorContent() {
                   />
                 </div>
               </div>
+
+              {/* Digital Head Signature Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                <Label htmlFor="toggle-tc-digital-sign" className="text-xs font-semibold cursor-pointer">
+                  Digital Signature
+                </Label>
+                <Switch
+                  id="toggle-tc-digital-sign"
+                  checked={cert.includeDigitalSignature ?? true}
+                  onCheckedChange={(checked) => setCert({ ...cert, includeDigitalSignature: checked })}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -718,7 +782,7 @@ function TransferCertificateGeneratorContent() {
           </div>
 
           {/* Certificate Canvas with Pinch-to-Zoom */}
-          <div id="printable-tc-canvas">
+          <div id="printable-tc-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
             <PinchZoomViewer
               initialScale={1.0}
               minScale={0.6}
@@ -730,6 +794,32 @@ function TransferCertificateGeneratorContent() {
               <TransferCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </PinchZoomViewer>
           </div>
+
+          {/* Bulk Print Multi-Page Container: Rendered only during print */}
+          {printMode === "batch" && (
+            <div id="printable-tc-batch" className="hidden print:block">
+              {bulkStudents.map((student, idx) => {
+                const certNo = formatDocumentNumber(
+                  "transfer-certificate",
+                  certSeq - bulkStudents.length + idx,
+                  currentYear
+                );
+                const studentData = buildCertDataForStudent(student, certNo);
+                return (
+                  <div
+                    key={student.id}
+                    className="page-break"
+                    style={{
+                      pageBreakAfter: idx === bulkStudents.length - 1 ? "avoid" : "always",
+                      breakAfter: idx === bulkStudents.length - 1 ? "avoid" : "page",
+                    }}
+                  >
+                    <TransferCertificatePrintableView data={studentData} schoolProfile={schoolProfile} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -757,10 +847,9 @@ function TransferCertificateGeneratorContent() {
             padding: 0 !important;
             margin: 0 !important;
             width: 148mm !important;
-            height: 210mm !important;
+            height: auto !important;
             max-width: 148mm !important;
-            max-height: 210mm !important;
-            overflow: hidden !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -787,6 +876,25 @@ function TransferCertificateGeneratorContent() {
             height: 208mm !important;
             margin: 0 !important;
             display: block !important;
+          }
+
+          /* Bulk mode: one certificate per printed page */
+          #printable-tc-batch {
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            width: 148mm !important;
+            max-width: 148mm !important;
+            display: block !important;
+          }
+
+          .page-break {
+            width: 148mm !important;
+            height: 208mm !important;
+            max-height: 208mm !important;
+            margin: 0 auto !important;
+            display: block !important;
+            box-sizing: border-box !important;
           }
 
           #pure-a5-tc-sheet {

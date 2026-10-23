@@ -9,6 +9,7 @@ import {
   cleanAddressPart,
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
+import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
 
 export interface BonafideCertificateData {
   paperSize?: "A5" | "A4";
@@ -21,6 +22,7 @@ export interface BonafideCertificateData {
   studentId: string;
   pen?: string;
   studentName: string;
+  photoUrl?: string;
   gender: "Male" | "Female" | "Other";
   fatherName: string;
   motherName?: string;
@@ -267,21 +269,25 @@ export function BonafideCertificatePrintableView({
           </div>
 
           {/* Certificate Title Header (23% smaller) */}
-          <div className={`text-center ${isA5 ? "pt-1 pb-0.5" : "pt-2 pb-1"}`}>
-            <h2
-              className={`font-black uppercase text-[#14206b] tracking-wider underline underline-offset-4 decoration-[#14206b]/50 inline-block font-serif ${
-                isA5 ? "text-[13px]" : "text-[18.5px]"
-              }`}
-            >
-              BONAFIDE CERTIFICATE
-            </h2>
-            <p
-              className={`font-serif font-bold uppercase tracking-widest text-slate-600 ${
-                isA5 ? "text-[8px] mt-0.5" : "text-[10px] mt-0.5"
-              }`}
-            >
-              (TO WHOM IT MAY CONCERN)
-            </p>
+          <div className="grid grid-cols-[1fr_auto_1fr] items-start">
+            <div />
+            <div className={`text-center ${isA5 ? "pt-1 pb-0.5" : "pt-2 pb-1"}`}>
+              <h2
+                className={`font-black uppercase text-[#14206b] tracking-wider underline underline-offset-4 decoration-[#14206b]/50 inline-block font-serif ${
+                  isA5 ? "text-[13px]" : "text-[18.5px]"
+                }`}
+              >
+                BONAFIDE CERTIFICATE
+              </h2>
+              <p
+                className={`font-serif font-bold uppercase tracking-widest text-slate-600 ${
+                  isA5 ? "text-[8px] mt-0.5" : "text-[10px] mt-0.5"
+                }`}
+              >
+                (TO WHOM IT MAY CONCERN)
+              </p>
+            </div>
+            <StudentPhotoBox url={data.photoUrl} className="justify-self-end" />
           </div>
         </div>
 
@@ -396,7 +402,7 @@ export function BonafideCertificatePrintableView({
         {/* =================================================================== */}
         {/* 3. FOOTER & SIGNATURES WITH VERIFICATION QR                         */}
         {/* =================================================================== */}
-        <div className={`border-t border-slate-300 mt-auto ${isA5 ? "pt-2" : "pt-3"}`}>
+        <div className={`mt-auto ${isA5 ? "pt-2" : "pt-3"}`}>
           <div className="flex items-end justify-between px-2">
             {/* Left: Prepared By & Clerk */}
             <div className="text-left space-y-0.5">
@@ -432,7 +438,7 @@ export function BonafideCertificatePrintableView({
               </div>
             </div>
 
-            {/* Right: Head of Institution Signature */}
+            {/* Right: Head of Institution / Teacher-in-Charge Signature */}
             <div className="text-center flex flex-col items-center">
               <div className={`flex items-end justify-center ${isA5 ? "h-7 w-28" : "h-10 w-36"}`}>
                 {data.includeDigitalSignature !== false && profile.headSignatureUrl && profile.headSignatureUrl.trim() !== "" ? (
@@ -449,6 +455,8 @@ export function BonafideCertificatePrintableView({
                   ({effectiveHeadTitle})
                 </p>
               </div>
+              {/* Space for physical rubber stamp / seal below */}
+              <div className={isA5 ? "h-10 w-32" : "h-14 w-40"} />
             </div>
           </div>
         </div>
