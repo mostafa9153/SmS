@@ -14,7 +14,16 @@ import { SportsScoreSheetPrintableView } from "@/components/sports/sports-score-
 import { SportsChestBibPrintableView } from "@/components/sports/sports-chest-bib-printable";
 import { SportsCertificatePrintableView, CertificateTemplate } from "@/components/sports/sports-certificate-printable";
 import { useSportsEvents, SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
-import { ArrowLeft, Printer, FileText, ClipboardList, Tag, Award, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, Printer, FileText, ClipboardList, Tag, Award, ChevronDown } from "lucide-react";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { Input } from "@/components/ui/input";
+
+type PaperSize = "A5" | "A4" | "A3";
+type PaperOrientation = "portrait" | "landscape";
+interface PrintMargins { top: number; right: number; bottom: number; left: number; }
+const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
+};
 
 type DocTab = "bibs" | "call" | "score" | "certificates";
 
@@ -38,10 +47,22 @@ function SportsPrintStudioContent() {
     // An eventId in the URL means the user came from an event → default to its call sheet
     searchParams.get("tab") ? parseTab(searchParams.get("tab")) : searchParams.get("eventId") ? "call" : "bibs"
   );
-  const [scale, setScale] = useState(0.9);
   const [selectedWinnerIndex, setSelectedWinnerIndex] = useState<number | "all">("all");
   const [bibClass, setBibClass] = useState<string>("All");
   const [certTemplate, setCertTemplate] = useState<CertificateTemplate>("classic");
+
+  const [paper, setPaper] = useState<PaperSize>("A4");
+  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
+  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
+  const [paperOpen, setPaperOpen] = useState(false);
+
+  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
+  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
+
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
 
   const { profile: schoolProfile } = useSchoolProfile();
   const { data: events = [] } = useSportsEvents();
@@ -154,7 +175,7 @@ function SportsPrintStudioContent() {
   return (
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
       {/* Control panel */}
-      <aside className="print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
+      <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
         <div className="flex items-center gap-2">
           <Link href="/sports" className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 rounded-xl shrink-0")}>
             <ArrowLeft className="h-4 w-4" />
@@ -264,26 +285,60 @@ function SportsPrintStudioContent() {
           )}
         </div>
 
-        <div className="flex items-center gap-2 border-t pt-3">
-          <div className="hidden sm:flex items-center border rounded-xl bg-background">
-            <Button variant="ghost" size="icon" className="h-8 w-7" onClick={() => setScale((s) => Math.max(0.5, s - 0.1))}>
-              <ZoomOut className="h-3.5 w-3.5" />
-            </Button>
-            <button
-              onClick={() => setScale(0.9)}
-              title="Reset zoom"
-              className="text-[11px] font-mono w-10 text-center font-bold flex items-center justify-center gap-0.5"
-            >
-              {Math.round(scale * 100)}%
-            </button>
-            <Button variant="ghost" size="icon" className="h-8 w-7" onClick={() => setScale((s) => Math.min(1.3, s + 0.1))}>
-              <ZoomIn className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+        {/* Collapsible paper & margin section */}
+        <div className="border-t pt-2">
+          <button
+            type="button"
+            onClick={() => setPaperOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-1 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>Paper & Margin</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+          </button>
+
+          {paperOpen && (
+            <div className="space-y-2 pt-1">
+              <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
+                <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A5">A5</SelectItem>
+                  <SelectItem value="A4">A4</SelectItem>
+                  <SelectItem value="A3">A3</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
+                <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="portrait">Portrait</SelectItem>
+                  <SelectItem value="landscape">Landscape</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(["top", "right", "bottom", "left"] as const).map((side) => (
+                  <label key={side} className="space-y-0.5">
+                    <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={margins[side]}
+                      onChange={(e) => updateMargin(side, e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t pt-3">
           <Button
             onClick={() => window.print()}
             disabled={isEmpty || isLoadingDoc}
-            className="h-9 flex-1 gap-1.5 font-bold rounded-xl shadow-xs"
+            className="h-9 w-full gap-1.5 font-bold rounded-xl shadow-xs"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -291,60 +346,88 @@ function SportsPrintStudioContent() {
         </div>
       </aside>
 
-      {/* Preview canvas */}
-      <div
-        id="printable-canvas"
-        className="min-w-0 w-full flex justify-center py-4 bg-muted/15 border rounded-2xl overflow-x-auto custom-scrollbar print:p-0 print:m-0 print:border-none print:bg-transparent print:w-full print:block"
-      >
-        {isLoadingDoc ? (
-          <div className="p-12 text-center text-xs text-muted-foreground">Loading...</div>
-        ) : activeDoc.perEvent && !currentEvent ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">No events yet.</div>
-        ) : isEmpty ? (
-          <div className="p-12 text-center text-sm text-muted-foreground space-y-2">
-            <p className="font-semibold">
-              {activeTab === "bibs"
-                ? "No enrolled athletes."
-                : activeTab === "certificates"
-                ? `No podium ranks for ${currentEvent?.name}.`
-                : `No athletes in ${currentEvent?.name}.`}
-            </p>
-            {currentEvent && activeTab !== "bibs" && (
-              <Link
-                href={`/sports/${currentEvent.id}/${activeTab === "certificates" ? "results" : "enroll"}`}
-                className="text-xs text-primary underline font-semibold"
-              >
-                {activeTab === "certificates" ? "Open Score" : "Open Enroll"}
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div
-            style={{ transform: `scale(${scale})`, transformOrigin: "top center" }}
-            className="transition-transform duration-150 print:transform-none"
-          >
-            {activeTab === "bibs" ? (
-              <SportsChestBibPrintableView participants={bibParticipants} schoolProfile={schoolProfile} />
-            ) : activeTab === "call" ? (
-              <SportsCallSheetPrintableView event={currentEvent!} participants={participants} schoolProfile={schoolProfile} />
-            ) : activeTab === "score" ? (
-              <SportsScoreSheetPrintableView event={currentEvent!} participants={participants} schoolProfile={schoolProfile} />
-            ) : (
-              <div className="space-y-6 print:space-y-0">
-                {certificatesToRender.map((winner) => (
-                  <SportsCertificatePrintableView
-                    key={winner.studentId}
-                    winner={winner}
-                    event={currentEvent!}
-                    schoolProfile={schoolProfile}
-                    template={certTemplate}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Preview viewport */}
+      {isLoadingDoc ? (
+        <div className="order-1 lg:order-2 h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 rounded-2xl border bg-muted/30 flex items-center justify-center text-xs text-muted-foreground print:hidden">
+          Loading...
+        </div>
+      ) : activeDoc.perEvent && !currentEvent ? (
+        <div className="order-1 lg:order-2 h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 rounded-2xl border bg-muted/30 flex items-center justify-center text-sm text-muted-foreground print:hidden">
+          No events yet.
+        </div>
+      ) : isEmpty ? (
+        <div className="order-1 lg:order-2 h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 rounded-2xl border bg-muted/30 flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground print:hidden">
+          <p className="font-semibold">
+            {activeTab === "bibs"
+              ? "No enrolled athletes."
+              : activeTab === "certificates"
+              ? `No podium ranks for ${currentEvent?.name}.`
+              : `No athletes in ${currentEvent?.name}.`}
+          </p>
+          {currentEvent && activeTab !== "bibs" && (
+            <Link
+              href={`/sports/${currentEvent.id}/${activeTab === "certificates" ? "results" : "enroll"}`}
+              className="text-xs text-primary underline font-semibold"
+            >
+              {activeTab === "certificates" ? "Open Score" : "Open Enroll"}
+            </Link>
+          )}
+        </div>
+      ) : (
+        <ZoomPanViewport
+          resetKey={`${activeTab}-${currentEventId}-${certTemplate}-${selectedWinnerIndex}-${paper}-${orientation}`}
+          fitMode={activeTab === "certificates" && certificatesToRender.length > 1 ? "width" : "contain"}
+          className="order-1 lg:order-2 h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 w-full print:hidden"
+        >
+          {activeTab === "bibs" ? (
+            <SportsChestBibPrintableView participants={bibParticipants} schoolProfile={schoolProfile} />
+          ) : activeTab === "call" ? (
+            <SportsCallSheetPrintableView event={currentEvent!} participants={participants} schoolProfile={schoolProfile} />
+          ) : activeTab === "score" ? (
+            <SportsScoreSheetPrintableView event={currentEvent!} participants={participants} schoolProfile={schoolProfile} />
+          ) : (
+            <div className="space-y-6">
+              {certificatesToRender.map((winner) => (
+                <SportsCertificatePrintableView
+                  key={winner.studentId}
+                  winner={winner}
+                  event={currentEvent!}
+                  schoolProfile={schoolProfile}
+                  template={certTemplate}
+                />
+              ))}
+            </div>
+          )}
+        </ZoomPanViewport>
+      )}
+
+      {/* Dynamic @page CSS */}
+      <style dangerouslySetInnerHTML={{ __html: `@media print { @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; } }` }} />
+
+      {/* Print-only content (ZoomPanViewport is hidden in print) */}
+      {!isLoadingDoc && !isEmpty && currentEvent !== undefined || activeTab === "bibs" ? (
+        <div id="printable-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
+          {activeTab === "bibs" ? (
+            <SportsChestBibPrintableView participants={bibParticipants} schoolProfile={schoolProfile} />
+          ) : activeTab === "call" && currentEvent ? (
+            <SportsCallSheetPrintableView event={currentEvent} participants={participants} schoolProfile={schoolProfile} />
+          ) : activeTab === "score" && currentEvent ? (
+            <SportsScoreSheetPrintableView event={currentEvent} participants={participants} schoolProfile={schoolProfile} />
+          ) : activeTab === "certificates" && currentEvent ? (
+            <div className="print:space-y-0">
+              {certificatesToRender.map((winner) => (
+                <SportsCertificatePrintableView
+                  key={winner.studentId}
+                  winner={winner}
+                  event={currentEvent}
+                  schoolProfile={schoolProfile}
+                  template={certTemplate}
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

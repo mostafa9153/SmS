@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 import {
   Printer,
   ArrowLeft,
@@ -24,8 +24,6 @@ import {
   CheckSquare,
   Square,
   Eye,
-  ZoomIn,
-  ZoomOut,
   ChevronLeft,
   ChevronRight,
   Sparkles,
@@ -98,7 +96,6 @@ function StudentIDCardStudioContent() {
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
   const [previewIndex, setPreviewIndex] = useState<number>(0);
-  const [previewScale, setPreviewScale] = useState<number>(1.35);
 
   // Custom configurations
   const isHigherSecondary = selectedClass === "XI" || selectedClass === "XII";
@@ -586,14 +583,11 @@ function StudentIDCardStudioContent() {
               {/* Single card preview actions */}
             </div>
 
-            {/* Live Visual Canvas with Pinch-to-Zoom */}
-            <PinchZoomViewer
-              initialScale={1.35}
-              minScale={0.75}
-              maxScale={2.8}
-              scale={previewScale}
-              onScaleChange={setPreviewScale}
-              canvasClassName="min-h-[580px] bg-muted/40 border border-dashed rounded-3xl"
+            {/* Live Visual Canvas */}
+            <ZoomPanViewport
+              fitMode="contain"
+              resetKey={`id-card-${previewIndex}`}
+              className="h-[580px] lg:h-[calc(100dvh-16rem)] w-full print:hidden"
             >
               {currentPreviewStudent ? (
                 <div className="shadow-2xl rounded-2xl">
@@ -612,7 +606,7 @@ function StudentIDCardStudioContent() {
                   <p className="text-xs mt-1">Select at least one student from the left panel to preview.</p>
                 </div>
               )}
-            </PinchZoomViewer>
+            </ZoomPanViewport>
 
             {/* Printing Format Notice */}
             <div className="text-center text-xs text-muted-foreground max-w-md">

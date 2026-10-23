@@ -34,8 +34,6 @@ import {
   Layers,
   GraduationCap,
   BookOpen,
-  ZoomIn,
-  ZoomOut,
   RefreshCw,
   CheckCircle2,
   Copy,
@@ -60,6 +58,7 @@ import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 import { AdmissionFormTrackerModal } from "@/components/admission-form/admission-form-tracker";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 
 export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -113,8 +112,6 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
   // Page view filter: 'all' (Both pages), 'page1', 'page2'
   const [activePageView, setActivePageView] = useState<"all" | "page1" | "page2">("page1");
 
-  // Preview zoom scale
-  const [previewScale, setPreviewScale] = useState<number>(0.8);
 
   const currentYear = new Date().getFullYear();
   const yearSuffix = String(currentYear).slice(-2);
@@ -743,91 +740,31 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
       {/* ------------------------------------------------------------- */}
       {/* ISOLATED BULLETPROOF PRINT CSS STYLESHEET */}
       {/* ------------------------------------------------------------- */}
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* 1. Hide non-printable web UI completely */
-          header,
-          aside,
-          nav,
-          button,
-          .print\\:hidden,
-          .no-print {
-            display: none !important;
+          header, aside, nav, button, .print\\:hidden, .no-print { display: none !important; }
+          body * { visibility: hidden; }
+          @page { size: 210mm 297mm; margin: 0; }
+          html, body {
+            background: white !important; color: black !important; padding: 0 !important;
+            margin: 0 !important; width: 210mm !important;
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
           }
-
-          body * {
-            visibility: hidden;
-          }
-
-          /* 2. Lock page size to exact A4 with zero margin */
-          @page {
-            size: 210mm 297mm;
-            margin: 0;
-          }
-
-          /* 3. Base page reset */
-          html,
-          body {
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 210mm !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* 4. Pure Print Container: ONLY this container is visible */
-          #pure-print-container,
-          #pure-print-container * {
-            visibility: visible !important;
-          }
-
+          #pure-print-container, #pure-print-container * { visibility: visible !important; }
           #pure-print-container {
-            display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 210mm !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: transparent !important;
+            display: block !important; position: absolute !important; left: 0 !important; top: 0 !important;
+            width: 210mm !important; padding: 0 !important; margin: 0 !important; background: transparent !important;
           }
-
-          /* Screen preview canvas is completely hidden in print */
-          #printable-canvas {
-            display: none !important;
-          }
-
-          /* 5. Target Sheet Page-breaks and Geometry */
           .admission-sheet {
-            width: 205mm !important;
-            min-height: 291mm !important;
-            max-height: 291mm !important;
-            margin: 2.5mm auto !important;
-            padding: 3.5mm 4.5mm !important;
-            box-sizing: border-box !important;
-            border: 2px solid black !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
+            width: 205mm !important; min-height: 291mm !important; max-height: 291mm !important;
+            margin: 2.5mm auto !important; padding: 3.5mm 4.5mm !important; box-sizing: border-box !important;
+            border: 2px solid black !important; page-break-inside: avoid !important; break-inside: avoid !important;
           }
-
-          .page-break-after-sheet {
-            page-break-after: always !important;
-            break-after: page !important;
-          }
-
-          .no-page-break-after {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
-
-          .bulk-form-wrapper {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-          }
+          .page-break-after-sheet { page-break-after: always !important; break-after: page !important; }
+          .no-page-break-after { page-break-after: auto !important; break-after: auto !important; }
+          .bulk-form-wrapper { page-break-inside: avoid !important; break-inside: avoid !important; }
         }
-      `}</style>
+      ` }} />
 
       {/* ========================================================================= */}
       {/* DEDICATED PURE PRINT CONTAINER (Hidden on Screen, Sole Element in Print)  */}
@@ -1669,79 +1606,28 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
                 </div>
               </div>
 
-              {/* Zoom Controls */}
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.max(0.4, prev - 0.1))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom Out"
-                >
-                  <ZoomOut className="h-3.5 w-3.5" />
-                </Button>
-                <span className="text-xs font-mono font-bold w-12 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setPreviewScale((prev) => Math.min(1.2, prev + 0.1))}
-                  className="h-8 w-8 rounded-lg cursor-pointer"
-                  title="Zoom In"
-                >
-                  <ZoomIn className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPreviewScale(0.8)}
-                  className="h-8 text-xs font-semibold rounded-lg px-2 cursor-pointer"
-                >
-                  Reset
-                </Button>
-              </div>
             </div>
 
             {/* Screen Preview Viewport */}
-            <div className="relative overflow-auto bg-muted/40 p-2 sm:p-4 md:p-8 rounded-2xl border flex justify-center custom-scrollbar print:hidden min-h-[460px] sm:min-h-[500px]">
-              {/* Floating Quick Page Flip Button */}
-              <div className="absolute top-4 right-4 z-10">
-                <button
-                  type="button"
-                  onClick={() => setActivePageView((prev) => (prev === "page2" ? "page1" : "page2"))}
-                  className="bg-card/95 hover:bg-card border border-border shadow-md rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 text-foreground hover:text-primary transition-all cursor-pointer active:scale-95"
-                  title="Click to flip page"
-                >
-                  <ArrowLeftRight className="h-3.5 w-3.5 text-primary" />
-                  <span>{activePageView === "page2" ? "View Page 1" : "View Page 2"}</span>
-                </button>
-              </div>
-
-              {/* Screen Preview (renders 1 active form at previewScale for 60fps performance) */}
-              <div
-                id="printable-canvas"
-                style={{
-                  transform: `scale(${previewScale})`,
-                  transformOrigin: "top center",
-                }}
-                className="transition-transform duration-150 space-y-6 print:hidden"
-              >
-                {activeTab === "v-ix" ? (
-                  <AdmissionFormVIxPrintableView
-                    data={previewFormData.formVIx}
-                    school={schoolInfo}
-                    activePage={activePageView}
-                  />
-                ) : (
-                  <AdmissionFormXIPrintableView
-                    data={previewFormData.formXI}
-                    school={schoolInfo}
-                    activePage={activePageView}
-                  />
-                )}
-              </div>
-            </div>
+            <ZoomPanViewport
+              fitMode="contain"
+              resetKey={`${activeTab}-${activePageView}`}
+              className="h-[460px] sm:h-[500px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
+            >
+              {activeTab === "v-ix" ? (
+                <AdmissionFormVIxPrintableView
+                  data={previewFormData.formVIx}
+                  school={schoolInfo}
+                  activePage={activePageView}
+                />
+              ) : (
+                <AdmissionFormXIPrintableView
+                  data={previewFormData.formXI}
+                  school={schoolInfo}
+                  activePage={activePageView}
+                />
+              )}
+            </ZoomPanViewport>
           </div>
         </div>
       </div>

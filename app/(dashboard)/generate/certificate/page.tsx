@@ -15,7 +15,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Switch } from "@/components/ui/switch";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -26,8 +33,9 @@ import {
   Sparkles,
   GraduationCap,
   Building,
-  Eye,
   RotateCcw,
+  ChevronDown,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
@@ -43,6 +51,13 @@ import {
   buildCharacterCertInsert,
 } from "@/lib/utils/certificate-registry";
 
+type PaperSize = "A5" | "A4" | "A3";
+type PaperOrientation = "portrait" | "landscape";
+interface PrintMargins { top: number; right: number; bottom: number; left: number; }
+const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
+};
+
 function CertificateGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,10 +69,39 @@ function CertificateGeneratorContent() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [bulkStudents, setBulkStudents] = useState<Student[]>([]);
   const [printMode, setPrintMode] = useState<"single" | "batch">("single");
-  const [previewScale, setPreviewScale] = useState<number>(1.0);
+
+  const [paper, setPaper] = useState<PaperSize>("A5");
+  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
+  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
+  const [paperOpen, setPaperOpen] = useState(false);
+  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
+  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
 
   const currentYear = new Date().getFullYear();
-  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("character-certificate", currentYear));
+  const [certSeq, setCertSeq] = useState<number>(1);
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cert-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paper) setPaper(s.paper as PaperSize);
+        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("cert-paper-settings", JSON.stringify({ paper, orientation, margins }));
+    } catch {}
+  };
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -69,7 +113,7 @@ function CertificateGeneratorContent() {
 
   // Certificate Master State (Strictly A5)
   const [cert, setCert] = useState<CharacterCertificateData>(() => ({
-    certificateNo: formatDocumentNumber("character-certificate", getDocumentSequence("character-certificate", currentYear), currentYear),
+    certificateNo: formatDocumentNumber("character-certificate", 1, currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
     examType: examParam === "HS" ? "HS" : "MP",
@@ -94,6 +138,7 @@ function CertificateGeneratorContent() {
 
   // Auto-sync sequence when year rolls over or on mount
   useEffect(() => {
+    setMounted(true);
     const seq = getDocumentSequence("character-certificate", currentYear);
     setCertSeq(seq);
     setCert((prev) => ({
@@ -382,7 +427,7 @@ function CertificateGeneratorContent() {
                 className="gap-2 text-xs font-bold bg-[#14206b] hover:bg-[#14206b]/90 text-white shadow-xs cursor-pointer h-10 sm:h-9 px-4 rounded-xl"
               >
                 <Printer className="h-4 w-4 shrink-0" />
-                <span>Print (A5)</span>
+                <span>Print</span>
               </Button>
             )}
           </div>
@@ -392,7 +437,7 @@ function CertificateGeneratorContent() {
       {/* Main Grid: Left Inputs + Right Certificate Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
-        <div className="xl:col-span-5 space-y-4 print:hidden xl:overflow-y-auto xl:max-h-[calc(100vh-140px)] xl:pr-2 pb-16 xl:pb-48">
+        <div className="xl:col-span-5 space-y-4 print:hidden">
           {/* MP vs HS Toggle */}
           <div className="flex items-center rounded-xl border bg-muted/40 p-1 text-xs font-semibold shadow-2xs">
             <button
@@ -575,7 +620,7 @@ function CertificateGeneratorContent() {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <Label className="text-[11px] font-semibold text-muted-foreground">Certificate Ref No</Label>
-                    {certSeq > 1 && (
+                    {mounted && certSeq > 1 && (
                       <button
                         type="button"
                         onClick={handleUndoSequence}
@@ -637,32 +682,78 @@ function CertificateGeneratorContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Paper & Margin Collapsible */}
+          <div className="border-t pt-2">
+            <button
+              type="button"
+              onClick={() => setPaperOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-1 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Paper &amp; Margin</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+            </button>
+            {paperOpen && (
+              <div className="space-y-2 pt-1">
+                <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
+                  <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A5">A5</SelectItem>
+                    <SelectItem value="A4">A4</SelectItem>
+                    <SelectItem value="A3">A3</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
+                  <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <label key={side} className="space-y-0.5">
+                      <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1}
+                        value={margins[side]}
+                        onChange={(e) => updateMargin(side, e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={savePaperSettings}
+                  className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save Settings
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Certificate Preview */}
-        <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
-          <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-primary" />
-              <span className="text-sm font-bold text-foreground">Preview</span>
-              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/40 font-normal">
-                A5 Portrait
-              </Badge>
-            </div>
-          </div>
-
-          {/* Certificate Canvas with Touch Pinch Zoom & Pan */}
+        <div className="xl:col-span-7 print:w-full print:m-0 print:p-0 xl:sticky xl:top-4">
+          {/* Certificate Canvas with ZoomPanViewport */}
           <div id="printable-certificate-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
-            <PinchZoomViewer
-              initialScale={1.0}
-              minScale={0.65}
-              maxScale={2.2}
-              scale={previewScale}
-              onScaleChange={setPreviewScale}
-              canvasClassName="min-h-[460px] sm:min-h-[620px]"
+            <ZoomPanViewport
+              resetKey={`${paper}-${orientation}`}
+              fitMode="contain"
+              className="h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] w-full print:hidden"
             >
               <CertificatePrintableView data={cert} schoolProfile={schoolProfile} />
-            </PinchZoomViewer>
+            </ZoomPanViewport>
+            <div className="hidden print:block">
+              <CertificatePrintableView data={cert} schoolProfile={schoolProfile} />
+            </div>
           </div>
 
           {/* Bulk Print Multi-Page Container: Rendered only during print */}
@@ -693,98 +784,70 @@ function CertificateGeneratorContent() {
         </div>
       </div>
 
-      {/* Direct Global Print Stylesheet */}
-      <style jsx global>{`
+      {/* Dynamic print CSS: @page size and margin from selected settings */}
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* Hide non-printable elements */
-          header,
-          aside,
-          nav,
-          .print\\:hidden,
-          button {
-            display: none !important;
-          }
+          header, aside, nav, .print\\:hidden, button { display: none !important; }
 
           @page {
-            size: 148mm 210mm;
-            margin: 0;
+            size: ${pageW}mm ${pageH}mm;
+            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
-          html,
-          body {
+          html, body {
             background: white !important;
             color: black !important;
             padding: 0 !important;
             margin: 0 !important;
-            width: 148mm !important;
+            width: ${pageW}mm !important;
             height: auto !important;
-            max-width: 148mm !important;
+            max-width: ${pageW}mm !important;
             overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
-          /* Single mode canvas layout */
           #printable-certificate-canvas {
             background: transparent !important;
             padding: 0 !important;
             margin: 0 auto !important;
             border: none !important;
             box-shadow: none !important;
-            width: 148mm !important;
-            max-width: 148mm !important;
-            height: 208mm !important;
-            max-height: 208mm !important;
+            width: ${pageW}mm !important;
+            max-width: ${pageW}mm !important;
             box-sizing: border-box !important;
-            overflow: hidden !important;
             display: block !important;
           }
 
-          #printable-certificate-canvas > div {
-            transform: none !important;
-            width: 148mm !important;
-            height: 208mm !important;
-            margin: 0 !important;
-            display: block !important;
-          }
-
-          /* Bulk mode: one certificate per printed page */
           #printable-certificate-batch {
             background: transparent !important;
             padding: 0 !important;
             margin: 0 auto !important;
-            width: 148mm !important;
-            max-width: 148mm !important;
+            width: ${pageW}mm !important;
+            max-width: ${pageW}mm !important;
             display: block !important;
           }
 
           .page-break {
-            width: 148mm !important;
-            height: 208mm !important;
-            max-height: 208mm !important;
+            width: ${pageW}mm !important;
             margin: 0 auto !important;
             display: block !important;
             box-sizing: border-box !important;
           }
 
           #pure-a5-certificate-sheet {
-            width: 148mm !important;
-            height: 208mm !important;
-            min-width: 148mm !important;
-            max-width: 148mm !important;
-            min-height: 208mm !important;
-            max-height: 208mm !important;
+            width: ${pageW}mm !important;
+            min-width: ${pageW}mm !important;
+            max-width: ${pageW}mm !important;
             margin: 0 auto !important;
-            padding: 3.5mm !important;
             box-sizing: border-box !important;
             border: 2.5px solid #14206b !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
-            page-break-after: avoid !important;
             break-after: avoid !important;
           }
         }
-      `}</style>
+      ` }} />
 
       {/* Print Batch History & Selective Undo Modal */}
       <PrintHistoryModal

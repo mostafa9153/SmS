@@ -30,15 +30,21 @@ import {
   FileSpreadsheet,
   BookOpen,
   Users,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   CheckCheck,
   RefreshCw,
   ArrowLeft,
-  Eye,
+  ChevronDown,
+  Save,
 } from "lucide-react";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { cn } from "@/lib/utils";
+
+type PaperSize = "A5" | "A4" | "A3";
+type PaperOrientation = "portrait" | "landscape";
+type PrintMargins = { top: number; right: number; bottom: number; left: number };
+const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
+};
 
 export default function TabulationGeneratorPage() {
   const router = useRouter();
@@ -69,9 +75,35 @@ export default function TabulationGeneratorPage() {
   const [customSubjectText, setCustomSubjectText] = useState<string>("");
 
   // Layout & Preview state
-  const [zoom, setZoom] = useState<number>(0.75);
   const [showWatermark, setShowWatermark] = useState<boolean>(true);
   const [manualCount, setManualCount] = useState<number>(31);
+  const [paper, setPaper] = useState<PaperSize>("A4");
+  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
+  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
+  const [paperOpen, setPaperOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("tabulation-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paper) setPaper(s.paper as PaperSize);
+        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("tabulation-paper-settings", JSON.stringify({ paper, orientation, margins }));
+    } catch {}
+  };
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
+  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
+  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
 
   // Sync freshest classes from DB
   useEffect(() => {
@@ -291,10 +323,10 @@ export default function TabulationGeneratorPage() {
       {/* ============================================================== */}
       {/* MAIN GRID: Controls (Left) + Canvas Preview (Right)             */}
       {/* ============================================================== */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
-        
+      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start print:block print:w-full print:m-0 print:p-0">
+
         {/* LEFT COLUMN: Controls (Hidden in Print) */}
-        <div className="xl:col-span-4 space-y-4 print:hidden">
+        <div className="space-y-4 print:hidden order-2 xl:order-1">
           
           {/* Card 1: Class & Section Selector */}
           <Card className="border shadow-2xs overflow-visible">
@@ -490,110 +522,112 @@ export default function TabulationGeneratorPage() {
           {/* Printing Advice Callout */}
           <div className="p-3 bg-muted/40 border rounded-xl text-[11px] text-muted-foreground leading-relaxed">
             <span className="font-bold text-foreground block mb-1">💡 Printing Advice:</span>
-            In the browser print preview, ensure <strong>Margins: None</strong> and <strong>Background Graphics: Checked</strong> are selected for pixel-perfect A4 zero-margin output (40 rows left &amp; 40 rows right &bull; 80 students/sheet).
+            In the browser print preview, ensure <strong>Margins: None</strong> and <strong>Background Graphics: Checked</strong> are selected for pixel-perfect output (40 rows left &amp; 40 rows right &bull; 80 students/sheet).
+          </div>
+
+          {/* Paper & Margin */}
+          <div className="p-3 bg-card border rounded-xl space-y-1">
+            <button
+              type="button"
+              onClick={() => setPaperOpen((v) => !v)}
+              className="w-full flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Paper &amp; Margin</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+            </button>
+            {paperOpen && (
+              <div className="mt-2 space-y-2">
+                <CustomSelect
+                  value={paper}
+                  onChange={(v) => v && setPaper(v as PaperSize)}
+                  options={[
+                    { value: "A5", label: "A5" },
+                    { value: "A4", label: "A4" },
+                    { value: "A3", label: "A3" },
+                  ]}
+                />
+                <CustomSelect
+                  value={orientation}
+                  onChange={(v) => v && setOrientation(v as PaperOrientation)}
+                  options={[
+                    { value: "portrait", label: "Portrait" },
+                    { value: "landscape", label: "Landscape" },
+                  ]}
+                />
+                <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <label key={side} className="space-y-0.5">
+                      <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1}
+                        value={margins[side]}
+                        onChange={(e) => updateMargin(side, e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={savePaperSettings}
+                  className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save Settings
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Live Print-Ready Preview Canvas */}
-        <div className="xl:col-span-8 space-y-4 print:w-full print:m-0 print:p-0">
-          <div className="flex items-center justify-between px-1 print:hidden">
-            <div className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                Preview
-              </span>
-              <span className="px-2.5 py-0.5 rounded-full border border-border/80 text-xs text-muted-foreground font-normal bg-background/60">
-                A4 Portrait
-              </span>
+        {/* ZoomPanViewport preview */}
+        <ZoomPanViewport
+          resetKey={`${selectedClass}-${selectedSection}-${paper}-${orientation}-${subjectsToRender.length}`}
+          fitMode={subjectsToRender.length > 1 ? "width" : "contain"}
+          className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
+        >
+          {subjectsToRender.map((sub, sIdx) => (
+            <div key={`subject-preview-${sIdx}`} className={sIdx > 0 ? "mt-12" : ""}>
+              <TabulationSheetPrintableView
+                schoolProfile={schoolProfile}
+                academicYear={academicYear}
+                evaluationTitle={evaluationTitle}
+                className={selectedClass}
+                section={selectedSection}
+                subject={sub}
+                students={enrolledStudents}
+                showWatermark={showWatermark}
+              />
             </div>
+          ))}
+        </ZoomPanViewport>
 
-            {/* Smooth Line Scale Slider Zoom Control */}
-            <div className="flex items-center gap-2 bg-background border border-border/80 px-2.5 py-1 rounded-xl shadow-2xs">
-              <span className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-                <span>Scale:</span>
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.05).toFixed(2))))}
-                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer"
-                title="Zoom Out (-5%)"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Range Line Scale Slider */}
-              <div className="flex items-center w-24 sm:w-32">
-                <input
-                  type="range"
-                  min="0.4"
-                  max="1.5"
-                  step="0.02"
-                  value={zoom}
-                  onChange={(e) => setZoom(parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-purple-600 focus:outline-none"
-                  title={`Slide to zoom: ${Math.round(zoom * 100)}%`}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(1.5, Number((z + 0.05).toFixed(2))))}
-                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors cursor-pointer"
-                title="Zoom In (+5%)"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-
-              {/* Percentage Badge & Reset */}
-              <button
-                type="button"
-                onClick={() => setZoom(0.75)}
-                className="px-2 py-0.5 rounded-md bg-purple-500/10 hover:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px] font-mono font-bold transition-all cursor-pointer flex items-center gap-1 border border-purple-500/20"
-                title="Click to reset to default 75%"
-              >
-                <span>{Math.round(zoom * 100)}%</span>
-                <RotateCcw className="w-2.5 h-2.5 opacity-60 hover:opacity-100" />
-              </button>
-            </div>
-          </div>
-
-          {/* Canvas Wrapper with Touch Pinch-to-Zoom */}
-          <PinchZoomViewer
-            scale={zoom}
-            onScaleChange={setZoom}
-            minScale={0.4}
-            maxScale={2.0}
-            showControls={false}
-            canvasClassName="bg-slate-100/80 dark:bg-slate-900/60 p-2 sm:p-6"
-          >
+        {/* Hidden print container */}
+        <div id="tabulation-printable-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
+          {subjectsToRender.map((sub, sIdx) => (
             <div
-              id="tabulation-printable-canvas"
-              className="shrink-0 m-auto shadow-2xl print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 print:block"
+              key={`subject-print-${sIdx}`}
+              style={{
+                pageBreakAfter: sIdx < subjectsToRender.length - 1 ? "always" : "auto",
+                breakAfter: sIdx < subjectsToRender.length - 1 ? "page" : "auto",
+              }}
             >
-              {subjectsToRender.map((sub, sIdx) => (
-                <div
-                  key={`subject-sheet-wrap-${sIdx}`}
-                  className={sIdx > 0 ? "mt-12 print:mt-0" : ""}
-                  style={{
-                    pageBreakAfter: sIdx < subjectsToRender.length - 1 ? "always" : "auto",
-                    breakAfter: sIdx < subjectsToRender.length - 1 ? "page" : "auto",
-                  }}
-                >
-                  <TabulationSheetPrintableView
-                    schoolProfile={schoolProfile}
-                    academicYear={academicYear}
-                    evaluationTitle={evaluationTitle}
-                    className={selectedClass}
-                    section={selectedSection}
-                    subject={sub}
-                    students={enrolledStudents}
-                    showWatermark={showWatermark}
-                  />
-                </div>
-              ))}
+              <TabulationSheetPrintableView
+                schoolProfile={schoolProfile}
+                academicYear={academicYear}
+                evaluationTitle={evaluationTitle}
+                className={selectedClass}
+                section={selectedSection}
+                subject={sub}
+                students={enrolledStudents}
+                showWatermark={showWatermark}
+              />
             </div>
-          </PinchZoomViewer>
+          ))}
         </div>
       </div>
 
@@ -603,8 +637,8 @@ export default function TabulationGeneratorPage() {
       <style jsx global>{`
         @media print {
           @page {
-            size: 210mm 297mm;
-            margin: 0;
+            size: ${pageW}mm ${pageH}mm;
+            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
           body,

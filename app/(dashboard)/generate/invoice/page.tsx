@@ -27,7 +27,7 @@ import {
   InvoicePrintableA4Sheet,
 } from "@/components/invoice/invoice-printable-view";
 import { InvoiceTrackerModal } from "@/components/invoice/invoice-tracker-modal";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
@@ -55,8 +55,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Receipt,
-  ZoomIn,
-  ZoomOut,
   Lock,
   Unlock,
   Undo2,
@@ -94,7 +92,6 @@ function InvoiceGeneratorContent() {
   const [singleSection, setSingleSection] = useState<string>(sectionParam?.toUpperCase() || "ALL");
   const [isLoadingFullStudent, setIsLoadingFullStudent] = useState<boolean>(false);
   const [autoDateTime, setAutoDateTime] = useState(true);
-  const [previewScale, setPreviewScale] = useState<number>(0.75);
   const [isTrackerOpen, setIsTrackerOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
@@ -1618,26 +1615,19 @@ function InvoiceGeneratorContent() {
               </div>
             </div>
 
-            {/* Printable Canvas Viewport with Touch Pinch-Zoom & Pan */}
-            <div id="printable-invoice-canvas">
-              <PinchZoomViewer
-                initialScale={0.75}
-                minScale={0.4}
-                maxScale={2.0}
-                scale={previewScale}
-                onScaleChange={setPreviewScale}
-                canvasClassName="min-h-[460px]"
-              >
-                <div
-                  style={{
-                    width: "210mm",
-                    height: "146mm",
-                  }}
-                  className="shrink-0"
-                >
-                  <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
-                </div>
-              </PinchZoomViewer>
+            {/* Printable Canvas Viewport */}
+            <ZoomPanViewport
+              fitMode="contain"
+              resetKey="single-invoice"
+              className="h-[460px] sm:h-[580px] w-full print:hidden"
+            >
+              <div style={{ width: "210mm", height: "146mm" }} className="shrink-0">
+                <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
+              </div>
+            </ZoomPanViewport>
+            {/* Print-only output */}
+            <div id="printable-invoice-canvas" className="hidden print:block" style={{ width: "210mm", height: "146mm" }}>
+              <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
             </div>
           </div>
         </div>
@@ -2331,45 +2321,40 @@ function InvoiceGeneratorContent() {
               )}
             </div>
 
-            {/* Scaled Preview Viewport with Touch Pinch-Zoom */}
+            {/* Scaled Preview Viewport */}
             {bulkInvoices.length > 0 ? (
-              <div id="printable-invoice-canvas">
-                <PinchZoomViewer
-                  initialScale={isA4FourUp ? 0.52 : 0.75}
-                  minScale={0.35}
-                  maxScale={2.0}
-                  scale={previewScale}
-                  onScaleChange={setPreviewScale}
-                  canvasClassName="min-h-[460px]"
+              <ZoomPanViewport
+                fitMode="contain"
+                resetKey={`bulk-${isA4FourUp}`}
+                className="h-[460px] sm:h-[580px] w-full print:hidden"
+              >
+                <div
+                  style={{
+                    width: "210mm",
+                    height: isA4FourUp ? "295mm" : "146mm",
+                  }}
+                  className="shrink-0"
                 >
-                  <div
-                    style={{
-                      width: "210mm",
-                      height: isA4FourUp ? "295mm" : "146mm",
-                    }}
-                    className="shrink-0"
-                  >
-                    {isA4FourUp ? (
-                      <div
-                        id="pure-a4-invoice-sheet"
-                        className="relative bg-white text-slate-900 border border-slate-400 font-sans box-border select-none mx-auto overflow-hidden w-[210mm] h-[295mm] min-w-[210mm] max-w-[210mm] min-h-[295mm] max-h-[295mm] p-[3mm] shadow-md flex items-center justify-center"
-                      >
-                        <InvoicePrintableA4Sheet
-                          invoices={activeA4Chunk}
-                          copyLabel={copyType === "school" ? "SCHOOL COPY" : "STUDENT COPY"}
-                          schoolProfile={schoolProfile}
-                        />
-                      </div>
-                    ) : (
-                      <InvoicePrintableView
-                        data={activeBulkPreviewInvoice}
-                        copyType={copyType}
+                  {isA4FourUp ? (
+                    <div
+                      id="pure-a4-invoice-sheet"
+                      className="relative bg-white text-slate-900 border border-slate-400 font-sans box-border select-none mx-auto overflow-hidden w-[210mm] h-[295mm] min-w-[210mm] max-w-[210mm] min-h-[295mm] max-h-[295mm] p-[3mm] shadow-md flex items-center justify-center"
+                    >
+                      <InvoicePrintableA4Sheet
+                        invoices={activeA4Chunk}
+                        copyLabel={copyType === "school" ? "SCHOOL COPY" : "STUDENT COPY"}
                         schoolProfile={schoolProfile}
                       />
-                    )}
-                  </div>
-                </PinchZoomViewer>
-              </div>
+                    </div>
+                  ) : (
+                    <InvoicePrintableView
+                      data={activeBulkPreviewInvoice}
+                      copyType={copyType}
+                      schoolProfile={schoolProfile}
+                    />
+                  )}
+                </div>
+              </ZoomPanViewport>
             ) : (
               <div className="py-24 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2 border border-border/80 rounded-2xl bg-muted/40 min-h-[460px]">
                 <Users className="h-8 w-8 text-muted-foreground/40" />

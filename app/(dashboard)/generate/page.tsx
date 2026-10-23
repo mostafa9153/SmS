@@ -33,6 +33,7 @@ import {
   Loader2,
   FileText,
   FileCheck,
+  Users,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -317,6 +318,22 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     accentBorder: "hover:border-sky-500/50 hover:shadow-sky-500/10",
     gradientGlow: "from-sky-500/10 via-transparent to-transparent",
     highlights: ["A3 Landscape Printable", "Class & Section Selector", "School Logo Watermark", "Roll-Sorted Active Students"],
+  },
+  {
+    id: "class-teacher-list",
+    title: "Class Teacher List",
+    category: "admissions",
+    categoryLabel: "Records & Lists",
+    formatBadge: "A4 / A5 / A3",
+    formatVariant: "purple",
+    description:
+      "Printable list of every class and section with its assigned class teacher, designation, and head signature.",
+    href: "/generate/class-teacher-list",
+    icon: Users,
+    iconBg: "bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30",
+    accentBorder: "hover:border-violet-500/50 hover:shadow-violet-500/10",
+    gradientGlow: "from-violet-500/10 via-transparent to-transparent",
+    highlights: ["Class & Section Wise Rows", "Paper A5 / A4 / A3", "Custom Print Margins", "Auto-fit Layout"],
   },
 ];
 
@@ -793,7 +810,7 @@ function GenerateHubPageContent() {
                 : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >
-            Admissions (2)
+            Admissions ({GENERATOR_MODULES.filter((m) => m.category === "admissions").length})
           </button>
           <button
             type="button"

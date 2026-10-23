@@ -21,10 +21,21 @@ import {
   Users,
   FileCheck,
   History,
-  Layers,
   User,
   MapPin,
+  ChevronDown,
+  Save,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+
+type PrintMargins = { top: number; right: number; bottom: number; left: number };
 import {
   useSchoolProfile,
   getEffectiveHeadTitle,
@@ -74,16 +85,38 @@ function BonafideGeneratorContent() {
   const [activeStudent, setActiveStudent] = useState<Student | null>(null);
 
   // Certificate settings
-  const [certSeq, setCertSeq] = useState<number>(() =>
-    getDocumentSequence("bonafide-certificate", currentYear)
-  );
+  const [certSeq, setCertSeq] = useState<number>(1);
   const [issueDate, setIssueDate] = useState<string>(getLiveDate);
   const [copyType, setCopyType] = useState<"Original" | "Duplicate" | "Office Copy">("Original");
   const [purpose, setPurpose] = useState<string>(PURPOSE_PRESETS[0].value);
   const [conduct, setConduct] = useState<string>("exemplary moral character");
   const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
-  const [previewScale, setPreviewScale] = useState<number>(0.95);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
+  const [paperOpen, setPaperOpen] = useState(false);
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
+  const pageW = paperSize === "A5" ? 148 : 210;
+  const pageH = paperSize === "A5" ? 210 : 297;
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("bonafide-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paperSize) setPaperSize(s.paperSize as "A5" | "A4");
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("bonafide-paper-settings", JSON.stringify({ paperSize, margins }));
+    } catch {}
+  };
 
   // Editable Student Particulars Form State
   const [studentForm, setStudentForm] = useState({
@@ -107,6 +140,12 @@ function BonafideGeneratorContent() {
 
   // Print Mode: "single" | "batch"
   const [printMode, setPrintMode] = useState<"single" | "batch">("single");
+
+  // Auto-sync sequence when year rolls over or on mount
+  useEffect(() => {
+    const seq = getDocumentSequence("bonafide-certificate", currentYear);
+    setCertSeq(seq);
+  }, [currentYear]);
 
   // Picker callbacks: selecting a single student or activating a bulk roster row
   // both route through the same "active student" the right-hand preview/form reflects.
@@ -348,9 +387,6 @@ function BonafideGeneratorContent() {
               <h1 className="text-lg font-bold tracking-tight text-foreground">
                 Bonafide Certificate Studio
               </h1>
-              <Badge variant="outline" className="text-[10px] font-mono font-semibold uppercase">
-                {paperSize} Portrait
-              </Badge>
             </div>
           </div>
         </div>
@@ -367,80 +403,22 @@ function BonafideGeneratorContent() {
           </Button>
 
           <Button
-            variant="outline"
             size="sm"
-            onClick={handlePrintSingle}
-            disabled={!activeStudent}
-            className="h-9 rounded-xl text-xs gap-1.5 font-semibold"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Print Active (1)
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handlePrintBatch}
-            disabled={studentsToPrint.length === 0}
+            onClick={studentsToPrint.length > 0 ? handlePrintBatch : handlePrintSingle}
+            disabled={studentsToPrint.length === 0 && !activeStudent}
             className="h-9 rounded-xl text-xs gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-xs"
           >
             <Printer className="h-3.5 w-3.5" />
-            Print Selected ({studentsToPrint.length})
+            Print
           </Button>
         </div>
       </div>
 
       {/* Main Studio Grid: Unwraps in Print */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 print:block print:w-full print:m-0 print:p-0">
+      <div className="grid grid-cols-1 xl:grid-cols-[500px_1fr] gap-5 print:block print:w-full print:m-0 print:p-0">
         {/* Left Column: Filter Controls & Student Roster */}
-        <div className="xl:col-span-5 space-y-4 print:hidden">
-          {/* 1. Paper Format Switcher */}
-          <Card className="rounded-2xl border shadow-2xs">
-            <CardHeader className="p-3.5 pb-2">
-              <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5 text-primary" />
-                Paper Format
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-3.5 pt-0">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaperSize("A5");
-                    setPreviewScale(0.95);
-                  }}
-                  className={cn(
-                    "p-2 rounded-xl border text-center transition-all cursor-pointer",
-                    paperSize === "A5"
-                      ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                  )}
-                >
-                  <p className="text-xs">A5 Portrait (Standard)</p>
-                  <p className="text-[10px] opacity-75 font-mono">148 × 210 mm</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaperSize("A4");
-                    setPreviewScale(0.75);
-                  }}
-                  className={cn(
-                    "p-2 rounded-xl border text-center transition-all cursor-pointer",
-                    paperSize === "A4"
-                      ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                  )}
-                >
-                  <p className="text-xs">A4 Portrait (Full Page)</p>
-                  <p className="text-[10px] opacity-75 font-mono">210 × 297 mm</p>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 2. Student Selection Card (shared with other certificate pages) */}
+        <div className="space-y-4 print:hidden order-2 xl:order-1">
+          {/* 1. Student Selection Card (shared with other certificate pages) */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
               <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -733,101 +711,118 @@ function BonafideGeneratorContent() {
               </div>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Right Column: Live Sheet Preview (Single) & Batch Container (Print) */}
-        <div className="xl:col-span-7 print:w-full print:m-0 print:p-0">
-          <div className="sticky top-4 space-y-3">
-            {/* Live Scale Controls: Hidden in Print */}
-            <div className="flex items-center justify-between print:hidden px-1">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs font-mono">
-                  {isA5 ? "A5: 148mm × 210mm" : "A4: 210mm × 297mm"}
-                </Badge>
-                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-                  {activeStudent ? activeStudent.name : "Preview Sample"}
-                </span>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.max(0.4, Number((s - 0.1).toFixed(2))))}
-                  className="h-7 w-7 p-0 text-xs"
-                >
-                  -
-                </Button>
-                <span className="text-[11px] font-mono text-muted-foreground w-12 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.min(1.5, Number((s + 0.1).toFixed(2))))}
-                  className="h-7 w-7 p-0 text-xs"
-                >
-                  +
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPreviewScale(isA5 ? 0.95 : 0.75)}
-                  className="h-7 px-2 text-[10px]"
-                >
-                  Reset
-                </Button>
-              </div>
-            </div>
-
-            {/* Studio Canvas Preview Container */}
-            <div
-              id="printable-bonafide-canvas"
-              className="w-full overflow-auto bg-muted/20 border rounded-2xl p-4 sm:p-6 flex justify-center items-start shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block print:shadow-none"
-            >
-              {/* Single Student Interactive Preview (Hidden during batch printing) */}
-              <div
-                style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
-                className={cn(
-                  "transition-transform duration-150",
-                  printMode === "batch"
-                    ? "print:hidden"
-                    : "print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
-                )}
+          {/* Paper & Margin */}
+          <Card className="rounded-2xl border shadow-2xs">
+            <CardContent className="p-3.5">
+              <button
+                type="button"
+                onClick={() => setPaperOpen((v) => !v)}
+                className="w-full flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
               >
-                <BonafideCertificatePrintableView
-                  data={activeCertData}
-                  schoolProfile={schoolProfile}
-                />
-              </div>
-
-              {/* Batch Print Multi-Page Container: Rendered only during print */}
-              {printMode === "batch" && (
-                <div className="hidden print:block w-full">
-                  {studentsToPrint.map((student, idx) => {
-                    const itemSeq = certSeq - studentsToPrint.length + idx;
-                    const studentData = buildCertificateDataForStudent(student, itemSeq);
-
-                    return (
-                      <div
-                        key={student.id}
-                        className="page-break"
-                        style={{
-                          pageBreakAfter: idx === studentsToPrint.length - 1 ? "avoid" : "always",
-                          breakAfter: idx === studentsToPrint.length - 1 ? "avoid" : "page",
-                        }}
-                      >
-                        <BonafideCertificatePrintableView
-                          data={studentData}
-                          schoolProfile={schoolProfile}
+                <span>Paper &amp; Margin</span>
+                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+              </button>
+              {paperOpen && (
+                <div className="mt-3 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPaperSize("A5")}
+                      className={cn(
+                        "p-2 rounded-xl border text-center transition-all cursor-pointer",
+                        paperSize === "A5"
+                          ? "border-primary bg-primary/10 text-primary font-bold"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <p className="text-xs">A5 Portrait</p>
+                      <p className="text-[10px] opacity-75 font-mono">148 × 210 mm</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPaperSize("A4")}
+                      className={cn(
+                        "p-2 rounded-xl border text-center transition-all cursor-pointer",
+                        paperSize === "A4"
+                          ? "border-primary bg-primary/10 text-primary font-bold"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      <p className="text-xs">A4 Portrait</p>
+                      <p className="text-[10px] opacity-75 font-mono">210 × 297 mm</p>
+                    </button>
+                  </div>
+                  <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["top", "right", "bottom", "left"] as const).map((side) => (
+                      <label key={side} className="space-y-0.5">
+                        <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          step={1}
+                          value={margins[side]}
+                          onChange={(e) => updateMargin(side, e.target.value)}
+                          className="h-8 text-xs"
                         />
-                      </div>
-                    );
-                  })}
+                      </label>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={savePaperSettings}
+                    className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                    Save Settings
+                  </button>
                 </div>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right: ZoomPanViewport preview */}
+        <ZoomPanViewport
+          resetKey={paperSize}
+          fitMode="contain"
+          className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
+        >
+          <BonafideCertificatePrintableView
+            data={activeCertData}
+            schoolProfile={schoolProfile}
+          />
+        </ZoomPanViewport>
+
+        {/* Hidden print container (single & batch) */}
+        <div id="printable-bonafide-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
+          {printMode !== "batch" ? (
+            <BonafideCertificatePrintableView
+              data={activeCertData}
+              schoolProfile={schoolProfile}
+            />
+          ) : (
+            studentsToPrint.map((student, idx) => {
+              const itemSeq = certSeq - studentsToPrint.length + idx;
+              const studentData = buildCertificateDataForStudent(student, itemSeq);
+              return (
+                <div
+                  key={student.id}
+                  className="page-break"
+                  style={{
+                    pageBreakAfter: idx === studentsToPrint.length - 1 ? "avoid" : "always",
+                    breakAfter: idx === studentsToPrint.length - 1 ? "avoid" : "page",
+                  }}
+                >
+                  <BonafideCertificatePrintableView
+                    data={studentData}
+                    schoolProfile={schoolProfile}
+                  />
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -843,8 +838,8 @@ function BonafideGeneratorContent() {
           }
 
           @page {
-            size: ${isA5 ? "148mm 210mm" : "210mm 297mm"};
-            margin: 0;
+            size: ${pageW}mm ${pageH}mm;
+            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
           html,

@@ -13,11 +13,12 @@ import {
  * Automatically updates when school profile is edited anywhere in the app.
  */
 export function useSchoolProfile() {
-  const [profile, setProfile] = useState<SchoolProfileData>(getSavedSchoolProfile);
+  const [profile, setProfile] = useState<SchoolProfileData>(DEFAULT_SCHOOL_PROFILE);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
+    setProfile(getSavedSchoolProfile());
 
     // 1. Fetch latest from database asynchronously
     fetchSchoolProfileFromDb().then((p) => {

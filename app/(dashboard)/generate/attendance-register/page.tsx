@@ -24,11 +24,20 @@ import type { Student } from "@/lib/types";
 import {
   ArrowLeft,
   Printer,
-  ZoomIn,
-  ZoomOut,
+  ChevronDown,
   Users,
   Loader2,
+  Save,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+
+type PaperSize = "A5" | "A4" | "A3";
+type PaperOrientation = "portrait" | "landscape";
+interface PrintMargins { top: number; right: number; bottom: number; left: number; }
+const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
+};
 
 function AttendanceRegisterContent() {
   const searchParams = useSearchParams();
@@ -40,7 +49,33 @@ function AttendanceRegisterContent() {
   const [selectedSection, setSelectedSection] = useState(
     searchParams.get("section") || "A"
   );
-  const [scale, setScale] = useState(0.55);
+  const [paper, setPaper] = useState<PaperSize>("A4");
+  const [orientation, setOrientation] = useState<PaperOrientation>("landscape");
+  const [margins, setMargins] = useState<PrintMargins>({ top: 5, right: 5, bottom: 5, left: 5 });
+  const [paperOpen, setPaperOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("attendance-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paper) setPaper(s.paper as PaperSize);
+        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("attendance-paper-settings", JSON.stringify({ paper, orientation, margins }));
+    } catch {}
+  };
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
+  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
+  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
 
   const { profile: schoolProfile } = useSchoolProfile();
 
@@ -96,7 +131,7 @@ function AttendanceRegisterContent() {
   return (
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
       {/* Sidebar */}
-      <aside className="print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
+      <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
         <div className="flex items-center gap-2">
           <Link
             href="/generate"
@@ -169,37 +204,64 @@ function AttendanceRegisterContent() {
           )}
         </div>
 
-        {/* Zoom + Print */}
-        <div className="flex items-center gap-2 border-t pt-3">
-          <div className="hidden sm:flex items-center border rounded-xl bg-background">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-7"
-              onClick={() => setScale((s) => Math.max(0.3, s - 0.05))}
-            >
-              <ZoomOut className="h-3.5 w-3.5" />
-            </Button>
-            <button
-              onClick={() => setScale(0.55)}
-              title="Reset zoom"
-              className="text-[11px] font-mono w-10 text-center font-bold flex items-center justify-center"
-            >
-              {Math.round(scale * 100)}%
-            </button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-7"
-              onClick={() => setScale((s) => Math.min(1.3, s + 0.05))}
-            >
-              <ZoomIn className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+        {/* Paper & Margin + Print */}
+        <div className="border-t pt-2 space-y-2">
+          <button
+            type="button"
+            onClick={() => setPaperOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-1 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>Paper &amp; Margin</span>
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+          </button>
+          {paperOpen && (
+            <div className="space-y-2 pt-1">
+              <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
+                <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="A5">A5</SelectItem>
+                  <SelectItem value="A4">A4</SelectItem>
+                  <SelectItem value="A3">A3</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
+                <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="portrait">Portrait</SelectItem>
+                  <SelectItem value="landscape">Landscape</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(["top", "right", "bottom", "left"] as const).map((side) => (
+                  <label key={side} className="space-y-0.5">
+                    <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={1}
+                      value={margins[side]}
+                      onChange={(e) => updateMargin(side, e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </label>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={savePaperSettings}
+                className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save Settings
+              </button>
+            </div>
+          )}
           <Button
             onClick={() => window.print()}
             disabled={isEmpty || isLoading}
-            className="h-9 flex-1 gap-1.5 font-bold rounded-xl shadow-xs"
+            className="h-9 w-full gap-1.5 font-bold rounded-xl shadow-xs"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -207,42 +269,37 @@ function AttendanceRegisterContent() {
         </div>
       </aside>
 
-      {/* Canvas (screen preview only) */}
-      <div
-        className="min-w-0 w-full flex justify-center py-4 bg-muted/15 border rounded-2xl overflow-x-auto custom-scrollbar print:hidden"
-      >
-        {isLoading ? (
-          <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
+      {isLoading ? (
+        <div className="min-w-0 w-full flex justify-center items-center h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 bg-muted/15 border rounded-2xl print:hidden">
+          <div className="text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
             <Loader2 className="h-5 w-5 animate-spin" />
             Loading students...
           </div>
-        ) : isError ? (
-          <div className="p-12 text-center text-sm text-destructive">
-            Failed to load students.
-          </div>
-        ) : isEmpty ? (
-          <div className="p-12 text-center text-sm text-muted-foreground">
-            No active students in Class {selectedClass}-{selectedSection}.
-          </div>
-        ) : (
-          <div
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "top center",
-            }}
-            className="transition-transform duration-150 print:transform-none"
-          >
-            <AttendanceRegisterPrintable
-              students={students}
-              className={selectedClass}
-              section={selectedSection}
-              schoolLogoUrl={
-                schoolProfile?.schoolLogoUrl || "/school-logo.png"
-              }
-            />
-          </div>
-        )}
-      </div>
+        </div>
+      ) : isError ? (
+        <div className="min-w-0 w-full flex justify-center items-center h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 text-sm text-destructive border rounded-2xl print:hidden">
+          Failed to load students.
+        </div>
+      ) : isEmpty ? (
+        <div className="min-w-0 w-full flex justify-center items-center h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 text-sm text-muted-foreground border rounded-2xl print:hidden">
+          No active students in Class {selectedClass}-{selectedSection}.
+        </div>
+      ) : (
+        <ZoomPanViewport
+          fitMode="width"
+          resetKey={`${selectedClass}-${selectedSection}-${paper}-${orientation}`}
+          className="min-w-0 w-full h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 print:hidden"
+        >
+          <AttendanceRegisterPrintable
+            students={students}
+            className={selectedClass}
+            section={selectedSection}
+            schoolLogoUrl={schoolProfile?.schoolLogoUrl || "/school-logo.png"}
+          />
+        </ZoomPanViewport>
+      )}
+
+      <style dangerouslySetInnerHTML={{ __html: `@media print { @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; } }` }} />
 
       {/* Print portal: rendered at body level so print CSS can isolate it */}
       {portalReady && portalRef.current && !isEmpty && !isLoading && createPortal(

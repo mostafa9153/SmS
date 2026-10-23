@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import {
   BlankPadPrintableView,
@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Layers,
   ChevronDown,
+  Save,
   Lock,
   Unlock,
   AlignLeft,
@@ -43,6 +44,9 @@ import {
   saveDocumentSequence,
   formatDocumentNumber,
 } from "@/lib/utils/document-sequence";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+
+interface PrintMargins { top: number; right: number; bottom: number; left: number; }
 
 function BlankPadGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -56,9 +60,7 @@ function BlankPadGeneratorContent() {
     });
   }
 
-  const [padSeq, setPadSeq] = useState<number>(() =>
-    getDocumentSequence("blank-pad", currentYear)
-  );
+  const [padSeq, setPadSeq] = useState<number>(1);
   const [isRefLocked, setIsRefLocked] = useState<boolean>(true);
   const [isDateLocked, setIsDateLocked] = useState<boolean>(true);
   const [customRefNo, setCustomRefNo] = useState<string>("");
@@ -66,15 +68,19 @@ function BlankPadGeneratorContent() {
 
   const [letterMode, setLetterMode] = useState<LetterMode>("structured");
 
-  const [fontStyle, setFontStyle] = useState<BlankPadFontStyle>(() => {
+  const [fontStyle, setFontStyle] = useState<BlankPadFontStyle>("classic");
+
+  // Auto-sync sequence & font style on mount
+  React.useEffect(() => {
+    const seq = getDocumentSequence("blank-pad", currentYear);
+    setPadSeq(seq);
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("sms_blank_pad_font_style");
       if (saved === "classic" || saved === "3d" || saved === "stylish") {
-        return saved as BlankPadFontStyle;
+        setFontStyle(saved as BlankPadFontStyle);
       }
     }
-    return "classic";
-  });
+  }, [currentYear]);
 
   const handleFontStyleChange = (newStyle: BlankPadFontStyle) => {
     setFontStyle(newStyle);
@@ -137,20 +143,6 @@ function BlankPadGeneratorContent() {
     includeSignatureImage: false,
     bodyContent: "",
   });
-
-  const [mobileTab, setMobileTab] = useState<"form" | "preview">("form");
-
-  const [previewScale, setPreviewScale] = useState<number>(0.85);
-
-  // Auto-fit scale on mobile screen size on initial load
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        setPreviewScale(padData.paperSize === "A4" ? 0.44 : 0.58);
-      }
-    }
-  }, [padData.paperSize]);
 
   const handlePrint = () => {
     const nextSeq = padSeq + 1;
@@ -232,6 +224,31 @@ function BlankPadGeneratorContent() {
 
   const isA4 = padData.paperSize === "A4";
 
+  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
+  const [paperOpen, setPaperOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("blank-pad-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paperSize) setPadData((prev) => ({ ...prev, paperSize: s.paperSize }));
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("blank-pad-paper-settings", JSON.stringify({ paperSize: padData.paperSize, margins }));
+    } catch {}
+  };
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
+  const pageW = isA4 ? 210 : 148;
+  const pageH = isA4 ? 297 : 210;
+
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-[1700px] mx-auto space-y-3 sm:space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Studio Header: Hidden in Print */}
@@ -277,43 +294,10 @@ function BlankPadGeneratorContent() {
         </div>
       </div>
 
-      {/* Mobile Tab Switcher: Visible only on mobile/tablet (< xl) */}
-      <div className="flex xl:hidden border rounded-2xl p-1 bg-muted/40 shadow-2xs gap-1 print:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileTab("form")}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            mobileTab === "form"
-              ? "bg-background text-primary shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <PenTool className="h-3.5 w-3.5 text-primary" />
-          <span>Editor & Settings</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setMobileTab("preview");
-            if (previewScale > 0.6) {
-              setPreviewScale(padData.paperSize === "A4" ? 0.44 : 0.58);
-            }
-          }}
-          className={`flex-1 py-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-            mobileTab === "preview"
-              ? "bg-background text-primary shadow-xs"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <FileText className="h-3.5 w-3.5 text-primary" />
-          <span>Sheet Preview</span>
-        </button>
-      </div>
-
       {/* Main Studio Grid: Unwraps in Print */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 sm:gap-5 print:block print:w-full print:m-0 print:p-0">
+      <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 sm:gap-5 print:block print:w-full print:m-0 print:p-0">
         {/* Left Form Controls: Hidden in Print */}
-        <div className={`xl:col-span-4 space-y-4 print:hidden ${mobileTab === "preview" ? "hidden xl:block" : "block"}`}>
+        <div className="order-2 xl:order-1 space-y-4 print:hidden">
           {/* 1. Paper Format & Border */}
           <Card className="rounded-2xl border shadow-2xs">
             <CardHeader className="p-3.5 pb-2">
@@ -328,7 +312,6 @@ function BlankPadGeneratorContent() {
                   type="button"
                   onClick={() => {
                     setPadData((prev) => ({ ...prev, paperSize: "A4" }));
-                    setPreviewScale(typeof window !== "undefined" && window.innerWidth < 768 ? 0.44 : 0.85);
                   }}
                   className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                     padData.paperSize === "A4"
@@ -344,7 +327,6 @@ function BlankPadGeneratorContent() {
                   type="button"
                   onClick={() => {
                     setPadData((prev) => ({ ...prev, paperSize: "A5" }));
-                    setPreviewScale(typeof window !== "undefined" && window.innerWidth < 768 ? 0.58 : 1.0);
                   }}
                   className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
                     padData.paperSize === "A5"
@@ -428,6 +410,47 @@ function BlankPadGeneratorContent() {
                     <span className="text-[9px] opacity-75">Royal</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Collapsible Margin Section */}
+              <div className="pt-2 border-t space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setPaperOpen((v) => !v)}
+                  className="w-full flex items-center justify-between px-1 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <span>Margin</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${paperOpen ? "rotate-180" : ""}`} />
+                </button>
+                {paperOpen && (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="px-1 text-[10px] text-muted-foreground">Margin (mm)</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(["top", "right", "bottom", "left"] as const).map((side) => (
+                        <label key={side} className="space-y-0.5">
+                          <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            step={1}
+                            value={margins[side]}
+                            onChange={(e) => updateMargin(side, e.target.value)}
+                            className="h-8 text-xs"
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={savePaperSettings}
+                      className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <Save className="h-3.5 w-3.5" />
+                      Save Settings
+                    </button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1309,91 +1332,41 @@ function BlankPadGeneratorContent() {
           </Card>
         </div>
 
-        {/* Right Preview Column: Full width in Print */}
-        <div className={`xl:col-span-8 print:w-full print:m-0 print:p-0 ${mobileTab === "form" ? "hidden xl:block" : "block"}`}>
-          <div className="sticky top-4 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2 print:hidden px-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs font-mono">
-                  {isA4 ? "A4: 210mm × 297mm" : "A5: 148mm × 210mm"}
-                </Badge>
-                <Badge variant="secondary" className="text-[10px] font-mono">
-                  {letterMode === "structured" ? "Structured Letter" : "Freeform Mode"}
-                </Badge>
-              </div>
-
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.max(0.3, Number((s - 0.05).toFixed(2))))}
-                  className="h-7 w-7 p-0 text-xs"
-                  title="Zoom Out"
-                >
-                  -
-                </Button>
-                <span className="text-[11px] font-mono text-muted-foreground w-11 text-center">
-                  {Math.round(previewScale * 100)}%
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setPreviewScale((s) => Math.min(1.5, Number((s + 0.05).toFixed(2))))}
-                  className="h-7 w-7 p-0 text-xs"
-                  title="Zoom In"
-                >
-                  +
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    if (typeof window !== "undefined") {
-                      const isMobile = window.innerWidth < 768;
-                      setPreviewScale(isMobile ? (isA4 ? 0.44 : 0.58) : (isA4 ? 0.85 : 1.0));
-                    }
-                  }}
-                  className="h-7 px-2 text-[10px]"
-                >
-                  Fit Width
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handlePrint}
-                  className="h-7 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex xl:hidden items-center gap-1 cursor-pointer"
-                >
-                  <Printer className="h-3 w-3" />
-                  Print
-                </Button>
-              </div>
-            </div>
-
-            {/* Printable Canvas Container */}
-            <div
-              id="printable-pad-canvas"
-              className="w-full overflow-x-auto bg-muted/20 border rounded-2xl p-2 sm:p-4 md:p-8 flex justify-center items-start shadow-inner print:p-0 print:border-none print:bg-transparent print:w-full print:block print:shadow-none"
-            >
-              <div
-                style={{ transform: `scale(${previewScale})`, transformOrigin: "top center" }}
-                className="transition-transform duration-150 print:transform-none print:w-full print:h-full print:m-0 print:p-0 print:block"
-              >
-                <BlankPadPrintableView
-                  data={{
-                    ...padData,
-                    fontStyle,
-                    letterMode,
-                    structuredLetter,
-                    bodyFontSize,
-                    bodyLineHeight,
-                    bodyAlign,
-                    refNo: effectiveRefNo,
-                    issueDate: effectiveDate,
-                  }}
-                  schoolProfile={schoolProfile}
-                />
-              </div>
-            </div>
-          </div>
+        <ZoomPanViewport
+          resetKey={`${padData.paperSize}-${padData.borderStyle}`}
+          fitMode="contain"
+          className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
+        >
+          <BlankPadPrintableView
+            data={{
+              ...padData,
+              fontStyle,
+              letterMode,
+              structuredLetter,
+              bodyFontSize,
+              bodyLineHeight,
+              bodyAlign,
+              refNo: effectiveRefNo,
+              issueDate: effectiveDate,
+            }}
+            schoolProfile={schoolProfile}
+          />
+        </ZoomPanViewport>
+        <div id="printable-pad-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
+          <BlankPadPrintableView
+            data={{
+              ...padData,
+              fontStyle,
+              letterMode,
+              structuredLetter,
+              bodyFontSize,
+              bodyLineHeight,
+              bodyAlign,
+              refNo: effectiveRefNo,
+              issueDate: effectiveDate,
+            }}
+            schoolProfile={schoolProfile}
+          />
         </div>
       </div>
 
@@ -1409,8 +1382,8 @@ function BlankPadGeneratorContent() {
           }
 
           @page {
-            size: ${isA4 ? "210mm 297mm" : "148mm 210mm"};
-            margin: 0;
+            size: ${pageW}mm ${pageH}mm;
+            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
           html,
@@ -1440,14 +1413,6 @@ function BlankPadGeneratorContent() {
             max-height: ${isA4 ? "295mm" : "208mm"} !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
-            display: block !important;
-          }
-
-          #printable-pad-canvas > div {
-            transform: none !important;
-            width: ${isA4 ? "210mm" : "148mm"} !important;
-            height: ${isA4 ? "295mm" : "208mm"} !important;
-            margin: 0 !important;
             display: block !important;
           }
 

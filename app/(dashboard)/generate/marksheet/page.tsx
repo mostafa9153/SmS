@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Printer,
@@ -78,7 +78,6 @@ function MarksheetGeneratorContent() {
   const [studentSearch, setStudentSearch] = useState("");
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
-  const [previewScale, setPreviewScale] = useState<number>(1.0);
   const [isFetchingResults, setIsFetchingResults] = useState(false);
   const [dbResultsLoaded, setDbResultsLoaded] = useState<{
     found: boolean;
@@ -539,45 +538,26 @@ function MarksheetGeneratorContent() {
       {/* ========================================================================= */}
       {/* EMBEDDED PRINT STYLESHEET (STRICT A4 LANDSCAPE 297mm × 210mm)             */}
       {/* ========================================================================= */}
-      <style jsx global>{`
-        @page {
-          size: 297mm 210mm;
-          margin: 0;
-        }
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
+          @page { size: 297mm 210mm; margin: 0; }
           html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            width: 297mm !important;
-            height: 210mm !important;
+            margin: 0 !important; padding: 0 !important; background: #ffffff !important;
+            -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+            width: 297mm !important; height: 210mm !important;
           }
-          body * {
-            visibility: hidden;
-          }
-          #pure-print-container,
-          #pure-print-container * {
-            visibility: visible !important;
-          }
+          body * { visibility: hidden; }
+          #pure-print-container, #pure-print-container * { visibility: visible !important; }
           #pure-print-container {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 297mm !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            background: transparent !important;
+            position: absolute !important; left: 0 !important; top: 0 !important;
+            width: 297mm !important; padding: 0 !important; margin: 0 !important; background: transparent !important;
           }
           #pure-a4-landscape-marksheet-sheet {
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            box-shadow: none !important;
-            margin: 0 auto !important;
+            page-break-inside: avoid !important; break-inside: avoid !important;
+            box-shadow: none !important; margin: 0 auto !important;
           }
         }
-      `}</style>
+      ` }} />
 
       {/* ========================================================================= */}
       {/* DEDICATED PRINT CONTAINER (Off-screen on Web, Solo Visible in Print)      */}
@@ -995,19 +975,14 @@ function MarksheetGeneratorContent() {
 
             </div>
 
-            {/* Scrollable Canvas for Single Preview with Pinch-to-Zoom */}
-            <div id="printable-marksheet-canvas">
-              <PinchZoomViewer
-                initialScale={1.0}
-                minScale={0.55}
-                maxScale={2.5}
-                scale={previewScale}
-                onScaleChange={setPreviewScale}
-                canvasClassName="min-h-[460px] sm:min-h-[580px]"
-              >
-                <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
-              </PinchZoomViewer>
-            </div>
+            {/* Scrollable Canvas for Single Preview */}
+            <ZoomPanViewport
+              fitMode="contain"
+              resetKey="single-marksheet"
+              className="h-[460px] sm:h-[580px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
+            >
+              <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
+            </ZoomPanViewport>
           </div>
         </div>
       )}
@@ -1215,19 +1190,14 @@ function MarksheetGeneratorContent() {
 
             </div>
 
-            {/* Scrollable Canvas for Batch Preview with Pinch-to-Zoom */}
-            <div id="printable-marksheet-canvas">
-              <PinchZoomViewer
-                initialScale={1.0}
-                minScale={0.55}
-                maxScale={2.5}
-                scale={previewScale}
-                onScaleChange={setPreviewScale}
-                canvasClassName="min-h-[460px] sm:min-h-[580px]"
-              >
-                <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
-              </PinchZoomViewer>
-            </div>
+            {/* Scrollable Canvas for Batch Preview */}
+            <ZoomPanViewport
+              fitMode="contain"
+              resetKey={`bulk-marksheet-${currentPreviewIndex}`}
+              className="h-[460px] sm:h-[580px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
+            >
+              <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
+            </ZoomPanViewport>
           </div>
         </div>
       )}

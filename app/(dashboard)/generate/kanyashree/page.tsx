@@ -14,10 +14,16 @@ import { StudentPicker, StudentPickerMode } from "@/components/certificate/stude
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Switch } from "@/components/ui/switch";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -27,7 +33,8 @@ import {
   HeartHandshake,
   GraduationCap,
   RotateCcw,
-  Eye,
+  ChevronDown,
+  Save,
 } from "lucide-react";
 import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 import {
@@ -53,6 +60,13 @@ const SCHEME_OPTIONS = [
   { label: "Institutional Bonafide & Leaving", value: "Institutional Bonafide & Leaving" },
 ];
 
+type PaperSize = "A5" | "A4" | "A3";
+type PaperOrientation = "portrait" | "landscape";
+interface PrintMargins { top: number; right: number; bottom: number; left: number; }
+const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
+  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
+};
+
 function KanyashreeCertificateGeneratorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -71,10 +85,36 @@ function KanyashreeCertificateGeneratorContent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const [previewScale, setPreviewScale] = useState<number>(1.0);
+  const [paper, setPaper] = useState<PaperSize>("A5");
+  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
+  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
+  const [paperOpen, setPaperOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("kanyashree-paper-settings");
+      if (saved) {
+        const s = JSON.parse(saved);
+        if (s.paper) setPaper(s.paper as PaperSize);
+        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
+        if (s.margins) setMargins(s.margins);
+      }
+    } catch {}
+  }, []);
+  const savePaperSettings = () => {
+    try {
+      localStorage.setItem("kanyashree-paper-settings", JSON.stringify({ paper, orientation, margins }));
+    } catch {}
+  };
+  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
+  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
+  const updateMargin = (side: keyof PrintMargins, raw: string) => {
+    const value = Math.max(0, Number(raw) || 0);
+    setMargins((prev) => ({ ...prev, [side]: value }));
+  };
 
   const currentYear = new Date().getFullYear();
-  const [certSeq, setCertSeq] = useState<number>(() => getDocumentSequence("kanyashree", currentYear));
+  const [certSeq, setCertSeq] = useState<number>(1);
 
   function getLiveDate() {
     return new Date().toLocaleDateString("en-GB", {
@@ -86,7 +126,7 @@ function KanyashreeCertificateGeneratorContent() {
 
   // Master State (Strictly A5)
   const [cert, setCert] = useState<KanyashreeCertificateData>(() => ({
-    certificateNo: formatDocumentNumber("kanyashree", getDocumentSequence("kanyashree", currentYear), currentYear),
+    certificateNo: formatDocumentNumber("kanyashree", 1, currentYear),
     issueDate: getLiveDate(),
     copyType: "Original",
     schemeType: "Kanyashree Prakalpa (K1 / K2)",
@@ -406,7 +446,7 @@ function KanyashreeCertificateGeneratorContent() {
       {/* Main Grid: Left Inputs + Right Certificate Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">
         {/* LEFT COLUMN: Controls & Auto-Fill (Hidden in Print) */}
-        <div className="xl:col-span-5 space-y-4 print:hidden xl:overflow-y-auto xl:max-h-[calc(100vh-140px)] xl:pr-2 pb-16 xl:pb-48">
+        <div className="xl:col-span-5 space-y-4 print:hidden">
           {/* Card 1: Kanyashree Student Search & Particulars */}
           {/* Card 1: Student Search & Core Details */}
           <Card className="border shadow-2xs overflow-visible">
@@ -682,32 +722,78 @@ function KanyashreeCertificateGeneratorContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Paper & Margin Collapsible */}
+          <div className="border-t pt-2">
+            <button
+              type="button"
+              onClick={() => setPaperOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-1 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span>Paper &amp; Margin</span>
+              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
+            </button>
+            {paperOpen && (
+              <div className="space-y-2 pt-1">
+                <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
+                  <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A5">A5</SelectItem>
+                    <SelectItem value="A4">A4</SelectItem>
+                    <SelectItem value="A3">A3</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
+                  <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait</SelectItem>
+                    <SelectItem value="landscape">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["top", "right", "bottom", "left"] as const).map((side) => (
+                    <label key={side} className="space-y-0.5">
+                      <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
+                      <Input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        step={1}
+                        value={margins[side]}
+                        onChange={(e) => updateMargin(side, e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={savePaperSettings}
+                  className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save Settings
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: Kanyashree Certificate Preview */}
         <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
-          <div className="flex items-center justify-between px-1 print:hidden flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Eye className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-              <span className="text-sm font-bold text-foreground">Kanyashree Certificate Preview</span>
-              <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground bg-muted/40 font-normal">
-                A5 Portrait
-              </Badge>
-            </div>
-          </div>
-
-          {/* Certificate Canvas with Pinch-to-Zoom */}
+          {/* Certificate Canvas with ZoomPanViewport */}
           <div id="printable-kanyashree-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
-            <PinchZoomViewer
-              initialScale={1.0}
-              minScale={0.6}
-              maxScale={2.2}
-              scale={previewScale}
-              onScaleChange={setPreviewScale}
-              canvasClassName="min-h-[460px] sm:min-h-[580px]"
+            <ZoomPanViewport
+              resetKey={`${paper}-${orientation}`}
+              fitMode="contain"
+              className="h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] w-full print:hidden"
             >
               <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
-            </PinchZoomViewer>
+            </ZoomPanViewport>
+            <div className="hidden print:block">
+              <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
+            </div>
           </div>
 
           {/* Bulk Print Multi-Page Container: Rendered only during print */}
@@ -747,98 +833,25 @@ function KanyashreeCertificateGeneratorContent() {
         }}
       />
 
-      {/* Direct Global Print Stylesheet */}
-      <style jsx global>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          /* Hide non-printable elements */
-          header,
-          aside,
-          nav,
-          .print\\:hidden,
-          button {
-            display: none !important;
-          }
-
-          @page {
-            size: 148mm 210mm;
-            margin: 0;
-          }
-
-          html,
-          body {
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            width: 148mm !important;
-            height: auto !important;
-            max-width: 148mm !important;
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          /* Single mode canvas layout */
-          #printable-kanyashree-canvas {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            border: none !important;
-            box-shadow: none !important;
-            width: 148mm !important;
-            max-width: 148mm !important;
-            height: 208mm !important;
-            max-height: 208mm !important;
-            box-sizing: border-box !important;
-            overflow: hidden !important;
-            display: block !important;
-          }
-
-          #printable-kanyashree-canvas > div {
-            transform: none !important;
-            width: 148mm !important;
-            height: 208mm !important;
-            margin: 0 !important;
-            display: block !important;
-          }
-
-          /* Bulk mode: one certificate per printed page */
-          #printable-kanyashree-batch {
-            background: transparent !important;
-            padding: 0 !important;
-            margin: 0 auto !important;
-            width: 148mm !important;
-            max-width: 148mm !important;
-            display: block !important;
-          }
-
-          .page-break {
-            width: 148mm !important;
-            height: 208mm !important;
-            max-height: 208mm !important;
-            margin: 0 auto !important;
-            display: block !important;
-            box-sizing: border-box !important;
-          }
-
-          #pure-a5-kanyashree-sheet {
-            width: 148mm !important;
-            height: 208mm !important;
-            min-width: 148mm !important;
-            max-width: 148mm !important;
-            min-height: 208mm !important;
-            max-height: 208mm !important;
-            margin: 0 auto !important;
-            padding: 3.5mm !important;
-            box-sizing: border-box !important;
-            border: 2.5px solid #9333ea !important;
-            page-break-inside: avoid !important;
-            break-inside: avoid !important;
-            page-break-after: avoid !important;
-            break-after: avoid !important;
-          }
+          header, aside, nav, .print\\:hidden, button { display: none !important; }
+          @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }
+          html, body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important;
+            width: ${pageW}mm !important; height: auto !important; max-width: ${pageW}mm !important;
+            overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          #printable-kanyashree-canvas { background: transparent !important; padding: 0 !important; margin: 0 auto !important;
+            border: none !important; box-shadow: none !important; width: ${pageW}mm !important;
+            max-width: ${pageW}mm !important; box-sizing: border-box !important; display: block !important; }
+          #printable-kanyashree-canvas > div { transform: none !important; width: ${pageW}mm !important; margin: 0 !important; display: block !important; }
+          #printable-kanyashree-batch { background: transparent !important; padding: 0 !important; margin: 0 auto !important;
+            width: ${pageW}mm !important; max-width: ${pageW}mm !important; display: block !important; }
+          .page-break { width: ${pageW}mm !important; margin: 0 auto !important; display: block !important; box-sizing: border-box !important; }
+          #pure-a5-kanyashree-sheet { width: ${pageW}mm !important; min-width: ${pageW}mm !important; max-width: ${pageW}mm !important;
+            margin: 0 auto !important; box-sizing: border-box !important; border: 2.5px solid #9333ea !important;
+            page-break-inside: avoid !important; break-inside: avoid !important; break-after: avoid !important; }
         }
-      `}</style>
+      ` }} />
     </div>
   );
 }
