@@ -63,9 +63,9 @@ import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
 
-type SetupTab = "settings" | "classes" | "subjects" | "teachers" | "rooms" | "groups" | "overview" | "demand";
+type SetupTab = "settings" | "classes" | "groups" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
 
-const VALID_TABS: SetupTab[] = ["settings", "classes", "subjects", "teachers", "rooms", "groups", "overview", "demand"];
+const VALID_TABS: SetupTab[] = ["settings", "classes", "groups", "subjects", "teachers", "rooms", "overview", "demand"];
 function isValidTab(val: any): val is SetupTab {
   return VALID_TABS.includes(val);
 }
@@ -451,10 +451,10 @@ function RoutineSetupPageContent() {
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
     { id: "classes", label: "Classes", icon: School, count: classes.length },
+    { id: "groups", label: "Groups", icon: Layers, count: groups.length },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
-    { id: "groups", label: "Groups", icon: Layers, count: groups.length },
     { id: "overview", label: "Allotment Overview", icon: LayoutGrid },
     { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
   ];
@@ -560,6 +560,20 @@ function RoutineSetupPageContent() {
               />
             )}
 
+            {activeTab === "groups" && (
+              <RoutineGroupsTab
+                groups={groups}
+                classes={classes}
+                subjects={subjects}
+                teachers={teachers}
+                rooms={rooms}
+                assignments={assignments}
+                settings={settings}
+                onSaveGroup={handleSaveGroup}
+                onDeleteGroup={handleDeleteGroup}
+              />
+            )}
+
             {activeTab === "subjects" && (
               <RoutineSubjectsTab
                 subjects={subjects}
@@ -587,20 +601,6 @@ function RoutineSetupPageContent() {
                 rooms={rooms}
                 onSaveRoom={handleSaveRoom}
                 onDeleteRoom={handleDeleteRoom}
-              />
-            )}
-
-            {activeTab === "groups" && (
-              <RoutineGroupsTab
-                groups={groups}
-                classes={classes}
-                subjects={subjects}
-                teachers={teachers}
-                rooms={rooms}
-                assignments={assignments}
-                settings={settings}
-                onSaveGroup={handleSaveGroup}
-                onDeleteGroup={handleDeleteGroup}
               />
             )}
 

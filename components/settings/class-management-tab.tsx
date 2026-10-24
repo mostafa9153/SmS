@@ -44,6 +44,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   syncClassTeachersToRoutine,
   syncConfiguredClassesToRoutine,
+  parseClassSectionLabel,
 } from "@/lib/routine/routine-sync";
 import {
   getClassStreamList,
@@ -96,15 +97,98 @@ export function getNextAvailableLetter(existing: string[]): string {
   return "+";
 }
 
+/**
+ * Resolves the class teacher for a specific section and optional stream.
+ */
+export function getSectionTeacher(cls: ClassItem, sec: string, stream?: string): string | undefined {
+  const cleanSec = sec.trim().replace(/^Section\s+/i, "");
+  const st = cls.sectionTeachers;
+
+  if (stream) {
+    const streamKeys = [
+      `${stream} - ${cleanSec}`,
+      `${stream} - Section ${cleanSec}`,
+      `${stream}::${cleanSec}`,
+      `${cleanSec} (${stream})`,
+      `Sec ${cleanSec} (${stream})`,
+      cleanSec,
+      `Section ${cleanSec}`,
+    ];
+    for (const k of streamKeys) {
+      if (st && st[k]?.trim()) return st[k].trim();
+    }
+  } else {
+    const keys = [
+      cleanSec,
+      `Section ${cleanSec}`,
+      `Sec ${cleanSec}`,
+      sec,
+    ];
+    for (const k of keys) {
+      if (st && st[k]?.trim()) return st[k].trim();
+    }
+  }
+
+  // Fallback:
+  // If class has only 1 section, or if this is the first section and no other section is assigned:
+  if (cls.classTeacher?.trim()) {
+    if (!cls.sections || cls.sections.length <= 1) {
+      return cls.classTeacher.trim();
+    }
+    if (!st || Object.keys(st).length === 0) {
+      if (cleanSec === (cls.sections[0] || "A")) {
+        return cls.classTeacher.trim();
+      }
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Returns a normalized list of all sections and their teachers for rendering.
+ */
+export function getClassSectionTeacherItems(cls: ClassItem): { key: string; label: string; teacher?: string }[] {
+  const isHs = isHigherSecondaryClass(cls.code, cls.name);
+  const activeStreams = isHs ? getClassStreamList(cls.stream) : [];
+
+  if (isHs && activeStreams.length > 0) {
+    const items: { key: string; label: string; teacher?: string }[] = [];
+    activeStreams.forEach((st) => {
+      const sList = (cls.streamSections && cls.streamSections[st]) || cls.sections || ["A"];
+      sList.forEach((sec) => {
+        const cleanSec = sec.trim().replace(/^Section\s+/i, "");
+        const teacher = getSectionTeacher(cls, sec, st);
+        items.push({
+          key: `${st}-${cleanSec}`,
+          label: activeStreams.length > 1 ? `${st} Sec ${cleanSec}` : `Sec ${cleanSec}`,
+          teacher,
+        });
+      });
+    });
+    return items;
+  }
+
+  const sList = cls.sections && cls.sections.length > 0 ? cls.sections : ["A"];
+  return sList.map((sec) => {
+    const cleanSec = sec.trim().replace(/^Section\s+/i, "");
+    return {
+      key: cleanSec,
+      label: `Sec ${cleanSec}`,
+      teacher: getSectionTeacher(cls, sec),
+    };
+  });
+}
+
 export const DEFAULT_CLASSES: ClassItem[] = [
-  { id: "c-5", name: "Class V", code: "V", sections: ["A", "B"], classTeacher: "S. Roy", roomNo: "Room 101", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-6", name: "Class VI", code: "VI", sections: ["A", "B"], classTeacher: "P. Mondal", roomNo: "Room 102", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-7", name: "Class VII", code: "VII", sections: ["A", "B"], classTeacher: "R. Mukherjee", roomNo: "Room 103", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-8", name: "Class VIII", code: "VIII", sections: ["A", "B"], classTeacher: "K. Das", roomNo: "Room 104", capacity: 120, isAutoPass: true, status: "Active" },
-  { id: "c-9", name: "Class IX", code: "IX", sections: ["A", "B"], classTeacher: "T. Banerjee", roomNo: "Room 201", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-10", name: "Class X", code: "X", sections: ["A", "B"], classTeacher: "A. Halder", roomNo: "Room 202", capacity: 130, isAutoPass: false, status: "Active" },
-  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "B. Naskar", roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
-  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "S. Bhattacharya", roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-5", name: "Class V", code: "V", sections: ["A", "B"], classTeacher: "S. Roy", sectionTeachers: { "A": "S. Roy", "Section A": "S. Roy" }, roomNo: "Room 101", capacity: 120, isAutoPass: true, status: "Active" },
+  { id: "c-6", name: "Class VI", code: "VI", sections: ["A", "B"], classTeacher: "P. Mondal", sectionTeachers: { "A": "P. Mondal", "Section A": "P. Mondal" }, roomNo: "Room 102", capacity: 120, isAutoPass: true, status: "Active" },
+  { id: "c-7", name: "Class VII", code: "VII", sections: ["A", "B"], classTeacher: "R. Mukherjee", sectionTeachers: { "A": "R. Mukherjee", "Section A": "R. Mukherjee" }, roomNo: "Room 103", capacity: 120, isAutoPass: true, status: "Active" },
+  { id: "c-8", name: "Class VIII", code: "VIII", sections: ["A", "B"], classTeacher: "K. Das", sectionTeachers: { "A": "K. Das", "Section A": "K. Das" }, roomNo: "Room 104", capacity: 120, isAutoPass: true, status: "Active" },
+  { id: "c-9", name: "Class IX", code: "IX", sections: ["A", "B"], classTeacher: "T. Banerjee", sectionTeachers: { "A": "T. Banerjee", "Section A": "T. Banerjee" }, roomNo: "Room 201", capacity: 130, isAutoPass: false, status: "Active" },
+  { id: "c-10", name: "Class X", code: "X", sections: ["A", "B"], classTeacher: "A. Halder", sectionTeachers: { "A": "A. Halder", "Section A": "A. Halder" }, roomNo: "Room 202", capacity: 130, isAutoPass: false, status: "Active" },
+  { id: "c-11", name: "Class XI", code: "XI", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "B. Naskar", sectionTeachers: { "Arts - A": "B. Naskar", "A": "B. Naskar" }, roomNo: "Room 301", capacity: 140, isAutoPass: false, status: "Active" },
+  { id: "c-12", name: "Class XII", code: "XII", sections: ["A", "B"], stream: "Arts", streamSections: { "Arts": ["A", "B"] }, classTeacher: "S. Bhattacharya", sectionTeachers: { "Arts - A": "S. Bhattacharya", "A": "S. Bhattacharya" }, roomNo: "Room 302", capacity: 140, isAutoPass: false, status: "Active" },
 ];
 
 export function ClassManagementTab() {
@@ -166,16 +250,29 @@ export function ClassManagementTab() {
   };
 
   useEffect(() => {
+    const sanitizeWithDefaultSectionTeacher = (list: ClassItem[]): ClassItem[] => {
+      return list.map((c) => {
+        const isHs = isHigherSecondaryClass(c.code, c.name);
+        const sTeachers = c.sectionTeachers ? { ...c.sectionTeachers } : {};
+        if (c.classTeacher && Object.keys(sTeachers).length === 0) {
+          const firstSec = c.sections && c.sections.length > 0 ? c.sections[0] : "A";
+          sTeachers[firstSec] = c.classTeacher;
+          sTeachers[`Section ${firstSec}`] = c.classTeacher;
+        }
+        return {
+          ...c,
+          stream: isHs ? (c.stream || "Arts / Science / Commerce") : undefined,
+          sectionTeachers: Object.keys(sTeachers).length > 0 ? sTeachers : undefined,
+        };
+      });
+    };
+
     // 1. LocalStorage
     try {
       const savedClasses = localStorage.getItem("sms_class_management");
       if (savedClasses) {
         const parsed = JSON.parse(savedClasses) as ClassItem[];
-        const sanitized = parsed.map((c) => ({
-          ...c,
-          stream: isHigherSecondaryClass(c.code, c.name) ? (c.stream || "Arts / Science / Commerce") : undefined,
-        }));
-        setClasses(sanitized);
+        setClasses(sanitizeWithDefaultSectionTeacher(parsed));
       }
     } catch (e) {
       console.error("Failed to load local class presets", e);
@@ -186,8 +283,9 @@ export function ClassManagementTab() {
       fetchSchoolConfigClient()
         .then((data) => {
           if (data && data.class_management && Array.isArray(data.class_management) && data.class_management.length > 0) {
-            setClasses(data.class_management);
-            localStorage.setItem("sms_class_management", JSON.stringify(data.class_management));
+            const sanitized = sanitizeWithDefaultSectionTeacher(data.class_management);
+            setClasses(sanitized);
+            localStorage.setItem("sms_class_management", JSON.stringify(sanitized));
           }
         })
         .catch((err) => console.warn("Failed to sync classes from DB:", err));
@@ -205,6 +303,76 @@ export function ClassManagementTab() {
           setStaffList(data);
         }
       });
+
+    // 4. Routine teacher assignments check to automatically backfill section teachers
+    try {
+      const rawRoutine = localStorage.getItem("sms_routine_state");
+      const localTeachers: { name: string; classTeacherOf?: string | null }[] = rawRoutine
+        ? JSON.parse(rawRoutine)?.teachers || []
+        : [];
+
+      supabase
+        .from("routine_teacher_availability")
+        .select("teacher_name, class_teacher_of")
+        .not("class_teacher_of", "is", null)
+        .then(({ data: dbAvail }) => {
+          const assignments: { teacherName: string; label: string }[] = [];
+
+          localTeachers.forEach((t) => {
+            if (t.name && t.classTeacherOf && t.classTeacherOf !== "__none__") {
+              assignments.push({ teacherName: t.name, label: t.classTeacherOf });
+            }
+          });
+
+          if (dbAvail && dbAvail.length > 0) {
+            dbAvail.forEach((a: any) => {
+              if (a.teacher_name && a.class_teacher_of && a.class_teacher_of !== "__none__") {
+                if (!assignments.some((x) => x.teacherName.toLowerCase() === a.teacher_name.toLowerCase())) {
+                  assignments.push({ teacherName: a.teacher_name, label: a.class_teacher_of });
+                }
+              }
+            });
+          }
+
+          if (assignments.length > 0) {
+            setClasses((prev) => {
+              let changed = false;
+              const next = prev.map((cls) => {
+                const sTeachers = { ...(cls.sectionTeachers || {}) };
+                let clsChanged = false;
+
+                assignments.forEach(({ teacherName, label }) => {
+                  const parsed = parseClassSectionLabel(label);
+                  if (parsed && parsed.className.toLowerCase() === cls.name.toLowerCase()) {
+                    const cleanSec = parsed.section.replace(/^Section\s+/i, "");
+                    if (!sTeachers[cleanSec] && !sTeachers[`Section ${cleanSec}`]) {
+                      sTeachers[cleanSec] = teacherName;
+                      sTeachers[`Section ${cleanSec}`] = teacherName;
+                      clsChanged = true;
+                    }
+                  }
+                });
+
+                if (clsChanged) {
+                  changed = true;
+                  return { ...cls, sectionTeachers: sTeachers };
+                }
+                return cls;
+              });
+
+              if (changed) {
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("sms_class_management", JSON.stringify(next));
+                }
+                return next;
+              }
+              return prev;
+            });
+          }
+        });
+    } catch (e) {
+      console.warn("Routine state teacher mapping:", e);
+    }
   }, []);
 
   // Handlers
@@ -245,7 +413,7 @@ export function ClassManagementTab() {
         const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
           ? newStreamSections[st]
           : ["A"];
-        secs.forEach((sec) => {
+        secs.forEach((sec, idx) => {
           const t =
             newSectionTeachers[`${st} - ${sec}`] ||
             newSectionTeachers[`${st}::${sec}`] ||
@@ -253,7 +421,7 @@ export function ClassManagementTab() {
             newSectionTeachers[`Sec ${sec} (${st})`] ||
             newSectionTeachers[sec] ||
             newSectionTeachers[`Section ${sec}`] ||
-            newTeacher;
+            (idx === 0 && st === activeStreamsList[0] ? newTeacher : "");
           if (t && t.trim()) {
             const val = t.trim();
             finalSectionTeachers[`${st} - ${sec}`] = val;
@@ -268,15 +436,22 @@ export function ClassManagementTab() {
         });
       });
     } else {
-      finalSections.forEach((sec) => {
-        const t = newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || newTeacher;
+      finalSections.forEach((sec, idx) => {
+        const t =
+          newSectionTeachers[sec] ||
+          newSectionTeachers[`Section ${sec}`] ||
+          (idx === 0 ? newTeacher : "");
         if (t && t.trim()) {
           finalSectionTeachers[sec] = t.trim();
           finalSectionTeachers[`Section ${sec}`] = t.trim();
         }
       });
     }
-    const primaryTeacher = Object.values(finalSectionTeachers)[0] || newTeacher.trim() || undefined;
+    const primaryTeacher =
+      finalSectionTeachers[finalSections[0]] ||
+      Object.values(finalSectionTeachers)[0] ||
+      newTeacher.trim() ||
+      undefined;
 
     const newClassItem: ClassItem = {
       id: `c-${Date.now()}`,
@@ -324,7 +499,8 @@ export function ClassManagementTab() {
     setEditingClass(cls);
     setEditClassName(cls.name);
     setEditClassCode(cls.code);
-    setEditSections(cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"]);
+    const secs = cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"];
+    setEditSections(secs);
     setEditStream(cls.stream || "Arts / Science / Commerce");
 
     const streamSecs: Record<string, string[]> = cls.streamSections
@@ -333,17 +509,17 @@ export function ClassManagementTab() {
     const streamsList = getClassStreamList(cls.stream || "Arts / Science / Commerce");
     streamsList.forEach((s) => {
       if (!streamSecs[s] || !Array.isArray(streamSecs[s]) || streamSecs[s].length === 0) {
-        streamSecs[s] = cls.sections && cls.sections.length > 0 ? [...cls.sections] : ["A"];
+        streamSecs[s] = [...secs];
       }
     });
     setEditStreamSections(streamSecs);
 
     setEditTeacher(cls.classTeacher || "");
     const sTeachers: Record<string, string> = cls.sectionTeachers ? { ...cls.sectionTeachers } : {};
-    if (cls.classTeacher && (!cls.sectionTeachers || Object.keys(cls.sectionTeachers).length === 0)) {
-      cls.sections.forEach((sec) => {
-        sTeachers[sec] = cls.classTeacher!;
-      });
+    if (cls.classTeacher && Object.keys(sTeachers).length === 0) {
+      const firstSec = secs[0] || "A";
+      sTeachers[firstSec] = cls.classTeacher;
+      sTeachers[`Section ${firstSec}`] = cls.classTeacher;
     }
     setEditSectionTeachers(sTeachers);
 
@@ -527,7 +703,17 @@ export function ClassManagementTab() {
 
     const updated = classes.map((c) => {
       if (c.id === classId) {
-        return { ...c, sections: c.sections.filter((s) => s !== sectionToRemove) };
+        const nextSecTeachers = c.sectionTeachers ? { ...c.sectionTeachers } : undefined;
+        if (nextSecTeachers) {
+          delete nextSecTeachers[sectionToRemove];
+          delete nextSecTeachers[`Section ${sectionToRemove}`];
+          delete nextSecTeachers[`Sec ${sectionToRemove}`];
+        }
+        return {
+          ...c,
+          sections: c.sections.filter((s) => s !== sectionToRemove),
+          sectionTeachers: nextSecTeachers && Object.keys(nextSecTeachers).length > 0 ? nextSecTeachers : undefined,
+        };
       }
       return c;
     });
@@ -653,7 +839,7 @@ export function ClassManagementTab() {
             editSectionTeachers[`Sec ${sec} (${st})`] ||
             editSectionTeachers[sec] ||
             editSectionTeachers[`Section ${sec}`] ||
-            editTeacher;
+            "";
           if (t && t.trim()) {
             const val = t.trim();
             finalSectionTeachers[`${st} - ${sec}`] = val;
@@ -669,14 +855,17 @@ export function ClassManagementTab() {
       });
     } else {
       finalSections.forEach((sec) => {
-        const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || editTeacher;
+        const t = editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || "";
         if (t && t.trim()) {
           finalSectionTeachers[sec] = t.trim();
           finalSectionTeachers[`Section ${sec}`] = t.trim();
         }
       });
     }
-    const primaryTeacher = Object.values(finalSectionTeachers)[0] || editTeacher.trim() || undefined;
+    const primaryTeacher =
+      finalSectionTeachers[finalSections[0]] ||
+      Object.values(finalSectionTeachers)[0] ||
+      undefined;
 
     const updated = classes.map((c) => {
       if (c.id === editingClass.id) {
@@ -846,22 +1035,26 @@ export function ClassManagementTab() {
                         return (
                           <div key={st} className="flex flex-wrap items-center gap-1.5 text-xs">
                             <span className="font-semibold text-muted-foreground min-w-[65px]">{st}:</span>
-                            {sList.map((sec) => (
-                              <span
-                                key={sec}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-foreground border text-[11px] font-mono font-medium"
-                              >
-                                Sec {sec}
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickRemoveStreamSection(cls.id, st, sec)}
-                                  className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
-                                  title="Remove section"
+                            {sList.map((sec) => {
+                              const tName = getSectionTeacher(cls, sec, st);
+                              return (
+                                <span
+                                  key={sec}
+                                  title={`Sec ${sec} (${st}) • Class Teacher: ${tName || "Not Assigned"}`}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-foreground border text-[11px] font-mono font-medium hover:border-primary/40 transition-colors"
                                 >
-                                  <X className="h-2.5 w-2.5" />
-                                </button>
-                              </span>
-                            ))}
+                                  Sec {sec}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickRemoveStreamSection(cls.id, st, sec)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                                    title="Remove section"
+                                  >
+                                    <X className="h-2.5 w-2.5" />
+                                  </button>
+                                </span>
+                              );
+                            })}
                             <button
                               type="button"
                               onClick={() => handleQuickAddStreamSection(cls.id, st)}
@@ -878,22 +1071,26 @@ export function ClassManagementTab() {
                   ) : (
                     <div className="flex flex-wrap items-center gap-1.5 text-xs">
                       <span className="font-semibold text-muted-foreground mr-1">Sections:</span>
-                      {cls.sections.map((sec) => (
-                        <span
-                          key={sec}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted text-foreground border text-xs font-mono font-medium"
-                        >
-                          Section {sec}
-                          <button
-                            type="button"
-                            onClick={() => handleQuickRemoveSection(cls.id, sec)}
-                            className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
-                            title="Remove section"
+                      {cls.sections.map((sec) => {
+                        const tName = getSectionTeacher(cls, sec);
+                        return (
+                          <span
+                            key={sec}
+                            title={`Section ${sec} • Class Teacher: ${tName || "Not Assigned"}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted text-foreground border text-xs font-mono font-medium hover:border-primary/40 transition-colors"
                           >
-                            <X className="h-2.5 w-2.5" />
-                          </button>
-                        </span>
-                      ))}
+                            Section {sec}
+                            <button
+                              type="button"
+                              onClick={() => handleQuickRemoveSection(cls.id, sec)}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-0.5"
+                              title="Remove section"
+                            >
+                              <X className="h-2.5 w-2.5" />
+                            </button>
+                          </span>
+                        );
+                      })}
                       <button
                         type="button"
                         onClick={() => handleQuickAddSection(cls.id)}
@@ -907,14 +1104,37 @@ export function ClassManagementTab() {
                   )}
                 </div>
 
-                {/* Right: Class Teacher & Actions */}
-                <div className="flex items-center justify-between lg:justify-end gap-3 shrink-0">
-                  <div className="text-right text-xs">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-bold">Class Teacher</span>
-                    <span className="font-semibold text-foreground">{cls.classTeacher || "Not Assigned"}</span>
-                  </div>
+                {/* Right: Section Class Teachers & Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between lg:justify-end gap-3 shrink-0">
+                  {(() => {
+                    const secTeacherItems = getClassSectionTeacherItems(cls);
+                    return (
+                      <div className="text-left sm:text-right text-xs">
+                        <span className="text-muted-foreground block text-[10px] uppercase font-bold tracking-wider mb-1">
+                          {secTeacherItems.length > 1 ? "Class Teachers" : "Class Teacher"}
+                        </span>
+                        <div className="flex flex-col items-start sm:items-end gap-1">
+                          {secTeacherItems.map((st) => (
+                            <div key={st.key} className="flex items-center gap-1.5 text-xs">
+                              <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground font-semibold border">
+                                {st.label}
+                              </span>
+                              <span
+                                className={cn(
+                                  "font-semibold text-xs",
+                                  st.teacher ? "text-foreground" : "text-muted-foreground/60 italic font-normal text-[11px]"
+                                )}
+                              >
+                                {st.teacher || "Not Assigned"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                  <div className="flex items-center gap-1.5 ml-2">
+                  <div className="flex items-center gap-1.5 ml-0 sm:ml-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -1162,21 +1382,77 @@ export function ClassManagementTab() {
               </div>
             )}
 
-            {/* Class Teacher */}
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold">Class Teacher (Default)</Label>
-              <CustomSelect
-                value={newTeacher}
-                onChange={(val) => setNewTeacher(val)}
-                options={[
-                  { label: "Select Class Teacher...", value: "" },
-                  ...staffList.map((st) => ({
-                    label: `${st.full_name}${st.designation ? ` (${st.designation})` : ""}`,
-                    value: st.full_name,
-                  })),
-                ]}
-              />
-            </div>
+            {isAddingHs ? (
+              <div className="space-y-2 pt-1 border-t border-border/60">
+                <Label className="text-xs font-bold text-foreground">Section Class Teachers by Stream</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {getClassStreamList(newStream).flatMap((st) => {
+                    const secs = (newStreamSections[st] && newStreamSections[st].length > 0)
+                      ? newStreamSections[st]
+                      : ["A"];
+                    return secs.map((sec) => {
+                      const key = `${st} - ${sec}`;
+                      const currentTeacher = newSectionTeachers[key] || "";
+                      return (
+                        <div key={key} className="space-y-1 p-2.5 rounded-xl bg-background border">
+                          <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
+                            <span>{st}</span>
+                            <span className="text-muted-foreground font-mono">Sec {sec}:</span>
+                          </span>
+                          <CustomSelect
+                            value={currentTeacher}
+                            onChange={(val) =>
+                              setNewSectionTeachers((prev) => ({
+                                ...prev,
+                                [key]: val,
+                                [`${st} - Section ${sec}`]: val,
+                                [`${st}::${sec}`]: val,
+                                [`${sec} (${st})`]: val,
+                              }))
+                            }
+                            options={[
+                              { label: "Select Teacher (Optional)...", value: "" },
+                              ...staffList.map((stf) => ({
+                                label: `${stf.full_name}${stf.designation ? ` (${stf.designation})` : ""}`,
+                                value: stf.full_name,
+                              })),
+                            ]}
+                          />
+                        </div>
+                      );
+                    });
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 p-3 bg-muted/20 rounded-xl border">
+                <Label className="text-xs font-bold text-foreground">Section Class Teachers</Label>
+                <div className="space-y-2">
+                  {newSections.map((sec) => (
+                    <div key={sec} className="flex items-center gap-2 text-xs">
+                      <span className="w-24 font-mono font-semibold text-muted-foreground">Section {sec}:</span>
+                      <CustomSelect
+                        value={newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] || ""}
+                        onChange={(val) =>
+                          setNewSectionTeachers((prev) => ({
+                            ...prev,
+                            [sec]: val,
+                            [`Section ${sec}`]: val,
+                          }))
+                        }
+                        options={[
+                          { label: "Select Teacher (Optional)...", value: "" },
+                          ...staffList.map((st) => ({
+                            label: `${st.full_name}${st.designation ? ` (${st.designation})` : ""}`,
+                            value: st.full_name,
+                          })),
+                        ]}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -1422,7 +1698,7 @@ export function ClassManagementTab() {
                           editSectionTeachers[`${st}::${sec}`] ||
                           editSectionTeachers[`${sec} (${st})`] ||
                           editSectionTeachers[sec] ||
-                          editTeacher;
+                          "";
                         return (
                           <div key={key} className="space-y-1 p-2.5 rounded-xl bg-background border">
                             <span className="text-[11px] font-bold text-foreground flex items-center gap-1">
@@ -1492,15 +1768,16 @@ export function ClassManagementTab() {
                       <div key={sec} className="flex items-center gap-2 text-xs">
                         <span className="w-24 font-mono font-semibold text-muted-foreground">Section {sec}:</span>
                         <CustomSelect
-                          value={editSectionTeachers[sec] || editTeacher}
+                          value={editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] || ""}
                           onChange={(val) =>
                             setEditSectionTeachers((prev) => ({
                               ...prev,
                               [sec]: val,
+                              [`Section ${sec}`]: val,
                             }))
                           }
                           options={[
-                            { label: "Select Teacher...", value: "" },
+                            { label: "Select Teacher (Unassigned)...", value: "" },
                             ...staffList.map((st) => ({
                               label: `${st.full_name}${st.designation ? ` (${st.designation})` : ""}`,
                               value: st.full_name,
