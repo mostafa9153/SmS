@@ -9,6 +9,7 @@ import {
   RoutineAssignment,
   RoutineSettings,
   RoutineRoom,
+  RoutineSubjectGroup,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
@@ -20,6 +21,7 @@ import {
   calculateTotalSchoolSectionDemand,
   calculateTotalTeacherAllottedWorkload,
   isTeacherQualifiedForSubject,
+  getEffectiveClassSubjects,
 } from "@/lib/routine/routine-helpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +67,7 @@ interface RoutineVerificationTabProps {
   teachers: RoutineTeacher[];
   assignments: RoutineAssignment[];
   rooms: RoutineRoom[];
+  groups?: RoutineSubjectGroup[];
   onSaveAssignments?: (assignments: RoutineAssignment[]) => Promise<void>;
 }
 
@@ -75,6 +78,7 @@ export function RoutineVerificationTab({
   teachers = [],
   assignments = [],
   rooms = [],
+  groups = [],
   onSaveAssignments,
 }: RoutineVerificationTabProps) {
   const [isAuditing, setIsAuditing] = useState(false);
@@ -129,12 +133,13 @@ export function RoutineVerificationTab({
     const breakP = settings.breaks?.length ? Math.min(...settings.breaks) : Math.floor(regP / 2);
 
     // 1. Check Total School Faculty Capacity vs Demand
-    const totalWeeklyDemand = calculateTotalSchoolSectionDemand(classes, subjects);
+    const totalWeeklyDemand = calculateTotalSchoolSectionDemand(classes, subjects, groups);
     const { totalWorkload: totalFacultyCapacity } = calculateTotalTeacherAllottedWorkload(
       teachers,
       classes,
       subjects,
-      activeAssignments
+      activeAssignments,
+      groups
     );
 
     if (totalFacultyCapacity < totalWeeklyDemand) {
@@ -207,12 +212,16 @@ export function RoutineVerificationTab({
       const isHs = isHsClass(cls.className);
       const { stream: sectionStream } = parseSectionAndStream(cls.section || "");
 
-      const explicitClassSubs = subjects.filter(
+      // Exclude subjects already covered by a parallel group on this class
+      // so the per-class audit does not flag a group's option subject as
+      // "unassigned" or double-count it.
+      const effSubjects = getEffectiveClassSubjects(cls, subjects, groups);
+      const explicitClassSubs = effSubjects.filter(
         (s) => s.className && s.className.toLowerCase() === clsNameLower
       );
       const hasExplicitSubs = explicitClassSubs.length > 0;
 
-      const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+      const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
       const rawClsSubjects = candidates.filter((s) => {
         if (s.className && s.className.toLowerCase() !== clsNameLower) {
           return false;

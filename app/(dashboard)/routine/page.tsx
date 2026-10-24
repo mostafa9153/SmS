@@ -21,6 +21,8 @@ import {
   deleteSubjectDb,
   upsertTeacherAvailabilityDb,
   deleteTeacherDb,
+  upsertSubjectGroupDb,
+  deleteSubjectGroupDb,
   RoutineFullState,
 } from "@/lib/supabase/db-routine";
 import { fetchSchoolConfigClient } from "@/lib/utils/school-config-client";
@@ -31,6 +33,7 @@ import {
   RoutineSubject,
   RoutineTeacher,
   RoutineAssignment,
+  RoutineSubjectGroup,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineSettingsTab } from "@/components/routine/routine-settings-tab";
@@ -38,6 +41,7 @@ import { RoutineRoomsTab } from "@/components/routine/routine-rooms-tab";
 import { RoutineClassesTab } from "@/components/routine/routine-classes-tab";
 import { RoutineTeachersTab } from "@/components/routine/routine-teachers-tab";
 import { RoutineSubjectsTab } from "@/components/routine/routine-subjects-tab";
+import { RoutineGroupsTab } from "@/components/routine/routine-groups-tab";
 import { RoutineDemandAllotmentTab } from "@/components/routine/routine-demand-allotment-tab";
 import { RoutineAllotmentOverviewTab } from "@/components/routine/routine-allotment-overview-tab";
 import {
@@ -51,6 +55,7 @@ import {
   CheckCircle2,
   BarChart3,
   LayoutGrid,
+  Layers,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,9 +63,9 @@ import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
 
-type SetupTab = "settings" | "classes" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
+type SetupTab = "settings" | "classes" | "subjects" | "teachers" | "rooms" | "groups" | "overview" | "demand";
 
-const VALID_TABS: SetupTab[] = ["settings", "classes", "subjects", "teachers", "rooms", "overview", "demand"];
+const VALID_TABS: SetupTab[] = ["settings", "classes", "subjects", "teachers", "rooms", "groups", "overview", "demand"];
 function isValidTab(val: any): val is SetupTab {
   return VALID_TABS.includes(val);
 }
@@ -137,6 +142,7 @@ function RoutineSetupPageContent() {
   const [teachers, setTeachers] = useState<RoutineTeacher[]>([]);
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
+  const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
 
   const loadData = React.useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -153,6 +159,7 @@ function RoutineSetupPageContent() {
       setTeachers(data.teachers || []);
       setSubjects(data.subjects || []);
       setAssignments(data.assignments || []);
+      setGroups(data.groups || []);
     } catch (err) {
       console.error("Failed to load routine setup data:", err);
     } finally {
@@ -388,18 +395,58 @@ function RoutineSetupPageContent() {
     setAssignments((prev) => prev.filter((a) => a.teacherId !== id));
   };
 
+  // Handlers for Subject Groups
+  const handleSaveGroup = async (g: RoutineSubjectGroup) => {
+    const id = await upsertSubjectGroupDb({
+      id: g.id,
+      name: g.name,
+      scope: g.scope,
+      className: g.className ?? null,
+      stream: g.stream ?? null,
+      pooled: g.pooled,
+      periodsPerWeek: g.periodsPerWeek,
+      periodSize: g.periodSize,
+      timePref: g.timePref,
+      maxPerDay: g.maxPerDay ?? null,
+      sortOrder: g.sortOrder,
+      sectionIds: g.sectionIds,
+      options: g.options.map((o) => ({
+        id: o.id,
+        subjectId: o.subjectId,
+        teacherId: o.teacherId,
+        roomId: o.roomId ?? null,
+        sortOrder: o.sortOrder,
+      })),
+    });
+    setGroups((prev) => {
+      const nextG: RoutineSubjectGroup = { ...g, id };
+      const idx = prev.findIndex((x) => x.id === id);
+      if (idx > -1) {
+        const next = [...prev];
+        next[idx] = nextG;
+        return next;
+      }
+      return [...prev, nextG];
+    });
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    await deleteSubjectGroupDb(id);
+    setGroups((prev) => prev.filter((g) => g.id !== id));
+  };
+
   // Grand stats for Quick Setup Stats Ribbon
   const totalSchoolCapacity = useMemo(() => {
     return calculateTotalSchoolClassCapacity(classes, settings);
   }, [classes, settings]);
 
   const totalSchoolDemand = useMemo(() => {
-    return calculateTotalSchoolSectionDemand(classes, subjects);
-  }, [classes, subjects]);
+    return calculateTotalSchoolSectionDemand(classes, subjects, groups);
+  }, [classes, subjects, groups]);
 
   const { totalWorkload: totalTeacherWorkload, assignedTeacherCount } = useMemo(() => {
-    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments);
-  }, [teachers, classes, subjects, assignments]);
+    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups);
+  }, [teachers, classes, subjects, assignments, groups]);
 
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
@@ -407,6 +454,7 @@ function RoutineSetupPageContent() {
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
+    { id: "groups", label: "Groups", icon: Layers, count: groups.length },
     { id: "overview", label: "Allotment Overview", icon: LayoutGrid },
     { id: "demand", label: "Demand vs Allotment", icon: BarChart3 },
   ];
@@ -542,6 +590,20 @@ function RoutineSetupPageContent() {
               />
             )}
 
+            {activeTab === "groups" && (
+              <RoutineGroupsTab
+                groups={groups}
+                classes={classes}
+                subjects={subjects}
+                teachers={teachers}
+                rooms={rooms}
+                assignments={assignments}
+                settings={settings}
+                onSaveGroup={handleSaveGroup}
+                onDeleteGroup={handleDeleteGroup}
+              />
+            )}
+
             {activeTab === "overview" && (
               <RoutineAllotmentOverviewTab
                 classes={classes}
@@ -559,6 +621,7 @@ function RoutineSetupPageContent() {
                 teachers={teachers}
                 assignments={assignments}
                 settings={settings}
+                groups={groups}
               />
             )}
           </>

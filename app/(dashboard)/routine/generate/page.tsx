@@ -14,6 +14,7 @@ import {
   RoutineSubject,
   RoutineAssignment,
   RoutineRoom,
+  RoutineSubjectGroup,
   GeneratedRoutine,
   ValidationReport,
   DEFAULT_ROUTINE_SETTINGS,
@@ -32,6 +33,7 @@ export default function RoutineGeneratePage() {
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
   const [rooms, setRooms] = useState<RoutineRoom[]>([]);
+  const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -43,6 +45,7 @@ export default function RoutineGeneratePage() {
       setSubjects(data.subjects || []);
       setAssignments(data.assignments || []);
       setRooms(data.rooms || []);
+      setGroups(data.groups || []);
     } catch (err) {
       console.error("Failed to load routine data:", err);
     } finally {
@@ -69,7 +72,7 @@ export default function RoutineGeneratePage() {
   }, []);
 
   const handleAutoBuildAssignments = async () => {
-    const built = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
+    const built = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
     setAssignments(built);
     return built;
   };
@@ -78,17 +81,17 @@ export default function RoutineGeneratePage() {
     const activeAssignments =
       assignments.length > 0
         ? assignments
-        : autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
-    return validateRoutineData(settings, classes, teachers, subjects, activeAssignments, rooms);
+        : autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
+    return validateRoutineData(settings, classes, teachers, subjects, activeAssignments, rooms, groups);
   };
 
   const handleGenerate = async (): Promise<GeneratedRoutine> => {
     let activeAssignments = assignments;
     if (activeAssignments.length === 0) {
-      activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
+      activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
       setAssignments(activeAssignments);
     }
-    const result = await generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms);
+    const result = await generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms, groups);
     if (result.success) {
       await saveGeneratedRoutineDb(result);
     }

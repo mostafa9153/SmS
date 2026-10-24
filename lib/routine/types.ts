@@ -94,6 +94,38 @@ export interface RoutineAssignment {
   isLab?: boolean;
 }
 
+export interface RoutineGroupOption {
+  id: string;
+  groupId: string;
+  subjectId: string;
+  teacherId: string;
+  roomId?: string | null;
+  sortOrder?: number;
+}
+
+export interface RoutineSubjectGroup {
+  id: string;
+  name: string;
+  scope: "class" | "section";
+  className?: string | null; // scope='class'
+  stream?: string | null;    // optional stream filter when scope='class'
+  pooled: boolean;
+  periodsPerWeek: number;
+  periodSize: 1 | 2;         // single or double period
+  timePref: "any" | "morning" | "afternoon";
+  maxPerDay?: number | null;
+  sortOrder?: number;
+  // Resolved at load time (scope='class') OR explicit (scope='section'):
+  sectionIds: string[];
+  options: RoutineGroupOption[];
+}
+
+export interface RoutineGroupCellOption {
+  sid: string;
+  tid: string;
+  rid?: string | null;
+}
+
 export interface RoutineCellData {
   sid: string;
   tid: string;
@@ -102,6 +134,8 @@ export interface RoutineCellData {
   lab: boolean;
   half?: "start" | "end";
   uid: number;
+  gid?: string;                        // group id when this cell is a group unit
+  opts?: RoutineGroupCellOption[];     // parallel options when gid is set
 }
 
 export type SlotPlacement = RoutineCellData;

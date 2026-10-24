@@ -28,6 +28,7 @@ import {
   RoutineSubject,
   RoutineTeacher,
   RoutineAssignment,
+  RoutineSubjectGroup,
   GeneratedRoutine,
   ValidationReport,
 } from "@/lib/routine/types";
@@ -240,9 +241,10 @@ export async function validateRoutineDataAction(
   teachers: RoutineTeacher[],
   subjects: RoutineSubject[],
   assignments: RoutineAssignment[],
-  rooms: RoutineRoom[] = []
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
 ): Promise<ValidationReport> {
-  return validateRoutineData(settings, classes, teachers, subjects, assignments, rooms);
+  return validateRoutineData(settings, classes, teachers, subjects, assignments, rooms, groups);
 }
 
 export async function generateRoutineServerAction(
@@ -251,9 +253,10 @@ export async function generateRoutineServerAction(
   teachers: RoutineTeacher[],
   subjects: RoutineSubject[],
   assignments: RoutineAssignment[],
-  rooms: RoutineRoom[] = []
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
 ): Promise<GeneratedRoutine> {
-  const result = await generateRoutine(settings, classes, teachers, subjects, assignments, rooms);
+  const result = await generateRoutine(settings, classes, teachers, subjects, assignments, rooms, groups);
   if (result.success) {
     await saveGeneratedRoutineDb(result);
   }

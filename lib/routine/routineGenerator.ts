@@ -13,12 +13,20 @@ import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineRoom,
+  RoutineSubjectGroup,
   RoutineGrid,
   GeneratedRoutine,
   ValidationReport,
   DiagnosticItem,
   DEFAULT_ROUTINE_SETTINGS,
 } from './types';
+import {
+  buildSolverGroups,
+  getGroupsForClass,
+  groupSlotCost,
+  teacherGroupLoad,
+  validateGroups,
+} from './routine-groups';
 
 export * from './types';
 
@@ -49,6 +57,7 @@ export class RoutineSolver {
   private subjects: Map<string, RoutineSubject>;
   private assignments: RoutineAssignment[];
   private rooms: Map<string, RoutineRoom>;
+  private groups: RoutineSubjectGroup[];
 
   constructor(
     settings: RoutineSettings,
@@ -56,7 +65,8 @@ export class RoutineSolver {
     teachers: RoutineTeacher[],
     subjects: RoutineSubject[],
     assignments: RoutineAssignment[],
-    rooms: RoutineRoom[] = []
+    rooms: RoutineRoom[] = [],
+    groups: RoutineSubjectGroup[] = []
   ) {
     this.settings = {
       workingDays: (settings?.workingDays || DEFAULT_ROUTINE_SETTINGS.workingDays).slice().sort((a, b) => a - b),
@@ -74,6 +84,7 @@ export class RoutineSolver {
     this.subjects = new Map((subjects || []).map((s) => [s.id, s]));
     this.assignments = assignments || [];
     this.rooms = new Map((rooms || []).map((r) => [r.id, r]));
+    this.groups = groups || [];
   }
 
   public getTeachingPeriods(): number[] {
@@ -137,6 +148,30 @@ export class RoutineSolver {
       ? Math.min(...this.settings.breaks)
       : Math.floor(this.settings.periodsPerDay / 2);
 
+    // Group integrity (structural) — do this early so a broken group
+    // doesn't masquerade as a capacity error later.
+    const groupIssues = validateGroups({
+      groups: this.groups,
+      assignments: this.assignments,
+      subjects: Array.from(this.subjects.values()),
+      teachers: Array.from(this.teachers.values()),
+      classes: this.classes,
+    });
+    for (const gi of groupIssues) {
+      if (gi.severity === 'error') {
+        errors.push(`Group "${gi.groupName}": ${gi.message}`);
+        diagnosticItems.push({
+          type: 'faculty_shortage',
+          severity: 'error',
+          title: `Group Error: ${gi.groupName}`,
+          description: gi.message,
+          solution: 'Open the Groups tab and fix the group configuration.',
+        });
+      } else {
+        warnings.push(`Group "${gi.groupName}": ${gi.message}`);
+      }
+    }
+
     // 1. Class Capacity & Morning Preference Saturation Check
     for (const cls of this.classes) {
       const clsLimit = cls.dailyPeriods || this.settings.periodsPerDay;
@@ -150,8 +185,23 @@ export class RoutineSolver {
         totalMorningSlots += teachingPeriods.filter((p) => p <= Math.min(dayMax, breakP)).length;
       }
 
+      // Ordinary assignments for this class.
       const clsAssignments = this.assignments.filter((a) => a.classId === cls.id);
-      const assignedPeriods = clsAssignments.reduce((sum, a) => sum + a.periodsPerWeek, 0);
+      // Subjects already represented as a group option on this class must
+      // NOT count toward ordinary demand (plan: counted once, as a group).
+      const groupedSids = new Set(
+        getGroupsForClass(cls.id, this.groups).flatMap((g) => g.options.map((o) => o.subjectId))
+      );
+      const effectiveClsAssignments = clsAssignments.filter(
+        (a) => !groupedSids.has(a.subjectId)
+      );
+      const assignmentsPeriods = effectiveClsAssignments.reduce(
+        (sum, a) => sum + a.periodsPerWeek, 0
+      );
+      // Group contribution (once per class, regardless of pooling).
+      const groupPeriods = getGroupsForClass(cls.id, this.groups)
+        .reduce((n, g) => n + groupSlotCost(g), 0);
+      const assignedPeriods = assignmentsPeriods + groupPeriods;
 
       if (assignedPeriods > totalClassSlots) {
         const err = `Class ${cls.className} (${cls.section}): Assigned periods (${assignedPeriods}) exceeds weekly capacity (${totalClassSlots}).`;
@@ -166,13 +216,18 @@ export class RoutineSolver {
         });
       }
 
-      // Morning Preference Saturation Check
+      // Morning Preference Saturation Check — use the group-filtered
+      // assignments so group options are not double-counted here.
       let morningPeriodsDemand = 0;
-      for (const asg of clsAssignments) {
+      for (const asg of effectiveClsAssignments) {
         const subj = this.subjects.get(asg.subjectId);
         if (subj?.timePref === 'morning') {
           morningPeriodsDemand += asg.periodsPerWeek;
         }
+      }
+      // Add morning-preferred groups' contribution.
+      for (const g of getGroupsForClass(cls.id, this.groups)) {
+        if (g.timePref === 'morning') morningPeriodsDemand += groupSlotCost(g);
       }
 
       if (morningPeriodsDemand > totalMorningSlots) {
@@ -191,9 +246,14 @@ export class RoutineSolver {
 
     // 2. Teacher Capacity Check (Max Periods, Availability, Daily Capacity Limits)
     for (const [tId, teacher] of this.teachers) {
-      const load = this.assignments
+      const assignmentsLoad = this.assignments
         .filter((a) => a.teacherId === tId)
         .reduce((sum, a) => sum + a.periodsPerWeek, 0);
+      // Add group periods this teacher runs (counted once per group period,
+      // multiplied by non-pooled section count where applicable — see
+      // teacherGroupLoad for the exact rule).
+      const groupLoad = teacherGroupLoad(tId, this.groups);
+      const load = assignmentsLoad + groupLoad;
 
       if (load > teacher.maxPeriods) {
         const err = `Teacher ${teacher.name}: Workload (${load} p/wk) exceeds max limit (${teacher.maxPeriods}).`;
@@ -325,6 +385,21 @@ export class RoutineSolver {
 
   public async solve(maxIterations: number = 140000): Promise<GeneratedRoutine> {
     try {
+      const solverGroups = buildSolverGroups(this.groups).map((g) => ({
+        gid: g.gid,
+        name: g.name,
+        classIds: g.classIds,
+        periodsPerWeek: g.periodsPerWeek,
+        periodSize: g.periodSize,
+        timePref: g.timePref,
+        maxPerDay: g.maxPerDay,
+        options: g.options.map((o) => ({
+          subjectId: o.subjectId,
+          teacherId: o.teacherId,
+          roomId: o.roomId ?? null,
+        })),
+      }));
+
       const payload = {
         settings: this.settings,
         classes: this.classes,
@@ -332,6 +407,7 @@ export class RoutineSolver {
         subjects: Array.from(this.subjects.values()),
         assignments: this.assignments,
         rooms: Array.from(this.rooms.values()),
+        groups: solverGroups,
       };
 
       const res = await fetch('/api/routine/generate', {
@@ -347,7 +423,25 @@ export class RoutineSolver {
       }
 
       const data = await res.json();
-      
+
+      // If we sent groups but the backend did not acknowledge them, the
+      // deployed Python backend is older than the groups-aware revision.
+      if (solverGroups.length > 0 && !data?.metadata?.groupsHonored) {
+        const warn =
+          'Backend ignored subject groups (older solver). Group options will NOT run in parallel; update python-backend/main.py or redeploy it.';
+        data.diagnostics = [warn, ...(data.diagnostics || [])];
+        data.diagnosticItems = [
+          {
+            type: 'general',
+            severity: 'warning',
+            title: 'Groups not honored by backend',
+            description: warn,
+            solution: 'Redeploy the solver with the latest main.py.',
+          },
+          ...(data.diagnosticItems || []),
+        ];
+      }
+
       if (!data.success) {
         return {
           success: false,
@@ -410,9 +504,10 @@ export function validateRoutineData(
   teachers: RoutineTeacher[],
   subjects: RoutineSubject[],
   assignments: RoutineAssignment[],
-  rooms: RoutineRoom[] = []
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
 ): ValidationReport {
-  const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms);
+  const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms, groups);
   return solver.validatePreconditions();
 }
 
@@ -425,9 +520,10 @@ export async function generateRoutine(
   teachers: RoutineTeacher[],
   subjects: RoutineSubject[],
   assignments: RoutineAssignment[],
-  rooms: RoutineRoom[] = []
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
 ): Promise<GeneratedRoutine> {
-  const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms);
+  const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms, groups);
   return await solver.solve();
 }
 

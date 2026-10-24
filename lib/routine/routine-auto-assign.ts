@@ -6,11 +6,13 @@ import {
   RoutineAssignment,
   RoutineSettings,
   RoutineRoom,
+  RoutineSubjectGroup,
 } from "./types";
 import {
   isHsClass,
   parseSectionAndStream,
   detectSubjectStream,
+  getEffectiveClassSubjects,
 } from "./routine-helpers";
 
 /**
@@ -22,7 +24,8 @@ export function autoBuildRoutineAssignments(
   subjects: RoutineSubject[],
   teachers: RoutineTeacher[],
   settings?: RoutineSettings,
-  rooms: RoutineRoom[] = []
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
 ): RoutineAssignment[] {
   if (classes.length === 0 || subjects.length === 0 || teachers.length === 0) {
     return [];
@@ -42,13 +45,17 @@ export function autoBuildRoutineAssignments(
     const isHs = isHsClass(cls.className);
     const { stream: sectionStream } = parseSectionAndStream(cls.section || "");
 
-    const explicitClassSubs = subjects.filter(
+    // Drop subjects already represented as a group option on this class —
+    // the group handles them and auto-assign must not create a parallel
+    // ordinary assignment that would double-book the same slot.
+    const effSubjects = getEffectiveClassSubjects(cls, subjects, groups);
+    const explicitClassSubs = effSubjects.filter(
       (s) => s.className && s.className.toLowerCase() === clsNameLower
     );
     const hasExplicitSubs = explicitClassSubs.length > 0;
 
     // Find subjects for this class and stream (for HS classes)
-    const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+    const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
     const rawMatchingSubjects = candidates.filter((s) => {
       if (s.className && s.className.toLowerCase() !== clsNameLower) {
         return false;

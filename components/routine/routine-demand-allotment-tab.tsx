@@ -8,6 +8,7 @@ import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineSettings,
+  RoutineSubjectGroup,
 } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +49,10 @@ import {
   HS_STREAM_PRESETS,
   getTeacherSubjectPeriod,
   isTeacherAssignedToSubject,
+  getEffectiveClassSubjects,
+  calculateClassGroupPeriods,
 } from "@/lib/routine/routine-helpers";
+import { getGroupsForClass } from "@/lib/routine/routine-groups";
 import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
 // Re-export for backward compatibility
@@ -60,6 +64,7 @@ interface RoutineDemandAllotmentTabProps {
   teachers: RoutineTeacher[];
   assignments: RoutineAssignment[];
   settings: RoutineSettings;
+  groups?: RoutineSubjectGroup[];
 }
 
 export interface ClassAllotmentRow {
@@ -93,6 +98,7 @@ export function RoutineDemandAllotmentTab({
   teachers,
   assignments,
   settings,
+  groups = [],
 }: RoutineDemandAllotmentTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClassState] = useState<string>(() => {
@@ -182,14 +188,15 @@ export function RoutineDemandAllotmentTab({
           ? [matchedStream]
           : configuredStreams;
 
-        const explicitClassSubs = subjects.filter(
+        const effSubjects = getEffectiveClassSubjects(cls, subjects, groups);
+        const explicitClassSubs = effSubjects.filter(
           (s) => s.className && s.className.toLowerCase() === clsLower
         );
         const hasExplicitSubs = explicitClassSubs.length > 0;
 
         streamsToProcess.forEach((st) => {
           // Subjects for this stream = Common subjects + Stream-specific subjects
-          const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+          const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
           const streamSubs = candidates.filter((s) => {
             if (s.className && s.className.toLowerCase() !== clsLower) {
               return false;
@@ -318,7 +325,8 @@ export function RoutineDemandAllotmentTab({
         });
       } else {
         // Non-HS General Class: Strictly match subjects for this class
-        const explicitClassSubs = subjects.filter(
+        const effSubjects = getEffectiveClassSubjects(cls, subjects, groups);
+        const explicitClassSubs = effSubjects.filter(
           (s) => s.className && s.className.toLowerCase() === clsLower
         );
         const hasExplicitSubs = explicitClassSubs.length > 0;
@@ -327,7 +335,7 @@ export function RoutineDemandAllotmentTab({
           getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
         );
 
-        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+        const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
         const classSubs = candidates.filter((s) => {
           if (s.className && s.className.toLowerCase() !== clsLower) {
             return false;

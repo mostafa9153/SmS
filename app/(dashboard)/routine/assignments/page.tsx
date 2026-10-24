@@ -13,6 +13,7 @@ import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineSettings,
+  RoutineSubjectGroup,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineVerificationTab } from "@/components/routine/routine-verification-tab";
@@ -26,6 +27,7 @@ export default function RoutineAssignmentsPage() {
   const [rooms, setRooms] = useState<RoutineRoom[]>([]);
   const [teachers, setTeachers] = useState<RoutineTeacher[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
+  const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
 
   const loadData = async () => {
     setLoading(true);
@@ -37,6 +39,7 @@ export default function RoutineAssignmentsPage() {
       setRooms(data.rooms || []);
       setTeachers(data.teachers || []);
       setAssignments(data.assignments || []);
+      setGroups(data.groups || []);
     } catch (err) {
       console.error("Failed to load verification state:", err);
     } finally {
@@ -84,6 +87,7 @@ export default function RoutineAssignmentsPage() {
         teachers={teachers}
         assignments={assignments}
         rooms={rooms}
+        groups={groups}
         onSaveAssignments={handleSaveAssignments}
       />
     </div>

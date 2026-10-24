@@ -647,6 +647,46 @@ export function filterSubjectsForClassStream(
 }
 
 /**
+ * Returns the effective subject list for a class — the subjects that will
+ * run as ORDINARY (non-group) periods. Subjects that appear as a parallel
+ * option inside one of the class's groups are filtered out and counted
+ * ONCE as the group's own period instead. If `groups` is omitted or empty
+ * the result is identical to passing `subjects` through unchanged, so
+ * existing demand/capacity numbers stay stable for setups without groups.
+ */
+export function getEffectiveClassSubjects(
+  cls: RoutineClass,
+  subjects: RoutineSubject[],
+  groups?: Array<{ sectionIds: string[]; options: Array<{ subjectId: string }> }>
+): RoutineSubject[] {
+  if (!groups || groups.length === 0) return subjects;
+  const grouped = new Set<string>();
+  for (const g of groups) {
+    if (!g.sectionIds || !g.sectionIds.includes(cls.id)) continue;
+    for (const o of g.options || []) grouped.add(o.subjectId);
+  }
+  if (grouped.size === 0) return subjects;
+  return subjects.filter((s) => !grouped.has(s.id));
+}
+
+/**
+ * Weekly cost (periods) a class contributes via its subject groups.
+ * Each group counts ONCE for its member class regardless of pooling.
+ */
+export function calculateClassGroupPeriods(
+  cls: RoutineClass,
+  groups?: Array<{ sectionIds: string[]; periodsPerWeek: number; periodSize: 1 | 2 }>
+): number {
+  if (!groups || groups.length === 0) return 0;
+  let total = 0;
+  for (const g of groups) {
+    if (!g.sectionIds || !g.sectionIds.includes(cls.id)) continue;
+    total += Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
+  }
+  return total;
+}
+
+/**
  * Calculates total teaching periods capacity in a week for a specific class
  */
 export function calculateClassWeeklyCapacity(
@@ -699,7 +739,13 @@ export function generateInitials(name: string): string {
  */
 export function calculateTotalSchoolSectionDemand(
   classes: RoutineClass[],
-  subjects: RoutineSubject[]
+  subjects: RoutineSubject[],
+  groups?: Array<{
+    sectionIds: string[];
+    options: Array<{ subjectId: string }>;
+    periodsPerWeek: number;
+    periodSize: 1 | 2;
+  }>
 ): number {
   if (!classes || classes.length === 0) {
     return subjects.reduce(
@@ -709,6 +755,20 @@ export function calculateTotalSchoolSectionDemand(
   }
 
   let totalDemand = 0;
+
+  // Group contribution — counted ONCE per member section. Added separately so
+  // the existing stream matching stays intact for the ordinary subjects.
+  if (groups && groups.length > 0) {
+    for (const g of groups) {
+      const sz = (g.periodSize === 2 ? 2 : 1) * Math.max(0, g.periodsPerWeek);
+      totalDemand += sz * (g.sectionIds?.length || 0);
+    }
+  }
+
+  // Pre-filter: for each class, drop subjects that are already a group option
+  // so the ordinary stream-based demand below does not double-count them.
+  const subjectsForClass = (cls: RoutineClass): RoutineSubject[] =>
+    getEffectiveClassSubjects(cls, subjects, groups);
 
   classes.forEach((cls) => {
     const clsLower = cls.className.toLowerCase();
@@ -744,13 +804,14 @@ export function calculateTotalSchoolSectionDemand(
       }
 
       const streamsToProcess = matchedStream ? [matchedStream] : configuredStreams;
-      const explicitClassSubs = subjects.filter(
+      const effSubjects = subjectsForClass(cls);
+      const explicitClassSubs = effSubjects.filter(
         (s) => s.className && s.className.toLowerCase() === clsLower
       );
       const hasExplicitSubs = explicitClassSubs.length > 0;
 
       streamsToProcess.forEach((st) => {
-        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+        const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
         const streamSubs = candidates.filter((s) => {
           if (s.className && s.className.toLowerCase() !== clsLower) return false;
           const detStream = detectSubjectStream(s.name, s.stream);
@@ -785,7 +846,8 @@ export function calculateTotalSchoolSectionDemand(
         totalDemand += demand;
       });
     } else {
-      const explicitClassSubs = subjects.filter(
+      const effSubjects = subjectsForClass(cls);
+      const explicitClassSubs = effSubjects.filter(
         (s) => s.className && s.className.toLowerCase() === clsLower
       );
       const hasExplicitSubs = explicitClassSubs.length > 0;
@@ -793,7 +855,7 @@ export function calculateTotalSchoolSectionDemand(
         getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
       );
 
-      const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
+      const candidates = hasExplicitSubs ? explicitClassSubs : effSubjects;
       const classSubs = candidates.filter((s) => {
         if (s.className && s.className.toLowerCase() !== clsLower) return false;
         if (hasExplicitSubs) {
@@ -830,10 +892,30 @@ export function calculateTotalTeacherAllottedWorkload(
   teachers: RoutineTeacher[],
   classes: RoutineClass[],
   subjects: RoutineSubject[],
-  assignments: RoutineAssignment[] = []
+  assignments: RoutineAssignment[] = [],
+  groups?: Array<{
+    sectionIds: string[];
+    options: Array<{ teacherId: string }>;
+    pooled: boolean;
+    periodsPerWeek: number;
+    periodSize: 1 | 2;
+  }>
 ): { totalWorkload: number; assignedTeacherCount: number } {
   let totalWorkload = 0;
   let assignedTeacherCount = 0;
+
+  const groupLoadForTeacher = (tid: string): number => {
+    if (!groups || groups.length === 0) return 0;
+    let n = 0;
+    for (const g of groups) {
+      const perSlot = (g.options || []).filter((o) => o.teacherId === tid).length;
+      if (perSlot === 0) continue;
+      const slots = Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
+      const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
+      n += perSlot * slots * mul;
+    }
+    return n;
+  };
 
   teachers.forEach((t) => {
     let teacherAssignedPeriods = 0;
@@ -898,9 +980,14 @@ export function calculateTotalTeacherAllottedWorkload(
       });
     }
 
-    if (teacherAssignedPeriods > 0) {
+    // Add group periods this teacher runs (once per unit, scaled by
+    // non-pooled section fan-out).
+    const groupLoad = groupLoadForTeacher(t.id);
+    const totalForTeacher = teacherAssignedPeriods + groupLoad;
+
+    if (totalForTeacher > 0) {
       assignedTeacherCount += 1;
-      totalWorkload += teacherAssignedPeriods;
+      totalWorkload += totalForTeacher;
     }
   });
 
