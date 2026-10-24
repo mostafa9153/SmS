@@ -18,6 +18,7 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   BookOpen,
+  Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -81,6 +82,11 @@ export interface TeacherEditorFormProps {
     otherTeachers: { teacherName: string; shortName: string; periods: number }[];
   };
   calculateSectionTotalPeriods: (clsName: string, sec: string) => number;
+  getTeacherGroupRows: (
+    clsName: string,
+    sec: string
+  ) => { id: string; name: string; subjects: string[]; periods: number; scopeLabel: string }[];
+  getClassGroupLoad: (clsName: string) => number;
 }
 
 export function TeacherEditorForm({
@@ -135,6 +141,8 @@ export function TeacherEditorForm({
   getSubjectPeriod,
   getSubjectAllocationStats,
   calculateSectionTotalPeriods,
+  getTeacherGroupRows,
+  getClassGroupLoad,
 }: TeacherEditorFormProps) {
   return (
     <form
@@ -463,10 +471,12 @@ export function TeacherEditorForm({
                 const currentActiveSec =
                   activeSectionTab[c.name] || allSecs[0] || "A";
 
-                const classTotalPeriods = selectedSecs.reduce(
-                  (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
-                  0
-                );
+                const classTotalPeriods =
+                  selectedSecs.reduce(
+                    (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
+                    0
+                  ) + getClassGroupLoad(c.name);
+                const groupRows = getTeacherGroupRows(c.name, currentActiveSec);
 
                 return (
                   <div
@@ -647,9 +657,28 @@ export function TeacherEditorForm({
                           </div>
                         </div>
 
+                        {groupRows.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {groupRows.map((g) => (
+                              <div
+                                key={g.id}
+                                className="inline-flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs"
+                                title="Group এর subject, group dialog থেকে edit করুন"
+                              >
+                                <Lock className="w-3 h-3 text-primary" />
+                                <span className="font-semibold">{g.subjects.join(", ")}</span>
+                                <span className="text-muted-foreground">{g.name} • {g.scopeLabel}</span>
+                                <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+                                  {g.periods} p/wk
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         {/* Subject Pills with live quota breakdown and inline editable p/wk */}
                         <div className="flex flex-wrap gap-2 pt-0.5">
-                          {availableSubs.length === 0 ? (
+                          {availableSubs.length === 0 && groupRows.length === 0 ? (
                             <span className="text-xs text-muted-foreground italic">
                               No subjects configured for this class in School Settings.
                             </span>

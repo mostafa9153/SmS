@@ -578,6 +578,9 @@ function RoutineSetupPageContent() {
               <RoutineSubjectsTab
                 subjects={subjects}
                 classes={classes}
+                groups={groups}
+                onSaveGroup={handleSaveGroup}
+                onDeleteGroup={handleDeleteGroup}
                 onSaveSubject={handleSaveSubject}
                 onBatchSaveSubjects={handleBatchSaveSubjects}
                 onDeleteSubject={handleDeleteSubject}
@@ -591,6 +594,7 @@ function RoutineSetupPageContent() {
                 settings={settings}
                 classes={classes}
                 subjects={subjects}
+                groups={groups}
                 onSaveTeacher={handleSaveTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
               />

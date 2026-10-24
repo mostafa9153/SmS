@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, sortClasses } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Dialog,
@@ -29,18 +29,14 @@ import {
   Edit2,
   Trash2,
   Layers,
-  Users,
-  School,
   BookOpen,
   X,
   AlertTriangle,
   Check,
 } from "lucide-react";
 import {
-  getGroupsForClass,
   validateGroups,
   teacherGroupLoad,
-  groupSlotCost,
 } from "@/lib/routine/routine-groups";
 
 // --- Local helpers (keep this component self-contained) ------------------
@@ -65,7 +61,7 @@ function sectionLabel(cls: RoutineClass): string {
 }
 
 function uniqueClassNames(classes: RoutineClass[]): string[] {
-  return Array.from(new Set(classes.map((c) => c.className))).sort();
+  return sortClasses(Array.from(new Set(classes.map((c) => c.className))));
 }
 
 function streamsForClass(classes: RoutineClass[], className: string): string[] {
@@ -182,8 +178,6 @@ const GroupRow = React.memo(function GroupRow({
           ))}
         </div>
       </td>
-      <td className="py-2 px-3 font-mono text-[11px]">{group.periodsPerWeek}</td>
-      <td className="py-2 px-3 font-mono text-[11px]">{group.periodSize === 2 ? "Double" : "Single"}</td>
       <td className="py-2 px-3 text-right space-x-1">
         <Button
           variant="ghost"
@@ -373,15 +367,13 @@ export function RoutineGroupsTab({
                 <th className="py-2 px-3">Group</th>
                 <th className="py-2 px-3">Scope</th>
                 <th className="py-2 px-3">Options</th>
-                <th className="py-2 px-3">Periods/wk</th>
-                <th className="py-2 px-3">Period</th>
                 <th className="py-2 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {visibleGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
                     <Layers className="w-6 h-6 mx-auto mb-1 opacity-40" />
                     <div>No subject groups yet.</div>
                   </td>
@@ -466,17 +458,23 @@ function GroupDialog({
   const classNameOptions = useMemo(() => uniqueClassNames(classes), [classes]);
 
   const [name, setName] = useState(editing?.name || "");
-  const [periodsPerWeek, setPeriodsPerWeek] = useState<number>(editing?.periodsPerWeek ?? 2);
-  const [periodSize, setPeriodSize] = useState<1 | 2>(editing?.periodSize ?? 1);
-  const [timePref, setTimePref] = useState<"any" | "morning" | "afternoon">(
-    editing?.timePref ?? "any"
-  );
+  const periodSize: 1 | 2 = editing?.periodSize ?? 1;
   const [scope, setScope] = useState<"class" | "section">(editing?.scope ?? "class");
-  const [className, setClassName] = useState<string>(editing?.className || classNameOptions[0] || "");
+  const [className, setClassName] = useState<string>(
+    editing?.className ||
+      (editing?.scope === "section"
+        ? classes.find((c) => c.id === editing.sectionIds[0])?.className
+        : "") ||
+      classNameOptions[0] ||
+      ""
+  );
   const [stream, setStream] = useState<string>(editing?.stream || "");
-  const [pooled, setPooled] = useState<boolean>(editing?.pooled ?? true);
   const [sectionIds, setSectionIds] = useState<Set<string>>(
-    new Set(editing?.scope === "section" ? editing.sectionIds : [])
+    new Set(
+      editing?.scope === "section"
+        ? editing.sectionIds
+        : classes.filter((c) => c.className === (editing?.className || classNameOptions[0] || "")).map((c) => c.id)
+    )
   );
   const [options, setOptions] = useState<DraftOption[]>(
     editing?.options.length
@@ -522,7 +520,6 @@ function GroupDialog({
   // --- live validation / summary --------------------------------------
   const liveIssues: string[] = [];
   if (!name.trim()) liveIssues.push("Group name is required.");
-  if (periodsPerWeek < 1) liveIssues.push("Periods/week must be ≥ 1.");
   if (options.length < 2) liveIssues.push("Add at least 2 options.");
   const seenTeachers = new Set<string>();
   for (const o of options) {
@@ -535,65 +532,6 @@ function GroupDialog({
   }
   if (resolvedSectionIds.length === 0) liveIssues.push("Scope resolves to zero sections.");
   if (scope === "class" && !className) liveIssues.push("Pick a class.");
-
-  // Common free slots across all picked teachers across working days
-  const commonFreeSlots = useMemo(() => {
-    const tids = Array.from(new Set(options.map((o) => o.teacherId).filter(Boolean)));
-    if (tids.length < 2) return { common: 0, total: 0 };
-    const tObjs = tids
-      .map((tid) => teachers.find((t) => t.id === tid))
-      .filter(Boolean) as RoutineTeacher[];
-    if (tObjs.length < 2) return { common: 0, total: 0 };
-
-    const days = settings.workingDays || [];
-    const halfDays = new Set(settings.halfDays || []);
-    const periodsPerDay = settings.periodsPerDay || 8;
-    const halfDayPeriods = settings.halfDayPeriods || periodsPerDay;
-    const breaks = new Set(settings.breaks || []);
-    let common = 0;
-    let total = 0;
-    for (const d of days) {
-      const dayCap = halfDays.has(d) ? halfDayPeriods : periodsPerDay;
-      const availSets = tObjs.map(
-        (t) =>
-          new Set(
-            t.availableSlots?.[String(d)] ||
-              t.availableSlots?.[d as unknown as string] ||
-              Array.from({ length: periodsPerDay }, (_, i) => i + 1)
-          )
-      );
-      for (let p = 1; p <= periodsPerDay; p++) {
-        if (p > dayCap) break;
-        total++;
-        if (periodSize === 2) {
-          if (breaks.has(p)) continue;
-          if (p + 1 > dayCap) continue;
-          if (!availSets.every((s) => s.has(p) && s.has(p + 1))) continue;
-        } else {
-          if (!availSets.every((s) => s.has(p))) continue;
-        }
-        common++;
-      }
-    }
-    return { common, total };
-  }, [options, teachers, settings, periodSize]);
-
-  // Capacity: naïve summary of class' remaining weekly slots (uses first section when scope='class')
-  const capacitySummary = useMemo(() => {
-    if (resolvedSections.length === 0) return null;
-    const workingDays = settings.workingDays?.length || 6;
-    const periodsPerDay = settings.periodsPerDay || 8;
-    const perSectionCap = workingDays * periodsPerDay;
-    const first = resolvedSections[0];
-    const sectionAssignments = assignments.filter((a) => a.classId === first.id);
-    const used =
-      sectionAssignments.reduce((n, a) => n + (a.periodsPerWeek || 0), 0) +
-      getGroupsForClass(first.id, groups)
-        .filter((g) => g.id !== editing?.id)
-        .reduce((n, g) => n + groupSlotCost(g), 0);
-    const addedByThis = periodsPerWeek * (periodSize === 2 ? 2 : 1);
-    return { cap: perSectionCap, used, added: addedByThis };
-  }, [resolvedSections, assignments, groups, editing, settings, periodsPerWeek, periodSize]);
 
   // Flag any option subject that is also an ordinary assignment on a member section
   const ordinaryClash = useMemo(() => {
@@ -649,6 +587,11 @@ function GroupDialog({
     });
   };
 
+  const selectClassSections = (cName: string) => {
+    setClassName(cName);
+    setSectionIds(new Set(classes.filter((c) => c.className === cName).map((c) => c.id)));
+  };
+
   const handleSubmit = async () => {
     if (saving) return;
     if (liveIssues.length > 0) {
@@ -658,13 +601,22 @@ function GroupDialog({
     setSaving(true);
     try {
       const finalName = name.trim() || autoName;
+      const optSubjects = options
+        .map((o) => subjects.find((s) => s.id === o.subjectId))
+        .filter(Boolean) as RoutineSubject[];
+      const periodsPerWeek = Math.max(
+        1,
+        ...optSubjects.map((s) => s.periodsPerWeek || 0),
+        optSubjects.length ? 0 : editing?.periodsPerWeek ?? 2
+      );
+      const timePref = optSubjects.find((s) => s.timePref !== "any")?.timePref ?? "any";
       const g: RoutineSubjectGroup = {
         id: editing?.id || crypto.randomUUID(),
         name: finalName,
         scope,
         className: scope === "class" ? className : null,
         stream: scope === "class" ? stream || null : null,
-        pooled,
+        pooled: resolvedSectionIds.length > 1,
         periodsPerWeek,
         periodSize,
         timePref,
@@ -697,16 +649,10 @@ function GroupDialog({
     }
   };
 
-  // Group-by className for section-wise checkbox list
-  const classesByName = useMemo(() => {
-    const map = new Map<string, RoutineClass[]>();
-    for (const c of classes) {
-      const list = map.get(c.className) || [];
-      list.push(c);
-      map.set(c.className, list);
-    }
-    return map;
-  }, [classes]);
+  const classSections = useMemo(
+    () => classes.filter((c) => c.className === className),
+    [classes, className]
+  );
 
   const streamOptions = useMemo(
     () => (className ? streamsForClass(classes, className) : []),
@@ -725,8 +671,8 @@ function GroupDialog({
 
         <div className="px-5 py-4 space-y-4 max-h-[70vh] sm:max-h-[65vh] overflow-y-auto flex-1">
           {/* Section 1 — Basics */}
-          <section className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-            <div className="sm:col-span-2 space-y-1">
+          <section className="grid grid-cols-1 sm:grid-cols-1 gap-2.5">
+            <div className="space-y-1">
               <Label className="text-[11px] font-medium">Name *</Label>
               <Input
                 className={cn("h-8 text-xs", showErrors && !name.trim() && "border-destructive")}
@@ -749,56 +695,6 @@ function GroupDialog({
                 </div>
               )}
             </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium">Periods/wk *</Label>
-              <Input
-                className="h-8 text-xs"
-                type="number"
-                min={1}
-                value={periodsPerWeek}
-                onChange={(e) => setPeriodsPerWeek(Math.max(1, Number(e.target.value) || 1))}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] font-medium">Period size</Label>
-              <div className="flex gap-1">
-                {([1, 2] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setPeriodSize(v)}
-                    className={cn(
-                      "h-8 flex-1 rounded border text-[11px] font-medium transition",
-                      periodSize === v
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {v === 1 ? "Single" : "Double"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1 sm:col-span-4">
-              <Label className="text-[11px] font-medium">Time preference</Label>
-              <div className="flex gap-1">
-                {(["any", "morning", "afternoon"] as const).map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setTimePref(v)}
-                    className={cn(
-                      "h-8 flex-1 rounded border text-[11px] font-medium transition capitalize",
-                      timePref === v
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-background text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
 
           {/* Section 2 — Scope */}
@@ -810,7 +706,13 @@ function GroupDialog({
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setScope(v)}
+                    onClick={() => {
+                      setScope(v);
+                      if (v === "section" && className) {
+                        const ids = classes.filter((c) => c.className === className).map((c) => c.id);
+                        if (!ids.some((id) => sectionIds.has(id))) setSectionIds(new Set(ids));
+                      }
+                    }}
                     className={cn(
                       "h-7 px-3 text-[11px] font-medium transition capitalize",
                       scope === v
@@ -822,16 +724,6 @@ function GroupDialog({
                   </button>
                 ))}
               </div>
-              <label className="flex items-center gap-1.5 text-[11px] font-medium cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={pooled}
-                  onChange={(e) => setPooled(e.target.checked)}
-                  disabled={resolvedSectionIds.length < 2}
-                  className="h-3.5 w-3.5"
-                />
-                Pool
-              </label>
             </div>
 
             {scope === "class" ? (
@@ -889,41 +781,49 @@ function GroupDialog({
                 </div>
               </div>
             ) : (
-              <div className="rounded-md border bg-muted/20 p-2 max-h-40 overflow-y-auto space-y-2">
-                {Array.from(classesByName.entries()).map(([cName, list]) => (
-                  <div key={cName}>
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">
-                      {cName}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {list.map((c) => {
-                        const checked = sectionIds.has(c.id);
-                        return (
-                          <label
-                            key={c.id}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] cursor-pointer select-none transition",
-                              checked
-                                ? "bg-primary/10 border-primary/40 text-foreground"
-                                : "bg-background hover:bg-muted"
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={() => toggleSection(c.id)}
-                              className="h-3 w-3"
-                            />
-                            {sectionLabel(c)}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-                {classes.length === 0 && (
-                  <div className="text-[11px] text-muted-foreground">No sections configured.</div>
-                )}
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-medium">Class *</Label>
+                  <select
+                    value={className}
+                    onChange={(e) => selectClassSections(e.target.value)}
+                    className="h-8 w-full rounded-md border px-2 text-xs bg-background"
+                  >
+                    <option value="">—</option>
+                    {classNameOptions.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {classSections.map((c) => {
+                    const checked = sectionIds.has(c.id);
+                    return (
+                      <label
+                        key={c.id}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] cursor-pointer select-none transition",
+                          checked
+                            ? "bg-primary/10 border-primary/40 text-foreground"
+                            : "bg-background hover:bg-muted"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSection(c.id)}
+                          className="h-3 w-3"
+                        />
+                        {sectionLabel(c)}
+                      </label>
+                    );
+                  })}
+                  {classSections.length === 0 && (
+                    <div className="text-[11px] text-muted-foreground">No sections.</div>
+                  )}
+                </div>
               </div>
             )}
           </section>
@@ -946,8 +846,8 @@ function GroupDialog({
 
             <div className="rounded-md border divide-y overflow-hidden">
               <div className="grid grid-cols-12 bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <div className="col-span-5 py-2 px-2.5">Subject</div>
-                <div className="col-span-4 py-2 px-2.5">Teacher</div>
+                <div className="col-span-4 py-2 px-2.5">Subject</div>
+                <div className="col-span-5 py-2 px-2.5">Teacher</div>
                 <div className="col-span-2 py-2 px-2.5">Room</div>
                 <div className="col-span-1 py-2 px-1 text-center"></div>
               </div>
@@ -955,7 +855,7 @@ function GroupDialog({
                 const teacherLoadNow = o.teacherId ? teacherGroupLoad(o.teacherId, groups) : 0;
                 return (
                   <div key={o.id} className="grid grid-cols-12 items-center text-xs">
-                    <div className="col-span-5 py-1.5 px-2">
+                    <div className="col-span-4 py-1.5 px-2">
                       <select
                         value={o.subjectId}
                         onChange={(e) => updateOption(o.id, { subjectId: e.target.value })}
@@ -972,7 +872,7 @@ function GroupDialog({
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-4 py-1.5 px-2">
+                    <div className="col-span-5 py-1.5 px-2">
                       <select
                         value={o.teacherId}
                         onChange={(e) => updateOption(o.id, { teacherId: e.target.value })}
@@ -988,7 +888,7 @@ function GroupDialog({
                             value={t.id}
                             disabled={t.id !== o.teacherId && options.some((x) => x.teacherId === t.id)}
                           >
-                            {t.shortName || t.name}
+                            {t.name}
                             {teacherLoadNow > 0 && t.id === o.teacherId ? ` (load +${teacherLoadNow})` : ""}
                           </option>
                         ))}
@@ -1049,37 +949,7 @@ function GroupDialog({
           )}
         </div>
 
-        <DialogFooter className="m-0 mx-0 mb-0 px-5 py-3.5 border-t bg-muted/40 sm:flex-row sm:items-center sm:justify-between w-full shrink-0 gap-3">
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background border text-xs shadow-2xs">
-              <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-muted-foreground text-[11px]">Common free:</span>
-              <span
-                className={cn(
-                  "font-mono font-semibold text-xs",
-                  commonFreeSlots.common < periodsPerWeek && commonFreeSlots.total > 0
-                    ? "text-destructive"
-                    : "text-emerald-700 dark:text-emerald-400"
-                )}
-              >
-                {commonFreeSlots.common}
-              </span>
-              <span className="text-muted-foreground text-[11px]">/ {commonFreeSlots.total}</span>
-            </div>
-
-            {capacitySummary && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background border text-xs shadow-2xs">
-                <School className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground text-[11px]">Capacity:</span>
-                <span className="font-mono font-semibold text-foreground text-xs">{capacitySummary.used}</span>
-                <span className="text-muted-foreground text-[11px]">/ {capacitySummary.cap}</span>
-                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
-                  +{capacitySummary.added}
-                </span>
-              </div>
-            )}
-          </div>
-
+        <DialogFooter className="m-0 mx-0 mb-0 px-5 py-3.5 border-t bg-muted/40 sm:flex-row sm:items-center sm:justify-end w-full shrink-0 gap-3">
           <div className="flex items-center gap-2 sm:shrink-0 justify-end">
             <Button
               variant="outline"

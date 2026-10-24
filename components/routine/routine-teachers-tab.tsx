@@ -7,7 +7,9 @@ import {
   RoutineSettings,
   RoutineClass,
   RoutineSubject,
+  RoutineSubjectGroup,
 } from "@/lib/routine/types";
+import { groupSlotCost } from "@/lib/routine/routine-groups";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -59,6 +61,7 @@ export interface RoutineTeachersTabProps {
   settings: RoutineSettings;
   classes?: RoutineClass[];
   subjects?: RoutineSubject[];
+  groups?: RoutineSubjectGroup[];
   onSaveTeacher: (teacher: RoutineTeacher) => Promise<void>;
   onDeleteTeacher?: (id: string) => Promise<void>;
 }
@@ -69,6 +72,7 @@ export function RoutineTeachersTab({
   settings,
   classes = [],
   subjects = [],
+  groups = [],
   onSaveTeacher,
   onDeleteTeacher,
 }: RoutineTeachersTabProps) {
@@ -97,6 +101,40 @@ export function RoutineTeachersTab({
       });
   }, []);
 
+  // Groups that touch a class (class-wise by className, section-wise via their sections)
+  const groupsForClass = useCallback(
+    (clsName: string) => {
+      const clsLower = clsName.trim().toLowerCase();
+      const sectionClass = new Map(classes.map((c) => [c.id, c.className.trim().toLowerCase()]));
+      return groups.filter((g) =>
+        g.scope === "class"
+          ? (g.className || "").trim().toLowerCase() === clsLower
+          : g.sectionIds.some((id) => sectionClass.get(id) === clsLower)
+      );
+    },
+    [groups, classes]
+  );
+
+  // Group member subjects are allotted through the group, never as plain section subjects
+  const groupMemberIdsByClass = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    presetClasses.forEach((c) => {
+      const ids = new Set<string>();
+      groupsForClass(c.name).forEach((g) => g.options.forEach((o) => ids.add(o.subjectId)));
+      map[c.name] = ids;
+    });
+    return map;
+  }, [presetClasses, groupsForClass]);
+
+  const groupMemberNamesByClass = useMemo(() => {
+    const byId = new Map(subjects.map((s) => [s.id, s.name.trim().toLowerCase()]));
+    const map: Record<string, Set<string>> = {};
+    Object.entries(groupMemberIdsByClass).forEach(([cls, ids]) => {
+      map[cls] = new Set(Array.from(ids).map((id) => byId.get(id)).filter(Boolean) as string[]);
+    });
+    return map;
+  }, [groupMemberIdsByClass, subjects]);
+
   // Compute subjects for each class served downstream from Routine Subjects
   const classSubjectsDictionary = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -105,8 +143,11 @@ export function RoutineTeachersTab({
       const clsLower = clsName.trim().toLowerCase();
 
       // Synced from Routine Subjects tab (Authoritative source)
+      const groupIds = groupMemberIdsByClass[clsName];
       const routineSubs = (subjects || []).filter(
-        (s) => !s.className || s.className.trim().toLowerCase() === clsLower
+        (s) =>
+          (!s.className || s.className.trim().toLowerCase() === clsLower) &&
+          !groupIds?.has(s.id)
       );
 
       if (routineSubs.length > 0) {
@@ -135,7 +176,7 @@ export function RoutineTeachersTab({
       }
     });
     return map;
-  }, [presetClasses, subjects]);
+  }, [presetClasses, subjects, groupMemberIdsByClass]);
 
   // Aggregated unique subjects list across configured routine subjects
   const availableSubjectOptions = useMemo(() => {
@@ -905,7 +946,7 @@ export function RoutineTeachersTab({
   };
 
   // Helper to get active subjects for a specific section (or ALL)
-  const getSectionSubjects = useCallback(
+  const getRawSectionSubjects = useCallback(
     (clsName: string, sec: string): string[] => {
       if (sec === "ALL") {
         const allSecs = getClassSections(clsName);
@@ -946,6 +987,17 @@ export function RoutineTeachersTab({
       return classSubjectsMap[clsName] || [];
     },
     [sectionSubjectsMap, classSubjectsMap, classSectionsMap, getClassSections]
+  );
+
+  // Group member subjects are owned by the group; drop any stale plain selections of them
+  const getSectionSubjects = useCallback(
+    (clsName: string, sec: string): string[] => {
+      const raw = getRawSectionSubjects(clsName, sec);
+      const members = groupMemberNamesByClass[clsName];
+      if (!members || members.size === 0) return raw;
+      return raw.filter((s) => !members.has(s.trim().toLowerCase()));
+    },
+    [getRawSectionSubjects, groupMemberNamesByClass]
   );
 
   // Helper to get specific period count for a subject in a section (or ALL)
@@ -1136,6 +1188,49 @@ export function RoutineTeachersTab({
       return secSubs.reduce((sum, sub) => sum + getSubjectPeriod(clsName, sec, sub), 0);
     },
     [getSectionSubjects, getSubjectPeriod]
+  );
+
+  // Groups this teacher runs, read straight from the group (single source of truth, nothing copied).
+  // Class-wise groups show under "All Sections"; section-wise groups only under their own sections.
+  const getTeacherGroupRows = useCallback(
+    (clsName: string, sec: string) => {
+      if (!editingTeacherId) return [];
+      const clsLower = clsName.trim().toLowerCase();
+      const secId = classes.find(
+        (c) =>
+          c.className.trim().toLowerCase() === clsLower &&
+          c.section.trim().toLowerCase() === sec.trim().toLowerCase()
+      )?.id;
+      const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+      return groupsForClass(clsName)
+        .filter((g) => g.options.some((o) => o.teacherId === editingTeacherId))
+        .filter((g) =>
+          sec === "ALL" ? g.scope === "class" : g.scope === "section" && !!secId && g.sectionIds.includes(secId)
+        )
+        .map((g) => ({
+          id: g.id,
+          name: g.name,
+          subjects: g.options
+            .filter((o) => o.teacherId === editingTeacherId)
+            .map((o) => subjectName.get(o.subjectId) || "Subject"),
+          periods: groupSlotCost(g),
+          scopeLabel: g.scope === "class" ? "All Sections" : `${g.sectionIds.length} sections`,
+        }));
+    },
+    [editingTeacherId, classes, subjects, groupsForClass]
+  );
+
+  // Teacher's group load for a class, each group counted once (pooled) or per section (non-pooled)
+  const getClassGroupLoad = useCallback(
+    (clsName: string): number => {
+      if (!editingTeacherId) return 0;
+      return groupsForClass(clsName).reduce((sum, g) => {
+        const perSlot = g.options.filter((o) => o.teacherId === editingTeacherId).length;
+        if (perSlot === 0) return sum;
+        return sum + perSlot * groupSlotCost(g) * (g.pooled ? 1 : Math.max(1, g.sectionIds.length));
+      }, 0);
+    },
+    [editingTeacherId, groupsForClass]
   );
 
   // Handle subject period count change (for single sec or ALL)
@@ -1624,6 +1719,8 @@ export function RoutineTeachersTab({
             getSubjectPeriod={getSubjectPeriod}
             getSubjectAllocationStats={getSubjectAllocationStats}
             calculateSectionTotalPeriods={calculateSectionTotalPeriods}
+            getTeacherGroupRows={getTeacherGroupRows}
+            getClassGroupLoad={getClassGroupLoad}
           />
         </DialogContent>
       </Dialog>

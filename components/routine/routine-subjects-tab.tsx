@@ -16,7 +16,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { RoutineSubject, RoutineClass } from "@/lib/routine/types";
+import { RoutineSubject, RoutineClass, RoutineSubjectGroup } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,9 +94,43 @@ export {
   parseSectionAndStream,
 };
 
+const subjectPeriods = (s: RoutineSubject) =>
+  s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
+
+// Same dedupe key the subjects table uses, so counts and totals always match the visible list
+const dedupeKey = (s: RoutineSubject, isHs: boolean) => {
+  const name = s.name.trim().toLowerCase().replace(/\s+/g, " ").trim();
+  const stream = isHs ? (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase() : "general";
+  return `${name}::${stream}`;
+};
+
+const dedupeSubjects = (list: RoutineSubject[], isHs: boolean) => {
+  const seen = new Set<string>();
+  return list.filter((s) => {
+    const key = dedupeKey(s, isHs);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+// A group's members run in parallel in one slot, so the group costs its periods once, not per member
+const sectionLoad = (subs: RoutineSubject[], groupMemberIds: string[][]) => {
+  const grouped = new Set(groupMemberIds.flat());
+  let total = subs.filter((s) => !grouped.has(s.id)).reduce((sum, s) => sum + subjectPeriods(s), 0);
+  for (const ids of groupMemberIds) {
+    const members = subs.filter((s) => ids.includes(s.id));
+    if (members.length > 0) total += Math.max(...members.map(subjectPeriods));
+  }
+  return total;
+};
+
 interface RoutineSubjectsTabProps {
   subjects: RoutineSubject[];
   classes?: RoutineClass[];
+  groups?: RoutineSubjectGroup[];
+  onSaveGroup?: (group: RoutineSubjectGroup) => Promise<void>;
+  onDeleteGroup?: (id: string) => Promise<void>;
   onSaveSubject: (subj: {
     id?: string;
     name: string;
@@ -135,6 +169,9 @@ interface RoutineSubjectsTabProps {
 export function RoutineSubjectsTab({
   subjects,
   classes = [],
+  groups = [],
+  onSaveGroup,
+  onDeleteGroup,
   onSaveSubject,
   onBatchSaveSubjects,
   onDeleteSubject,
@@ -256,6 +293,7 @@ export function RoutineSubjectsTab({
   const [maxPerDay, setMaxPerDay] = useState<number>(2);
   const [editId, setEditId] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editGroup, setEditGroup] = useState<RoutineSubjectGroup | null>(null);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
 
   // Dialog-specific edit form state (independent from the add form)
@@ -430,13 +468,53 @@ export function RoutineSubjectsTab({
     });
   }, [subjects, activeClass, isCurrentClassHs, selectedStream, localOrder]);
 
-  // Total weekly periods load for the currently active class subjects
-  const currentClassTotalPeriods = useMemo(() => {
-    return currentClassSubjects.reduce(
-      (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
-      0
-    );
-  }, [currentClassSubjects]);
+  // Groups touching the active class, with their member subjects collapsed into one row
+  const classGroups = useMemo(() => {
+    const clsLower = activeClass.trim().toLowerCase();
+    const sectionClass = new Map(classes.map((c) => [c.id, c.className.trim().toLowerCase()]));
+    return groups
+      .filter((g) =>
+        g.scope === "class"
+          ? (g.className || "").trim().toLowerCase() === clsLower
+          : g.sectionIds.some((id) => sectionClass.get(id) === clsLower)
+      )
+      .map((g) => ({
+        group: g,
+        members: g.options
+          .map((o) => subjects.find((s) => s.id === o.subjectId))
+          .filter(Boolean) as RoutineSubject[],
+      }))
+      .filter((x) => x.members.length > 0);
+  }, [groups, classes, subjects, activeClass]);
+
+  const displayRows = useMemo(() => {
+    const memberToGroup = new Map<string, number>();
+    classGroups.forEach((x, i) => x.members.forEach((m) => memberToGroup.set(m.id, i)));
+    const emitted = new Set<number>();
+    const rows: (
+      | { type: "subject"; subject: RoutineSubject }
+      | { type: "group"; group: RoutineSubjectGroup; members: RoutineSubject[] }
+    )[] = [];
+    for (const s of currentClassSubjects) {
+      const gi = memberToGroup.get(s.id);
+      if (gi === undefined) {
+        rows.push({ type: "subject", subject: s });
+      } else if (!emitted.has(gi)) {
+        emitted.add(gi);
+        rows.push({ type: "group", group: classGroups[gi].group, members: classGroups[gi].members });
+      }
+    }
+    classGroups.forEach((x, gi) => {
+      if (!emitted.has(gi)) rows.push({ type: "group", group: x.group, members: x.members });
+    });
+    return rows;
+  }, [currentClassSubjects, classGroups]);
+
+  // Per-section weekly load: each group counts once
+  const currentClassTotalPeriods = useMemo(
+    () => sectionLoad(currentClassSubjects, classGroups.map((x) => x.members.map((m) => m.id))),
+    [currentClassSubjects, classGroups]
+  );
 
   // Number of configured subjects per class (Strictly deduplicated)
   const classSubjectCounts = useMemo(() => {
@@ -444,18 +522,7 @@ export function RoutineSubjectsTab({
     availableClasses.forEach((cls) => {
       const clsLower = cls.toLowerCase();
       const clsSubs = subjects.filter((s) => s.className && s.className.toLowerCase() === clsLower);
-      const seen = new Set<string>();
-      clsSubs.forEach((s) => {
-        const canonicalName = s.name
-          .trim()
-          .toLowerCase()
-          .replace(/\s*\([^)]*\)/g, "")
-          .replace(/\s+/g, " ")
-          .trim();
-        const streamKey = (s.stream || "general").toLowerCase();
-        seen.add(`${canonicalName}::${streamKey}`);
-      });
-      counts[clsLower] = seen.size;
+      counts[clsLower] = dedupeSubjects(clsSubs, isHsClass(cls)).length;
     });
     const result: Record<string, number> = {};
     availableClasses.forEach((cls) => {
@@ -569,26 +636,20 @@ export function RoutineSubjectsTab({
           return presets.has(s.name.trim().toLowerCase());
         });
 
-        const dedupedSubs: RoutineSubject[] = [];
-        const seen = new Set<string>();
-        for (const s of classSubs) {
-          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-          if (!seen.has(cName)) {
-            seen.add(cName);
-            dedupedSubs.push(s);
-          }
-        }
-
-        const demand = dedupedSubs.reduce(
-          (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
-          0
-        );
-        totalDemand += demand;
+        const dedupedSubs = dedupeSubjects(classSubs, false);
+        const sectionGroupIds = groups
+          .filter((g) =>
+            g.scope === "class"
+              ? (g.className || "").trim().toLowerCase() === clsLower
+              : g.sectionIds.includes(cls.id)
+          )
+          .map((g) => g.options.map((o) => o.subjectId));
+        totalDemand += sectionLoad(dedupedSubs, sectionGroupIds);
       }
     });
 
     return totalDemand;
-  }, [classes, subjects]);
+  }, [classes, subjects, groups]);
 
   // Specific class sections and their combined period load
   const activeClassSections = useMemo(() => {
@@ -608,16 +669,18 @@ export function RoutineSubjectsTab({
     if (!over || active.id === over.id) return;
 
     const orderKey = `${activeClass}::${selectedStream}`;
-    const currentIds = currentClassSubjects.map((s) => s.id);
-    const oldIdx = currentIds.indexOf(active.id as string);
-    const newIdx = currentIds.indexOf(over.id as string);
+    const rowId = (r: (typeof displayRows)[number]) =>
+      r.type === "group" ? `group:${r.group.id}` : r.subject.id;
+    const rowIds = displayRows.map(rowId);
+    const oldIdx = rowIds.indexOf(active.id as string);
+    const newIdx = rowIds.indexOf(over.id as string);
     if (oldIdx === -1 || newIdx === -1) return;
 
-    const reorderedIds = arrayMove(currentIds, oldIdx, newIdx);
-    const reorderedTokens = reorderedIds.map((id) => {
-      const match = currentClassSubjects.find((s) => s.id === id);
-      return match ? match.name : id;
-    });
+    const reorderedTokens = arrayMove(displayRows, oldIdx, newIdx).flatMap((r) =>
+      r.type === "group"
+        ? r.members.filter((m) => currentClassSubjects.some((s) => s.id === m.id)).map((m) => m.id)
+        : [r.subject.name]
+    );
 
     setLocalOrder((prev) => {
       const next = { ...prev, [orderKey]: reorderedTokens };
@@ -628,9 +691,10 @@ export function RoutineSubjectsTab({
       }
       return next;
     });
-  }, [activeClass, selectedStream, currentClassSubjects]);
+  }, [activeClass, selectedStream, currentClassSubjects, displayRows]);
 
   const handleEdit = React.useCallback((s: RoutineSubject) => {
+    setEditGroup(null);
     setEditId(s.id);
     const stream = detectSubjectStream(s.name, s.stream);
     setDlgName(s.name);
@@ -663,7 +727,17 @@ export function RoutineSubjectsTab({
     setEditDialogOpen(true);
   }, []);
 
+  const handleEditGroup = React.useCallback(
+    (group: RoutineSubjectGroup, members: RoutineSubject[]) => {
+      handleEdit(members[0]);
+      setDlgName(group.name);
+      setEditGroup(group);
+    },
+    [handleEdit]
+  );
+
   const handleOpenAddDialog = React.useCallback(() => {
+    setEditGroup(null);
     setEditId(null);
     setDlgName("");
     setDlgPeriodFormat("single");
@@ -797,6 +871,7 @@ export function RoutineSubjectsTab({
   const handleDlgClose = React.useCallback(() => {
     setEditDialogOpen(false);
     setEditId(null);
+    setEditGroup(null);
   }, []);
 
   const handleDlgSubmit = async (e: React.FormEvent) => {
@@ -817,7 +892,32 @@ export function RoutineSubjectsTab({
       const effectiveLabSlots = dlgPeriodFormat === "single" ? 0 : (Number(dlgLabSessions) || 1) * 2;
       const effectiveTotal = effectiveTheory + effectiveLabSlots;
 
-      if (dialogMode === "edit" && editId) {
+      if (editGroup) {
+        const members = classGroups.find((x) => x.group.id === editGroup.id)?.members || [];
+        const maxPerDay = dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1);
+        for (const m of members) {
+          await onSaveSubject({
+            id: m.id,
+            name: m.name,
+            className: m.className,
+            classId: m.classId,
+            stream: m.stream,
+            isCommon: m.isCommon,
+            isHard: m.isHard,
+            isLab: effectiveIsLab,
+            theoryPeriods: effectiveTheory,
+            labPeriods: effectiveLabSlots,
+            timePref: dlgTimePref,
+            allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
+            maxPerDay,
+            periodsPerWeek: effectiveTotal,
+            sortOrder: m.sortOrder,
+          });
+        }
+        if (onSaveGroup) {
+          await onSaveGroup({ ...editGroup, periodsPerWeek: effectiveTotal, timePref: dlgTimePref });
+        }
+      } else if (dialogMode === "edit" && editId) {
         const subjectBeingEdited = subjects.find((s) => s.id === editId);
         await onSaveSubject({
           id: editId,
@@ -860,6 +960,7 @@ export function RoutineSubjectsTab({
       }
       setEditDialogOpen(false);
       setEditId(null);
+      setEditGroup(null);
     } finally {
       setIsDlgSubmitting(false);
     }
@@ -1417,11 +1518,11 @@ export function RoutineSubjectsTab({
                 </tr>
               </thead>
               <SortableContext
-                items={currentClassSubjects.map((s) => s.id)}
+                items={displayRows.map((r) => (r.type === "group" ? `group:${r.group.id}` : r.subject.id))}
                 strategy={verticalListSortingStrategy}
               >
                 <tbody className="divide-y divide-border">
-                  {currentClassSubjects.length === 0 ? (
+                  {displayRows.length === 0 ? (
                     <tr>
                       <td
                         colSpan={8}
@@ -1434,16 +1535,26 @@ export function RoutineSubjectsTab({
                       </td>
                     </tr>
                   ) : (
-                    currentClassSubjects.map((s) => (
-                      <SubjectTableRow
-                        key={s.id}
-                        subject={s}
-                        activeClass={activeClass}
-                        onEdit={handleEdit}
-                        onDelete={onDeleteSubject}
-                        isDraggable={true}
-                      />
-                    ))
+                    displayRows.map((r) =>
+                      r.type === "group" ? (
+                        <GroupSubjectRow
+                          key={`group:${r.group.id}`}
+                          group={r.group}
+                          members={r.members}
+                          onEdit={handleEditGroup}
+                          onDelete={onDeleteGroup}
+                        />
+                      ) : (
+                        <SubjectTableRow
+                          key={r.subject.id}
+                          subject={r.subject}
+                          activeClass={activeClass}
+                          onEdit={handleEdit}
+                          onDelete={onDeleteSubject}
+                          isDraggable={true}
+                        />
+                      )
+                    )
                   )}
                 </tbody>
               </SortableContext>
@@ -1460,7 +1571,7 @@ export function RoutineSubjectsTab({
               {dialogMode === "add" ? (
                 <><Plus className="w-4 h-4 text-primary" />Add Subject to {targetClassForForm}</>
               ) : (
-                <><Edit2 className="w-4 h-4 text-primary" />Edit Subject</>
+                <><Edit2 className="w-4 h-4 text-primary" />{editGroup ? "Edit Group" : "Edit Subject"}</>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -1553,6 +1664,7 @@ export function RoutineSubjectsTab({
                 <Input
                   value={dlgName}
                   onChange={(e) => setDlgName(e.target.value)}
+                  disabled={Boolean(editGroup)}
                   className="h-8 text-xs font-medium"
                   required
                 />
@@ -2023,3 +2135,132 @@ const SubjectTableRow = React.memo(function SubjectTableRow({
   );
 });
 
+
+interface GroupSubjectRowProps {
+  group: RoutineSubjectGroup;
+  members: RoutineSubject[];
+  onEdit: (group: RoutineSubjectGroup, members: RoutineSubject[]) => void;
+  onDelete?: (id: string) => Promise<void>;
+}
+
+const GroupSubjectRow = React.memo(function GroupSubjectRow({
+  group,
+  members,
+  onEdit,
+  onDelete,
+}: GroupSubjectRowProps) {
+  const first = members[0];
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `group:${group.id}`,
+  });
+  const rowStyle: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    position: "relative",
+  };
+  return (
+    <tr
+      ref={setNodeRef}
+      style={rowStyle}
+      className={cn("hover:bg-muted/30 transition-colors", isDragging && "bg-primary/5 shadow-sm")}
+    >
+      <td className="pl-3 pr-1 py-2.5 w-6">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label={`Drag to reorder ${group.name}`}
+          title="Drag to reorder"
+          className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground touch-none flex items-center"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      </td>
+      <td className="py-2.5 px-4 font-semibold text-foreground">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span>{group.name}</span>
+          <Badge variant="outline" className="text-[9px] px-1 py-0 bg-primary/10 text-primary border-primary/30">
+            Group
+          </Badge>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {members.map((m) => (
+            <span key={m.id} className="rounded-md border bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {m.name}
+            </span>
+          ))}
+        </div>
+      </td>
+      <td className="py-2.5 px-4 text-muted-foreground text-[11px]">
+        {group.scope === "class" ? "Class-wise" : `${group.sectionIds.length} sections`}
+      </td>
+      <td className="py-2.5 px-4 font-mono font-semibold text-foreground">
+        <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+          {first.periodsPerWeek || 5} p/wk
+        </Badge>
+      </td>
+      <td className="py-2.5 px-4">
+        {first.isLab ? (
+          <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 gap-1 font-medium">
+            <FlaskConical className="w-2.5 h-2.5 text-blue-600" />
+            {(first.theoryPeriods ?? 0) > 0 ? "Theory + Lab (2 Slots)" : "Lab (Double Slot)"}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-[11px]">Single Slot</span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 capitalize text-muted-foreground">
+        <div className="flex items-center gap-1">
+          <Clock className="w-3 h-3 opacity-60" />
+          <span>
+            {first.timePref === "morning"
+              ? "Morning Preference"
+              : first.timePref === "afternoon"
+              ? "Afternoon Preference"
+              : "Flexible"}
+          </span>
+        </div>
+      </td>
+      <td className="py-2.5 px-4 text-muted-foreground">
+        {first.allowMultiplePerDay ? (
+          <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 font-semibold">
+            Max {first.maxPerDay || 2} / Day
+          </Badge>
+        ) : (
+          <span className="text-[11px]">Max 1 / Day</span>
+        )}
+      </td>
+      <td className="py-2.5 px-4 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(group, members)}
+            aria-label={`Edit ${group.name}`}
+            title={`Edit ${group.name}`}
+            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+          </Button>
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (confirm(`Delete group "${group.name}"? Its subjects will show as separate rows again.`)) {
+                  void onDelete(group.id);
+                }
+              }}
+              aria-label={`Delete ${group.name}`}
+              title={`Delete ${group.name}`}
+              className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+});
