@@ -34,7 +34,6 @@ import {
   BookOpen,
   X,
   AlertTriangle,
-  CheckCircle2,
   Check,
 } from "lucide-react";
 import {
@@ -493,6 +492,7 @@ function GroupDialog({
         ]
   );
   const [saving, setSaving] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const resolvedSectionIds = useMemo(() => {
     if (scope === "section") return Array.from(sectionIds);
@@ -608,7 +608,7 @@ function GroupDialog({
     return false;
   }, [resolvedSectionIds, options, assignments]);
 
-  const canSave = liveIssues.length === 0 && !saving;
+  const uniqueIssues = Array.from(new Set(liveIssues));
 
   const autoName = useMemo(() => {
     if (name.trim()) return "";
@@ -650,7 +650,11 @@ function GroupDialog({
   };
 
   const handleSubmit = async () => {
-    if (!canSave) return;
+    if (saving) return;
+    if (liveIssues.length > 0) {
+      setShowErrors(true);
+      return;
+    }
     setSaving(true);
     try {
       const finalName = name.trim() || autoName;
@@ -712,36 +716,38 @@ function GroupDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-4 pb-2 border-b flex-row items-center justify-between">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b">
           <DialogTitle className="text-sm font-semibold flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
             {editing ? "Edit Subject Group" : "Add Subject Group"}
           </DialogTitle>
-          <div className="flex gap-1">
-            {QUICK_CHIPS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => handleQuickChip(c)}
-                className="text-[10px] font-medium px-1.5 py-0.5 rounded border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground transition"
-              >
-                {c}
-              </button>
-            ))}
-          </div>
         </DialogHeader>
 
-        <div className="px-5 py-3 space-y-3 max-h-[65vh] overflow-y-auto">
+        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
           {/* Section 1 — Basics */}
           <section className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             <div className="sm:col-span-2 space-y-1">
               <Label className="text-[11px] font-medium">Name *</Label>
               <Input
-                className="h-8 text-xs"
+                className={cn("h-8 text-xs", showErrors && !name.trim() && "border-destructive")}
                 placeholder={autoName || "e.g. 3rd Language"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+              {!name.trim() && (
+                <div className="flex gap-1 pt-0.5">
+                  {QUICK_CHIPS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => handleQuickChip(c)}
+                      className="text-[10px] font-medium px-1.5 py-0.5 rounded-full border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground transition"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1">
               <Label className="text-[11px] font-medium">Periods/wk *</Label>
@@ -949,13 +955,16 @@ function GroupDialog({
                 const teacherLoadNow = o.teacherId ? teacherGroupLoad(o.teacherId, groups) : 0;
                 return (
                   <div key={o.id} className="grid grid-cols-12 items-center text-xs">
-                    <div className="col-span-5 py-1 px-2">
+                    <div className="col-span-5 py-1.5 px-2">
                       <select
                         value={o.subjectId}
                         onChange={(e) => updateOption(o.id, { subjectId: e.target.value })}
-                        className="h-7 w-full rounded border px-1.5 text-xs bg-background"
+                        className={cn(
+                          "h-8 w-full rounded border px-1.5 text-xs bg-background",
+                          showErrors && !o.subjectId && "border-destructive"
+                        )}
                       >
-                        <option value="">—</option>
+                        <option value="">Select subject</option>
                         {dialogSubjects.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.name}
@@ -963,30 +972,37 @@ function GroupDialog({
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-4 py-1 px-2">
+                    <div className="col-span-4 py-1.5 px-2">
                       <select
                         value={o.teacherId}
                         onChange={(e) => updateOption(o.id, { teacherId: e.target.value })}
-                        className="h-7 w-full rounded border px-1.5 text-xs bg-background"
+                        className={cn(
+                          "h-8 w-full rounded border px-1.5 text-xs bg-background",
+                          showErrors && !o.teacherId && "border-destructive"
+                        )}
                       >
-                        <option value="">—</option>
+                        <option value="">Select teacher</option>
                         {teachers.map((t) => (
-                          <option key={t.id} value={t.id}>
+                          <option
+                            key={t.id}
+                            value={t.id}
+                            disabled={t.id !== o.teacherId && options.some((x) => x.teacherId === t.id)}
+                          >
                             {t.shortName || t.name}
                             {teacherLoadNow > 0 && t.id === o.teacherId ? ` (load +${teacherLoadNow})` : ""}
                           </option>
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-2 py-1 px-2">
+                    <div className="col-span-2 py-1.5 px-2">
                       <select
                         value={o.roomId || ""}
                         onChange={(e) =>
                           updateOption(o.id, { roomId: e.target.value || null })
                         }
-                        className="h-7 w-full rounded border px-1.5 text-xs bg-background"
+                        className="h-8 w-full rounded border px-1.5 text-xs bg-background"
                       >
-                        <option value="">—</option>
+                        <option value="">None</option>
                         {rooms.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.name}
@@ -999,7 +1015,7 @@ function GroupDialog({
                         type="button"
                         onClick={() => removeOption(o.id)}
                         disabled={options.length <= 2}
-                        className="h-6 w-6 inline-flex items-center justify-center rounded text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
                         aria-label="Remove option"
                       >
                         <X className="h-3 w-3" />
@@ -1011,64 +1027,60 @@ function GroupDialog({
             </div>
           </section>
 
-          {/* Footer summary */}
-          <section className="border-t pt-2 space-y-1 text-[11px]">
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span className="flex items-center gap-1">
-                <Users className="h-3 w-3 text-muted-foreground" />
-                Common free slots:{" "}
-                <span
-                  className={cn(
-                    "font-mono font-semibold",
-                    commonFreeSlots.common < periodsPerWeek && commonFreeSlots.total > 0
-                      ? "text-destructive"
-                      : "text-emerald-700 dark:text-emerald-400"
-                  )}
-                >
-                  {commonFreeSlots.common}
-                </span>
-                <span className="text-muted-foreground">/ {commonFreeSlots.total}</span>
-              </span>
-              {capacitySummary && (
-                <span className="flex items-center gap-1">
-                  <School className="h-3 w-3 text-muted-foreground" />
-                  Section capacity: used{" "}
-                  <span className="font-mono font-semibold">{capacitySummary.used}</span>
-                  <span className="text-muted-foreground"> / {capacitySummary.cap}</span>, this
-                  adds <span className="font-mono font-semibold">+{capacitySummary.added}</span>
-                </span>
+          {(ordinaryClash || (showErrors && uniqueIssues.length > 0)) && (
+            <section className="space-y-1 text-[11px]">
+              {ordinaryClash && (
+                <div className="flex items-start gap-1 text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                  An option subject is also an ordinary assignment on a member section — it will be
+                  counted ONCE as this group&apos;s period from now on.
+                </div>
               )}
-            </div>
-            {ordinaryClash && (
-              <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-3 w-3" />
-                An option subject is also an ordinary assignment on a member section — it will be
-                counted ONCE as this group's period from now on.
-              </div>
-            )}
-            {liveIssues.map((msg, i) => (
-              <div key={i} className="flex items-center gap-1 text-destructive">
-                <AlertTriangle className="h-3 w-3" />
-                {msg}
-              </div>
-            ))}
-            {liveIssues.length === 0 && (
-              <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3" />
-                Ready to save.
-              </div>
-            )}
-          </section>
+              {showErrors &&
+                uniqueIssues.map((msg) => (
+                  <div key={msg} className="flex items-center gap-1 text-destructive">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    {msg}
+                  </div>
+                ))}
+            </section>
+          )}
         </div>
 
-        <DialogFooter className="px-5 py-3 border-t">
+        <DialogFooter className="px-5 py-3 border-t sm:items-center">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] mr-auto items-center">
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3 text-muted-foreground" />
+              Common free:{" "}
+              <span
+                className={cn(
+                  "font-mono font-semibold",
+                  commonFreeSlots.common < periodsPerWeek && commonFreeSlots.total > 0
+                    ? "text-destructive"
+                    : "text-emerald-700 dark:text-emerald-400"
+                )}
+              >
+                {commonFreeSlots.common}
+              </span>
+              <span className="text-muted-foreground">/ {commonFreeSlots.total}</span>
+            </span>
+            {capacitySummary && (
+              <span className="flex items-center gap-1">
+                <School className="h-3 w-3 text-muted-foreground" />
+                Capacity:{" "}
+                <span className="font-mono font-semibold">{capacitySummary.used}</span>
+                <span className="text-muted-foreground">/ {capacitySummary.cap}</span>
+                <span className="font-mono font-semibold">+{capacitySummary.added}</span>
+              </span>
+            )}
+          </div>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 text-xs">
             Cancel
           </Button>
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={!canSave}
+            disabled={saving}
             className="h-8 text-xs font-semibold px-3 gap-1.5"
           >
             <Check className="h-3.5 w-3.5" />
