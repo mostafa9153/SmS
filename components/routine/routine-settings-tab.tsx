@@ -185,6 +185,40 @@ export function RoutineSettingsTab({
                 className="h-9 text-xs"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Min Periods Before Tiffin</Label>
+              <Input
+                type="number"
+                min={0}
+                max={8}
+                value={settings.tchMinBefore ?? 0}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    tchMinBefore: Math.max(0, parseInt(e.target.value, 10) || 0),
+                  })
+                }
+                className="h-9 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium">Min Periods After Tiffin</Label>
+              <Input
+                type="number"
+                min={0}
+                max={8}
+                value={settings.tchMinAfter ?? 0}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    tchMinAfter: Math.max(0, parseInt(e.target.value, 10) || 0),
+                  })
+                }
+                className="h-9 text-xs"
+              />
+            </div>
           </div>
         </div>
       </div>

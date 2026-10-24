@@ -95,6 +95,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         breaks: setRow.breaks || [4],
         tchDailyMax: setRow.tch_daily_max || 5,
         tchConsecMax: setRow.tch_consec_max ?? 3,
+        tchMinBefore: setRow.tch_min_before ?? 0,
+        tchMinAfter: setRow.tch_min_after ?? 0,
       };
     }
 
@@ -432,6 +434,8 @@ export async function saveRoutineSettingsDb(settings: RoutineSettings): Promise<
       breaks: settings.breaks,
       tch_daily_max: settings.tchDailyMax,
       tch_consec_max: settings.tchConsecMax,
+      tch_min_before: settings.tchMinBefore ?? 0,
+      tch_min_after: settings.tchMinAfter ?? 0,
       updated_at: new Date().toISOString(),
     };
 

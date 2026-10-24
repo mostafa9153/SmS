@@ -46,6 +46,8 @@ const RoutineSettingsSchema = z.object({
   breaks: z.array(z.number().int().min(1).max(12)).default([4]),
   tchDailyMax: z.number().int().min(1).max(12).default(5),
   tchConsecMax: z.number().int().min(1).max(8).default(3),
+  tchMinBefore: z.number().int().min(0).max(8).default(0),
+  tchMinAfter: z.number().int().min(0).max(8).default(0),
 });
 
 const RoomSchema = z.object({

@@ -8,6 +8,8 @@ from typing import List, Dict, Optional, Literal, Any
 from ortools.sat.python import cp_model
 from concurrent.futures import ThreadPoolExecutor
 
+DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
 app = FastAPI(title="Routine Forge Pro - Python Backend")
 
 # Allow CORS for Next.js frontend
@@ -28,6 +30,8 @@ class RoutineSettings(BaseModel):
     breaks: List[int]
     tchDailyMax: int
     tchConsecMax: int
+    tchMinBefore: int = 0
+    tchMinAfter: int = 0
 
 class RoutineRoom(BaseModel):
     id: str
@@ -90,6 +94,25 @@ class GenerateRoutineRequest(BaseModel):
     subjects: List[RoutineSubject]
     assignments: List[RoutineAssignment]
     rooms: Optional[List[RoutineRoom]] = []
+
+def effective_tiffin_mins(settings, teacher, day_val, load, break_p, P):
+    """Min periods before/after tiffin for a teacher on a teaching day, capped by
+    the teacher's availability on each side and by their weekly load."""
+    min_b = max(0, settings.tchMinBefore)
+    min_a = max(0, settings.tchMinAfter)
+    if (min_b == 0 and min_a == 0) or break_p >= P:
+        return 0, 0
+    day_cap = min(settings.halfDayPeriods, P) if day_val in settings.halfDays else P
+    avail = teacher.availableSlots.get(str(day_val), list(range(1, P + 1)))
+    avail_b = len([p for p in avail if p <= min(break_p, day_cap)])
+    avail_a = len([p for p in avail if break_p < p <= day_cap])
+    eff_b = min(min_b, avail_b)
+    eff_a = min(min_a, avail_a)
+    if eff_b + eff_a > load:
+        eff_a = max(0, load - eff_b)
+        eff_b = min(eff_b, load)
+    return eff_b, eff_a
+
 
 def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
     settings = request.settings
@@ -272,7 +295,37 @@ def run_solver_phase(request: GenerateRoutineRequest, units, phase: int):
 
     # Objectives
     obj_vars = []
-    
+
+    # Min teacher periods before/after tiffin on teaching days
+    # (hard in phase 1, penalised shortfall in phase 2)
+    for t_id in teacher_occupancy:
+        t_obj = teachers_map[t_id]
+        load = teacher_load_map.get(t_id, 0)
+        if load == 0:
+            continue
+        for d_idx, day_val in enumerate(working_days):
+            eff_b, eff_a = effective_tiffin_mins(settings, t_obj, day_val, load, break_p, P)
+            if eff_b == 0 and eff_a == 0:
+                continue
+            before_vars, after_vars = [], []
+            for p in range(P):
+                (before_vars if p + 1 <= break_p else after_vars).extend(teacher_occupancy[t_id][d_idx][p])
+            all_vars = before_vars + after_vars
+            if not all_vars:
+                continue
+            teach = model.NewBoolVar(f"teach_{t_id}_{d_idx}")
+            model.Add(sum(all_vars) >= 1).OnlyEnforceIf(teach)
+            model.Add(sum(all_vars) == 0).OnlyEnforceIf(teach.Not())
+            for side, side_vars, eff in (("b", before_vars, eff_b), ("a", after_vars, eff_a)):
+                if eff == 0:
+                    continue
+                if is_relaxed:
+                    short = model.NewIntVar(0, eff, f"short_{side}_{t_id}_{d_idx}")
+                    model.Add(sum(side_vars) + short >= eff).OnlyEnforceIf(teach)
+                    obj_vars.append(short * 300)
+                else:
+                    model.Add(sum(side_vars) >= eff).OnlyEnforceIf(teach)
+
     # Hard subjects preference (earlier)
     for u in units:
         if u["hard"]:
@@ -518,6 +571,30 @@ def generate_schedule(request: GenerateRoutineRequest):
                         break
                         
         active_relaxations = ["Soft time preferences", "Fatigue bounds relaxed"] if phase == 2 else []
+
+        # Report teacher-days that fall short of the min before/after tiffin rule
+        tiffin_warnings = []
+        break_p = min(settings.breaks) if settings.breaks else P // 2
+        if settings.tchMinBefore > 0 or settings.tchMinAfter > 0:
+            counts = {}
+            load_map = {}
+            for u in units:
+                load_map[u["tid"]] = load_map.get(u["tid"], 0) + u["sz"]
+                for d in range(D):
+                    for p in range(P):
+                        if (u["uid"], d, p) in x and solver.Value(x[(u["uid"], d, p)]):
+                            for k in range(u["sz"]):
+                                c = counts.setdefault((u["tid"], d), [0, 0])
+                                c[0 if p + k + 1 <= break_p else 1] += 1
+            for (tid, d), (nb, na) in sorted(counts.items()):
+                t_obj = teachers_map[tid]
+                eff_b, eff_a = effective_tiffin_mins(settings, t_obj, working_days[d], load_map[tid], break_p, P)
+                if nb < eff_b or na < eff_a:
+                    tiffin_warnings.append(
+                        f"{t_obj.name} - {DAY_LABELS[working_days[d]]}: {nb} before / {na} after tiffin (min {eff_b}/{eff_a})"
+                    )
+            if tiffin_warnings:
+                active_relaxations.append("Min tiffin periods not met for some teachers")
         return {
             "success": True,
             "grid": grid,
@@ -530,6 +607,7 @@ def generate_schedule(request: GenerateRoutineRequest):
             "metadata": {
                 "phase": phase,
                 "relaxedConstraints": active_relaxations,
+                "tiffinWarnings": tiffin_warnings,
             },
             "stats": {
                 "totalUnits": len(units),

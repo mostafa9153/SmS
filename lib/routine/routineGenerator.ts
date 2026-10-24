@@ -66,6 +66,8 @@ export class RoutineSolver {
       breaks: settings?.breaks || DEFAULT_ROUTINE_SETTINGS.breaks,
       tchDailyMax: settings?.tchDailyMax || DEFAULT_ROUTINE_SETTINGS.tchDailyMax,
       tchConsecMax: settings?.tchConsecMax || DEFAULT_ROUTINE_SETTINGS.tchConsecMax,
+      tchMinBefore: settings?.tchMinBefore ?? 0,
+      tchMinAfter: settings?.tchMinAfter ?? 0,
     };
     this.classes = classes || [];
     this.teachers = new Map((teachers || []).map((t) => [t.id, t]));

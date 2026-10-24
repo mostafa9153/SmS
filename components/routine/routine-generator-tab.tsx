@@ -430,6 +430,21 @@ export function RoutineGeneratorTab({
                   <span className="font-bold text-emerald-600">0 (Strictly Zero)</span>
                 </div>
               </div>
+
+              {Array.isArray(generationResult.metadata?.tiffinWarnings) &&
+                generationResult.metadata.tiffinWarnings.length > 0 && (
+                  <div className="border border-amber-500/40 rounded-md bg-amber-500/5">
+                    <div className="px-3 py-2 font-semibold text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Min Tiffin Periods Not Met ({generationResult.metadata.tiffinWarnings.length})
+                    </div>
+                    <ul className="px-3 pb-2 pl-8 list-disc space-y-0.5 text-[11px] text-muted-foreground max-h-40 overflow-y-auto">
+                      {generationResult.metadata.tiffinWarnings.map((w: string, idx: number) => (
+                        <li key={idx}>{w}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
             </div>
           ) : (
             <div className="bg-card border-2 border-destructive/40 rounded-lg p-4 text-xs space-y-3.5 shadow-xs">

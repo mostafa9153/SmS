@@ -17,6 +17,8 @@ export interface RoutineSettings {
   breaks: number[]; // e.g. [4] (Break interval placed after period 4, between period 4 & 5)
   tchDailyMax: number; // e.g. 5
   tchConsecMax: number; // e.g. 3
+  tchMinBefore: number; // min teacher periods before tiffin on a teaching day (0 = off)
+  tchMinAfter: number; // min teacher periods after tiffin on a teaching day (0 = off)
 }
 
 export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
@@ -27,6 +29,8 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
   breaks: [4],
   tchDailyMax: 5,
   tchConsecMax: 3,
+  tchMinBefore: 0,
+  tchMinAfter: 0,
 };
 
 export interface RoutineRoom {

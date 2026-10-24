@@ -27,6 +27,8 @@ function runComprehensiveTests() {
     halfDays: [5], // Saturday is half-day
     halfDayPeriods: 4, // Saturday max 4 periods
     breaks: [4], // Period 4 is Tiffin / Break
+    tchMinBefore: 0,
+    tchMinAfter: 0,
     tchDailyMax: 5,
     tchConsecMax: 3,
   };
