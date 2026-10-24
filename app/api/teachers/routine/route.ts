@@ -73,6 +73,7 @@ export async function GET(req: Request) {
       { data: availRows },
       { data: staffRow },
       { data: assignmentRows },
+      { data: settingsRow },
     ] = await Promise.all([
       adminClient
         .from("routine_generated_cache")
@@ -95,7 +96,20 @@ export async function GET(req: Request) {
       adminClient
         .from("routine_assignments")
         .select("id, class_id, subject_id, teacher_id, periods_per_week"),
+      adminClient
+        .from("routine_settings")
+        .select("working_days")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
+
+    // dayKey in the grid is the POSITION within workingDays, not the absolute
+    // day index. Fall back to [0..5] for legacy data that assumed Mon-Sat.
+    const workingDays: number[] = Array.isArray(settingsRow?.working_days) &&
+      settingsRow.working_days.length > 0
+      ? settingsRow.working_days
+      : [0, 1, 2, 3, 4, 5];
 
     const classMap = new Map<string, { className: string; section: string }>();
     (classRows || []).forEach((c) => {
@@ -186,54 +200,78 @@ export async function GET(req: Request) {
     if (activeRoutine?.grid && typeof activeRoutine.grid === "object") {
       const grid = activeRoutine.grid as Record<string, Record<string | number, Record<string | number, any>>>;
 
+      // Dedupe pooled group cells across classes so a teacher does not get a
+      // period counted once per section when the group is shared.
+      const countedGroupUnits = new Set<string>();
+
       for (const [classId, daySchedule] of Object.entries(grid)) {
         if (!daySchedule || typeof daySchedule !== "object") continue;
 
         const clsInfo = classMap.get(classId) || { className: "Class", section: "A" };
 
         for (const [dayKey, periodSchedule] of Object.entries(daySchedule)) {
-          const dayIdx = parseInt(String(dayKey), 10);
-          if (isNaN(dayIdx) || dayIdx < 0 || dayIdx >= DAY_NAMES.length) continue;
-          const dayName = DAY_NAMES[dayIdx];
+          const dayPos = parseInt(String(dayKey), 10);
+          if (isNaN(dayPos) || dayPos < 0 || dayPos >= workingDays.length) continue;
+          // Map POSITION in workingDays -> absolute day index for DAY_NAMES.
+          const dayAbs = workingDays[dayPos];
+          if (dayAbs < 0 || dayAbs >= DAY_NAMES.length) continue;
+          const dayName = DAY_NAMES[dayAbs];
           if (!periodsByDay[dayName]) continue;
 
           if (!periodSchedule || typeof periodSchedule !== "object") continue;
 
           for (const [periodKey, cell] of Object.entries(periodSchedule)) {
-            if (!cell || !cell.tid) continue;
+            if (!cell) continue;
 
-            if (targetTeacherIds.has(cell.tid)) {
-              const periodIdx = parseInt(String(periodKey), 10);
-              const periodNum = periodIdx + 1;
-              const subjInfo = subjectMap.get(cell.sid) || { name: "Class Activity", isLab: false };
-              const roomName = cell.rid ? roomMap.get(cell.rid) || "Assigned Room" : null;
+            // Determine which option in this cell matches the target teacher.
+            // For legacy cells (no opts) that's just cell itself.
+            const opts: Array<{ sid: string; tid: string; rid?: string | null }> =
+              Array.isArray(cell.opts) && cell.opts.length > 0
+                ? cell.opts
+                : cell.tid
+                ? [{ sid: cell.sid, tid: cell.tid, rid: cell.rid ?? null }]
+                : [];
+            const matchedOpt = opts.find((o) => o.tid && targetTeacherIds.has(o.tid));
+            if (!matchedOpt) continue;
 
-              periodsByDay[dayName].push({
-                periodNumber: periodNum,
-                period: `Period ${periodNum}`,
-                time: getPeriodTimeLabel(periodNum),
-                cls: clsInfo.className,
-                sec: clsInfo.section,
-                subj: subjInfo.name,
-                room: roomName,
-                isLab: Boolean(cell.lab || subjInfo.isLab),
-                isFirst: periodNum === 1,
+            // A group cell shared across multiple classes must count ONCE.
+            if (cell.gid) {
+              const unitKey = `${cell.gid}_${dayKey}_${periodKey}_${matchedOpt.tid}`;
+              if (countedGroupUnits.has(unitKey)) continue;
+              countedGroupUnits.add(unitKey);
+            }
+
+            const periodIdx = parseInt(String(periodKey), 10);
+            const periodNum = periodIdx + 1;
+            const subjInfo = subjectMap.get(matchedOpt.sid) || { name: "Class Activity", isLab: false };
+            const roomName = matchedOpt.rid ? roomMap.get(matchedOpt.rid) || "Assigned Room" : null;
+
+            periodsByDay[dayName].push({
+              periodNumber: periodNum,
+              period: `Period ${periodNum}`,
+              time: getPeriodTimeLabel(periodNum),
+              cls: clsInfo.className,
+              sec: clsInfo.section,
+              subj: subjInfo.name,
+              room: roomName,
+              isLab: Boolean(cell.lab || subjInfo.isLab),
+              isGroup: Boolean(cell.gid),
+              isFirst: periodNum === 1,
+            });
+
+            totalWeeklyPeriods++;
+
+            const key = `${clsInfo.className}__${clsInfo.section}__${subjInfo.name}`;
+            const existing = dutyMap.get(key);
+            if (existing) {
+              existing.periodsPerWeek = (existing.periodsPerWeek || 0) + 1;
+            } else {
+              dutyMap.set(key, {
+                className: clsInfo.className,
+                section: clsInfo.section,
+                subject: subjInfo.name,
+                periodsPerWeek: 1,
               });
-
-              totalWeeklyPeriods++;
-
-              const key = `${clsInfo.className}__${clsInfo.section}__${subjInfo.name}`;
-              const existing = dutyMap.get(key);
-              if (existing) {
-                existing.periodsPerWeek = (existing.periodsPerWeek || 0) + 1;
-              } else {
-                dutyMap.set(key, {
-                  className: clsInfo.className,
-                  section: clsInfo.section,
-                  subject: subjInfo.name,
-                  periodsPerWeek: 1,
-                });
-              }
             }
           }
         }

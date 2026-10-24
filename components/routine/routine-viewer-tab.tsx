@@ -42,6 +42,11 @@ import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import { showToast } from "@/components/ui/toast-banner";
 import { saveGeneratedRoutineDb } from "@/lib/supabase/db-routine";
+import {
+  getCellOptions,
+  cellHasTeacher,
+  cellHasRoom,
+} from "@/lib/routine/routine-groups";
 
 interface RoutineViewerTabProps {
   routine: GeneratedRoutine | null;
@@ -491,27 +496,43 @@ export function RoutineViewerTab({
 
     for (const dPos of dPositions) {
       for (let pPos = 0; pPos < settings.periodsPerDay; pPos++) {
-        const teacherClassMap = new Map<string, string[]>();
+        // Collect (teacherId -> { classIds, unitKeys }). A unit key is `gid`
+        // when the cell is a group placement, else the cell's `uid` from the
+        // solver. Two member classes sharing the same group cell share the
+        // same unit key — that is NOT a clash, so we count distinct units.
+        const teacherSeen = new Map<
+          string,
+          { classIds: Set<string>; units: Set<string | number> }
+        >();
         for (const [cid, classSchedule] of Object.entries(routine.grid)) {
           const cell = classSchedule?.[dPos]?.[pPos];
-          if (cell?.tid) {
-            const list = teacherClassMap.get(cell.tid) || [];
-            list.push(cid);
-            teacherClassMap.set(cell.tid, list);
+          if (!cell) continue;
+          const unitKey = (cell.gid as string | undefined) ?? cell.uid;
+          // Every option-teacher in this cell occupies this slot once per unit.
+          const tids = getCellOptions(cell).map((o) => o.tid);
+          for (const tid of tids) {
+            if (!tid) continue;
+            let entry = teacherSeen.get(tid);
+            if (!entry) {
+              entry = { classIds: new Set(), units: new Set() };
+              teacherSeen.set(tid, entry);
+            }
+            entry.classIds.add(cid);
+            entry.units.add(unitKey);
           }
         }
 
-        for (const [tid, cids] of teacherClassMap.entries()) {
-          if (cids.length > 1) {
+        for (const [tid, entry] of teacherSeen.entries()) {
+          if (entry.units.size > 1) {
             const tch = teacherMap.get(tid);
             const tName = tch?.shortName || tch?.name || "Teacher";
-            cids.forEach((cid) => {
-              const otherClasses = cids
+            entry.classIds.forEach((cid) => {
+              const otherClasses = Array.from(entry.classIds)
                 .filter((id) => id !== cid)
                 .map((id) => `${classMap.get(id)?.className || ""}-${classMap.get(id)?.section || ""}`)
                 .join(", ");
-              map.set(`${cid}_${dPos}_${pPos}`, `Clash: ${tName} has duplicate class in ${otherClasses}`);
-              map.set(`${cid}_${pPos}`, `Clash: ${tName} has duplicate class in ${otherClasses}`);
+              map.set(`${cid}_${dPos}_${pPos}`, `Clash: ${tName} double-booked with ${otherClasses}`);
+              map.set(`${cid}_${pPos}`, `Clash: ${tName} double-booked with ${otherClasses}`);
             });
           }
         }
@@ -558,6 +579,17 @@ export function RoutineViewerTab({
       return;
     }
 
+    // Group cells span multiple sections; swapping one section out would
+    // break the parallel block for the others. Block the swap instead.
+    if (sourceCell?.gid || targetCell?.gid) {
+      showToast({
+        type: "warning",
+        title: "Group Cell Locked",
+        description: "A parallel group cell can't be moved — all member sections share the same slot.",
+      });
+      return;
+    }
+
     // Save previous grid for Undo
     setHistory((prev) => [routine.grid, ...prev.slice(0, 9)]);
 
@@ -583,23 +615,31 @@ export function RoutineViewerTab({
 
     setRoutine(updatedRoutine);
 
-    // Conflict check on newly swapped slots
+    // Conflict check on newly swapped slots — group cells shared across
+    // member classes are ONE unit; count distinct unit keys per teacher.
     const clashes: string[] = [];
     const checkClashesAtPeriod = (pPos: number) => {
-      const tMap = new Map<string, string[]>();
+      const tSeen = new Map<string, { cids: Set<string>; units: Set<string | number> }>();
       for (const [cid, days] of Object.entries(newGrid)) {
         const cell = days[dPos]?.[pPos];
-        if (cell?.tid) {
-          const list = tMap.get(cell.tid) || [];
-          list.push(cid);
-          tMap.set(cell.tid, list);
+        if (!cell) continue;
+        const unitKey = (cell.gid as string | undefined) ?? cell.uid;
+        for (const o of getCellOptions(cell)) {
+          if (!o.tid) continue;
+          let entry = tSeen.get(o.tid);
+          if (!entry) {
+            entry = { cids: new Set(), units: new Set() };
+            tSeen.set(o.tid, entry);
+          }
+          entry.cids.add(cid);
+          entry.units.add(unitKey);
         }
       }
-      for (const [tid, cids] of tMap.entries()) {
-        if (cids.length > 1) {
+      for (const [tid, entry] of tSeen.entries()) {
+        if (entry.units.size > 1) {
           const tch = teacherMap.get(tid);
           const tName = tch?.shortName || tch?.name || "Teacher";
-          const classNames = cids
+          const classNames = Array.from(entry.cids)
             .map((id) => `${classMap.get(id)?.className || ""}-${classMap.get(id)?.section || ""}`)
             .join(" & ");
           clashes.push(`${tName} in Period ${pPos + 1} (${classNames})`);
@@ -711,7 +751,7 @@ export function RoutineViewerTab({
       const wsMaster = workbook.addWorksheet("Master (Day-wise)");
       let mRowIdx = 1;
 
-      settings.workingDays.forEach((dIdx) => {
+      settings.workingDays.forEach((dIdx, dPos) => {
         const titleRow = wsMaster.getRow(mRowIdx);
         titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " ---";
         titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF333333' } };
@@ -727,16 +767,28 @@ export function RoutineViewerTab({
         classes.forEach((c) => {
           const classLimit = c.dailyPeriods || maxPeriods;
           const rowData = [c.className + " - " + c.section];
-          
+
           for (let p = 1; p <= maxPeriods; p++) {
             if (p > classLimit) {
               rowData.push("");
             } else {
-              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+              const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
               if (cellData) {
-                 const subj = subjectMap.get(cellData.sid);
-                 const tch = teacherMap.get(cellData.tid);
-                 rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+                if (cellData.gid) {
+                  // Parallel group cell: list all options stacked.
+                  const text = getCellOptions(cellData)
+                    .map((o) => {
+                      const s = subjectMap.get(o.sid);
+                      const t = teacherMap.get(o.tid);
+                      return `${s?.name || "?"} (${t?.shortName || "?"})`;
+                    })
+                    .join(" | ");
+                  rowData.push(text);
+                } else {
+                  const subj = subjectMap.get(cellData.sid);
+                  const tch = teacherMap.get(cellData.tid);
+                  rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+                }
               } else {
                  rowData.push("-");
               }
@@ -760,7 +812,7 @@ export function RoutineViewerTab({
 
       const sortedFaculty = [...teachers].sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name));
 
-      settings.workingDays.forEach((dIdx) => {
+      settings.workingDays.forEach((dIdx, dPos) => {
         const titleRow = wsMasterTeacher.getRow(mtRowIdx);
         titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " (Teacher Master) ---";
         titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF274E13' } };
@@ -782,21 +834,30 @@ export function RoutineViewerTab({
             const pPos = p - 1;
             let assignedClass: RoutineClass | null = null;
             let assignedCell: any = null;
+            let matchedOpt: { sid: string; tid: string; rid?: string | null } | null = null;
 
+            const seenGroupUnits = new Set<string>();
             for (const c of classes) {
-              const cellData = routine.grid[c.id]?.[dIdx]?.[pPos];
-              if (cellData && cellData.tid === tch.id) {
-                assignedClass = c;
-                assignedCell = cellData;
-                break;
+              const cellData = routine.grid[c.id]?.[dPos]?.[pPos];
+              if (!cellData || !cellHasTeacher(cellData, tch.id)) continue;
+              if (cellData.gid) {
+                if (seenGroupUnits.has(cellData.gid)) continue;
+                seenGroupUnits.add(cellData.gid);
               }
+              const opt = getCellOptions(cellData).find((o) => o.tid === tch.id);
+              if (!opt) continue;
+              assignedClass = c;
+              assignedCell = cellData;
+              matchedOpt = opt;
+              break;
             }
 
-            if (assignedClass && assignedCell) {
-              const subj = subjectMap.get(assignedCell.sid);
-              const room = assignedCell.rid ? roomMap.get(assignedCell.rid) : null;
+            if (assignedClass && assignedCell && matchedOpt) {
+              const subj = subjectMap.get(matchedOpt.sid);
+              const room = matchedOpt.rid ? roomMap.get(matchedOpt.rid) : null;
               let text = `${assignedClass.className}-${assignedClass.section}\n${subj?.name || "Unknown"}`;
               if (assignedCell.lab) text += " (Lab)";
+              if (assignedCell.gid) text += " [Group]";
               if (room) text += `\n[${room.name}]`;
               rowData.push(text);
             } else {
@@ -836,26 +897,37 @@ export function RoutineViewerTab({
         wsClass.getRow(cRowIdx).values = ["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
         cRowIdx++;
 
-        settings.workingDays.forEach((dIdx) => {
+        settings.workingDays.forEach((dIdx, dPos) => {
           const classLimit = c.dailyPeriods || maxPeriods;
           const rowData: any[] = [DAY_NAMES[dIdx]];
-          
+
           for (let p = 1; p <= maxPeriods; p++) {
             if (p > classLimit) {
               rowData.push("");
             } else {
-              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
+              const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
               if (cellData) {
-                 const subj = subjectMap.get(cellData.sid);
-                 const tch = teacherMap.get(cellData.tid);
-                 rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+                if (cellData.gid) {
+                  const text = getCellOptions(cellData)
+                    .map((o) => {
+                      const s = subjectMap.get(o.sid);
+                      const t = teacherMap.get(o.tid);
+                      return `${s?.name || "?"} (${t?.shortName || "?"})`;
+                    })
+                    .join(" | ");
+                  rowData.push(text);
+                } else {
+                  const subj = subjectMap.get(cellData.sid);
+                  const tch = teacherMap.get(cellData.tid);
+                  rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
+                }
               } else {
                  rowData.push("-");
               }
             }
           }
           wsClass.getRow(cRowIdx).values = rowData;
-          wsClass.getRow(cRowIdx).height = 48; 
+          wsClass.getRow(cRowIdx).height = 48;
           cRowIdx++;
         });
 
@@ -881,25 +953,34 @@ export function RoutineViewerTab({
         wsTeacher.getRow(tRowIdx).values = ["Day", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
         tRowIdx++;
 
-        settings.workingDays.forEach((dIdx) => {
+        settings.workingDays.forEach((dIdx, dPos) => {
           const rowData: any[] = [DAY_NAMES[dIdx]];
-          
+
           for (let p = 1; p <= maxPeriods; p++) {
             let foundCell: any = null;
             let foundClass: any = null;
-            
+            let foundOpt: { sid: string; tid: string; rid?: string | null } | null = null;
+
+            const seenGroupUnits4 = new Set<string>();
             for (const c of classes) {
-              const cellData = routine.grid[c.id]?.[dIdx]?.[p - 1];
-              if (cellData && cellData.tid === tch.id) {
-                foundCell = cellData;
-                foundClass = c;
-                break;
+              const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
+              if (!cellData || !cellHasTeacher(cellData, tch.id)) continue;
+              if (cellData.gid) {
+                if (seenGroupUnits4.has(cellData.gid)) continue;
+                seenGroupUnits4.add(cellData.gid);
               }
+              const opt = getCellOptions(cellData).find((o) => o.tid === tch.id);
+              if (!opt) continue;
+              foundCell = cellData;
+              foundClass = c;
+              foundOpt = opt;
+              break;
             }
-            
-            if (foundCell && foundClass) {
-               const subj = subjectMap.get(foundCell.sid);
-               rowData.push((subj?.name || "Unknown") + "\n[" + foundClass.className + "-" + foundClass.section + "]");
+
+            if (foundCell && foundClass && foundOpt) {
+               const subj = subjectMap.get(foundOpt.sid);
+               const groupTag = foundCell.gid ? " [Group]" : "";
+               rowData.push((subj?.name || "Unknown") + groupTag + "\n[" + foundClass.className + "-" + foundClass.section + "]");
             } else {
                rowData.push("-");
             }
@@ -1572,12 +1653,30 @@ export function RoutineViewerTab({
                                 );
                               }
 
+                              const isGroupCell = Boolean(cellData.gid);
+                              const cellOpts = getCellOptions(cellData);
                               const subj = subjectMap.get(cellData.sid);
                               const tch = teacherMap.get(cellData.tid);
                               const rm = cellData.rid ? roomMap.get(cellData.rid) : null;
-                              const subShort = getSubjectShort(subj?.name || "");
-                              const tchShort = tch?.shortName || tch?.name || "?";
-                              const fullTooltip = `${c.className} ${c.section} | ${DAY_NAMES[actDay]} Period ${p}\nSubject: ${subj?.name || "?"}\nFaculty: ${tch?.name || "?"} (${tchShort})\n${rm ? `Room: ${rm.name}` : ""}${clashReason ? `\n${clashReason}` : ""}`;
+                              const subShort = isGroupCell
+                                ? cellOpts.map((o) => getSubjectShort(subjectMap.get(o.sid)?.name || "")).join(" | ")
+                                : getSubjectShort(subj?.name || "");
+                              const tchShort = isGroupCell
+                                ? cellOpts
+                                    .map((o) => teacherMap.get(o.tid))
+                                    .map((t) => t?.shortName || t?.name || "?")
+                                    .join(" | ")
+                                : tch?.shortName || tch?.name || "?";
+                              const fullTooltip = isGroupCell
+                                ? `${c.className} ${c.section} | ${DAY_NAMES[actDay]} Period ${p}\nGroup options:\n${cellOpts
+                                    .map((o) => {
+                                      const s = subjectMap.get(o.sid);
+                                      const t = teacherMap.get(o.tid);
+                                      const r = o.rid ? roomMap.get(o.rid) : null;
+                                      return `  • ${s?.name || "?"} — ${t?.name || "?"}${r ? ` [${r.name}]` : ""}`;
+                                    })
+                                    .join("\n")}${clashReason ? `\n${clashReason}` : ""}`
+                                : `${c.className} ${c.section} | ${DAY_NAMES[actDay]} Period ${p}\nSubject: ${subj?.name || "?"}\nFaculty: ${tch?.name || "?"} (${tchShort})\n${rm ? `Room: ${rm.name}` : ""}${clashReason ? `\n${clashReason}` : ""}`;
 
                               return (
                                 <td
@@ -1630,15 +1729,21 @@ export function RoutineViewerTab({
                                       setDragOverPos(null);
                                     }}
                                     className={cn(
-                                      "h-full w-full rounded p-1 flex flex-col justify-center items-center text-center border shadow-2xs transition-all cursor-grab active:cursor-grabbing select-none leading-none overflow-hidden",
+                                      "relative h-full w-full rounded p-1 flex flex-col justify-center items-center text-center border shadow-2xs transition-all cursor-grab active:cursor-grabbing select-none leading-none overflow-hidden",
                                       cellData.lab
                                         ? "bg-blue-500/10 border-blue-300 dark:border-blue-800"
                                         : "bg-background border-border hover:border-primary/50",
+                                      isGroupCell && "bg-amber-100/40 dark:bg-amber-900/15 border-amber-300 dark:border-amber-800/60",
                                       subj?.isHard && "border-t-2 border-t-amber-500",
                                       clashReason && "border-destructive bg-destructive/15 ring-1 ring-destructive",
                                       isSource && "opacity-30 scale-95 ring-1 ring-dashed ring-primary"
                                     )}
                                   >
+                                    {isGroupCell && (
+                                      <span className="absolute -top-0.5 -left-0.5 text-[7px] font-bold text-amber-700 dark:text-amber-400 bg-amber-200/70 dark:bg-amber-900/40 px-0.5 rounded-sm leading-none">
+                                        G
+                                      </span>
+                                    )}
                                     <span className={cn(
                                       "font-bold text-[10px] truncate max-w-full block leading-tight",
                                       clashReason ? "text-destructive" : "text-foreground"
@@ -1880,12 +1985,20 @@ export function RoutineViewerTab({
                                 : isBreakAfter
                                 ? TIFFIN_BREAK_BORDER
                                 : "border-r border-border last:border-r-0";
-                              const assigned: { c: RoutineClass; cell: any }[] = [];
+                              const assigned: { c: RoutineClass; cell: any; opt: { sid: string; tid: string; rid?: string | null } }[] = [];
+                              const seenGroupUnits = new Set<string | number>();
                               for (const c of classes) {
                                 const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                                if (cell && cell.tid === tch.id) {
-                                  assigned.push({ c, cell });
+                                if (!cell || !cellHasTeacher(cell, tch.id)) continue;
+                                // De-dupe shared group cells (pooled across sections).
+                                if (cell.gid) {
+                                  const key = cell.gid;
+                                  if (seenGroupUnits.has(key)) continue;
+                                  seenGroupUnits.add(key);
                                 }
+                                const matchedOpt = getCellOptions(cell).find((o) => o.tid === tch.id);
+                                if (!matchedOpt) continue;
+                                assigned.push({ c, cell, opt: matchedOpt });
                               }
 
                               if (assigned.length === 0) {
@@ -1914,9 +2027,9 @@ export function RoutineViewerTab({
                                     cellBorderClass
                                   )}
                                 >
-                                  {assigned.map(({ c, cell }, aIdx) => {
-                                    const subj = subjectMap.get(cell.sid);
-                                    const rm = cell.rid ? roomMap.get(cell.rid) : null;
+                                  {assigned.map(({ c, cell, opt }, aIdx) => {
+                                    const subj = subjectMap.get(opt.sid);
+                                    const rm = opt.rid ? roomMap.get(opt.rid) : null;
                                     const hasClash = assigned.length > 1;
                                     const clsShort = getClassShort(c.className, c.section);
                                     const subShort = getSubjectShort(subj?.name || "");
@@ -1982,13 +2095,19 @@ export function RoutineViewerTab({
                             const pPos = p - 1;
                             const hasBreakAfter = settings.breaks.includes(p) && p < settings.periodsPerDay;
 
-                            const assigned: { c: RoutineClass; cell: any }[] = [];
+                            const assigned: { c: RoutineClass; cell: any; opt: { sid: string; tid: string; rid?: string | null } }[] = [];
+                            const seenGroupUnits2 = new Set<string | number>();
                             if (!isGray) {
                               for (const c of classes) {
                                 const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                                if (cell && cell.tid === tch.id) {
-                                  assigned.push({ c, cell });
+                                if (!cell || !cellHasTeacher(cell, tch.id)) continue;
+                                if (cell.gid) {
+                                  if (seenGroupUnits2.has(cell.gid)) continue;
+                                  seenGroupUnits2.add(cell.gid);
                                 }
+                                const matchedOpt = getCellOptions(cell).find((o) => o.tid === tch.id);
+                                if (!matchedOpt) continue;
+                                assigned.push({ c, cell, opt: matchedOpt });
                               }
                             }
 
@@ -2012,10 +2131,11 @@ export function RoutineViewerTab({
                                   <td
                                     className="py-1.5 px-1.5 border-r border-border last:border-r-0 h-16 align-top print:border-black transition-all"
                                   >
-                                    {assigned.map(({ c, cell }, aIdx) => {
-                                      const subj = subjectMap.get(cell.sid);
-                                      const rm = cell.rid ? roomMap.get(cell.rid) : null;
-                                      const hasClash = assigned.length > 1;
+                                    {assigned.map(({ c, cell, opt }, aIdx) => {
+                                      const subj = subjectMap.get(opt.sid);
+                                      const rm = opt.rid ? roomMap.get(opt.rid) : null;
+                                      // Multiple classes = clash only when NOT a shared group cell.
+                                      const hasClash = assigned.length > 1 && !cell.gid;
 
                                       return (
                                         <div
@@ -2109,21 +2229,27 @@ export function RoutineViewerTab({
                             if (viewMode === "class") {
                               cellData = routine.grid[selectedClassId]?.[dPos]?.[pPos];
                             } else if (viewMode === "teacher") {
-                              classes.forEach((c) => {
+                              // Match any option carrying this teacher; a shared
+                              // group cell is picked once (prefer the first match).
+                              for (const c of classes) {
                                 const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                                if (cell && cell.tid === selectedTeacherId) {
-                                  cellData = cell;
-                                  associatedClassId = c.id;
-                                }
-                              });
+                                if (!cell || !cellHasTeacher(cell, selectedTeacherId)) continue;
+                                const opt = getCellOptions(cell).find((o) => o.tid === selectedTeacherId);
+                                if (!opt) continue;
+                                cellData = { ...cell, sid: opt.sid, tid: opt.tid, rid: opt.rid ?? null };
+                                associatedClassId = c.id;
+                                break;
+                              }
                             } else if (viewMode === "room") {
-                              classes.forEach((c) => {
+                              for (const c of classes) {
                                 const cell = routine.grid[c.id]?.[dPos]?.[pPos];
-                                if (cell && cell.rid === selectedRoomId) {
-                                  cellData = cell;
-                                  associatedClassId = c.id;
-                                }
-                              });
+                                if (!cell || !cellHasRoom(cell, selectedRoomId)) continue;
+                                const opt = getCellOptions(cell).find((o) => (o.rid || null) === selectedRoomId);
+                                if (!opt) continue;
+                                cellData = { ...cell, sid: opt.sid, tid: opt.tid, rid: opt.rid ?? null };
+                                associatedClassId = c.id;
+                                break;
+                              }
                             }
                           }
 
