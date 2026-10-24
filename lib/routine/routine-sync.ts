@@ -514,7 +514,20 @@ export function syncRemoveRoutineSubjectFromMarksSchemes(
 /**
  * Sync all subjects from Presets (/settings/presets?section=marks_scheme) to Routine Subjects
  */
-export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCount: number }> {
+// Single-flight: page auto-sync, strict-mode double effects and the manual button must not
+// run concurrently, otherwise each run misses the other's inserts and creates duplicate subjects.
+let subjectSyncInFlight: Promise<{ addedCount: number }> | null = null;
+
+export function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCount: number }> {
+  if (!subjectSyncInFlight) {
+    subjectSyncInFlight = runSubjectSync().finally(() => {
+      subjectSyncInFlight = null;
+    });
+  }
+  return subjectSyncInFlight;
+}
+
+async function runSubjectSync(): Promise<{ addedCount: number }> {
   if (typeof window === "undefined") return { addedCount: 0 };
 
   try {
@@ -527,6 +540,7 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
 
     const toUpsert: any[] = [];
     const idsToDelete: string[] = [];
+    const queuedKeys = new Set<string>();
 
     for (const scheme of schemes) {
       const classCode = normalizeClassToCode(scheme.classCode);
@@ -535,6 +549,10 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
 
       for (const subName of schemeSubjects) {
         const cleanTarget = subName.trim();
+        // Several schemes can list the same subject for one class: queue it once
+        const queueKey = `${classCode}::${cleanTarget.toLowerCase()}`;
+        if (queuedKeys.has(queueKey)) continue;
+        queuedKeys.add(queueKey);
         const isLab = isSubjectLab(scheme, cleanTarget);
         const theoryPeriods = isLab ? 4 : 5;
         const labPeriods = isLab ? 2 : 0;

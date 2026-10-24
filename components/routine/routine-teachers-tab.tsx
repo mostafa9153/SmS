@@ -144,10 +144,12 @@ export function RoutineTeachersTab({
 
       // Synced from Routine Subjects tab (Authoritative source)
       const groupIds = groupMemberIdsByClass[clsName];
+      const groupNames = groupMemberNamesByClass[clsName];
       const routineSubs = (subjects || []).filter(
         (s) =>
           (!s.className || s.className.trim().toLowerCase() === clsLower) &&
-          !groupIds?.has(s.id)
+          !groupIds?.has(s.id) &&
+          !groupNames?.has(s.name.trim().toLowerCase())
       );
 
       if (routineSubs.length > 0) {
@@ -176,7 +178,7 @@ export function RoutineTeachersTab({
       }
     });
     return map;
-  }, [presetClasses, subjects, groupMemberIdsByClass]);
+  }, [presetClasses, subjects, groupMemberIdsByClass, groupMemberNamesByClass]);
 
   // Aggregated unique subjects list across configured routine subjects
   const availableSubjectOptions = useMemo(() => {

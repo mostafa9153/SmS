@@ -11,7 +11,7 @@ import {
   GeneratedRoutine,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
-import { sanitizeTeacherSubjectPeriods } from "@/lib/routine/routine-helpers";
+import { sanitizeTeacherSubjectPeriods, isHsClass } from "@/lib/routine/routine-helpers";
 
 export interface RoutineFullState {
   settings: RoutineSettings;
@@ -221,7 +221,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
             .replace(/\s*\([^)]*\)/g, "")
             .replace(/\s+/g, " ")
             .trim();
-          const stream = (s.stream || "general").trim().toLowerCase();
+          // Streams only exist in HS classes; elsewhere a stray stream value must not split a subject
+          const stream = isHsClass(s.className || "") ? (s.stream || "general").trim().toLowerCase() : "general";
           return `${cls}::${normName}::${stream}`;
         };
 
