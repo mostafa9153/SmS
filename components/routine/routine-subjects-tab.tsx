@@ -286,7 +286,37 @@ export function RoutineSubjectsTab({
   }, [marksSchemeVersion]);
 
   // Drag-to-reorder: localOrder[classKey] = ordered array of subject ids
-  const [localOrder, setLocalOrder] = useState<Record<string, string[]>>({});
+  const [localOrder, setLocalOrder] = useState<Record<string, string[]>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem("sms_routine_subjects_order");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Sync saved subject order from cloud API on mount
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/routine/subjects-order")
+      .then((r) => r.json())
+      .then((data) => {
+        if (isMounted && data?.order && typeof data.order === "object") {
+          setLocalOrder((prev) => {
+            const merged = { ...data.order, ...prev };
+            try {
+              localStorage.setItem("sms_routine_subjects_order", JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // DnD sensors â€” require 5px movement to start drag so clicks still work
   const sensors = useSensors(
@@ -374,18 +404,22 @@ export function RoutineSubjectsTab({
 
     // Apply local drag order if present for this class/stream key
     const orderKey = `${activeClass}::${selectedStream}`;
-    const order = localOrder[orderKey];
+    const order = localOrder[orderKey] || (selectedStream !== "all" ? localOrder[`${activeClass}::all`] : undefined);
     if (order && order.length > 0) {
-      const idToSubject = new Map(deduped.map((s) => [s.id, s]));
+      const remaining = [...deduped];
       const ordered: RoutineSubject[] = [];
-      for (const id of order) {
-        if (idToSubject.has(id)) ordered.push(idToSubject.get(id)!);
+      for (const token of order) {
+        const idx = remaining.findIndex(
+          (s) =>
+            s.id === token ||
+            s.name.trim().toLowerCase() === token.trim().toLowerCase()
+        );
+        if (idx !== -1) {
+          ordered.push(remaining[idx]);
+          remaining.splice(idx, 1);
+        }
       }
-      // Append any new subjects not yet in the saved order
-      for (const s of deduped) {
-        if (!order.includes(s.id)) ordered.push(s);
-      }
-      return ordered;
+      return [...ordered, ...remaining];
     }
 
     // Fall back to sortOrder field if present
@@ -579,8 +613,21 @@ export function RoutineSubjectsTab({
     const newIdx = currentIds.indexOf(over.id as string);
     if (oldIdx === -1 || newIdx === -1) return;
 
-    const reordered = arrayMove(currentIds, oldIdx, newIdx);
-    setLocalOrder((prev) => ({ ...prev, [orderKey]: reordered }));
+    const reorderedIds = arrayMove(currentIds, oldIdx, newIdx);
+    const reorderedTokens = reorderedIds.map((id) => {
+      const match = currentClassSubjects.find((s) => s.id === id);
+      return match ? match.name : id;
+    });
+
+    setLocalOrder((prev) => {
+      const next = { ...prev, [orderKey]: reorderedTokens };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("sms_routine_subjects_order", JSON.stringify(next));
+        } catch {}
+      }
+      return next;
+    });
   }, [activeClass, selectedStream, currentClassSubjects]);
 
   const handleEdit = React.useCallback((s: RoutineSubject) => {
@@ -852,11 +899,33 @@ export function RoutineSubjectsTab({
     try {
       const currentList = [...subjects];
 
+      // 1. Immediately persist subject order to localStorage
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("sms_routine_subjects_order", JSON.stringify(localOrder));
+        } catch {}
+      }
+
+      // 2. Persist subject order to Cloud API
+      try {
+        await fetch("/api/routine/subjects-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order: localOrder }),
+        });
+      } catch (cloudErr) {
+        console.warn("Failed to save routine_subjects_order to cloud:", cloudErr);
+      }
+
       const rows = currentList.map((s) => {
         // Resolve sortOrder from any localOrder entry that contains this subject
         let resolvedOrder: number | null = s.sortOrder ?? null;
-        for (const [, orderedIds] of Object.entries(localOrder)) {
-          const idx = orderedIds.indexOf(s.id);
+        for (const [, orderedTokens] of Object.entries(localOrder)) {
+          const idx = orderedTokens.findIndex(
+            (token) =>
+              token === s.id ||
+              token.trim().toLowerCase() === s.name.trim().toLowerCase()
+          );
           if (idx !== -1) {
             resolvedOrder = idx;
             break;
@@ -887,7 +956,11 @@ export function RoutineSubjectsTab({
         }
       }
 
-      setLocalRoutineState({ subjects: currentList });
+      const updatedList = currentList.map((s) => {
+        const match = rows.find((r) => r.id === s.id);
+        return match ? { ...s, sortOrder: match.sortOrder } : s;
+      });
+      setLocalRoutineState({ subjects: updatedList });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("sms_routine_state_updated"));
       }

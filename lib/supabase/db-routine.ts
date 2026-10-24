@@ -233,7 +233,36 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           }
         });
 
-        subjects = dedupedSubjects;
+        // Hydrate sortOrder from locally saved subject ordering if present
+        if (typeof window !== "undefined") {
+          try {
+            const rawOrder = localStorage.getItem("sms_routine_subjects_order");
+            if (rawOrder) {
+              const orderMap = JSON.parse(rawOrder) as Record<string, string[]>;
+              dedupedSubjects.forEach((sub) => {
+                const cls = sub.className || "";
+                const stream = sub.stream || "all";
+                const keys = [`${cls}::${stream}`, `${cls}::all`, `${cls}::Common`];
+                for (const k of keys) {
+                  const list = orderMap[k];
+                  if (list && Array.isArray(list)) {
+                    const idx = list.findIndex(
+                      (item) =>
+                        item === sub.id ||
+                        item.trim().toLowerCase() === sub.name.trim().toLowerCase()
+                    );
+                    if (idx !== -1) {
+                      sub.sortOrder = idx;
+                      break;
+                    }
+                  }
+                }
+              });
+            }
+          } catch {}
+        }
+
+        subjects = dedupedSubjects.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
       } else if (subjRows && subjRows.length === 0 && !local?.subjects?.length) {
         subjects = [];
       }

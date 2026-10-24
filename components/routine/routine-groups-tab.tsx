@@ -715,15 +715,15 @@ function GroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 overflow-hidden">
-        <DialogHeader className="px-5 pt-4 pb-3 border-b">
+      <DialogContent className="max-w-2xl p-0 gap-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-5 pt-4 pb-3 border-b shrink-0">
           <DialogTitle className="text-sm font-semibold flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary" />
             {editing ? "Edit Subject Group" : "Add Subject Group"}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="px-5 py-4 space-y-4 max-h-[70vh] sm:max-h-[65vh] overflow-y-auto flex-1">
           {/* Section 1 — Basics */}
           <section className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
             <div className="sm:col-span-2 space-y-1">
@@ -944,12 +944,12 @@ function GroupDialog({
               </Button>
             </div>
 
-            <div className="rounded-md border divide-y">
+            <div className="rounded-md border divide-y overflow-hidden">
               <div className="grid grid-cols-12 bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <div className="col-span-5 py-1 px-2">Subject</div>
-                <div className="col-span-4 py-1 px-2">Teacher</div>
-                <div className="col-span-2 py-1 px-2">Room</div>
-                <div className="col-span-1 py-1 px-2"></div>
+                <div className="col-span-5 py-2 px-2.5">Subject</div>
+                <div className="col-span-4 py-2 px-2.5">Teacher</div>
+                <div className="col-span-2 py-2 px-2.5">Room</div>
+                <div className="col-span-1 py-2 px-1 text-center"></div>
               </div>
               {options.map((o) => {
                 const teacherLoadNow = o.teacherId ? teacherGroupLoad(o.teacherId, groups) : 0;
@@ -960,8 +960,8 @@ function GroupDialog({
                         value={o.subjectId}
                         onChange={(e) => updateOption(o.id, { subjectId: e.target.value })}
                         className={cn(
-                          "h-8 w-full rounded border px-1.5 text-xs bg-background",
-                          showErrors && !o.subjectId && "border-destructive"
+                          "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          showErrors && !o.subjectId && "border-destructive ring-destructive/30"
                         )}
                       >
                         <option value="">Select subject</option>
@@ -977,8 +977,8 @@ function GroupDialog({
                         value={o.teacherId}
                         onChange={(e) => updateOption(o.id, { teacherId: e.target.value })}
                         className={cn(
-                          "h-8 w-full rounded border px-1.5 text-xs bg-background",
-                          showErrors && !o.teacherId && "border-destructive"
+                          "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          showErrors && !o.teacherId && "border-destructive ring-destructive/30"
                         )}
                       >
                         <option value="">Select teacher</option>
@@ -1000,7 +1000,7 @@ function GroupDialog({
                         onChange={(e) =>
                           updateOption(o.id, { roomId: e.target.value || null })
                         }
-                        className="h-8 w-full rounded border px-1.5 text-xs bg-background"
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       >
                         <option value="">None</option>
                         {rooms.map((r) => (
@@ -1010,15 +1010,15 @@ function GroupDialog({
                         ))}
                       </select>
                     </div>
-                    <div className="col-span-1 py-1 px-2 text-right">
+                    <div className="col-span-1 py-1 px-2 text-center">
                       <button
                         type="button"
                         onClick={() => removeOption(o.id)}
                         disabled={options.length <= 2}
-                        className="h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mx-auto"
                         aria-label="Remove option"
                       >
-                        <X className="h-3 w-3" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1028,33 +1028,35 @@ function GroupDialog({
           </section>
 
           {(ordinaryClash || (showErrors && uniqueIssues.length > 0)) && (
-            <section className="space-y-1 text-[11px]">
+            <section className="space-y-1.5 text-[11px] pt-1">
               {ordinaryClash && (
-                <div className="flex items-start gap-1 text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                  An option subject is also an ordinary assignment on a member section — it will be
-                  counted ONCE as this group&apos;s period from now on.
+                <div className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300 bg-amber-500/10 border border-amber-300 dark:border-amber-900/40 rounded-md p-2">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>
+                    An option subject is also an ordinary assignment on a member section — it will be
+                    counted ONCE as this group&apos;s period from now on.
+                  </span>
                 </div>
               )}
               {showErrors &&
                 uniqueIssues.map((msg) => (
-                  <div key={msg} className="flex items-center gap-1 text-destructive">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    {msg}
+                  <div key={msg} className="flex items-center gap-1.5 text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{msg}</span>
                   </div>
                 ))}
             </section>
           )}
         </div>
 
-        <DialogFooter className="px-5 py-3 border-t sm:items-center">
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] mr-auto items-center">
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3 text-muted-foreground" />
-              Common free:{" "}
+        <DialogFooter className="m-0 mx-0 mb-0 px-5 py-3.5 border-t bg-muted/40 sm:flex-row sm:items-center sm:justify-between w-full shrink-0 gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background border text-xs shadow-2xs">
+              <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-muted-foreground text-[11px]">Common free:</span>
               <span
                 className={cn(
-                  "font-mono font-semibold",
+                  "font-mono font-semibold text-xs",
                   commonFreeSlots.common < periodsPerWeek && commonFreeSlots.total > 0
                     ? "text-destructive"
                     : "text-emerald-700 dark:text-emerald-400"
@@ -1062,30 +1064,41 @@ function GroupDialog({
               >
                 {commonFreeSlots.common}
               </span>
-              <span className="text-muted-foreground">/ {commonFreeSlots.total}</span>
-            </span>
+              <span className="text-muted-foreground text-[11px]">/ {commonFreeSlots.total}</span>
+            </div>
+
             {capacitySummary && (
-              <span className="flex items-center gap-1">
-                <School className="h-3 w-3 text-muted-foreground" />
-                Capacity:{" "}
-                <span className="font-mono font-semibold">{capacitySummary.used}</span>
-                <span className="text-muted-foreground">/ {capacitySummary.cap}</span>
-                <span className="font-mono font-semibold">+{capacitySummary.added}</span>
-              </span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-background border text-xs shadow-2xs">
+                <School className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground text-[11px]">Capacity:</span>
+                <span className="font-mono font-semibold text-foreground text-xs">{capacitySummary.used}</span>
+                <span className="text-muted-foreground text-[11px]">/ {capacitySummary.cap}</span>
+                <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
+                  +{capacitySummary.added}
+                </span>
+              </div>
             )}
           </div>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="h-8 text-xs">
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSubmit}
-            disabled={saving}
-            className="h-8 text-xs font-semibold px-3 gap-1.5"
-          >
-            <Check className="h-3.5 w-3.5" />
-            {editing ? "Save Changes" : "Add Group"}
-          </Button>
+
+          <div className="flex items-center gap-2 sm:shrink-0 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+              className="h-8 text-xs font-medium"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSubmit}
+              disabled={saving}
+              className="h-8 text-xs font-semibold px-3.5 gap-1.5"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {editing ? "Save Changes" : "Add Group"}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
