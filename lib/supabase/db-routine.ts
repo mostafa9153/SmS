@@ -166,6 +166,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
     const { data: subjRows, error: subjError } = await supabase
       .from("routine_subjects")
       .select("*")
+      .not("class_name", "is", null)
       .order("name", { ascending: true });
 
     if (!subjError) {
@@ -786,7 +787,6 @@ export async function upsertSubjectDb(subj: {
     if (subj.isCommon !== undefined) payload.is_common = Boolean(subj.isCommon);
     if (subj.maxPerDay !== undefined) payload.max_per_day = subj.maxPerDay;
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
-    if (subj.sortOrder !== undefined) payload.sort_order = subj.sortOrder;
     if (subj.theoryPeriods !== undefined) payload.theory_periods = subj.theoryPeriods;
     if (subj.labPeriods !== undefined) payload.lab_periods = subj.labPeriods;
 
@@ -796,10 +796,18 @@ export async function upsertSubjectDb(subj: {
       await supabase.from("routine_subjects").upsert({
         id,
         name: subj.name.trim(),
+        class_name: subj.className || null,
+        class_id: subj.classId || null,
+        stream: subj.stream || null,
+        is_common: Boolean(subj.isCommon),
         is_hard: Boolean(subj.isHard),
         is_lab: Boolean(subj.isLab),
         time_pref: subj.timePref || "any",
         allow_multiple_per_day: Boolean(subj.allowMultiplePerDay),
+        max_per_day: subj.maxPerDay ?? 1,
+        periods_per_week: subj.periodsPerWeek ?? 5,
+        theory_periods: subj.theoryPeriods ?? (Boolean(subj.isLab) ? 4 : 5),
+        lab_periods: subj.labPeriods ?? (Boolean(subj.isLab) ? 2 : 0),
       });
     }
   } catch (err) {
@@ -916,7 +924,8 @@ export async function batchUpsertSubjectsDb(
     allow_multiple_per_day: s.allowMultiplePerDay,
     max_per_day: s.maxPerDay,
     periods_per_week: s.periodsPerWeek,
-    sort_order: s.sortOrder,
+    theory_periods: s.theoryPeriods,
+    lab_periods: s.labPeriods,
   }));
 
   try {
@@ -926,10 +935,16 @@ export async function batchUpsertSubjectsDb(
       const baseRows = processedList.map((s) => ({
         id: s.id,
         name: s.name,
+        class_name: s.className,
+        class_id: s.classId,
+        stream: s.stream,
+        is_common: s.isCommon,
         is_hard: s.isHard,
         is_lab: s.isLab,
         time_pref: s.timePref,
         allow_multiple_per_day: s.allowMultiplePerDay,
+        max_per_day: s.maxPerDay,
+        periods_per_week: s.periodsPerWeek,
       }));
       await supabase.from("routine_subjects").upsert(baseRows);
     }

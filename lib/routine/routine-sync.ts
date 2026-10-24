@@ -522,7 +522,7 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
     if (!schemes || schemes.length === 0) return { addedCount: 0 };
 
     const supabase = createClient();
-    const { data: dbSubjects } = await supabase.from("routine_subjects").select("*");
+    const { data: dbSubjects } = await supabase.from("routine_subjects").select("*").not("class_name", "is", null);
     const routineSubjects = dbSubjects || [];
 
     const toUpsert: any[] = [];
@@ -613,9 +613,8 @@ export async function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCoun
       await batchUpsertSubjectsDb(toUpsert);
     }
 
-    if (idsToDelete.length > 0 || toUpsert.length > 0) {
-      window.dispatchEvent(new Event("sms_routine_state_updated"));
-    }
+    // Do NOT dispatch sms_routine_state_updated here to avoid infinite render/fetch loops
+    // callers can refresh their local state or trigger UI reload as needed
 
     return { addedCount: toUpsert.length };
   } catch (err) {

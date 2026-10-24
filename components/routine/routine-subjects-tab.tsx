@@ -1063,6 +1063,7 @@ export function RoutineSubjectsTab({
     try {
       const res = await syncAllSubjectsFromPresetsToRoutine();
       if (res.addedCount > 0) {
+        if (typeof window !== 'undefined') { window.dispatchEvent(new Event('sms_routine_state_updated')); }
         showToast({
           type: "success",
           title: "Synced from Presets",
