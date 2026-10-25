@@ -82,10 +82,18 @@ export interface TeacherEditorFormProps {
     otherTeachers: { teacherName: string; shortName: string; periods: number }[];
   };
   calculateSectionTotalPeriods: (clsName: string, sec: string) => number;
-  getTeacherGroupRows: (
+  getSectionGroupLoad: (clsName: string, sec: string) => number;
+  getGroupPickRows: (
     clsName: string,
     sec: string
-  ) => { id: string; name: string; subjects: string[]; periods: number; scopeLabel: string }[];
+  ) => {
+    id: string;
+    name: string;
+    periods: number;
+    scopeLabel: string;
+    options: { id: string; subject: string; picked: boolean; takenBy: string | null; blocked: boolean }[];
+  }[];
+  onToggleGroupOption: (optionId: string) => void;
   getClassGroupLoad: (clsName: string) => number;
 }
 
@@ -141,7 +149,9 @@ export function TeacherEditorForm({
   getSubjectPeriod,
   getSubjectAllocationStats,
   calculateSectionTotalPeriods,
-  getTeacherGroupRows,
+  getSectionGroupLoad,
+  getGroupPickRows,
+  onToggleGroupOption,
   getClassGroupLoad,
 }: TeacherEditorFormProps) {
   return (
@@ -480,10 +490,10 @@ export function TeacherEditorForm({
                 const groupRows =
                   allSecs.length <= 1
                     ? [
-                        ...getTeacherGroupRows(c.name, "ALL"),
-                        ...getTeacherGroupRows(c.name, currentActiveSec),
+                        ...getGroupPickRows(c.name, "ALL"),
+                        ...getGroupPickRows(c.name, currentActiveSec),
                       ]
-                    : getTeacherGroupRows(c.name, currentActiveSec);
+                    : getGroupPickRows(c.name, currentActiveSec);
 
                 return (
                   <div
@@ -563,7 +573,8 @@ export function TeacherEditorForm({
                         {allSecs.map((sec) => {
                           const isFocused = currentActiveSec === sec;
                           const isSelected = selectedSecs.includes(sec);
-                          const secLoad = calculateSectionTotalPeriods(c.name, sec);
+                          const secLoad =
+                            calculateSectionTotalPeriods(c.name, sec) + getSectionGroupLoad(c.name, sec);
 
                           return (
                             <div
@@ -644,7 +655,8 @@ export function TeacherEditorForm({
                               {currentActiveSec === "ALL" ? "Subjects for All Sections:" : `Subjects for Sec ${currentActiveSec}:`}
                             </span>
                             <Badge variant="outline" className="text-[10px] font-mono font-bold bg-background">
-                              {getSectionSubjects(c.name, currentActiveSec).length} Selected • {currentActiveSec === "ALL" ? classTotalPeriods : calculateSectionTotalPeriods(c.name, currentActiveSec)} p/wk
+                              {getSectionSubjects(c.name, currentActiveSec).length +
+                                groupRows.flatMap((g) => g.options).filter((o) => o.picked).length} Selected • {currentActiveSec === "ALL" ? classTotalPeriods : calculateSectionTotalPeriods(c.name, currentActiveSec) + getSectionGroupLoad(c.name, currentActiveSec)} p/wk
                             </Badge>
                           </div>
 
@@ -665,19 +677,42 @@ export function TeacherEditorForm({
                         </div>
 
                         {groupRows.length > 0 && (
-                          <div className="flex flex-wrap gap-2">
+                          <div className="space-y-2">
                             {groupRows.map((g) => (
                               <div
                                 key={g.id}
-                                className="inline-flex items-center gap-2 rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1.5 text-xs"
-                                title="Group এর subject, group dialog থেকে edit করুন"
+                                className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-2 space-y-1.5"
                               >
-                                <Lock className="w-3 h-3 text-primary" />
-                                <span className="font-semibold">{g.subjects.join(", ")}</span>
-                                <span className="text-muted-foreground">{g.name} • {g.scopeLabel}</span>
-                                <Badge variant="secondary" className="text-[10px] font-mono font-bold">
-                                  {g.periods} p/wk
-                                </Badge>
+                                <div className="flex items-center gap-2 text-xs">
+                                  <Lock className="w-3 h-3 text-primary" />
+                                  <span className="font-semibold">{g.name}</span>
+                                  <span className="text-muted-foreground">{g.scopeLabel}</span>
+                                  <Badge variant="secondary" className="text-[10px] font-mono font-bold">
+                                    {g.periods} p/wk
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {g.options.map((o) => (
+                                    <button
+                                      key={o.id}
+                                      type="button"
+                                      disabled={o.blocked}
+                                      onClick={() => onToggleGroupOption(o.id)}
+                                      title={o.takenBy ? `Taken by ${o.takenBy}` : undefined}
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition select-none",
+                                        o.picked
+                                          ? "bg-primary text-primary-foreground border-primary"
+                                          : "bg-background hover:bg-muted",
+                                        o.blocked && "opacity-50 cursor-not-allowed hover:bg-background"
+                                      )}
+                                    >
+                                      {o.picked && <Check className="w-3 h-3" />}
+                                      {o.subject}
+                                      {o.takenBy && <span className="text-[10px] font-mono">· {o.takenBy}</span>}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             ))}
                           </div>

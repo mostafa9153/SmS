@@ -170,6 +170,22 @@ export class RoutineSolver {
       }
     }
 
+    for (const g of this.groups) {
+      const missing = g.options.filter((o) => !o.teacherId);
+      if (missing.length === 0 || g.sectionIds.length === 0) continue;
+      const names = missing
+        .map((o) => this.subjects.get(o.subjectId)?.name || 'Subject')
+        .join(', ');
+      errors.push(`Group "${g.name}": no teacher assigned for ${names}.`);
+      diagnosticItems.push({
+        type: 'faculty_shortage',
+        severity: 'error',
+        title: `Group Unstaffed: ${g.name}`,
+        description: `No teacher assigned for ${names}.`,
+        solution: 'Open the Teachers tab and assign a teacher to each group subject.',
+      });
+    }
+
     // 1. Class Capacity & Morning Preference Saturation Check
     for (const cls of this.classes) {
       const clsLimit = cls.dailyPeriods || this.settings.periodsPerDay;

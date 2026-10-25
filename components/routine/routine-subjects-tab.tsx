@@ -84,13 +84,17 @@ import {
   getConfiguredStreamsForClass,
   parseSectionAndStream,
   calculateTotalSchoolSectionDemand,
+  groupSlotPeriods,
+  groupExtraPeriods,
+  calculateSchoolGroupDemand,
 } from "@/lib/routine/routine-helpers";
 
 import {
-  subjectPeriods,
   subjectDedupeKey,
   dedupeSubjects,
   sectionLoad,
+  groupTeacherLoad,
+  formatDemandBreakdown,
 } from "@/lib/routine/routine-domain";
 
 // Re-export helpers for backward compatibility
@@ -482,9 +486,29 @@ export function RoutineSubjectsTab({
 
   // Per-section weekly load: each group counts once
   const currentClassTotalPeriods = useMemo(
-    () => sectionLoad(currentClassSubjects, classGroups.map((x) => x.members.map((m) => m.id))),
+    () =>
+      sectionLoad(
+        currentClassSubjects,
+        classGroups.map((x) => ({
+          memberIds: x.members.map((m) => m.id),
+          periods: groupSlotPeriods(x.group) + groupExtraPeriods(x.group),
+        }))
+      ),
     [currentClassSubjects, classGroups]
   );
+
+  // Group share of the section load: slots count against capacity, extra option periods are the
+  // rest to assign. The remainder is ordinary subjects.
+  const currentClassGroupSlots = useMemo(
+    () => classGroups.reduce((sum, x) => sum + groupSlotPeriods(x.group), 0),
+    [classGroups]
+  );
+  const currentClassGroupExtra = useMemo(
+    () => classGroups.reduce((sum, x) => sum + groupExtraPeriods(x.group), 0),
+    [classGroups]
+  );
+  const currentClassOrdinaryPeriods =
+    currentClassTotalPeriods - currentClassGroupSlots - currentClassGroupExtra;
 
   // Number of configured subjects per class (Strictly deduplicated)
   const classSubjectCounts = useMemo(() => {
@@ -508,6 +532,9 @@ export function RoutineSubjectsTab({
     () => calculateTotalSchoolSectionDemand(classes || [], subjects, groups),
     [classes, subjects, groups]
   );
+  const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
+  const totalSchoolOrdinaryDemand =
+    totalSchoolSectionDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra;
 
   // Specific class sections and their combined period load
   const activeClassSections = useMemo(() => {
@@ -1129,7 +1156,7 @@ export function RoutineSubjectsTab({
             <School className="w-4 h-4 text-primary" />
             <span className="text-xs font-semibold text-foreground">Classes</span>
             <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80 font-bold">
-              {totalSchoolSectionDemand} p/wk Total Demand {classes && classes.length > 0 ? `(${classes.length} Sections)` : ""}
+              {formatDemandBreakdown(totalSchoolOrdinaryDemand, totalSchoolGroupDemand.slots, totalSchoolGroupDemand.extra)} p/wk Total Demand {classes && classes.length > 0 ? `(${classes.length} Sections)` : ""}
             </Badge>
           </div>
 
@@ -1346,11 +1373,15 @@ export function RoutineSubjectsTab({
               variant={currentClassTotalPeriods > 44 ? "destructive" : "outline"} 
               className={cn("text-[10px] font-mono font-bold", currentClassTotalPeriods <= 44 && "bg-primary/10 text-primary border-primary/30")}
             >
-              {currentClassTotalPeriods} p/wk / section {currentClassTotalPeriods > 44 && "(Overload!)"}
+              {formatDemandBreakdown(currentClassOrdinaryPeriods, currentClassGroupSlots, currentClassGroupExtra)} p/wk / section {currentClassTotalPeriods > 44 && "(Overload!)"}
             </Badge>
             {activeClassSections.length > 0 && (
               <Badge variant="outline" className="text-[10px] font-mono text-foreground font-semibold border-border/80">
-                Total: {activeClassSectionsTotalPeriods} p/wk ({activeClassSections.length} Sections)
+                Total: {formatDemandBreakdown(
+                  activeClassSections.length * currentClassOrdinaryPeriods,
+                  activeClassSections.length * currentClassGroupSlots,
+                  activeClassSections.length * currentClassGroupExtra
+                )} p/wk ({activeClassSections.length} Sections)
               </Badge>
             )}
           </div>
@@ -2055,7 +2086,10 @@ const GroupSubjectRow = React.memo(function GroupSubjectRow({
       </td>
       <td className="py-2.5 px-4 font-mono font-semibold text-foreground">
         <Badge variant="secondary" className="text-[10px] font-mono font-bold">
-          {first.periodsPerWeek || 5} p/wk
+          {group.periodsPerWeek || 5} p/wk
+        </Badge>
+        <Badge variant="outline" className="ml-1 text-[10px] font-mono font-bold">
+          {groupTeacherLoad(group)} teacher p/wk
         </Badge>
       </td>
       <td className="py-2.5 px-4">

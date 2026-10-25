@@ -131,6 +131,7 @@ export default function RoutineGeneratePage() {
       subjects={subjects}
       assignments={assignments}
       rooms={rooms}
+      groups={groups}
       onValidate={handleValidate}
       onGenerate={handleGenerate}
       onAutoBuildAssignments={handleAutoBuildAssignments}

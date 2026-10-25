@@ -748,12 +748,55 @@ export function generateInitials(name: string): string {
 }
 
 /**
+ * Class-wise groups run in one shared slot across all their sections (pooled): one teacher
+ * period per option. Section-wise groups are scheduled independently per section, so each
+ * option teacher teaches once per section. The scope is the only switch, so the stored and
+ * derived flags can never disagree.
+ */
+export const isPooledGroup = (scope: string): boolean => scope === "class";
+
+type GroupPeriodShape = {
+  scope: string;
+  options: unknown[];
+  periodsPerWeek: number;
+  periodSize: 1 | 2;
+};
+
+/** The slot a group occupies in each of its sections; this is what counts against class capacity. */
+export function groupSlotPeriods(g: { periodsPerWeek: number; periodSize: 1 | 2 }): number {
+  return Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
+}
+
+/**
+ * Periods beyond that one slot per section: a section-wise group also runs every other option
+ * in each section, and those teacher periods have to be assigned too. A class-wise group
+ * shares its slot across sections, so it has none.
+ */
+export function groupExtraPeriods(g: GroupPeriodShape): number {
+  return isPooledGroup(g.scope) ? 0 : Math.max(0, g.options.length - 1) * groupSlotPeriods(g);
+}
+
+/** Group share of the school-wide demand, split into slots (capacity) and extra option periods. */
+export function calculateSchoolGroupDemand(
+  groups: Array<GroupPeriodShape & { sectionIds: string[] }>
+): { slots: number; extra: number } {
+  let slots = 0;
+  let extra = 0;
+  for (const g of groups) {
+    slots += groupSlotPeriods(g) * g.sectionIds.length;
+    extra += groupExtraPeriods(g) * g.sectionIds.length;
+  }
+  return { slots, extra };
+}
+
+/**
  * Single Source of Truth: Total weekly periods across ALL classes and sections combined (School-wide Period Demand)
  */
 export function calculateTotalSchoolSectionDemand(
   classes: RoutineClass[],
   subjects: RoutineSubject[],
   groups?: Array<{
+    scope: string;
     sectionIds: string[];
     options: Array<{ subjectId: string }>;
     periodsPerWeek: number;
@@ -773,8 +816,7 @@ export function calculateTotalSchoolSectionDemand(
   // the existing stream matching stays intact for the ordinary subjects.
   if (groups && groups.length > 0) {
     for (const g of groups) {
-      const sz = (g.periodSize === 2 ? 2 : 1) * Math.max(0, g.periodsPerWeek);
-      totalDemand += sz * (g.sectionIds?.length || 0);
+      totalDemand += (groupSlotPeriods(g) + groupExtraPeriods(g)) * (g.sectionIds?.length || 0);
     }
   }
 
@@ -908,12 +950,21 @@ export function calculateTotalTeacherAllottedWorkload(
   assignments: RoutineAssignment[] = [],
   groups?: Array<{
     sectionIds: string[];
-    options: Array<{ teacherId: string }>;
+    options: Array<{ teacherId: string; subjectId: string }>;
     pooled: boolean;
     periodsPerWeek: number;
     periodSize: 1 | 2;
   }>
 ): { totalWorkload: number; assignedTeacherCount: number } {
+  // Subjects run through a group are counted by the group, never again from the teacher profile
+  const groupedByClass = new Map<string, Set<string>>();
+  for (const g of groups || []) {
+    for (const cid of g.sectionIds || []) {
+      const set = groupedByClass.get(cid) || new Set<string>();
+      g.options.forEach((o) => set.add(o.subjectId));
+      groupedByClass.set(cid, set);
+    }
+  }
   let totalWorkload = 0;
   let assignedTeacherCount = 0;
 
@@ -981,6 +1032,7 @@ export function calculateTotalTeacherAllottedWorkload(
               s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
               (!s.className || s.className.trim().toLowerCase() === c.className.trim().toLowerCase())
           );
+          if (matchedSubject && groupedByClass.get(c.id)?.has(matchedSubject.id)) return;
           const p = getTeacherSubjectPeriod(
             t,
             c.className,

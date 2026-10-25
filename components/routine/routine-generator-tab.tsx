@@ -10,6 +10,7 @@ import {
   RoutineSubject,
   RoutineAssignment,
   RoutineRoom,
+  RoutineSubjectGroup,
   GeneratedRoutine,
   ValidationReport,
 } from "@/lib/routine/types";
@@ -33,6 +34,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RoutineHistorySection } from "@/components/routine/routine-history-section";
+import { calculateTotalTeacherAllottedWorkload } from "@/lib/routine/routine-helpers";
 
 interface RoutineGeneratorTabProps {
   settings: RoutineSettings;
@@ -41,6 +43,7 @@ interface RoutineGeneratorTabProps {
   subjects: RoutineSubject[];
   assignments: RoutineAssignment[];
   rooms: RoutineRoom[];
+  groups?: RoutineSubjectGroup[];
   onValidate: () => Promise<ValidationReport>;
   onGenerate: () => Promise<GeneratedRoutine>;
   onAutoBuildAssignments?: () => Promise<RoutineAssignment[]>;
@@ -54,6 +57,7 @@ export function RoutineGeneratorTab({
   subjects,
   assignments,
   rooms,
+  groups = [],
   onValidate,
   onGenerate,
   onAutoBuildAssignments,
@@ -74,6 +78,8 @@ export function RoutineGeneratorTab({
   const hasAssignments = assignments.length > 0;
 
   const totalAssignedPeriods = assignments.reduce((sum, a) => sum + a.periodsPerWeek, 0);
+  // Same helper as the Setup Hub card: works before assignments are built and includes group periods
+  const facultyWorkload = calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups).totalWorkload;
 
   const handleValidate = async () => {
     setIsValidating(true);
@@ -296,7 +302,7 @@ export function RoutineGeneratorTab({
           </div>
           <div className="border rounded-lg p-3 bg-muted/10">
             <span className="text-muted-foreground block text-[11px]">Faculty Workload</span>
-            <span className="font-bold text-foreground font-mono text-sm">{totalAssignedPeriods} Periods / Wk</span>
+            <span className="font-bold text-foreground font-mono text-sm">{facultyWorkload} Periods / Wk</span>
           </div>
           <div className="border rounded-lg p-3 bg-muted/10">
             <span className="text-muted-foreground block text-[11px]">Daily Period Slots</span>

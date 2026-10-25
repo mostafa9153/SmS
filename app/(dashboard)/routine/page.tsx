@@ -5,9 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   calculateTotalSchoolSectionDemand,
+  calculateSchoolGroupDemand,
   calculateTotalTeacherAllottedWorkload,
   calculateTotalSchoolClassCapacity,
 } from "@/lib/routine/routine-helpers";
+import { formatDemandBreakdown, isPooledGroup } from "@/lib/routine/routine-domain";
+import { withDerivedGroupSettings } from "@/lib/routine/routine-groups";
 import {
   fetchRoutineFullState,
   saveRoutineSettingsDb,
@@ -142,7 +145,9 @@ function RoutineSetupPageContent() {
   const [teachers, setTeachers] = useState<RoutineTeacher[]>([]);
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
-  const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
+  const [rawGroups, setGroups] = useState<RoutineSubjectGroup[]>([]);
+  // Group periods / time preference always follow the member subjects, so they can never go stale
+  const groups = useMemo(() => withDerivedGroupSettings(rawGroups, subjects), [rawGroups, subjects]);
 
   const loadData = React.useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -393,6 +398,13 @@ function RoutineSetupPageContent() {
   };
 
   const handleDeleteTeacher = async (id: string) => {
+    // Group options keep their subject but lose this teacher
+    for (const g of groups.filter((x) => x.options.some((o) => o.teacherId === id))) {
+      await handleSaveGroup({
+        ...g,
+        options: g.options.map((o) => (o.teacherId === id ? { ...o, teacherId: "" } : o)),
+      });
+    }
     await deleteTeacherDb(id);
     setTeachers((prev) => prev.filter((t) => t.id !== id));
     setAssignments((prev) => prev.filter((a) => a.teacherId !== id));
@@ -406,7 +418,7 @@ function RoutineSetupPageContent() {
       scope: g.scope,
       className: g.className ?? null,
       stream: g.stream ?? null,
-      pooled: g.pooled,
+      pooled: isPooledGroup(g.scope),
       periodsPerWeek: g.periodsPerWeek,
       periodSize: g.periodSize,
       timePref: g.timePref,
@@ -422,7 +434,7 @@ function RoutineSetupPageContent() {
       })),
     });
     setGroups((prev) => {
-      const nextG: RoutineSubjectGroup = { ...g, id };
+      const nextG: RoutineSubjectGroup = { ...g, id, pooled: isPooledGroup(g.scope) };
       const idx = prev.findIndex((x) => x.id === id);
       if (idx > -1) {
         const next = [...prev];
@@ -446,6 +458,8 @@ function RoutineSetupPageContent() {
   const totalSchoolDemand = useMemo(() => {
     return calculateTotalSchoolSectionDemand(classes, subjects, groups);
   }, [classes, subjects, groups]);
+
+  const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
 
   const { totalWorkload: totalTeacherWorkload, assignedTeacherCount } = useMemo(() => {
     return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups);
@@ -485,8 +499,13 @@ function RoutineSetupPageContent() {
         <div className="bg-card border rounded-lg p-3 flex flex-col justify-between shadow-xs">
           <span className="text-[11px] font-medium text-muted-foreground">Subject Demand</span>
           <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-base font-bold text-foreground font-mono">{totalSchoolDemand} p/wk</span>
-            <span className="text-[11px] text-muted-foreground font-mono">({subjects.length} subjects)</span>
+            <span className="text-base font-bold text-foreground font-mono">
+              {formatDemandBreakdown(
+                totalSchoolDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra,
+                totalSchoolGroupDemand.slots,
+                totalSchoolGroupDemand.extra
+              )} p/wk
+            </span>
           </div>
         </div>
 
@@ -598,6 +617,7 @@ function RoutineSetupPageContent() {
                 classes={classes}
                 subjects={subjects}
                 groups={groups}
+                onSaveGroup={handleSaveGroup}
                 onSaveTeacher={handleSaveTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
               />

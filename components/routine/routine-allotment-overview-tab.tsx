@@ -76,6 +76,22 @@ interface ClassRowData {
   hasIssues: boolean;
 }
 
+/** "Environment & Geography" -> "EG", "Mathematics" -> "Mat"; parentheses dropped, several subjects joined with "/" */
+function shortSubject(name: string): string {
+  return name
+    .replace(/\([^)]*\)/g, "")
+    .split(",")
+    .map((part) => {
+      const words = part.replace(/&/g, " ").trim().split(/\s+/).filter(Boolean);
+      if (words.length === 0) return "";
+      return words.length === 1
+        ? words[0].slice(0, 3)
+        : words.map((w) => w[0].toUpperCase()).join("");
+    })
+    .filter(Boolean)
+    .join("/");
+}
+
 interface TeacherLoadRowData {
   teacherId: string;
   teacherIndex: number;
@@ -1174,6 +1190,7 @@ export function RoutineAllotmentOverviewTab({
                                 title={`${ac.subject} in ${ac.label} (${ac.periods} periods/week)`}
                               >
                                 <span className="font-semibold">{ac.label}</span>
+                                <span className="text-muted-foreground">{shortSubject(ac.subject)}</span>
                                 <span className="text-primary font-bold">({ac.periods})</span>
                               </span>
                             ))}

@@ -49,6 +49,38 @@ export function getGroupedSubjectIds(
   return out;
 }
 
+/** An option with no teacher yet. Teachers are assigned from the Teachers tab, so this is the normal state of a new group. */
+export const isUnstaffedOption = (o: { teacherId?: string | null }): boolean => !o.teacherId;
+
+/** Every option has a teacher: the group can be handed to the solver. */
+export const isGroupStaffed = (g: RoutineSubjectGroup): boolean =>
+  g.options.length > 0 && g.options.every((o) => !isUnstaffedOption(o));
+
+/**
+ * Period settings of a group come from its member subjects (Subjects tab), never from the group itself,
+ * so editing a subject can never leave the group stale. Periods = the largest member load; time
+ * preference = the first member that asks for one.
+ */
+export function withDerivedGroupSettings(
+  groups: RoutineSubjectGroup[],
+  subjects: RoutineSubject[]
+): RoutineSubjectGroup[] {
+  if (!groups || groups.length === 0) return groups || [];
+  const byId = new Map(subjects.map((s) => [s.id, s]));
+  return groups.map((g) => {
+    const members = g.options.map((o) => byId.get(o.subjectId)).filter(Boolean) as RoutineSubject[];
+    if (members.length === 0) return g;
+    const periodsPerWeek = Math.max(
+      1,
+      ...members.map((s) => (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : s.isLab ? 2 : 5))
+    );
+    const timePref = members.find((s) => s.timePref && s.timePref !== "any")?.timePref ?? "any";
+    const pooled = g.scope === "class";
+    if (periodsPerWeek === g.periodsPerWeek && timePref === g.timePref && pooled === g.pooled) return g;
+    return { ...g, periodsPerWeek, timePref, pooled };
+  });
+}
+
 export interface ClassGroupAllotment {
   group: RoutineSubjectGroup;
   periods: number;
@@ -197,7 +229,7 @@ export function validateGroups(args: {
           message: `Option refers to a deleted subject (id ${opt.subjectId}).`,
         });
       }
-      if (!teacherIds.has(opt.teacherId)) {
+      if (opt.teacherId && !teacherIds.has(opt.teacherId)) {
         issues.push({
           groupId: g.id,
           groupName: g.name,
@@ -205,7 +237,7 @@ export function validateGroups(args: {
           message: `Option refers to a deleted teacher (id ${opt.teacherId}).`,
         });
       }
-      if (seenTeachers.has(opt.teacherId)) {
+      if (opt.teacherId && seenTeachers.has(opt.teacherId)) {
         issues.push({
           groupId: g.id,
           groupName: g.name,
@@ -213,7 +245,20 @@ export function validateGroups(args: {
           message: "The same teacher is listed twice in this group — a teacher can only run one option.",
         });
       }
-      seenTeachers.add(opt.teacherId);
+      if (opt.teacherId) seenTeachers.add(opt.teacherId);
+    }
+
+    const unstaffed = g.options.filter(isUnstaffedOption);
+    if (unstaffed.length > 0) {
+      const names = unstaffed
+        .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject")
+        .join(", ");
+      issues.push({
+        groupId: g.id,
+        groupName: g.name,
+        severity: "warning",
+        message: `No teacher yet for ${names}. Assign from the Teachers tab.`,
+      });
     }
 
     // Dangling member sections
@@ -287,7 +332,7 @@ export interface SolverGroupPayload {
 export function buildSolverGroups(groups: RoutineSubjectGroup[]): SolverGroupPayload[] {
   const out: SolverGroupPayload[] = [];
   for (const g of groups) {
-    if (g.sectionIds.length === 0 || g.options.length < 2) continue;
+    if (g.sectionIds.length === 0 || g.options.length < 2 || !isGroupStaffed(g)) continue;
     const opts = g.options.map((o) => ({
       subjectId: o.subjectId,
       teacherId: o.teacherId,

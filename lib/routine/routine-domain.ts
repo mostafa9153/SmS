@@ -1,5 +1,5 @@
 import { RoutineSubject } from "./types";
-import { detectSubjectStream, normalizeSubjectName } from "./routine-helpers";
+import { detectSubjectStream, normalizeSubjectName, isPooledGroup } from "./routine-helpers";
 
 // ============================================================
 // Routine domain rules shared by the screens and the solver payload.
@@ -27,16 +27,43 @@ export const dedupeSubjects = (list: RoutineSubject[], isHs: boolean): RoutineSu
   });
 };
 
+export { isPooledGroup };
+
 /**
- * Weekly load of one section. The options of a parallel group share one slot, so each group
- * costs its largest member once instead of every member.
+ * Teacher periods a group costs per week. Each option teacher teaches once per unit: one unit
+ * for a class-wise group, one per section for a section-wise group.
  */
-export const sectionLoad = (subs: RoutineSubject[], groupMemberIds: string[][]): number => {
-  const grouped = new Set(groupMemberIds.flat());
-  let total = subs.filter((s) => !grouped.has(s.id)).reduce((sum, s) => sum + subjectPeriods(s), 0);
-  for (const ids of groupMemberIds) {
-    const members = subs.filter((s) => ids.includes(s.id));
-    if (members.length > 0) total += Math.max(...members.map(subjectPeriods));
-  }
-  return total;
+export const groupTeacherLoad = (g: {
+  scope: string;
+  sectionIds: string[];
+  options: unknown[];
+  periodsPerWeek: number;
+  periodSize: 1 | 2;
+}): number =>
+  g.options.length *
+  (isPooledGroup(g.scope) ? 1 : Math.max(1, g.sectionIds.length)) *
+  Math.max(0, g.periodsPerWeek) *
+  (g.periodSize === 2 ? 2 : 1);
+
+/**
+ * "ordinary + group slots = capacity load [+ extra option periods = total]". The slots part is
+ * what fits in class capacity; the extra part is the remaining group periods to assign.
+ */
+export const formatDemandBreakdown = (ordinary: number, slots: number, extra: number): string => {
+  const base = `${ordinary} + ${slots} = ${ordinary + slots}`;
+  return extra > 0 ? `${base} + ${extra} = ${ordinary + slots + extra}` : base;
+};
+
+/**
+ * Weekly load of one section: ordinary subjects plus each group's periods for this section
+ * (its slot plus any extra option periods). Group members are left out, so the group is
+ * counted once.
+ */
+export const sectionLoad = (
+  subs: RoutineSubject[],
+  groups: { memberIds: string[]; periods: number }[]
+): number => {
+  const grouped = new Set(groups.flatMap((g) => g.memberIds));
+  const ordinary = subs.filter((s) => !grouped.has(s.id)).reduce((sum, s) => sum + subjectPeriods(s), 0);
+  return groups.reduce((sum, g) => sum + g.periods, ordinary);
 };

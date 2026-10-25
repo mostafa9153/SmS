@@ -9,7 +9,7 @@ import {
   RoutineSubject,
   RoutineSubjectGroup,
 } from "@/lib/routine/types";
-import { groupSlotCost } from "@/lib/routine/routine-groups";
+import { groupSlotCost, teacherGroupLoad } from "@/lib/routine/routine-groups";
 import { Button } from "@/components/ui/button";
 import {
   Plus,
@@ -44,6 +44,8 @@ import {
   getTeacherSubjectPeriod,
   HS_STREAM_PRESETS,
   sanitizeTeacherSubjectPeriods,
+  calculateTotalSchoolSectionDemand,
+  calculateTotalTeacherAllottedWorkload,
 } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -62,6 +64,7 @@ export interface RoutineTeachersTabProps {
   classes?: RoutineClass[];
   subjects?: RoutineSubject[];
   groups?: RoutineSubjectGroup[];
+  onSaveGroup?: (group: RoutineSubjectGroup) => Promise<void>;
   onSaveTeacher: (teacher: RoutineTeacher) => Promise<void>;
   onDeleteTeacher?: (id: string) => Promise<void>;
 }
@@ -73,6 +76,7 @@ export function RoutineTeachersTab({
   classes = [],
   subjects = [],
   groups = [],
+  onSaveGroup,
   onSaveTeacher,
   onDeleteTeacher,
 }: RoutineTeachersTabProps) {
@@ -219,6 +223,8 @@ export function RoutineTeachersTab({
   // Form State for Add / Edit
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
+  // Group options (by option id) this teacher is picked for in the open editor; written to the groups on save
+  const [groupPicks, setGroupPicks] = useState<Set<string>>(new Set());
   const [originalClassTeacherOf, setOriginalClassTeacherOf] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [teacherName, setTeacherName] = useState("");
@@ -349,6 +355,11 @@ export function RoutineTeachersTab({
             secSubs = t.classSubjects?.[clsName] ?? [];
           }
 
+          const groupNames = groupMemberNamesByClass[clsName];
+          if (groupNames && groupNames.size > 0) {
+            secSubs = secSubs.filter((s) => !groupNames.has(s.trim().toLowerCase()));
+          }
+
           if (secSubs.length > 0) {
             secSubs.forEach((sub) => {
               const p = getTeacherSubjectPeriod(
@@ -370,22 +381,24 @@ export function RoutineTeachersTab({
 
       return totalLoad;
     },
-    [assignments, getClassSections, getSubjectDefaultPeriod]
+    [assignments, getClassSections, getSubjectDefaultPeriod, groupMemberNamesByClass]
   );
 
   // Compute workload per teacher
   const teacherLoadMap: Record<string, number> = useMemo(() => {
     const map: Record<string, number> = {};
     teachers.forEach((t) => {
-      map[t.id] = computeTeacherEffectiveLoad(t);
+      map[t.id] = computeTeacherEffectiveLoad(t) + teacherGroupLoad(t.id, groups);
     });
     return map;
-  }, [teachers, computeTeacherEffectiveLoad]);
+  }, [teachers, computeTeacherEffectiveLoad, groups]);
 
   // Aggregate teacher load stats
-  const totalAllottedLoad = useMemo(() => {
-    return Object.values(teacherLoadMap).reduce((sum, val) => sum + val, 0);
-  }, [teacherLoadMap]);
+  // Same helpers as the Setup Hub cards, so the badge and the cards can never disagree
+  const totalAllottedLoad = useMemo(
+    () => calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups).totalWorkload,
+    [teachers, classes, subjects, assignments, groups]
+  );
 
   // Distinct curriculum subjects across the school
   const distinctCurriculumSubjects = useMemo(() => {
@@ -402,7 +415,7 @@ export function RoutineTeachersTab({
   const totalSchoolSubjects = distinctCurriculumSubjects.length;
 
   // Number of distinct curriculum subjects that have at least one teacher assigned
-  const totalAssignedSubjects = useMemo(() => {
+  const { totalAssignedSubjects, unassignedSubjects } = useMemo(() => {
     const assignedSet = new Set<string>();
     teachers.forEach((t) => {
       if (t.classSubjects) {
@@ -421,11 +434,13 @@ export function RoutineTeachersTab({
           });
         });
       }
-      if (t.primarySubject && t.primarySubject.trim()) {
-        const canonical = t.primarySubject.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-        assignedSet.add(canonical);
-      }
     });
+    groups.forEach((g) =>
+      g.options.forEach((o) => {
+        const sub = o.teacherId ? subjects.find((s) => s.id === o.subjectId) : undefined;
+        if (sub) assignedSet.add(sub.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim());
+      })
+    );
     assignments.forEach((a) => {
       const sub = subjects.find((s) => s.id === a.subjectId);
       if (sub && sub.name) {
@@ -433,8 +448,16 @@ export function RoutineTeachersTab({
         assignedSet.add(canonical);
       }
     });
-    return distinctCurriculumSubjects.filter((s) => assignedSet.has(s)).length;
-  }, [teachers, assignments, subjects, distinctCurriculumSubjects]);
+    const missing = distinctCurriculumSubjects.filter((s) => !assignedSet.has(s));
+    const label = (canonical: string) =>
+      subjects.find(
+        (s) => s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim() === canonical
+      )?.name || canonical;
+    return {
+      totalAssignedSubjects: distinctCurriculumSubjects.length - missing.length,
+      unassignedSubjects: missing.map(label),
+    };
+  }, [teachers, assignments, subjects, groups, distinctCurriculumSubjects]);
 
   // Map of total configured subjects for each class
   const classTotalSubjectsMap = useMemo(() => {
@@ -472,91 +495,11 @@ export function RoutineTeachersTab({
     return map;
   }, [classes, subjects]);
 
-  // Total required subject periods across all sections of all classes in the school
-  const totalSchoolSubjectPeriods = useMemo(() => {
-    let totalPeriods = 0;
-    const sourceClasses = classes.length > 0 ? classes : [];
-
-    // If classes array is empty, fall back to presetClasses with their default sections
-    if (sourceClasses.length === 0) {
-      const pClasses = presetClasses.length > 0 ? presetClasses : FALLBACK_CLASSES;
-      pClasses.forEach((pc) => {
-        const secs = pc.sections && pc.sections.length > 0 ? pc.sections : ["A", "B"];
-        const presets = getDatabaseSubjectsForClass(pc.name);
-        const clsLower = pc.name.trim().toLowerCase();
-        const classSubs = subjects.filter(
-          (s) => s.className && s.className.trim().toLowerCase() === clsLower
-        );
-
-        let classPeriodSum = 0;
-        if (classSubs.length > 0) {
-          const seen = new Set<string>();
-          classSubs.forEach((s) => {
-            const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-            if (!seen.has(canonical)) {
-              seen.add(canonical);
-              classPeriodSum += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
-            }
-          });
-        } else {
-          classPeriodSum = presets.length * 5;
-        }
-        totalPeriods += classPeriodSum * secs.length;
-      });
-      return totalPeriods;
-    }
-
-    sourceClasses.forEach((c) => {
-      const clsLower = c.className.trim().toLowerCase();
-      const isHs = isHsClass(c.className);
-      const presets = new Set(getDatabaseSubjectsForClass(c.className).map((sub) => sub.toLowerCase()));
-
-      const classSubs = subjects.filter(
-        (s) =>
-          (s.className && s.className.trim().toLowerCase() === clsLower) ||
-          (!s.className && presets.has(s.name.trim().toLowerCase()))
-      );
-
-      if (isHs) {
-        const { stream: parsedStream } = parseSectionAndStream(c.section || "");
-        const configuredStreams = getConfiguredStreamsForClass(c.className);
-        const targetStream =
-          parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all"
-            ? parsedStream
-            : configuredStreams[0] || "Arts";
-
-        const streamSubs = classSubs.filter((s) => {
-          const detStream = detectSubjectStream(s.name, s.stream);
-          return detStream === "Common" || s.isCommon || detStream.toLowerCase() === targetStream.toLowerCase();
-        });
-
-        const seen = new Set<string>();
-        streamSubs.forEach((s) => {
-          const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-          if (!seen.has(canonical)) {
-            seen.add(canonical);
-            totalPeriods += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : 5;
-          }
-        });
-      } else {
-        const seen = new Set<string>();
-        if (classSubs.length > 0) {
-          classSubs.forEach((s) => {
-            const canonical = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-            if (!seen.has(canonical)) {
-              seen.add(canonical);
-              totalPeriods += s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
-            }
-          });
-        } else {
-          const dbPresets = getDatabaseSubjectsForClass(c.className);
-          totalPeriods += dbPresets.length * 5;
-        }
-      }
-    });
-
-    return totalPeriods;
-  }, [classes, subjects, presetClasses]);
+  // Total demand across all sections, group slots and extra option periods included
+  const totalSchoolDemand = useMemo(
+    () => calculateTotalSchoolSectionDemand(classes, subjects, groups),
+    [classes, subjects, groups]
+  );
 
   // Staff members not yet added as routine faculty
   const unaddedStaff = useMemo(() => {
@@ -1192,11 +1135,22 @@ export function RoutineTeachersTab({
     [getSectionSubjects, getSubjectPeriod]
   );
 
-  // Groups this teacher runs, read straight from the group (single source of truth, nothing copied).
-  // Class-wise groups show under "All Sections"; section-wise groups only under their own sections.
-  const getTeacherGroupRows = useCallback(
+  // Start from what the groups already say; the editor only changes this set until Save
+  useEffect(() => {
+    setGroupPicks(
+      new Set(
+        editingTeacherId
+          ? groups.flatMap((g) => g.options.filter((o) => o.teacherId === editingTeacherId).map((o) => o.id))
+          : []
+      )
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingTeacherId, isEditorOpen]);
+
+  // Group subjects the teacher can take for a class. Class-wise groups show under "All Sections",
+  // section-wise groups under their own sections. The group is the single source of truth.
+  const getGroupPickRows = useCallback(
     (clsName: string, sec: string) => {
-      if (!editingTeacherId) return [];
       const clsLower = clsName.trim().toLowerCase();
       const secId = classes.find(
         (c) =>
@@ -1205,35 +1159,118 @@ export function RoutineTeachersTab({
       )?.id;
       const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
       return groupsForClass(clsName)
-        .filter((g) => g.options.some((o) => o.teacherId === editingTeacherId))
         .filter((g) =>
           sec === "ALL" ? g.scope === "class" : g.scope === "section" && !!secId && g.sectionIds.includes(secId)
         )
         .map((g) => ({
           id: g.id,
           name: g.name,
-          subjects: g.options
-            .filter((o) => o.teacherId === editingTeacherId)
-            .map((o) => subjectName.get(o.subjectId) || "Subject"),
           periods: groupSlotCost(g),
           scopeLabel: g.scope === "class" ? "All Sections" : `${g.sectionIds.length} sections`,
+          options: g.options.map((o) => {
+            const picked = groupPicks.has(o.id);
+            const owner =
+              o.teacherId && o.teacherId !== editingTeacherId
+                ? teachers.find((t) => t.id === o.teacherId)
+                : undefined;
+            const siblingPicked = !picked && g.options.some((x) => x.id !== o.id && groupPicks.has(x.id));
+            return {
+              id: o.id,
+              subject: subjectName.get(o.subjectId) || "Subject",
+              picked,
+              takenBy: owner ? owner.shortName || owner.name : null,
+              blocked: Boolean(owner) || siblingPicked,
+            };
+          }),
         }));
     },
-    [editingTeacherId, classes, subjects, groupsForClass]
+    [classes, subjects, groupsForClass, groupPicks, teachers, editingTeacherId]
   );
+
+  // Load a section-wise group puts on one section: each picked option runs once in that section.
+  // Class-wise (pooled) groups are not tied to a section, they only count in the class total.
+  const getSectionGroupLoad = useCallback(
+    (clsName: string, sec: string): number => {
+      if (sec === "ALL") return 0;
+      const clsLower = clsName.trim().toLowerCase();
+      const secId = classes.find(
+        (c) =>
+          c.className.trim().toLowerCase() === clsLower &&
+          c.section.trim().toLowerCase() === sec.trim().toLowerCase()
+      )?.id;
+      if (!secId) return 0;
+      return groupsForClass(clsName)
+        .filter((g) => g.scope === "section" && g.sectionIds.includes(secId))
+        .reduce((sum, g) => sum + g.options.filter((o) => groupPicks.has(o.id)).length * groupSlotCost(g), 0);
+    },
+    [classes, groupsForClass, groupPicks]
+  );
+
+  // Group subjects each teacher runs, shown in the list next to their ordinary classes
+  const groupChipsByTeacher = useMemo(() => {
+    const map: Record<string, { key: string; className: string; label: string }[]> = {};
+    const subjectName = new Map(subjects.map((s) => [s.id, s.name]));
+    for (const g of groups) {
+      const members = g.sectionIds
+        .map((id) => classes.find((c) => c.id === id))
+        .filter(Boolean) as RoutineClass[];
+      if (members.length === 0) continue;
+      const className = members[0].className;
+      const secs = members.map((m) => m.section).join(", ");
+      for (const o of g.options) {
+        if (!o.teacherId) continue;
+        const periods = groupSlotCost(g) * (g.pooled ? 1 : members.length);
+        (map[o.teacherId] ||= []).push({
+          key: o.id,
+          className,
+          label: `${subjectName.get(o.subjectId) || "Subject"} · Sec ${secs} · ${periods}p`,
+        });
+      }
+    }
+    return map;
+  }, [groups, classes, subjects]);
+
+  const toggleGroupOption = useCallback((optionId: string) => {
+    setGroupPicks((prev) => {
+      const next = new Set(prev);
+      if (next.has(optionId)) next.delete(optionId);
+      else next.add(optionId);
+      return next;
+    });
+  }, []);
 
   // Teacher's group load for a class, each group counted once (pooled) or per section (non-pooled)
   const getClassGroupLoad = useCallback(
-    (clsName: string): number => {
-      if (!editingTeacherId) return 0;
-      return groupsForClass(clsName).reduce((sum, g) => {
-        const perSlot = g.options.filter((o) => o.teacherId === editingTeacherId).length;
+    (clsName: string): number =>
+      groupsForClass(clsName).reduce((sum, g) => {
+        const perSlot = g.options.filter((o) => groupPicks.has(o.id)).length;
         if (perSlot === 0) return sum;
         return sum + perSlot * groupSlotCost(g) * (g.pooled ? 1 : Math.max(1, g.sectionIds.length));
-      }, 0);
-    },
-    [editingTeacherId, groupsForClass]
+      }, 0),
+    [groupPicks, groupsForClass]
   );
+
+  // Write the picks into the groups: picked options get this teacher, released ones are cleared
+  const applyGroupPicks = async (teacherId: string, classNames: string[]) => {
+    if (!onSaveGroup) return;
+    const reachable = new Set(classNames.flatMap((n) => groupsForClass(n).map((g) => g.id)));
+    for (const g of groups) {
+      let changed = false;
+      const options = g.options.map((o) => {
+        const want = reachable.has(g.id) && groupPicks.has(o.id);
+        if (want && o.teacherId !== teacherId) {
+          changed = true;
+          return { ...o, teacherId };
+        }
+        if (!want && o.teacherId === teacherId) {
+          changed = true;
+          return { ...o, teacherId: "" };
+        }
+        return o;
+      });
+      if (changed) await onSaveGroup({ ...g, options });
+    }
+  };
 
   // Handle subject period count change (for single sec or ALL)
   const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
@@ -1510,6 +1547,7 @@ export function RoutineTeachersTab({
       };
 
       await onSaveTeacher(payload);
+      await applyGroupPicks(teacherId, selectedClasses);
       await syncRoutineTeacherToClasses(teacherName.trim(), finalClassTeacher, originalClassTeacherOf);
 
       setIsEditorOpen(false);
@@ -1721,7 +1759,9 @@ export function RoutineTeachersTab({
             getSubjectPeriod={getSubjectPeriod}
             getSubjectAllocationStats={getSubjectAllocationStats}
             calculateSectionTotalPeriods={calculateSectionTotalPeriods}
-            getTeacherGroupRows={getTeacherGroupRows}
+            getSectionGroupLoad={getSectionGroupLoad}
+            getGroupPickRows={getGroupPickRows}
+            onToggleGroupOption={toggleGroupOption}
             getClassGroupLoad={getClassGroupLoad}
           />
         </DialogContent>
@@ -1733,8 +1773,9 @@ export function RoutineTeachersTab({
           <TeacherSummaryBadges
             totalStaffCount={teachers.length}
             totalAllottedLoad={totalAllottedLoad}
-            totalSchoolSubjectPeriods={totalSchoolSubjectPeriods}
+            totalSchoolSubjectPeriods={totalSchoolDemand}
             totalAssignedSubjects={totalAssignedSubjects}
+            unassignedSubjects={unassignedSubjects}
             totalSchoolSubjects={totalSchoolSubjects}
           />
         </div>
@@ -1767,6 +1808,8 @@ export function RoutineTeachersTab({
                     key={t.id}
                     teacher={t}
                     load={teacherLoadMap[t.id] || 0}
+                    groupChips={groupChipsByTeacher[t.id]}
+                    groupMemberNames={groupMemberNamesByClass}
                     subjects={subjects}
                     classTotalSubjectsMap={classTotalSubjectsMap}
                     settings={settings}

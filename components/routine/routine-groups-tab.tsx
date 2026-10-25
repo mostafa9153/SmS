@@ -36,8 +36,8 @@ import {
 } from "lucide-react";
 import {
   validateGroups,
-  teacherGroupLoad,
 } from "@/lib/routine/routine-groups";
+import { isPooledGroup } from "@/lib/routine/routine-domain";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -92,7 +92,7 @@ function resolveClassWiseSections(
 
 function teacherShort(teachers: RoutineTeacher[], tid: string): string {
   const t = teachers.find((x) => x.id === tid);
-  return t?.shortName || t?.name || tid.slice(0, 6);
+  return t?.shortName || t?.name || "—";
 }
 
 function subjectName(subjects: RoutineSubject[], sid: string): string {
@@ -403,11 +403,8 @@ export function RoutineGroupsTab({
         editing={editing}
         classes={classes}
         subjects={subjects}
-        teachers={teachers}
-        rooms={rooms}
         assignments={assignments}
         groups={groups}
-        settings={settings}
         onSave={async (g) => {
           await onSaveGroup(g);
           setDialogOpen(false);
@@ -425,11 +422,8 @@ interface GroupDialogProps {
   editing: RoutineSubjectGroup | null;
   classes: RoutineClass[];
   subjects: RoutineSubject[];
-  teachers: RoutineTeacher[];
-  rooms: RoutineRoom[];
   assignments: RoutineAssignment[];
   groups: RoutineSubjectGroup[];
-  settings: RoutineSettings;
   onSave: (g: RoutineSubjectGroup) => Promise<void>;
 }
 
@@ -448,11 +442,8 @@ function GroupDialog({
   editing,
   classes,
   subjects,
-  teachers,
-  rooms,
   assignments,
   groups,
-  settings,
   onSave,
 }: GroupDialogProps) {
   const classNameOptions = useMemo(() => uniqueClassNames(classes), [classes]);
@@ -521,14 +512,24 @@ function GroupDialog({
   const liveIssues: string[] = [];
   if (!name.trim()) liveIssues.push("Group name is required.");
   if (options.length < 2) liveIssues.push("Add at least 2 options.");
-  const seenTeachers = new Set<string>();
+  const seenSubjects = new Set<string>();
   for (const o of options) {
     if (!o.subjectId) liveIssues.push("Every option needs a subject.");
-    if (!o.teacherId) liveIssues.push("Every option needs a teacher.");
-    if (o.teacherId && seenTeachers.has(o.teacherId)) {
-      liveIssues.push("The same teacher cannot run two options.");
+    if (o.subjectId && seenSubjects.has(o.subjectId)) {
+      liveIssues.push("The same subject cannot be listed twice.");
     }
-    if (o.teacherId) seenTeachers.add(o.teacherId);
+    if (o.subjectId) seenSubjects.add(o.subjectId);
+    const other = groups.find(
+      (g) =>
+        g.id !== editing?.id &&
+        g.options.some((x) => x.subjectId === o.subjectId) &&
+        g.sectionIds.some((sid) => resolvedSectionIds.includes(sid))
+    );
+    if (o.subjectId && other) {
+      liveIssues.push(
+        `${subjectName(subjects, o.subjectId)} is already in group "${other.name}" for these sections.`
+      );
+    }
   }
   if (resolvedSectionIds.length === 0) liveIssues.push("Scope resolves to zero sections.");
   if (scope === "class" && !className) liveIssues.push("Pick a class.");
@@ -616,7 +617,7 @@ function GroupDialog({
         scope,
         className: scope === "class" ? className : null,
         stream: scope === "class" ? stream || null : null,
-        pooled: resolvedSectionIds.length > 1,
+        pooled: isPooledGroup(scope),
         periodsPerWeek,
         periodSize,
         timePref,
@@ -846,84 +847,47 @@ function GroupDialog({
 
             <div className="rounded-md border divide-y overflow-hidden">
               <div className="grid grid-cols-12 bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                <div className="col-span-4 py-2 px-2.5">Subject</div>
-                <div className="col-span-5 py-2 px-2.5">Teacher</div>
-                <div className="col-span-2 py-2 px-2.5">Room</div>
+                <div className="col-span-11 py-2 px-2.5">Subject</div>
                 <div className="col-span-1 py-2 px-1 text-center"></div>
               </div>
-              {options.map((o) => {
-                const teacherLoadNow = o.teacherId ? teacherGroupLoad(o.teacherId, groups) : 0;
-                return (
-                  <div key={o.id} className="grid grid-cols-12 items-center text-xs">
-                    <div className="col-span-4 py-1.5 px-2">
-                      <select
-                        value={o.subjectId}
-                        onChange={(e) => updateOption(o.id, { subjectId: e.target.value })}
-                        className={cn(
-                          "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                          showErrors && !o.subjectId && "border-destructive ring-destructive/30"
-                        )}
-                      >
-                        <option value="">Select subject</option>
-                        {dialogSubjects.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-5 py-1.5 px-2">
-                      <select
-                        value={o.teacherId}
-                        onChange={(e) => updateOption(o.id, { teacherId: e.target.value })}
-                        className={cn(
-                          "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                          showErrors && !o.teacherId && "border-destructive ring-destructive/30"
-                        )}
-                      >
-                        <option value="">Select teacher</option>
-                        {teachers.map((t) => (
-                          <option
-                            key={t.id}
-                            value={t.id}
-                            disabled={t.id !== o.teacherId && options.some((x) => x.teacherId === t.id)}
-                          >
-                            {t.name}
-                            {teacherLoadNow > 0 && t.id === o.teacherId ? ` (load +${teacherLoadNow})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-2 py-1.5 px-2">
-                      <select
-                        value={o.roomId || ""}
-                        onChange={(e) =>
-                          updateOption(o.id, { roomId: e.target.value || null })
-                        }
-                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                      >
-                        <option value="">None</option>
-                        {rooms.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="col-span-1 py-1 px-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeOption(o.id)}
-                        disabled={options.length <= 2}
-                        className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mx-auto"
-                        aria-label="Remove option"
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+              {options.map((o) => (
+                <div key={o.id} className="grid grid-cols-12 items-center text-xs">
+                  <div className="col-span-11 py-1.5 px-2">
+                    <select
+                      value={o.subjectId}
+                      onChange={(e) =>
+                        updateOption(o.id, { subjectId: e.target.value, teacherId: "" })
+                      }
+                      className={cn(
+                        "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        showErrors && !o.subjectId && "border-destructive ring-destructive/30"
+                      )}
+                    >
+                      <option value="">Select subject</option>
+                      {dialogSubjects.map((s) => (
+                        <option
+                          key={s.id}
+                          value={s.id}
+                          disabled={s.id !== o.subjectId && options.some((x) => x.subjectId === s.id)}
+                        >
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                );
-              })}
+                  <div className="col-span-1 py-1 px-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => removeOption(o.id)}
+                      disabled={options.length <= 2}
+                      className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed mx-auto"
+                      aria-label="Remove option"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 

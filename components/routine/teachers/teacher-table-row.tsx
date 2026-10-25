@@ -11,6 +11,8 @@ import { getTeacherSubjectPeriod } from "@/lib/routine/routine-helpers";
 export interface TeacherTableRowProps {
   teacher: RoutineTeacher;
   load: number;
+  groupChips?: { key: string; className: string; label: string }[];
+  groupMemberNames?: Record<string, Set<string>>;
   subjects?: RoutineSubject[];
   classTotalSubjectsMap?: Record<string, number>;
   settings: RoutineSettings;
@@ -22,6 +24,8 @@ export interface TeacherTableRowProps {
 export const TeacherTableRow = React.memo(function TeacherTableRow({
   teacher: t,
   load,
+  groupChips = [],
+  groupMemberNames = {},
   subjects = [],
   classTotalSubjectsMap = {},
   settings,
@@ -98,9 +102,11 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
               const secs = cSections[cls] || [];
               const periodTarget = cPeriods[cls];
 
+              const hidden = groupMemberNames[cls];
+              const shownSubs = hidden ? subs.filter((s) => !hidden.has(s.trim().toLowerCase())) : subs;
               const formattedSubs =
-                subs.length > 0
-                  ? subs
+                shownSubs.length > 0
+                  ? shownSubs
                       .map((sub) => {
                         const matchedSub = subjects.find(
                           (s) =>
@@ -150,6 +156,15 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
                 </div>
               );
             })}
+            {groupChips.map((g) => (
+              <div
+                key={g.key}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/5 border border-dashed border-primary/40 text-[10px] font-medium text-foreground flex-wrap"
+              >
+                <span className="font-bold text-primary">{g.className}:</span>
+                <span>{g.label}</span>
+              </div>
+            ))}
           </div>
         )}
       </td>

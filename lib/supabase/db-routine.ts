@@ -12,6 +12,8 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
+import { isPooledGroup } from "@/lib/routine/routine-domain";
+import { withDerivedGroupSettings } from "@/lib/routine/routine-groups";
 
 export interface RoutineFullState {
   settings: RoutineSettings;
@@ -435,6 +437,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
   } catch (err) {
     console.warn("fetchRoutineFullState fallback to local state:", err);
   }
+
+  groups = withDerivedGroupSettings(groups, subjects);
 
   // Persist updated complete state to localStorage
   setLocalRoutineState({
@@ -1608,7 +1612,7 @@ export async function fetchSubjectGroupsDb(
         id: row.id,
         groupId: row.group_id,
         subjectId: row.subject_id,
-        teacherId: row.teacher_id,
+        teacherId: row.teacher_id || "",
         roomId: row.room_id,
         sortOrder: row.sort_order ?? 0,
       });
@@ -1628,7 +1632,7 @@ export async function fetchSubjectGroupsDb(
         scope: h.scope,
         className: h.class_name,
         stream: h.stream,
-        pooled: !!h.pooled,
+        pooled: isPooledGroup(h.scope),
         periodsPerWeek: h.periods_per_week ?? 1,
         periodSize: (h.period_size === 2 ? 2 : 1) as 1 | 2,
         timePref: h.time_pref || "any",
@@ -1682,7 +1686,7 @@ export async function upsertSubjectGroupDb(group: {
     scope: group.scope,
     className: group.className || null,
     stream: group.stream || null,
-    pooled: group.pooled,
+    pooled: isPooledGroup(group.scope),
     periodsPerWeek: group.periodsPerWeek,
     periodSize: group.periodSize,
     timePref: group.timePref,
@@ -1716,7 +1720,7 @@ export async function upsertSubjectGroupDb(group: {
       scope: group.scope,
       class_name: group.scope === "class" ? group.className ?? null : null,
       stream: group.scope === "class" ? group.stream ?? null : null,
-      pooled: group.pooled,
+      pooled: isPooledGroup(group.scope),
       periods_per_week: group.periodsPerWeek,
       period_size: group.periodSize,
       time_pref: group.timePref,
@@ -1737,22 +1741,25 @@ export async function upsertSubjectGroupDb(group: {
       if (sErr) console.warn("upsertSubjectGroupDb sections:", sErr);
     }
 
-    // 3. replace options
-    await supabase.from("routine_subject_group_options").delete().eq("group_id", id);
-    if (group.options.length > 0) {
-      const optRows = group.options.map((o, i) => ({
-        id: isUuidStr(o.id) ? o.id : crypto.randomUUID(),
-        group_id: id,
-        subject_id: o.subjectId,
-        teacher_id: o.teacherId,
-        room_id: o.roomId ?? null,
-        sort_order: o.sortOrder ?? i,
-      }));
-      const { error: oErr } = await supabase
-        .from("routine_subject_group_options")
-        .insert(optRows);
+    // 3. upsert options first, then drop the ones that are gone, so a failed write never wipes the old rows
+    const optRows = group.options.map((o, i) => ({
+      id: nextLocal.options[i].id,
+      group_id: id,
+      subject_id: o.subjectId,
+      teacher_id: o.teacherId || null,
+      room_id: o.roomId ?? null,
+      sort_order: o.sortOrder ?? i,
+    }));
+    if (optRows.length > 0) {
+      const { error: oErr } = await supabase.from("routine_subject_group_options").upsert(optRows);
       if (oErr) console.warn("upsertSubjectGroupDb options:", oErr);
     }
+    const keepIds = optRows.map((r) => r.id);
+    const cleanup = supabase.from("routine_subject_group_options").delete().eq("group_id", id);
+    const { error: dErr } = keepIds.length
+      ? await cleanup.not("id", "in", `(${keepIds.join(",")})`)
+      : await cleanup;
+    if (dErr) console.warn("upsertSubjectGroupDb option cleanup:", dErr);
   } catch (err) {
     console.warn("upsertSubjectGroupDb:", err);
   }

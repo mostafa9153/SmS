@@ -97,6 +97,41 @@ def test_tiffin_minimum_adapts_to_low_load():
     assert any("tiffin minimum lowered" in a for a in r["metadata"]["adjustments"]), r["metadata"]["adjustments"]
 
 
+def _teaching_days(r, tid):
+    days = set()
+    for row in r["grid"].values():
+        for d, day in enumerate(row):
+            for cell in day:
+                if cell and cell.get("tid") == tid:
+                    days.add(d)
+    return days
+
+
+def test_available_weekdays_all_get_classes():
+    # load 20 -> minimum 3 per available weekday (20 // 6); Saturday may stay empty
+    r = generate_schedule(make_request(n_classes=2, load_per_class=10))
+    assert r["success"] and r["metadata"]["violations"] == 0, r["metadata"]
+    assert {0, 1, 2, 3, 4} <= _teaching_days(r, "t1")
+
+
+def test_low_load_spreads_over_distinct_days():
+    # load 3 cannot cover 5 weekdays; it must at least use 3 different days
+    r = generate_schedule(make_request(n_classes=1, load_per_class=3))
+    assert r["success"], r
+    assert len(_teaching_days(r, "t1")) == 3
+
+
+def test_unavailable_day_is_not_forced():
+    teachers = [{
+        "id": "t1", "name": "Teacher One", "shortName": "T1", "maxPeriods": 40,
+        "availableSlots": {str(d): ([] if d == 2 else list(range(1, 8))) for d in range(6)},
+    }]
+    r = generate_schedule(make_request(n_classes=2, load_per_class=10, teachers=teachers))
+    assert r["success"], r
+    assert 2 not in _teaching_days(r, "t1")
+    assert not any("Wed" in d for rel in r["metadata"]["relaxations"] for d in rel["details"])
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

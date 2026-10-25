@@ -145,14 +145,20 @@ PHASES = [
     (2, frozenset({"tiffin"})),
     (3, frozenset({"tiffin", "timepref"})),
     (4, frozenset({"tiffin", "timepref", "fatigue"})),
+    # Last resort only: every other rule is given up before a teacher may skip an available weekday
+    (5, frozenset({"tiffin", "timepref", "fatigue", "coverage"})),
 ]
 RELAX_LABELS = {
     "tiffin": "Min periods before/after tiffin",
     "timepref": "Morning/afternoon subject preference",
     "fatigue": "Teacher daily max and max consecutive (+1)",
+    "coverage": "Minimum periods on each available weekday",
 }
 PHASE_TIME_LIMIT = float(os.environ.get("ROUTINE_SOLVER_TIME_LIMIT", "60"))
 SOLVER_WORKERS = 8
+# Soft rule: a teacher who is available on a weekday should teach on it. Penalty per missing period.
+COVERAGE_WEIGHT = 1500
+COVERAGE_DAYS_DIVISOR = 6  # weekly load / 6 = minimum periods per available weekday (Saturday itself is never forced)
 SOLVER_SEED = 1
 
 
@@ -167,6 +173,57 @@ def teacher_day_caps(settings, load, working_days):
     base_cap_full = max(settings.tchDailyMax, full_day_req)
     base_cap_half = min(settings.tchDailyMax, settings.halfDayPeriods)
     return {d: (base_cap_half if d in half_days else base_cap_full) for d in working_days}
+
+
+def coverage_targets(request, units):
+    """Minimum periods per available weekday for each teacher (Saturday never forced).
+    Target = max(1, weekly load // 5), limited by what the day can physically hold. When the load is
+    smaller than the number of available days the targets cannot all be met, so the solver is simply
+    rewarded for touching as many different days as possible. Returns {teacher_id: {day_index: target}}."""
+    s = request.settings
+    working_days = sorted(s.workingDays)
+    P = s.periodsPerDay
+    teachers = {t.id: t for t in request.teachers}
+    load = {}
+    for u in units:
+        for tid in u["tids"]:
+            load[tid] = load.get(tid, 0) + u["sz"]
+    out = {}
+    for tid, ld in load.items():
+        t = teachers.get(tid)
+        if not t or ld <= 0:
+            continue
+        caps = teacher_day_caps(s, ld, working_days)
+        base = max(1, ld // COVERAGE_DAYS_DIVISOR)
+        per_day = {}
+        for d_idx, day_val in enumerate(working_days):
+            if _day_name(day_val) == "Sat":
+                continue
+            day_cap = min(s.halfDayPeriods, P) if day_val in s.halfDays else P
+            avail = [q for q in t.availableSlots.get(str(day_val), list(range(1, P + 1))) if q <= day_cap]
+            if not avail:
+                continue
+            per_day[d_idx] = min(base, len(avail), caps[day_val])
+        if per_day:
+            out[tid] = per_day
+    return out
+
+
+def coverage_violations(request, units, placed):
+    """Teacher-days (Mon-Fri, available) that ended up below their minimum."""
+    working_days = sorted(request.settings.workingDays)
+    teachers = {t.id: t for t in request.teachers}
+    count = {}
+    for u, d, p in placed:
+        for tid in u["tids"]:
+            count[(tid, d)] = count.get((tid, d), 0) + u["sz"]
+    out = []
+    for tid, per_day in sorted(coverage_targets(request, units).items(), key=lambda kv: teachers[kv[0]].name):
+        for d_idx, target in per_day.items():
+            got = count.get((tid, d_idx), 0)
+            if got < target:
+                out.append(f"{teachers[tid].name} - {_day_name(working_days[d_idx])}: {got} period(s) (wanted {target})")
+    return out
 
 
 def build_tiffin_plan(request, units):
@@ -256,6 +313,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), 
     tiffin_soft = "tiffin" in relax
     timepref_soft = "timepref" in relax
     fatigue_relaxed = "fatigue" in relax
+    coverage_soft = "coverage" in relax
 
     teachers_map = {t.id: t for t in request.teachers}
     classes_map = {c.id: c for c in request.classes}
@@ -482,6 +540,24 @@ def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), 
                     obj_vars.append(short * 300)
                 else:
                     model.Add(sum(side_vars) >= eff).OnlyEnforceIf(teach)
+
+    # Every available weekday gets its minimum periods: hard until the last phase, then a heavy penalty.
+    # A teacher whose load is smaller than their number of days cannot cover them all, so that
+    # teacher is only nudged (penalty) to use as many different days as possible.
+    for t_id, per_day in coverage_targets(request, units).items():
+        n_units = sum(1 for u in units if t_id in u["tids"])
+        # Counting limits: enough periods for every minimum, and at least one lesson per day to cover
+        can_cover_all = sum(per_day.values()) <= teacher_load_map.get(t_id, 0) and n_units >= len(per_day)
+        for d_idx, target in per_day.items():
+            day_vars = [v for p in range(P) for v in teacher_occupancy[t_id][d_idx][p]]
+            if not day_vars:
+                continue
+            if can_cover_all and not coverage_soft:
+                model.Add(sum(day_vars) >= target)
+            else:
+                missing = model.NewIntVar(0, target, f"cover_{t_id}_{d_idx}")
+                model.Add(sum(day_vars) + missing >= target)
+                obj_vars.append(missing * COVERAGE_WEIGHT)
 
     # Even spread: keep each teacher's busiest day as light as possible
     for t_id, sums in teacher_day_sums.items():
@@ -1144,6 +1220,15 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
 
         # What was actually broken (a relaxed rule that ended up unused is not reported)
         relaxations = audit_relaxations(request, units, placed, used_relax, tiffin_plan)
+        coverage = coverage_violations(request, units, placed)
+        if coverage:
+            relaxations.append({
+                "rule": "daily_coverage",
+                "title": "Teacher minimum periods on available days",
+                "summary": f"{len(coverage)} teacher-day(s) below the minimum",
+                "count": len(coverage),
+                "details": coverage[:80],
+            })
         active_relaxations = [r["title"] for r in relaxations]
         tiffin_warnings = next((r["details"] for r in relaxations if r["rule"] == "tiffin"), [])
         violations = sum(r["count"] for r in relaxations)

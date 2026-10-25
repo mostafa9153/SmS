@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +10,7 @@ interface TeacherSummaryBadgesProps {
   totalSchoolSubjectPeriods: number;
   totalAssignedSubjects: number;
   totalSchoolSubjects: number;
+  unassignedSubjects?: string[];
 }
 
 export function TeacherSummaryBadges({
@@ -18,7 +19,9 @@ export function TeacherSummaryBadges({
   totalSchoolSubjectPeriods,
   totalAssignedSubjects,
   totalSchoolSubjects,
+  unassignedSubjects = [],
 }: TeacherSummaryBadgesProps) {
+  const [showMissing, setShowMissing] = useState(false);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs font-semibold text-foreground">Teaching Faculty</span>
@@ -42,15 +45,23 @@ export function TeacherSummaryBadges({
 
       <Badge
         variant="outline"
+        role={unassignedSubjects.length > 0 ? "button" : undefined}
+        title={unassignedSubjects.length > 0 ? `Not assigned: ${unassignedSubjects.join(", ")}` : undefined}
+        onClick={() => unassignedSubjects.length > 0 && setShowMissing((v) => !v)}
         className={cn(
           "text-[10px] font-mono font-semibold px-2 py-0.5 gap-1",
           totalAssignedSubjects === totalSchoolSubjects && totalSchoolSubjects > 0
             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300/40"
-            : "bg-muted text-muted-foreground border-border"
+            : "bg-muted text-muted-foreground border-border cursor-pointer"
         )}
       >
         Subjects: {totalAssignedSubjects} / {totalSchoolSubjects} Assigned
       </Badge>
+      {showMissing && unassignedSubjects.length > 0 && (
+        <span className="text-[10px] font-medium text-amber-700 dark:text-amber-300">
+          Not assigned: {unassignedSubjects.join(", ")}
+        </span>
+      )}
     </div>
   );
 }
