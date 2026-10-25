@@ -323,6 +323,31 @@ export function RoutineViewerTab({
   const [isFullscreen, setIsFullscreen] = useState(initialFullscreen);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const containerRef = useRef<HTMLDivElement>(null);
+  const printSheetRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Shrink the timetable so the whole routine fits one A3 landscape sheet when printing.
+    const PX_PER_MM = 96 / 25.4;
+    const PRINT_HEADER_RESERVE_PX = 90;
+    const fitToPage = () => {
+      const sheet = printSheetRef.current;
+      if (!sheet) return;
+      sheet.style.zoom = "";
+      const maxW = 420 * PX_PER_MM;
+      const maxH = 297 * PX_PER_MM - PRINT_HEADER_RESERVE_PX;
+      const scale = Math.min(1, maxW / sheet.offsetWidth, maxH / sheet.offsetHeight);
+      if (scale < 1) sheet.style.zoom = String(scale);
+    };
+    const resetFit = () => {
+      if (printSheetRef.current) printSheetRef.current.style.zoom = "";
+    };
+    window.addEventListener("beforeprint", fitToPage);
+    window.addEventListener("afterprint", resetFit);
+    return () => {
+      window.removeEventListener("beforeprint", fitToPage);
+      window.removeEventListener("afterprint", resetFit);
+    };
+  }, []);
 
   const toggleFullscreen = () => {
     if (!isFullscreen) {
@@ -1483,15 +1508,36 @@ export function RoutineViewerTab({
 
       {/* Timetable Grid Container */}
       <div
+        ref={printSheetRef}
         className={cn(
-          "bg-card border rounded-lg shadow-xs overflow-hidden print:border-black print:rounded-none",
+          "routine-print-sheet bg-card border rounded-lg shadow-xs overflow-hidden print:border-black print:rounded-none",
           isFullscreen && "flex-1 min-h-0 flex flex-col rounded-md"
         )}
       >
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            @page { size: landscape; margin: 8mm; }
+            @page { size: A3 landscape; margin: 0; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .routine-print-sheet,
+            .routine-print-sheet div {
+              overflow: visible !important;
+              max-height: none !important;
+              height: auto !important;
+            }
+            .routine-print-sheet { border: 0 !important; box-shadow: none !important; }
+            .routine-print-sheet table { width: 100% !important; }
+            .routine-print-sheet th,
+            .routine-print-sheet td {
+              width: auto !important;
+              min-width: 0 !important;
+              max-width: none !important;
+            }
+            .routine-print-sheet .sticky { position: static !important; }
+            .routine-print-sheet thead { display: table-header-group; }
+            .routine-print-sheet tfoot { display: table-footer-group; }
+            .routine-print-sheet tr,
+            .routine-print-sheet td,
+            .routine-print-sheet th { break-inside: avoid; page-break-inside: avoid; }
           }
         `}} />
         <div className={cn("overflow-auto flex-1 min-h-0 relative", isFullscreen && "custom-scrollbar")}>
