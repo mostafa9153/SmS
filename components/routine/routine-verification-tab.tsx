@@ -104,8 +104,8 @@ export function RoutineVerificationTab({
   // Compute active / effective assignments
   const activeAssignments = useMemo(() => {
     if (assignments.length > 0) return assignments;
-    return autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
-  }, [assignments, classes, subjects, teachers, settings, rooms]);
+    return autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
+  }, [assignments, classes, subjects, teachers, settings, rooms, groups]);
 
   // Teacher Load Map
   const teacherLoadMap = useMemo(() => {
@@ -442,7 +442,7 @@ export function RoutineVerificationTab({
   const handleAutoBalance = async () => {
     setIsBalancing(true);
     try {
-      const balanced = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms);
+      const balanced = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
       if (onSaveAssignments) {
         await onSaveAssignments(balanced);
       }

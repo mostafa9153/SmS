@@ -189,7 +189,10 @@ function RoutineSetupPageContent() {
   // Handlers for Settings
   const handleSaveSettings = async (newSettings: RoutineSettings) => {
     setSettings(newSettings);
-    await saveRoutineSettingsDb(newSettings);
+    const ok = await saveRoutineSettingsDb(newSettings);
+    if (!ok) {
+      showToast({ type: "error", title: "Settings not saved", description: "The database rejected the update. Changes are kept on this device only." });
+    }
   };
 
   // Handlers for Rooms
@@ -615,6 +618,7 @@ function RoutineSetupPageContent() {
                 teachers={teachers}
                 assignments={assignments}
                 settings={settings}
+                groups={groups}
               />
             )}
 

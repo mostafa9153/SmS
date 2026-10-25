@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import {
   RoutineSettings,
   RoutineClass,
@@ -63,7 +64,7 @@ export function RoutineGeneratorTab({
   const [isAutoBuilding, setIsAutoBuilding] = useState(false);
   const [report, setReport] = useState<ValidationReport | null>(null);
   const [generationResult, setGenerationResult] = useState<GeneratedRoutine | null>(null);
-  const [lastGeneratedTime, setLastGeneratedTime] = useState<number>(Date.now());
+  const [lastGeneratedTime, setLastGeneratedTime] = useState<number>(() => Date.now());
 
   // Pre-flight checks status
   const hasWorkingDays = settings.workingDays.length > 0 && settings.periodsPerDay > 0;
@@ -393,9 +394,9 @@ export function RoutineGeneratorTab({
                 <div className="flex items-center gap-2 font-bold text-emerald-700 dark:text-emerald-300 text-sm">
                   <CheckCircle2 className="h-5 w-5" />
                   Timetable Generated Successfully
-                  {generationResult.stats?.phase === 2 && (
+                  {(generationResult.stats?.phase ?? 1) > 1 && (
                     <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-300 text-[10px]">
-                      Phase 2 (Soft-Bounds Auto-Relaxed)
+                      Phase {generationResult.stats?.phase} (Rules Relaxed)
                     </Badge>
                   )}
                 </div>
@@ -426,25 +427,61 @@ export function RoutineGeneratorTab({
                   </span>
                 </div>
                 <div className="border rounded-md p-2.5 bg-muted/10 font-mono">
-                  <span className="text-muted-foreground block text-[10px]">Hard Violations</span>
-                  <span className="font-bold text-emerald-600">0 (Strictly Zero)</span>
+                  <span className="text-muted-foreground block text-[10px]">Rules Broken</span>
+                  {(() => {
+                    const broken = Number(generationResult.metadata?.violations ?? 0);
+                    return (
+                      <span className={cn("font-bold", broken === 0 ? "text-emerald-600" : "text-amber-600")}>
+                        {broken === 0 ? "0 (all rules met)" : `${broken} teacher/period cases`}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
-              {Array.isArray(generationResult.metadata?.tiffinWarnings) &&
-                generationResult.metadata.tiffinWarnings.length > 0 && (
-                  <div className="border border-amber-500/40 rounded-md bg-amber-500/5">
+              {/* Rules that had to be relaxed and were actually broken, with every case */}
+              {Array.isArray(generationResult.metadata?.relaxations) &&
+                generationResult.metadata.relaxations.map((r: any) => (
+                  <div key={r.rule} className="border border-amber-500/40 rounded-md bg-amber-500/5">
                     <div className="px-3 py-2 font-semibold text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5" />
-                      Min Tiffin Periods Not Met ({generationResult.metadata.tiffinWarnings.length})
+                      {r.title} ({r.count})
                     </div>
                     <ul className="px-3 pb-2 pl-8 list-disc space-y-0.5 text-[11px] text-muted-foreground max-h-40 overflow-y-auto">
-                      {generationResult.metadata.tiffinWarnings.map((w: string, idx: number) => (
+                      {r.details.map((w: string, idx: number) => (
                         <li key={idx}>{w}</li>
                       ))}
                     </ul>
                   </div>
-                )}
+                ))}
+
+              {/* Why the strict phase failed: certain, counted causes */}
+              {Array.isArray(generationResult.metadata?.reasons) && generationResult.metadata.reasons.length > 0 && (
+                <div className="border rounded-md divide-y bg-muted/10">
+                  <div className="px-3 py-2 bg-muted/40 font-semibold text-xs text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                    Why strict rules could not be met ({generationResult.metadata.reasons.length})
+                  </div>
+                  {generationResult.metadata.reasons.map((diag: any, idx: number) => (
+                    <div key={idx} className="p-3 space-y-1">
+                      <div className="font-semibold text-foreground text-xs">{diag.title}</div>
+                      <p className="text-muted-foreground text-[11px]">{diag.description}</p>
+                      {diag.solution && <p className="text-[11px] text-foreground">Fix: {diag.solution}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {Array.isArray(generationResult.metadata?.attempts) && generationResult.metadata.attempts.length > 1 && (
+                <div className="flex flex-wrap gap-1.5 text-[10px] font-mono text-muted-foreground">
+                  {generationResult.metadata.attempts.map((a: any) => (
+                    <Badge key={a.phase} variant="outline" className="text-[10px]">
+                      Phase {a.phase}: {a.status === "PROVEN_INFEASIBLE" ? "proven impossible" : a.status.toLowerCase()}
+                      {a.seconds > 0 ? ` (${a.seconds}s)` : ""}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-card border-2 border-destructive/40 rounded-lg p-4 text-xs space-y-3.5 shadow-xs">

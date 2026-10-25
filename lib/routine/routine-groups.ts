@@ -49,6 +49,40 @@ export function getGroupedSubjectIds(
   return out;
 }
 
+export interface ClassGroupAllotment {
+  group: RoutineSubjectGroup;
+  periods: number;
+  options: { subjectId: string; subjectName: string; teacher: RoutineTeacher | null }[];
+  /** every option has a teacher, so the group's slot is fully staffed */
+  complete: boolean;
+}
+
+/**
+ * Per-class view of a group's allotment: the group's slot cost counted once,
+ * with the teacher of each parallel option. The group is the single source of
+ * truth for these subjects, never the teacher profiles.
+ */
+export function getClassGroupAllotments(
+  classId: string,
+  groups: RoutineSubjectGroup[],
+  subjects: RoutineSubject[],
+  teachers: RoutineTeacher[]
+): ClassGroupAllotment[] {
+  return getGroupsForClass(classId, groups).map((g) => {
+    const options = g.options.map((o) => ({
+      subjectId: o.subjectId,
+      subjectName: subjects.find((s) => s.id === o.subjectId)?.name || "Subject",
+      teacher: teachers.find((t) => t.id === o.teacherId) || null,
+    }));
+    return {
+      group: g,
+      periods: groupSlotCost(g),
+      options,
+      complete: options.length > 0 && options.every((o) => o.teacher),
+    };
+  });
+}
+
 /**
  * Weekly slot cost a group adds to each of its member sections' routines.
  * One group period = `periodsPerWeek * periodSize` cells inside the grid.

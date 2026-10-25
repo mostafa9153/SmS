@@ -552,20 +552,10 @@ export function RoutineViewerTab({
     if (!routine || !routine.grid) return;
     if (sourceClassId === targetClassId && sourceDPos === targetDPos && sourcePPos === targetPPos) return;
 
-    if (sourceDPos !== targetDPos) {
-      showToast({
-        type: "warning",
-        title: "Same Day Swap Only",
-        description: "Periods can only be swapped within the same day.",
-      });
-      return;
-    }
-
-    const dPos = sourceDPos;
     const sourceClass = classMap.get(sourceClassId);
     const targetClass = classMap.get(targetClassId);
-    const sourceCell = routine.grid[sourceClassId]?.[dPos]?.[sourcePPos] || null;
-    const targetCell = routine.grid[targetClassId]?.[dPos]?.[targetPPos] || null;
+    const sourceCell = routine.grid[sourceClassId]?.[sourceDPos]?.[sourcePPos] || null;
+    const targetCell = routine.grid[targetClassId]?.[targetDPos]?.[targetPPos] || null;
 
     if (!sourceCell && !targetCell) return;
 
@@ -597,15 +587,15 @@ export function RoutineViewerTab({
     const newGrid: RoutineGrid = {};
     for (const [cid, days] of Object.entries(routine.grid)) {
       newGrid[cid] = days.map((dayPeriods, d) =>
-        d === dPos ? [...dayPeriods] : dayPeriods
+        d === sourceDPos || d === targetDPos ? [...dayPeriods] : dayPeriods
       );
     }
 
     if (!newGrid[sourceClassId] || !newGrid[targetClassId]) return;
 
-    // Perform swap
-    newGrid[sourceClassId][dPos][sourcePPos] = targetCell;
-    newGrid[targetClassId][dPos][targetPPos] = sourceCell;
+    // Perform swap (any day, any period)
+    newGrid[sourceClassId][sourceDPos][sourcePPos] = targetCell;
+    newGrid[targetClassId][targetDPos][targetPPos] = sourceCell;
 
     const updatedRoutine: GeneratedRoutine = {
       ...routine,
@@ -618,7 +608,7 @@ export function RoutineViewerTab({
     // Conflict check on newly swapped slots — group cells shared across
     // member classes are ONE unit; count distinct unit keys per teacher.
     const clashes: string[] = [];
-    const checkClashesAtPeriod = (pPos: number) => {
+    const checkClashesAtPeriod = (dPos: number, pPos: number) => {
       const tSeen = new Map<string, { cids: Set<string>; units: Set<string | number> }>();
       for (const [cid, days] of Object.entries(newGrid)) {
         const cell = days[dPos]?.[pPos];
@@ -647,16 +637,68 @@ export function RoutineViewerTab({
       }
     };
 
-    checkClashesAtPeriod(sourcePPos);
-    if (targetPPos !== sourcePPos) {
-      checkClashesAtPeriod(targetPPos);
+    checkClashesAtPeriod(sourceDPos, sourcePPos);
+    if (targetPPos !== sourcePPos || targetDPos !== sourceDPos) {
+      checkClashesAtPeriod(targetDPos, targetPPos);
     }
+
+    // Rule checks on the two new slots: teacher availability, class day limit, teacher daily/consecutive limits
+    const ruleIssues: string[] = [];
+    const touched = new Set<string>();
+    const slots = [
+      { cid: sourceClassId, d: sourceDPos, p: sourcePPos, cell: targetCell },
+      { cid: targetClassId, d: targetDPos, p: targetPPos, cell: sourceCell },
+    ];
+    for (const s of slots) {
+      if (!s.cell) continue;
+      const dayVal = routine.days?.[s.d] ?? s.d;
+      const cls = classMap.get(s.cid);
+      const dayCap = settings.halfDays.includes(dayVal) ? settings.halfDayPeriods : settings.periodsPerDay;
+      const cap = Math.min(dayCap, cls?.dailyPeriods || settings.periodsPerDay);
+      if (s.p + 1 > cap) {
+        ruleIssues.push(`${cls?.className || "Class"} has only ${cap} periods that day`);
+      }
+      for (const o of getCellOptions(s.cell)) {
+        if (!o.tid) continue;
+        touched.add(`${o.tid}|${s.d}`);
+        const tch = teacherMap.get(o.tid);
+        const av = (tch?.availableSlots as Record<string, number[]> | undefined)?.[String(dayVal)];
+        if (Array.isArray(av) && !av.includes(s.p + 1)) {
+          ruleIssues.push(`${tch?.shortName || tch?.name || "Teacher"} is unavailable in period ${s.p + 1}`);
+        }
+      }
+    }
+    for (const key of touched) {
+      const [tid, dStr] = key.split("|");
+      const d = Number(dStr);
+      const periods = new Set<number>();
+      for (const days of Object.values(newGrid)) {
+        (days[d] || []).forEach((cell, p) => {
+          if (cell && getCellOptions(cell).some((o) => o.tid === tid)) periods.add(p + 1);
+        });
+      }
+      const name = teacherMap.get(tid)?.shortName || teacherMap.get(tid)?.name || "Teacher";
+      if (periods.size > settings.tchDailyMax) {
+        ruleIssues.push(`${name} has ${periods.size} periods that day (max ${settings.tchDailyMax})`);
+      }
+      let run = 0;
+      let best = 0;
+      for (let q = 1; q <= settings.periodsPerDay; q++) {
+        if (settings.breaks.includes(q - 1)) run = 0;
+        run = periods.has(q) ? run + 1 : 0;
+        best = Math.max(best, run);
+      }
+      if (best > settings.tchConsecMax) {
+        ruleIssues.push(`${name} teaches ${best} in a row (max ${settings.tchConsecMax})`);
+      }
+    }
+    clashes.push(...Array.from(new Set(ruleIssues)));
 
     if (clashes.length > 0) {
       showToast({
         type: "warning",
-        title: "Swapped with Clash Warning",
-        description: clashes.slice(0, 2).join("; "),
+        title: "Swapped with Warnings",
+        description: clashes.slice(0, 3).join("; "),
       });
     } else {
       showToast({

@@ -7,7 +7,9 @@ import {
   RoutineTeacher,
   RoutineAssignment,
   RoutineSettings,
+  RoutineSubjectGroup,
 } from "@/lib/routine/types";
+import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +42,7 @@ interface RoutineAllotmentOverviewTabProps {
   teachers: RoutineTeacher[];
   assignments: RoutineAssignment[];
   settings: RoutineSettings;
+  groups?: RoutineSubjectGroup[];
 }
 
 interface TeacherAssignmentItem {
@@ -100,6 +103,7 @@ export function RoutineAllotmentOverviewTab({
   teachers,
   assignments,
   settings: _settings,
+  groups = [],
 }: RoutineAllotmentOverviewTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClass, setFilterClassState] = useState<string>(() => {
@@ -247,6 +251,8 @@ export function RoutineAllotmentOverviewTab({
       let totalClassDemand = 0;
       let totalClassAssigned = 0;
       let hasIssues = false;
+      const classGroupAllots = getClassGroupAllotments(cls.id, groups, subjects, teachers);
+      const countedGroups = new Set<string>();
 
       distinctSubjectNames.forEach((subName) => {
         const cleanSubName = subName.replace(/\s*\((Theory|Lab|Practical)\)/i, "").trim().toLowerCase();
@@ -261,10 +267,24 @@ export function RoutineAllotmentOverviewTab({
               : !s.className || s.className.trim().toLowerCase() === cls.className.trim().toLowerCase())
         );
 
-        const demandPeriods =
-          matchedSubject?.periodsPerWeek && matchedSubject.periodsPerWeek > 0
-            ? matchedSubject.periodsPerWeek
-            : 0;
+        // A subject that is an option of a group of this class is allotted through that group
+        let groupHit: { allot: (typeof classGroupAllots)[number]; teacher: RoutineTeacher | null } | null = null;
+        for (const allot of classGroupAllots) {
+          const opt = allot.options.find((o) => {
+            const n = o.subjectName.trim().toLowerCase();
+            return n === cleanSubName || n === subName.trim().toLowerCase();
+          });
+          if (opt) {
+            groupHit = { allot, teacher: opt.teacher };
+            break;
+          }
+        }
+
+        const demandPeriods = groupHit
+          ? groupHit.allot.periods
+          : matchedSubject?.periodsPerWeek && matchedSubject.periodsPerWeek > 0
+          ? matchedSubject.periodsPerWeek
+          : 0;
 
         const cellTeachers: TeacherAssignmentItem[] = [];
         let assignedPeriods = 0;
@@ -277,7 +297,19 @@ export function RoutineAllotmentOverviewTab({
           return cleanMatched === cleanSubName || matchedSub.name.trim().toLowerCase() === subName.trim().toLowerCase();
         });
 
-        if (directAssignments.length > 0) {
+        if (groupHit) {
+          if (groupHit.teacher) {
+            const tInfo = teacherCodeMap.get(groupHit.teacher.id);
+            cellTeachers.push({
+              teacherId: groupHit.teacher.id,
+              teacherName: groupHit.teacher.name,
+              teacherCode: tInfo?.code || groupHit.teacher.shortName || generateInitials(groupHit.teacher.name),
+              periods: groupHit.allot.periods,
+              subjectName: subName,
+            });
+            assignedPeriods = groupHit.allot.periods;
+          }
+        } else if (directAssignments.length > 0) {
           directAssignments.forEach((a) => {
             const tInfo = teacherCodeMap.get(a.teacherId);
             const t = tInfo?.teacher || teachers.find((t) => t.id === a.teacherId);
@@ -314,8 +346,12 @@ export function RoutineAllotmentOverviewTab({
           });
         }
 
-        totalClassDemand += demandPeriods;
-        totalClassAssigned += assignedPeriods;
+        // The options of one group share a single slot: count the group once in the class totals
+        if (!groupHit || !countedGroups.has(groupHit.allot.group.id)) {
+          totalClassDemand += demandPeriods;
+          totalClassAssigned += groupHit ? (groupHit.allot.complete ? demandPeriods : 0) : assignedPeriods;
+          if (groupHit) countedGroups.add(groupHit.allot.group.id);
+        }
 
         let status: CellAllotmentData["status"] = "balanced";
         let missingCount = 0;
@@ -356,7 +392,7 @@ export function RoutineAllotmentOverviewTab({
         hasIssues,
       };
     });
-  }, [classes, distinctSubjectNames, subjects, teachers, assignments, teacherCodeMap]);
+  }, [classes, distinctSubjectNames, subjects, teachers, assignments, teacherCodeMap, groups]);
 
   // 4. Compute Chart 2 Rows (Teacher Load Cross-Check)
   const teacherLoadRows: TeacherLoadRowData[] = useMemo(() => {
@@ -421,6 +457,14 @@ export function RoutineAllotmentOverviewTab({
             activeSubs = t.classSubjects?.[c.className] || [];
           }
 
+          // Group member subjects are counted through the group below, not the teacher profile
+          const groupMemberNames = new Set(
+            getClassGroupAllotments(c.id, groups, subjects, teachers).flatMap((a) =>
+              a.options.map((o) => o.subjectName.trim().toLowerCase())
+            )
+          );
+          activeSubs = activeSubs.filter((s) => !groupMemberNames.has(s.trim().toLowerCase()));
+
           activeSubs.forEach((subName) => {
             const matchedSubject = (subjects || []).find(
               (s) =>
@@ -459,6 +503,31 @@ export function RoutineAllotmentOverviewTab({
         });
       }
 
+      // Group load: a pooled group costs its slots once, a non-pooled one once per section
+      groups.forEach((g) => {
+        const perSlot = g.options.filter((o) => o.teacherId === t.id).length;
+        if (perSlot === 0 || g.sectionIds.length === 0) return;
+        const memberClasses = g.sectionIds
+          .map((id) => classes.find((cls) => cls.id === id))
+          .filter(Boolean) as RoutineClass[];
+        const first = memberClasses[0];
+        if (!first) return;
+        const periods =
+          perSlot * Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1) * (g.pooled ? 1 : memberClasses.length);
+        const subjectNames = g.options
+          .filter((o) => o.teacherId === t.id)
+          .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject")
+          .join(", ");
+        assignedClasses.push({
+          className: first.className,
+          section: memberClasses.map((m) => m.section).join("+"),
+          label: `${first.className}-${memberClasses.map((m) => m.section).join("+")}`,
+          subject: `${subjectNames} (${g.name})`,
+          periods,
+        });
+        totalAssignedPeriods += periods;
+      });
+
       let status: TeacherLoadRowData["status"] = "balanced";
       let overloadCount = 0;
       let hasIssues = false;
@@ -489,7 +558,7 @@ export function RoutineAllotmentOverviewTab({
         hasIssues,
       };
     });
-  }, [teachers, classes, assignments, subjects]);
+  }, [teachers, classes, assignments, subjects, groups]);
 
   // 5. Global Metrics & Balance Calculations
   const grandTotalDemand = useMemo(() => {

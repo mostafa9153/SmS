@@ -17,6 +17,12 @@ interface RoutineSettingsTabProps {
   isLoading?: boolean;
 }
 
+// Keep the previous value when the field is mid-edit (empty), instead of snapping to a default
+const clampInt = (raw: string, min: number, max: number, fallback: number) => {
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? fallback : Math.min(max, Math.max(min, n));
+};
+
 export function RoutineSettingsTab({
   settings: initialSettings,
   onSave,
@@ -162,7 +168,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    tchDailyMax: parseInt(e.target.value, 10) || 5,
+                    tchDailyMax: clampInt(e.target.value, 1, 10, settings.tchDailyMax),
                   })
                 }
                 className="h-9 text-xs"
@@ -179,7 +185,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    tchConsecMax: parseInt(e.target.value, 10) || 3,
+                    tchConsecMax: clampInt(e.target.value, 1, 8, settings.tchConsecMax),
                   })
                 }
                 className="h-9 text-xs"
@@ -196,7 +202,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    tchMinBefore: Math.max(0, parseInt(e.target.value, 10) || 0),
+                    tchMinBefore: clampInt(e.target.value, 0, 8, settings.tchMinBefore ?? 0),
                   })
                 }
                 className="h-9 text-xs"
@@ -213,7 +219,7 @@ export function RoutineSettingsTab({
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    tchMinAfter: Math.max(0, parseInt(e.target.value, 10) || 0),
+                    tchMinAfter: clampInt(e.target.value, 0, 8, settings.tchMinAfter ?? 0),
                   })
                 }
                 className="h-9 text-xs"

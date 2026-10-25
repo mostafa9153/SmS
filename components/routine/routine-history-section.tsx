@@ -209,7 +209,7 @@ export function RoutineHistorySection({
                           variant="secondary"
                           className="text-[10px] font-mono"
                         >
-                          {item.phase === 1 ? "Phase 1: Strict" : "Phase 2: Relaxed"}
+                          {item.phase === 1 ? "Phase 1: Strict" : `Phase ${item.phase}: Relaxed`}
                         </Badge>
                       )}
 

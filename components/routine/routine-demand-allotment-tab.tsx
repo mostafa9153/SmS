@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { getClassNumericRank, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 import {
   isHsClass,
+  normalizeSubjectName,
   detectSubjectStream,
   getConfiguredStreamsForClass,
   calculateClassWeeklyCapacity,
@@ -50,9 +51,8 @@ import {
   getTeacherSubjectPeriod,
   isTeacherAssignedToSubject,
   getEffectiveClassSubjects,
-  calculateClassGroupPeriods,
 } from "@/lib/routine/routine-helpers";
-import { getGroupsForClass } from "@/lib/routine/routine-groups";
+import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
 
 // Re-export for backward compatibility
@@ -144,6 +144,33 @@ export function RoutineDemandAllotmentTab({
       return a.section.localeCompare(b.section);
     });
 
+    // Group rows: each group is one line, its slot cost counted once, teachers from the group options
+    const groupRowsFor = (cls: RoutineClass, stream?: string | null) => {
+      const allots = getClassGroupAllotments(cls.id, groups, subjects, teachers).filter(
+        (a) => !a.group.stream || !stream || a.group.stream.toLowerCase() === stream.toLowerCase()
+      );
+      const items: ClassAllotmentRow["subjectList"] = allots.map((a) => ({
+        id: `group:${a.group.id}`,
+        name: `${a.group.name} (${a.options.map((o) => o.subjectName.replace(/\s*\([^)]*\)/g, "")).join(" / ")})`,
+        stream: null,
+        isCommon: false,
+        periods: a.periods,
+        assignedTeacher: a.options
+          .map((o) => o.teacher?.shortName || o.teacher?.name || "—")
+          .join(", "),
+        assignedTeachers: a.options
+          .filter((o) => o.teacher)
+          .map((o) => ({
+            teacherId: o.teacher!.id,
+            name: o.teacher!.name,
+            shortName: o.teacher!.shortName,
+            periods: a.periods,
+          })),
+        assignedPeriods: a.complete ? a.periods : 0,
+      }));
+      return { items, cost: allots.reduce((n, a) => n + a.periods, 0) };
+    };
+
     sortedClasses.forEach((cls) => {
       const isHs = isHsClass(cls.className);
       const weeklyCapacity = calculateClassWeeklyCapacity(cls, settings);
@@ -220,7 +247,7 @@ export function RoutineDemandAllotmentTab({
           const dedupedStreamSubs: RoutineSubject[] = [];
           const seenHs = new Set<string>();
           for (const s of streamSubs) {
-            const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+            const cName = normalizeSubjectName(s.name);
             const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
             const key = `${cName}::${streamKey}`;
             if (!seenHs.has(key)) {
@@ -229,12 +256,14 @@ export function RoutineDemandAllotmentTab({
             }
           }
 
-          const demand = dedupedStreamSubs.reduce(
-            (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
-            0
-          );
+          const groupInfo = groupRowsFor(cls, st);
+          const demand =
+            dedupedStreamSubs.reduce(
+              (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+              0
+            ) + groupInfo.cost;
 
-          const subjectList = dedupedStreamSubs.map((s) => {
+          const plainSubjectList = dedupedStreamSubs.map((s) => {
             const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
             const directAsgs = classAssignments.filter((a) => a.subjectId === s.id);
 
@@ -293,6 +322,7 @@ export function RoutineDemandAllotmentTab({
             };
           });
 
+          const subjectList = [...plainSubjectList, ...groupInfo.items];
           const assigned = subjectList.reduce((sum, item) => sum + item.assignedPeriods, 0);
 
           const gap = assigned - demand;
@@ -313,7 +343,7 @@ export function RoutineDemandAllotmentTab({
             section: cls.section,
             stream: st,
             isHs: true,
-            subjectsCount: dedupedStreamSubs.length,
+            subjectsCount: dedupedStreamSubs.length + groupInfo.items.length,
             demandPeriods: demand,
             capacityPeriods: weeklyCapacity,
             assignedPeriods: assigned,
@@ -351,19 +381,21 @@ export function RoutineDemandAllotmentTab({
         const dedupedSubs: RoutineSubject[] = [];
         const seen = new Set<string>();
         for (const s of classSubs) {
-          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const cName = normalizeSubjectName(s.name);
           if (!seen.has(cName)) {
             seen.add(cName);
             dedupedSubs.push(s);
           }
         }
 
-        const demand = dedupedSubs.reduce(
-          (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
-          0
-        );
+        const groupInfo = groupRowsFor(cls);
+        const demand =
+          dedupedSubs.reduce(
+            (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
+            0
+          ) + groupInfo.cost;
 
-        const subjectList = dedupedSubs.map((s) => {
+        const plainSubjectList = dedupedSubs.map((s) => {
           const defaultPeriods = s.periodsPerWeek || (s.isLab ? 2 : 5);
           const directAsgs = classAssignments.filter((a) => a.subjectId === s.id);
 
@@ -422,6 +454,7 @@ export function RoutineDemandAllotmentTab({
           };
         });
 
+        const subjectList = [...plainSubjectList, ...groupInfo.items];
         const assigned = subjectList.reduce((sum, item) => sum + item.assignedPeriods, 0);
 
         const gap = assigned - demand;
@@ -442,7 +475,7 @@ export function RoutineDemandAllotmentTab({
           section: cls.section,
           stream: null,
           isHs: false,
-          subjectsCount: dedupedSubs.length,
+          subjectsCount: dedupedSubs.length + groupInfo.items.length,
           demandPeriods: demand,
           capacityPeriods: weeklyCapacity,
           assignedPeriods: assigned,
@@ -455,7 +488,7 @@ export function RoutineDemandAllotmentTab({
     });
 
     return rows;
-  }, [classes, subjects, assignments, settings, teacherMap]);
+  }, [classes, subjects, teachers, assignments, settings, teacherMap, groups]);
 
   // Filtered rows
   const filteredRows = useMemo(() => {

@@ -476,7 +476,14 @@ export function TeacherEditorForm({
                     (sum, sec) => sum + calculateSectionTotalPeriods(c.name, sec),
                     0
                   ) + getClassGroupLoad(c.name);
-                const groupRows = getTeacherGroupRows(c.name, currentActiveSec);
+                // A single-section class has no "All Sections" tab, so class-wise groups show on its only section
+                const groupRows =
+                  allSecs.length <= 1
+                    ? [
+                        ...getTeacherGroupRows(c.name, "ALL"),
+                        ...getTeacherGroupRows(c.name, currentActiveSec),
+                      ]
+                    : getTeacherGroupRows(c.name, currentActiveSec);
 
                 return (
                   <div

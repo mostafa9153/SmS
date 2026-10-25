@@ -19,8 +19,12 @@ import {
   ValidationReport,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
-import { validateRoutineData, generateRoutine } from "@/lib/routine/routineGenerator";
-import { autoBuildRoutineAssignments } from "@/lib/routine/routine-auto-assign";
+import { validateRoutineData, generateRoutine, diagnoseRoutineData } from "@/lib/routine/routineGenerator";
+import {
+  autoBuildRoutineAssignments,
+  autoBuildRoutineAssignmentsWithReport,
+  assignmentsAreCurrent,
+} from "@/lib/routine/routine-auto-assign";
 import { RoutineGeneratorTab } from "@/components/routine/routine-generator-tab";
 import { RefreshCw } from "lucide-react";
 
@@ -77,20 +81,33 @@ export default function RoutineGeneratePage() {
     return built;
   };
 
+  // Stored assignments are used only while they still match the current data; otherwise rebuild
+  const resolveAssignments = () => {
+    if (assignmentsAreCurrent(assignments, classes, subjects, teachers, groups)) {
+      return { list: assignments, warnings: [] as string[], rebuilt: false };
+    }
+    const built = autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups);
+    return { list: built.assignments, warnings: built.warnings, rebuilt: true };
+  };
+
   const handleValidate = async (): Promise<ValidationReport> => {
-    const activeAssignments =
-      assignments.length > 0
-        ? assignments
-        : autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
-    return validateRoutineData(settings, classes, teachers, subjects, activeAssignments, rooms, groups);
+    const { list, warnings } = resolveAssignments();
+    const report = validateRoutineData(settings, classes, teachers, subjects, list, rooms, groups);
+    // Strict rules that are provably impossible and per-teacher adjustments: warnings, because the engine relaxes them
+    const { reasons, adjustments } = await diagnoseRoutineData(settings, classes, teachers, subjects, list, rooms, groups);
+    return {
+      ...report,
+      warnings: [...warnings, ...reasons.map((r) => r.title), ...adjustments, ...report.warnings],
+      diagnosticItems: [
+        ...(report.diagnosticItems || []),
+        ...reasons.map((r) => ({ ...r, severity: "warning" as const })),
+      ],
+    };
   };
 
   const handleGenerate = async (): Promise<GeneratedRoutine> => {
-    let activeAssignments = assignments;
-    if (activeAssignments.length === 0) {
-      activeAssignments = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
-      setAssignments(activeAssignments);
-    }
+    const { list: activeAssignments, rebuilt } = resolveAssignments();
+    if (rebuilt) setAssignments(activeAssignments);
     const result = await generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms, groups);
     if (result.success) {
       await saveGeneratedRoutineDb(result);

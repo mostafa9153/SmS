@@ -13,6 +13,7 @@ import {
   parseSectionAndStream,
   detectSubjectStream,
   getEffectiveClassSubjects,
+  normalizeSubjectName,
 } from "./routine-helpers";
 
 /**
@@ -27,8 +28,30 @@ export function autoBuildRoutineAssignments(
   rooms: RoutineRoom[] = [],
   groups: RoutineSubjectGroup[] = []
 ): RoutineAssignment[] {
+  return autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups).assignments;
+}
+
+export interface AutoAssignReport {
+  assignments: RoutineAssignment[];
+  /** Silent decisions the builder had to make; each one is something the owner may want to fix */
+  warnings: string[];
+}
+
+/**
+ * Same as autoBuildRoutineAssignments, but also returns every decision that overrode the
+ * configured data (unqualified fallback teacher, teacher period overrides, split totals).
+ */
+export function autoBuildRoutineAssignmentsWithReport(
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  teachers: RoutineTeacher[],
+  settings?: RoutineSettings,
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
+): AutoAssignReport {
+  const warnings: string[] = [];
   if (classes.length === 0 || subjects.length === 0 || teachers.length === 0) {
-    return [];
+    return { assignments: [], warnings };
   }
 
   const assignments: RoutineAssignment[] = [];
@@ -90,7 +113,7 @@ export function autoBuildRoutineAssignments(
     const matchingSubjects: RoutineSubject[] = [];
     const seenNames = new Set<string>();
     for (const s of rawMatchingSubjects) {
-      const canonicalName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+      const canonicalName = normalizeSubjectName(s.name);
       const key = `${canonicalName}::${(s.stream || detectSubjectStream(s.name) || "Common").toLowerCase()}`;
       if (!seenNames.has(key)) {
         seenNames.add(key);
@@ -300,6 +323,12 @@ export function autoBuildRoutineAssignments(
 
       if (explicitTeachers.length > 0) {
         // Allocate strictly the configured explicit periods without artificial inflation
+        const splitTotal = explicitTeachers.reduce((n, e) => n + e.periods, 0);
+        if (splitTotal !== weeklyPeriods) {
+          warnings.push(
+            `${cls.className} ${cls.section} - ${subj.name}: teachers' periods add up to ${splitTotal}, but the subject needs ${weeklyPeriods}`
+          );
+        }
         explicitTeachers.forEach(({ teacher, periods }) => {
           assignments.push({
             id: crypto.randomUUID(),
@@ -350,6 +379,11 @@ export function autoBuildRoutineAssignments(
           (a, b) => (teacherLoads[a.id] || 0) - (teacherLoads[b.id] || 0)
         );
         chosenTeacher = allSorted[0] || teachers[0];
+        if (chosenTeacher) {
+          warnings.push(
+            `${cls.className} ${cls.section} - ${subj.name}: no qualified teacher, gave it to ${chosenTeacher.name}`
+          );
+        }
       }
 
       if (chosenTeacher) {
@@ -379,6 +413,11 @@ export function autoBuildRoutineAssignments(
           customTeacherPeriods && customTeacherPeriods > 0
             ? customTeacherPeriods
             : weeklyPeriods;
+        if (effectivePeriods !== weeklyPeriods) {
+          warnings.push(
+            `${cls.className} ${cls.section} - ${subj.name}: ${chosenTeacher.name}'s period setting (${effectivePeriods}) replaced the subject's ${weeklyPeriods} p/wk`
+          );
+        }
 
         assignments.push({
           id: crypto.randomUUID(),
@@ -395,5 +434,42 @@ export function autoBuildRoutineAssignments(
     }
   }
 
-  return assignments;
+  return { assignments, warnings };
+}
+
+/**
+ * Stored assignments are only usable while they still describe the current data. After subjects,
+ * teachers, classes or groups change they go stale and must be rebuilt, never fed to the solver.
+ */
+export function assignmentsAreCurrent(
+  assignments: RoutineAssignment[],
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  teachers: RoutineTeacher[],
+  groups: RoutineSubjectGroup[] = []
+): boolean {
+  if (assignments.length === 0) return false;
+  const classIds = new Set(classes.map((c) => c.id));
+  const subjectById = new Map(subjects.map((s) => [s.id, s]));
+  const teacherIds = new Set(teachers.map((t) => t.id));
+  const grouped = new Map<string, Set<string>>();
+  for (const g of groups) {
+    for (const cid of g.sectionIds) {
+      const set = grouped.get(cid) || new Set<string>();
+      g.options.forEach((o) => set.add(o.subjectId));
+      grouped.set(cid, set);
+    }
+  }
+  const totals = new Map<string, number>();
+  for (const a of assignments) {
+    if (!classIds.has(a.classId) || !subjectById.has(a.subjectId) || !teacherIds.has(a.teacherId)) return false;
+    if (grouped.get(a.classId)?.has(a.subjectId)) return false;
+    const key = `${a.classId}::${a.subjectId}`;
+    totals.set(key, (totals.get(key) || 0) + a.periodsPerWeek);
+  }
+  for (const [key, total] of totals) {
+    const subj = subjectById.get(key.split("::")[1]);
+    if (subj && subj.periodsPerWeek && !subj.isLab && total !== subj.periodsPerWeek) return false;
+  }
+  return true;
 }

@@ -83,7 +83,15 @@ import {
   isHsClass,
   getConfiguredStreamsForClass,
   parseSectionAndStream,
+  calculateTotalSchoolSectionDemand,
 } from "@/lib/routine/routine-helpers";
+
+import {
+  subjectPeriods,
+  subjectDedupeKey,
+  dedupeSubjects,
+  sectionLoad,
+} from "@/lib/routine/routine-domain";
 
 // Re-export helpers for backward compatibility
 export {
@@ -94,36 +102,6 @@ export {
   parseSectionAndStream,
 };
 
-const subjectPeriods = (s: RoutineSubject) =>
-  s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5);
-
-// Same dedupe key the subjects table uses, so counts and totals always match the visible list
-const dedupeKey = (s: RoutineSubject, isHs: boolean) => {
-  const name = s.name.trim().toLowerCase().replace(/\s+/g, " ").trim();
-  const stream = isHs ? (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase() : "general";
-  return `${name}::${stream}`;
-};
-
-const dedupeSubjects = (list: RoutineSubject[], isHs: boolean) => {
-  const seen = new Set<string>();
-  return list.filter((s) => {
-    const key = dedupeKey(s, isHs);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
-// A group's members run in parallel in one slot, so the group costs its periods once, not per member
-const sectionLoad = (subs: RoutineSubject[], groupMemberIds: string[][]) => {
-  const grouped = new Set(groupMemberIds.flat());
-  let total = subs.filter((s) => !grouped.has(s.id)).reduce((sum, s) => sum + subjectPeriods(s), 0);
-  for (const ids of groupMemberIds) {
-    const members = subs.filter((s) => ids.includes(s.id));
-    if (members.length > 0) total += Math.max(...members.map(subjectPeriods));
-  }
-  return total;
-};
 
 interface RoutineSubjectsTabProps {
   subjects: RoutineSubject[];
@@ -424,15 +402,7 @@ export function RoutineSubjectsTab({
     // Strict deduplication by subject name + stream to guarantee zero duplicate rows
     const seen = new Map<string, RoutineSubject>();
     for (const s of list) {
-      const canonicalName = s.name
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, " ")
-        .trim();
-      const streamKey = isCurrentClassHs
-        ? (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase()
-        : "general";
-      const key = `${canonicalName}::${streamKey}`;
+      const key = subjectDedupeKey(s, isCurrentClassHs);
       if (!seen.has(key)) {
         seen.set(key, s);
       }
@@ -534,122 +504,10 @@ export function RoutineSubjectsTab({
 
 
   // Total weekly periods across ALL classes and sections combined (True School-wide Period Demand)
-  const totalSchoolSectionDemand = useMemo(() => {
-    if (!classes || classes.length === 0) {
-      return subjects.reduce(
-        (sum, s) => sum + (s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : (s.isLab ? 2 : 5)),
-        0
-      );
-    }
-
-    let totalDemand = 0;
-
-    classes.forEach((cls) => {
-      const clsLower = cls.className.toLowerCase();
-      const isHs = isHsClass(cls.className);
-
-      if (isHs) {
-        const configuredStreams = getConfiguredStreamsForClass(cls.className);
-        const { stream: parsedStream } = parseSectionAndStream(cls.section || "");
-        const sectionLower = (cls.section || "").toLowerCase();
-
-        let matchedStream: "Science" | "Commerce" | "Arts" | null = null;
-        if (parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all") {
-          const found = configuredStreams.find(
-            (st) => st.toLowerCase() === parsedStream.toLowerCase()
-          );
-          if (found) matchedStream = found;
-        }
-
-        if (!matchedStream) {
-          for (const st of configuredStreams) {
-            const stLower = st.toLowerCase();
-            if (
-              sectionLower === stLower ||
-              sectionLower.includes(`(${stLower})`) ||
-              sectionLower.includes(`-${stLower}`) ||
-              sectionLower.includes(` ${stLower}`) ||
-              sectionLower.includes(stLower)
-            ) {
-              matchedStream = st;
-              break;
-            }
-          }
-        }
-
-        const streamsToProcess = matchedStream ? [matchedStream] : configuredStreams;
-        const explicitClassSubs = subjects.filter(
-          (s) => s.className && s.className.toLowerCase() === clsLower
-        );
-        const hasExplicitSubs = explicitClassSubs.length > 0;
-
-        streamsToProcess.forEach((st) => {
-          const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
-          const streamSubs = candidates.filter((s) => {
-            if (s.className && s.className.toLowerCase() !== clsLower) return false;
-            const detStream = detectSubjectStream(s.name, s.stream);
-            const isStreamMatch = detStream === "Common" || s.isCommon || detStream === st;
-            if (!isStreamMatch) return false;
-            if (hasExplicitSubs) {
-              return Boolean(s.className && s.className.toLowerCase() === clsLower);
-            }
-            const hsPresetSubs = [
-              ...HS_STREAM_PRESETS.Common,
-              ...(HS_STREAM_PRESETS[st] || []),
-            ].map((p) => p.toLowerCase());
-            return hsPresetSubs.includes(s.name.trim().toLowerCase());
-          });
-
-          const dedupedStreamSubs: RoutineSubject[] = [];
-          const seenHs = new Set<string>();
-          for (const s of streamSubs) {
-            const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-            const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
-            const key = `${cName}::${streamKey}`;
-            if (!seenHs.has(key)) {
-              seenHs.add(key);
-              dedupedStreamSubs.push(s);
-            }
-          }
-
-          const demand = dedupedStreamSubs.reduce(
-            (sum, s) => sum + (s.periodsPerWeek || (s.isLab ? 2 : 5)),
-            0
-          );
-          totalDemand += demand;
-        });
-      } else {
-        const explicitClassSubs = subjects.filter(
-          (s) => s.className && s.className.toLowerCase() === clsLower
-        );
-        const hasExplicitSubs = explicitClassSubs.length > 0;
-        const presets = new Set(
-          getDatabaseSubjectsForClass(cls.className).map((sub: string) => sub.trim().toLowerCase())
-        );
-
-        const candidates = hasExplicitSubs ? explicitClassSubs : subjects;
-        const classSubs = candidates.filter((s) => {
-          if (s.className && s.className.toLowerCase() !== clsLower) return false;
-          if (hasExplicitSubs) {
-            return Boolean(s.className && s.className.toLowerCase() === clsLower);
-          }
-          return presets.has(s.name.trim().toLowerCase());
-        });
-
-        const dedupedSubs = dedupeSubjects(classSubs, false);
-        const sectionGroupIds = groups
-          .filter((g) =>
-            g.scope === "class"
-              ? (g.className || "").trim().toLowerCase() === clsLower
-              : g.sectionIds.includes(cls.id)
-          )
-          .map((g) => g.options.map((o) => o.subjectId));
-        totalDemand += sectionLoad(dedupedSubs, sectionGroupIds);
-      }
-    });
-
-    return totalDemand;
-  }, [classes, subjects, groups]);
+  const totalSchoolSectionDemand = useMemo(
+    () => calculateTotalSchoolSectionDemand(classes || [], subjects, groups),
+    [classes, subjects, groups]
+  );
 
   // Specific class sections and their combined period load
   const activeClassSections = useMemo(() => {

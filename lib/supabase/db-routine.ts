@@ -11,7 +11,7 @@ import {
   GeneratedRoutine,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
-import { sanitizeTeacherSubjectPeriods, isHsClass } from "@/lib/routine/routine-helpers";
+import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
 
 export interface RoutineFullState {
   settings: RoutineSettings;
@@ -215,12 +215,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
 
         const getCanonicalKey = (s: RoutineSubject) => {
           const cls = (s.className || "").trim().toLowerCase();
-          const normName = s.name
-            .trim()
-            .toLowerCase()
-            .replace(/\s*\([^)]*\)/g, "")
-            .replace(/\s+/g, " ")
-            .trim();
+          const normName = normalizeSubjectName(s.name);
           // Streams only exist in HS classes; elsewhere a stray stream value must not split a subject
           const stream = isHsClass(s.className || "") ? (s.stream || "general").trim().toLowerCase() : "general";
           return `${cls}::${normName}::${stream}`;
@@ -397,6 +392,8 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
           teacherId: a.teacher_id,
           roomId: a.room_id,
           periodsPerWeek: a.periods_per_week,
+          // is_lab exists only after the 20261026 migration; absent means "unknown", not "theory"
+          isLab: a.is_lab === undefined || a.is_lab === null ? undefined : Boolean(a.is_lab),
         }));
       } else if (asgRows && asgRows.length === 0 && !local?.assignments?.length) {
         assignments = [];
@@ -484,19 +481,31 @@ export async function saveRoutineSettingsDb(settings: RoutineSettings): Promise<
       updated_at: new Date().toISOString(),
     };
 
-    if (settings.id) {
-      const { error } = await supabase
+    // Settings are a single logical row: always update the row the loader reads (latest updated_at),
+    // and only insert when none exists. A failed update must not spawn a second row.
+    let targetId = settings.id;
+    if (!targetId) {
+      const { data: latest } = await supabase
         .from("routine_settings")
-        .update(payload)
-        .eq("id", settings.id);
-      if (!error) return true;
+        .select("id")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      targetId = latest?.id;
+    }
+
+    if (targetId) {
+      const { error } = await supabase.from("routine_settings").update(payload).eq("id", targetId);
+      if (error) console.warn("saveRoutineSettingsDb update failed:", error.message);
+      return !error;
     }
 
     const { error: insErr } = await supabase.from("routine_settings").insert(payload);
+    if (insErr) console.warn("saveRoutineSettingsDb insert failed:", insErr.message);
     return !insErr;
   } catch (err) {
     console.warn("saveRoutineSettingsDb warning:", err);
-    return true;
+    return false;
   }
 }
 
@@ -728,23 +737,13 @@ export async function upsertSubjectDb(subj: {
   const local = getLocalRoutineState() || {};
   const currentSubjects: RoutineSubject[] = local.subjects || [];
 
-  const canonicalName = subj.name
-    .trim()
-    .toLowerCase()
-    .replace(/\s*\([^)]*\)/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const canonicalName = normalizeSubjectName(subj.name);
   const normalizedClass = (subj.className || "").trim().toLowerCase();
   const normalizedStream = (subj.stream || "general").trim().toLowerCase();
 
   const existingIdx = currentSubjects.findIndex((s) => {
     if (subj.id && s.id === subj.id) return true;
-    const sCanonical = s.name
-      .trim()
-      .toLowerCase()
-      .replace(/\s*\([^)]*\)/g, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const sCanonical = normalizeSubjectName(s.name);
     const sClass = (s.className || "").trim().toLowerCase();
     const sStream = (s.stream || "general").trim().toLowerCase();
 
@@ -1145,6 +1144,36 @@ export async function deleteTeacherDb(id: string): Promise<boolean> {
   }
 }
 
+type AssignmentRow = {
+  id: string;
+  class_id: string;
+  subject_id: string;
+  teacher_id: string;
+  room_id: string | null;
+  periods_per_week: number;
+  is_lab: boolean;
+};
+
+/**
+ * Writes assignment parts. Uses the part-aware key (needs the 20261026 migration); if the database is
+ * still on the old schema it falls back to the legacy shape, which cannot hold split parts.
+ */
+async function writeAssignmentRows(rows: AssignmentRow[]): Promise<string | null> {
+  const supabase = createClient();
+  const modern = await supabase
+    .from("routine_assignments")
+    .upsert(rows, { onConflict: "class_id,subject_id,teacher_id,is_lab" });
+  if (!modern.error) return null;
+
+  const legacy = await supabase
+    .from("routine_assignments")
+    .upsert(
+      rows.map(({ is_lab: _isLab, ...rest }) => rest),
+      { onConflict: "class_id,subject_id" }
+    );
+  return legacy.error ? legacy.error.message : null;
+}
+
 /**
  * Upsert Assignment
  */
@@ -1155,6 +1184,7 @@ export async function upsertAssignmentDb(asg: {
   teacherId: string;
   roomId?: string | null;
   periodsPerWeek: number;
+  isLab?: boolean;
 }): Promise<string> {
   const isUuid = (str?: string) =>
     str ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) : false;
@@ -1169,8 +1199,17 @@ export async function upsertAssignmentDb(asg: {
     teacherId: asg.teacherId,
     roomId: asg.roomId || null,
     periodsPerWeek: asg.periodsPerWeek,
+    isLab: asg.isLab,
   };
-  const idx = current.findIndex((a) => a.id === id || (a.classId === asg.classId && a.subjectId === asg.subjectId));
+  // A class-subject can have several parts (teachers / theory+lab): match on the whole part
+  const idx = current.findIndex(
+    (a) =>
+      a.id === id ||
+      (a.classId === asg.classId &&
+        a.subjectId === asg.subjectId &&
+        a.teacherId === asg.teacherId &&
+        Boolean(a.isLab) === Boolean(asg.isLab))
+  );
   let next: RoutineAssignment[];
   if (idx > -1) {
     next = [...current];
@@ -1180,9 +1219,8 @@ export async function upsertAssignmentDb(asg: {
   }
   setLocalRoutineState({ assignments: next });
 
-  const supabase = createClient();
   try {
-    await supabase.from("routine_assignments").upsert(
+    const failure = await writeAssignmentRows([
       {
         id,
         class_id: asg.classId,
@@ -1190,9 +1228,10 @@ export async function upsertAssignmentDb(asg: {
         teacher_id: asg.teacherId,
         room_id: asg.roomId || null,
         periods_per_week: asg.periodsPerWeek,
+        is_lab: Boolean(asg.isLab),
       },
-      { onConflict: "class_id,subject_id" }
-    );
+    ]);
+    if (failure) console.warn("upsertAssignmentDb failed:", failure);
   } catch (err) {
     console.warn("upsertAssignmentDb:", err);
   }
@@ -1217,22 +1256,20 @@ export async function batchUpsertAssignmentsDb(
 
   if (!validAsgList || validAsgList.length === 0) return true;
 
-  const supabase = createClient();
-  const rows = validAsgList.map((asg) => ({
+  const rows: AssignmentRow[] = validAsgList.map((asg) => ({
     id: asg.id,
     class_id: asg.classId,
     subject_id: asg.subjectId,
     teacher_id: asg.teacherId,
     room_id: asg.roomId || null,
     periods_per_week: asg.periodsPerWeek,
+    is_lab: Boolean(asg.isLab),
   }));
 
   try {
-    const { error } = await supabase
-      .from("routine_assignments")
-      .upsert(rows, { onConflict: "class_id,subject_id" });
-    if (error) {
-      console.warn("batchUpsertAssignmentsDb error:", error);
+    const failure = await writeAssignmentRows(rows);
+    if (failure) {
+      console.warn("batchUpsertAssignmentsDb error:", failure);
       return false;
     }
     return true;
@@ -1253,7 +1290,11 @@ export async function deleteAssignmentDb(id: string): Promise<boolean> {
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_assignments").delete().eq("id", id);
+    const { error } = await supabase.from("routine_assignments").delete().eq("id", id);
+    if (error) {
+      console.warn("deleteAssignmentDb failed:", error.message);
+      return false;
+    }
     return true;
   } catch (err) {
     console.warn("deleteAssignmentDb:", err);

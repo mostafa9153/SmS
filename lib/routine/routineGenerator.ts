@@ -1,9 +1,7 @@
 /**
- * Routine Forge Pro - Constraint Satisfaction Engine (TypeScript)
- * 
- * Optimized Two-Phase Backtracking Solver with MRV (Minimum Remaining Values),
- * Degree Heuristics, Least Constraining Value (LCV) domain scoring,
- * Lab double-period support, Room arbitration, Burnout limits, and Half-day bounds.
+ * Routine generation client (the solver itself is OR-Tools CP-SAT in python-backend/main.py).
+ * This file validates data before generating (validatePreconditions), builds the payload, and calls
+ * /api/routine/generate (solve) or /api/routine/diagnose (diagnose).
  */
 
 import {
@@ -321,19 +319,8 @@ export class RoutineSolver {
         const configuredMaxDaily = subj.allowMultiplePerDay ? (subj.maxPerDay || 2) : 1;
         const maxCapacity = daysCount * configuredMaxDaily;
 
-        if (asg.periodsPerWeek > maxCapacity) {
-          const err = `Class ${cls?.className || '?'}: ${subj.name} requires ${asg.periodsPerWeek} p/wk but maximum daily cap is ${configuredMaxDaily}/day (${maxCapacity} max across ${daysCount} days).`;
-          errors.push(err);
-          diagnosticItems.push({
-            type: 'capacity_overflow',
-            severity: 'error',
-            className: cls?.className,
-            subjectName: subj.name,
-            title: `Subject Daily Capacity Exceeded: ${subj.name}`,
-            description: `${subj.name} requires ${asg.periodsPerWeek} periods but only ${maxCapacity} can fit with max ${configuredMaxDaily} per day.`,
-            solution: 'Enable "Allow Multiple Periods Per Day" for this subject in Subjects tab.',
-          });
-        }
+        // The engine raises a subject's per-day cap itself when the weekly periods need it
+        // (ceil(periods / days)), so the configured cap alone can never make a subject impossible.
 
         // Half-Day Saturation Check: when periodsPerWeek <= daysCount but > fullDaysCount and !allowMultiplePerDay
         if (halfDaysCount > 0 && asg.periodsPerWeek > fullDaysCount && asg.periodsPerWeek <= maxCapacity && !subj.allowMultiplePerDay) {
@@ -383,24 +370,24 @@ export class RoutineSolver {
     };
   }
 
-  public async solve(maxIterations: number = 140000): Promise<GeneratedRoutine> {
-    try {
-      const solverGroups = buildSolverGroups(this.groups).map((g) => ({
-        gid: g.gid,
-        name: g.name,
-        classIds: g.classIds,
-        periodsPerWeek: g.periodsPerWeek,
-        periodSize: g.periodSize,
-        timePref: g.timePref,
-        maxPerDay: g.maxPerDay,
-        options: g.options.map((o) => ({
-          subjectId: o.subjectId,
-          teacherId: o.teacherId,
-          roomId: o.roomId ?? null,
-        })),
-      }));
+  private buildPayload() {
+    const solverGroups = buildSolverGroups(this.groups).map((g) => ({
+      gid: g.gid,
+      name: g.name,
+      classIds: g.classIds,
+      periodsPerWeek: g.periodsPerWeek,
+      periodSize: g.periodSize,
+      timePref: g.timePref,
+      maxPerDay: g.maxPerDay,
+      options: g.options.map((o) => ({
+        subjectId: o.subjectId,
+        teacherId: o.teacherId,
+        roomId: o.roomId ?? null,
+      })),
+    }));
 
-      const payload = {
+    return {
+      payload: {
         settings: this.settings,
         classes: this.classes,
         teachers: Array.from(this.teachers.values()),
@@ -408,7 +395,32 @@ export class RoutineSolver {
         assignments: this.assignments,
         rooms: Array.from(this.rooms.values()),
         groups: solverGroups,
-      };
+      },
+      solverGroups,
+    };
+  }
+
+  /**
+   * Fast counting checks from the solver (no solving): which strict rules are provably impossible,
+   * and which per-teacher adjustments the engine will make. Returns empty lists if the solver is offline.
+   */
+  public async diagnose(): Promise<{ reasons: DiagnosticItem[]; adjustments: string[] }> {
+    try {
+      const res = await fetch('/api/routine/diagnose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(this.buildPayload().payload),
+      });
+      const data = await res.json();
+      return { reasons: data.reasons || [], adjustments: data.adjustments || [] };
+    } catch {
+      return { reasons: [], adjustments: [] };
+    }
+  }
+
+  public async solve(maxIterations: number = 140000): Promise<GeneratedRoutine> {
+    try {
+      const { payload, solverGroups } = this.buildPayload();
 
       const res = await fetch('/api/routine/generate', {
         method: 'POST',
@@ -509,6 +521,21 @@ export function validateRoutineData(
 ): ValidationReport {
   const solver = new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms, groups);
   return solver.validatePreconditions();
+}
+
+/**
+ * Top-level convenience diagnosis function (strict-rule impossibilities and engine adjustments)
+ */
+export async function diagnoseRoutineData(
+  settings: RoutineSettings,
+  classes: RoutineClass[],
+  teachers: RoutineTeacher[],
+  subjects: RoutineSubject[],
+  assignments: RoutineAssignment[],
+  rooms: RoutineRoom[] = [],
+  groups: RoutineSubjectGroup[] = []
+) {
+  return new RoutineSolver(settings, classes, teachers, subjects, assignments, rooms, groups).diagnose();
 }
 
 /**

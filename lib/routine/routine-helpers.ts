@@ -489,6 +489,19 @@ export function formatSectionAndStream(sec: string, str: string): string {
 /**
  * Checks if a class is an Higher Secondary (XI / XII / 11 / 12) class
  */
+/**
+ * The one rule for "is this the same subject name": lowercase, single spaces, and any "(...)" note
+ * such as "(3rd Language)" dropped, except Theory/Lab/Practical, which name different parts.
+ */
+export function normalizeSubjectName(name: string): string {
+  return (name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\((?!theory\)|lab\)|practical\))[^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function isHsClass(className: string, code?: string): boolean {
   const norm = (code || className || "").trim().toUpperCase().replace(/^CLASS\s*[-_]?\s*/i, "");
   return (
@@ -830,7 +843,7 @@ export function calculateTotalSchoolSectionDemand(
         const dedupedStreamSubs: RoutineSubject[] = [];
         const seenHs = new Set<string>();
         for (const s of streamSubs) {
-          const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+          const cName = normalizeSubjectName(s.name);
           const streamKey = (s.stream || detectSubjectStream(s.name) || "Common").toLowerCase();
           const key = `${cName}::${streamKey}`;
           if (!seenHs.has(key)) {
@@ -867,7 +880,7 @@ export function calculateTotalSchoolSectionDemand(
       const dedupedSubs: RoutineSubject[] = [];
       const seen = new Set<string>();
       for (const s of classSubs) {
-        const cName = s.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
+        const cName = normalizeSubjectName(s.name);
         if (!seen.has(cName)) {
           seen.add(cName);
           dedupedSubs.push(s);
