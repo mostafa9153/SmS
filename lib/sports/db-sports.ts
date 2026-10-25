@@ -48,7 +48,7 @@ export async function getSportsEvents(academicYear?: number): Promise<SportsEven
         if (r.best_score && String(r.best_score).trim() !== "") {
           scoredMap[r.event_id] = (scoredMap[r.event_id] || 0) + 1;
         }
-        if (r.rank_position && r.rank_position > 0) {
+        if (r.rank_position && r.rank_position >= 1 && r.rank_position <= 3) {
           podiumMap[r.event_id] = (podiumMap[r.event_id] || 0) + 1;
         }
       });
@@ -86,7 +86,7 @@ export async function getSportsEvents(academicYear?: number): Promise<SportsEven
     if (r.bestScore && r.bestScore.trim() !== "") {
       scoredMap[r.eventId] = (scoredMap[r.eventId] || 0) + 1;
     }
-    if (r.rankPosition && r.rankPosition > 0) {
+    if (r.rankPosition && r.rankPosition >= 1 && r.rankPosition <= 3) {
       podiumMap[r.eventId] = (podiumMap[r.eventId] || 0) + 1;
     }
   });

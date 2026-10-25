@@ -39,6 +39,14 @@ const RANK_STYLE: Record<number, string> = {
 };
 const RANK_MEDAL: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
+const ordinal = (n: number) => {
+  const suffix = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${suffix[(v - 20) % 10] || suffix[v] || "th"}`;
+};
+
+const isPodium = (rank?: number | null) => !!rank && rank >= 1 && rank <= 3;
+
 export default function SportsResultsPage() {
   const params = useParams();
   const eventId = params.id as string;
@@ -118,7 +126,7 @@ function SportsResultsView({ eventId }: { eventId: string }) {
     return row.bestScore;
   };
 
-  // Top 3 distinct scores get 1st/2nd/3rd; ties share a rank
+  // Every scored athlete gets a rank; equal scores share a rank (1, 1, 3)
   const rankAll = (scoreMap: Record<string, ScoreRow>): Record<string, ScoreRow> => {
     const entries = participants
       .map((p) => ({ id: p.studentId, best: toNum(scoreMap[p.studentId]?.bestScore ?? "") }))
@@ -128,11 +136,11 @@ function SportsResultsView({ eventId }: { eventId: string }) {
     const result: Record<string, ScoreRow> = {};
     for (const id in scoreMap) result[id] = { ...scoreMap[id], rankPosition: null };
 
-    let currentRank = 1;
-    for (let i = 0; i < entries.length && currentRank <= 3; i++) {
-      result[entries[i].id] = { ...result[entries[i].id], rankPosition: currentRank };
-      if (!(i + 1 < entries.length && entries[i + 1].best === entries[i].best)) currentRank++;
-    }
+    entries.forEach((entry, i) => {
+      const tiedWithPrev = i > 0 && entries[i - 1].best === entry.best;
+      const rank = tiedWithPrev ? result[entries[i - 1].id].rankPosition : i + 1;
+      result[entry.id] = { ...result[entry.id], rankPosition: rank };
+    });
     return result;
   };
 
@@ -184,7 +192,7 @@ function SportsResultsView({ eventId }: { eventId: string }) {
   const podium = useMemo(
     () =>
       participants
-        .filter((p) => (scores[p.studentId]?.rankPosition || 0) > 0)
+        .filter((p) => isPodium(scores[p.studentId]?.rankPosition))
         .sort((a, b) => (scores[a.studentId]!.rankPosition || 9) - (scores[b.studentId]!.rankPosition || 9)),
     [participants, scores]
   );
@@ -192,7 +200,7 @@ function SportsResultsView({ eventId }: { eventId: string }) {
   const filteredParticipants = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return participants.filter((p) => {
-      if (rankFilter === "podium" && !((scores[p.studentId]?.rankPosition || 0) > 0)) return false;
+      if (rankFilter === "podium" && !isPodium(scores[p.studentId]?.rankPosition)) return false;
       if (!q) return true;
       const haystack = [
         p.studentName,
@@ -471,9 +479,11 @@ function SportsResultsView({ eventId }: { eventId: string }) {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">No rank</SelectItem>
-                              <SelectItem value="1">🥇 1st</SelectItem>
-                              <SelectItem value="2">🥈 2nd</SelectItem>
-                              <SelectItem value="3">🥉 3rd</SelectItem>
+                              {participants.map((_, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>
+                                  {RANK_MEDAL[i + 1] ? `${RANK_MEDAL[i + 1]} ${ordinal(i + 1)}` : ordinal(i + 1)}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                           <Input

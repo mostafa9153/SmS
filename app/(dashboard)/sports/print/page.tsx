@@ -112,7 +112,7 @@ function SportsPrintStudioContent() {
   );
 
   const winners = participants
-    .filter((p) => p.rankPosition && p.rankPosition > 0)
+    .filter((p) => p.rankPosition && p.rankPosition >= 1 && p.rankPosition <= 3)
     .sort((a, b) => (a.rankPosition || 99) - (b.rankPosition || 99));
 
   const certificatesToRender =
