@@ -51,13 +51,13 @@ import {
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
 
-type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker";
-const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker"];
+type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker" | "others";
+const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker", "others"];
 
 interface GeneratorModule {
   id: string;
   title: string;
-  category: "certificates" | "exams" | "admissions" | "tracker";
+  category: "certificates" | "exams" | "admissions" | "tracker" | "others";
   categoryLabel: string;
   formatBadge: string;
   formatVariant?: "default" | "emerald" | "amber" | "sky" | "purple" | "outline";
@@ -110,8 +110,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "student-id-cards",
     title: "Student ID Card Studio",
-    category: "certificates",
-    categoryLabel: "Certificates & IDs",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "CR80 PVC Single",
     formatVariant: "sky",
     description:
@@ -177,8 +177,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "blank-pad",
     title: "Official Blank Pad",
-    category: "certificates",
-    categoryLabel: "Certificates & Stationery",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "A4 / A5 Portrait",
     formatVariant: "amber",
     description:
@@ -210,8 +210,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     {
     id: "sports-meet-studio",
     title: "Sports Meet & Certificates",
-    category: "certificates",
-    categoryLabel: "Sports & Events",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "Bibs & Certs",
     formatVariant: "emerald",
     description:
@@ -322,8 +322,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "class-teacher-list",
     title: "Class Teacher List",
-    category: "admissions",
-    categoryLabel: "Records & Lists",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "A4 / A5 / A3",
     formatVariant: "purple",
     description:
@@ -823,6 +823,18 @@ function GenerateHubPageContent() {
             )}
           >
             Tracker (1)
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("others")}
+            className={cn(
+              "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer active:scale-95 whitespace-nowrap",
+              selectedCategory === "others"
+                ? "bg-slate-600 text-white shadow-xs"
+                : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            Others ({GENERATOR_MODULES.filter((m) => m.category === "others").length})
           </button>
         </div>
 
