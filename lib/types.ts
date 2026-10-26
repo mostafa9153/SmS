@@ -325,6 +325,7 @@ export interface StudentResult {
   rankInSection?: number;
   rankInClass?: number;
   subjectMarks?: SubjectMarksMap;
+  hasRecordedMarks?: boolean;
   evaluatedStatus?: StudentStatus;
   remarks?: string;
   batchId?: string;
@@ -353,6 +354,7 @@ export interface ResultEntryInput {
   fullMarks: number;
   marksObtained: number;
   subjectMarks?: SubjectMarksMap;
+  hasRecordedMarks?: boolean;
   evaluatedStatus?: StudentStatus;
   remarks?: string;
   batchId?: string;

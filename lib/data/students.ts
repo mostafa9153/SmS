@@ -559,6 +559,30 @@ export async function executeCohortPromotion(params: {
     throw new Error(err.error || "Cohort promotion execution failed");
   }
 
+  const result = await res.json();
+  if (result.success === false && Array.isArray(result.failed) && result.failed.length > 0) {
+    throw new Error(`${result.failed.length} student(s) failed to update: ${result.failed[0].error}`);
+  }
+  return result;
+}
+
+export async function undoCohortPromotion(params: {
+  sourceClass?: string;
+  academicYear?: number;
+  studentIds?: string[];
+  resetToContinuing?: boolean;
+}) {
+  const res = await fetch("/api/students/promotion/undo", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to rollback promotion");
+  }
+
   return res.json();
 }
 

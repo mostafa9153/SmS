@@ -601,6 +601,7 @@ export function evaluateStudentPromotionEligibility(params: {
   marksObtained: number;
   fullMarks?: number;
   subjectMarks?: SubjectMarksMap;
+  hasRecordedMarks?: boolean;
   historicalSemesterResults?: {
     sem1?: StudentResult | null;
     sem2?: StudentResult | null;
@@ -646,6 +647,31 @@ export function evaluateStudentPromotionEligibility(params: {
       compulsoryPassed: true,
       subjectDetails: [],
       reason: "RTE Act Government Policy: 100% Auto-Promotion to Next Higher Class.",
+    };
+  }
+
+  // 1b. If no exam marks are recorded for this student in the selected evaluation exam
+  if (params.hasRecordedMarks === false) {
+    return {
+      studentId: params.studentId,
+      studentName: params.studentName,
+      currentClass: standardClass,
+      currentSemester: currentSemester,
+      academicYear: params.academicYear,
+      eligibleStatus: "Continuing",
+      targetClass: standardClass,
+      targetSemester: currentSemester,
+      targetStudentType: "active",
+      isAutoPass: false,
+      totalMarksObtained: 0,
+      totalFullMarks: params.fullMarks || 500,
+      overallPercentage: 0,
+      passedSubjectsCount: 0,
+      failedSubjectsCount: 0,
+      failedSubjectNames: [],
+      compulsoryPassed: true,
+      subjectDetails: [],
+      reason: "No marks recorded for selected evaluation exam. Active continuing status preserved.",
     };
   }
 

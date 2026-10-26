@@ -129,6 +129,7 @@ export async function dbGetResultsByClass(
         marksObtained: marksObt,
         fullMarks,
         subjectMarks: existing.subject_marks || {},
+        hasRecordedMarks: true,
       });
 
       return {
@@ -147,6 +148,7 @@ export async function dbGetResultsByClass(
         rankInSection: existing.rank_in_section ?? undefined,
         rankInClass: existing.rank_in_class ?? undefined,
         subjectMarks: existing.subject_marks || {},
+        hasRecordedMarks: true,
         evaluatedStatus: evaluation.eligibleStatus,
         remarks: existing.remarks || undefined,
         createdAt: existing.created_at,
@@ -174,6 +176,7 @@ export async function dbGetResultsByClass(
       marksObtained: 0,
       fullMarks,
       subjectMarks: {},
+      hasRecordedMarks: false,
     });
 
     return {
@@ -189,6 +192,7 @@ export async function dbGetResultsByClass(
       marksObtained: 0,
       percentage: 0,
       grade: undefined,
+      hasRecordedMarks: false,
       rankInSection: undefined,
       rankInClass: undefined,
       evaluatedStatus: evaluation.eligibleStatus,

@@ -9,6 +9,7 @@ import {
   getDistinctSections,
   getClassResults,
   executeCohortPromotion,
+  undoCohortPromotion,
 } from "@/lib/data/students";
 import type { StudentStatus, Semester, StudentResult } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -104,6 +105,8 @@ function PromotionPageContent() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [manualOverrides, setManualOverrides] = useState<Record<string, ManualOverrideData>>({});
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [undoModalOpen, setUndoModalOpen] = useState(false);
+  const [bulkStatus, setBulkStatus] = useState<StudentStatus>("Promoted But Not Admitted");
   const [executionResult, setExecutionResult] = useState<any>(null);
 
   const isHS = selectedClass === "XI" || selectedClass === "XII";
@@ -210,7 +213,9 @@ function PromotionPageContent() {
 
     return eligibleStudents.map((s) => {
       const res = resultsMap.get(s.id);
-      const marksObtained = res ? Number(res.marksObtained) : 0;
+      const isVirtual = !res || res.id?.startsWith("virtual-") || res.hasRecordedMarks === false;
+      const hasRecordedMarks = !isVirtual;
+      const marksObtained = hasRecordedMarks ? Number(res?.marksObtained || 0) : 0;
       const fullMarks = res ? Number(res.fullMarks) : (classResultsSummary?.fullMarks || 500);
 
       const autoEval = evaluateStudentPromotionEligibility({
@@ -222,7 +227,8 @@ function PromotionPageContent() {
         examName: selectedExam,
         marksObtained,
         fullMarks,
-        subjectMarks: res?.subjectMarks || {},
+        subjectMarks: hasRecordedMarks ? (res?.subjectMarks || {}) : {},
+        hasRecordedMarks,
         policy,
       });
 
@@ -242,6 +248,7 @@ function PromotionPageContent() {
       return {
         student: s,
         result: res,
+        hasRecordedMarks,
         marksObtained,
         fullMarks,
         percentage: autoEval.overallPercentage,
@@ -515,6 +522,85 @@ function PromotionPageContent() {
     setManualOverrides({});
   }
 
+  function handleApplyBulkOverride(status: StudentStatus) {
+    if (selectedIds.size === 0) return;
+    const nextOverrides = { ...manualOverrides };
+    for (const id of selectedIds) {
+      const item = evaluatedCohortWithRolls.find((s) => s.student.id === id);
+      if (!item) continue;
+      const currClass = item.student.presentClass;
+      let targetClass = currClass;
+      let targetSemester: Semester | null = item.student.presentSemester || null;
+
+      if (status === "Promoted But Not Admitted") {
+        const nextMap: Record<string, string> = {
+          V: "VI", VI: "VII", VII: "VIII", VIII: "IX", IX: "X", X: "XI", XI: "XII",
+        };
+        targetClass = nextMap[currClass] || currClass;
+        if (currClass === "XI") {
+          targetSemester = "Sem 3";
+        } else {
+          targetSemester = null;
+        }
+      } else if (status === "Continuing") {
+        targetClass = currClass;
+        if (currClass === "XI") targetSemester = "Sem 2";
+        else if (currClass === "XII") targetSemester = "Sem 4";
+        else targetSemester = null;
+      } else if (status === "Sent Up M.P.") {
+        targetClass = "X";
+        targetSemester = null;
+      } else if (status === "10th test fail") {
+        targetClass = "X";
+        targetSemester = null;
+      } else if (status === "Supplementary") {
+        targetClass = "XI";
+        targetSemester = "Sem 2";
+      } else if (status === "Compartmental") {
+        targetClass = "XII";
+        targetSemester = "Sem 4";
+      } else if (status === "C.C.H.S.") {
+        targetClass = "XII";
+        targetSemester = "Sem 4";
+      } else if (status === "Detained") {
+        targetClass = currClass;
+        if (currClass === "XI") targetSemester = "Sem 1";
+        else if (currClass === "XII") targetSemester = "Sem 3";
+        else targetSemester = null;
+      } else if (status === "Passed Out") {
+        targetClass = "XII";
+        targetSemester = "Sem 4";
+      }
+
+      nextOverrides[id] = {
+        status,
+        targetClass,
+        targetSemester,
+        reason: "Bulk status override",
+      };
+    }
+    setManualOverrides(nextOverrides);
+  }
+
+  // Mutation for undoing / rolling back promotion
+  const undoMutation = useMutation({
+    mutationFn: undoCohortPromotion,
+    onSuccess: (data: any) => {
+      alert(data.message || `Promotion rolled back successfully for ${data.count} students.`);
+      setUndoModalOpen(false);
+      setSelectedIds(new Set());
+      setManualOverrides({});
+      queryClient.invalidateQueries({ queryKey: ["students"] });
+      queryClient.invalidateQueries({ queryKey: ["students-promotion-roster"] });
+      queryClient.invalidateQueries({ queryKey: ["students-all"] });
+      queryClient.invalidateQueries({ queryKey: ["class-results"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+    onError: (err: any) => {
+      alert(`Rollback failed: ${err.message}`);
+    },
+  });
+
   // Mutation for executing promotion transitions
   const promotionMutation = useMutation({
     mutationFn: executeCohortPromotion,
@@ -594,6 +680,14 @@ function PromotionPageContent() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setUndoModalOpen(true)}
+            className="rounded-xl border border-rose-200 dark:border-rose-900 bg-rose-50/50 dark:bg-rose-950/30 px-3 py-1.5 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Undo Promotion
+          </button>
           <Link
             href="/settings/academic-session"
             className="rounded-xl border px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors inline-flex items-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground"
@@ -855,14 +949,32 @@ function PromotionPageContent() {
 
       {/* Floating / Action Execution Bar */}
       {selectedIds.size > 0 && (
-        <div className="rounded-2xl bg-primary/10 border border-primary/30 p-3 sm:px-4 sm:py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-2 duration-150">
+        <div className="rounded-2xl bg-card border shadow-md p-3 sm:px-4 sm:py-3 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
-            <p className="text-xs sm:text-sm font-bold text-primary">
-              {selectedIds.size} student{selectedIds.size > 1 ? "s" : ""} selected for promotion execution
+            <p className="text-xs sm:text-sm font-bold">
+              {selectedIds.size} student{selectedIds.size > 1 ? "s" : ""} selected
             </p>
           </div>
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-muted/60 p-1 rounded-xl border">
+              <span className="text-[11px] font-bold text-muted-foreground px-1.5">Set Status:</span>
+              <CustomSelect
+                value={bulkStatus}
+                onChange={(val) => setBulkStatus(val as StudentStatus)}
+                className="w-[180px] sm:w-[220px] text-xs h-7"
+                options={OVERRIDE_STATUS_OPTIONS}
+              />
+              <button
+                type="button"
+                onClick={() => handleApplyBulkOverride(bulkStatus)}
+                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer"
+              >
+                Apply
+              </button>
+            </div>
+
             <button
               onClick={handleClearSelection}
               className="rounded-xl border px-3 py-1.5 text-xs font-semibold hover:bg-muted transition-colors cursor-pointer"
@@ -957,7 +1069,7 @@ function PromotionPageContent() {
                       </td>
 
                       <td className="px-3 py-3">
-                        {item.result ? (
+                        {item.hasRecordedMarks ? (
                           <div>
                             <div className="flex items-center gap-1.5 font-bold">
                               <span>{item.marksObtained} / {item.fullMarks}</span>
@@ -975,7 +1087,7 @@ function PromotionPageContent() {
                             )}
                           </div>
                         ) : (
-                          <span className="text-[10px] text-muted-foreground italic">
+                          <span className="text-[10px] text-muted-foreground italic font-mono">
                             {item.autoEval.isAutoPass ? "RTE Auto-Pass" : "No marks entered"}
                           </span>
                         )}
@@ -1124,6 +1236,45 @@ function PromotionPageContent() {
             >
               {promotionMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {promotionMutation.isPending ? "Executing Transitions..." : "Confirm & Execute Promotion"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Undo / Rollback Modal */}
+      <Dialog open={undoModalOpen} onOpenChange={setUndoModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-rose-700 dark:text-rose-400">
+              <RotateCcw className="h-5 w-5" />
+              Undo Promotion Batch
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2 text-xs text-foreground">
+            Restore Class {selectedClass} students to previous session and reset status to Continuing?
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <button
+              onClick={() => setUndoModalOpen(false)}
+              className="rounded-xl border px-4 py-2 text-xs font-semibold hover:bg-muted transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() =>
+                undoMutation.mutate({
+                  sourceClass: selectedClass,
+                  academicYear,
+                  resetToContinuing: true,
+                })
+              }
+              disabled={undoMutation.isPending}
+              className="rounded-xl bg-rose-600 text-white px-5 py-2 text-xs font-bold hover:bg-rose-700 transition-all shadow-xs active:scale-95 cursor-pointer inline-flex items-center gap-2"
+            >
+              {undoMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {undoMutation.isPending ? "Restoring..." : "Confirm Undo"}
             </button>
           </DialogFooter>
         </DialogContent>

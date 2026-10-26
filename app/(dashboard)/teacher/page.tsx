@@ -50,7 +50,6 @@ import {
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { createClient } from "@/lib/supabase/client";
-import { fetchRoutineFullState, type RoutineFullState } from "@/lib/supabase/db-routine";
 import { TeacherLoungeDrawer } from "@/components/teacher/teacher-lounge-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +69,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchTeacherPortalStats } from "@/lib/supabase/db-teachers";
 import type { TeacherPortalStats, TeacherChatMessage, TeacherAbsence } from "@/lib/types/teacher";
 import { TaskCardSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
 
@@ -267,220 +265,43 @@ export default function TeacherDashboardPage() {
     }
   }, []);
 
-  // Load teacher workspace data
+  // Load teacher workspace data via fast consolidated endpoint
   const loadDashboardData = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      setLoading(true);
+      const res = await fetch("/api/teachers/workspace-init");
+      if (res.status === 401) {
         router.replace("/teacher/login");
         return;
       }
-      setUser(user);
-
-      // Fetch user role & profile
-      const { data: roleRow } = await supabase
-        .from("user_roles")
-        .select("role, full_name, permissions, staff_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      setProfile(roleRow);
-
-      if (roleRow?.staff_id) {
-        const { data: staffRow } = await supabase
-          .from("staff_profiles")
-          .select("id, full_name, profile_picture_url, designation, unique_id")
-          .eq("id", roleRow.staff_id)
-          .maybeSingle();
-        setStaff(staffRow);
-      }
-
-      // Fetch real-time stats
-      const s = await fetchTeacherPortalStats(user.id);
-      setStats(s);
-
-      // Fetch assigned tasks
-      const tasksRes = await fetch("/api/teachers/tasks");
-      const tasksData = await tasksRes.json();
-      if (tasksData.success) {
-        setTasks(tasksData.tasks || []);
-      }
-
-      // Fetch assigned classes
-      const classesRes = await fetch("/api/teachers/classes");
-      const classesData = await classesRes.json();
-      if (classesData.success && roleRow?.staff_id) {
-        const myClasses = (classesData.assignments || []).filter(
-          (a: any) => a.teacherId === roleRow.staff_id
-        );
-        setClasses(myClasses);
-      }
-
-      // Fetch recent activities
-      const actRes = await fetch("/api/teachers/activity?limit=15");
-      const actData = await actRes.json();
-      if (actData.success) {
-        setActivities(actData.logs || []);
-      }
-
-      // Fetch notifications
-      const notifRes = await fetch("/api/teachers/notifications");
-      const notifData = await notifRes.json();
-      if (notifData.success) {
-        setNotifications(notifData.notifications || []);
-        const unread = (notifData.notifications || []).filter((n: any) => !n.is_read).length;
-        setUnreadNotifsCount(unread);
-      }
-
-      // Fetch absences
-      const absRes = await fetch("/api/teachers/absence");
-      const absData = await absRes.json();
-      if (absData.success) {
-        setAbsences(absData.absences || []);
-      }
-
-      // Fetch dynamic active routine by teacher's staff_id
-      try {
-        setLoadingRoutine(true);
-        const routineRes = await fetch("/api/teachers/routine");
-        const routineData = await routineRes.json();
-        if (routineData.success) {
-          setRoutinePeriodsByDay(routineData.periodsByDay || {});
-          if (routineData.activeRoutine?.title) {
-            setActiveRoutineTitle(routineData.activeRoutine.title);
-          }
-          if (routineData.assignedDuties && routineData.assignedDuties.length > 0) {
-            setClasses(routineData.assignedDuties);
+      const data = await res.json();
+      if (data.success) {
+        if (data.user) setUser(data.user);
+        if (data.profile) setProfile(data.profile);
+        if (data.staff) setStaff(data.staff);
+        if (data.stats) setStats(data.stats);
+        if (data.tasks) setTasks(data.tasks);
+        if (data.classes) setClasses(data.classes);
+        if (data.activities) setActivities(data.activities);
+        if (data.notifications) {
+          setNotifications(data.notifications);
+          setUnreadNotifsCount(data.unreadNotifsCount ?? 0);
+        }
+        if (data.absences) setAbsences(data.absences);
+        if (data.routine) {
+          setRoutinePeriodsByDay(data.routine.periodsByDay || {});
+          if (data.routine.activeRoutine?.title) {
+            setActiveRoutineTitle(data.routine.activeRoutine.title);
           }
         }
-      } catch (rErr) {
-        console.warn("Failed to load teacher routine:", rErr);
-      } finally {
-        setLoadingRoutine(false);
-      }
-
-      // Check full routine state (both DB & LocalStorage fallback) to ensure seamless sync
-      try {
-        const fullState = await fetchRoutineFullState();
-        if (fullState) {
-          const currentStaffId = roleRow?.staff_id;
-          const currentStaffName = (roleRow?.full_name || "").toLowerCase().trim();
-          const matchedTeacher = (fullState.teachers || []).find((t: any) => {
-            if (currentStaffId && t.id === currentStaffId) return true;
-            if (t.name && currentStaffName && t.name.toLowerCase().trim() === currentStaffName) return true;
-            return false;
-          });
-
-          if (matchedTeacher) {
-            const localDuties: any[] = [];
-            if (matchedTeacher.classTeacherOf) {
-              const ctRaw = matchedTeacher.classTeacherOf;
-              let ctClass = ctRaw;
-              let ctSec = "ALL";
-              if (ctRaw.includes("-")) {
-                const parts = ctRaw.split("-");
-                ctClass = parts[0].trim();
-                ctSec = parts[1].trim();
-              } else if (ctRaw.includes(" ")) {
-                const parts = ctRaw.split(" ");
-                ctClass = parts.slice(0, -1).join(" ").trim();
-                ctSec = parts[parts.length - 1].trim();
-              }
-              localDuties.push({
-                id: `ct-${ctRaw}`,
-                roleType: "CLASS_TEACHER",
-                className: ctClass.replace(/^Class\s+/i, ""),
-                section: ctSec,
-                subject: "Class In-Charge",
-              });
-            }
-
-            // Extract from sectionSubjects
-            if (matchedTeacher.sectionSubjects) {
-              Object.entries(matchedTeacher.sectionSubjects).forEach(([csKey, subjs]: [string, any]) => {
-                const [cName, sName] = csKey.split("::");
-                (Array.isArray(subjs) ? subjs : [subjs]).forEach((sub: string) => {
-                  localDuties.push({
-                    id: `st-${csKey}-${sub}`,
-                    roleType: "SUBJECT_TEACHER",
-                    className: (cName || "Class").replace(/^Class\s+/i, ""),
-                    section: sName || "ALL",
-                    subject: sub,
-                  });
-                });
-              });
-            }
-
-            // Extract from classSubjects if not already in sectionSubjects
-            if (matchedTeacher.classSubjects) {
-              Object.entries(matchedTeacher.classSubjects).forEach(([cName, subjs]: [string, any]) => {
-                (Array.isArray(subjs) ? subjs : [subjs]).forEach((sub: string) => {
-                  const cleanClass = cName.replace(/^Class\s+/i, "");
-                  const exists = localDuties.some(
-                    (d) => d.className === cleanClass && d.subject === sub
-                  );
-                  if (!exists) {
-                    localDuties.push({
-                      id: `st-${cName}-${sub}`,
-                      roleType: "SUBJECT_TEACHER",
-                      className: cleanClass,
-                      section: "ALL",
-                      subject: sub,
-                    });
-                  }
-                });
-              });
-            }
-
-            // Extract from fullState.assignments
-            if (fullState.assignments && fullState.assignments.length > 0) {
-              fullState.assignments
-                .filter((asg: any) => asg.teacherId === matchedTeacher.id)
-                .forEach((asg: any) => {
-                  const cls = (fullState.classes || []).find((c: any) => c.id === asg.classId);
-                  const sub = (fullState.subjects || []).find((s: any) => s.id === asg.subjectId);
-                  if (cls && sub) {
-                    const rawClassName = cls.className || (cls as any).name || "Class";
-                    const cleanClass = rawClassName.replace(/^Class\s+/i, "");
-                    const exists = localDuties.some(
-                      (d) => d.className === cleanClass && d.section === (cls.section || "ALL") && d.subject === sub.name
-                    );
-                    if (!exists) {
-                      localDuties.push({
-                        id: `asg-${asg.id}`,
-                        roleType: "SUBJECT_TEACHER",
-                        className: cleanClass,
-                        section: cls.section || "ALL",
-                        subject: sub.name,
-                        periodsPerWeek: asg.periodsPerWeek,
-                      });
-                    }
-                  }
-                });
-            }
-
-            if (localDuties.length > 0) {
-              setClasses((prev) => {
-                const combined = [...prev];
-                localDuties.forEach((ld) => {
-                  if (!combined.some((c) => c.className === ld.className && c.section === ld.section && (c.subject === ld.subject || c.roleType === ld.roleType))) {
-                    combined.push(ld);
-                  }
-                });
-                return combined.length > 0 ? combined : localDuties;
-              });
-            }
-          }
-        }
-      } catch (fErr) {
-        console.warn("Routine full state fallback check:", fErr);
       }
     } catch (err) {
       console.error("Error loading teacher dashboard:", err);
     } finally {
       setLoading(false);
+      setLoadingRoutine(false);
     }
-  }, [router, supabase]);
+  }, [router]);
 
   useEffect(() => {
     loadDashboardData();

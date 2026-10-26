@@ -286,9 +286,14 @@ export function TeacherLoungeDrawer({
     }
   }, []);
 
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
-    loadMessages();
-  }, [loadMessages]);
+    if (isOpen && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      loadMessages();
+    }
+  }, [isOpen, loadMessages]);
 
   const allFaculty = useMemo(() => {
     const map = new Map<string, FacultyMember>();
