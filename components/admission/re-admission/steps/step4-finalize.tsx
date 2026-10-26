@@ -23,26 +23,7 @@ import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
-
-// Promotion mapping standard
-const CLASS_PROMOTION_MAP: Record<string, string> = {
-  "5": "VI",
-  "6": "VII",
-  "7": "VIII",
-  "8": "IX",
-  "9": "X",
-  "10": "Sent Up M.P.",
-  "11": "XII",
-  "12": "Passed Out",
-  V: "VI",
-  VI: "VII",
-  VII: "VIII",
-  VIII: "IX",
-  IX: "X",
-  X: "Sent Up M.P.",
-  XI: "XII",
-  XII: "Passed Out",
-};
+import { normalizeClass } from "@/lib/academic/class-ladder";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -55,11 +36,14 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
   const previousClass = studentData.previous_class || studentData.previousClass || studentData.present_class || studentData.presentClass;
   const studentName = studentData.studentName || studentData.name || "Student";
 
-  const initialTargetClass = studentData.targetClass || CLASS_PROMOTION_MAP[currentClass] || currentClass;
+  // Promotion already placed the student in the target class; re-admission only confirms it.
+  const targetClass = normalizeClass(currentClass) || currentClass;
+  const initialSection: string = studentData.presentSection || studentData.present_section || "A";
+  const existingRoll = Number(studentData.presentRoll || studentData.present_roll) || 0;
+  const isOnlineApplicant = Boolean(studentData.applicationId);
 
-  const [targetClass, setTargetClass] = useState<string>(initialTargetClass);
-  const [section, setSection] = useState<string>(studentData.presentSection || studentData.present_section || "A");
-  const [rollNo, setRollNo] = useState<string>("1");
+  const [section, setSection] = useState<string>(initialSection);
+  const [rollNo, setRollNo] = useState<string>(existingRoll > 0 ? String(existingRoll) : "");
   const [isAutoCalculatingRoll, setIsAutoCalculatingRoll] = useState(false);
 
   // Photo state
@@ -75,13 +59,32 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
   // Submitting state
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentYear = new Date().getFullYear();
+  const [currentYear, setCurrentYear] = useState<number>(new Date().getFullYear());
 
-  // Auto-calculate next available roll when targetClass or section changes
+  // Active session year from admission settings
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admission/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const y = Number(d?.settings?.currentAcademicYear);
+        if (active && y > 0) setCurrentYear(y);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Keep the roll from promotion; only compute a new one for applicants, a changed section or a missing roll
   useEffect(() => {
     let active = true;
     const fetchRoll = async () => {
       if (!targetClass) return;
+      if (existingRoll > 0 && !isOnlineApplicant && section === initialSection) {
+        setRollNo(String(existingRoll));
+        return;
+      }
       setIsAutoCalculatingRoll(true);
       try {
         const nextRoll = await getNextAvailableRoll(targetClass, section, String(currentYear));
@@ -98,7 +101,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
     return () => {
       active = false;
     };
-  }, [targetClass, section, currentYear]);
+  }, [targetClass, section, currentYear, existingRoll, isOnlineApplicant, initialSection]);
 
   // Fetch next invoice number
   useEffect(() => {
@@ -225,18 +228,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-muted-foreground">Promoted Class</label>
-                  <Select value={targetClass} onValueChange={(v) => v && setTargetClass(v)}>
-                    <SelectTrigger className="h-8 text-xs font-semibold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["V", "VI", "VII", "VIII", "IX", "X", "Sent Up M.P.", "XI", "XII", "Passed Out"].map((cls) => (
-                        <SelectItem key={cls} value={cls} className="text-xs">
-                          Class {cls}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input value={`Class ${targetClass}`} readOnly className="h-8 text-xs font-semibold bg-muted/40" />
                 </div>
 
                 <div className="space-y-1">

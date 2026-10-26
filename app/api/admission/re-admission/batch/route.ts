@@ -1,3 +1,4 @@
+import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
@@ -48,7 +49,13 @@ export async function POST(req: Request) {
     }
 
     const supabase = createAdminClient();
-    const currentYear = new Date().getFullYear();
+    const { data: settingsRow } = await supabase
+      .from("admission_settings")
+      .select("current_academic_year")
+      .eq("school_id", "default")
+      .maybeSingle();
+    const settingsYear = Number(settingsRow?.current_academic_year);
+    const currentYear = settingsYear > 0 ? settingsYear : new Date().getFullYear();
     const sessionYear = targetAcademicYear ? Number(targetAcademicYear) : currentYear;
 
     // 1. Fetch target students
@@ -63,6 +70,22 @@ export async function POST(req: Request) {
 
     if (!students || students.length === 0) {
       return NextResponse.json({ error: "No matching students found" }, { status: 404 });
+    }
+
+    const illegal = students.filter(
+      (st: any) =>
+        normalizeClass(st.present_class) !== normalizeClass(targetClass) &&
+        !isLegalClassTransition(st.present_class, targetClass)
+    );
+    if (illegal.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Invalid class change to ${targetClass} for: ${illegal
+            .map((st: any) => `${st.name} (${st.present_class})`)
+            .join(", ")}`,
+        },
+        { status: 400 }
+      );
     }
 
     // 2. Fetch marks if rank strategy

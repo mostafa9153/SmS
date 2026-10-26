@@ -45,15 +45,12 @@ import {
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 import { cn } from "@/lib/utils";
+import { CLASS_LADDER, getNextClass as ladderNextClass } from "@/lib/academic/class-ladder";
 
-const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const STANDARD_CLASSES: string[] = [...CLASS_LADDER];
 
 function getNextClass(currentClass: string): string {
-  const idx = STANDARD_CLASSES.indexOf(currentClass);
-  if (idx >= 0 && idx < STANDARD_CLASSES.length - 1) {
-    return STANDARD_CLASSES[idx + 1];
-  }
-  return "College / Higher Studies";
+  return ladderNextClass(currentClass) ?? "College / Higher Studies";
 }
 
 type PaperSize = "A5" | "A4" | "A3";

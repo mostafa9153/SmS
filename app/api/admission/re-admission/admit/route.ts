@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
+import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 
 export async function POST(req: Request) {
   try {
@@ -78,7 +79,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Student not found in active directory" }, { status: 404 });
     }
 
-    const currentYear = new Date().getFullYear();
+    const { data: settingsRow } = await supabase
+      .from("admission_settings")
+      .select("current_academic_year")
+      .eq("school_id", "default")
+      .maybeSingle();
+    const settingsYear = Number(settingsRow?.current_academic_year);
+    const currentYear = settingsYear > 0 ? settingsYear : new Date().getFullYear();
 
     if (action === "not_admitted") {
       const { data: updated, error } = await supabase
@@ -137,7 +144,16 @@ export async function POST(req: Request) {
     }
 
     // Default action is 'admit'
-    const targetClass = newClass || student.present_class;
+    const targetClass = normalizeClass(newClass || student.present_class) || newClass || student.present_class;
+    if (
+      normalizeClass(targetClass) !== normalizeClass(student.present_class) &&
+      !isLegalClassTransition(student.present_class, targetClass)
+    ) {
+      return NextResponse.json(
+        { error: `Invalid class change: ${student.present_class} → ${targetClass}.` },
+        { status: 400 }
+      );
+    }
     const targetSection = newSection || student.present_section;
     const targetRoll = newRoll ? parseInt(String(newRoll)) : (student.present_roll || 1);
     const todayDateStr = new Date().toISOString().split("T")[0];

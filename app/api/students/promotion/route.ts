@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StudentStatus, Semester } from "@/lib/types";
+import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 
 export interface StudentPromotionItem {
   studentId: string;
@@ -100,9 +101,34 @@ export async function POST(req: Request) {
     let passedOutCount = 0;
     let overriddenCount = 0;
 
+    const rejected: { studentId: string; reason: string }[] = [];
+    const skippedIds: string[] = [];
+
     for (const p of promotions) {
       const existing = existingMap.get(p.studentId);
       if (!existing) continue;
+
+      const isPassingOutOfXII =
+        p.targetStatus === "Passed Out" && normalizeClass(existing.present_class) === "XII";
+      if (!isPassingOutOfXII && !isLegalClassTransition(existing.present_class, p.targetClass)) {
+        rejected.push({
+          studentId: p.studentId,
+          reason: `Illegal class change ${existing.present_class} → ${p.targetClass}`,
+        });
+        continue;
+      }
+
+      const alreadyApplied =
+        normalizeClass(existing.present_class) === normalizeClass(p.targetClass) &&
+        existing.present_section === p.targetSection &&
+        Number(existing.present_roll) === Number(p.targetRoll) &&
+        (existing.present_semester || null) === (p.targetSemester ?? existing.present_semester ?? null) &&
+        existing.current_status === p.targetStatus &&
+        existing.current_status !== "Continuing";
+      if (alreadyApplied) {
+        skippedIds.push(p.studentId);
+        continue;
+      }
 
       if (p.isOverridden) overriddenCount++;
 
@@ -138,7 +164,7 @@ export async function POST(req: Request) {
         class: existing.present_class,
         section: existing.present_section,
         roll: existing.present_roll,
-        status: existing.current_status || "Continuing",
+        status: p.targetStatus,
         semester: existing.present_semester || null,
         detention_count: currentDetentionCount,
       });
@@ -157,7 +183,8 @@ export async function POST(req: Request) {
         present_section: p.targetSection,
         present_roll: p.targetRoll,
         current_status: p.targetStatus,
-        re_admission_status: p.targetStatus === "Continuing" ? "admitted" : "pending",
+        re_admission_status:
+          p.targetStatus === "Continuing" ? "admitted" : p.targetStatus === "Passed Out" ? "not_applicable" : "pending",
         is_invoice_queued: false,
         previous_class: existing.present_class,
         previous_section: existing.present_section,
@@ -178,17 +205,59 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. Batch insert academic history in chunks of 100
+    if (rejected.length > 0) {
+      return NextResponse.json(
+        { error: `Invalid promotion for ${rejected.length} student(s)`, rejected },
+        { status: 400 }
+      );
+    }
+
+    if (studentUpdates.length === 0) {
+      return NextResponse.json(
+        { error: `Cohort already transitioned for academic year ${academicYear}`, skipped: skippedIds.length },
+        { status: 409 }
+      );
+    }
+
+    // 3. Archive history first; abort before touching students if it fails
     const CHUNK_SIZE = 100;
     for (let i = 0; i < historyInserts.length; i += CHUNK_SIZE) {
       const chunk = historyInserts.slice(i, i + CHUNK_SIZE);
-      const { error: histErr } = await adminClient.from("academic_history").insert(chunk);
-      if (histErr) {
-        console.warn("Academic history insert notice:", histErr.message);
+      const ids = chunk.map((h) => h.student_id);
+      const { data: existingHist, error: histFetchErr } = await adminClient
+        .from("academic_history")
+        .select("id, student_id, semester")
+        .eq("year", academicYear)
+        .in("student_id", ids);
+      if (histFetchErr) {
+        return NextResponse.json({ error: `Failed to read academic history: ${histFetchErr.message}` }, { status: 500 });
+      }
+      const histKey = (studentId: string, semester: string | null) => `${studentId}|${semester || ""}`;
+      const histMap = new Map<string, string>();
+      for (const h of existingHist || []) histMap.set(histKey(h.student_id, h.semester), h.id);
+
+      const toInsert: any[] = [];
+      for (const h of chunk) {
+        const existingId = histMap.get(histKey(h.student_id, h.semester));
+        if (existingId) {
+          const { error: updErr } = await adminClient.from("academic_history").update(h).eq("id", existingId);
+          if (updErr) {
+            return NextResponse.json({ error: `Failed to archive history: ${updErr.message}` }, { status: 500 });
+          }
+        } else {
+          toInsert.push(h);
+        }
+      }
+      if (toInsert.length > 0) {
+        const { error: histErr } = await adminClient.from("academic_history").insert(toInsert);
+        if (histErr) {
+          return NextResponse.json({ error: `Failed to archive history: ${histErr.message}` }, { status: 500 });
+        }
       }
     }
 
-    // 4. Batch update students in parallel batches of 25
+    // 4. Update students in parallel batches of 25; report failures instead of hiding them
+    const failed: { studentId: string; error: string }[] = [];
     const BATCH_SIZE = 25;
     for (let i = 0; i < studentUpdates.length; i += BATCH_SIZE) {
       const batch = studentUpdates.slice(i, i + BATCH_SIZE);
@@ -199,25 +268,8 @@ export async function POST(req: Request) {
             .update(item.dbUpdates)
             .eq("id", item.id);
           if (error) {
-            console.error("Student promotion update notice:", item.id, error.message);
-            const safeUpdates = {
-              present_class: item.dbUpdates.present_class,
-              present_section: item.dbUpdates.present_section,
-              present_roll: item.dbUpdates.present_roll,
-              current_status: item.dbUpdates.current_status,
-              re_admission_status: item.dbUpdates.re_admission_status,
-              previous_class: item.dbUpdates.previous_class,
-              previous_section: item.dbUpdates.previous_section,
-              previous_roll_no: item.dbUpdates.previous_roll_no,
-              academic_year: item.dbUpdates.academic_year,
-            };
-            const { error: fallbackErr } = await adminClient
-              .from("students")
-              .update(safeUpdates)
-              .eq("id", item.id);
-            if (fallbackErr) {
-              console.error("Fallback student update error:", fallbackErr.message);
-            }
+            console.error("Student promotion update error:", item.id, error.message);
+            failed.push({ studentId: item.id, error: error.message });
           }
         })
       );
@@ -234,7 +286,9 @@ export async function POST(req: Request) {
         targetAcademicYear,
         examName,
         rollStrategy,
-        totalProcessed: studentUpdates.length,
+        totalProcessed: studentUpdates.length - failed.length,
+        failedCount: failed.length,
+        skippedCount: skippedIds.length,
         promotedCount,
         detainedCount,
         supplementaryCount,
@@ -246,10 +300,12 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      success: true,
-      count: studentUpdates.length,
+      success: failed.length === 0,
+      count: studentUpdates.length - failed.length,
+      failed,
+      skipped: skippedIds.length,
       summary: {
-        total: studentUpdates.length,
+        total: studentUpdates.length - failed.length,
         promotedCount,
         detainedCount,
         supplementaryCount,

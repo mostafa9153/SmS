@@ -3,21 +3,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentStatus, Semester } from "@/lib/types";
 import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc";
 import { getSavedPromotionPolicy } from "@/lib/utils/marks-config";
+import { getNextClass } from "@/lib/academic/class-ladder";
 
 export const SECONDARY_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X"];
 export const HIGHER_SECONDARY_CLASSES = ["XI", "XII"];
 
-export const SECONDARY_CLASS_NEXT: Record<string, string> = {
-  V: "VI", VI: "VII", VII: "VIII", VIII: "IX", IX: "X",
-};
+export const SECONDARY_CLASS_NEXT: Record<string, string> = Object.fromEntries(
+  SECONDARY_CLASSES.slice(0, -1).map((c) => [c, getNextClass(c)!])
+);
 
-export const HIGHER_SECONDARY_CLASS_NEXT: Record<string, string> = {
-  XI: "XII",
-};
+export const HIGHER_SECONDARY_CLASS_NEXT: Record<string, string> = { XI: "XII" };
 
 export const CLASS_NEXT: Record<string, string> = {
-  V: "VI", VI: "VII", VII: "VIII", VIII: "IX",
-  IX: "X", XI: "XII",
+  ...SECONDARY_CLASS_NEXT,
+  ...HIGHER_SECONDARY_CLASS_NEXT,
 };
 
 export const AUTO_PASS_CLASSES = new Set(["V", "VI", "VII", "VIII"]);
