@@ -146,13 +146,14 @@ PHASES = [
     (3, frozenset({"tiffin", "timepref"})),
     (4, frozenset({"tiffin", "timepref", "fatigue"})),
     # Last resort only: every other rule is given up before a teacher may skip an available weekday
-    (5, frozenset({"tiffin", "timepref", "fatigue", "coverage"})),
+    (5, frozenset({"tiffin", "timepref", "fatigue", "coverage", "ct_first"})),
 ]
 RELAX_LABELS = {
     "tiffin": "Min periods before/after tiffin",
     "timepref": "Morning/afternoon subject preference",
     "fatigue": "Teacher daily max and max consecutive (+1)",
     "coverage": "Minimum periods on each available weekday",
+    "ct_first": "Class teacher first-period minimum",
 }
 PHASE_TIME_LIMIT = float(os.environ.get("ROUTINE_SOLVER_TIME_LIMIT", "60"))
 SOLVER_WORKERS = 8
@@ -207,6 +208,38 @@ def coverage_targets(request, units):
         if per_day:
             out[tid] = per_day
     return out
+
+
+def class_teacher_groups(units):
+    """Units of each (class, class teacher) pair. Group units never set isClassTeacherUnit,
+    so cids[0]/tids[0] is safe here."""
+    groups = {}
+    for u in units:
+        if u.get("isClassTeacherUnit") and u.get("targetFirstPeriods", 0) > 0:
+            key = (u["cids"][0], u["tids"][0])
+            groups.setdefault(key, {"target": u["targetFirstPeriods"], "units": []})["units"].append(u)
+    return groups
+
+
+def ct_first_violations(request, units, placed):
+    """Class teachers whose class has fewer first-period placements than their target."""
+    teachers = {t.id: t for t in request.teachers}
+    classes = {c.id: c for c in request.classes}
+    got = {}
+    for u, d, p in placed:
+        if p == 0 and u.get("isClassTeacherUnit"):
+            key = (u["cids"][0], u["tids"][0])
+            got[key] = got.get(key, 0) + 1
+    out = []
+    for key, group in class_teacher_groups(units).items():
+        wanted = min(group["target"], len(group["units"]))
+        n = got.get(key, 0)
+        if n < wanted:
+            cid, tid = key
+            t, c = teachers.get(tid), classes.get(cid)
+            label = f"{c.className} {c.section}" if c else cid
+            out.append(f"{t.name if t else tid} - {label}: {n} first-period(s) (wanted {wanted})")
+    return sorted(out)
 
 
 def coverage_violations(request, units, placed):
@@ -314,6 +347,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), 
     timepref_soft = "timepref" in relax
     fatigue_relaxed = "fatigue" in relax
     coverage_soft = "coverage" in relax
+    ct_soft = "ct_first" in relax
 
     teachers_map = {t.id: t for t in request.teachers}
     classes_map = {c.id: c for c in request.classes}
@@ -596,30 +630,21 @@ def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), 
                     model.Add(over_1 >= day_sum - 1)
                     obj_vars.append(over_1 * 1000)
 
-    # Class Teacher preference for 1st period
-    # Group units never set isClassTeacherUnit, so cids[0]/tids[0] is safe here.
-    ct_groups = {}
-    for u in units:
-        if u.get("isClassTeacherUnit") and u.get("targetFirstPeriods", 0) > 0:
-            key = (u["cids"][0], u["tids"][0])
-            if key not in ct_groups:
-                ct_groups[key] = {"target": u["targetFirstPeriods"], "units": []}
-            ct_groups[key]["units"].append(u)
-            
-    for key, group in ct_groups.items():
-        target = group["target"]
-        group_units = group["units"]
-        first_period_vars = []
-        for u in group_units:
-            for d in range(D):
-                if (u["uid"], d, 0) in x:
-                    first_period_vars.append(x[(u["uid"], d, 0)])
-                    
-        if first_period_vars:
+    # Class Teacher first-period minimum: hard until the last phase, then a reward only
+    for key, group in class_teacher_groups(units).items():
+        first_period_vars = [
+            x[(u["uid"], d, 0)] for u in group["units"] for d in range(D) if (u["uid"], d, 0) in x
+        ]
+        if not first_period_vars:
+            continue
+        target = min(group["target"], len(first_period_vars))
+        if ct_soft:
             bounded_sum = model.NewIntVar(0, target, f"ct_first_{key[0]}_{key[1]}")
             model.Add(bounded_sum <= sum(first_period_vars))
             obj_vars.append(bounded_sum * -800)
-                        
+        else:
+            model.Add(sum(first_period_vars) >= target)
+
     # Soft time preference penalties once the preference is relaxed
     if timepref_soft:
         for u in units:
@@ -851,6 +876,10 @@ def audit_relaxations(request, units, placed, relax, plan=None):
                 "rule": rule, "title": RELAX_LABELS[rule], "summary": summary,
                 "count": len(details), "details": details[:80],
             })
+
+    if "ct_first" in relax:
+        details = ct_first_violations(request, units, placed)
+        add("ct_first", details, f"{len(details)} class teacher(s) below first-period target")
 
     if "tiffin" in relax:
         details = tiffin_violations(request, units, placed, plan)

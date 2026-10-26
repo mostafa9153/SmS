@@ -132,6 +132,17 @@ def test_unavailable_day_is_not_forced():
     assert not any("Wed" in d for rel in r["metadata"]["relaxations"] for d in rel["details"])
 
 
+def test_class_teacher_first_period_is_hard():
+    # CT of Class VII-A wants 3 first periods a week; the strict phase must deliver them
+    req = make_request(n_classes=1, load_per_class=6)
+    req.teachers[0].classTeacherOf = "Class VII - Section A"
+    req.teachers[0].classTeacherFirstPeriods = 3
+    r = generate_schedule(req)
+    assert r["success"] and r["metadata"]["phase"] == 1, r["metadata"]
+    firsts = sum(1 for d in r["grid"]["c0"] if d[0] and d[0].get("tid") == "t1")
+    assert firsts >= 3, firsts
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
