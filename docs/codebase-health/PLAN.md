@@ -148,5 +148,5 @@ Re-admission-এ একজন ছাত্র select করে back গিয়
 | 0 | ✅ Done (2.9 → 3.2) |
 | 1 | ✅ Done (2.9 → 4.8) + 1b teacher permissions |
 | 2 | ✅ Done (4.8 → 5.5) |
-| 3 | 🟡 In progress — 3a notification bell ✅ · 3b public admission link ✅ |
+| 3 | 🟡 In progress — 3a bell ✅ · 3b public link ✅ · 3c re-admission ✅ · 3d speed ✅ (partial) · 3e undo ✅ (infra + 3 actions) |
 | 1–4 | ⏳ |
