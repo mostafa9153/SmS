@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 
 export async function POST(req: NextRequest) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const payload = await req.json();
     const solverUrl = process.env.ROUTINE_SOLVER_URL || "http://127.0.0.1:8000";

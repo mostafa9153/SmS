@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { exchangeCodeForTokens } from "@/lib/backup/google-drive";
+import { verifyAdminUser } from "@/lib/backup/auth";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -15,6 +16,13 @@ export async function GET(req: Request) {
   if (error) {
     console.error("Google OAuth error from callback:", error);
     return NextResponse.redirect(`${settingsUrl}?error=${encodeURIComponent(error)}`);
+  }
+
+  // Only a signed-in Admin may bind a Drive account; otherwise anyone could
+  // complete the flow with their own Google code and receive the school backups.
+  const auth = await verifyAdminUser();
+  if (!auth.isAdmin) {
+    return NextResponse.redirect(`${settingsUrl}?error=Unauthorized`);
   }
 
   if (!code) {

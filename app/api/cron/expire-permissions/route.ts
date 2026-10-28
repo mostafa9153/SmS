@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { hasCronSecret, requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
 
 export async function GET(req: Request) {
+  if (!hasCronSecret(req)) {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
+  }
+
   try {
     const admin = createAdminClient();
     const nowIso = new Date().toISOString();

@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const { id: studentId } = await params;
     

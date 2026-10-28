@@ -26,6 +26,13 @@ function sourceFiles(dir, acc = []) {
   return acc;
 }
 
+const PUBLIC_ROUTES = ["certificates/verify", "invoices/verify"];
+const unguardedRoutes = sourceFiles("app/api")
+  .filter((f) => f.endsWith("route.ts"))
+  .map((f) => f.split("\\").join("/"))
+  .filter((f) => !PUBLIC_ROUTES.some((p) => f.includes(p)))
+  .filter((f) => !/requireRole|getAuthenticatedUserRole|verifyAdminUser|getUser\(|hasCronSecret|CRON_SECRET/.test(readFileSync(f, "utf8")));
+
 const files = SRC.flatMap((d) => sourceFiles(d)).concat("proxy.ts");
 const lineCounts = files.map((f) => readFileSync(f, "utf8").split("\n").length);
 const loc = lineCounts.reduce((a, b) => a + b, 0);
@@ -76,6 +83,7 @@ const scores = {
   bigFiles: clamp(10 - lineCounts.filter((n) => n > 1000).length / 5),
   vulns: clamp(10 - (audit.critical || 0) * 2 - (audit.high || 0) * 0.5),
   tests: clamp(testsPassed / 10),
+  apiAuth: clamp(10 - unguardedRoutes.length * 2),
 };
 const score = Object.values(scores).reduce((a, b) => a + b, 0) / Object.keys(scores).length;
 
@@ -95,6 +103,7 @@ const report = {
   circular,
   vulns: audit,
   testsPassed,
+  unguardedRoutes,
   testsOk: tests.ok,
   build,
   scores,

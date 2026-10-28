@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -6,6 +7,9 @@ export const dynamic = "force-dynamic";
 const CONFIG_KEY = "routine_subjects_order";
 
 export async function GET() {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = createAdminClient();
     const { data, error } = await supabase
@@ -39,6 +43,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = await req.json();
     const order = body?.order ?? body?.value;

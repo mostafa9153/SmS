@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { saveEventResults } from "@/lib/sports/db-sports";
 
 export async function POST(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = await req.json();
     const { eventId, results } = body;

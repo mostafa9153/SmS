@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { pgQuote } from "@/lib/supabase/filters";
 
 export async function GET(req: Request) {
   try {
@@ -45,7 +46,7 @@ export async function GET(req: Request) {
       const { data: appContact } = await supabase
         .from("admission_applications")
         .select("id, student_name, target_class, admitted_class, student_contact, alt_mobile")
-        .or(`student_contact.eq.${contact},alt_mobile.eq.${contact}`);
+        .or(`student_contact.eq.${pgQuote(contact)},alt_mobile.eq.${pgQuote(contact)}`);
 
       (appContact || []).forEach((row) => {
         if (!excludeId || row.id !== excludeId) {
@@ -84,7 +85,7 @@ export async function GET(req: Request) {
       const { data: studentContact } = await supabase
         .from("students")
         .select("id, school_id, name, present_class, mobile, alt_mobile")
-        .or(`mobile.eq.${contact},alt_mobile.eq.${contact}`);
+        .or(`mobile.eq.${pgQuote(contact)},alt_mobile.eq.${pgQuote(contact)}`);
 
       (studentContact || []).forEach((row) => {
         if (!duplicates.some((d) => d.id === row.id)) {

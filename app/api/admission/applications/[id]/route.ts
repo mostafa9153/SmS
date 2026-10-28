@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { pgQuote } from "@/lib/supabase/filters";
 
 export async function GET(
   req: Request,
@@ -18,7 +19,7 @@ export async function GET(
     const { data: row, error } = await supabase
       .from("admission_applications")
       .select("*")
-      .or(`id.eq.${id},application_no.eq.${id}`)
+      .or(`id.eq.${pgQuote(id)},application_no.eq.${pgQuote(id)}`)
       .single();
 
     if (error || !row) {

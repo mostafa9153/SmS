@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireRole } from "@/lib/api/guard";
 import type { AdmissionApplication } from "@/lib/types";
+import { pgContains } from "@/lib/supabase/filters";
 
 export async function GET(req: Request) {
   try {
@@ -42,7 +44,7 @@ export async function GET(req: Request) {
     }
     if (search) {
       query = query.or(
-        `student_name.ilike.%${search}%,application_no.ilike.%${search}%,guardian_name.ilike.%${search}%,student_contact.ilike.%${search}%`
+        `student_name.ilike.${pgContains(search)},application_no.ilike.${pgContains(search)},guardian_name.ilike.${pgContains(search)},student_contact.ilike.${pgContains(search)}`
       );
     }
 
@@ -164,6 +166,9 @@ function parseToPostgresDate(dobVal: any): string | null {
 }
 
 export async function POST(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = createAdminClient();
     const body = await req.json();

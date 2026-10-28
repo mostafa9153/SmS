@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import {
   getSportsEvents,
   createSportsEvent,
@@ -8,6 +9,9 @@ import {
 
 // GET /api/sports/events?academicYear=2026
 export async function GET(request: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const academicYear = searchParams.get("academicYear");
@@ -23,6 +27,9 @@ export async function GET(request: Request) {
 
 // POST /api/sports/events
 export async function POST(request: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = await request.json();
 
@@ -64,6 +71,9 @@ export async function POST(request: Request) {
 
 // PUT /api/sports/events
 export async function PUT(request: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = await request.json();
     const id = body.id;
@@ -99,6 +109,9 @@ export async function PUT(request: Request) {
 
 // DELETE /api/sports/events?id=<uuid>
 export async function DELETE(request: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { dbCreateStudent } from "@/lib/supabase/db-students";
 import type { Student, StudentStatus } from "@/lib/types";
+import { pgQuote } from "@/lib/supabase/filters";
 
 export async function POST(req: Request) {
   try {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     if (Array.isArray(applicationIds) && applicationIds.length > 0) {
       query = query.in("id", applicationIds);
     } else if (className && className !== "all") {
-      query = query.or(`admitted_class.eq.${className},target_class.eq.${className}`);
+      query = query.or(`admitted_class.eq.${pgQuote(className)},target_class.eq.${pgQuote(className)}`);
     }
 
     if (academicYear && academicYear !== "all") {

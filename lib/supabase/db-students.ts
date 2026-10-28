@@ -2,6 +2,7 @@ import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Student, StudentFilters, PaginatedStudents, StudentStatus } from "@/lib/types";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
+import { pgContains } from "@/lib/supabase/filters";
 import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 
 // DB Row shape (snake_case)
@@ -624,14 +625,15 @@ export async function dbSearchStudents(
   // 1. Text Search
   if (filters.query && filters.query.trim() !== "") {
     const q = filters.query.trim();
+    const like = pgContains(q);
     const searchFields = [
-      `name.ilike.%${q}%`,
-      `school_id.ilike.%${q}%`,
-      `pen.ilike.%${q}%`,
-      `father_name.ilike.%${q}%`,
-      `mother_name.ilike.%${q}%`,
-      `student_unique_code.ilike.%${q}%`,
-      `admission_no.ilike.%${q}%`,
+      `name.ilike.${like}`,
+      `school_id.ilike.${like}`,
+      `pen.ilike.${like}`,
+      `father_name.ilike.${like}`,
+      `mother_name.ilike.${like}`,
+      `student_unique_code.ilike.${like}`,
+      `admission_no.ilike.${like}`,
     ];
     const parsedNum = parseInt(q, 10);
     if (!isNaN(parsedNum) && parsedNum > 0) {
@@ -639,7 +641,7 @@ export async function dbSearchStudents(
     }
     // Only Admin accounts are permitted to query by full Aadhaar
     if (userRole === "Admin") {
-      searchFields.push(`aadhaar.ilike.%${q}%`);
+      searchFields.push(`aadhaar.ilike.${like}`);
     }
     query = query.or(searchFields.join(","));
   }
@@ -1187,9 +1189,9 @@ export async function dbGetOldStudentsByYear(params: {
       .in("current_status", ["Passed Out", "Drop Out", "TC Out"]);
 
     if (query.trim()) {
-      const q = query.trim();
+      const like = pgContains(query.trim());
       dbQuery = dbQuery.or(
-        `name.ilike.%${q}%,school_id.ilike.%${q}%,pen.ilike.%${q}%,father_name.ilike.%${q}%`
+        `name.ilike.${like},school_id.ilike.${like},pen.ilike.${like},father_name.ilike.${like}`
       );
     }
 

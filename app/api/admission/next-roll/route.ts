@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { pgQuote } from "@/lib/supabase/filters";
 
 export async function GET(req: Request) {
   try {
@@ -21,8 +22,8 @@ export async function GET(req: Request) {
       .from("admission_applications")
       .select("target_roll, admitted_roll, target_class, admitted_class, target_section, admitted_section")
       .eq("academic_year", currentYear)
-      .or(`target_class.eq.${targetClass},admitted_class.eq.${targetClass}`)
-      .or(`target_section.eq.${targetSection},admitted_section.eq.${targetSection}`);
+      .or(`target_class.eq.${pgQuote(targetClass)},admitted_class.eq.${pgQuote(targetClass)}`)
+      .or(`target_section.eq.${pgQuote(targetSection)},admitted_section.eq.${pgQuote(targetSection)}`);
 
     // 2. Check max roll in active students directory
     const { data: studentsData } = await supabase

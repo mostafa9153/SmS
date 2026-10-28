@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { updateChestNumber, getAllAthletesWithEvents } from "@/lib/sports/db-sports";
 
 export async function GET(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const { searchParams } = new URL(req.url);
     const yearParam = searchParams.get("academicYear");
@@ -14,6 +18,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
     const body = await req.json();
     const { studentId, chestNumber, academicYear } = body;
