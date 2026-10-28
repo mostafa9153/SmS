@@ -1,0 +1,546 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`class ladder > exit statuses 1`] = `
+[
+  true,
+  true,
+  true,
+  true,
+  false,
+  false,
+  false,
+]
+`;
+
+exports[`class ladder > normalizes and steps classes 1`] = `
+[
+  {
+    "allowed": [
+      "V",
+      "VI",
+    ],
+    "input": "V",
+    "next": "VI",
+    "normalized": "V",
+    "variations": [
+      "V",
+      "5",
+      "Class V",
+      "Class 5",
+    ],
+  },
+  {
+    "allowed": [
+      "V",
+      "VI",
+    ],
+    "input": "v",
+    "next": "VI",
+    "normalized": "V",
+    "variations": [
+      "V",
+      "5",
+      "Class V",
+      "Class 5",
+    ],
+  },
+  {
+    "allowed": [
+      "V",
+      "VI",
+    ],
+    "input": "5",
+    "next": "VI",
+    "normalized": "V",
+    "variations": [
+      "V",
+      "5",
+      "Class V",
+      "Class 5",
+    ],
+  },
+  {
+    "allowed": [
+      "V",
+      "VI",
+    ],
+    "input": 5,
+    "next": "VI",
+    "normalized": "V",
+    "variations": [
+      "V",
+      "5",
+      "Class V",
+      "Class 5",
+    ],
+  },
+  {
+    "allowed": [
+      "VIII",
+      "IX",
+    ],
+    "input": "Class VIII",
+    "next": "IX",
+    "normalized": "VIII",
+    "variations": [
+      "VIII",
+      "8",
+      "Class VIII",
+      "Class 8",
+    ],
+  },
+  {
+    "allowed": [
+      "IX",
+      "X",
+    ],
+    "input": "ix",
+    "next": "X",
+    "normalized": "IX",
+    "variations": [
+      "IX",
+      "9",
+      "Class IX",
+      "Class 9",
+    ],
+  },
+  {
+    "allowed": [
+      "X",
+      "XI",
+    ],
+    "input": "10",
+    "next": "XI",
+    "normalized": "X",
+    "variations": [
+      "X",
+      "10",
+      "Class X",
+      "Class 10",
+    ],
+  },
+  {
+    "allowed": [
+      "XI",
+      "XII",
+    ],
+    "input": "XI",
+    "next": "XII",
+    "normalized": "XI",
+    "variations": [
+      "XI",
+      "11",
+      "Class XI",
+      "Class 11",
+    ],
+  },
+  {
+    "allowed": [
+      "XII",
+    ],
+    "input": "12",
+    "next": null,
+    "normalized": "XII",
+    "variations": [
+      "XII",
+      "12",
+      "Class XII",
+      "Class 12",
+    ],
+  },
+  {
+    "allowed": [],
+    "input": "XIII",
+    "next": null,
+    "normalized": null,
+    "variations": [
+      "XIII",
+    ],
+  },
+  {
+    "allowed": [],
+    "input": "",
+    "next": null,
+    "normalized": null,
+    "variations": [],
+  },
+  {
+    "allowed": [],
+    "input": null,
+    "next": null,
+    "normalized": null,
+    "variations": [],
+  },
+  {
+    "allowed": [],
+    "input": undefined,
+    "next": null,
+    "normalized": null,
+    "variations": [],
+  },
+  {
+    "allowed": [],
+    "input": "abc",
+    "next": null,
+    "normalized": null,
+    "variations": [
+      "abc",
+    ],
+  },
+]
+`;
+
+exports[`class ladder > promotion map constants 1`] = `
+{
+  "AUTO_PASS": [
+    "V",
+    "VI",
+    "VII",
+    "VIII",
+  ],
+  "CLASS_NEXT": {
+    "IX": "X",
+    "V": "VI",
+    "VI": "VII",
+    "VII": "VIII",
+    "VIII": "IX",
+    "XI": "XII",
+  },
+}
+`;
+
+exports[`class ladder > transition legality matrix 1`] = `
+[
+  "V->V:1",
+  "V->VI:1",
+  "V->VII:0",
+  "V->VIII:0",
+  "V->IX:0",
+  "V->X:0",
+  "V->XI:0",
+  "V->XII:0",
+  "VI->V:0",
+  "VI->VI:1",
+  "VI->VII:1",
+  "VI->VIII:0",
+  "VI->IX:0",
+  "VI->X:0",
+  "VI->XI:0",
+  "VI->XII:0",
+  "VII->V:0",
+  "VII->VI:0",
+  "VII->VII:1",
+  "VII->VIII:1",
+  "VII->IX:0",
+  "VII->X:0",
+  "VII->XI:0",
+  "VII->XII:0",
+  "VIII->V:0",
+  "VIII->VI:0",
+  "VIII->VII:0",
+  "VIII->VIII:1",
+  "VIII->IX:1",
+  "VIII->X:0",
+  "VIII->XI:0",
+  "VIII->XII:0",
+  "IX->V:0",
+  "IX->VI:0",
+  "IX->VII:0",
+  "IX->VIII:0",
+  "IX->IX:1",
+  "IX->X:1",
+  "IX->XI:0",
+  "IX->XII:0",
+  "X->V:0",
+  "X->VI:0",
+  "X->VII:0",
+  "X->VIII:0",
+  "X->IX:0",
+  "X->X:1",
+  "X->XI:1",
+  "X->XII:0",
+  "XI->V:0",
+  "XI->VI:0",
+  "XI->VII:0",
+  "XI->VIII:0",
+  "XI->IX:0",
+  "XI->X:0",
+  "XI->XI:1",
+  "XI->XII:1",
+  "XII->V:0",
+  "XII->VI:0",
+  "XII->VII:0",
+  "XII->VIII:0",
+  "XII->IX:0",
+  "XII->X:0",
+  "XII->XI:0",
+  "XII->XII:1",
+]
+`;
+
+exports[`lib/utils class helpers > aadhaar formatting 1`] = `
+[
+  "••••-••••-9012",
+  "••••-••••-1234",
+  "—",
+  "—",
+  "—",
+]
+`;
+
+exports[`lib/utils class helpers > aadhaar formatting 2`] = `"1234 5678 9012"`;
+
+exports[`lib/utils class helpers > age and kanyashree category (system date 2026-06-15) 1`] = `
+[
+  {
+    "d": "2010-06-15",
+    "detailed": {
+      "days": 0,
+      "formattedLong": "16 yrs, 0 mos, 0 days",
+      "formattedShort": "16y 0m 0d",
+      "months": 0,
+      "years": 16,
+    },
+    "exact": 16,
+    "kf": "K1",
+    "km": null,
+  },
+  {
+    "d": "2010-06-16",
+    "detailed": {
+      "days": 30,
+      "formattedLong": "15 yrs, 11 mos, 30 days",
+      "formattedShort": "15y 11m 30d",
+      "months": 11,
+      "years": 15,
+    },
+    "exact": 15,
+    "kf": "K1",
+    "km": null,
+  },
+  {
+    "d": "2008-01-01",
+    "detailed": {
+      "days": 14,
+      "formattedLong": "18 yrs, 5 mos, 14 days",
+      "formattedShort": "18y 5m 14d",
+      "months": 5,
+      "years": 18,
+    },
+    "exact": 18,
+    "kf": "K2",
+    "km": null,
+  },
+  {
+    "d": "2013-12-31",
+    "detailed": {
+      "days": 15,
+      "formattedLong": "12 yrs, 5 mos, 15 days",
+      "formattedShort": "12y 5m 15d",
+      "months": 5,
+      "years": 12,
+    },
+    "exact": 12,
+    "kf": null,
+    "km": null,
+  },
+  {
+    "d": "",
+    "detailed": null,
+    "exact": null,
+    "kf": null,
+    "km": null,
+  },
+  {
+    "d": null,
+    "detailed": null,
+    "exact": null,
+    "kf": null,
+    "km": null,
+  },
+  {
+    "d": "bad",
+    "detailed": null,
+    "exact": null,
+    "kf": null,
+    "km": null,
+  },
+]
+`;
+
+exports[`lib/utils class helpers > compareStudentsByClassAndRoll 1`] = `
+[
+  {
+    "class": "IX",
+    "roll_no": 3,
+    "section": "B",
+  },
+  {
+    "class": "V",
+    "roll_no": 10,
+    "section": "A",
+  },
+  {
+    "class": "IX",
+    "roll_no": 1,
+    "section": "A",
+  },
+  {
+    "class": "V",
+    "roll_no": 2,
+    "section": "A",
+  },
+  {
+    "class": "XI",
+    "roll_no": null,
+    "section": "A",
+  },
+]
+`;
+
+exports[`lib/utils class helpers > normalizeClassName / getClassRank 1`] = `
+[
+  [
+    "V",
+    "V",
+    5,
+  ],
+  [
+    "v",
+    "V",
+    5,
+  ],
+  [
+    "5",
+    "V",
+    5,
+  ],
+  [
+    "Class VIII",
+    "VIII",
+    8,
+  ],
+  [
+    "ix",
+    "IX",
+    9,
+  ],
+  [
+    "10",
+    "X",
+    10,
+  ],
+  [
+    "XI",
+    "XI",
+    11,
+  ],
+  [
+    "12",
+    "XII",
+    12,
+  ],
+  [
+    "XIII",
+    "XIII",
+    999,
+  ],
+  [
+    "",
+    "Unknown",
+    999,
+  ],
+  [
+    null,
+    "Unknown",
+    999,
+  ],
+  [
+    undefined,
+    "Unknown",
+    999,
+  ],
+  [
+    "abc",
+    "ABC",
+    999,
+  ],
+]
+`;
+
+exports[`lib/utils class helpers > sortClasses 1`] = `
+[
+  "V",
+  "VII",
+  "IX",
+  "x",
+  "XI",
+  "XII",
+  "Other",
+]
+`;
+
+exports[`school id > builds and formats ids 1`] = `
+[
+  "MHS/V/2026/1",
+  "ABC/IX/2025/7",
+  "MHS/XII/2024/123",
+  "5",
+  "0012",
+  "003",
+  "001",
+  "V",
+  "V",
+  "V",
+  "VIII",
+  "IX",
+  "X",
+  "XI",
+  "XII",
+  "XIII",
+  "V",
+  "V",
+  "V",
+  "ABC",
+]
+`;
+
+exports[`school id > parses ids including legacy formats 1`] = `
+[
+  {
+    "classStr": "V",
+    "isLegacyFormat": false,
+    "prefix": "MHS",
+    "registerNo": "01",
+    "year": "2026",
+  },
+  {
+    "classStr": "IX",
+    "isLegacyFormat": false,
+    "prefix": "ABC",
+    "registerNo": "07",
+    "year": "2025",
+  },
+  {
+    "classStr": "V",
+    "isLegacyFormat": false,
+    "prefix": "MHS-V-A-12",
+    "registerNo": "01",
+    "year": "2026",
+  },
+  {
+    "classStr": "V",
+    "isLegacyFormat": false,
+    "prefix": "garbage",
+    "registerNo": "01",
+    "year": "2026",
+  },
+  {
+    "classStr": "V",
+    "isLegacyFormat": false,
+    "prefix": "MHS",
+    "registerNo": "01",
+    "year": "2026",
+  },
+]
+`;

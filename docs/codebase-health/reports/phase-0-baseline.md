@@ -2,21 +2,26 @@
 
 Date: 2026-10-28 · Branch: `refactor/codebase-health` @ 81d4cef
 
-## Health scorecard — **4.5 / 10**
-| Area | Value | Score /10 |
-|---|---|---|
-| Type errors (`tsc`) | 0 | 10 |
-| Build (`next build`) | ✅ pass (128s) | 10 |
-| ESLint | 23 errors · 1,712 warnings | 3 |
-| `any` usage (eslint) | 922 | 2 |
-| Duplication (jscpd, ≥50 tokens) | **8.38%** — 11,144 lines, 497 clones | 5.5 |
-| Dead code (knip) | 19 files · 174 exports · 103 types · 5 deps | 3 |
-| Circular imports (madge) | 2 | 8 |
-| Files > 1000 lines | 39 (96 > 500) | 2 |
-| Security | 7 unauthenticated write/compute routes · 3 critical + 11 high npm vulns | 1 |
-| Tests | none | 0 |
+## Health scorecard (`npm run health`) — **2.9 / 10 → 3.2 / 10** after Phase 0
+| Area | Baseline | After Phase 0 | Score /10 |
+|---|---|---|---|
+| Type errors (`tsc`) | 0 | 0 | 10 |
+| ESLint | 23 E · 1,712 W | same | 0 |
+| `any` (eslint) | 922 | same | 0.8 |
+| Duplication (jscpd ≥50 tokens) | **8.38%** · 11,144 lines · 497 clones | same | 5.5 |
+| Dead code (knip) | 19 files · 266 exports/types · 5 deps | same | 0 |
+| Circular imports | 2 | 2 | 8 |
+| Files > 1000 lines | 39 (96 > 500) | same | 2.2 |
+| npm vulns | crit 3 · high 11 | same | 0 |
+| Tests | 0 | **20 tests · 27 snapshots** | 2 |
+| Build | ✅ pass (128s) | not re-run (only dev deps/tests changed; tsc 0) | — |
 
-Score = 10 টা area-র সরল গড়। প্রতিটা phase শেষে একই tool দিয়ে আবার মাপা হবে।
+Formula `scripts/health.mjs`-এ — প্রতিটা area 0–10, সরল গড়। একই কমান্ড প্রতিটা phase শেষে চলবে, তাই তুলনা সবসময় সমান মাপকাঠিতে।
+
+## Phase 0 deliverables
+- `npm test` — Vitest 5 + characterization tests (`tests/characterization/`): class ladder, promotion map, class sort/rank, age & Kanyashree category, Aadhaar, school ID build/parse, WBBSE grade, subject normalisation, marksheet totals, marks schemes, scholarship eligibility, document numbers, routine keys।
+- `npm run health` — পুরো scorecard এক কমান্ডে (`--build` দিলে build-ও)।
+- `@types/node` 20 → 22 (Node runtime 22-এর সাথে মিল; Vitest 5-এর peer)।
 
 ## Size
 | Metric | Value |
@@ -90,6 +95,4 @@ Intentionally public: `certificates/verify`, `invoices/verify` (QR verification)
 | `components/routine/routine-teachers-tab.tsx` | 20 | 1,828 |
 | `app/(dashboard)/generate/invoice/page.tsx` | 19 | 2,506 |
 
-## Still to do in Phase 0
-- Vitest + characterization tests (promotion ladder, Roman numerals, school-id generator, excel-parser, routine helpers)
-- `npm run health` script (সব metric এক কমান্ডে)
+## Phase 0 status: ✅ complete
