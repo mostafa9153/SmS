@@ -55,6 +55,37 @@ Score = প্রতিটা metric-কে 0–10 normalise করে গড়
 - Data fetching: shared query keys + fetch helper (`apiFetch`), shared mutation toast pattern।
 - Gate: jscpd ↓, build, tests।
 
+### ⭐ User requirement — Shared component consolidation (added 2026-10-28, via forked session)
+User-এর কথা: শুধু dropdown নয় — **যেকোনো বারবার লেখা UI একটাই shared component হবে**। ভালো করার জন্য বিদ্যমান code ভেঙে নতুন করে লেখা অনুমোদিত; UI এক রকম (uniform) হয়ে যাওয়া গ্রহণযোগ্য।
+
+Inventory (current tree, files with their own copy):
+| Pattern | Copies | Target shared component |
+|---|---|---|
+| Page header (h1 + actions) | 74 | `PageHeader` |
+| Raw `<table>` | 39 | `DataTable` (TanStack Table, already a dep) |
+| Loading spinner (`Loader2 animate-spin`) | 38 | `Spinner` / route `loading.tsx` skeletons |
+| Search input with icon | 35 | `SearchInput` |
+| Dropdown — 3 systems: CustomSelect 45 · shadcn `ui/select` 34 · native `<select>` 14 | 93 | one `AppSelect` with size variants (`sm` for toolbars/table cells) |
+| Empty state ("No … found" / Inbox) | 34 | `EmptyState` |
+| Print page + toolbar (`window.print` 29, `@media print` 23) | ~29 | `PrintShell` |
+| Stat card (big number + label) | 27 | `StatCard` |
+| Pagination | 19 | `Pagination` |
+| Confirm (`window.confirm` 8 + hand-made dialogs) | 8+ | `ConfirmDialog` / `useConfirm()` |
+| Raw `await fetch` | 44 | `apiFetch` (errors → notification bell) |
+| Local `FormSection`/`FormGrid`/`FormField` (students edit page, student-add-edit-form, employee-edit-form) | 3 | `components/forms/form-layout.tsx` (`text-base` mobile, `sm:text-sm` — avoids iOS zoom) |
+| `CustomTooltip` in dashboard charts | 3 | shared chart tooltip |
+| `FilterSelect` (results-client, student-filters) | 2 | `AppSelect` |
+
+Module-level duplicates (merge into one implementation):
+- `students/[id]/edit/page.tsx` ↔ `student-add-edit-form.tsx` (~1,000 identical lines) → edit page reuses the form
+- 4 certificate pages (pass / transfer / character / kanyashree) + their printable views
+- Staff create / edit dialog + employee edit form
+- 2 photo capture components
+- 2 login pages (`/login`, `/teacher/login`)
+- Admission printable V–IX ↔ XI
+
+Execution: **Phase 3f** — build the shared components first (each with a test or visual check), then migrate module by module inside Phase 3.0–3.6; every module report shows copies removed and lines saved. Rule added to `CLAUDE.md` conventions once the components exist.
+
 ### Phase 3 — Modules (vertical slices, প্রতিটা আলাদা sub-report)
 | # | Module | Scope |
 |---|---|---|
