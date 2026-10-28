@@ -5,6 +5,7 @@ import { Search, X, SlidersHorizontal, UserPlus, FileSpreadsheet, RotateCcw } fr
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export interface StaffFilters {
   query?: string;
@@ -154,22 +155,22 @@ export function StaffFiltersBar({
         </select>
 
         {/* Status Filter */}
-        <select
+        <CustomSelect
           value={filters.status ?? ""}
-          onChange={(e) =>
-            onChange({
+          onChange={(v: string) => onChange({
               ...filters,
-              status: e.target.value || undefined,
-            })
-          }
-          className="h-9 px-2.5 rounded-xl border border-border/80 bg-card text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer truncate w-full sm:w-auto"
-        >
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="RETIRED">Retired</option>
-          <option value="SUSPENDED">Suspended</option>
-        </select>
+              status: v || undefined,
+            })}
+          className="w-full sm:w-auto"
+          searchable={false}
+          options={[
+            { value: "", label: "All Statuses" },
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "RETIRED", label: "Retired" },
+            { value: "SUSPENDED", label: "Suspended" },
+          ]}
+        />
 
         {/* Reset Filter Button */}
         {hasActiveFilters && (

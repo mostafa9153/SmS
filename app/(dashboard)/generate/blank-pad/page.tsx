@@ -46,6 +46,7 @@ import {
   formatDocumentNumber,
 } from "@/lib/utils/document-sequence";
 import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface PrintMargins { top: number; right: number; bottom: number; left: number; }
 
@@ -343,20 +344,20 @@ function BlankPadGeneratorContent() {
               <div className="space-y-1.5">
                 <Label className="text-xs">Border Design</Label>
                 <div className="relative">
-                  <select
+                  <CustomSelect
                     value={padData.borderStyle}
-                    onChange={(e) =>
-                      setPadData((prev) => ({
+                    onChange={(v: string) => setPadData((prev) => ({
                         ...prev,
-                        borderStyle: e.target.value as "ornate" | "single" | "none",
-                      }))
-                    }
-                    className="w-full appearance-none rounded-xl border border-input bg-background px-3 py-2 pr-8 text-xs font-semibold text-foreground shadow-2xs transition-all hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 cursor-pointer"
-                  >
-                    <option value="ornate">Classic Ornate Double Border</option>
-                    <option value="single">Minimalist Single Line</option>
-                    <option value="none">Full Bleed (No Outer Border)</option>
-                  </select>
+                        borderStyle: v as "ornate" | "single" | "none",
+                      }))}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "ornate", label: "Classic Ornate Double Border" },
+                      { value: "single", label: "Minimalist Single Line" },
+                      { value: "none", label: "Full Bleed (No Outer Border)" },
+                    ]}
+                  />
                   <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
                 </div>
               </div>
