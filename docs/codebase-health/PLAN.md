@@ -136,5 +136,5 @@ Design (public form বানানোর সময় সব বাধ্যত
 | 0 | ✅ Done (2.9 → 3.2) |
 | 1 | ✅ Done (2.9 → 4.8) + 1b teacher permissions |
 | 2 | ✅ Done (4.8 → 5.5) |
-| 3 | 🟡 In progress — 3a notification bell ✅ (5.5 → 5.6) |
+| 3 | 🟡 In progress — 3a notification bell ✅ · 3b public admission link ✅ |
 | 1–4 | ⏳ |
