@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function StudentAttendancePage() {
   const router = useRouter();
@@ -295,7 +297,7 @@ export default function StudentAttendancePage() {
             onClick={handleSave}
             className="w-full lg:w-auto h-12 px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md gap-2"
           >
-            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            {saving ? <Spinner className="h-5 w-5" /> : <Save className="h-5 w-5" />}
             Save Changes
           </Button>
         )}
@@ -317,7 +319,7 @@ export default function StudentAttendancePage() {
         
         {loading ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center">
-            <Loader2 className="h-10 w-10 animate-spin mb-4 text-primary/50" />
+            <Spinner className="h-10 w-10 mb-4 text-primary/50" />
             <p className="text-sm font-medium">Loading class roster...</p>
           </div>
         ) : roster.length === 0 ? (
@@ -413,7 +415,7 @@ export default function StudentAttendancePage() {
             disabled={saving}
             className="w-full sm:w-80 h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-full shadow-lg transition-transform active:scale-95"
           >
-            {saving ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Save className="w-6 h-6 mr-2" />}
+            {saving ? <Spinner className="w-6 h-6 mr-2" /> : <Save className="w-6 h-6 mr-2" />}
             Submit Attendance
           </Button>
           
@@ -434,13 +436,11 @@ export default function StudentAttendancePage() {
           <div className="p-4 sm:p-6 bg-card">
             {loadingHistory ? (
                <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-                 <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary/50" />
+                 <Spinner className="h-8 w-8 mb-3 text-primary/50" />
                  <p className="text-sm font-medium">Loading history...</p>
                </div>
             ) : historyData.length === 0 ? (
-               <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-2xl border border-border/50">
-                 <p className="text-sm font-medium">No recent attendance records found.</p>
-               </div>
+               <EmptyState compact title="No recent attendance records found." className="bg-muted/30 rounded-2xl border border-border/50" />
             ) : (
                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                  {historyData.map((record, i) => (

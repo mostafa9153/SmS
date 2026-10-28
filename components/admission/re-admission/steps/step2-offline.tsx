@@ -27,6 +27,7 @@ import {
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Step2OfflineProps {
   onNext: (studentData: Student) => void;
@@ -229,7 +230,7 @@ export function Step2Offline({
         {/* Candidates List */}
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <Spinner className="w-6 h-6 text-primary" />
             <span className="text-xs">Loading candidates{selectedClass !== "all" ? ` for Class ${selectedClass}` : ""}...</span>
           </div>
         ) : candidates.length === 0 ? (

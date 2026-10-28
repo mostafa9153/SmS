@@ -18,6 +18,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2, FileText, Printer, AlertTriangle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 const TC_REASONS = [
   { label: "Transfer / Parent Relocation", value: "Transfer / Parent Relocation" },
@@ -172,7 +173,7 @@ export function IssueTcDialog({
             disabled={isSubmitting}
             className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
           >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+            {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <Printer className="h-3.5 w-3.5" />}
             Issue &amp; Print TC
           </Button>
 
@@ -183,7 +184,7 @@ export function IssueTcDialog({
             disabled={isSubmitting}
             className="text-xs h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
           >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
             Confirm TC Out
           </Button>
         </DialogFooter>

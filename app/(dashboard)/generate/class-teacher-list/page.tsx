@@ -27,7 +27,9 @@ import {
   type PaperSize,
   type PrintMargins,
 } from "@/components/teacher/class-teacher-list-printable";
-import { ArrowLeft, Printer, Loader2 } from "lucide-react";
+import { Printer, Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 type PresetWithTeachers = ClassPresetItem & {
   classTeacher?: string;
@@ -130,15 +132,7 @@ function ClassTeacherListContent() {
   return (
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-3 lg:gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
       <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/generate"
-            className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "h-8 w-8 rounded-xl shrink-0")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-base font-bold tracking-tight">Class Teacher List</h1>
-        </div>
+        <PageHeader back="/generate" title="Class Teacher List" />
 
         <div className="space-y-2 border-t pt-3">
           <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paper</p>
@@ -230,7 +224,7 @@ export default function ClassTeacherListPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Spinner className="h-6 w-6 text-muted-foreground" />
         </div>
       }
     >

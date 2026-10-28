@@ -12,7 +12,6 @@ import {
 import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -35,6 +34,7 @@ import {
   getTeacherSubjectPeriod,
   isTeacherAssignedToSubject,
 } from "@/lib/routine/routine-helpers";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface RoutineAllotmentOverviewTabProps {
   classes: RoutineClass[];
@@ -770,16 +770,7 @@ export function RoutineAllotmentOverviewTab({
       {/* 2. Control Bar: Search & Issue Filter */}
       <div className="bg-card border rounded-lg p-2.5 shadow-xs flex flex-wrap lg:flex-nowrap items-center justify-between gap-2.5">
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
-          <div className="relative w-48 sm:w-56 shrink-0">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search class, subject, teacher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-xs bg-background"
-            />
-          </div>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search class, subject, teacher..." size="sm" className="w-48 sm:w-56 shrink-0" />
 
           {/* Class Filter */}
           <Select value={filterClass} onValueChange={(val) => setFilterClass(val ?? "all")}>

@@ -4,7 +4,6 @@ import React, { useState, useMemo } from "react";
 import { cleanColumnLabel } from "@/lib/ems/room-storage";
 import { AllocatedRoom, SeatAssignment } from "@/lib/ems/types";
 import { SeatCard, getClassColorStyle } from "./seat-card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -21,6 +20,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface VisualRoomBlueprintProps {
   room: AllocatedRoom;
@@ -134,16 +134,7 @@ export function VisualRoomBlueprint({
         {/* Search & Actions */}
         <div className="flex items-center gap-2">
           {/* Search Input */}
-          <div className="relative w-36 sm:w-48">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Find student / roll..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-7.5 pl-8 pr-2 text-xs rounded-xl bg-background border border-border focus:border-primary focus:outline-none"
-            />
-          </div>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Find student / roll..." size="sm" className="w-36 sm:w-48" />
 
           {/* Zoom Controls */}
           <div className="flex items-center gap-0.5 bg-background border border-border/70 rounded-xl p-0.5">

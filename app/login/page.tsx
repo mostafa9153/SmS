@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -68,7 +69,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="relative flex items-center justify-center">
             <div className="absolute h-12 w-12 rounded-full border-4 border-primary/25 animate-pulse" />
-            <RefreshCw className="h-6 w-6 animate-spin text-primary relative z-10" />
+            <Spinner className="h-6 w-6 text-primary relative z-10" />
           </div>
           <p className="text-xs font-medium text-slate-400">Authenticating session...</p>
         </div>
@@ -229,7 +230,7 @@ export default function LoginPage() {
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <Spinner className="h-4 w-4" />
                     Checking credentials...
                   </span>
                 ) : (

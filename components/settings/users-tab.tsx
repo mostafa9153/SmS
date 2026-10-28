@@ -22,6 +22,8 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { getCurrentUserRole } from "@/lib/data/students";
 import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface UserProfile {
   id: string;
@@ -358,7 +360,7 @@ export function UsersTab() {
                 <Button type="submit" disabled={createUserMutation.isPending}>
                   {createUserMutation.isPending ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner className="mr-2 h-4 w-4" />
                       Creating...
                     </>
                   ) : (
@@ -464,9 +466,7 @@ export function UsersTab() {
                 );
               })}
               {usersData?.users.length === 0 && (
-                <div className="col-span-full text-center py-8 text-muted-foreground text-sm">
-                  No other system users found.
-                </div>
+                <EmptyState compact title="No other system users found." className="col-span-full" />
               )}
             </div>
           </div>
@@ -640,7 +640,7 @@ export function UsersTab() {
               <Button type="submit" disabled={updateUserMutation.isPending}>
                 {updateUserMutation.isPending ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2 h-4 w-4" />
                     Saving...
                   </>
                 ) : (

@@ -25,6 +25,8 @@ import {
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import { cn, sortClasses } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface Step2OnlineProps {
   onNext: (appData: any) => void;
@@ -161,21 +163,13 @@ export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
       </div>
 
       {/* Search Input Form */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by student name, app no, PEN, guardian, or phone..."
-          className="pl-9 h-9 text-xs"
-        />
-      </div>
+      <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by student name, app no, PEN, guardian, or phone..." size="sm" />
 
       {/* Applications List */}
       <div className="flex flex-col gap-2 min-h-[300px]">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-muted-foreground">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <Spinner className="w-6 h-6 text-primary" />
             <span className="text-xs font-medium">Loading submissions...</span>
           </div>
         ) : filteredApps.length === 0 ? (

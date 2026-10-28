@@ -6,7 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getAdmissionApplicationById } from "@/lib/data/admission";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
-import { Printer, ArrowLeft, CheckCircle2, ShieldCheck, QrCode } from "lucide-react";
+import { Printer, CheckCircle2, ShieldCheck, QrCode } from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default function ApplicationReceiptPage({
   params,
@@ -47,25 +48,11 @@ export default function ApplicationReceiptPage({
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
       {/* Top Action Bar (Hidden in Print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 print:hidden">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admission/new/apply"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border hover:bg-muted text-xs font-bold text-foreground transition-colors cursor-pointer"
-            title="Submit another application"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span>Apply Another</span>
-          </Link>
-          <div>
-            <h1 className="text-lg font-black text-foreground flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              <span>Application Submitted Successfully</span>
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        back="/admission/new/apply"
+        icon={CheckCircle2}
+        title="Application Submitted Successfully"
+        actions={<div className="flex items-center gap-2">
           <Button
             onClick={() => window.print()}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs h-9 px-4 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
@@ -73,8 +60,9 @@ export default function ApplicationReceiptPage({
             <Printer className="h-4 w-4" />
             <span>Print Receipt Slip</span>
           </Button>
-        </div>
-      </div>
+        </div>}
+        className="border-b pb-4 print:hidden"
+      />
 
       {/* Printable Receipt Paper Container */}
       <div className="bg-white text-slate-900 border border-slate-300 rounded-2xl p-6 sm:p-8 shadow-md print:shadow-none print:border-none print:p-0 max-w-2xl mx-auto space-y-6 select-none font-sans">

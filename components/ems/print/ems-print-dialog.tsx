@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { SearchInput } from "@/components/ui/search-input";
 
 export interface EmsPrintDialogProps {
   open: boolean;
@@ -640,16 +641,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
 
               {/* Room Search Filter (if > 3 rooms) */}
               {rooms.length > 3 && (
-                <div className="relative flex items-center">
-                  <Search className="absolute left-2.5 h-3 w-3 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={roomSearch}
-                    onChange={(e) => setRoomSearch(e.target.value)}
-                    placeholder="Search room..."
-                    className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50/80 dark:bg-slate-950 rounded-lg border border-slate-200 dark:border-slate-800 outline-none text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:border-indigo-500 transition-all"
-                  />
-                </div>
+                <SearchInput value={roomSearch} onChange={setRoomSearch} placeholder="Search room..." size="sm" className="flex items-center" />
               )}
 
               {/* Room Choice Chips Grid */}

@@ -44,6 +44,7 @@ import {
 } from "@/lib/routine/routine-helpers";
 import { getClassStreamList } from "@/lib/utils/school-profile";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -594,7 +595,7 @@ export function RoutineClassesTab({
             >
               {isSubmitting ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   <span>Saving...</span>
                 </>
               ) : isSavedRecently ? (
@@ -807,7 +808,7 @@ export function RoutineClassesTab({
               >
                 {isSubmitting ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <Spinner className="w-3.5 h-3.5" />
                     <span>Adding...</span>
                   </>
                 ) : (

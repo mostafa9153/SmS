@@ -5,12 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Users, Clock, CheckCircle, Search, Banknote, Eye, FileText, ChevronRight, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ViewApplicationFormDialog } from "./view-application-form-dialog";
 import { format } from "date-fns";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -122,15 +123,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
         <Card className="flex flex-col flex-1 min-h-[400px] shadow-2xs">
           <CardHeader className="p-3 sm:p-4 pb-3 shrink-0 border-b space-y-2.5">
             {/* Search Input */}
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search name, ID, phone..." 
-                value={search} 
-                onChange={e => setSearch(e.target.value)} 
-                className="pl-9 h-9 text-xs bg-background" 
-              />
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search name, ID, phone..." size="sm" className="w-full" />
 
             {/* 4-Dropdown Grid for seamless alignment */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
@@ -186,7 +179,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
               {loading ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">Loading data...</div>
               ) : filteredApps.length === 0 ? (
-                <div className="text-center py-8 text-xs text-muted-foreground">No applications found</div>
+                <EmptyState compact title="No applications found" />
               ) : (
                 filteredApps.map(app => {
                   const formNum = app.applicationNo || app.formNo || (app.targetClass ? `APP-2026-${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8));

@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast-banner";
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 interface StaffDeleteDialogProps {
   open: boolean;
@@ -103,7 +104,7 @@ export function StaffDeleteDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Spinner className="mr-1.5 h-3.5 w-3.5" />
                 Deleting...
               </>
             ) : (

@@ -17,6 +17,7 @@ import { Loader2, UserPlus, Briefcase, User, MapPin, GraduationCap, Sparkles, Bo
 import { ClassMultiSelectDropdown } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
 
 interface StaffCreateDialogProps {
   open: boolean;
@@ -697,7 +698,7 @@ export function StaffCreateDialog({
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="mr-1.5 h-3.5 w-3.5" />
                   Saving...
                 </>
               ) : (

@@ -42,6 +42,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BackupFrequency, DriveBackupFile, GoogleAccountInfo, RestorePreview } from "@/lib/backup/types";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 export function BackupRestoreTab() {
   const confirm = useConfirm();
@@ -835,7 +836,7 @@ export function BackupRestoreTab() {
             >
               {restoreMutation.isPending ? (
                 <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   Restoring Database...
                 </>
               ) : (

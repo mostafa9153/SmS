@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Activity } from "lucide-react";
 import { SettingsBackButton } from "@/components/settings/settings-back-button";
 import { AuditLogsTab } from "@/components/settings/audit-logs-tab";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = {
   title: "Audit Logs & Security History | Settings | SMS",
@@ -22,14 +23,7 @@ export default function AuditLogsSettingsPage() {
             <SettingsBackButton />
           </div>
           <div>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-background/80 shadow-sm border border-border/50 text-violet-600 dark:text-violet-400 flex items-center justify-center backdrop-blur-sm">
-                <Activity className="h-6 w-6" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-600">
-                System Audit Logs & Security History
-              </h1>
-            </div>
+            <PageHeader icon={Activity} title="System Audit Logs & Security History" />
             <p className="text-sm text-muted-foreground mt-2 max-w-2xl font-medium">
               Track administrative operations, student demographic changes, and regulatory audit trails.
             </p>

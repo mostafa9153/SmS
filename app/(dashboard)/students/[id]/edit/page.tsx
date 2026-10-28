@@ -22,6 +22,7 @@ import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/l
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { toastWithUndo } from "@/lib/undo/client";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
+import { Spinner } from "@/components/ui/spinner";
 
 const studentSchema = z.object({
   // Identity
@@ -1404,7 +1405,7 @@ export default function EditStudentPage() {
             disabled={mutation.isPending}
             className="flex items-center gap-2 rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors"
           >
-            {mutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {mutation.isPending && <Spinner className="h-3.5 w-3.5" />}
             {mutation.isPending ? "Saving changes…" : "Save Student"}
           </button>
           <button

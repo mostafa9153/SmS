@@ -39,6 +39,7 @@ import {
 import { CustomSelect } from "@/components/ui/custom-select";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 export function AdmissionFormTrackerModal({
   isOpen,
@@ -634,7 +635,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-muted-foreground text-xs">
                       <div className="flex items-center justify-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                        <Spinner className="h-4 w-4 text-primary" />
                         <span>Loading records from database...</span>
                       </div>
                     </td>

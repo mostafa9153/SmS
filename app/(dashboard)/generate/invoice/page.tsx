@@ -66,6 +66,7 @@ import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
+import { SearchInput } from "@/components/ui/search-input";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const STANDARD_SECTIONS = ["ALL", "A", "B", "C", "D"];
@@ -1734,15 +1735,7 @@ function InvoiceGeneratorContent() {
                   <>
                     {/* Search in class roster + Select/Deselect All buttons */}
                     <div className="flex items-center justify-between gap-2 pt-1">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-muted-foreground" />
-                        <Input
-                          placeholder="Search within class..."
-                          value={bulkRosterSearch}
-                          onChange={(e) => setBulkRosterSearch(e.target.value)}
-                          className="pl-7 text-xs h-7"
-                        />
-                      </div>
+                      <SearchInput value={bulkRosterSearch} onChange={setBulkRosterSearch} placeholder="Search within class..." size="sm" className="flex-1" />
                       <div className="flex items-center gap-1">
                         <button
                           type="button"

@@ -14,6 +14,7 @@ import { Save, Award, Search, X, Wand2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useSportsEvents, getUnitSuffix, isLowerBetter } from "@/lib/sports/use-sports-events";
 import { SportsEventHeader } from "@/components/sports/sports-event-header";
+import { SearchInput } from "@/components/ui/search-input";
 
 type ScoreRow = {
   trial1: string;
@@ -311,24 +312,7 @@ function SportsResultsView({ eventId }: { eventId: string }) {
       <Card className="rounded-2xl p-3 gap-3 border shadow-2xs">
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 justify-between">
-          <div className="relative flex-1 sm:max-w-sm">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search name, chest #, roll, class..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-8 h-8 text-xs rounded-xl"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2 text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search name, chest #, roll, class..." size="sm" className="flex-1 sm:max-w-sm" />
 
           <div className="flex items-center gap-2 justify-between sm:justify-end">
             {canAutoRank && (

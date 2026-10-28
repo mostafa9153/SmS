@@ -40,6 +40,8 @@ import {
 } from "@/lib/utils/certificate-registry";
 import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config-loader";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
 export default function CertificateTrackerPage() {
   const confirm = useConfirm();
@@ -479,7 +481,7 @@ export default function CertificateTrackerPage() {
               className="h-9 sm:h-8 text-xs px-4 gap-1.5 w-full sm:w-auto"
             >
               {isVerifying ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
               ) : (
                 <ShieldCheck className="h-3.5 w-3.5" />
               )}
@@ -723,15 +725,7 @@ export default function CertificateTrackerPage() {
         {/* Table Toolbar */}
         <div className="p-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-muted/20">
           <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-2 flex-1">
-            <div className="relative w-full sm:flex-1 sm:max-w-sm">
-              <Search className="absolute left-2.5 top-3 sm:top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Filter by name, cert no, ID..."
-                value={tableSearch}
-                onChange={(e) => setTableSearch(e.target.value)}
-                className="pl-8 text-base sm:text-xs h-10 sm:h-8 bg-background"
-              />
-            </div>
+            <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Filter by name, cert no, ID..." size="sm" className="w-full sm:flex-1 sm:max-w-sm" />
 
             <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto">
               <CustomSelect
@@ -809,7 +803,7 @@ export default function CertificateTrackerPage() {
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-1.5 text-primary" />
+                    <Spinner className="h-4 w-4 mx-auto mb-1.5 text-primary" />
                     Loading records...
                   </td>
                 </tr>

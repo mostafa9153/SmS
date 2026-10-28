@@ -8,6 +8,7 @@ import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
 import { cn, sortClasses, STATUS_STYLES } from "@/lib/utils";
 import { FilterSelect } from "@/components/ui/filter-select";
+import { SearchInput } from "@/components/ui/search-input";
 
 export const ACTIVE_STATUSES: StudentStatus[] = [
   "Continuing",
@@ -171,24 +172,7 @@ export function StudentFiltersBar({
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2 sm:py-3 shadow-2xs space-y-2">
       {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
       <div className="flex sm:hidden items-center gap-2.5">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-          <input
-            type="text"
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            placeholder="Search students..."
-            className="w-full h-11 min-h-[44px] rounded-2xl border border-border/90 bg-card hover:bg-background pl-10 pr-9 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
-          />
-          {localQuery && (
-            <button
-              onClick={() => setLocalQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search students..." className="flex-1" />
 
         <button
           type="button"
@@ -572,16 +556,7 @@ export function StudentFiltersBar({
       {/* Desktop Filter Bar (hidden on mobile, visible sm+) */}
       <div className="hidden sm:flex flex-wrap gap-2 items-center">
         {/* Smart search */}
-        <div className="relative min-w-[170px] flex-1 max-w-xs group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-          <input
-            type="text"
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            placeholder="Search name, ID, PEN, Aadhaar…"
-            className="w-full rounded-xl border border-border/90 hover:border-primary/40 bg-card hover:bg-background pl-9 pr-3 py-1.5 text-xs sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
-          />
-        </div>
+        <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search name, ID, PEN, Aadhaar…" size="sm" className="min-w-[170px] flex-1 max-w-xs" />
 
         {/* Class filter */}
         <FilterSelect

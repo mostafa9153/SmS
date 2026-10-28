@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { UserCheck } from "lucide-react";
 import { SettingsBackButton } from "@/components/settings/settings-back-button";
 import { UsersTab } from "@/components/settings/users-tab";
+import { PageHeader } from "@/components/ui/page-header";
 
 export const metadata = {
   title: "User Management | Settings | SMS",
@@ -22,14 +23,7 @@ export default function UsersSettingsPage() {
             <SettingsBackButton />
           </div>
           <div>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-background/80 shadow-sm border border-border/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center backdrop-blur-sm">
-                <UserCheck className="h-6 w-6" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-600">
-                Authorized System Users
-              </h1>
-            </div>
+            <PageHeader icon={UserCheck} title="Authorized System Users" />
             <p className="text-sm text-muted-foreground mt-2 max-w-2xl font-medium">
               Manage administrative and staff accounts with granular role permissions.
             </p>

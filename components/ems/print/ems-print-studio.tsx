@@ -53,6 +53,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { SearchInput } from "@/components/ui/search-input";
 
 export interface EmsPrintStudioProps {
   allocation: ExamAllocation;
@@ -763,16 +764,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                   </div>
 
                   {rooms.length > 3 && (
-                    <div className="relative flex items-center">
-                      <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                      <input
-                        type="text"
-                        value={roomSearch}
-                        onChange={(e) => setRoomSearch(e.target.value)}
-                        placeholder="Search room, floor..."
-                        className="w-full pl-8 pr-2 py-1.5 text-xs bg-muted/40 rounded-xl border border-border outline-none text-foreground placeholder:text-muted-foreground focus:border-indigo-500 transition-all"
-                      />
-                    </div>
+                    <SearchInput value={roomSearch} onChange={setRoomSearch} placeholder="Search room, floor..." size="sm" className="flex items-center" />
                   )}
 
                   <div className="max-h-60 overflow-y-auto space-y-1 pr-1">

@@ -51,6 +51,7 @@ import {
   Check,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 // 23 Districts of West Bengal
 export const WB_DISTRICTS = [
@@ -1987,7 +1988,7 @@ export function AdmissionApplicationForm({
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+              <Spinner className="h-5 w-5 shrink-0" />
               <span className="truncate">আবেদন জমা হচ্ছে… (Processing…)</span>
             </>
           ) : (

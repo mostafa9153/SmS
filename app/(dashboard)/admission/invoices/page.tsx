@@ -25,13 +25,11 @@ import { recordPrintBatch } from "@/lib/utils/print-history";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Printer,
-  ArrowLeft,
   Users,
   RefreshCw,
   CheckCheck,
@@ -53,6 +51,8 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/ui/search-input";
+import { PageHeader } from "@/components/ui/page-header";
 
 export interface UnifiedQueueCandidate {
   id: string;
@@ -634,28 +634,15 @@ export default function AdmissionQueuePage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5 print:hidden">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admission"
-            className="p-2.5 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-            title="Back to Admission Desk"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <Printer className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-              <span>Admission Queue</span>
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+      <PageHeader
+        back="/admission"
+        icon={Printer}
+        title="Admission Queue"
+        badge={<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Active</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
+            </span>}
+        actions={<div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -698,8 +685,9 @@ export default function AdmissionQueuePage() {
           >
             <span>Custom Generator</span>
           </Link>
-        </div>
-      </div>
+        </div>}
+        className="border-b pb-5 print:hidden"
+      />
 
       {/* Overview Stat Chips */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 print:hidden">
@@ -811,24 +799,7 @@ export default function AdmissionQueuePage() {
       {/* Search and Filters Bar */}
       <div className="space-y-3 print:hidden">
         {/* Search Input */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search candidate by name, roll, student ID, form no, or PEN..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-10 text-xs rounded-xl"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search candidate by name, roll, student ID, form no, or PEN..." size="sm" />
 
         {/* Class Filter Chips & View Mode Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">

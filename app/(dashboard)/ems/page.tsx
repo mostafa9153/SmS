@@ -114,6 +114,8 @@ import {
 } from "@/components/ems/auto-allocation-wizard";
 import { StudentRosterDialog } from "@/components/ems/student-roster-dialog";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 // Sort class groups strictly in consecutive order: 5, 6, 7, 8, 9, 10, 11, 12 (V..XII)
 const sortClassGroups = (groups: ClassGroupConfig[]): ClassGroupConfig[] => {
@@ -2147,7 +2149,7 @@ function EmsMasterPageContent() {
         </div>
         <div className="h-16 rounded-2xl bg-muted/40 border border-border/70" />
         <div className="h-96 rounded-2xl bg-card/60 border border-border/70 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="h-6 w-6 animate-spin text-primary/70" />
+          <Spinner className="h-6 w-6 text-primary/70" />
           <p className="text-xs font-medium text-muted-foreground">Loading Examination Suite...</p>
         </div>
       </div>
@@ -2157,24 +2159,10 @@ function EmsMasterPageContent() {
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto w-full space-y-4 sm:space-y-6">
       {/* Header matching Bulk Upload with Classrooms & Halls Management Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
-            title="Back"
-            className="rounded-lg p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-              EMS — Exam Seating Management
-            </h1>
-          </div>
-        </div>
-
-        {/* Classrooms & Halls Section in header */}
-        <Button
+      <PageHeader
+        back={() => (step > 1 ? setStep(step - 1) : router.back())}
+        title="EMS — Exam Seating Management"
+        actions={<Button
           type="button"
           variant="outline"
           onClick={() => setRoomsManagerOpen(true)}
@@ -2182,8 +2170,8 @@ function EmsMasterPageContent() {
         >
           <DoorOpen className="h-4 w-4 text-primary" />
           <span suppressHydrationWarning>Classrooms & Halls ({mounted ? rooms.length : 0})</span>
-        </Button>
-      </div>
+        </Button>}
+      />
 
       {/* Stepper Progress matching Bulk Upload */}
       <EmsStepperMap
@@ -3630,7 +3618,7 @@ function EmsMasterPageContent() {
             >
               {loading ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                   Preparing Arrangement...
                 </>
               ) : (
@@ -3792,7 +3780,7 @@ export default function EmsMasterPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Examination Management System...</span>
         </div>
       }

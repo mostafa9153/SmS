@@ -28,6 +28,7 @@ import {
   applyStudentEntryDefaults,
 } from "@/lib/utils/student-entry-presets";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
+import { Spinner } from "@/components/ui/spinner";
 
 const studentSchema = z.object({
   // Identity
@@ -1268,7 +1269,7 @@ export function StudentAddEditForm({
             disabled={mutation.isPending}
             className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs sm:text-sm font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-60 transition-colors shadow-sm cursor-pointer"
           >
-            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+            {mutation.isPending ? <Spinner className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
             {mutation.isPending ? "Saving Record…" : (submitButtonText || "Save Student Record")}
           </button>
           {!isEmbedded && (

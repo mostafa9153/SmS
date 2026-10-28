@@ -34,6 +34,7 @@ import {
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { Spinner } from "@/components/ui/spinner";
 
 interface AdmitStudentDialogProps {
   open: boolean;
@@ -406,7 +407,7 @@ function AdmitStudentDialogInner({
                     <span>Sequential Roll No *</span>
                     {isLoadingRoll && (
                       <span className="text-[9px] text-purple-600 flex items-center gap-0.5">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" /> Auto-calculating
+                        <Spinner className="h-2.5 w-2.5" /> Auto-calculating
                       </span>
                     )}
                   </label>
@@ -566,7 +567,7 @@ function AdmitStudentDialogInner({
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                     <span>Admitting...</span>
                   </>
                 ) : (

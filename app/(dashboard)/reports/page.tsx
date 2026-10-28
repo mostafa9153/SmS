@@ -9,8 +9,7 @@ import {
   Printer,
   RefreshCw,
   Download,
-  ArrowLeft,
-} from "lucide-react";
+  } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import {
   computeClassicStrengthData,
@@ -20,6 +19,8 @@ import {
 } from "@/lib/reports/classic-strength-report";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -74,23 +75,13 @@ export default function ReportsPage() {
 
       {/* Action Bar - Hidden in Print */}
       <div className="flex flex-col gap-4 print:hidden">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-lg p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-              Students Strength Tabulation
-            </h1>
-            <span className="text-[11px] sm:text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
+        <PageHeader
+          back
+          title="Students Strength Tabulation"
+          badge={<span className="text-[11px] sm:text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
               Official Format
-            </span>
-          </div>
-        </div>
+            </span>}
+        />
 
         {/* Action Buttons & Selectors: Responsive grid on mobile, flex on desktop */}
         <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
@@ -164,7 +155,7 @@ export default function ReportsPage() {
       {/* Loading state */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center p-16 bg-card border rounded-2xl">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary mb-3" />
+          <Spinner className="h-8 w-8 text-primary mb-3" />
           <p className="text-sm font-semibold text-muted-foreground">Calculating student demographic matrix...</p>
         </div>
       ) : (

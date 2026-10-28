@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/components/ui/toast-banner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 export interface TeacherChatMessage {
   id: string;
@@ -814,7 +815,7 @@ export function TeacherLoungeDrawer({
             >
               {loading && messages.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-[#54656f] dark:text-[#8696a0] gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-[#00a884]" />
+                  <Spinner className="h-4 w-4 text-[#00a884]" />
                   Loading WhatsApp messages...
                 </div>
               ) : Object.keys(messageGroups).length === 0 ? (
@@ -1179,7 +1180,7 @@ export function TeacherLoungeDrawer({
                   )}
                 >
                   {sending ? (
-                    <RefreshCw className="h-4 w-4 animate-spin text-white" />
+                    <Spinner className="h-4 w-4 text-white" />
                   ) : (
                     <Send className="h-5 w-5 text-white ml-0.5" />
                   )}

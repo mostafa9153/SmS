@@ -65,6 +65,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { Spinner } from "@/components/ui/spinner";
 
 type SetupTab = "settings" | "classes" | "groups" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
 
@@ -559,7 +560,7 @@ function RoutineSetupPageContent() {
       <div className="pt-1">
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            <Spinner className="h-5 w-5 text-primary" />
             <span>Loading Routine Configuration...</span>
           </div>
         ) : (
@@ -664,7 +665,7 @@ export default function RoutineSetupPage() {
     <Suspense
       fallback={
         <div className="py-16 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+          <Spinner className="h-5 w-5 text-primary" />
           <span>Loading Routine Setup...</span>
         </div>
       }

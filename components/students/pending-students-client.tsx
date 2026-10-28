@@ -33,7 +33,6 @@ import Link from "next/link";
 import {
   Clock,
   Search,
-  ArrowLeft,
   GraduationCap,
   FileText,
   UserX,
@@ -51,6 +50,8 @@ import {
   AlertTriangle,
   Loader2,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const SECTIONS = ["A", "B", "C", "D"];
@@ -207,28 +208,14 @@ export function PendingStudentsClient() {
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto space-y-3.5 sm:space-y-4">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 sm:p-4 rounded-2xl border shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[38px] min-w-[38px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
-              <Clock className="h-4.5 w-4.5 text-amber-600" />
-              Pending Students Register
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : totalCount}
-            </span>
-          </div>
-        </div>
-
-        {/* Header Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+      <PageHeader
+        back
+        icon={Clock}
+        title="Pending Students Register"
+        badge={<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+              {isLoading ? <Spinner className="h-3 w-3" /> : totalCount}
+            </span>}
+        actions={<div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -249,8 +236,9 @@ export function PendingStudentsClient() {
               <span>Re-Admission Portal</span>
             </Button>
           </Link>
-        </div>
-      </div>
+        </div>}
+        className="bg-card p-3 sm:p-4 rounded-2xl border shadow-2xs"
+      />
 
       {/* Control Filter Bar */}
       <div className="rounded-2xl border bg-card p-3 sm:p-4 space-y-3 shadow-2xs">
@@ -657,7 +645,7 @@ export function PendingStudentsClient() {
               disabled={dropOutMutation.isPending}
               className="text-xs h-8 bg-rose-600 hover:bg-rose-700 text-white"
             >
-              {dropOutMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm Drop Out"}
+              {dropOutMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : "Confirm Drop Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -700,7 +688,7 @@ export function PendingStudentsClient() {
               disabled={isArchivingStale}
               className="text-xs h-8 bg-amber-600 hover:bg-amber-700 text-white"
             >
-              {isArchivingStale ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Execute Stale Archive"}
+              {isArchivingStale ? <Spinner className="h-3.5 w-3.5" /> : "Execute Stale Archive"}
             </Button>
           </DialogFooter>
         </DialogContent>

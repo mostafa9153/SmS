@@ -20,6 +20,7 @@ import { cn, calculateDetailedAge } from "@/lib/utils";
 import { StaffRoundAvatar } from "@/components/employees/staff-round-avatar";
 import { StaffPhotoPreviewDialog } from "@/components/employees/staff-photo-preview-dialog";
 import type { StaffProfile } from "@/components/employees/staff-types";
+import { Spinner } from "@/components/ui/spinner";
 
 export type { StaffProfile };
 
@@ -374,7 +375,7 @@ export function StaffTable({ data, isLoading = false }: StaffTableProps) {
                   <td className="px-4 py-3.5 align-middle text-right pr-6">
                     {isNavigating ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold animate-pulse">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Spinner className="h-3.5 w-3.5" />
                         <span>Opening...</span>
                       </span>
                     ) : (

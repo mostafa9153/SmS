@@ -9,6 +9,7 @@ import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload, Sa
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineRoomsTabProps {
   rooms: RoutineRoom[];
@@ -181,7 +182,7 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
             >
               {isSubmitting ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   <span>Saving...</span>
                 </>
               ) : isSavedRecently ? (

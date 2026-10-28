@@ -51,6 +51,8 @@ import { getLocalCachedInvoices, getLocalStats } from "@/lib/utils/invoice-regis
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { InvoicePrintableView } from "@/components/invoice/invoice-printable-view";
 import { type InvoiceData, DEFAULT_FEE_ITEMS } from "@/lib/utils/fee-config";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
 function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
   return {
@@ -1181,15 +1183,7 @@ export function InvoiceTrackerModal({
               <div className="p-3 rounded-2xl border border-border/80 bg-muted/20 space-y-2.5">
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Search input */}
-                  <div className="relative min-w-[180px] flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      placeholder="Search receipt, student, roll, ID..."
-                      value={tableSearch}
-                      onChange={(e) => setTableSearch(e.target.value)}
-                      className="pl-8 text-xs h-8 rounded-xl bg-background"
-                    />
-                  </div>
+                  <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Search receipt, student, roll, ID..." size="sm" className="min-w-[180px] flex-1" />
 
                   {/* 0. Academic Session / Year Dropdown Selector */}
                   <div className="w-[140px] shrink-0">
@@ -1886,7 +1880,7 @@ export function InvoiceTrackerModal({
                 <div className="space-y-3">
                   {isLoadingTeacher ? (
                     <div className="flex items-center justify-center py-8 text-muted-foreground text-xs gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <Spinner className="h-4 w-4 text-primary" />
                       <span>Loading invoices for {selectedSettlementTeacher}...</span>
                     </div>
                   ) : (
@@ -2113,7 +2107,7 @@ export function InvoiceTrackerModal({
                           >
                             {isSubmittingSettlement ? (
                               <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <Spinner className="h-4 w-4" />
                                 <span>Submitting Settlement...</span>
                               </>
                             ) : (

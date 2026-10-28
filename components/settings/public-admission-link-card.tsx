@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { CopyButton } from "@/components/ui/copy-button";
+import { Spinner } from "@/components/ui/spinner";
 
 interface LinkSettings {
   enabled: boolean;
@@ -42,7 +43,7 @@ export function PublicAdmissionLinkCard() {
   if (isLoading || !data) {
     return (
       <div className="rounded-2xl border bg-card p-6 flex justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Spinner className="h-5 w-5 text-muted-foreground" />
       </div>
     );
   }

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import { showToast } from "@/components/ui/toast-banner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineSettingsTabProps {
   settings: RoutineSettings;
@@ -336,7 +337,7 @@ export function RoutineSettingsTab({
         >
           {isSaving ? (
             <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <Spinner className="h-3.5 w-3.5" />
               <span>Saving...</span>
             </>
           ) : isSavedRecently ? (

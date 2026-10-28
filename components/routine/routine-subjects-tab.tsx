@@ -97,6 +97,7 @@ import {
   formatDemandBreakdown,
 } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 // Re-export helpers for backward compatibility
 export {
@@ -1195,7 +1196,7 @@ export function RoutineSubjectsTab({
               )}
             >
               {isSaving ? (
-                <><RefreshCw className="w-3 h-3 animate-spin" /><span>Saving...</span></>
+                <><Spinner className="w-3 h-3" /><span>Saving...</span></>
               ) : isSavedRecently ? (
                 <><Check className="w-3 h-3" /><span>Saved</span></>
               ) : (
@@ -1814,7 +1815,7 @@ export function RoutineSubjectsTab({
               </Button>
               <Button type="submit" size="sm" disabled={isDlgSubmitting || !dlgName.trim()} className="h-8 text-xs font-semibold px-4 gap-1.5">
                 {isDlgSubmitting ? (
-                  <><RefreshCw className="h-3.5 w-3.5 animate-spin" /><span>Saving...</span></>
+                  <><Spinner className="h-3.5 w-3.5" /><span>Saving...</span></>
                 ) : dialogMode === "add" ? (
                   <><Plus className="h-3.5 w-3.5" /><span>Add Subject</span></>
                 ) : (

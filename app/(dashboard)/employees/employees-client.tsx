@@ -2,13 +2,14 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Users, Loader2, Sparkles, UserPlus } from "lucide-react";
+import { Users, Loader2, Sparkles, UserPlus } from "lucide-react";
 import { StaffFiltersBar, StaffFilters } from "@/components/employees/staff-filters-bar";
 import { StaffStatsCards } from "@/components/employees/staff-stats-cards";
 import { StaffTable, StaffProfile } from "@/components/employees/staff-table";
 import { StaffCreateDialog } from "@/components/employees/staff-create-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
 
 interface EmployeesClientProps {
   initialStaff: StaffProfile[];
@@ -162,20 +163,10 @@ export default function EmployeesClient({
   return (
     <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto w-full animate-fade-in-up">
       {/* 1. Header & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.back()}
-            title="Go back"
-            className="rounded-xl p-2 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-              {pageTitle}
-            </h1>
-            <span
+      <PageHeader
+        back
+        title={pageTitle}
+        badge={<span
               className={cn(
                 "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all duration-200",
                 hasFilters
@@ -189,10 +180,8 @@ export default function EmployeesClient({
               <span className="text-[11px] font-medium opacity-85">
                 {hasFilters ? "matching found" : "total records"}
               </span>
-            </span>
-          </div>
-        </div>
-      </div>
+            </span>}
+      />
 
       {/* 2. KPI Summary Cards */}
       <StaffStatsCards

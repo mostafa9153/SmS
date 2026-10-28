@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 interface StaffSignatureModalProps {
   isOpen: boolean;
@@ -537,7 +538,7 @@ export function StaffSignatureModal({
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
                 Saving...
               </>
             ) : (

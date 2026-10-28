@@ -17,6 +17,7 @@ import {
 } from "@/lib/routine/types";
 import { RoutineViewerTab } from "@/components/routine/routine-viewer-tab";
 import { RefreshCw, ArrowLeft } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 function RoutineViewerContent() {
   const router = useRouter();
@@ -84,7 +85,7 @@ function RoutineViewerContent() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-        <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading routine viewer...
+        <Spinner className="w-4 h-4 mr-2" /> Loading routine viewer...
       </div>
     );
   }
@@ -122,7 +123,7 @@ export default function RoutineViewerPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-          <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading routine viewer...
+          <Spinner className="w-4 h-4 mr-2" /> Loading routine viewer...
         </div>
       }
     >

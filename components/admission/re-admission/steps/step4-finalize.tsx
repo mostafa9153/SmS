@@ -24,6 +24,7 @@ import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admiss
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { normalizeClass } from "@/lib/academic/class-ladder";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -197,7 +198,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
               <span>Processing...</span>
             </>
           ) : (
@@ -250,7 +251,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-muted-foreground">New Roll No</label>
-                    {isAutoCalculatingRoll && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
+                    {isAutoCalculatingRoll && <Spinner className="w-2.5 h-2.5 text-primary" />}
                   </div>
                   <Input
                     type="number"

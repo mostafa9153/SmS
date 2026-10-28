@@ -35,6 +35,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { RoutineHistorySection } from "@/components/routine/routine-history-section";
 import { calculateTotalTeacherAllottedWorkload } from "@/lib/routine/routine-helpers";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineGeneratorTabProps {
   settings: RoutineSettings;
@@ -264,7 +265,7 @@ export function RoutineGeneratorTab({
               className="h-9 text-xs font-semibold gap-1.5 px-3.5"
             >
               {isValidating ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
               ) : (
                 <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
               )}
@@ -285,7 +286,7 @@ export function RoutineGeneratorTab({
               className="h-9 text-xs font-bold gap-1.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
             >
               {isGenerating ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
               ) : (
                 <Play className="h-3.5 w-3.5 fill-current" />
               )}

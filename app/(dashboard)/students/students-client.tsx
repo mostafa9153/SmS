@@ -8,9 +8,11 @@ import type { StudentFilters } from "@/lib/types";
 import { StudentFiltersBar } from "@/components/students/student-filters";
 import { StudentTable } from "@/components/students/student-table";
 import { ExportDialog } from "@/components/students/export-dialog";
-import { FileSpreadsheet, Plus, ArrowLeft, FileText, Award, Loader2 } from "lucide-react";
+import { FileSpreadsheet, Plus, FileText, Award, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 const PAGE_SIZE = 20;
 const STORAGE_KEY = "sms_active_students_filters";
@@ -193,20 +195,10 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
       />
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => router.back()}
-              title="Back"
-              className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-90 cursor-pointer border border-border/60 bg-card shadow-2xs"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
-                {mode === "active" ? "Active Students Register" : "Student Directory"}
-              </h1>
-              <span
+        <PageHeader
+          back
+          title={mode === "active" ? "Active Students Register" : "Student Directory"}
+          badge={<span
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all duration-200",
                   hasFilters
@@ -216,7 +208,7 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
               >
                 {isLoading ? (
                   <span className="flex items-center gap-1.5 text-xs">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <Spinner className="h-3 w-3 text-primary" />
                     <span>Counting...</span>
                   </span>
                 ) : (
@@ -227,12 +219,8 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
                     </span>
                   </>
                 )}
-              </span>
-            </div>
-          </div>
-
-          {/* Action Buttons: Native Phone App Stack on Mobile, Flex Row on Desktop */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              </span>}
+          actions={<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {/* Secondary Action Grid on Mobile */}
             <div className={cn(
               "grid gap-2 w-full sm:w-auto sm:flex sm:items-center",
@@ -277,8 +265,8 @@ export default function StudentsClient({ mode = "active" }: StudentsClientProps)
               <Plus className="h-4 w-4" />
               <span>Add Student</span>
             </Link>
-          </div>
-        </div>
+          </div>}
+        />
 
         <StudentTable
           data={allStudents}

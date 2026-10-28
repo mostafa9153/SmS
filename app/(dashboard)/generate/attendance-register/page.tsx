@@ -22,7 +22,6 @@ import {
 } from "@/components/students/attendance-register-printable";
 import type { Student } from "@/lib/types";
 import {
-  ArrowLeft,
   Printer,
   ChevronDown,
   Users,
@@ -31,6 +30,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 type PaperSize = "A5" | "A4" | "A3";
 type PaperOrientation = "portrait" | "landscape";
@@ -132,20 +133,7 @@ function AttendanceRegisterContent() {
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
       {/* Sidebar */}
       <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/generate"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 rounded-xl shrink-0"
-            )}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-base font-bold tracking-tight">
-            Attendance Register
-          </h1>
-        </div>
+        <PageHeader back="/generate" title="Attendance Register" />
 
         <div className="space-y-2 border-t pt-3">
           <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -196,7 +184,7 @@ function AttendanceRegisterContent() {
         <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
           <Users className="h-3.5 w-3.5" />
           {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Spinner className="h-3.5 w-3.5" />
           ) : (
             <span className="font-semibold">
               {students.length} active student{students.length !== 1 ? "s" : ""}
@@ -272,7 +260,7 @@ function AttendanceRegisterContent() {
       {isLoading ? (
         <div className="min-w-0 w-full flex justify-center items-center h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 bg-muted/15 border rounded-2xl print:hidden">
           <div className="text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Spinner className="h-5 w-5" />
             Loading students...
           </div>
         </div>
@@ -320,7 +308,7 @@ export default function AttendanceRegisterPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Spinner className="h-6 w-6 text-muted-foreground" />
         </div>
       }
     >

@@ -70,6 +70,8 @@ import type {
   BulkResultRow,
   ImportBatchRecord,
 } from "@/lib/types";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 const STEPS = [
   { id: 1, label: "Upload & Mode" },
@@ -606,18 +608,10 @@ function BulkUploadPageContent() {
   return (
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Bulk Upload Management</h1>
-        </div>
-        <button
+      <PageHeader
+        back
+        title="Bulk Upload Management"
+        actions={<button
           onClick={() => {
             setShowHistoryModal(true);
             refetchBatches();
@@ -626,8 +620,8 @@ function BulkUploadPageContent() {
         >
           <History className="h-4 w-4 text-primary shrink-0" />
           <span>Batch History &amp; Rollback</span>
-        </button>
-      </div>
+        </button>}
+      />
 
       {/* Stepper Progress */}
       <div className="rounded-xl border bg-card p-4 shadow-xs">
@@ -938,7 +932,7 @@ function BulkUploadPageContent() {
               />
               {isParsing ? (
                 <div className="py-6 flex flex-col items-center">
-                  <Loader2 className="h-10 w-10 animate-spin text-primary mb-3" />
+                  <Spinner className="h-10 w-10 text-primary mb-3" />
                   <p className="text-sm font-medium">Reading spreadsheet…</p>
                 </div>
               ) : file && parsedData ? (
@@ -1401,7 +1395,7 @@ function BulkUploadPageContent() {
             >
               {isImporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                   Importing into Database…
                 </>
               ) : (
@@ -1627,7 +1621,7 @@ function BulkUploadPageContent() {
           <div className="max-h-[380px] overflow-y-auto rounded-lg border divide-y">
             {isLoadingBatches || isFetchingBatches ? (
               <div className="py-12 flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                <Spinner className="h-6 w-6 text-primary" />
                 <p className="text-xs text-muted-foreground font-medium">Fetching batch history from audit logs…</p>
               </div>
             ) : pastBatches.length === 0 ? (
@@ -1744,7 +1738,7 @@ function BulkUploadPageContent() {
             >
               {rollbackMutation.isPending ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   Deleting Batch…
                 </>
               ) : (
@@ -1766,7 +1760,7 @@ export default function BulkUploadPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Bulk Import Studio...</span>
         </div>
       }

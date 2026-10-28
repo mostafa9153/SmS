@@ -27,6 +27,7 @@ import { getKanyashreeCategory } from "@/lib/utils";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 interface ExportColumn {
   id: string;
@@ -490,7 +491,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                   Generating...
                 </>
               ) : (

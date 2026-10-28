@@ -56,6 +56,7 @@ import {
 import { TeacherSummaryBadges } from "./teachers/teacher-summary-badges";
 import { TeacherTableRow } from "./teachers/teacher-table-row";
 import { TeacherEditorForm } from "./teachers/teacher-editor-form";
+import { Spinner } from "@/components/ui/spinner";
 
 export interface RoutineTeachersTabProps {
   teachers: RoutineTeacher[];
@@ -1659,7 +1660,7 @@ export function RoutineTeachersTab({
               >
                 {isSavingAll ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <Spinner className="w-3.5 h-3.5" />
                     <span>Saving...</span>
                   </>
                 ) : isSavedRecently ? (

@@ -13,6 +13,7 @@ export function SearchInput({
   onChange,
   placeholder = "Search...",
   debounceMs = 0,
+  size = "md",
   className,
   autoFocus,
 }: {
@@ -20,6 +21,8 @@ export function SearchInput({
   onChange: (value: string) => void;
   placeholder?: string;
   debounceMs?: number;
+  /** `sm` for dialogs, tables and dense toolbars. */
+  size?: "sm" | "md";
   className?: string;
   autoFocus?: boolean;
 }) {
@@ -51,7 +54,12 @@ export function SearchInput({
 
   return (
     <div className={cn("relative group", className)}>
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+      <Search
+        className={cn(
+          "absolute top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none",
+          size === "sm" ? "left-2.5 h-3.5 w-3.5" : "left-3 h-4 w-4"
+        )}
+      />
       <input
         type="search"
         value={text}
@@ -59,7 +67,11 @@ export function SearchInput({
         placeholder={placeholder}
         autoFocus={autoFocus}
         aria-label={placeholder}
-        className="w-full h-10 sm:h-9 rounded-xl border border-input bg-background pl-9 pr-8 text-base sm:text-sm outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-shadow [&::-webkit-search-cancel-button]:hidden"
+        className={cn(
+          "w-full rounded-xl border border-input bg-background pr-8 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-shadow [&::-webkit-search-cancel-button]:hidden",
+          // text-base below sm keeps iOS from zooming into the field
+          size === "sm" ? "h-9 sm:h-8 pl-8 text-base sm:text-xs" : "h-10 sm:h-9 pl-9 text-base sm:text-sm"
+        )}
       />
       {text && (
         <button

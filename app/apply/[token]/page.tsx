@@ -7,6 +7,7 @@ import { AdmissionApplicationForm } from "@/components/admission/admission-appli
 import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import type { AdmissionFormData } from "@/lib/validations/admission-form-schema";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+import { Spinner } from "@/components/ui/spinner";
 
 const DRAFT_KEY = "public-apply";
 
@@ -61,7 +62,7 @@ export default function PublicAdmissionPage({ params }: { params: Promise<{ toke
   if (link.status === "loading") {
     return (
       <main className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <Spinner className="h-6 w-6 text-muted-foreground" />
       </main>
     );
   }

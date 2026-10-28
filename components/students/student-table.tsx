@@ -21,6 +21,7 @@ import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
 import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { StudentPhotoPreviewDialog } from "@/components/students/student-photo-preview-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 interface StudentTableProps {
   data: Student[];
@@ -260,7 +261,7 @@ export function StudentTable({
             <div className="flex items-center justify-end pr-1">
               {isNavigating ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold animate-pulse">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   <span>Opening...</span>
                 </span>
               ) : (
@@ -484,7 +485,7 @@ export function StudentTable({
       <div ref={sentinelRef} className="py-4 flex flex-col items-center justify-center min-h-[44px]">
         {isFetchingNextPage && (
           <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground py-2">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <Spinner className="h-4 w-4 text-primary" />
             <span>Loading more students...</span>
           </div>
         )}

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface AuditLogEntry {
   id: string;
@@ -124,9 +125,7 @@ export function AuditLogsTab() {
         ) : (
           <div className="border-t max-h-[600px] overflow-y-auto p-4 sm:p-6 space-y-4">
             {filteredLogs.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                No audit logs found for the selected filter.
-              </div>
+              <EmptyState compact title="No audit logs found for the selected filter." />
             ) : (
               <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-muted before:to-transparent">
                 {filteredLogs.map((log) => {

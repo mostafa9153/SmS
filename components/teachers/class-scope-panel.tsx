@@ -10,6 +10,8 @@ import { apiFetch } from "@/lib/api/client";
 import { toastWithUndo } from "@/lib/undo/client";
 import { getSectionsForClass, getSubjectListForClass } from "@/lib/utils/marks-config";
 import { CLASS_ORDER, cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const ROLE_OPTIONS = [
   { value: "SUBJECT_TEACHER", label: "Subject Teacher" },
@@ -106,14 +108,14 @@ export function ClassScopePanel({
           <CustomSelect value={subject} onChange={(v) => setSubject(String(v))} options={subjectOptions} placeholder="Subject" />
         )}
         <Button type="button" size="sm" className="w-full h-8 text-xs" onClick={add} disabled={busy}>
-          {assign.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          {assign.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
           Assign
         </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[220px] md:max-h-none">
         {mine.length === 0 ? (
-          <div className="text-center py-8 text-[11px] text-muted-foreground">No class assignments yet.</div>
+          <EmptyState compact title="No class assignments yet." />
         ) : (
           mine.map((a) => (
             <div key={a.id} className="p-3 rounded-xl bg-card border border-border/60 shadow-2xs space-y-1">
@@ -140,7 +142,7 @@ export function ClassScopePanel({
                     aria-label={`Remove Class ${a.className ?? a.class_name}`}
                     className="p-0.5 rounded-md text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
                   >
-                    {unassign.isPending && unassign.variables?.id === a.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                    {unassign.isPending && unassign.variables?.id === a.id ? <Spinner className="h-3 w-3" /> : <X className="h-3 w-3" />}
                   </button>
                 </div>
               </div>

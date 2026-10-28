@@ -46,6 +46,8 @@ import {
   GraduationCap,
   Eye,
 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -1036,15 +1038,7 @@ function MarksheetGeneratorContent() {
 
                 {/* Search in class roster + Select/Deselect All buttons */}
                 <div className="flex items-center justify-between gap-2 pt-1">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-2.5 top-2.5 h-3 w-3 text-muted-foreground" />
-                    <Input
-                      placeholder="Search roster..."
-                      value={bulkRosterSearch}
-                      onChange={(e) => setBulkRosterSearch(e.target.value)}
-                      className="pl-7 text-xs h-7"
-                    />
-                  </div>
+                  <SearchInput value={bulkRosterSearch} onChange={setBulkRosterSearch} placeholder="Search roster..." size="sm" className="flex-1" />
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       type="button"
@@ -1211,7 +1205,7 @@ export default function MarksheetGeneratorPage() {
       fallback={
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="flex items-center gap-2 text-muted-foreground text-xs">
-            <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+            <Spinner className="h-4 w-4 text-primary" />
             <span>Loading Marksheet Studio...</span>
           </div>
         </div>

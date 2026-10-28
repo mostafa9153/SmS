@@ -71,6 +71,7 @@ import {
 } from "@/components/ui/select";
 import type { TeacherPortalStats, TeacherChatMessage, TeacherAbsence } from "@/lib/types/teacher";
 import { TaskCardSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
+import { Spinner } from "@/components/ui/spinner";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -1164,7 +1165,7 @@ export default function TeacherDashboardPage() {
         {/* Period Slots with 1-Click Roll-Call button */}
         {loadingRoutine ? (
           <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-            <RefreshCw className="h-4 w-4 animate-spin text-emerald-500" />
+            <Spinner className="h-4 w-4 text-emerald-500" />
             Loading your schedule...
           </div>
         ) : (routinePeriodsByDay[selectedDay] || []).length === 0 ? (
@@ -1826,7 +1827,7 @@ export default function TeacherDashboardPage() {
                   className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl cursor-pointer gap-1.5 shadow-xs"
                 >
                   {submittingAbsence ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                   ) : (
                     <CalendarX className="h-3.5 w-3.5" />
                   )}
@@ -2066,7 +2067,7 @@ export default function TeacherDashboardPage() {
                   className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 cursor-pointer shadow-xs"
                 >
                   {submittingReport ? (
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                   ) : (
                     <Send className="h-3.5 w-3.5" />
                   )}
@@ -2219,7 +2220,7 @@ export default function TeacherDashboardPage() {
           <div className="flex-1 overflow-y-auto my-3 border rounded-2xl border-border/70">
             {loadingAttendance ? (
               <div className="p-12 text-center text-muted-foreground">
-                <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-emerald-500" />
+                <Spinner className="h-6 w-6 mx-auto mb-2 text-emerald-500" />
                 <p className="text-xs">Loading students for Class {attendanceClass} ({attendanceSection})...</p>
               </div>
             ) : attendanceRoster.length === 0 ? (
@@ -2331,7 +2332,7 @@ export default function TeacherDashboardPage() {
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer gap-1.5 shadow-xs"
               >
                 {savingAttendance ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                 ) : (
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 )}

@@ -18,6 +18,8 @@ import { useSportsConfig } from "@/lib/sports/use-sports-config";
 import { useSportsEvents, SPORTS_CLASS_OPTIONS, GENDER_LABEL } from "@/lib/sports/use-sports-events";
 import { SportsRulesModal } from "@/components/sports/sports-rules-modal";
 import { SportsEventHeader } from "@/components/sports/sports-event-header";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export default function SportsEnrollmentPage() {
   const params = useParams();
@@ -316,15 +318,7 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
             )}
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              placeholder="Search name or roll..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-xs rounded-xl"
-            />
-          </div>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search name or roll..." size="sm" />
 
           <div className="flex items-center justify-between text-xs px-1">
             <label className="flex items-center gap-2 font-semibold cursor-pointer select-none">
@@ -352,7 +346,7 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
             {isLoadingStudents ? (
               <div className="p-8 text-center text-xs text-muted-foreground">Loading...</div>
             ) : filteredStudents.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">No students found.</div>
+              <EmptyState compact title="No students found." />
             ) : (
               filteredStudents.map((s) => {
                 const isEnrolled = enrolledStudentIds.has(s.id);
@@ -468,22 +462,14 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
           </div>
 
           {participants.length > 5 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search name, chest #, class..."
-                value={enrolledSearch}
-                onChange={(e) => setEnrolledSearch(e.target.value)}
-                className="pl-8 h-8 text-xs rounded-xl"
-              />
-            </div>
+            <SearchInput value={enrolledSearch} onChange={setEnrolledSearch} placeholder="Search name, chest #, class..." size="sm" />
           )}
 
           <div className="h-[52vh] min-h-[320px] lg:h-[600px] overflow-y-auto border rounded-xl divide-y custom-scrollbar">
             {isLoadingParticipants ? (
               <div className="p-8 text-center text-xs text-muted-foreground">Loading...</div>
             ) : participants.length === 0 ? (
-              <div className="p-10 text-center text-xs text-muted-foreground">No one enrolled yet.</div>
+              <EmptyState compact title="No one enrolled yet." />
             ) : filteredParticipants.length === 0 ? (
               <div className="p-8 text-center text-xs text-muted-foreground">No match.</div>
             ) : (

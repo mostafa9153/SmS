@@ -36,6 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
+import { Spinner } from "@/components/ui/spinner";
 
 const AVAILABLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -548,7 +549,7 @@ export function DangerZoneTab() {
               >
                 {wipeoutMutation.isPending ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2 h-4 w-4" />
                     Executing Wipeout...
                   </>
                 ) : (

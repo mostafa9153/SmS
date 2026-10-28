@@ -30,6 +30,7 @@ import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
+import { Spinner } from "@/components/ui/spinner";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -285,7 +286,7 @@ export function EmployeeEditForm({
           >
             {isSaving ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Spinner className="mr-1.5 h-3.5 w-3.5" />
                 Saving...
               </>
             ) : (
@@ -750,7 +751,7 @@ export function EmployeeEditForm({
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Spinner className="h-4 w-4" />
                 Saving Changes...
               </>
             ) : (

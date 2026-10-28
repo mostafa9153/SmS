@@ -18,7 +18,6 @@ import {
   Sliders,
   BookOpen,
   Save,
-  ArrowLeft,
   Loader2,
   FileSpreadsheet,
   BarChart2,
@@ -62,6 +61,10 @@ import {
 import { normalizeSubjectName } from "@/lib/utils/marksheet-calc";
 import { StatusBadge } from "@/components/students/status-badge";
 import { FilterSelect } from "@/components/ui/filter-select";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 function sanitizeScoreInput(val: string, maxMarks: number): string {
   if (val === "" || val === undefined || val === null) return "";
@@ -656,24 +659,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2 sm:py-3 shadow-2xs space-y-2">
         {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
         <div className="flex sm:hidden items-center gap-2.5">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-            <input
-              type="text"
-              value={localQuery}
-              onChange={(e) => setLocalQuery(e.target.value)}
-              placeholder="Search students..."
-              className="w-full h-11 min-h-[44px] rounded-2xl border border-border/90 bg-card hover:bg-background pl-10 pr-9 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
-            />
-            {localQuery && (
-              <button
-                onClick={() => setLocalQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search students..." className="flex-1" />
 
           <button
             type="button"
@@ -821,24 +807,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
         {/* Desktop Filter Bar (visible sm+) */}
         <div className="hidden sm:flex flex-wrap gap-2 items-center">
           {/* Smart search */}
-          <div className="relative min-w-[170px] flex-1 max-w-xs group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-            <input
-              type="text"
-              value={localQuery}
-              onChange={(e) => setLocalQuery(e.target.value)}
-              placeholder="Search name, roll, or ID…"
-              className="w-full rounded-xl border border-border/90 hover:border-primary/40 bg-card hover:bg-background pl-9 pr-8 py-1.5 text-xs sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
-            />
-            {localQuery && (
-              <button
-                onClick={() => setLocalQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
+          <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search name, roll, or ID…" size="sm" className="min-w-[170px] flex-1 max-w-xs" />
 
           {/* Year filter */}
           <FilterSelect
@@ -924,23 +893,13 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
       {/* 2. MAIN BODY CONTAINER (Identical to Student Register Layout) */}
       <div className="p-3.5 sm:p-6 space-y-4 max-w-7xl mx-auto w-full">
         {/* Page Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
-          <div className="flex items-center gap-2.5">
-            <button
-              onClick={() => router.back()}
-              title="Back"
-              className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors border border-border/60 bg-card shadow-2xs cursor-pointer active:scale-90"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight text-foreground">
-                Results & Evaluation
-              </h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs">
+        <PageHeader
+          back
+          title="Results & Evaluation"
+          badge={<><span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border bg-primary/10 text-primary border-primary/25 font-bold shadow-2xs">
                 {isLoading ? (
                   <span className="flex items-center gap-1.5 text-xs">
-                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                    <Spinner className="h-3 w-3 text-primary" />
                     <span>Loading...</span>
                   </span>
                 ) : (
@@ -949,20 +908,14 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
                     <span className="text-[11px] font-medium opacity-85">students</span>
                   </>
                 )}
-              </span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-mono font-semibold bg-muted/60 text-muted-foreground">
+              </span><span className="inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-mono font-semibold bg-muted/60 text-muted-foreground">
                 {academicYear}
-              </span>
-              {isHs && (
+              </span>{isHs && (
                 <Badge className="bg-purple-600 text-white text-[10px] font-semibold">
                   Higher Secondary
                 </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* Action Toolbar & View Mode Switcher */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+              )}</>}
+          actions={<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {/* View Mode Switcher */}
             <div className="flex items-center p-0.5 bg-muted/80 rounded-xl border border-border/70 shadow-2xs">
               <button
@@ -1037,15 +990,15 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
                 className="flex items-center justify-center gap-2 min-h-[40px] sm:min-h-[36px] rounded-xl bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 disabled:opacity-50"
               >
                 {batchSaveMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                 ) : (
                   <Save className="h-4 w-4" />
                 )}
                 <span>{batchSaveMutation.isPending ? "Saving Marks…" : "Save All Marks"}</span>
               </button>
             )}
-          </div>
-        </div>
+          </div>}
+        />
 
         {/* 3. VIEW MODE 1: SUBJECT-WISE BATCH ENTRY */}
         {activeView === "subject_batch" && (
@@ -1115,7 +1068,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
                     <tr>
                       <td colSpan={9} className="py-16 text-center text-muted-foreground">
                         <div className="flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <Spinner className="h-6 w-6 text-primary" />
                           <span className="text-xs">Loading student roster…</span>
                         </div>
                       </td>
@@ -1300,13 +1253,11 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
             <div className="flex flex-col gap-2.5 md:hidden">
               {isLoading ? (
                 <div className="rounded-2xl border bg-card p-8 text-center text-xs text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
+                  <Spinner className="h-5 w-5 mx-auto mb-2 text-primary" />
                   Loading student roster…
                 </div>
               ) : filteredResults.length === 0 ? (
-                <div className="rounded-2xl border bg-card p-8 text-center text-xs text-muted-foreground">
-                  No students found.
-                </div>
+                <EmptyState compact title="No students found." className="rounded-2xl border bg-card" />
               ) : (
                 filteredResults.map((r) => {
                   const score = subjectBatchScores[r.studentId] || { written: "", practical: "", isAbsent: false };
@@ -1523,7 +1474,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
                     <tr>
                       <td colSpan={12} className="py-16 text-center text-muted-foreground">
                         <div className="flex flex-col items-center justify-center gap-2">
-                          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                          <Spinner className="h-6 w-6 text-primary" />
                           <span className="text-xs">Loading student summary…</span>
                         </div>
                       </td>
@@ -1642,13 +1593,11 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
             <div className="flex flex-col gap-2.5 md:hidden">
               {isLoading ? (
                 <div className="rounded-2xl border bg-card p-8 text-center text-xs text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2 text-primary" />
+                  <Spinner className="h-5 w-5 mx-auto mb-2 text-primary" />
                   Loading summary…
                 </div>
               ) : filteredResults.length === 0 ? (
-                <div className="rounded-2xl border bg-card p-8 text-center text-xs text-muted-foreground">
-                  No students found.
-                </div>
+                <EmptyState compact title="No students found." className="rounded-2xl border bg-card" />
               ) : (
                 filteredResults.map((r) => {
                   const isEvaluated = r.marksObtained > 0;

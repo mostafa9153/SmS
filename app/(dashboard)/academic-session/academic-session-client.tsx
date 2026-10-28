@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { toast } from "sonner";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function AcademicSessionClient() {
   const [currentYear, setCurrentYear] = useState<string>("2026");
@@ -137,7 +138,7 @@ export default function AcademicSessionClient() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   <span>Saving...</span>
                 </>
               ) : (

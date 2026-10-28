@@ -75,6 +75,7 @@ import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SettingsBackButton } from "./settings-back-button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 function InfoTooltip({ content }: { content: React.ReactNode }) {
   return (
@@ -576,7 +577,7 @@ export function PresetAddressesTab() {
             >
               {isSaving ? (
                 <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   Saving...
                 </>
               ) : (

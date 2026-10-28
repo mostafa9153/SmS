@@ -18,6 +18,7 @@ import {
 } from "@/lib/routine/types";
 import { RoutineVerificationTab } from "@/components/routine/routine-verification-tab";
 import { RefreshCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function RoutineAssignmentsPage() {
   const [loading, setLoading] = useState(true);
@@ -73,7 +74,7 @@ export default function RoutineAssignmentsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-        <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading verification engine...
+        <Spinner className="w-4 h-4 mr-2" /> Loading verification engine...
       </div>
     );
   }

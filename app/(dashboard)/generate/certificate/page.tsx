@@ -26,7 +26,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
-  ArrowLeft,
   User,
   MapPin,
   FileCheck,
@@ -51,6 +50,7 @@ import {
   recordPrintedCertificate,
   buildCharacterCertInsert,
 } from "@/lib/utils/certificate-registry";
+import { PageHeader } from "@/components/ui/page-header";
 
 type PaperSize = "A5" | "A4" | "A3";
 type PaperOrientation = "portrait" | "landscape";
@@ -362,27 +362,11 @@ function CertificateGeneratorContent() {
   return (
     <div className="p-3.5 sm:p-6 max-w-[1700px] mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Top Action Header (Hidden in Print) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary border border-primary/20 shadow-xs shrink-0">
-            <FileCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-              Character Certificate
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Controls: Wrapped and touch friendly on mobile */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
+      <PageHeader
+        back
+        icon={FileCheck}
+        title="Character Certificate"
+        actions={<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-wrap">
           {/* Copy Type Selector */}
           <div className="flex items-center justify-between rounded-xl border bg-muted/40 p-1 text-xs font-semibold">
             {(["Original", "Duplicate", "Office Copy"] as const).map((type) => (
@@ -432,8 +416,9 @@ function CertificateGeneratorContent() {
               </Button>
             )}
           </div>
-        </div>
-      </div>
+        </div>}
+        className="border-b pb-4 print:hidden"
+      />
 
       {/* Main Grid: Left Inputs + Right Certificate Preview */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start print:block print:w-full print:m-0 print:p-0">

@@ -27,7 +27,6 @@ import { getSavedPromotionPolicy } from "@/lib/utils/marks-config";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
-  ArrowLeft,
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
@@ -42,6 +41,8 @@ import {
   Search,
 } from "lucide-react";
 import Link from "next/link";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -662,24 +663,11 @@ function PromotionPageContent() {
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-5">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3.5 sm:p-4 rounded-2xl border shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[38px] min-w-[38px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold flex items-center gap-2">
-              <GraduationCap className="h-5 w-5 text-primary" />
-              Promotion
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        back
+        icon={GraduationCap}
+        title="Promotion"
+        actions={<div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setUndoModalOpen(true)}
@@ -695,8 +683,9 @@ function PromotionPageContent() {
             <Sliders className="h-3.5 w-3.5" />
             School-Wide Session Transition →
           </Link>
-        </div>
-      </div>
+        </div>}
+        className="bg-card p-3.5 sm:p-4 rounded-2xl border shadow-2xs"
+      />
 
       {/* Success Notification Banner */}
       {executionResult && (
@@ -1234,7 +1223,7 @@ function PromotionPageContent() {
               disabled={promotionMutation.isPending}
               className="rounded-xl bg-primary text-primary-foreground px-5 py-2 text-xs font-bold hover:bg-primary/90 transition-all shadow-xs active:scale-95 cursor-pointer inline-flex items-center gap-2"
             >
-              {promotionMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {promotionMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
               {promotionMutation.isPending ? "Executing Transitions..." : "Confirm & Execute Promotion"}
             </button>
           </DialogFooter>
@@ -1273,7 +1262,7 @@ function PromotionPageContent() {
               disabled={undoMutation.isPending}
               className="rounded-xl bg-rose-600 text-white px-5 py-2 text-xs font-bold hover:bg-rose-700 transition-all shadow-xs active:scale-95 cursor-pointer inline-flex items-center gap-2"
             >
-              {undoMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {undoMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
               {undoMutation.isPending ? "Restoring..." : "Confirm Undo"}
             </button>
           </DialogFooter>
@@ -1288,7 +1277,7 @@ export default function PromotionPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Promotion &amp; Lifecycle Desk...</span>
         </div>
       }

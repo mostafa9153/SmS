@@ -51,6 +51,8 @@ import {
   getLocalCachedCertificates,
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
 type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker" | "others";
 const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker", "others"];
@@ -719,7 +721,7 @@ function GenerateHubPageContent() {
                 className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-semibold gap-1 shrink-0 active:scale-95"
               >
                 {isVerifying ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                 ) : (
                   <Search className="h-3.5 w-3.5" />
                 )}
@@ -840,24 +842,7 @@ function GenerateHubPageContent() {
         </div>
 
         {/* Live Filter Input */}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search tools..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 text-xs h-9 rounded-xl bg-card w-full"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
-            >
-              ×
-            </button>
-          )}
-        </div>
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search tools..." size="sm" className="w-full sm:w-64" />
       </div>
 
       {/* 4. Ultra-Clean Box-by-Box Grid */}
@@ -996,7 +981,7 @@ export default function GenerateHubPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Certificate & Document Hub...</span>
         </div>
       }

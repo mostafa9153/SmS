@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Search, Link as LinkIcon, Download, ArrowLeft, User, Phone, Clock, Share2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface Step2OnlineProps {
   onNext: (appData: any) => void;
@@ -116,15 +117,7 @@ export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) 
 
       {/* Filter & Search Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-        <div className="sm:col-span-2 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, ID, phone..."
-            className="pl-9 h-9 text-xs bg-background"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by name, ID, phone..." size="sm" className="sm:col-span-2" />
         <Select value={classFilter} onValueChange={(v) => v && setClassFilter(v)}>
           <SelectTrigger className="w-full h-9 text-xs bg-background">
             <SelectValue placeholder="All Classes" />

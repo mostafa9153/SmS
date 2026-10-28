@@ -28,6 +28,8 @@ import { getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface ReAdmissionDashboardProps {
   onClose: () => void;
@@ -240,7 +242,7 @@ export function ReAdmissionDashboard({
         >
           {loading ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
               <span>Loading...</span>
             </>
           ) : (
@@ -451,9 +453,7 @@ export function ReAdmissionDashboard({
 
             {/* List View */}
             {filteredStudents.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No students match the selected filter.
-              </div>
+              <EmptyState compact title="No students match the selected filter." />
             ) : (
               <div className="divide-y divide-border/60">
                 {filteredStudents.map((s: any) => {

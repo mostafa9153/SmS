@@ -32,12 +32,12 @@ import {
   Users,
   CheckCheck,
   RefreshCw,
-  ArrowLeft,
   ChevronDown,
   Save,
 } from "lucide-react";
 import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
 
 type PaperSize = "A5" | "A4" | "A3";
 type PaperOrientation = "portrait" | "landscape";
@@ -274,27 +274,11 @@ export default function TabulationGeneratorPage() {
       {/* ============================================================== */}
       {/* TOP HEADER (Hidden in Print)                                   */}
       {/* ============================================================== */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border border-transparent hover:border-border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
-            <FileSpreadsheet className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-              Exam Tabulation Sheet
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto justify-end">
+      <PageHeader
+        back
+        icon={FileSpreadsheet}
+        title="Exam Tabulation Sheet"
+        actions={<div className="flex items-center gap-2.5 flex-wrap w-full sm:w-auto justify-end">
           {/* Live Status Pill */}
           <div className="hidden sm:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-xl border bg-muted/40 text-muted-foreground">
             <Users className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
@@ -317,8 +301,9 @@ export default function TabulationGeneratorPage() {
               Ctrl+P
             </span>
           </Button>
-        </div>
-      </div>
+        </div>}
+        className="border-b pb-4 print:hidden"
+      />
 
       {/* ============================================================== */}
       {/* MAIN GRID: Controls (Left) + Canvas Preview (Right)             */}

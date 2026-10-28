@@ -39,6 +39,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { calculateDetailedAge, cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function UniversalProfilePage() {
   const router = useRouter();
@@ -135,7 +136,7 @@ export default function UniversalProfilePage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-foreground">
         <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <Spinner className="h-8 w-8 text-primary" />
           <p className="text-xs font-semibold text-muted-foreground">Loading Profile...</p>
         </div>
       </div>
@@ -735,7 +736,7 @@ export default function UniversalProfilePage() {
               disabled={updatingPassword}
               className="h-9 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs cursor-pointer gap-1.5 shadow-xs"
             >
-              {updatingPassword ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Key className="h-3.5 w-3.5" />}
+              {updatingPassword ? <Spinner className="h-3.5 w-3.5" /> : <Key className="h-3.5 w-3.5" />}
               <span>Save & Update Password</span>
             </Button>
           </div>

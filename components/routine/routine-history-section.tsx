@@ -26,6 +26,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineHistorySectionProps {
   onSelectRoutine?: (routine: GeneratedRoutine) => void;
@@ -155,7 +156,7 @@ export function RoutineHistorySection({
       {/* History List */}
       {isLoading && history.length === 0 ? (
         <div className="py-12 flex flex-col items-center justify-center text-xs text-muted-foreground gap-2">
-          <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+          <Spinner className="w-5 h-5 text-primary" />
           <span>Loading routine history...</span>
         </div>
       ) : history.length === 0 ? (
@@ -277,7 +278,7 @@ export function RoutineHistorySection({
                       }`}
                     >
                       {isActivating ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <Spinner className="w-3.5 h-3.5" />
                       ) : (
                         <ExternalLink className="w-3.5 h-3.5" />
                       )}
@@ -293,7 +294,7 @@ export function RoutineHistorySection({
                       title="Delete this history record"
                     >
                       {isDeleting ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-destructive" />
+                        <Spinner className="w-3.5 h-3.5 text-destructive" />
                       ) : (
                         <Trash2 className="w-3.5 h-3.5" />
                       )}

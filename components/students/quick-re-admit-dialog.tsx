@@ -19,6 +19,7 @@ import { updateReAdmissionStatus } from "@/lib/data/admission";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2, UserCheck, GraduationCap } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const SECTIONS = ["A", "B", "C", "D"];
@@ -190,7 +191,7 @@ export function QuickReAdmitDialog({
             disabled={isSubmitting}
             className="text-xs h-8 gap-1.5"
           >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GraduationCap className="h-3.5 w-3.5" />}
+            {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <GraduationCap className="h-3.5 w-3.5" />}
             Confirm Re-Admission
           </Button>
         </DialogFooter>

@@ -67,6 +67,7 @@ import Link from "next/link";
 import type { StudentResult } from "@/lib/types";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import { toastWithUndo } from "@/lib/undo/client";
+import { Spinner } from "@/components/ui/spinner";
 
 const VALID_STUDENT_TABS = ["personal", "academic", "facilities", "bank", "identification", "history", "results"];
 
@@ -1230,7 +1231,7 @@ function StudentProfilePageContent() {
               disabled={addResultMutation.isPending}
               className="flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-4 py-1.5 text-xs font-semibold hover:bg-primary/90"
             >
-              {addResultMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {addResultMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
               Save Result
             </button>
           </DialogFooter>
@@ -1277,7 +1278,7 @@ function StudentProfilePageContent() {
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   <span>Deleting...</span>
                 </>
               ) : (

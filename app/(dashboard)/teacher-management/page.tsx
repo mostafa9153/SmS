@@ -67,6 +67,10 @@ import { showToast } from "@/components/ui/toast-banner";
 import type { TeacherPermissions } from "@/lib/types/teacher";
 import { DataTableSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const ALL_SECTIONS = ["ALL", "A", "B", "C", "D"];
@@ -608,14 +612,7 @@ function AdminTeacherManagementContent() {
         
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-background/80 shadow-sm border border-border/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center backdrop-blur-sm">
-                <GraduationCap className="h-6 w-6" />
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-violet-600">
-                Teacher Management Hub
-              </h1>
-            </div>
+            <PageHeader icon={GraduationCap} title="Teacher Management Hub" />
             <p className="text-sm text-muted-foreground mt-2 max-w-2xl font-medium">
               Manage teacher portal accounts, granular permissions, class responsibilities, and task delegation in a unified workspace.
             </p>
@@ -759,15 +756,7 @@ function AdminTeacherManagementContent() {
       {activeTab === "accounts" && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="relative max-w-sm w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Search teacher by name or designation..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-xs rounded-xl"
-              />
-            </div>
+            <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search teacher by name or designation..." size="sm" className="max-w-sm w-full" />
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
               <span>Click any module badge to toggle batch permissions</span>
@@ -776,9 +765,7 @@ function AdminTeacherManagementContent() {
 
           <div className="grid grid-cols-1 gap-3.5">
             {filteredTeachers.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-sm border border-border/80 rounded-2xl bg-card/60">
-                No teachers found.
-              </div>
+              <EmptyState compact title="No teachers found." className="border border-border/80 rounded-2xl bg-card/60" />
             ) : (
               filteredTeachers.map((t) => {
                 const initials = t.fullName.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase();
@@ -1360,13 +1347,11 @@ function AdminTeacherManagementContent() {
 
           {loadingTeacherLogs ? (
             <div className="py-8 flex flex-col items-center justify-center gap-2">
-              <RefreshCw className="h-6 w-6 animate-spin text-emerald-500" />
+              <Spinner className="h-6 w-6 text-emerald-500" />
               <p className="text-xs text-muted-foreground">Loading teacher activity logs...</p>
             </div>
           ) : teacherLogs.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              No activity logs recorded for this teacher yet.
-            </div>
+            <EmptyState compact title="No activity logs recorded for this teacher yet." />
           ) : (
             <div className="max-h-96 overflow-y-auto border border-border/80 rounded-2xl overflow-hidden">
               <table className="w-full text-left text-xs">
@@ -1485,7 +1470,7 @@ function AdminTeacherManagementContent() {
               >
                 {submitting ? (
                   <>
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> Saving...
+                    <Spinner className="h-3.5 w-3.5 mr-1.5" /> Saving...
                   </>
                 ) : (
                   "Save Credentials"
@@ -1698,7 +1683,7 @@ function AdminTeacherManagementContent() {
                   >
                     {savingPerms ? (
                       <>
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" /> Saving...
+                        <Spinner className="h-3.5 w-3.5 mr-1.5" /> Saving...
                       </>
                     ) : (
                       "Save Permissions"
@@ -1956,7 +1941,7 @@ export default function AdminTeacherManagementPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Teachers Management...</span>
         </div>
       }
