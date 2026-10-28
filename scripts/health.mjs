@@ -26,7 +26,8 @@ function sourceFiles(dir, acc = []) {
   return acc;
 }
 
-const PUBLIC_ROUTES = ["certificates/verify", "invoices/verify"];
+// Intentionally unauthenticated: QR verification and the token-gated public admission form.
+const PUBLIC_ROUTES = ["certificates/verify", "invoices/verify", "app/api/public/"];
 const unguardedRoutes = sourceFiles("app/api")
   .filter((f) => f.endsWith("route.ts"))
   .map((f) => f.split("\\").join("/"))
