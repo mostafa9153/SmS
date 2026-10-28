@@ -1061,7 +1061,11 @@ export async function upsertTeacherAvailabilityDb(teacher: RoutineTeacher): Prom
     if (error) {
       delete payload.teacher_id;
       if (isUuid) payload.id = teacher.id;
-      await supabase.from("routine_teacher_availability").upsert(payload);
+      const retry = await supabase.from("routine_teacher_availability").upsert(payload);
+      if (retry.error) {
+        console.warn("upsertTeacherAvailabilityDb:", retry.error.message);
+        return false;
+      }
     }
     return true;
   } catch (err) {
@@ -1258,8 +1262,6 @@ export async function batchUpsertAssignmentsDb(
 
   setLocalRoutineState({ assignments: validAsgList });
 
-  if (!validAsgList || validAsgList.length === 0) return true;
-
   const rows: AssignmentRow[] = validAsgList.map((asg) => ({
     id: asg.id,
     class_id: asg.classId,
@@ -1271,10 +1273,27 @@ export async function batchUpsertAssignmentsDb(
   }));
 
   try {
-    const failure = await writeAssignmentRows(rows);
+    const failure = rows.length > 0 ? await writeAssignmentRows(rows) : null;
     if (failure) {
       console.warn("batchUpsertAssignmentsDb error:", failure);
       return false;
+    }
+    // The list replaces the old one: rows for a teacher who no longer has the subject must go,
+    // otherwise they keep showing that teacher on it.
+    const supabase = createClient();
+    const keep = new Set(rows.map((r) => r.id));
+    const { data: existing, error: listError } = await supabase.from("routine_assignments").select("id");
+    if (listError) {
+      console.warn("batchUpsertAssignmentsDb stale lookup:", listError.message);
+      return false;
+    }
+    const stale = (existing || []).map((r: { id: string }) => r.id).filter((id) => !keep.has(id));
+    for (let i = 0; i < stale.length; i += 100) {
+      const { error } = await supabase.from("routine_assignments").delete().in("id", stale.slice(i, i + 100));
+      if (error) {
+        console.warn("batchUpsertAssignmentsDb stale delete:", error.message);
+        return false;
+      }
     }
     return true;
   } catch (err) {
@@ -1366,14 +1385,8 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
   const supabase = createClient();
 
   try {
-    // 1. Mark existing ones as inactive so newly generated routine is the active one
-    await supabase
-      .from("routine_generated_cache")
-      .update({ is_active: false })
-      .neq("id", "00000000-0000-0000-0000-000000000000");
-
-    // 2. Insert new routine
-    const { error } = await supabase.from("routine_generated_cache").insert({
+    // 1. Insert the new routine first, so a failed insert never leaves the school without an active routine
+    const { data: inserted, error } = await supabase.from("routine_generated_cache").insert({
       title: "Main Academic Routine",
       is_active: true,
       grid: routine.grid,
@@ -1388,15 +1401,22 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
         relaxedConstraints: routine.stats?.relaxedConstraints || routine.metadata?.relaxedConstraints,
         ...(routine.metadata || {}),
       },
-    });
+    }).select("id").single();
+    if (error || !inserted) {
+      console.warn("saveGeneratedRoutineDb:", error);
+      return false;
+    }
+
+    // 2. Then it becomes the only active one
+    await supabase.from("routine_generated_cache").update({ is_active: false }).neq("id", inserted.id);
 
     // 3. Auto-remove older routines beyond last 10
     await pruneOldGeneratedRoutinesDb(10);
 
-    return !error;
+    return true;
   } catch (err) {
     console.warn("saveGeneratedRoutineDb:", err);
-    return true;
+    return false;
   }
 }
 

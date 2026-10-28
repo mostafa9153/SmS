@@ -26,7 +26,6 @@ export default function RoutineAssignmentsPage() {
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [rooms, setRooms] = useState<RoutineRoom[]>([]);
   const [teachers, setTeachers] = useState<RoutineTeacher[]>([]);
-  const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
   const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
 
   const loadData = async () => {
@@ -38,7 +37,6 @@ export default function RoutineAssignmentsPage() {
       setSubjects(data.subjects || []);
       setRooms(data.rooms || []);
       setTeachers(data.teachers || []);
-      setAssignments(data.assignments || []);
       setGroups(data.groups || []);
     } catch (err) {
       console.error("Failed to load verification state:", err);
@@ -67,7 +65,6 @@ export default function RoutineAssignmentsPage() {
 
   const handleSaveAssignments = async (newAssignments: RoutineAssignment[]) => {
     await batchUpsertAssignmentsDb(newAssignments);
-    setAssignments(newAssignments);
   };
 
   if (loading) {
@@ -85,7 +82,6 @@ export default function RoutineAssignmentsPage() {
         classes={classes}
         subjects={subjects}
         teachers={teachers}
-        assignments={assignments}
         rooms={rooms}
         groups={groups}
         onSaveAssignments={handleSaveAssignments}

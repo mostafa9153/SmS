@@ -373,7 +373,9 @@ function RoutineSetupPageContent() {
 
   // Handlers for Teachers
   const handleSaveTeacher = async (teacherData: RoutineTeacher) => {
-    await upsertTeacherAvailabilityDb(teacherData);
+    if (!(await upsertTeacherAvailabilityDb(teacherData))) {
+      showToast({ type: "error", title: "Teacher not saved", description: "The database rejected the update. Reload before editing again." });
+    }
     setTeachers((prev) => {
       const idx = prev.findIndex((t) => t.id === teacherData.id);
       if (idx > -1) {
@@ -450,8 +452,8 @@ function RoutineSetupPageContent() {
   const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
 
   const { totalWorkload: totalTeacherWorkload, assignedTeacherCount } = useMemo(() => {
-    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups);
-  }, [teachers, classes, subjects, assignments, groups]);
+    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, groups);
+  }, [teachers, classes, subjects, groups]);
 
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
@@ -600,7 +602,6 @@ function RoutineSetupPageContent() {
             {activeTab === "teachers" && (
               <RoutineTeachersTab
                 teachers={teachers}
-                assignments={assignments}
                 settings={settings}
                 classes={classes}
                 subjects={subjects}

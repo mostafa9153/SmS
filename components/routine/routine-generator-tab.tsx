@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { RoutineHistorySection } from "@/components/routine/routine-history-section";
 import { calculateTotalTeacherAllottedWorkload } from "@/lib/routine/routine-helpers";
 import { Spinner } from "@/components/ui/spinner";
+import { RoutineRunIssues } from "@/components/routine/routine-run-issues";
 
 interface RoutineGeneratorTabProps {
   settings: RoutineSettings;
@@ -64,13 +66,22 @@ export function RoutineGeneratorTab({
 
   const totalAssignedPeriods = assignments.reduce((sum, a) => sum + a.periodsPerWeek, 0);
   // Same helper as the Setup Hub card: works before assignments are built and includes group periods
-  const facultyWorkload = calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups).totalWorkload;
+  const facultyWorkload = calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, groups).totalWorkload;
+
+  // Every check goes through here; only the newest one may update the report
+  const validationSeq = useRef(0);
+  const runValidation = async (): Promise<ValidationReport | null> => {
+    const seq = ++validationSeq.current;
+    const res = await onValidate();
+    if (seq !== validationSeq.current) return null;
+    setReport(res);
+    return res;
+  };
 
   const handleValidate = async () => {
     setIsValidating(true);
     try {
-      const res = await onValidate();
-      setReport(res);
+      await runValidation();
     } finally {
       setIsValidating(false);
     }
@@ -81,26 +92,40 @@ export function RoutineGeneratorTab({
     setIsAutoBuilding(true);
     try {
       await onAutoBuildAssignments();
-      const res = await onValidate();
-      setReport(res);
+      await runValidation();
     } finally {
       setIsAutoBuilding(false);
     }
   };
 
+  // Check before every run: a routine is never built on top of setup errors
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
+      const pre = await runValidation();
+      if (!pre) return;
+      if (!pre.isValid) {
+        setGenerationResult(null);
+        toast.error(`Fix ${pre.errors.length} setup problem(s) before generating`);
+        return;
+      }
       const res = await onGenerate();
       setGenerationResult(res);
       setLastGeneratedTime(Date.now());
-      if (res.success) {
-        setReport({ isValid: true, errors: [], warnings: [] });
-      }
     } finally {
       setIsGenerating(false);
     }
   };
+
+  // Show setup problems as soon as the page opens and whenever the setup data reloads
+  useEffect(() => {
+    runValidation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-check only when the setup data changes
+  }, [settings, classes, teachers, subjects, rooms, groups]);
+
+  // Warnings that are not already shown as an itemized diagnostic
+  const itemTexts = new Set((report?.diagnosticItems || []).flatMap((i) => [i.title, i.description]));
+  const extraWarnings = Array.from(new Set(report?.warnings || [])).filter((w) => !itemTexts.has(w));
 
   return (
     <div className="space-y-5 w-full">
@@ -317,7 +342,7 @@ export function RoutineGeneratorTab({
             <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-xs space-y-3">
               <div className="flex items-center gap-2 font-bold text-destructive text-sm">
                 <AlertCircle className="h-4 w-4" />
-                Pre-Flight Constraints Detected ({report.errors.length} Errors)
+                Fix before generating ({report.errors.length})
               </div>
               <ul className="list-disc pl-5 space-y-1 text-destructive dark:text-red-400">
                 {report.errors.map((e, idx) => (
@@ -360,14 +385,14 @@ export function RoutineGeneratorTab({
             </div>
           )}
 
-          {report.warnings && report.warnings.length > 0 && !report.diagnosticItems?.length && (
+          {extraWarnings.length > 0 && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-xs space-y-1">
               <div className="flex items-center gap-1.5 font-bold text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Warnings ({report.warnings.length})
+                Warnings ({extraWarnings.length})
               </div>
-              <ul className="list-disc pl-5 space-y-0.5 text-amber-800 dark:text-amber-400 text-[11px]">
-                {report.warnings.map((w, idx) => (
+              <ul className="list-disc pl-5 space-y-0.5 text-amber-800 dark:text-amber-400 text-[11px] max-h-60 overflow-y-auto">
+                {extraWarnings.map((w, idx) => (
                   <li key={idx}>{w}</li>
                 ))}
               </ul>
@@ -431,37 +456,7 @@ export function RoutineGeneratorTab({
               </div>
 
               {/* Rules that had to be relaxed and were actually broken, with every case */}
-              {Array.isArray(generationResult.metadata?.relaxations) &&
-                generationResult.metadata.relaxations.map((r: any) => (
-                  <div key={r.rule} className="border border-amber-500/40 rounded-md bg-amber-500/5">
-                    <div className="px-3 py-2 font-semibold text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      {r.title} ({r.count})
-                    </div>
-                    <ul className="px-3 pb-2 pl-8 list-disc space-y-0.5 text-[11px] text-muted-foreground max-h-40 overflow-y-auto">
-                      {r.details.map((w: string, idx: number) => (
-                        <li key={idx}>{w}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-
-              {/* Why the strict phase failed: certain, counted causes */}
-              {Array.isArray(generationResult.metadata?.reasons) && generationResult.metadata.reasons.length > 0 && (
-                <div className="border rounded-md divide-y bg-muted/10">
-                  <div className="px-3 py-2 bg-muted/40 font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                    Why strict rules could not be met ({generationResult.metadata.reasons.length})
-                  </div>
-                  {generationResult.metadata.reasons.map((diag: any, idx: number) => (
-                    <div key={idx} className="p-3 space-y-1">
-                      <div className="font-semibold text-foreground text-xs">{diag.title}</div>
-                      <p className="text-muted-foreground text-[11px]">{diag.description}</p>
-                      {diag.solution && <p className="text-[11px] text-foreground">Fix: {diag.solution}</p>}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <RoutineRunIssues metadata={generationResult.metadata} />
 
               {Array.isArray(generationResult.metadata?.attempts) && generationResult.metadata.attempts.length > 1 && (
                 <div className="flex flex-wrap gap-1.5 text-[10px] font-mono text-muted-foreground">

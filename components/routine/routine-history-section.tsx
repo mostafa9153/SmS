@@ -24,7 +24,10 @@ import {
   Cpu,
   ChevronRight,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { RoutineRunIssues, countRunIssues } from "@/components/routine/routine-run-issues";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -43,6 +46,7 @@ export function RoutineHistorySection({
   const [isLoading, setIsLoading] = useState(true);
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [issuesOf, setIssuesOf] = useState<RoutineHistoryEntry | null>(null);
 
   const loadHistory = async () => {
     setIsLoading(true);
@@ -175,6 +179,7 @@ export function RoutineHistorySection({
             const timeInfo = formatDate(item.createdAt);
             const isActivating = activatingId === item.id;
             const isDeleting = deletingId === item.id;
+            const issueCount = countRunIssues(item.metadata);
 
             return (
               <div
@@ -266,6 +271,18 @@ export function RoutineHistorySection({
 
                   {/* Right actions */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {issueCount > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIssuesOf(item)}
+                        className="h-8 gap-1.5 px-2.5 text-xs font-semibold text-amber-700 dark:text-amber-300 border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20"
+                        aria-label={`Show ${issueCount} broken rules`}
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {issueCount}
+                      </Button>
+                    )}
                     <Button
                       variant={item.isActive ? "secondary" : "default"}
                       size="sm"
@@ -306,6 +323,17 @@ export function RoutineHistorySection({
           })}
         </div>
       )}
+      <Dialog open={issuesOf !== null} onOpenChange={(open) => !open && setIssuesOf(null)}>
+        <DialogContent className="max-w-2xl w-[96vw] max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              Broken rules{issuesOf ? ` · ${formatDate(issuesOf.createdAt).formatted}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+          {issuesOf && <RoutineRunIssues metadata={issuesOf.metadata} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

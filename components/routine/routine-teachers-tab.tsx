@@ -3,13 +3,12 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   RoutineTeacher,
-  RoutineAssignment,
   RoutineSettings,
   RoutineClass,
   RoutineSubject,
   RoutineSubjectGroup,
 } from "@/lib/routine/types";
-import { groupSlotCost, teacherGroupLoad } from "@/lib/routine/routine-groups";
+import { groupSlotCost } from "@/lib/routine/routine-groups";
 import { Button } from "@/components/ui/button";
 import { Plus, Users, GraduationCap, CloudUpload, Save, Check } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
@@ -33,11 +32,10 @@ import {
   parseSectionAndStream,
   detectSubjectStream,
   getConfiguredStreamsForClass,
-  getTeacherSubjectPeriod,
   HS_STREAM_PRESETS,
   sanitizeTeacherSubjectPeriods,
   calculateTotalSchoolSectionDemand,
-  calculateTotalTeacherAllottedWorkload,
+  calculateTeacherConfiguredLoads,
 } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -52,7 +50,6 @@ import { Spinner } from "@/components/ui/spinner";
 
 export interface RoutineTeachersTabProps {
   teachers: RoutineTeacher[];
-  assignments: RoutineAssignment[];
   settings: RoutineSettings;
   classes?: RoutineClass[];
   subjects?: RoutineSubject[];
@@ -64,7 +61,6 @@ export interface RoutineTeachersTabProps {
 
 export function RoutineTeachersTab({
   teachers,
-  assignments,
   settings,
   classes = [],
   subjects = [],
@@ -285,112 +281,16 @@ export function RoutineTeachersTab({
     [subjects]
   );
 
-  // Helper to compute a teacher's total active workload across all assigned classes, sections, and subjects
-  const computeTeacherEffectiveLoad = useCallback(
-    (t: RoutineTeacher): number => {
-      // 1. Check if explicit assignments exist for this teacher
-      const asgLoad = assignments
-        .filter((a) => a.teacherId === t.id || a.teacherId === t.name)
-        .reduce((sum, a) => sum + (Number(a.periodsPerWeek) || 0), 0);
-      if (asgLoad > 0) return asgLoad;
-
-      // 2. Otherwise calculate directly from configured classes, sections, and subjects
-      const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
-      if (!qClasses || qClasses.length === 0) return 0;
-
-      let totalLoad = 0;
-
-      qClasses.forEach((clsName) => {
-        const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
-          (k) => k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)
-        );
-
-        const configuredSections =
-          t.classSections?.[clsName] !== undefined
-            ? t.classSections[clsName]
-            : hasSecConfig
-            ? Array.from(
-                new Set(
-                  Object.keys(t.sectionSubjects || {})
-                    .filter(
-                      (k) =>
-                        (k.startsWith(`${clsName}::`) || k.startsWith(`${clsName}-`) || k.startsWith(`${clsName}_`)) &&
-                        (t.sectionSubjects?.[k] || []).length > 0
-                    )
-                    .map((k) => {
-                      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("-") : k.split("_");
-                      return parts[1]?.trim() || "";
-                    })
-                    .filter(Boolean)
-                )
-              )
-            : [getClassSections(clsName)[0] || "A"];
-
-        configuredSections.forEach((sec) => {
-          const secKey = `${clsName}::${sec}`;
-          const altSecKey1 = `${clsName}-${sec}`;
-          const altSecKey2 = `${clsName}_${sec}`;
-
-          const directSecPeriod =
-            t.sectionPeriods?.[secKey] ??
-            t.sectionPeriods?.[altSecKey1] ??
-            t.sectionPeriods?.[altSecKey2];
-
-          // Subjects for this section - strictly isolate if section config exists
-          let secSubs: string[] = [];
-          if (hasSecConfig) {
-            secSubs =
-              t.sectionSubjects?.[secKey] ??
-              t.sectionSubjects?.[altSecKey1] ??
-              t.sectionSubjects?.[altSecKey2] ??
-              [];
-          } else {
-            secSubs = t.classSubjects?.[clsName] ?? [];
-          }
-
-          const groupNames = groupMemberNamesByClass[clsName];
-          if (groupNames && groupNames.size > 0) {
-            secSubs = secSubs.filter((s) => !groupNames.has(s.trim().toLowerCase()));
-          }
-
-          if (secSubs.length > 0) {
-            secSubs.forEach((sub) => {
-              const p = getTeacherSubjectPeriod(
-                t,
-                clsName,
-                sec,
-                sub,
-                getSubjectDefaultPeriod(clsName, sub)
-              );
-              totalLoad += Number(p) || 0;
-            });
-          } else if (directSecPeriod && directSecPeriod > 0) {
-            totalLoad += Number(directSecPeriod);
-          } else if (t.classPeriods?.[clsName] && t.classPeriods[clsName] > 0) {
-            totalLoad += Number(t.classPeriods[clsName]);
-          }
-        });
-      });
-
-      return totalLoad;
-    },
-    [assignments, getClassSections, getSubjectDefaultPeriod, groupMemberNamesByClass]
+  // Each teacher's load comes only from what was ticked here (+ groups); stored assignments are derived data
+  const teacherLoadMap: Record<string, number> = useMemo(
+    () => Object.fromEntries(calculateTeacherConfiguredLoads(teachers, classes, subjects, groups)),
+    [teachers, classes, subjects, groups]
   );
 
-  // Compute workload per teacher
-  const teacherLoadMap: Record<string, number> = useMemo(() => {
-    const map: Record<string, number> = {};
-    teachers.forEach((t) => {
-      map[t.id] = computeTeacherEffectiveLoad(t) + teacherGroupLoad(t.id, groups);
-    });
-    return map;
-  }, [teachers, computeTeacherEffectiveLoad, groups]);
-
-  // Aggregate teacher load stats
-  // Same helpers as the Setup Hub cards, so the badge and the cards can never disagree
+  // Aggregate teacher load stats: the same per-teacher numbers the Setup Hub cards add up
   const totalAllottedLoad = useMemo(
-    () => calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups).totalWorkload,
-    [teachers, classes, subjects, assignments, groups]
+    () => Object.values(teacherLoadMap).reduce((a, b) => a + b, 0),
+    [teacherLoadMap]
   );
 
   // Distinct curriculum subjects across the school
@@ -434,13 +334,6 @@ export function RoutineTeachersTab({
         if (sub) assignedSet.add(sub.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim());
       })
     );
-    assignments.forEach((a) => {
-      const sub = subjects.find((s) => s.id === a.subjectId);
-      if (sub && sub.name) {
-        const canonical = sub.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim();
-        assignedSet.add(canonical);
-      }
-    });
     const missing = distinctCurriculumSubjects.filter((s) => !assignedSet.has(s));
     const label = (canonical: string) =>
       subjects.find(
@@ -450,7 +343,7 @@ export function RoutineTeachersTab({
       totalAssignedSubjects: distinctCurriculumSubjects.length - missing.length,
       unassignedSubjects: missing.map(label),
     };
-  }, [teachers, assignments, subjects, groups, distinctCurriculumSubjects]);
+  }, [teachers, subjects, groups, distinctCurriculumSubjects]);
 
   // Map of total configured subjects for each class
   const classTotalSubjectsMap = useMemo(() => {
@@ -776,11 +669,10 @@ export function RoutineTeachersTab({
       });
     } else {
       setSelectedClasses((prev) => [...prev, clsName]);
+      // Pre-tick only the teacher's own subject; every other subject is ticked by hand
       const defaultSubs = classSubjectsDictionary[clsName] || [];
       const initialSubs =
-        primarySubject && primarySubject !== "__custom__" && defaultSubs.includes(primarySubject)
-          ? [primarySubject]
-          : [...defaultSubs];
+        primarySubject && primarySubject !== "__custom__" && defaultSubs.includes(primarySubject) ? [primarySubject] : [];
 
       setClassSubjectsMap((prev) => ({
         ...prev,

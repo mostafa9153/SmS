@@ -7,7 +7,7 @@ import {
   getSchoolConfiguredStreams,
 } from "@/lib/utils/school-profile";
 import { getDynamicClassList, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
-import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher, RoutineAssignment } from "./types";
+import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher } from "./types";
 
 export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts", string[]> = {
   Common: ["Bengali", "English", "Environmental Studies", "Alternative English", "Hindi", "Urdu"],
@@ -144,9 +144,14 @@ export function getTeacherSubjectPeriod(
   return fallbackDefault ?? 5;
 }
 
+/** "Bengali (Theory)" and "Bengali" name the same subject; the variant only splits theory/lab periods. */
+export function subjectBaseName(name: string): string {
+  return (name || "").trim().toLowerCase().replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+}
+
 /**
- * Checks whether a teacher is assigned to teach a specific subject in a class and section.
- * Handles split Theory/Lab subject variants (e.g., "Geography" matches "Geography (Theory)" or "Geography (Lab)").
+ * The one rule for "does this teacher teach this subject in this section": only what was ticked in the
+ * Teachers tab. No class, no section or no subject ticked means "does not teach it", never "teaches everything".
  */
 export function isTeacherAssignedToSubject(
   teacher: RoutineTeacher,
@@ -154,145 +159,41 @@ export function isTeacherAssignedToSubject(
   section: string,
   subjectName: string
 ): boolean {
-  const cls = (className || "").trim();
-  const sec = (section || "").trim();
-  const sub = (subjectName || "").trim().toLowerCase();
-  const subClean = sub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
-
-  const allowedSecs = teacher.classSections?.[cls];
-  if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
-    const isAllowed = allowedSecs.some(
-      (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === sec.toLowerCase()
-    );
-    if (!isAllowed) return false;
-  }
-
-  const hasSecConfig = Object.keys(teacher.sectionSubjects || {}).some(
-    (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
-  );
-
-  const matchesSub = (s: string) => {
-    const sLower = s.trim().toLowerCase();
-    const sClean = sLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
-    return sLower === sub || sClean === subClean || sClean === sub;
-  };
-
-  const secKey = `${cls}::${sec}`;
-  const altSecKey = `${cls}-${sec}`;
-  const altSecKey2 = `${cls}_${sec}`;
-
-  const secSubs =
-    teacher.sectionSubjects?.[secKey] ??
-    teacher.sectionSubjects?.[altSecKey] ??
-    teacher.sectionSubjects?.[altSecKey2];
-
-  const hasSecSub = Array.isArray(secSubs) && secSubs.some(matchesSub);
-  if (hasSecSub) return true;
-
-  // If teacher has section configuration for this class, strictly DO NOT fall back to classSubjects
-  if (hasSecConfig) return false;
-
-  if (allowedSecs === undefined && teacher.qualifiedClasses?.includes(cls)) {
-    const classSubs = teacher.classSubjects?.[cls] || [];
-    if (classSubs.some(matchesSub)) return true;
-  }
-
-  // Check explicit subjectPeriods map as well
-  if (teacher.subjectPeriods && Object.keys(teacher.subjectPeriods).length > 0) {
-    const hasExplicit = Object.keys(teacher.subjectPeriods).some((k) => {
-      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("-") : k.split("_");
-      if (parts.length >= 2 && parts[0].trim().toLowerCase() === cls.toLowerCase()) {
-        const keySub = parts[parts.length - 1].trim().toLowerCase();
-        const keySubClean = keySub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
-        return keySub === sub || keySubClean === subClean;
-      }
-      return false;
-    });
-    if (hasExplicit) return true;
-  }
-
-  return false;
+  const base = subjectBaseName(subjectName);
+  return getTeacherSectionSubjects(teacher, className, section).some((s) => subjectBaseName(s) === base);
 }
 
-/**
- * Checks whether a teacher is qualified to teach a specific subject in a class (and optional section).
- * Handles split Theory/Lab/Practical subject names, section assignments, and period mappings.
- */
+/** Same rule for a whole class when no section is given (any ticked section counts). */
 export function isTeacherQualifiedForSubject(
   teacher: RoutineTeacher,
   className: string,
   subjectName: string,
   section?: string
 ): boolean {
+  if (section) return isTeacherAssignedToSubject(teacher, className, section, subjectName);
   const cls = (className || "").trim();
-  const clsLower = cls.toLowerCase();
-  const sub = (subjectName || "").trim().toLowerCase();
-  const subClean = sub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+  if (!teacherHasClass(teacher, cls)) return false;
+  const base = subjectBaseName(subjectName);
+  const lists = [
+    teacher.classSubjects?.[cls] || [],
+    ...Object.entries(teacher.sectionSubjects || {})
+      .filter(([k]) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`))
+      .map(([, subs]) => subs || []),
+  ];
+  return lists.some((subs) => subs.some((s) => subjectBaseName(s) === base));
+}
 
-  // 1. Check class qualification
-  const qClasses = (teacher.qualifiedClasses || []).map((c) => c.toLowerCase());
-  const classQualified = qClasses.length === 0 || qClasses.includes(clsLower);
-  if (!classQualified) return false;
-
-  // 2. Check section qualification if section is provided
-  if (section && isTeacherAssignedToSubject(teacher, cls, section, subjectName)) {
-    return true;
-  }
-
-  const matchesSub = (s: string) => {
-    const sLower = s.trim().toLowerCase();
-    const sClean = sLower.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
-    return sLower === sub || sClean === subClean || sClean === sub;
-  };
-
-  // 3. Check sectionSubjects for this class if any section config matches
-  const secKeys = Object.keys(teacher.sectionSubjects || {}).filter(
-    (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+/** A teacher teaches only the ticked classes; an empty list means no classes yet. */
+function teacherHasClass(teacher: RoutineTeacher, cls: string): boolean {
+  const q = teacher.qualifiedClasses;
+  if (Array.isArray(q) && q.length > 0) return q.some((c) => c.trim().toLowerCase() === cls.toLowerCase());
+  // Older records saved only the subject maps
+  return (
+    Boolean(teacher.classSubjects?.[cls]?.length) ||
+    Object.keys(teacher.sectionSubjects || {}).some(
+      (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
+    )
   );
-  if (secKeys.length > 0) {
-    if (section) {
-      const secKey = `${cls}::${section.trim()}`;
-      const altSecKey = `${cls}-${section.trim()}`;
-      const altSecKey2 = `${cls}_${section.trim()}`;
-      const secSubs =
-        teacher.sectionSubjects?.[secKey] ??
-        teacher.sectionSubjects?.[altSecKey] ??
-        teacher.sectionSubjects?.[altSecKey2];
-      if (Array.isArray(secSubs) && secSubs.some(matchesSub)) {
-        return true;
-      }
-      return false;
-    } else {
-      // If no specific section was requested, check any section in this class
-      for (const k of secKeys) {
-        const subs = teacher.sectionSubjects?.[k] || [];
-        if (subs.some(matchesSub)) return true;
-      }
-    }
-  }
-
-  // 4. Check classSubjects
-  const classSubs = teacher.classSubjects?.[cls] || [];
-  if (classSubs.some(matchesSub)) return true;
-
-  // 5. Check subjectPeriods
-  if (teacher.subjectPeriods && Object.keys(teacher.subjectPeriods).length > 0) {
-    const hasExplicit = Object.keys(teacher.subjectPeriods).some((k) => {
-      const parts = k.includes("::") ? k.split("::") : k.includes("-") ? k.split("_") : k.split("_");
-      if (parts.length >= 2 && parts[0].trim().toLowerCase() === clsLower) {
-        const keySub = parts[parts.length - 1].trim().toLowerCase();
-        const keySubClean = keySub.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
-        return keySub === sub || keySubClean === subClean;
-      }
-      return false;
-    });
-    if (hasExplicit) return true;
-  }
-
-  // 6. If no specific subjects or sections are configured for this class, teacher is eligible for all subjects
-  if (classSubs.length === 0 && secKeys.length === 0) return true;
-
-  return false;
 }
 
 /**
@@ -324,6 +225,7 @@ export function getTeacherSectionSubjects(
 ): string[] {
   const cls = (className || "").trim();
   const sec = (section || "").trim();
+  if (!teacherHasClass(teacher, cls)) return [];
 
   // If teacher has classSections configured for this class, strictly verify that sec is allowed
   const allowedSecs = teacher.classSections?.[cls];
@@ -940,121 +842,79 @@ export function calculateTotalSchoolSectionDemand(
   return totalDemand;
 }
 
+type LoadGroup = {
+  sectionIds: string[];
+  options: Array<{ teacherId: string; subjectId: string }>;
+  pooled: boolean;
+  periodsPerWeek: number;
+  periodSize: 1 | 2;
+};
+
 /**
- * Single Source of Truth: Total faculty assigned weekly workload across all classes and sections
+ * Each teacher's weekly load from the Teachers tab (ticked subjects in real sections) plus the group
+ * periods they run, keyed by teacher id. Stored assignments are never used: they are rebuilt from this same data.
  */
-export function calculateTotalTeacherAllottedWorkload(
+export function calculateTeacherConfiguredLoads(
   teachers: RoutineTeacher[],
   classes: RoutineClass[],
   subjects: RoutineSubject[],
-  assignments: RoutineAssignment[] = [],
-  groups?: Array<{
-    sectionIds: string[];
-    options: Array<{ teacherId: string; subjectId: string }>;
-    pooled: boolean;
-    periodsPerWeek: number;
-    periodSize: 1 | 2;
-  }>
-): { totalWorkload: number; assignedTeacherCount: number } {
+  groups: LoadGroup[] = []
+): Map<string, number> {
   // Subjects run through a group are counted by the group, never again from the teacher profile
   const groupedByClass = new Map<string, Set<string>>();
-  for (const g of groups || []) {
+  for (const g of groups) {
     for (const cid of g.sectionIds || []) {
       const set = groupedByClass.get(cid) || new Set<string>();
       g.options.forEach((o) => set.add(o.subjectId));
       groupedByClass.set(cid, set);
     }
   }
-  let totalWorkload = 0;
-  let assignedTeacherCount = 0;
+  // Per class name: subject name -> first matching subject (class-specific or common), built once
+  const subjectIndex = new Map<string, Map<string, RoutineSubject>>();
+  const subjectsOf = (className: string) => {
+    const key = className.trim().toLowerCase();
+    let idx = subjectIndex.get(key);
+    if (!idx) {
+      idx = new Map();
+      for (const s of subjects) {
+        if (s.className && s.className.trim().toLowerCase() !== key) continue;
+        const name = s.name.trim().toLowerCase();
+        if (!idx.has(name)) idx.set(name, s);
+      }
+      subjectIndex.set(key, idx);
+    }
+    return idx;
+  };
 
-  const groupLoadForTeacher = (tid: string): number => {
-    if (!groups || groups.length === 0) return 0;
-    let n = 0;
+  const loads = new Map<string, number>();
+  for (const t of teachers) {
+    let load = 0;
+    for (const c of classes) {
+      for (const subName of getTeacherSectionSubjects(t, c.className, c.section)) {
+        const matchedSubject = subjectsOf(c.className).get(subName.trim().toLowerCase());
+        if (matchedSubject && groupedByClass.get(c.id)?.has(matchedSubject.id)) continue;
+        load += getTeacherSubjectPeriod(t, c.className, c.section, subName, matchedSubject?.periodsPerWeek || 5);
+      }
+    }
     for (const g of groups) {
-      const perSlot = (g.options || []).filter((o) => o.teacherId === tid).length;
+      const perSlot = (g.options || []).filter((o) => o.teacherId === t.id).length;
       if (perSlot === 0) continue;
       const slots = Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
       const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
-      n += perSlot * slots * mul;
+      load += perSlot * slots * mul;
     }
-    return n;
-  };
+    loads.set(t.id, load);
+  }
+  return loads;
+}
 
-  teachers.forEach((t) => {
-    let teacherAssignedPeriods = 0;
-    const directTeacherAssignments = assignments.filter((a) => a.teacherId === t.id);
-
-    if (directTeacherAssignments.length > 0) {
-      directTeacherAssignments.forEach((a) => {
-        teacherAssignedPeriods += a.periodsPerWeek;
-      });
-    } else {
-      classes.forEach((c) => {
-        const secKey = `${c.className}::${c.section}`;
-        const altSecKey = `${c.className}-${c.section}`;
-        const altSecKey2 = `${c.className}_${c.section}`;
-
-        const allowedSecs = t.classSections?.[c.className];
-        if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
-          const isAllowed = allowedSecs.some(
-            (s) => s.trim().toLowerCase() === "all" || s.trim().toLowerCase() === c.section.toLowerCase()
-          );
-          if (!isAllowed) {
-            return;
-          }
-        }
-
-        const hasSecConfig = Object.keys(t.sectionSubjects || {}).some(
-          (k) =>
-            k.startsWith(`${c.className}::`) ||
-            k.startsWith(`${c.className}-`) ||
-            k.startsWith(`${c.className}_`)
-        );
-
-        let activeSubs: string[] = [];
-        if (hasSecConfig) {
-          activeSubs =
-            t.sectionSubjects?.[secKey] ??
-            t.sectionSubjects?.[altSecKey] ??
-            t.sectionSubjects?.[altSecKey2] ??
-            [];
-        } else if (
-          allowedSecs === undefined &&
-          t.qualifiedClasses?.includes(c.className)
-        ) {
-          activeSubs = t.classSubjects?.[c.className] || [];
-        }
-
-        activeSubs.forEach((subName) => {
-          const matchedSubject = subjects.find(
-            (s) =>
-              s.name.trim().toLowerCase() === subName.trim().toLowerCase() &&
-              (!s.className || s.className.trim().toLowerCase() === c.className.trim().toLowerCase())
-          );
-          if (matchedSubject && groupedByClass.get(c.id)?.has(matchedSubject.id)) return;
-          const p = getTeacherSubjectPeriod(
-            t,
-            c.className,
-            c.section,
-            subName,
-            matchedSubject?.periodsPerWeek || 5
-          );
-          teacherAssignedPeriods += p;
-        });
-      });
-    }
-
-    // Add group periods this teacher runs (once per unit, scaled by
-    // non-pooled section fan-out).
-    const groupLoad = groupLoadForTeacher(t.id);
-    const totalForTeacher = teacherAssignedPeriods + groupLoad;
-
-    if (totalForTeacher > 0) {
-      assignedTeacherCount += 1;
-      totalWorkload += totalForTeacher;
-    }
-  });
-
-  return { totalWorkload, assignedTeacherCount };
+/** Total faculty weekly workload across all teachers (same rule as each teacher's own load). */
+export function calculateTotalTeacherAllottedWorkload(
+  teachers: RoutineTeacher[],
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  groups: LoadGroup[] = []
+): { totalWorkload: number; assignedTeacherCount: number } {
+  const loads = [...calculateTeacherConfiguredLoads(teachers, classes, subjects, groups).values()].filter((n) => n > 0);
+  return { totalWorkload: loads.reduce((a, b) => a + b, 0), assignedTeacherCount: loads.length };
 }

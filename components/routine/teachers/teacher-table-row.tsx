@@ -93,7 +93,7 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
       <td className="py-2.5 px-4">
         {qClasses.length === 0 ? (
           <span className="text-muted-foreground text-[11px] italic">
-            All classes & subjects
+            No classes assigned
           </span>
         ) : (
           <div className="flex flex-wrap gap-1.5 max-w-lg">
@@ -127,7 +127,7 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
                         return `${sub} (${directP}/${totalSubDemand}p)`;
                       })
                       .join(", ")
-                  : "All";
+                  : "No subjects";
 
               return (
                 <div
