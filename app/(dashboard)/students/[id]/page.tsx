@@ -66,6 +66,7 @@ import {
 import Link from "next/link";
 import type { StudentResult } from "@/lib/types";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
+import { toastWithUndo } from "@/lib/undo/client";
 
 const VALID_STUDENT_TABS = ["personal", "academic", "facilities", "bank", "identification", "history", "results"];
 
@@ -139,11 +140,11 @@ function StudentProfilePageContent() {
     if (!student?.id) return;
     setIsDeleting(true);
     try {
-      await deleteStudent(student.id);
-      showToast({
-        title: "Student Deleted",
-        description: `${student.name} has been permanently deleted.`,
-        type: "success",
+      const { undoId } = await deleteStudent(student.id);
+      toastWithUndo(`${student.name} deleted`, undoId, () => {
+        queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+        queryClient.invalidateQueries({ queryKey: ["students"] });
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       });
       queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
       queryClient.invalidateQueries({ queryKey: ["students"] });

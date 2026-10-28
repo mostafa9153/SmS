@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { pgQuote } from "@/lib/supabase/filters";
 import { requireStaff } from "@/lib/api/guard";
+import { recordUndo, snapshotRows } from "@/lib/undo/journal";
 
 export async function GET(
   req: Request,
@@ -189,6 +190,7 @@ export async function DELETE(
     const { id } = await params;
     const supabase = createAdminClient();
 
+    const before = await snapshotRows(supabase, "admission_applications", "id", id);
     const { error } = await supabase
       .from("admission_applications")
       .delete()
@@ -198,7 +200,19 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Application deleted successfully" });
+    const undoId = gate.auth.user?.id
+      ? await recordUndo({
+          actorId: gate.auth.user.id,
+          action: "admission.application.delete",
+          label: `Delete application ${before[0]?.application_no ?? ""}`.trim(),
+          entity: "admission_applications",
+          entityId: id,
+          steps: [{ table: "admission_applications", op: "upsert", rows: before }],
+          ttlHours: 72,
+        })
+      : null;
+
+    return NextResponse.json({ success: true, message: "Application deleted successfully", undoId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

@@ -109,7 +109,7 @@ export async function createStudent(
 export async function updateStudent(
   id: string,
   updates: Partial<Omit<Student, "id">>
-): Promise<Student | null> {
+): Promise<{ student: Student | null; undoId: string | null }> {
   const res = await fetch(`/api/students/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -120,13 +120,13 @@ export async function updateStudent(
     throw new Error(err.error || "Failed to update student profile");
   }
   const data = await res.json();
-  return data.student;
+  return { student: data.student ?? null, undoId: data.undoId ?? null };
 }
 
 /**
  * Deletes a student by ID.
  */
-export async function deleteStudent(id: string): Promise<boolean> {
+export async function deleteStudent(id: string): Promise<{ undoId: string | null }> {
   const res = await fetch(`/api/students/${id}`, {
     method: "DELETE",
   });
@@ -135,7 +135,7 @@ export async function deleteStudent(id: string): Promise<boolean> {
     throw new Error(err.error || "Failed to delete student");
   }
   const data = await res.json();
-  return !!data.success;
+  return { undoId: data.undoId ?? null };
 }
 
 /**

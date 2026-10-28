@@ -25,5 +25,14 @@ School Management System: Next.js 16 (App Router, Turbopack) + React 19, Supabas
 - DB schema changes: add a dated SQL file in `supabase/migrations/` (`YYYYMMDD_description.sql`).
 - Vercel cron: `/api/backup/cron` monthly (`vercel.json`).
 
+## Conventions (every new or changed feature)
+- **Auth**: every `app/api/**/route.ts` handler starts with `requireRole()` / `requireStaff(...teacherPerms)` from `lib/api/guard.ts` (proxy does not protect /api). Public endpoints live under `app/api/public/` and must be insert-only with rate limiting (see `lib/admission/public-link.ts`).
+- **Undo**: any user action that edits or deletes data must be undoable. Before writing, take before-images with `snapshotRows()` (include child tables that cascade), then `recordUndo()` (`lib/undo/journal.ts`) and return `undoId` in the response; the client shows `toastWithUndo()` (`lib/undo/client.tsx`). Actions that cannot be undone (push, external APIs) need a confirm step instead.
+- **Notifications**: important server events and failures call `notify()` / `notifyAdminsOfError()` (`lib/notifications/notify.ts`). Client requests use `apiFetch()` (`lib/api/client.ts`) inside TanStack Query so failures reach the bell automatically.
+- **Toasts**: `toast` from `sonner` (mounted in `app/layout.tsx`).
+- **Drafts**: forms that must survive a refresh use a scoped key (`lib/admission/form-draft.ts` pattern), never a shared localStorage key.
+- **UI**: one dropdown (`components/ui/custom-select`), route-level `loading.tsx` skeletons (`components/ui/page-skeletons`), heavy libraries (exceljs, xlsx, docx, recharts, jsqr) loaded with dynamic `import()` / `next/dynamic`.
+- **Health**: `npm test` and `npm run health` before committing; plan and reports in `docs/codebase-health/`.
+
 ## Ignore
 Root `patch_*.js`, `current_diff.patch`, `routine-forge-pro.html`, `scratch/` are one-off artifacts, not app code.

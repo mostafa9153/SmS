@@ -147,7 +147,7 @@ export async function revertAdmissionApplication(
 
 export async function deleteAdmissionApplication(
   applicationId: string
-): Promise<{ success: boolean; message: string }> {
+): Promise<{ success: boolean; message: string; undoId?: string | null }> {
   const res = await fetch(`/api/admission/applications/${applicationId}`, {
     method: "DELETE",
   });
