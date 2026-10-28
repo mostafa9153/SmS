@@ -85,6 +85,26 @@ Target (Phase 3.6-এর সাথে, বা আগে চাইলে আল�
 5. Existing web-push (`lib/push-notifications.ts`) একই `notify()` থেকে fan-out।
 6. Bell: unread badge, deep link, severity color, empty state।
 
+### ⭐ User requirement — Public admission link must be hacker-proof (added 2026-10-28)
+User চান admission-এর link public করলে বাইরের কেউ সেটা দিয়ে কোনো ক্ষতি করতে পারবে না।
+
+এখনকার অবস্থা (audit):
+- কোনো public admission page নেই। "Online" form (`/admission/new/apply`) dashboard-এর ভেতরে, login লাগে।
+- `POST /api/admission/applications` service-role client দিয়ে লেখে; Phase 1b-এ admission permission ছাড়া বন্ধ করা হয়েছে। তাই এই endpoint public করা **যাবে না** — public form-এর জন্য আলাদা, সীমিত endpoint লাগবে।
+- Middleware শুধু `/login`, `/auth` বাদ দেয়; public route বানাতে explicit allowlist লাগবে।
+
+Design (public form বানানোর সময় সব বাধ্যতামূলক):
+1. **আলাদা route** `/apply/[token]` (dashboard-এর বাইরে) + `POST /api/public/admission` — শুধু *insert*, কোনো read/update/delete নয়। Response-এ শুধু application no।
+2. **Link token**: settings থেকে on/off, মেয়াদ, rotate করা যায়; বন্ধ বা ভুল token → 404।
+3. **Bot/spam**: Cloudflare Turnstile CAPTCHA (server-side verify) + honeypot field + per-IP ও per-mobile rate limit (e.g. ৫/ঘণ্টা) + duplicate check।
+4. **Strict validation**: আলাদা zod schema (`.strict()`), প্রতিটা field-এ length limit, enum whitelist, server-side class/session যাচাই; client-এর পাঠানো status/fee/roll/admin field কখনো গ্রহণ নয়।
+5. **File upload** (photo/documents): শুধু JPEG/PNG/PDF, size cap, magic-byte check, random নাম, private bucket + signed URL; public bucket নয়।
+6. **DB isolation**: `status = 'pending_online'`, staff review না করা পর্যন্ত student table-এ যাবে না; সম্ভব হলে service role নয় — insert-only RPC/RLS policy।
+7. **No data leakage**: duplicate/error message-এ অন্য ছাত্রের তথ্য দেখাবে না; generic error।
+8. **Headers**: CSP, `X-Frame-Options`, body size limit।
+9. **Audit + alert**: প্রতিটা submission log; rate-limit/CAPTCHA fail → notification bell-এ "system" alert।
+10. **Test**: abuse test (oversized body, extra fields, script injection, flood) চালিয়ে report।
+
 ### Phase 4 — Hardening & Guardrails
 - Root-এর one-off artifact (`patch_*.js`, `current_diff.patch`, `scratch/`) সরানো (user confirm)।
 - knip clean, unused deps remove, `npm audit` fix।
