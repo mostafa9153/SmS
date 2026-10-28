@@ -46,6 +46,12 @@ export async function sendWebPushNotification(options: SendPushOptions): Promise
       targetUserIds = Array.from(new Set([...targetUserIds, ...rIds]));
     }
 
+    // A targeted send that resolved to nobody must not fall through to a broadcast.
+    const isTargeted = Boolean(options.role) || (options.userIds?.length ?? 0) > 0;
+    if (isTargeted && targetUserIds.length === 0) {
+      return { success: true, sent: 0, failed: 0 };
+    }
+
     let query = admin.from("teacher_push_subscriptions").select("*");
     if (targetUserIds.length > 0) {
       query = query.in("user_id", targetUserIds);

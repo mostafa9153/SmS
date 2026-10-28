@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBackupConfig, uploadSnapshotToDrive } from "@/lib/backup/google-drive";
 import { generateBackupSnapshot } from "@/lib/backup/backup-engine";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function GET(req: Request) {
   try {
@@ -20,6 +21,9 @@ export async function GET(req: Request) {
     const config = await getBackupConfig();
 
     if (!config.refreshToken) {
+      if (config.frequency !== "off") {
+        await notify({ roles: ["Admin"], severity: "warning", title: "Scheduled backup skipped", message: "No Google Drive account is connected.", link: "/settings/backup", source: "backup.cron" });
+      }
       return NextResponse.json({
         skipped: true,
         reason: "No Google Drive account is connected.",
@@ -40,6 +44,7 @@ export async function GET(req: Request) {
     });
 
     const file = await uploadSnapshotToDrive(payload);
+    await notify({ roles: ["Admin"], severity: "success", title: "Scheduled backup completed", message: `${config.frequency} backup uploaded to Google Drive.`, link: "/settings/backup", source: "backup.cron" });
 
     return NextResponse.json({
       success: true,
@@ -48,6 +53,7 @@ export async function GET(req: Request) {
     });
   } catch (err: any) {
     console.error("Cron backup error:", err);
+    await notifyAdminsOfError("backup.cron", "Scheduled backup failed", err, "/settings/backup");
     return NextResponse.json({ error: err.message || "Failed to execute cron backup" }, { status: 500 });
   }
 }

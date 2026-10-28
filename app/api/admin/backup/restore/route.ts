@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { verifyAdminUser } from "@/lib/backup/auth";
 import { validateBackupPayload, restoreBackup } from "@/lib/backup/backup-engine";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   const auth = await verifyAdminUser();
@@ -49,12 +50,14 @@ export async function POST(req: Request) {
         adminEmail: auth.user.email,
       });
 
+      await notify({ roles: ["Admin"], severity: "warning", title: "Database restored from backup file", message: `Mode: ${mode}. Restored by ${auth.user.email}.`, link: "/settings/backup", source: "backup.restore", push: true });
       return NextResponse.json(result);
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
     console.error("Local restore error:", err);
+    await notifyAdminsOfError("backup.restore", "Backup restore failed", err, "/settings/backup");
     return NextResponse.json({ error: err.message || "Failed to process backup file" }, { status: 500 });
   }
 }

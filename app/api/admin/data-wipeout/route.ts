@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_ADDRESS_PRESETS_CONFIG } from "@/lib/utils/preset-addresses";
 import { DEFAULT_MARKS_SCHEMES } from "@/lib/utils/marks-config";
 import { DEFAULT_STUDENT_ENTRY_PRESETS } from "@/lib/utils/student-entry-presets";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 function getClassVariations(cls: string): string[] {
   const clean = cls.trim().replace(/^Class\s+/i, "");
@@ -316,6 +317,8 @@ export async function POST(req: Request) {
       },
     });
 
+    await notify({ roles: ["Admin"], severity: "warning", title: "Data wipeout executed", message: operationSummaryMessage, link: "/admin-hub", source: "admin.wipeout", push: true });
+
     return NextResponse.json({
       success: true,
       message: operationSummaryMessage,
@@ -333,6 +336,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Data wipeout error:", error);
+    await notifyAdminsOfError("admin.wipeout", "Data wipeout failed", error, "/admin-hub");
     return NextResponse.json({ error: error.message || "Failed to execute data wipeout" }, { status: 500 });
   }
 }

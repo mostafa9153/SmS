@@ -3,6 +3,7 @@ import { hasCronSecret, requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function GET(req: Request) {
   if (!hasCronSecret(req)) {
@@ -79,12 +80,17 @@ export async function GET(req: Request) {
       }
     }
 
+    if (revokedCount > 0) {
+      await notify({ roles: ["Admin"], title: "Temporary permissions expired", message: `${revokedCount} teacher permission grant(s) reached their end date and were revoked.`, link: "/teacher-management", source: "cron.permissions" });
+    }
+
     return NextResponse.json({
       success: true,
       expiredCount: expiredGrants.length,
       revokedCount,
     });
   } catch (err: any) {
+    await notifyAdminsOfError("cron.permissions", "Permission expiry job failed", err, "/teacher-management");
     return NextResponse.json({ error: err.message || "Failed to process permission expiry" }, { status: 500 });
   }
 }

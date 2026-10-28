@@ -76,14 +76,14 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <TopProgressBar />
-        <NotificationProvider>
-          <QueryProvider>
+        <QueryProvider>
+          <NotificationProvider>
             <TooltipProvider>
               {children}
               <ToastContainer />
             </TooltipProvider>
-          </QueryProvider>
-        </NotificationProvider>
+          </NotificationProvider>
+        </QueryProvider>
       </body>
     </html>
   );

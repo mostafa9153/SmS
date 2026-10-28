@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StudentStatus, Semester } from "@/lib/types";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export interface StudentPromotionItem {
   studentId: string;
@@ -299,6 +300,15 @@ export async function POST(req: Request) {
       },
     });
 
+    await notify({
+      roles: ["Admin", "Staff"],
+      severity: failed.length ? "warning" : "success",
+      title: failed.length ? "Promotion finished with errors" : "Promotion completed",
+      message: `${studentUpdates.length - failed.length} promoted/updated${failed.length ? `, ${failed.length} failed` : ""}${skippedIds.length ? `, ${skippedIds.length} skipped` : ""}.`,
+      link: "/promotion",
+      source: "students.promotion",
+    });
+
     return NextResponse.json({
       success: failed.length === 0,
       count: studentUpdates.length - failed.length,
@@ -317,6 +327,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Promotion execution API error:", error);
+    await notifyAdminsOfError("students.promotion", "Promotion failed", error, "/promotion");
     return NextResponse.json(
       { error: error.message || "Failed to execute student promotion" },
       { status: 500 }

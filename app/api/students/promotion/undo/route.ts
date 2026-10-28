@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   try {
@@ -126,6 +127,8 @@ export async function POST(req: Request) {
       },
     });
 
+    await notify({ roles: ["Admin", "Staff"], severity: "warning", title: "Promotion rolled back", message: `${restoredCount} student(s) restored to Continuing status.`, link: "/promotion", source: "students.promotion.undo" });
+
     return NextResponse.json({
       success: true,
       count: restoredCount,
@@ -133,6 +136,7 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("Promotion undo error:", err);
+    await notifyAdminsOfError("students.promotion.undo", "Promotion rollback failed", err, "/promotion");
     return NextResponse.json(
       { error: err.message || "Failed to rollback promotion" },
       { status: 500 }

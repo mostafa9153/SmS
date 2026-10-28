@@ -4,6 +4,7 @@ import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { requireStaff } from "@/lib/api/guard";
 import type { AdmissionApplication } from "@/lib/types";
 import { pgContains } from "@/lib/supabase/filters";
+import { notify } from "@/lib/notifications/notify";
 
 export async function GET(req: Request) {
   try {
@@ -362,6 +363,15 @@ export async function POST(req: Request) {
       console.error("Error inserting admission application:", insertError);
       return NextResponse.json({ error: insertError?.message || "Failed to save application record in database" }, { status: 500 });
     }
+
+    await notify({
+      roles: ["Admin", "Staff"],
+      title: "New admission application",
+      message: `${insertedData.student_name} · Class ${insertedData.target_class} · ${insertedData.application_no}`,
+      link: "/admission/applications",
+      source: "admission.application",
+      createdBy: gate.auth.user?.id ?? null,
+    });
 
     return NextResponse.json({
       success: true,
