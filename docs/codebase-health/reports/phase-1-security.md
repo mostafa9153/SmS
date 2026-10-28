@@ -55,10 +55,37 @@ User input সরাসরি `.or()` filter string-এ বসত। কমা/�
 ## Open — আপনার সিদ্ধান্ত লাগবে
 | # | Finding | Risk | Recommendation |
 |---|---|---|---|
-| 1 | Teacher login দিয়ে admin dashboard-এর ২৮টা write route চলে (admit student, settle invoice, push/send to all, certificates, results, delete photo…) | privilege escalation | role matrix ঠিক করে `requireRole(["Admin","Staff"])` — **behaviour change**, তাই অনুমতি ছাড়া করিনি |
+| 1 | ~~Teacher login দিয়ে admin write route চলে~~ | — | ✅ **Fixed (Phase 1b, user approved)** — নিচে দেখুন |
 | 2 | `admin/users`: কোনো `user_roles` row না থাকলে যে কেউ প্রথম Admin হতে পারে | fresh install-এ takeover | first-admin setup env flag দিয়ে বন্ধ করা |
 | 3 | `zod` 3 high (oversized input memory) | low (form validation) | Phase 2-তে zod 4 (৫টা file) |
 | 4 | `xlsx` high, no upstream fix | parsing untrusted Excel | Phase 3.1-এ `exceljs`-এ migrate (already dependency) |
 | 5 | `createAdminClient` service key না পেলে চুপচাপ anon key-এ fallback করে | silent misconfig | fail fast + `server-only` guard (Phase 2) |
 | 6 | backup callback redirect host `x-forwarded-host` থেকে নেয় | open redirect (low) | `NEXT_PUBLIC_SITE_URL` ব্যবহার |
 | 7 | RLS policy audit | unknown | Supabase MCP authorize করলে advisors চালানো যাবে |
+
+## Phase 1b — Teacher permission enforcement on the API (user approved 2026-10-28)
+আগে UI-তে Teacher permission (Teacher Management screen) দেখে button লুকানো হত, কিন্তু API যেকোনো signed-in user-কে মেনে নিত — তাই Teacher সরাসরি request পাঠিয়ে admin কাজ করতে পারত।
+
+নতুন `requireStaff(...permissions)` (`lib/api/guard.ts`): **Admin/Staff সবসময় পাস; Teacher শুধু তখনই, যখন সংশ্লিষ্ট permission দেওয়া আছে** (stored flags over `DEFAULT_TEACHER_PERMISSIONS`)। ফলে যাদের permission আছে তাদের কাজ আগের মতো চলবে — Blanket Admin/Staff lock করলে granted teacher-দের কাজ ভেঙে যেত, তাই সেটা করা হয়নি।
+
+| Route | Teacher passes with |
+|---|---|
+| `admission/applications` POST | `can_handle_new_admission` / `_online` / `can_handle_ai_scan_admission` |
+| `admission/applications/[id]` PATCH DELETE, `[id]/admit`, `[id]/edit`, `[id]/revert`, `transfer-to-active` | `can_view_admission_applications` / `can_handle_new_admission` |
+| `admission/applications/bulk-blank` | `can_print_admission_form` |
+| `admission/ai-scan` | `can_handle_ai_scan_admission` |
+| `admission/counter` | any admission permission (incl. re-admission) |
+| `admission/invoices/mark-printed` | `can_view_admission_invoices` / `can_generate_invoices` |
+| `certificates` POST, `certificates/[id]` PATCH | any certificate permission / `can_view_certificate_tracker` |
+| `invoices/settle` | `can_generate_invoices` |
+| `results` POST, `results/calculate-ranks`, `results/subject-batch` | `can_enter_results` |
+| `students` POST | `can_add_student_manual` |
+| `students/[id]/photo` POST DELETE | `can_edit_student_profile` / `can_add_student_manual` |
+| `students/status-action` | `can_edit_student_profile` |
+| `employees/[id]/signature` POST DELETE, `push/send` | — (Admin/Staff only) |
+
+Unchanged on purpose: `push/subscribe`, `auth/profile` (own account), `teachers/*` (teacher workspace), sports & routine (no permission flag exists; teachers see these pages in the sidebar).
+
+Side fix: `certificates/[id]` PATCH checked only `auth.user`, so a signed-in account **without any role row** could edit certificates — now rejected.
+
+Verified: `tsc` 0 · tests **26/26** (+4 guard tests: guest 401, teacher without flag 403, with flag 200, default flags) · `next build` pass · prod server smoke: 13 gated routes → 401 without session, `certificates/verify` still public.
