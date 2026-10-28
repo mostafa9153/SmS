@@ -115,5 +115,6 @@ Target (Phase 3.6-এর সাথে, বা আগে চাইলে আল�
 |---|---|
 | 0 | ✅ Done (2.9 → 3.2) |
 | 1 | ✅ Done (2.9 → 4.8) + 1b teacher permissions |
-| 2 | 🟡 Next |
+| 2 | ✅ Done (4.8 → 5.5) |
+| 3 | 🟡 Next |
 | 1–4 | ⏳ |

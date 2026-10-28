@@ -31,7 +31,7 @@ const unguardedRoutes = sourceFiles("app/api")
   .filter((f) => f.endsWith("route.ts"))
   .map((f) => f.split("\\").join("/"))
   .filter((f) => !PUBLIC_ROUTES.some((p) => f.includes(p)))
-  .filter((f) => !/requireRole|getAuthenticatedUserRole|verifyAdminUser|getUser\(|hasCronSecret|CRON_SECRET/.test(readFileSync(f, "utf8")));
+  .filter((f) => !/requireRole|requireStaff|getAuthenticatedUserRole|verifyAdminUser|getUser\(|hasCronSecret|CRON_SECRET/.test(readFileSync(f, "utf8")));
 
 const files = SRC.flatMap((d) => sourceFiles(d)).concat("proxy.ts");
 const lineCounts = files.map((f) => readFileSync(f, "utf8").split("\n").length);
