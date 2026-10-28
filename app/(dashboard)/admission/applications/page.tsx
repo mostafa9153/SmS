@@ -11,20 +11,7 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  FileCheck2,
-  Search,
-  CheckCircle2,
-  Clock,
-  Printer,
-  UserCheck,
-  User,
-  ShieldCheck,
-  ExternalLink,
-  Filter,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
+import { FileCheck2, Search, CheckCircle2, Clock, Printer, UserCheck, User, ShieldCheck, ExternalLink, Filter, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getSavedFeeStructure,

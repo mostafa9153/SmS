@@ -4,18 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  GraduationCap,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  AlertCircle,
-  Lock,
-  Mail,
-  ArrowRight,
-  Sparkles,
-  BookOpen,
-} from "lucide-react";
+import { GraduationCap, Eye, EyeOff, AlertCircle, Lock, Mail, ArrowRight, Sparkles, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

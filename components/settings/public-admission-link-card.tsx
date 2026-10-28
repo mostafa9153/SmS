@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Loader2, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Link2, RefreshCw, ShieldCheck, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { apiFetch } from "@/lib/api/client";

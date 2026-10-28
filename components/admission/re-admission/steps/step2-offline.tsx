@@ -9,21 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Search,
-  ArrowLeft,
-  ArrowRight,
-  User,
-  Phone,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Hash,
-  Filter,
-  Zap,
-} from "lucide-react";
+import { Search, ArrowLeft, ArrowRight, User, Phone, CheckCircle2, XCircle, Clock, RefreshCw, Hash, Filter, Zap } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";

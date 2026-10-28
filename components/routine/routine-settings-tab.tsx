@@ -5,7 +5,7 @@ import { RoutineSettings, DAY_NAMES } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RefreshCw, Check, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
+import { Save, Check, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 

@@ -2,7 +2,6 @@
 
 import React, { Suspense } from "react";
 import { ReAdmissionWizard } from "@/components/admission/re-admission/re-admission-wizard";
-import { Loader2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function ReAdmissionPage() {

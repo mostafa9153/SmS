@@ -11,7 +11,6 @@ import { QuickReAdmitDialog } from "@/components/students/quick-re-admit-dialog"
 import { IssueTcDialog } from "@/components/students/issue-tc-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,26 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import {
-  Clock,
-  Search,
-  GraduationCap,
-  FileText,
-  UserX,
-  UserCheck,
-  MoreHorizontal,
-  RotateCcw,
-  Archive,
-  CheckCircle2,
-  Users,
-  ChevronRight,
-  Filter,
-  Eye,
-  CheckSquare,
-  Square,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { Clock, Search, GraduationCap, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, CheckCircle2, Users, ChevronRight, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 

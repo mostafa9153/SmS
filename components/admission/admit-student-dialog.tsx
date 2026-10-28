@@ -6,19 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  UserCheck,
-  Camera,
-  CheckCircle2,
-  FileCheck,
-  AlertTriangle,
-  CreditCard,
-  Building,
-  User,
-  ShieldCheck,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
+import { UserCheck, Camera, CheckCircle2, FileCheck, AlertTriangle, CreditCard, Building, User, ShieldCheck, Sparkles } from "lucide-react";
 import type { AdmissionApplication } from "@/lib/types";
 import {
   admitNewStudentApplication,

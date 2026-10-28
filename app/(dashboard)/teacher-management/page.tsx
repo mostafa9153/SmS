@@ -2,43 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  GraduationCap,
-  Users,
-  CheckCircle2,
-  Clock,
-  IndianRupee,
-  Shield,
-  Plus,
-  Trash2,
-  RefreshCw,
-  AlertCircle,
-  Key,
-  BookOpen,
-  ClipboardList,
-  FileCheck,
-  Download,
-  Search,
-  ExternalLink,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  Filter,
-  Activity,
-  Trophy,
-  TrendingUp,
-  Eye,
-  BarChart3,
-  Layers,
-  Sparkles,
-  Award,
-  Loader2,
-  Calendar,
-  Lock,
-  Unlock,
-  Check,
-  X,
-} from "lucide-react";
+import { GraduationCap, Users, CheckCircle2, Clock, IndianRupee, Shield, Plus, Trash2, RefreshCw, AlertCircle, Key, BookOpen, ClipboardList, FileCheck, Download, Search, ExternalLink, ChevronRight, ChevronDown, ChevronUp, Filter, Activity, Trophy, TrendingUp, Eye, BarChart3, Layers, Sparkles, Award, Calendar, Lock, Unlock, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

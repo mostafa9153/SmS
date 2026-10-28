@@ -5,17 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  GraduationCap,
-  ArrowRight,
-  School,
-  CheckCircle2,
-  Sliders,
-  Sparkles,
-  Save,
-  Loader2,
-} from "lucide-react";
+import { Calendar, GraduationCap, ArrowRight, School, CheckCircle2, Sliders, Sparkles, Save } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";

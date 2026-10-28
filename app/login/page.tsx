@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { School, Eye, EyeOff, RefreshCw, AlertCircle, Loader2, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
+import { School, Eye, EyeOff, AlertCircle, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

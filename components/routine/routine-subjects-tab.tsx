@@ -35,28 +35,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  Check,
-  X,
-  BookOpen,
-  Sparkles,
-  FlaskConical,
-  Clock,
-  School,
-  Layers,
-  Split,
-  Share2,
-  Atom,
-  Briefcase,
-  Palette,
-  CloudUpload,
-  RefreshCw,
-  Save,
-  GripVertical,
-} from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, BookOpen, Sparkles, FlaskConical, Clock, School, Layers, Split, Share2, Atom, Briefcase, Palette, CloudUpload, Save, GripVertical } from "lucide-react";
 import { setLocalRoutineState } from "@/lib/supabase/db-routine";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";

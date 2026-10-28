@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Save, Award, Search, X, Wand2, RotateCcw } from "lucide-react";
+import { Save, Award, Wand2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { useSportsEvents, getUnitSuffix, isLowerBetter } from "@/lib/sports/use-sports-events";
 import { SportsEventHeader } from "@/components/sports/sports-event-header";

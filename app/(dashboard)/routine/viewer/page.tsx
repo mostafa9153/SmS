@@ -16,7 +16,7 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineViewerTab } from "@/components/routine/routine-viewer-tab";
-import { RefreshCw, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 function RoutineViewerContent() {

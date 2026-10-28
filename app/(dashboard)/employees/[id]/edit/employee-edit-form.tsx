@@ -3,21 +3,8 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Save,
-  Loader2,
-  Briefcase,
-  User,
-  MapPin,
-  GraduationCap,
-  Building2,
-  BookOpen,
-  CheckCircle2,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Save, Briefcase, User, MapPin, GraduationCap, Building2, BookOpen, CheckCircle2, Sparkles } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";

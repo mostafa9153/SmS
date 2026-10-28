@@ -17,7 +17,6 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineVerificationTab } from "@/components/routine/routine-verification-tab";
-import { RefreshCw } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function RoutineAssignmentsPage() {

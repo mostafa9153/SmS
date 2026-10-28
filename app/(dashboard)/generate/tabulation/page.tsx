@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
@@ -47,7 +46,6 @@ const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
 };
 
 export default function TabulationGeneratorPage() {
-  const router = useRouter();
   const { profile: schoolProfile } = useSchoolProfile();
 
   // Academic year auto-detection

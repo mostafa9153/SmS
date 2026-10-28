@@ -53,39 +53,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  ArrowRight,
-  Plus,
-  Trash2,
-  Wand2,
-  Sliders,
-  DoorOpen,
-  Sparkles,
-  History,
-  RotateCcw,
-  Armchair,
-  Loader2,
-  Edit2,
-  Printer,
-  AlertCircle,
-  AlertTriangle,
-  CheckCircle2,
-  Users,
-  Check,
-  CheckCheck,
-  Building2,
-  X,
-  GraduationCap,
-  Layers,
-  GripVertical,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
-  ArrowUpDown,
-  Calendar,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Trash2, Wand2, Sliders, DoorOpen, Sparkles, History, RotateCcw, Armchair, Edit2, Printer, AlertCircle, AlertTriangle, CheckCircle2, Users, Check, CheckCheck, Building2, X, GraduationCap, Layers, GripVertical, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, ArrowUpDown, Calendar } from "lucide-react";
 import { EmsPrintDialog } from "@/components/ems/print/ems-print-dialog";
 import { EmsPrintStudio } from "@/components/ems/print/ems-print-studio";
 import { SeatArrangementEditor } from "@/components/ems/seat-arrangement/seat-arrangement-editor";

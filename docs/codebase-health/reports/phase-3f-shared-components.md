@@ -46,3 +46,30 @@ Login লাগে এমন page (student/employee edit form-এর নতু�
 
 ## পরের ধাপ
 বাকি copy-গুলো (PageHeader ৭৩, EmptyState ৩৩, SearchInput ৩৪, StatCard ২৬, Spinner ৩৮, DataTable ৩৯, Pagination ১৯, PrintShell ~২৯, dropdown ৯৩) module ধরে ধরে migrate — Phase 3.0–3.6-এর সাথে।
+
+---
+
+# Phase 3f part 2 — Module migration (2026-10-29)
+
+| Shared component | Replaced | How |
+|---|---|---|
+| `Spinner` | 118 hand-made spinners (Loader2 / RefreshCw `animate-spin`) | codemod; bare icon, decorative (`aria-hidden`) |
+| `SearchInput` | 25 search boxes (incl. 9 with their own clear button) | brace-aware JSX codemod; `size="sm"` for dialogs/tables |
+| `PageHeader` | 24 page headers | TypeScript-AST codemod; new `back` + `badge` props; `BackButton` split into its own client file so server pages can pass icons |
+| `EmptyState` | 12 "No … found" blocks | AST codemod |
+| Unused imports/vars left by codemods | 118 removed | AST cleanup driven by ESLint output (identifiers, not text) |
+
+### Verification
+| Check | Result |
+|---|---|
+| `npm run verify` (+ `next build`) | PASS |
+| Tests | 60/60 (+1 PageHeader actions test) |
+| Code review | 3 findings, all fixed: single action block shrank on mobile · long titles truncated on mobile · 118 spinners were live regions |
+| Browser (production build, 375px + desktop) | full-width action grid ✅ title wraps ✅ no horizontal scroll ✅ no hydration/console errors ✅ |
+
+Mistakes the process caught along the way: grep escaping (2×), duplicate import, header codemod walked one AST level too high (dry-run converted 0 → fixed before writing), server pages passing icons to a client PageHeader, identifier counter matching placeholder text.
+
+Note: a running `next dev` on :3000 served a stale PageHeader after the edits (hot-reload cache), which showed up as a hydration warning; a fresh production build has none. Restart `npm run dev` to pick up the changes.
+
+### Left for module phases (hand work, varied markup)
+StatCard (26), search pickers with keyboard/dropdown (9), headers with subtitles or custom layouts (~30), EmptyStates with icons/actions (~20), DataTable (39), Pagination (19), PrintShell (~29), dropdown unification (93).

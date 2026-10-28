@@ -4,17 +4,7 @@ import React, { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getOldStudents, type OldStudentItem } from "@/lib/data/students";
-import {
-  Search,
-  X,
-  Calendar,
-  GraduationCap,
-  Users,
-  Phone,
-  User,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Calendar, GraduationCap, Users, Phone, User, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/students/status-badge";

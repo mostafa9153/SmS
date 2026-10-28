@@ -18,7 +18,7 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { updateReAdmissionStatus } from "@/lib/data/admission";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, UserCheck, GraduationCap } from "lucide-react";
+import { UserCheck, GraduationCap } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 const STANDARD_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];

@@ -30,29 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  ArrowLeft,
-  Pencil,
-  Trash2,
-  AlertTriangle,
-  User,
-  BookOpen,
-  Clock,
-  ShieldCheck,
-  Award,
-  CreditCard,
-  Check,
-  X,
-  Trophy,
-  Sparkles,
-  Plus,
-  Loader2,
-  FileText,
-  GraduationCap,
-  FileSpreadsheet,
-  HeartHandshake,
-  ChevronDown,
-} from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, AlertTriangle, User, BookOpen, Clock, ShieldCheck, Award, CreditCard, Check, Trophy, Sparkles, Plus, FileText, GraduationCap, FileSpreadsheet, HeartHandshake, ChevronDown } from "lucide-react";
 import {
   ResponsiveContainer,
   BarChart,

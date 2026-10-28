@@ -16,25 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
-import {
-  Printer,
-  Search,
-  Users,
-  CheckSquare,
-  Square,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  ShieldCheck,
-  Calendar,
-  Layers,
-  GraduationCap,
-  AlertTriangle,
-  AlertCircle,
-  X,
-  CheckCircle2,
-} from "lucide-react";
+import { Printer, Users, CheckSquare, Square, Eye, ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Calendar, Layers, GraduationCap, AlertTriangle, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { SearchInput } from "@/components/ui/search-input";

@@ -2,28 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Award,
-  Trophy,
-  Medal,
-  Search,
-  RotateCw,
-  Edit,
-  SlidersHorizontal,
-  ChevronDown,
-  Check,
-  X,
-  Sliders,
-  BookOpen,
-  Save,
-  Loader2,
-  FileSpreadsheet,
-  BarChart2,
-  AlertCircle,
-  Printer,
-} from "lucide-react";
+import { Award, Trophy, Medal, RotateCw, Edit, SlidersHorizontal, ChevronDown, Check, Sliders, BookOpen, Save, FileSpreadsheet, BarChart2, AlertCircle, Printer } from "lucide-react";
 import { EvaluationPrintDialog } from "@/components/results/evaluation-print-dialog";
 import {
   getClassResults,
@@ -90,7 +71,6 @@ const CLASS_OPTIONS = [
 const NO_SCOPE: string[] = [];
 
 export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedClasses?: string[] }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();

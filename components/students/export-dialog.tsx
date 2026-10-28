@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Download,
-  FileSpreadsheet,
-  CheckSquare,
-  Square,
-  Sparkles,
-  Loader2,
-  Check,
-  ExternalLink,
-  RotateCcw,
-} from "lucide-react";
+import { Download, FileSpreadsheet, CheckSquare, Square, Sparkles, Check, ExternalLink, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,

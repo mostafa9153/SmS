@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getStudentById } from "@/lib/data/students";
 import { Student } from "@/lib/types";
@@ -65,7 +65,6 @@ const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
 };
 
 function PassCertificateGeneratorContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get("studentId");
   const { profile: schoolProfile } = useSchoolProfile();

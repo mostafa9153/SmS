@@ -15,23 +15,7 @@ import {
   ValidationReport,
 } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
-import {
-  Play,
-  CheckCircle2,
-  AlertCircle,
-  AlertTriangle,
-  Sparkles,
-  ArrowRight,
-  RefreshCw,
-  Cpu,
-  ShieldCheck,
-  Zap,
-  Layers,
-  School,
-  Users,
-  Building2,
-  Table2,
-} from "lucide-react";
+import { Play, CheckCircle2, AlertCircle, AlertTriangle, Sparkles, ArrowRight, Cpu, ShieldCheck, Zap, Layers, School, Users, Building2, Table2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RoutineHistorySection } from "@/components/routine/routine-history-section";
 import { calculateTotalTeacherAllottedWorkload } from "@/lib/routine/routine-helpers";

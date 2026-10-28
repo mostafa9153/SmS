@@ -1,31 +1,9 @@
 "use client";
 
 import { useState, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Upload,
-  FileSpreadsheet,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  ArrowRight,
-  ArrowLeft,
-  Loader2,
-  RotateCcw,
-  Sparkles,
-  History,
-  Info,
-  Download,
-  GraduationCap,
-  Award,
-  Archive,
-  Trash2,
-  Calendar,
-  Layers,
-  X,
-  Lock,
-} from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowRight, ArrowLeft, RotateCcw, Sparkles, History, Info, Download, GraduationCap, Award, Archive, Trash2, Calendar, Layers, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -84,7 +62,6 @@ const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 
 function BulkUploadPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const currentYear = new Date().getFullYear();

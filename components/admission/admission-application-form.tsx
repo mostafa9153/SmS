@@ -28,28 +28,7 @@ import {
   BankPresetItem,
 } from "@/lib/utils/bank-presets";
 import { getSavedMarksSchemes } from "@/lib/utils/marks-config";
-import {
-  ChevronDown,
-  ChevronUp,
-  User,
-  ShieldCheck,
-  HeartHandshake,
-  Users,
-  GraduationCap,
-  History,
-  Info,
-  Building2,
-  FileBadge,
-  Sparkles,
-  CheckCircle2,
-  Loader2,
-  MapPin,
-  X,
-  Phone,
-  ArrowRight,
-  Lock,
-  Check,
-} from "lucide-react";
+import { ChevronDown, ChevronUp, User, ShieldCheck, HeartHandshake, Users, GraduationCap, History, Info, Building2, FileBadge, Sparkles, CheckCircle2, MapPin, X, Phone, ArrowRight, Lock, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 

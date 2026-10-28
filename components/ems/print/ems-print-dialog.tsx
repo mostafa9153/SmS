@@ -14,27 +14,7 @@ import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
 import { EmsAttendanceSheetPrintable } from "./ems-attendance-sheet-printable";
 import { EmsGateNoticePrintable } from "./ems-gate-notice-printable";
-import {
-  Printer,
-  FileText,
-  Tag,
-  ClipboardList,
-  DoorOpen,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Calendar,
-  Layers,
-  Settings2,
-  X,
-  Building,
-  Check,
-  Search,
-  Sparkles,
-  Users,
-  Sliders,
-  CheckCircle2,
-} from "lucide-react";
+import { Printer, FileText, Tag, ClipboardList, DoorOpen, ZoomIn, ZoomOut, RotateCcw, Calendar, Layers, Settings2, X, Building, Check, Sparkles, Users, Sliders, CheckCircle2 } from "lucide-react";
 
 import {
   getDynamicSubjectsForClasses,

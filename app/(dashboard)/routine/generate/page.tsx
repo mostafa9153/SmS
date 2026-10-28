@@ -26,7 +26,6 @@ import {
   assignmentsAreCurrent,
 } from "@/lib/routine/routine-auto-assign";
 import { RoutineGeneratorTab } from "@/components/routine/routine-generator-tab";
-import { RefreshCw } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function RoutineGeneratePage() {

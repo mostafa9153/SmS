@@ -10,7 +10,8 @@ const SIZE = { xs: "h-3 w-3", sm: "h-3.5 w-3.5", md: "h-4 w-4", lg: "h-6 w-6", x
  */
 export function Spinner({ size = "md", label, className }: { size?: keyof typeof SIZE; label?: string; className?: string }) {
   if (!label) {
-    return <Loader2 role="status" aria-label="Loading" className={cn("animate-spin shrink-0", SIZE[size], className)} />;
+    // Decorative: the surrounding button/text says what is loading. Pass `label` for a standalone status.
+    return <Loader2 aria-hidden className={cn("animate-spin shrink-0", SIZE[size], className)} />;
   }
   return (
     <span role="status" className={cn("inline-flex items-center gap-2", className)}>

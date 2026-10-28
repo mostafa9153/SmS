@@ -19,14 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Search,
-  School,
-  Users,
-  X,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, School, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import {

@@ -36,7 +36,7 @@ describe("shared UI primitives", () => {
   it("EmptyState, StatCard, Spinner render accessible content", () => {
     expect(html(<EmptyState title="No events" />)).toContain('role="status"');
     expect(html(<StatCard label="Events" value={12} />)).toContain("12");
-    expect(html(<Spinner />)).toContain("Loading");
+    expect(html(<Spinner />)).toContain("aria-hidden");
     expect(html(<Spinner label="Saving" />)).toContain("Saving");
   });
 
@@ -56,5 +56,14 @@ describe("shared UI primitives", () => {
   it("SearchInput shows a clear button only with text", () => {
     expect(html(<SearchInput value="abc" onChange={() => {}} />)).toContain("Clear search");
     expect(html(<SearchInput value="" onChange={() => {}} />)).not.toContain("Clear search");
+  });
+});
+
+describe("PageHeader actions", () => {
+  it("renders a single action element without a wrapper, several inside a wrapping row", () => {
+    const single = renderToStaticMarkup(<PageHeader title="T" actions={<div className="grid grid-cols-2">a</div>} />);
+    expect(single).not.toContain("flex flex-wrap items-center gap-2\"><div class=\"grid");
+    const many = renderToStaticMarkup(<PageHeader title="T" actions={<><button>a</button><button>b</button></>} />);
+    expect(many).toContain("flex flex-wrap items-center gap-2");
   });
 });

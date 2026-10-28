@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Users, Loader2, Sparkles, UserPlus } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Users, Sparkles, UserPlus } from "lucide-react";
 import { StaffFiltersBar, StaffFilters } from "@/components/employees/staff-filters-bar";
 import { StaffStatsCards } from "@/components/employees/staff-stats-cards";
 import { StaffTable, StaffProfile } from "@/components/employees/staff-table";
@@ -20,7 +20,6 @@ export default function EmployeesClient({
   initialStaff,
   initialType,
 }: EmployeesClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const typeParam = searchParams.get("type") || initialType || "";
 

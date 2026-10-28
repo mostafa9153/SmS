@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast-banner";
-import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Trash2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 interface StaffDeleteDialogProps {

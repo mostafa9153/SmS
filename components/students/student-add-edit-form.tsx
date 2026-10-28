@@ -7,7 +7,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createStudent } from "@/lib/data/students";
-import { ArrowLeft, Loader2, Sparkles, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";

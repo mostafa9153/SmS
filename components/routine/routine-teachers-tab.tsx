@@ -11,15 +11,7 @@ import {
 } from "@/lib/routine/types";
 import { groupSlotCost, teacherGroupLoad } from "@/lib/routine/routine-groups";
 import { Button } from "@/components/ui/button";
-import {
-  Plus,
-  Users,
-  GraduationCap,
-  CloudUpload,
-  RefreshCw,
-  Save,
-  Check,
-} from "lucide-react";
+import { Plus, Users, GraduationCap, CloudUpload, Save, Check } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import {

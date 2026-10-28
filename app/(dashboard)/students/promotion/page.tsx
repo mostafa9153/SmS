@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getStudents,
@@ -25,21 +25,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc";
 import { getSavedPromotionPolicy } from "@/lib/utils/marks-config";
 import { cn } from "@/lib/utils";
-import {
-  ArrowRight,
-  CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
-  Sparkles,
-  Sliders,
-  Award,
-  Users,
-  GraduationCap,
-  Loader2,
-  Check,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { ArrowRight, CheckCircle2, AlertTriangle, RotateCcw, Sparkles, Sliders, Award, Users, GraduationCap, Check, RefreshCw, Search } from "lucide-react";
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
@@ -79,7 +65,6 @@ interface ManualOverrideData {
 }
 
 function PromotionPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 

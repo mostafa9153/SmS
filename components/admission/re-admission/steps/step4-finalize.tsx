@@ -7,18 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Camera,
-  Upload,
-  User,
-  Receipt,
-  CheckCircle2,
-  Loader2,
-  Sparkles,
-  Layers,
-  GraduationCap,
-} from "lucide-react";
+import { ArrowLeft, Camera, Upload, User, Receipt, CheckCircle2, Sparkles, Layers, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";

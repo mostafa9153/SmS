@@ -8,11 +8,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table";
-import {
-  Inbox,
-  Loader2,
-  ChevronRight,
-} from "lucide-react";
+import { Inbox, ChevronRight } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";

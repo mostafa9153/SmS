@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { getStudentById } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import {
@@ -60,7 +60,6 @@ const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
 };
 
 function CertificateGeneratorContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const studentIdParam = searchParams.get("studentId");
   const examParam = searchParams.get("exam");

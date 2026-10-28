@@ -1,23 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Phone,
-  Info,
-  Save,
-  ArrowLeft,
-  Loader2,
-  Clock,
-  BarChart3,
-  ChevronDown,
-  ChevronUp
-} from "lucide-react";
+import { Calendar, CheckCircle2, XCircle, AlertCircle, Phone, Info, Save, ArrowLeft, Clock, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,7 +12,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 
 export default function StudentAttendancePage() {
-  const router = useRouter();
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);

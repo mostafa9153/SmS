@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, Suspense, useMemo } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   calculateTotalSchoolSectionDemand,
@@ -47,19 +46,7 @@ import { RoutineSubjectsTab } from "@/components/routine/routine-subjects-tab";
 import { RoutineGroupsTab } from "@/components/routine/routine-groups-tab";
 import { RoutineDemandAllotmentTab } from "@/components/routine/routine-demand-allotment-tab";
 import { RoutineAllotmentOverviewTab } from "@/components/routine/routine-allotment-overview-tab";
-import {
-  Sliders,
-  Building2,
-  School,
-  Users,
-  BookOpen,
-  RefreshCw,
-  ArrowRight,
-  CheckCircle2,
-  BarChart3,
-  LayoutGrid,
-  Layers,
-} from "lucide-react";
+import { Sliders, Building2, School, Users, BookOpen, ArrowRight, CheckCircle2, BarChart3, LayoutGrid, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets, type ClassPresetItem } from "@/lib/utils/marks-config";
@@ -27,7 +26,7 @@ import {
   type PaperSize,
   type PrintMargins,
 } from "@/components/teacher/class-teacher-list-printable";
-import { Printer, Loader2 } from "lucide-react";
+import { Printer } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 

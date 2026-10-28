@@ -3,7 +3,6 @@
 import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets } from "@/lib/utils/marks-config";
@@ -21,13 +20,7 @@ import {
   ACTIVE_STATUSES,
 } from "@/components/students/attendance-register-printable";
 import type { Student } from "@/lib/types";
-import {
-  Printer,
-  ChevronDown,
-  Users,
-  Loader2,
-  Save,
-} from "lucide-react";
+import { Printer, ChevronDown, Users, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 import { Spinner } from "@/components/ui/spinner";

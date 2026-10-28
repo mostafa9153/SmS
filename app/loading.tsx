@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function GlobalLoading() {

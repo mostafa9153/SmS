@@ -3,31 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  GraduationCap,
-  ArrowLeft,
-  Mail,
-  Phone,
-  Calendar,
-  BookOpen,
-  MapPin,
-  Key,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  Award,
-  UserCheck,
-  IndianRupee,
-  Lock,
-  Eye,
-  EyeOff,
-  Pencil,
-  LogOut,
-  CreditCard,
-  Briefcase,
-  User,
-  ShieldCheck,
-} from "lucide-react";
+import { GraduationCap, ArrowLeft, Mail, Phone, Calendar, BookOpen, MapPin, Key, CheckCircle2, AlertCircle, Award, UserCheck, IndianRupee, Lock, Eye, EyeOff, Pencil, LogOut, CreditCard, Briefcase, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

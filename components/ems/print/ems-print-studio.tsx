@@ -10,32 +10,7 @@ import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
 import { EmsAttendanceSheetPrintable } from "./ems-attendance-sheet-printable";
 import { EmsGateNoticePrintable } from "./ems-gate-notice-printable";
-import {
-  Printer,
-  FileText,
-  Tag,
-  ClipboardList,
-  DoorOpen,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Maximize2,
-  Calendar,
-  Settings2,
-  Sliders,
-  SlidersHorizontal,
-  X,
-  Building2,
-  Check,
-  Search,
-  Sparkles,
-  Users,
-  CheckCircle2,
-  ArrowLeft,
-  ChevronDown,
-  ChevronUp,
-  Info,
-} from "lucide-react";
+import { Printer, FileText, Tag, ClipboardList, DoorOpen, ZoomIn, ZoomOut, RotateCcw, Maximize2, Calendar, Settings2, Sliders, SlidersHorizontal, X, Building2, Check, Sparkles, Users, CheckCircle2, ArrowLeft, ChevronDown, ChevronUp, Info } from "lucide-react";
 import {
   getDynamicSubjectsForClasses,
   getDatabaseSubjectsForClass,

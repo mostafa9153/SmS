@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RefreshCw, AlertCircle } from "lucide-react";
+import { Pencil, AlertCircle } from "lucide-react";
 import { cn, STATUS_STYLES } from "@/lib/utils";
 import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";

@@ -1,15 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import {
-  FileSpreadsheet,
-  FileText,
-  Printer,
-  RefreshCw,
-  Download,
-  } from "lucide-react";
+import { FileSpreadsheet, FileText, Printer, Download } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import {
   computeClassicStrengthData,
@@ -23,7 +16,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default function ReportsPage() {
-  const router = useRouter();
   const [sessionYear, setSessionYear] = useState<string>("2026");
   const [printOrientation, setPrintOrientation] = useState<"landscape" | "portrait">("landscape");
   const [asOnDate, setAsOnDate] = useState<string>(

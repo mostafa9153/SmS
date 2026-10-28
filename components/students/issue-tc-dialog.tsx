@@ -17,7 +17,7 @@ import { issueTransferCertificate } from "@/lib/data/students";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, FileText, Printer, AlertTriangle } from "lucide-react";
+import { FileText, Printer, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 const TC_REASONS = [

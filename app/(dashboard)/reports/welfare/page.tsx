@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useMemo, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Printer, RefreshCw, PackageOpen } from "lucide-react";
+import { Printer, PackageOpen } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
@@ -62,7 +62,6 @@ const SESSION_OPTIONS = [
 ];
 
 function WelfareReportContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { profile: schoolProfile } = useSchoolProfile();
 

@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { searchStudents } from "@/lib/data/students";
 import type { StudentFilters } from "@/lib/types";
 import { StudentFiltersBar } from "@/components/students/student-filters";
 import { StudentTable } from "@/components/students/student-table";
 import { ExportDialog } from "@/components/students/export-dialog";
-import { FileSpreadsheet, Plus, FileText, Award, Loader2 } from "lucide-react";
+import { FileSpreadsheet, Plus, FileText, Award } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -57,7 +57,6 @@ function parseUrlFilters(searchParams: URLSearchParams, mode: "active" | "all"):
 }
 
 export default function StudentsClient({ mode = "active" }: StudentsClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Initial state defaults to Class V Section A (matches server prefetch)

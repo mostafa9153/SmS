@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function SettingsTeachersRedirect() {

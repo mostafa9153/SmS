@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
+import { CheckCircle2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { AdmissionApplicationForm } from "@/components/admission/admission-application-form";
 import { TurnstileWidget } from "@/components/security/turnstile-widget";

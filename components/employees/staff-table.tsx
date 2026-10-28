@@ -3,17 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Inbox,
-  Loader2,
-  ChevronRight,
-  Phone,
-  Calendar,
-  Briefcase,
-  ShieldCheck,
-  Check,
-  Copy,
-} from "lucide-react";
+import { Inbox, ChevronRight, Phone, Calendar, Briefcase, ShieldCheck, Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { cn, calculateDetailedAge } from "@/lib/utils";

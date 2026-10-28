@@ -2,25 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
-import {
-  MessageSquare,
-  Send,
-  X,
-  ChevronLeft,
-  ChevronDown,
-  Edit2,
-  Trash2,
-  CheckCheck,
-  Search,
-  Volume2,
-  VolumeX,
-  ArrowDown,
-  RefreshCw,
-  CornerUpLeft,
-  AtSign,
-  Users,
-  MoreVertical,
-} from "lucide-react";
+import { MessageSquare, Send, X, ChevronLeft, ChevronDown, Edit2, Trash2, CheckCheck, Search, Volume2, VolumeX, ArrowDown, CornerUpLeft, AtSign, Users, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";

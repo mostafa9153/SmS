@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Search, Check, UserCheck, AlertTriangle, Edit2, Trash2, Sliders, X, Medal } from "lucide-react";
+import { Check, UserCheck, AlertTriangle, Edit2, Trash2, Sliders, X, Medal } from "lucide-react";
 import { toast } from "sonner";
 import { useSportsConfig } from "@/lib/sports/use-sports-config";
 import { useSportsEvents, SPORTS_CLASS_OPTIONS, GENDER_LABEL } from "@/lib/sports/use-sports-events";

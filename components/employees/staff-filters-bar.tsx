@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Search, X, SlidersHorizontal, UserPlus, FileSpreadsheet, RotateCcw } from "lucide-react";
+import { SlidersHorizontal, UserPlus, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CustomSelect } from "@/components/ui/custom-select";

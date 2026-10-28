@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
-import { Loader2, UserPlus, Briefcase, User, MapPin, GraduationCap, Sparkles, BookOpen } from "lucide-react";
+import { UserPlus, Briefcase, User, MapPin, GraduationCap, Sparkles, BookOpen } from "lucide-react";
 import { ClassMultiSelectDropdown } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 import { CustomSelect } from "@/components/ui/custom-select";

@@ -1,4 +1,4 @@
-import type { ComponentType, ReactNode } from "react";
+import { Fragment, isValidElement, type ComponentType, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -35,11 +35,17 @@ export function PageHeader({
           </div>
         )}
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">{title}</h1>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground break-words">{title}</h1>
           {badge}
         </div>
       </div>
-      {actions && <div className={cn("flex flex-wrap items-center gap-2", actionsClassName)}>{actions}</div>}
+      {/* A single action element keeps its own layout (e.g. a full-width grid on mobile); several get a wrapping row. */}
+      {actions &&
+        (isValidElement(actions) && actions.type !== Fragment && !actionsClassName ? (
+          actions
+        ) : (
+          <div className={cn("flex flex-wrap items-center gap-2", actionsClassName)}>{actions}</div>
+        ))}
     </div>
   );
 }
