@@ -105,6 +105,18 @@ Design (public form বানানোর সময় সব বাধ্যত
 9. **Audit + alert**: প্রতিটা submission log; rate-limit/CAPTCHA fail → notification bell-এ "system" alert।
 10. **Test**: abuse test (oversized body, extra fields, script injection, flood) চালিয়ে report।
 
+### ⭐ User requirement — Re-admission state bug (added 2026-10-28) → Phase 3c
+Re-admission-এ একজন ছাত্র select করে back গিয়ে আবার ঢুকলে আগের ছাত্রই দেখায় এবং ঠিকমতো কাজ করে না। উদ্দেশ্য ছিল: কাজের মাঝে হঠাৎ refresh হলে progress যেন না হারায়। Root cause খুঁজে ঠিক করা — draft শুধু একই কাজ চলাকালীন টিকে থাকবে, শেষ/বাতিল/অন্য ছাত্র বাছলে পরিষ্কার হবে, আর restore হলে data server থেকে আবার যাচাই হবে।
+
+### ⭐ User requirement — Speed + loading animation (added 2026-10-28) → Phase 3d
+"Page খুলতে অনেক সময় লাগে।" আগে মাপা (route-wise JS size, server response time, waterfall fetch), তারপর ঠিক করা: route-level `loading.tsx` skeleton, বড় client bundle ভাঙা (`next/dynamic`), duplicate/serial fetch কমানো, cache (TanStack staleTime / server `unstable_cache`), DB index। একটাই সুন্দর shared loading animation (top bar + skeleton) সব page-এ।
+
+### ⭐ User requirement — Undo after any action (added 2026-10-28) → Phase 3e + standard for all future work
+যেকোনো কাজের পর undo করা যাবে। আগে research করে সঠিক pattern ঠিক করা, তারপর shared infrastructure, তারপর বিদ্যমান কাজগুলোতে লাগানো, এবং `CLAUDE.md`-তে নিয়ম যাতে ভবিষ্যতের প্রতিটা নতুন feature-এ undo থাকে।
+- ছোট edit/delete: toast-এ "Undo" (কয়েক সেকেন্ড) — soft delete / আগের মান ফিরিয়ে দেওয়া।
+- বড় batch কাজ (promotion, bulk upload, wipeout, session transition): server-side action log + restore (promotion undo আর bulk-upload rollback ইতিমধ্যে আছে — একই pattern-এ আনা)।
+- যা undo করা অসম্ভব (push পাঠানো, বাইরের system) — আগে confirm।
+
 ### Phase 4 — Hardening & Guardrails
 - Root-এর one-off artifact (`patch_*.js`, `current_diff.patch`, `scratch/`) সরানো (user confirm)।
 - knip clean, unused deps remove, `npm audit` fix।
