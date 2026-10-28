@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 
 const BUCKET_NAME = "student-photos";
 
@@ -31,10 +31,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Access denied" }, { status: 401 });
-    }
+    const gate = await requireStaff("can_edit_student_profile", "can_add_student_manual");
+    if (!gate.ok) return gate.response;
 
     const admin = createAdminClient();
     await ensureBucketExists(admin);
@@ -124,10 +122,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Access denied" }, { status: 401 });
-    }
+    const gate = await requireStaff("can_edit_student_profile", "can_add_student_manual");
+    if (!gate.ok) return gate.response;
 
     const admin = createAdminClient();
     const fileName = `${id}.webp`;

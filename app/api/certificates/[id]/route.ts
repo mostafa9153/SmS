@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { dbUpdateCertificateStatus } from "@/lib/supabase/db-certificates";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (!auth?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const gate = await requireStaff("can_generate_certificates", "can_generate_transfer_certificate", "can_generate_pass_certificate", "can_generate_kanyashree", "can_view_certificate_tracker");
+    if (!gate.ok) return gate.response;
 
     const { id } = await params;
     if (!id) {

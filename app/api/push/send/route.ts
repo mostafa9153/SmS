@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { sendWebPushNotification } from "@/lib/push-notifications";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function POST(req: Request) {
+  const gate = await requireStaff();
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();

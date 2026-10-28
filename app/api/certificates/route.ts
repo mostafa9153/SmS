@@ -5,13 +5,13 @@ import {
   type DBCertificateInsert,
 } from "@/lib/supabase/db-certificates";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_generate_certificates", "can_generate_transfer_certificate", "can_generate_pass_certificate", "can_generate_kanyashree", "can_view_certificate_tracker");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const body = await req.json();
 

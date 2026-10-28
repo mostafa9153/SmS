@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { pgQuote } from "@/lib/supabase/filters";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function GET(
   req: Request,
@@ -100,10 +101,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const { id } = await params;
     const supabase = createAdminClient();
@@ -184,10 +183,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const { id } = await params;
     const supabase = createAdminClient();

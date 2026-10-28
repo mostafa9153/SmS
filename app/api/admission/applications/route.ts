@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
-import { requireRole } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
 import type { AdmissionApplication } from "@/lib/types";
 import { pgContains } from "@/lib/supabase/filters";
 
@@ -166,7 +166,7 @@ function parseToPostgresDate(dobVal: any): string | null {
 }
 
 export async function POST(req: Request) {
-  const gate = await requireRole();
+  const gate = await requireStaff("can_handle_new_admission", "can_handle_new_admission_online", "can_handle_ai_scan_admission");
   if (!gate.ok) return gate.response;
 
   try {

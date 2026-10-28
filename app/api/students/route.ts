@@ -74,15 +74,15 @@ export async function GET(req: Request) {
 }
 
 import { studentCreateSchema } from "@/lib/validations/student-schema";
+import { requireStaff } from "@/lib/api/guard";
 
 // POST /api/students - Create a student
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
+    const gate = await requireStaff("can_add_student_manual");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
     const role = auth.role;
-    if (role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     // Staff and Admin are both authorized to register students
     const body = await req.json();

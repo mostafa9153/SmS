@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbCalculateAndAssignRanks } from "@/lib/supabase/db-results";
+import { requireStaff } from "@/lib/api/guard";
 
 // POST /api/results/calculate-ranks - Recalculate ranks for a class
 export async function POST(req: Request) {
+  const gate = await requireStaff("can_enter_results");
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

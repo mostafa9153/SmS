@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-results";
 import type { Semester } from "@/lib/types";
+import { requireStaff } from "@/lib/api/guard";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
@@ -29,6 +30,9 @@ export async function GET(req: Request) {
 
 // POST /api/results - Save or update student marks
 export async function POST(req: Request) {
+  const gate = await requireStaff("can_enter_results");
+  if (!gate.ok) return gate.response;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();

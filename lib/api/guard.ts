@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUserRole, type AuthContext } from "@/lib/supabase/auth-helper";
+import { DEFAULT_TEACHER_PERMISSIONS, type TeacherPermissions } from "@/lib/types/teacher";
 
 type Role = Exclude<AuthContext["role"], "Guest">;
+export type TeacherPermission = Exclude<keyof TeacherPermissions, "allowed_classes">;
 
 const SIGNED_IN: Role[] = ["Admin", "Staff", "Teacher"];
 
 export type GuardResult =
   | { ok: true; auth: AuthContext }
   | { ok: false; response: NextResponse };
+
+function deny(status: 401 | 403): GuardResult {
+  return {
+    ok: false,
+    response: NextResponse.json({ success: false, error: status === 401 ? "Unauthorized" : "Forbidden" }, { status }),
+  };
+}
+
+/** Effective teacher permissions: stored flags over the defaults. */
+export function teacherPermissions(auth: AuthContext): TeacherPermissions {
+  return { ...DEFAULT_TEACHER_PERMISSIONS, ...(auth.permissions ?? {}) };
+}
 
 /**
  * API-route auth gate. `proxy.ts` does not redirect /api requests, so every
@@ -18,13 +32,22 @@ export type GuardResult =
  */
 export async function requireRole(allowed: Role[] = SIGNED_IN): Promise<GuardResult> {
   const auth = await getAuthenticatedUserRole();
-  if (auth.role === "Guest") {
-    return { ok: false, response: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }) };
-  }
-  if (!allowed.includes(auth.role)) {
-    return { ok: false, response: NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 }) };
-  }
+  if (auth.role === "Guest") return deny(401);
+  if (!allowed.includes(auth.role)) return deny(403);
   return { ok: true, auth };
+}
+
+/**
+ * Admin and Staff always pass; a Teacher passes only when granted at least one
+ * of `permissions` (the same flags the Teacher Management screen edits).
+ */
+export async function requireStaff(...permissions: TeacherPermission[]): Promise<GuardResult> {
+  const auth = await getAuthenticatedUserRole();
+  if (auth.role === "Guest") return deny(401);
+  if (auth.role === "Admin" || auth.role === "Staff") return { ok: true, auth };
+  const granted = teacherPermissions(auth);
+  if (auth.role === "Teacher" && permissions.some((p) => granted[p] === true)) return { ok: true, auth };
+  return deny(403);
 }
 
 /** True when the request carries `Authorization: Bearer $CRON_SECRET`. */
