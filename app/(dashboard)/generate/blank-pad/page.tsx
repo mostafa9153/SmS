@@ -38,7 +38,8 @@ import {
   Sparkles,
   PenTool,
 } from "lucide-react";
-import { useSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDocumentSequence,
   saveDocumentSequence,

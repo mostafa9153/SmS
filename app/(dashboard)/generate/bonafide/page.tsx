@@ -37,10 +37,10 @@ import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
 
 type PrintMargins = { top: number; right: number; bottom: number; left: number };
 import {
-  useSchoolProfile,
   getEffectiveHeadTitle,
   parseStudentAddress,
 } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDocumentSequence,
   saveDocumentSequence,

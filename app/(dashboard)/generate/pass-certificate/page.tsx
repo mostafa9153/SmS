@@ -35,7 +35,8 @@ import {
   ChevronDown,
   Save,
 } from "lucide-react";
-import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import { getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDocumentSequence,
   saveDocumentSequence,

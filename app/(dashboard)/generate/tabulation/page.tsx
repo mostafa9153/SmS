@@ -6,9 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import {
-  useSchoolProfile,
   SchoolProfileData,
 } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDynamicClassCodes,
   getDynamicSectionsForClass,

@@ -48,7 +48,7 @@ import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import type { DBInvoiceRow, InvoiceStats, TeacherSettlementSummary } from "@/lib/supabase/db-invoices";
 import { getLocalCachedInvoices, getLocalStats } from "@/lib/utils/invoice-registry";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { InvoicePrintableView } from "@/components/invoice/invoice-printable-view";
 import { type InvoiceData, DEFAULT_FEE_ITEMS } from "@/lib/utils/fee-config";
 

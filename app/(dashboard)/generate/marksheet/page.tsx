@@ -18,7 +18,7 @@ import {
   MarksheetPrintableView,
   MarksheetPrintableBatchView,
 } from "@/components/marksheet/marksheet-printable-view";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

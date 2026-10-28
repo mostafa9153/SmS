@@ -20,7 +20,7 @@ import {
   ShieldCheck,
   Award,
 } from "lucide-react";
-import type { StaffProfile } from "@/components/employees/staff-table";
+import type { StaffProfile } from "@/components/employees/staff-types";
 import { CopyButton } from "@/components/ui/copy-button";
 import { calculateDetailedAge } from "@/lib/utils";
 

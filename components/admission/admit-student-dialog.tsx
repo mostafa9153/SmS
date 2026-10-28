@@ -32,7 +32,8 @@ import {
   getFeeCategoryForClass,
 } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
-import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 interface AdmitStudentDialogProps {
   open: boolean;

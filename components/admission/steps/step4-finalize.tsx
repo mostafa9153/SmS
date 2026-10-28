@@ -12,7 +12,8 @@ import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
-import { useSchoolProfile, getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 interface Step4FinalizeProps {
   onBack: () => void;

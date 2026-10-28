@@ -19,19 +19,9 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { cn, calculateDetailedAge } from "@/lib/utils";
 import { StaffRoundAvatar } from "@/components/employees/staff-round-avatar";
 import { StaffPhotoPreviewDialog } from "@/components/employees/staff-photo-preview-dialog";
+import type { StaffProfile } from "@/components/employees/staff-types";
 
-export interface StaffProfile {
-  id: string;
-  unique_id: string;
-  full_name: string;
-  employee_type: "TEACHING" | "NON_TEACHING";
-  designation: string;
-  caste?: string;
-  mobile?: string;
-  dob?: string;
-  profile_picture_url?: string | null;
-  status: "ACTIVE" | "INACTIVE" | "RETIRED" | "SUSPENDED";
-}
+export type { StaffProfile };
 
 interface StaffTableProps {
   data: StaffProfile[];

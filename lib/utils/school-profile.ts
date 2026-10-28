@@ -441,6 +441,5 @@ export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise
   }
 }
 
-export { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 

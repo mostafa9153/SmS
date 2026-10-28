@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useSchoolProfile, getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets, type ClassPresetItem } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -68,6 +68,23 @@ Score = প্রতিটা metric-কে 0–10 normalise করে গড়
 
 প্রতি module-এ: বড় file ভাঙা (page → container + sections + hooks), Phase 2 primitive-এ migrate, db query dedupe, N+1/over-fetch fix, dead code delete, bug fix।
 
+### ⭐ User requirement — Notification bell must really work (added 2026-10-28)
+User চান bell button সব সমস্যা ও গুরুত্বপূর্ণ ঘটনা জানাবে, আর যা যা করার কথা সব ঠিকমতো করবে।
+
+এখনকার অবস্থা (audit):
+- `lib/stores/notification-store.tsx` — শুধু React state; page reload বা অন্য device-এ সব হারিয়ে যায়।
+- Producer মাত্র ১টা page: `students/bulk-upload` (৬টা call)। বাকি কোনো error/success bell-এ আসে না।
+- Server-side ঘটনা (backup fail, cron, permission expiry, teacher task/chat, push) bell-এ আসে না।
+- `activity` / `system` tab আছে, কিন্তু system tab প্রায় সবসময় ফাঁকা।
+
+Target (Phase 3.6-এর সাথে, বা আগে চাইলে আলাদা):
+1. Persisted notifications table (`notifications`: user_id/role scope, type, severity, title, body, link, read_at) + migration + RLS।
+2. `/api/notifications` (list, mark read, mark all, clear) — `requireRole`।
+3. Server helper `notify()` — backup/cron/permission-expiry/admission/promotion/bulk ops-এ ব্যবহার।
+4. Client: TanStack Query + poll/realtime; global API error → bell-এ "system" entry (TanStack `QueryCache`/`MutationCache` `onError`)।
+5. Existing web-push (`lib/push-notifications.ts`) একই `notify()` থেকে fan-out।
+6. Bell: unread badge, deep link, severity color, empty state।
+
 ### Phase 4 — Hardening & Guardrails
 - Root-এর one-off artifact (`patch_*.js`, `current_diff.patch`, `scratch/`) সরানো (user confirm)।
 - knip clean, unused deps remove, `npm audit` fix।

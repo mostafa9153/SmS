@@ -37,7 +37,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { cn } from "@/lib/utils";
 
 export function AdmissionFormTrackerModal({

@@ -97,7 +97,8 @@ import {
   syncAllEmsConfigsFromDb,
   getDatabaseSubjectsForClass,
 } from "@/lib/ems/ems-config-loader";
-import { useSchoolProfile, getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
+import { getSchoolConfiguredStreams } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 import {
   normalizeClassCode,

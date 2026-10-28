@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import EmployeesClient from "./employees-client";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { StaffProfile } from "@/components/employees/staff-table";
+import type { StaffProfile } from "@/components/employees/staff-types";
 
 export const metadata: Metadata = {
   title: "Employee Register | SMS",

@@ -18,7 +18,8 @@ import { SmartBankInput } from "@/components/students/smart-bank-input";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { showToast } from "@/components/ui/toast-banner";
 import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
-import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 const studentSchema = z.object({
   // Identity

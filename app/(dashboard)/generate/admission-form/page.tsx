@@ -15,7 +15,7 @@ import {
   formatFormNumber,
   schoolProfileToSchoolInfo,
 } from "@/components/admission-form/types";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { useSchoolConfigQuery } from "@/lib/utils/school-config-client";
 import { AdmissionFormVIxPrintableView } from "@/components/admission-form/admission-form-v-ix-printable";
 import { AdmissionFormXIPrintableView } from "@/components/admission-form/admission-form-xi-printable";

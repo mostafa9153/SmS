@@ -8,7 +8,7 @@ import { Student } from "@/lib/types";
 import {
   StudentIDCardPrintableView,
 } from "@/components/id-card/student-id-card-printable-view";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

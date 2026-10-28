@@ -38,7 +38,8 @@ import {
   Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSchoolProfile, getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import { getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDocumentSequence,
   saveDocumentSequence,

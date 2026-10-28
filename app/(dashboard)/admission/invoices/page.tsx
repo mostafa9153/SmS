@@ -22,7 +22,7 @@ import { InvoiceTrackerModal } from "@/components/invoice/invoice-tracker-modal"
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { recordPrintBatch } from "@/lib/utils/print-history";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

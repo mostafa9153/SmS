@@ -23,7 +23,8 @@ import type { AdmissionApplication, Gender } from "@/lib/types";
 import { editAdmissionApplication, checkDuplicateApplicant } from "@/lib/data/admission";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { formatAadhaarNumber } from "@/components/admission/admission-application-form";
-import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 
 interface EditApplicationDialogProps {
   open: boolean;

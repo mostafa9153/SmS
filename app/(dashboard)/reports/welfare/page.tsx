@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Printer, RefreshCw, PackageOpen } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

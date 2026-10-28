@@ -4,7 +4,7 @@ import React, { use } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getAdmissionApplicationById } from "@/lib/data/admission";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
 import { Printer, ArrowLeft, CheckCircle2, ShieldCheck, QrCode } from "lucide-react";
 

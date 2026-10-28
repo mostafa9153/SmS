@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
