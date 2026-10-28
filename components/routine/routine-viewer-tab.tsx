@@ -12,7 +12,6 @@ import {
   DAY_NAMES,
   RoutineGrid,
 } from "@/lib/routine/types";
-import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
 import {
   Printer,
@@ -775,6 +774,7 @@ export function RoutineViewerTab({
     
     try {
       showToast({ title: "Generating styled Excel file...", type: "info" });
+      const ExcelJS = (await import("exceljs")).default;
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "SMS Web App";
       

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -44,7 +45,7 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
+const QRScannerModal = dynamic(() => import("@/components/certificate/qr-scanner-modal").then((m) => m.QRScannerModal), { ssr: false });
 import type { DBCertificateRow, CertificateStats } from "@/lib/supabase/db-certificates";
 import {
   getLocalCachedCertificates,

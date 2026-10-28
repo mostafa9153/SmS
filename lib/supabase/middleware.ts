@@ -61,7 +61,11 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Refresh user token - essential for UI page auth checks and redirects
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT locally when the project uses asymmetric signing keys
+  // (no Auth server round trip on every navigation) and falls back to getUser() otherwise.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  const user = userId ? { id: userId } : null;
 
   // Helper to get cached user role
   async function resolveUserRole(uid: string): Promise<string | null> {

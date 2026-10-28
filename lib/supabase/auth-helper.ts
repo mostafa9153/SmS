@@ -36,11 +36,13 @@ export function clearUserRoleCache(userId?: string) {
 export async function getAuthenticatedUserRole(): Promise<AuthContext> {
   try {
     const supabase = await createServerClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
-
-    if (error || !user) {
+    // Local JWT verification when possible (see lib/supabase/middleware.ts); callers only use id/email.
+    const { data: claimsData, error } = await supabase.auth.getClaims();
+    const claims = claimsData?.claims;
+    if (error || !claims?.sub) {
       return { user: null, role: "Guest", fullName: "" };
     }
+    const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 
     // Check in-memory role cache
     const cached = roleCache.get(user.id);

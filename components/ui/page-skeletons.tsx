@@ -10,7 +10,7 @@ export function Shimmer({
   return (
     <div
       style={style}
-      className={`relative overflow-hidden bg-slate-200/70 rounded-md before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/50 before:to-transparent ${className}`}
+      className={`relative overflow-hidden bg-muted/70 rounded-md before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_1.5s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/50 dark:before:via-white/10 before:to-transparent ${className}`}
     />
   );
 }
@@ -127,6 +127,35 @@ export function CardGridSkeleton({
               <Shimmer className="h-3.5 w-2/3 rounded" />
             </div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Default loading state for every dashboard route without its own skeleton. */
+export function DashboardPageSkeleton() {
+  return (
+    <div className="p-3.5 sm:p-6 space-y-5 max-w-7xl mx-auto animate-in fade-in duration-200" aria-busy="true" aria-label="Loading">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Shimmer className="h-10 w-10 rounded-xl" />
+          <div className="space-y-2">
+            <Shimmer className="h-5 w-48" />
+            <Shimmer className="h-3 w-28" />
+          </div>
+        </div>
+        <Shimmer className="h-9 w-28 rounded-xl hidden sm:block" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Shimmer key={i} className="h-20 rounded-2xl" style={{ animationDelay: `${i * 80}ms` }} />
+        ))}
+      </div>
+      <div className="rounded-2xl border bg-card p-4 space-y-3">
+        <Shimmer className="h-9 w-full rounded-xl" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Shimmer key={i} className="h-11 w-full rounded-lg" style={{ opacity: 1 - i * 0.12 }} />
         ))}
       </div>
     </div>
