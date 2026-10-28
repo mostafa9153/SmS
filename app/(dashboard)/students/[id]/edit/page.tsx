@@ -233,7 +233,7 @@ export default function EditStudentPage() {
     watch,
     control,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<z.input<typeof studentSchema>, unknown, FormData>({
     resolver: zodResolver(studentSchema),
     values: student
       ? {
@@ -352,15 +352,15 @@ export default function EditStudentPage() {
       : undefined,
   });
 
-  const isOutOfSchoolChecked = watch("isOutOfSchool");
+  const isOutOfSchoolChecked = Boolean(watch("isOutOfSchool"));
   const watchSocialCategory = watch("socialCategory");
   const watchBplStatus = watch("bplStatus");
-  const isCwsnChecked = watch("isCwsn");
+  const isCwsnChecked = Boolean(watch("isCwsn"));
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
-  const rteSection12CChecked = watch("rteSection12C");
+  const rteSection12CChecked = Boolean(watch("rteSection12C"));
   const watchPresentClass = watch("presentClass");
   const watchAcademicStream = watch("academicStream");
-  const watchAdmissionYear = watch("admissionYear");
+  const watchAdmissionYear = watch("admissionYear") as number | undefined;
   const watchAdmissionNo = watch("admissionNo");
   const watchAdmissionDate = watch("admissionDate");
   const watchGender = watch("gender");

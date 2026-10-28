@@ -228,7 +228,7 @@ export function StudentAddEditForm({
     control,
     reset,
     formState: { errors },
-  } = useForm<FormData>({
+  } = useForm<z.input<typeof studentSchema>, unknown, FormData>({
     resolver: zodResolver(studentSchema),
     defaultValues: {
       gender: "Male",
@@ -262,13 +262,13 @@ export function StudentAddEditForm({
   });
 
   // Watchers
-  const isOutOfSchoolChecked = watch("isOutOfSchool");
+  const isOutOfSchoolChecked = Boolean(watch("isOutOfSchool"));
   const watchSocialCategory = watch("socialCategory");
-  const isCwsnChecked = watch("isCwsn");
+  const isCwsnChecked = Boolean(watch("isCwsn"));
   const hasDisabilityCertChecked = watch("hasDisabilityCertificate");
-  const rteSection12CChecked = watch("rteSection12C");
+  const rteSection12CChecked = Boolean(watch("rteSection12C"));
   const watchPresentClass = watch("presentClass");
-  const watchAdmissionYear = watch("admissionYear");
+  const watchAdmissionYear = watch("admissionYear") as number | undefined;
   const watchAdmissionNo = watch("admissionNo");
   const watchAdmissionDate = watch("admissionDate");
   const watchGender = watch("gender");

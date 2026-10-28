@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parseResult = studentCreateSchema.safeParse(body);
     if (!parseResult.success) {
-      const firstError = parseResult.error.errors[0]?.message || "Invalid student data";
+      const firstError = parseResult.error.issues[0]?.message || "Invalid student data";
       return NextResponse.json(
         { error: `Validation failed: ${firstError}`, details: parseResult.error.flatten() },
         { status: 400 }

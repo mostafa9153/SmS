@@ -469,7 +469,7 @@ export function AdmissionApplicationForm({
     control,
     trigger,
     formState: { errors },
-  } = useForm<AdmissionFormData>({
+  } = useForm<z.input<typeof admissionFormSchema>, unknown, AdmissionFormData>({
     resolver: zodResolver(admissionFormSchema),
     defaultValues: {
       studentName: "",
@@ -531,7 +531,7 @@ export function AdmissionApplicationForm({
   const watchClass = watch("presentClass");
   const isClassXI = watchClass === "XI" || watchClass === "11";
   const watchSocialCat = watch("socialCategory");
-  const watchCwsn = watch("isCwsn");
+  const watchCwsn = Boolean(watch("isCwsn"));
   const watchDisabilityCert = watch("hasDisabilityCertificate");
   const watchSameAddress = watch("sameAsPresentAddress");
   const watchBpl = watch("bplStatus");
