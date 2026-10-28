@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-results";
 import type { Semester } from "@/lib/types";
-import { requireStaff } from "@/lib/api/guard";
+import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
@@ -34,11 +34,7 @@ export async function POST(req: Request) {
   if (!gate.ok) return gate.response;
 
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = gate.auth;
 
     const body = await req.json();
     const { studentId, academicYear, class: className, section, roll, semester, examName, fullMarks, marksObtained, subjectMarks, remarks } = body;
@@ -46,6 +42,8 @@ export async function POST(req: Request) {
     if (!studentId || !className || marksObtained === undefined) {
       return NextResponse.json({ error: "Missing required fields (studentId, class, marksObtained)" }, { status: 400 });
     }
+    const outside = denyOutsideClasses(gate.auth, className);
+    if (outside) return outside;
 
     const savedResult = await dbSaveOrUpdateResult(
       {

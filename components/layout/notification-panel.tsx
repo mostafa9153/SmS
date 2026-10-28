@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Check, Trash2, AlertCircle, AlertTriangle, CheckCircle2, Activity, Info, X, ShieldAlert, Sparkles } from "lucide-react";
+import { Bell, BellOff, BellRing, Check, Trash2, AlertCircle, AlertTriangle, CheckCircle2, Activity, Info, X, ShieldAlert, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useNotifications, type AppNotification } from "@/lib/stores/notification-store";
 import type { NotificationSeverity } from "@/lib/notifications/types";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { disablePush, enablePush, getPushState, type PushState } from "@/lib/push/client";
 
 export function NotificationPanel() {
   const { notifications, markAsRead, markAllAsRead, clearAll, unreadCount } = useNotifications();
@@ -98,6 +100,7 @@ export function NotificationPanel() {
             </div>
 
             <div className="flex items-center gap-1">
+              <PushToggle />
               {notifications.length > 0 && (
                 <>
                   <button
@@ -263,5 +266,58 @@ function NotificationItem({
         </p>
       </div>
     </div>
+  );
+}
+
+const PUSH_TITLE: Record<PushState, string> = {
+  on: "Device notifications on",
+  off: "Turn on device notifications",
+  denied: "Notifications are blocked in browser settings",
+  unsupported: "",
+  unconfigured: "",
+};
+
+/** Subscribes this browser to web push so alerts reach the phone/desktop even when the app is closed. */
+function PushToggle() {
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getPushState().then(setState, () => setState("unsupported"));
+  }, []);
+
+  if (!state || state === "unsupported" || state === "unconfigured") return null;
+
+  async function toggle() {
+    if (busy || state === "denied") return;
+    setBusy(true);
+    try {
+      const next = state === "on" ? await disablePush() : await enablePush();
+      setState(next);
+      if (next === "on") toast.success("Device notifications on");
+      else if (next === "denied") toast.error("Notifications are blocked in browser settings");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not change device notifications");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const Icon = state === "on" ? BellRing : BellOff;
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy || state === "denied"}
+      title={PUSH_TITLE[state]}
+      aria-label={PUSH_TITLE[state]}
+      aria-pressed={state === "on"}
+      className={cn(
+        "p-1 rounded-md transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+        state === "on" ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+      )}
+    >
+      <Icon className={cn("h-3.5 w-3.5", busy && "animate-pulse")} />
+    </button>
   );
 }

@@ -273,11 +273,6 @@ export async function PATCH(req: Request) {
   return handleUpdate(req);
 }
 
-// PUT /api/admin/users - Support PUT as well
-export async function PUT(req: Request) {
-  return handleUpdate(req);
-}
-
 // DELETE /api/admin/users - Delete a user
 export async function DELETE(req: Request) {
   try {

@@ -256,15 +256,6 @@ export default function TeacherDashboardPage() {
     setReportAttachments((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Push subscription setup
-  useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("Service Worker registration skipped/failed:", err);
-      });
-    }
-  }, []);
-
   // Load teacher workspace data via fast consolidated endpoint
   const loadDashboardData = useCallback(async () => {
     try {

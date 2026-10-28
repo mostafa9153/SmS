@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { dbCalculateAndAssignRanks } from "@/lib/supabase/db-results";
-import { requireStaff } from "@/lib/api/guard";
+import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
 
 // POST /api/results/calculate-ranks - Recalculate ranks for a class
 export async function POST(req: Request) {
@@ -9,11 +8,7 @@ export async function POST(req: Request) {
   if (!gate.ok) return gate.response;
 
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = gate.auth;
 
     const body = await req.json();
     const { academicYear, class: className, examName } = body;
@@ -21,6 +16,8 @@ export async function POST(req: Request) {
     if (!className) {
       return NextResponse.json({ error: "Missing required 'class' parameter" }, { status: 400 });
     }
+    const outside = denyOutsideClasses(gate.auth, className);
+    if (outside) return outside;
 
     const result = await dbCalculateAndAssignRanks(
       academicYear || new Date().getFullYear(),

@@ -50,6 +50,20 @@ export async function requireStaff(...permissions: TeacherPermission[]): Promise
   return deny(403);
 }
 
+/**
+ * Class scope for Teachers: an empty `allowed_classes` means every class.
+ * Admin and Staff are never scoped. Returns a 403 response when out of scope.
+ */
+export function denyOutsideClasses(auth: AuthContext, className: string | null | undefined): NextResponse | null {
+  if (auth.role !== "Teacher") return null;
+  const allowed = teacherPermissions(auth).allowed_classes;
+  if (!allowed?.length || (className && allowed.includes(className))) return null;
+  return NextResponse.json(
+    { success: false, error: `Forbidden: no permission for Class ${className ?? "?"}` },
+    { status: 403 },
+  );
+}
+
 /** True when the request carries `Authorization: Bearer $CRON_SECRET`. */
 export function hasCronSecret(req: Request): boolean {
   const secret = process.env.CRON_SECRET;

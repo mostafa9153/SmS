@@ -1,18 +1,20 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const VAPID_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ||
-  process.env.VAPID_PUBLIC_KEY ||
-  "BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U";
-const VAPID_PRIVATE_KEY =
-  process.env.VAPID_PRIVATE_KEY || "UUxI2xsLnAWMBVJp9_f8F_9c3qS9Hw7jV8e6e5w_6vE";
+// Keys come only from env (generate with `npx web-push generate-vapid-keys`).
+// Without them push is disabled; the in-app bell still works.
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY || "";
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@school.internal";
 
-try {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
-} catch (e) {
-  console.warn("Could not set VAPID details for web-push:", e);
+export const pushConfigured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+
+if (pushConfigured) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+  } catch (e) {
+    console.warn("Could not set VAPID details for web-push:", e);
+  }
 }
 
 export interface SendPushOptions {
@@ -33,6 +35,7 @@ export async function sendWebPushNotification(options: SendPushOptions): Promise
   sent: number;
   failed: number;
 }> {
+  if (!pushConfigured) return { success: false, sent: 0, failed: 0 };
   try {
     const admin = createAdminClient();
     let targetUserIds: string[] = options.userIds || [];

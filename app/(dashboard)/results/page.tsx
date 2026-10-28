@@ -1,11 +1,18 @@
 import { Suspense } from "react";
 import ResultsClient from "./results-client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { teacherPermissions } from "@/lib/api/guard";
 
-export default function ResultsPage() {
+// Per-user: a Teacher sees only their allowed classes.
+export const dynamic = "force-dynamic";
+
+export default async function ResultsPage() {
+  const auth = await getAuthenticatedUserRole();
+  const allowedClasses = auth.role === "Teacher" ? teacherPermissions(auth).allowed_classes ?? [] : [];
   return (
     <Suspense fallback={<ResultsSkeleton />}>
-      <ResultsClient />
+      <ResultsClient allowedClasses={allowedClasses} />
     </Suspense>
   );
 }

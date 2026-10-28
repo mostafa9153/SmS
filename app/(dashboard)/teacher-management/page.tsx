@@ -52,6 +52,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { ClassScopePanel } from "@/components/teachers/class-scope-panel";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -273,6 +274,11 @@ function AdminTeacherManagementContent() {
   const [taskTargetSection, setTaskTargetSection] = useState("A");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [selectedTeacherIdsForTask, setSelectedTeacherIdsForTask] = useState<string[]>([]);
+
+  const reloadAssignments = useCallback(async () => {
+    const cData = await fetch("/api/teachers/classes").then((r) => r.json()).catch(() => null);
+    if (cData?.success) setAssignments(cData.assignments || []);
+  }, []);
 
   // Load All Teacher Data
   const loadData = useCallback(async () => {
@@ -1705,43 +1711,11 @@ function AdminTeacherManagementContent() {
                 <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <BookOpen className="h-3.5 w-3.5 text-primary" /> Class Scope
                 </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Assigned classes &amp; subjects for this teacher</p>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[220px] md:max-h-none">
-                {assignments.filter((a: any) => a.teacherId === configureTeacher?.id || a.teacher_id === configureTeacher?.id).length === 0 ? (
-                  <div className="text-center py-8 text-[11px] text-muted-foreground">
-                    No class assignments yet.<br />
-                    <span className="text-[10px] text-muted-foreground/70">Assign from Class Mapping tab.</span>
-                  </div>
-                ) : (
-                  assignments
-                    .filter((a: any) => a.teacherId === configureTeacher?.id || a.teacher_id === configureTeacher?.id)
-                    .map((a: any) => (
-                      <div key={a.id} className="p-3 rounded-xl bg-card border border-border/60 shadow-2xs space-y-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs font-bold text-foreground">
-                            Class {a.className || a.class_name} · Sec {a.section}
-                          </p>
-                          <span
-                            className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-md ${
-                              a.roleType === "CLASS_TEACHER" || a.role_type === "CLASS_TEACHER"
-                                ? "bg-indigo-500/10 text-indigo-600 border border-indigo-500/20"
-                                : "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                            }`}
-                          >
-                            {a.roleType === "CLASS_TEACHER" || a.role_type === "CLASS_TEACHER" ? "Class Teacher" : "Subject"}
-                          </span>
-                        </div>
-                        {(a.subject || a.role_type === "SUBJECT_TEACHER") && (
-                          <p className="text-[10px] text-muted-foreground">
-                            Subject: <span className="font-semibold text-foreground">{a.subject || "All Subjects"}</span>
-                          </p>
-                        )}
-                      </div>
-                    ))
-                )}
-              </div>
+              {configureTeacher && (
+                <ClassScopePanel teacherId={configureTeacher.id} assignments={assignments} onChanged={reloadAssignments} />
+              )}
             </div>
           </div>
         </DialogContent>

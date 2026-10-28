@@ -82,7 +82,8 @@ const CLASS_OPTIONS = [
   { value: "XII", label: "Class XII" },
 ];
 
-export default function ResultsClient() {
+/** `allowedClasses` scopes a Teacher to their classes (empty = all); the API enforces the same rule. */
+export default function ResultsClient({ allowedClasses = [] }: { allowedClasses?: string[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
@@ -102,7 +103,13 @@ export default function ResultsClient() {
     if (yearParam && !isNaN(parseInt(yearParam, 10))) return parseInt(yearParam, 10);
     return currentYear;
   });
-  const [selectedClass, setSelectedClassState] = useState<string>(classParam || "V");
+  const classOptions = useMemo(
+    () => (allowedClasses.length ? CLASS_OPTIONS.filter((c) => allowedClasses.includes(c.value)) : CLASS_OPTIONS),
+    [allowedClasses]
+  );
+  const [selectedClass, setSelectedClassState] = useState<string>(() =>
+    classParam && classOptions.some((c) => c.value === classParam) ? classParam : classOptions[0]?.value ?? "V"
+  );
   const [selectedSection, setSelectedSectionState] = useState<string>(sectionParam || "A");
   const [selectedGender, setSelectedGenderState] = useState<"ALL" | "Male" | "Female">(
     genderParam === "Male" || genderParam === "Female" ? genderParam : "ALL"
@@ -693,7 +700,7 @@ export default function ResultsClient() {
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground">Select Class</label>
               <div className="flex flex-wrap gap-1.5">
-                {CLASS_OPTIONS.map((c) => {
+                {classOptions.map((c) => {
                   const isSelected = selectedClass === c.value;
                   return (
                     <button
@@ -847,7 +854,7 @@ export default function ResultsClient() {
             value={selectedClass}
             onChange={handleSelectClass}
             placeholder="Class"
-            options={CLASS_OPTIONS}
+            options={classOptions}
           />
 
           {/* Section filter (Dynamically from School Settings) */}

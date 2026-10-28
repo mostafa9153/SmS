@@ -4,7 +4,7 @@ import type { AuthContext } from "@/lib/supabase/auth-helper";
 const current: { auth: AuthContext } = { auth: { user: null, role: "Guest", fullName: "" } };
 vi.mock("@/lib/supabase/auth-helper", () => ({ getAuthenticatedUserRole: async () => current.auth }));
 
-const { requireRole, requireStaff } = await import("@/lib/api/guard");
+const { denyOutsideClasses, requireRole, requireStaff } = await import("@/lib/api/guard");
 
 function as(role: AuthContext["role"], permissions?: Record<string, unknown>) {
   current.auth = { user: role === "Guest" ? null : { id: "u" }, role, fullName: "x", permissions };
@@ -47,5 +47,26 @@ describe("requireStaff", () => {
   it("rejects guests", async () => {
     as("Guest");
     expect(await status(requireStaff("can_view_students"))).toBe(401);
+  });
+});
+
+describe("denyOutsideClasses", () => {
+  const ctx = (role: AuthContext["role"], allowed?: string[]): AuthContext =>
+    ({ user: { id: "u" }, role, fullName: "x", permissions: allowed ? { allowed_classes: allowed } : {} });
+
+  it("never scopes Admin or Staff", () => {
+    expect(denyOutsideClasses(ctx("Admin", ["IX"]), "V")).toBeNull();
+    expect(denyOutsideClasses(ctx("Staff", ["IX"]), "V")).toBeNull();
+  });
+
+  it("lets a Teacher with no class list into every class", () => {
+    expect(denyOutsideClasses(ctx("Teacher"), "V")).toBeNull();
+    expect(denyOutsideClasses(ctx("Teacher", []), "XII")).toBeNull();
+  });
+
+  it("blocks a scoped Teacher outside their classes", () => {
+    expect(denyOutsideClasses(ctx("Teacher", ["IX"]), "IX")).toBeNull();
+    expect(denyOutsideClasses(ctx("Teacher", ["IX"]), "X")?.status).toBe(403);
+    expect(denyOutsideClasses(ctx("Teacher", ["IX"]), undefined)?.status).toBe(403);
   });
 });
