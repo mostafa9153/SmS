@@ -23,6 +23,7 @@ import {
   Activity,
   Sliders,
   Cloud,
+  Link2,
   Sparkles,
   ClipboardCheck,
   MapPin,
@@ -212,6 +213,14 @@ const settingsNavItems = [
     icon: <MapPin className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
+  },
+  {
+    href: "/settings/admission-link",
+    tab: "admission-link",
+    label: "Admission Link",
+    icon: <Link2 className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    activeColor: "from-indigo-500/15 via-indigo-500/8 text-indigo-700 dark:text-indigo-300 border-indigo-600",
   },
   {
     href: "/settings/backup",

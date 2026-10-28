@@ -52,8 +52,11 @@ export async function updateSession(request: NextRequest) {
     pathname.endsWith(".woff2") ||
     pathname.endsWith(".woff");
 
-  // For API routes and static assets, bypass authentication redirects
-  if (isApiRoute || isStaticAsset) {
+  // Public admission form (/apply/<token>) needs no session; its API checks the token.
+  const isPublicPage = pathname.startsWith("/apply/");
+
+  // For API routes, public pages and static assets, bypass authentication redirects
+  if (isApiRoute || isPublicPage || isStaticAsset) {
     return supabaseResponse;
   }
 

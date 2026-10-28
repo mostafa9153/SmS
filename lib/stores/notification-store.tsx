@@ -33,7 +33,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [localItems, setLocalItems] = useState<AppNotification[]>([]);
   const recent = useRef(new Map<string, number>());
   const pathname = usePathname() ?? "";
-  const signedOutPage = pathname.startsWith("/login") || pathname.startsWith("/teacher/login");
+  const signedOutPage = pathname.startsWith("/login") || pathname.startsWith("/teacher/login") || pathname.startsWith("/apply/");
 
   const { data: serverItems = [] } = useQuery({
     queryKey: QUERY_KEY,

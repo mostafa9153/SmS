@@ -9,6 +9,7 @@ import { School, CheckCircle2, Printer, Download, Sparkles, RefreshCw, Phone, Ma
 import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
+import { toOnlineApplicationPayload } from "@/lib/admission/application-payload";
 
 export default function PublicOnlineApplyPage() {
   const { profile } = useSchoolProfile();
@@ -51,22 +52,7 @@ export default function PublicOnlineApplyPage() {
   const handleSubmit = async (formData: AdmissionFormData) => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        ...formData,
-        targetClass: formData.presentClass,
-        admissionType: "new",
-        formMethod: "online",
-        academicYear: String(currentYear),
-        // Flattened address strings
-        address: `${formData.presentVillage || ""}, ${formData.presentPostOffice || ""}, ${formData.presentPoliceStation || ""}, ${formData.presentDistrict || ""} - ${formData.presentPincode || ""}`.replace(/^, /, ""),
-        village: formData.presentVillage,
-        gramPanchayat: formData.presentPanchayat,
-        block: formData.presentBlock,
-        postOffice: formData.presentPostOffice,
-        policeStation: formData.presentPoliceStation,
-        district: formData.presentDistrict,
-        pincode: formData.presentPincode,
-      };
+      const payload = toOnlineApplicationPayload(formData, currentYear);
 
       const res = await fetch("/api/admission/applications", {
         method: "POST",

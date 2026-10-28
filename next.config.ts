@@ -68,6 +68,18 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Public admission link: the secret token is in the URL, so never leak it
+        // via Referer, never allow framing, never index or cache.
+        source: "/apply/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
     ];
   },
 };
