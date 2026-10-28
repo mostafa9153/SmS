@@ -38,6 +38,7 @@ export async function POST(req: Request) {
   }
 }
 
+// undo: n/a — the browser re-subscribes from the bell toggle.
 // DELETE /api/push/subscribe - remove one endpoint (or all of this user's) subscriptions
 export async function DELETE(req: Request) {
   const gate = await requireRole();

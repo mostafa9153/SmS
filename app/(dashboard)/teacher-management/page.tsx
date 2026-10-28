@@ -52,6 +52,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { apiFetch } from "@/lib/api/client";
 import { ClassScopePanel } from "@/components/teachers/class-scope-panel";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -276,8 +277,8 @@ function AdminTeacherManagementContent() {
   const [selectedTeacherIdsForTask, setSelectedTeacherIdsForTask] = useState<string[]>([]);
 
   const reloadAssignments = useCallback(async () => {
-    const cData = await fetch("/api/teachers/classes").then((r) => r.json()).catch(() => null);
-    if (cData?.success) setAssignments(cData.assignments || []);
+    const cData = await apiFetch<{ assignments?: any[] }>("/api/teachers/classes").catch(() => null);
+    if (cData) setAssignments(cData.assignments || []);
   }, []);
 
   // Load All Teacher Data

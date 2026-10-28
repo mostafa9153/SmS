@@ -16,6 +16,12 @@ function keyBytes(base64Url: string) {
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 }
 
+function sameKey(a: ArrayBuffer | null, b: Uint8Array) {
+  if (!a || a.byteLength !== b.byteLength) return false;
+  const bytes = new Uint8Array(a);
+  return bytes.every((v, i) => v === b[i]);
+}
+
 async function registration() {
   return (await navigator.serviceWorker.getRegistration("/sw.js")) ?? navigator.serviceWorker.register("/sw.js");
 }
@@ -37,10 +43,21 @@ export async function enablePush(): Promise<PushState> {
 
   const reg = await registration();
   await navigator.serviceWorker.ready;
-  const sub =
-    (await reg.pushManager.getSubscription()) ??
-    (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUBLIC_KEY) }));
-  await apiFetch("/api/push/subscribe", { method: "POST", json: { subscription: sub.toJSON() } });
+  const key = keyBytes(PUBLIC_KEY);
+  let sub = await reg.pushManager.getSubscription();
+  // A subscription made with an older VAPID key can never receive our pushes.
+  if (sub && !sameKey(sub.options.applicationServerKey, key)) {
+    await sub.unsubscribe();
+    sub = null;
+  }
+  sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  try {
+    await apiFetch("/api/push/subscribe", { method: "POST", json: { subscription: sub.toJSON() } });
+  } catch (err) {
+    // Keep browser and server in step: "on" must mean the server can reach this device.
+    await sub.unsubscribe().catch(() => {});
+    throw err;
+  }
   return "on";
 }
 

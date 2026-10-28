@@ -32,7 +32,12 @@ School Management System: Next.js 16 (App Router, Turbopack) + React 19, Supabas
 - **Toasts**: `toast` from `sonner` (mounted in `app/layout.tsx`).
 - **Drafts**: forms that must survive a refresh use a scoped key (`lib/admission/form-draft.ts` pattern), never a shared localStorage key.
 - **UI**: one dropdown (`components/ui/custom-select`), route-level `loading.tsx` skeletons (`components/ui/page-skeletons`), heavy libraries (exceljs, xlsx, docx, recharts, jsqr) loaded with dynamic `import()` / `next/dynamic`.
-- **Health**: `npm test` and `npm run health` before committing; plan and reports in `docs/codebase-health/`.
+- **Verification gate (every task, before commit)**:
+  1. `npm run verify` (add `-- --build` for UI/route changes): types, lint errors, tests, every client `/api` call resolves to a route, no hard-coded secrets, guard + undo on API routes, convention slips. FAIL blocks the commit; a WARN is fixed or justified with `// guard: custom — reason` / `// undo: n/a — reason`.
+  2. Independent review of the diff (`/code-review`); fix real findings and re-run step 1.
+  3. Smoke-test changed routes/pages (`next start` on :3100, then stop it).
+  4. The report states what was verified, what review caught, and what is still unverified.
+- **Health**: `npm run health` for the scorecard; plan and reports in `docs/codebase-health/`.
 
 ## Ignore
 Root `patch_*.js`, `current_diff.patch`, `routine-forge-pro.html`, `scratch/` are one-off artifacts, not app code.

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 
 // GET /api/admin/users - List all users with their roles
+// guard: custom — Admin check per handler, plus a first-admin bootstrap when user_roles is empty (audit 2: A-1).
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -141,7 +142,8 @@ export async function POST(req: Request) {
   }
 }
 
-// Shared update handler for PATCH and PUT
+// undo: n/a — auth account changes (password, role) cannot be replayed from a snapshot; role change requires the admin password.
+// Shared update handler for PATCH
 async function handleUpdate(req: Request) {
   try {
     const supabase = await createClient();

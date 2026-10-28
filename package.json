@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "health": "node scripts/health.mjs"
+    "health": "node scripts/health.mjs",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

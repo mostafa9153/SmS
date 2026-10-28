@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-results";
 import type { Semester } from "@/lib/types";
-import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
+import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
     if (!studentId || !className || marksObtained === undefined) {
       return NextResponse.json({ error: "Missing required fields (studentId, class, marksObtained)" }, { status: 400 });
     }
-    const outside = denyOutsideClasses(gate.auth, className);
+    const outside = await denyStudentsOutsideClasses(gate.auth, className, [studentId]);
     if (outside) return outside;
 
     const savedResult = await dbSaveOrUpdateResult(

@@ -83,7 +83,9 @@ const CLASS_OPTIONS = [
 ];
 
 /** `allowedClasses` scopes a Teacher to their classes (empty = all); the API enforces the same rule. */
-export default function ResultsClient({ allowedClasses = [] }: { allowedClasses?: string[] }) {
+const NO_SCOPE: string[] = [];
+
+export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedClasses?: string[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();

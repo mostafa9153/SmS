@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbSaveSubjectBatchMarks, SaveSubjectBatchParams } from "@/lib/supabase/db-results";
-import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
+import { requireStaff } from "@/lib/api/guard";
+import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
 
 // POST /api/results/subject-batch
 export async function POST(req: Request) {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const outside = denyOutsideClasses(gate.auth, className);
+    const outside = await denyStudentsOutsideClasses(gate.auth, className, scores.map((s) => s.studentId));
     if (outside) return outside;
 
     const result = await dbSaveSubjectBatchMarks(

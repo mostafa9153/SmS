@@ -3,14 +3,14 @@
 import { useMemo, useState } from "react";
 import { Plus, RefreshCw, X } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { apiFetch } from "@/lib/api/client";
 import { toastWithUndo } from "@/lib/undo/client";
 import { getSectionsForClass, getSubjectListForClass } from "@/lib/utils/marks-config";
-import { cn } from "@/lib/utils";
+import { CLASS_ORDER, cn } from "@/lib/utils";
 
-const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const ROLE_OPTIONS = [
   { value: "SUBJECT_TEACHER", label: "Subject Teacher" },
   { value: "CLASS_TEACHER", label: "Class Teacher" },
@@ -44,45 +44,40 @@ export function ClassScopePanel({
   const [section, setSection] = useState("ALL");
   const [roleType, setRoleType] = useState("SUBJECT_TEACHER");
   const [subject, setSubject] = useState("");
-  const [busyId, setBusyId] = useState<string | null>(null);
-
   const mine = assignments.filter((a) => (a.teacherId ?? a.teacher_id) === teacherId);
   const sectionOptions = useMemo(() => ["ALL", ...getSectionsForClass(className)], [className]);
   const subjectOptions = useMemo(() => getSubjectListForClass(className), [className]);
 
-  async function add() {
+  // Mutations (not bare apiFetch) so failures also reach the notification bell.
+  const assign = useMutation({
+    mutationFn: () =>
+      apiFetch<{ undoId?: string }>("/api/teachers/classes", {
+        method: "POST",
+        json: { teacherId, className, section, roleType, subject: roleType === "SUBJECT_TEACHER" ? subject : undefined },
+      }),
+    onSuccess: (res) => {
+      toastWithUndo(`Class ${className} assigned`, res.undoId, onChanged);
+      onChanged();
+    },
+    onError: (err) => toast.error(err.message || "Could not assign class"),
+  });
+  const unassign = useMutation({
+    mutationFn: (a: ClassAssignment) =>
+      apiFetch<{ undoId?: string }>(`/api/teachers/classes?id=${encodeURIComponent(a.id)}`, { method: "DELETE" }),
+    onSuccess: (res, a) => {
+      toastWithUndo(`Class ${a.className ?? a.class_name} removed`, res.undoId, onChanged);
+      onChanged();
+    },
+    onError: (err) => toast.error(err.message || "Could not remove class"),
+  });
+  const busy = assign.isPending || unassign.isPending;
+
+  function add() {
     if (roleType === "SUBJECT_TEACHER" && !subject) {
       toast.error("Select a subject");
       return;
     }
-    setBusyId("new");
-    try {
-      const res = await apiFetch<{ undoId?: string }>("/api/teachers/classes", {
-        method: "POST",
-        json: { teacherId, className, section, roleType, subject: roleType === "SUBJECT_TEACHER" ? subject : undefined },
-      });
-      toastWithUndo(`Class ${className} assigned`, res.undoId, onChanged);
-      onChanged();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not assign class");
-    } finally {
-      setBusyId(null);
-    }
-  }
-
-  async function remove(a: ClassAssignment) {
-    setBusyId(a.id);
-    try {
-      const res = await apiFetch<{ undoId?: string }>(`/api/teachers/classes?id=${encodeURIComponent(a.id)}`, {
-        method: "DELETE",
-      });
-      toastWithUndo(`Class ${a.className ?? a.class_name} removed`, res.undoId, onChanged);
-      onChanged();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not remove class");
-    } finally {
-      setBusyId(null);
-    }
+    assign.mutate();
   }
 
   return (
@@ -96,7 +91,7 @@ export function ClassScopePanel({
               setSection("ALL");
               setSubject("");
             }}
-            options={CLASSES.map((c) => ({ value: c, label: `Class ${c}` }))}
+            options={CLASS_ORDER.map((c) => ({ value: c, label: `Class ${c}` }))}
             searchable={false}
           />
           <CustomSelect
@@ -110,8 +105,8 @@ export function ClassScopePanel({
         {roleType === "SUBJECT_TEACHER" && (
           <CustomSelect value={subject} onChange={(v) => setSubject(String(v))} options={subjectOptions} placeholder="Subject" />
         )}
-        <Button type="button" size="sm" className="w-full h-8 text-xs" onClick={add} disabled={busyId !== null}>
-          {busyId === "new" ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        <Button type="button" size="sm" className="w-full h-8 text-xs" onClick={add} disabled={busy}>
+          {assign.isPending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
           Assign
         </Button>
       </div>
@@ -139,13 +134,13 @@ export function ClassScopePanel({
                   </span>
                   <button
                     type="button"
-                    onClick={() => remove(a)}
-                    disabled={busyId !== null}
+                    onClick={() => unassign.mutate(a)}
+                    disabled={busy}
                     title="Remove"
                     aria-label={`Remove Class ${a.className ?? a.class_name}`}
                     className="p-0.5 rounded-md text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 cursor-pointer disabled:opacity-50"
                   >
-                    {busyId === a.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                    {unassign.isPending && unassign.variables?.id === a.id ? <RefreshCw className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
                   </button>
                 </div>
               </div>
