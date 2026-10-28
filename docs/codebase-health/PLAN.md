@@ -55,6 +55,17 @@ Score = প্রতিটা metric-কে 0–10 normalise করে গড়
 - Data fetching: shared query keys + fetch helper (`apiFetch`), shared mutation toast pattern।
 - Gate: jscpd ↓, build, tests।
 
+### ⭐ User rule — Bug & wiring audit: report first, fix after confirm (added 2026-10-28, via forked session)
+প্রতিটা phase / module-এ **আগে report**, user যেগুলো confirm করবেন **শুধু সেগুলো fix**। এই নিয়ম আগের "যা খুশি করো" অনুমতির উপরে প্রাধান্য পাবে।
+
+Report-এ থাকবে:
+1. **Bugs** — UI (কাজ না করা button, ভুল state, layout/print সমস্যা, error handling, dead link) এবং code/logic (ভুল হিসাব, race condition, unhandled error, data bug)।
+2. **UI আছে, backend নেই** — button/form/page এমন API call করে যার route নেই, ভুল shape ফেরত দেয়, বা handler stub/no-op/fake (শুধু local state, `setTimeout` দিয়ে ভুয়া save, TODO)।
+3. **Backend আছে, UI নেই** — API route, `db-*` function, server action যাদের UI-তে কোনো caller নেই (knip + `fetch("/api/...")` grep বনাম `app/api` route list)।
+
+Method: route map বানানো — app/components/lib-এর প্রতিটা fetch/useQuery URL + method বনাম প্রতিটা `app/api/**/route.ts`-এর exported method; দুই দিকেই diff; তারপর module ধরে হাতে যাচাই।
+প্রতিটা finding: `file:line` · কী ভুল · user-এর উপর প্রভাব · প্রস্তাবিত fix · ঝুঁকি — table আকারে। User confirm না করা পর্যন্ত code বদলানো হবে না।
+
 ### ⭐ User requirement — Shared component consolidation (added 2026-10-28, via forked session)
 User-এর কথা: শুধু dropdown নয় — **যেকোনো বারবার লেখা UI একটাই shared component হবে**। ভালো করার জন্য বিদ্যমান code ভেঙে নতুন করে লেখা অনুমোদিত; UI এক রকম (uniform) হয়ে যাওয়া গ্রহণযোগ্য।
 
