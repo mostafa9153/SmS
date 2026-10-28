@@ -21,7 +21,6 @@ import { OCCUPATION_OPTIONS, MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constan
 import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { toastWithUndo } from "@/lib/undo/client";
-import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
 
 const studentSchema = z.object({
   // Identity
@@ -1426,3 +1425,52 @@ export default function EditStudentPage() {
   );
 }
 
+function FormSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-5 space-y-4 shadow-sm">
+      <p className="text-sm font-semibold border-b pb-3 text-foreground">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function FormGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">{children}</div>
+  );
+}
+
+function FormField({
+  label,
+  error,
+  children,
+  full,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+  full?: boolean;
+}) {
+  return (
+    <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
+      <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+        {label}
+      </label>
+      <div
+        className={`[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-base sm:[&>input]:text-sm [&>input]:h-11 sm:[&>input]:h-9 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-ring
+          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-base sm:[&>select]:text-sm [&>select]:h-11 sm:[&>select]:h-9 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-ring
+          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-base sm:[&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-ring [&>textarea]:resize-none
+          ${error ? "[&>input]:border-destructive [&>select]:border-destructive [&>textarea]:border-destructive" : ""}`}
+      >
+        {children}
+      </div>
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+    </div>
+  );
+}
