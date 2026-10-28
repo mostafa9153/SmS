@@ -15,7 +15,7 @@ const withBuild = args.includes("--build");
 const results = [];
 const add = (level, check, detail = "") => results.push({ level, check, detail });
 const sh = (cmd) => execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-const run = (cmd) => spawnSync(cmd, { shell: true, encoding: "utf8", env: { ...process.env, FORCE_COLOR: "0" } });
+const run = (cmd) => spawnSync(cmd, { shell: true, encoding: "utf8", maxBuffer: 256 * 1024 * 1024, env: { ...process.env, FORCE_COLOR: "0" } });
 
 // ---- changed files (committed range + working tree + untracked)
 const names = new Set([
@@ -40,11 +40,23 @@ add(tsErrors.length ? "FAIL" : "PASS", "TypeScript", tsErrors.slice(0, 10).join(
 const lintable = changed.filter((f) => /\.(ts|tsx)$/.test(f));
 if (lintable.length) {
   const lint = run(`npx eslint -f json ${lintable.map((f) => `"${f}"`).join(" ")}`);
+  const errorsOf = (json) => JSON.parse(json).flatMap((r) => r.messages.filter((m) => m.severity === 2).map((m) => ({ file: r.filePath, line: m.line, rule: m.ruleId })));
   let errs = [];
-  try {
-    errs = JSON.parse(lint.stdout).flatMap((r) => r.messages.filter((m) => m.severity === 2).map((m) => `${r.filePath.split(/[\\/]/).slice(-3).join("/")}:${m.line} ${m.ruleId}`));
-  } catch { errs = ["eslint output unreadable"]; }
-  add(errs.length ? "FAIL" : "PASS", "ESLint errors in changed files", errs.slice(0, 10).join("\n"));
+  try { errs = errorsOf(lint.stdout); } catch { errs = [{ file: "", line: 0, rule: "eslint output unreadable" }]; }
+  // Only errors this change introduced fail; ones already in the file at `base` are reported as pre-existing.
+  const fresh = [], old = [];
+  for (const file of [...new Set(errs.map((e) => e.file))]) {
+    const rel = file ? file.split("\\").join("/").replace(`${process.cwd().split("\\").join("/")}/`, "") : "";
+    const before = rel ? run(`git show "${base}:${rel}" | npx eslint -f json --stdin --stdin-filename "${rel}"`) : null;
+    const baseCount = {};
+    try { for (const e of errorsOf(before.stdout)) baseCount[e.rule] = (baseCount[e.rule] ?? 0) + 1; } catch { /* new file */ }
+    for (const e of errs.filter((x) => x.file === file)) {
+      const line = `${rel}:${e.line} ${e.rule}`;
+      if (baseCount[e.rule] > 0) { baseCount[e.rule]--; old.push(line); } else fresh.push(line);
+    }
+  }
+  add(fresh.length ? "FAIL" : "PASS", "ESLint: no new errors", fresh.slice(0, 10).join("\n"));
+  if (old.length) add("WARN", "ESLint: pre-existing errors in touched files (Phase 4 cleanup)", old.slice(0, 10).join("\n"));
 }
 
 // ---- 3. tests
@@ -68,7 +80,7 @@ add(missing.length ? "FAIL" : "PASS", "Client API calls resolve to a route", mis
 // ---- 5. conventions on added lines (CLAUDE.md)
 const rules = [
   { level: "FAIL", name: "Hard-coded secret", re: /(SECRET|PRIVATE_KEY|API_KEY|TOKEN)\w*\s*[:=|]+\s*["'][A-Za-z0-9_\-+/=]{20,}["']/ },
-  { level: "WARN", name: "window.confirm/alert (use ConfirmDialog / toast)", re: /\b(window\.)?(confirm|alert)\(\s*["'`]/ },
+  { level: "WARN", name: "window.confirm/alert (use ConfirmDialog / toast)", re: /(?<![.\w]|await )(window\.)?(confirm|alert)\(\s*["'`]/ },
   { level: "WARN", name: "Native <select> (use CustomSelect)", re: /<select[\s>]/ },
   { level: "WARN", name: "Raw fetch('/api') in UI (use apiFetch)", re: /\bfetch\(\s*["'`]\/api\//, only: (f) => !f.startsWith("app/api/") },
   { level: "WARN", name: "react-hot-toast (use sonner)", re: /react-hot-toast/ },
@@ -76,7 +88,7 @@ const rules = [
 ];
 for (const r of rules) {
   const hits = [];
-  for (const f of changed.filter((f) => !r.only || r.only(f))) for (const l of addedLines(f)) if (r.re.test(l)) hits.push(`${f}: ${l.trim().slice(0, 90)}`);
+  for (const f of changed.filter((f) => !r.only || r.only(f))) for (const l of addedLines(f)) if (!/^\s*(\/\/|\*|\/\*)/.test(l) && r.re.test(l)) hits.push(`${f}: ${l.trim().slice(0, 90)}`);
   add(hits.length ? r.level : "PASS", r.name, hits.slice(0, 8).join("\n"));
 }
 

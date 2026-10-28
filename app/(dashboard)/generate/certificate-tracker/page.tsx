@@ -39,8 +39,10 @@ import {
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
 import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config-loader";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export default function CertificateTrackerPage() {
+  const confirm = useConfirm();
   // Verification State
   const [verifyTerm, setVerifyTerm] = useState("");
   const [isVerifying, startVerifyTransition] = useTransition();
@@ -247,7 +249,7 @@ export default function CertificateTrackerPage() {
         ? `Cancel Certificate ${cert.certificate_no}? It will be marked as invalid.`
         : `Re-validate Certificate ${cert.certificate_no}?`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!await confirm(confirmMsg)) return;
 
     try {
       await fetch(`/api/certificates/${cert.id}`, {

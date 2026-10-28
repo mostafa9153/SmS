@@ -66,6 +66,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { showToast } from "@/components/ui/toast-banner";
 import type { TeacherPermissions } from "@/lib/types/teacher";
 import { DataTableSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const ALL_SECTIONS = ["ALL", "A", "B", "C", "D"];
@@ -181,6 +182,7 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
 const VALID_TEACHER_TABS = ["accounts", "tasks", "performance"] as const;
 
 function AdminTeacherManagementContent() {
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as any;
   const initialTab = tabParam && VALID_TEACHER_TABS.includes(tabParam) ? tabParam : "accounts";
@@ -523,7 +525,7 @@ function AdminTeacherManagementContent() {
 
   // Delete Task
   const handleDeleteTask = async (taskId: string) => {
-    if (!confirm("Are you sure you want to delete this task?")) return;
+    if (!await confirm({ title: "Are you sure you want to delete this task?", destructive: true })) return;
     try {
       const res = await fetch(`/api/teachers/tasks?id=${taskId}`, { method: "DELETE" });
       const data = await res.json();

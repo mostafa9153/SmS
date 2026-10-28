@@ -32,6 +32,7 @@ School Management System: Next.js 16 (App Router, Turbopack) + React 19, Supabas
 - **Toasts**: `toast` from `sonner` (mounted in `app/layout.tsx`).
 - **Drafts**: forms that must survive a refresh use a scoped key (`lib/admission/form-draft.ts` pattern), never a shared localStorage key.
 - **UI**: one dropdown (`components/ui/custom-select`), route-level `loading.tsx` skeletons (`components/ui/page-skeletons`), heavy libraries (exceljs, xlsx, docx, recharts, jsqr) loaded with dynamic `import()` / `next/dynamic`.
+- **Shared UI (never re-implement locally)**: `PageHeader`, `StatCard`, `EmptyState`, `Spinner`, `SearchInput`, `FilterSelect` (toolbar pills) in `components/ui/`; `useConfirm()` (`components/ui/confirm-dialog`, mounted in `app/layout.tsx`) instead of `window.confirm`; `FormSection`/`FormGrid`/`FormField` in `components/forms/form-layout`; `ChartTooltip` in `components/dashboard/chart-tooltip`. Extend a shared component with a prop rather than copying it.
 - **Verification gate (every task, before commit)**:
   1. `npm run verify` (add `-- --build` for UI/route changes): types, lint errors, tests, every client `/api` call resolves to a route, no hard-coded secrets, guard + undo on API routes, convention slips. FAIL blocks the commit; a WARN is fixed or justified with `// guard: custom — reason` / `// undo: n/a — reason`.
   2. Independent review of the diff (`/code-review`); fix real findings and re-run step 1.

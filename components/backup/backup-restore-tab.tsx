@@ -41,8 +41,10 @@ import {
 import { showToast } from "@/components/ui/toast-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BackupFrequency, DriveBackupFile, GoogleAccountInfo, RestorePreview } from "@/lib/backup/types";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function BackupRestoreTab() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -524,8 +526,8 @@ export function BackupRestoreTab() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to disconnect Google Drive? Your existing files in Drive will not be deleted.")) {
+                      onClick={async () => {
+                        if (await confirm({ title: "Are you sure you want to disconnect Google Drive? Your existing files in Drive will not be deleted.", destructive: true })) {
                           disconnectMutation.mutate();
                         }
                       }}

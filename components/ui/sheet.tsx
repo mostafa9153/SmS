@@ -4,11 +4,12 @@ import * as React from "react"
 import { Dialog as SheetPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
+import { keepOpenDuringConfirm } from "@/components/ui/confirm-guard"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
-function Sheet({ ...props }: SheetPrimitive.Root.Props) {
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+function Sheet({ onOpenChange, ...props }: SheetPrimitive.Root.Props) {
+  return <SheetPrimitive.Root data-slot="sheet" onOpenChange={keepOpenDuringConfirm(onOpenChange)} {...props} />
 }
 
 function SheetTrigger({ ...props }: SheetPrimitive.Trigger.Props) {

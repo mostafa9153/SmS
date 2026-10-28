@@ -24,6 +24,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface StaffSignatureModalProps {
   isOpen: boolean;
@@ -44,6 +45,7 @@ export function StaffSignatureModal({
   onSignatureSaved,
   onSignatureRemoved,
 }: StaffSignatureModalProps) {
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<"upload" | "draw">("upload");
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -245,7 +247,7 @@ export function StaffSignatureModal({
 
   // Remove handler
   const handleRemove = async () => {
-    if (!window.confirm(`Are you sure you want to remove the signature for ${staffName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the signature for ${staffName}?`, destructive: true })) {
       return;
     }
 

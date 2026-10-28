@@ -113,6 +113,7 @@ import {
   MissingHsRegistrationDialog,
 } from "@/components/ems/auto-allocation-wizard";
 import { StudentRosterDialog } from "@/components/ems/student-roster-dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Sort class groups strictly in consecutive order: 5, 6, 7, 8, 9, 10, 11, 12 (V..XII)
 const sortClassGroups = (groups: ClassGroupConfig[]): ClassGroupConfig[] => {
@@ -649,6 +650,7 @@ const STEPS: StepItem[] = [
 ];
 
 function EmsMasterPageContent() {
+  const confirm = useConfirm();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useSchoolProfile();
@@ -1879,7 +1881,7 @@ function EmsMasterPageContent() {
       if (baseD.getDay() === 0) baseD.setDate(baseD.getDate() + 1);
     }
 
-    let currD = new Date(baseD.getTime());
+    const currD = new Date(baseD.getTime());
     const updated = list.map((item, i) => {
       if (i === 0) {
         const dStr = formatLocalDate(currD);
@@ -2652,7 +2654,7 @@ function EmsMasterPageContent() {
                           variant="ghost"
                           onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm("Are you sure you want to delete this saved seating plan?")) {
+                            if (await confirm({ title: "Are you sure you want to delete this saved seating plan?", destructive: true })) {
                               await deleteAllocation(plan.id);
                               const remaining = getSavedAllocations();
                               setSavedAllocations(remaining);

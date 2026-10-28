@@ -96,6 +96,7 @@ import {
   groupTeacherLoad,
   formatDemandBreakdown,
 } from "@/lib/routine/routine-domain";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Re-export helpers for backward compatibility
 export {
@@ -2038,6 +2039,7 @@ const GroupSubjectRow = React.memo(function GroupSubjectRow({
   onEdit,
   onDelete,
 }: GroupSubjectRowProps) {
+  const confirm = useConfirm();
   const first = members[0];
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `group:${group.id}`,
@@ -2139,8 +2141,8 @@ const GroupSubjectRow = React.memo(function GroupSubjectRow({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                if (confirm(`Delete group "${group.name}"? Its subjects will show as separate rows again.`)) {
+              onClick={async () => {
+                if (await confirm({ title: `Delete group "${group.name}"? Its subjects will show as separate rows again.`, destructive: true })) {
                   void onDelete(group.id);
                 }
               }}

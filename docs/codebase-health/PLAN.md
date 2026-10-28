@@ -190,5 +190,5 @@ Re-admission-এ একজন ছাত্র select করে back গিয়
 | 0 | ✅ Done (2.9 → 3.2) |
 | 1 | ✅ Done (2.9 → 4.8) + 1b teacher permissions |
 | 2 | ✅ Done (4.8 → 5.5) |
-| 3 | 🟡 In progress — 3a bell ✅ · 3b public link ✅ · 3c re-admission ✅ · 3d speed ✅ (partial) · 3e undo ✅ (infra + 3 actions) · audit 1 ✅ fixed W1–W6 (5.8) |
+| 3 | 🟡 In progress — 3a bell ✅ · 3b public link ✅ · 3c re-admission ✅ · 3d speed ✅ (partial) · 3e undo ✅ (infra + 3 actions) · audit 1 ✅ fixed W1–W6 (5.8) · verification gate ✅ · 3f part 1 ✅ shared components (5.9) |
 | 1–4 | ⏳ |

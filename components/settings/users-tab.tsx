@@ -21,6 +21,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getCurrentUserRole } from "@/lib/data/students";
 import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface UserProfile {
   id: string;
@@ -31,6 +32,7 @@ interface UserProfile {
 }
 
 export function UsersTab() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -221,8 +223,8 @@ export function UsersTab() {
     });
   };
 
-  const handleDeleteUser = (userId: string, email: string) => {
-    if (window.confirm(`Are you sure you want to delete user account: ${email}? This action is irreversible.`)) {
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (await confirm({ title: `Are you sure you want to delete user account: ${email}? This action is irreversible.`, destructive: true })) {
       deleteUserMutation.mutate(userId);
     }
   };

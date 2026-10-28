@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ExternalLink,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface RoutineHistorySectionProps {
   onSelectRoutine?: (routine: GeneratedRoutine) => void;
@@ -35,6 +36,7 @@ export function RoutineHistorySection({
   onSelectRoutine,
   lastGeneratedTime,
 }: RoutineHistorySectionProps) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [history, setHistory] = useState<RoutineHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,7 +76,7 @@ export function RoutineHistorySection({
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this routine from history?")) {
+    if (!await confirm({ title: "Are you sure you want to delete this routine from history?", destructive: true })) {
       return;
     }
     setDeletingId(id);

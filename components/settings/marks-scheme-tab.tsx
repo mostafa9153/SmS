@@ -56,8 +56,10 @@ import {
 } from "@/lib/routine/routine-sync";
 import { detectSubjectStream } from "@/lib/routine/routine-helpers";
 import { STANDARD_HS_STREAMS } from "@/lib/utils/school-profile";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export function MarksSchemeTab() {
+  const confirm = useConfirm();
   const [marksSchemes, setMarksSchemes] = useState<ClassMarksScheme[]>(DEFAULT_MARKS_SCHEMES);
   const [editingScheme, setEditingScheme] = useState<ClassMarksScheme | null>(null);
   const [editSchemeSubjectCount, setEditSchemeSubjectCount] = useState<number>(5);
@@ -234,8 +236,8 @@ export function MarksSchemeTab() {
     });
   };
 
-  const handleResetDefaultSchemes = () => {
-    if (window.confirm("Reset all class marks evaluation schemes to standard WBBSE & WBCHSE defaults?")) {
+  const handleResetDefaultSchemes = async () => {
+    if (await confirm("Reset all class marks evaluation schemes to standard WBBSE & WBCHSE defaults?")) {
       setMarksSchemes(DEFAULT_MARKS_SCHEMES);
       saveMarksSchemes(DEFAULT_MARKS_SCHEMES);
       showToast({

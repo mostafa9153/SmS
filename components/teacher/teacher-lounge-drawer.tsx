@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { showToast } from "@/components/ui/toast-banner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 export interface TeacherChatMessage {
   id: string;
@@ -178,6 +179,7 @@ export function TeacherLoungeDrawer({
   currentStaff,
   onUnreadChange,
 }: TeacherLoungeDrawerProps) {
+  const confirm = useConfirm();
   const supabase = createClient();
   const [mounted, setMounted] = useState(false);
 
@@ -542,7 +544,7 @@ export function TeacherLoungeDrawer({
   };
 
   const handleDeleteMessage = async (msgId: string) => {
-    if (!confirm("Delete this message for everyone?")) return;
+    if (!await confirm({ title: "Delete this message for everyone?", destructive: true })) return;
     try {
       const res = await fetch(`/api/teachers/chat/${msgId}`, {
         method: "DELETE",

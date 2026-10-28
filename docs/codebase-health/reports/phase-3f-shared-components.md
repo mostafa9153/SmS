@@ -1,0 +1,48 @@
+# Phase 3f (part 1) — Verification gate + shared components
+
+Date: 2026-10-28 · Branch: `refactor/codebase-health` · Score 5.8 → **5.9 / 10** · Tests 48 → **59** · Build ✅
+
+## 1. Verification gate (new, permanent)
+প্রতিটা task শেষে, commit-এর আগে — `CLAUDE.md`-এ নিয়ম হিসেবে লেখা।
+
+| ধাপ | কী ধরে |
+|---|---|
+| `npm run verify` (`scripts/verify.mjs`) | TypeScript · **নতুন** lint error (পুরনোগুলো আলাদা দেখায়) · সব test · UI-র প্রতিটা `/api` call-এর route আছে কিনা (route মুছলে ধরা পড়ে) · hard-coded secret · API route-এ guard ও undo · `window.confirm`, native `<select>`, raw `fetch`, `console.log` · `--build`-এ production build |
+| Independent review (`/code-review`) | Diff নতুন চোখে পড়া — logic bug, মুছে যাওয়া আচরণ, caller ভাঙা, convention |
+| Smoke / browser check | পরিবর্তিত route ও UI আসলে চালিয়ে দেখা |
+| Report | কী যাচাই হলো, review কী ধরল, কী যাচাই হয়নি |
+
+### Gate প্রথম দিনেই যা ধরেছে (আমার নিজের ভুল)
+| কোথায় | ভুল | এখন |
+|---|---|---|
+| Audit-1 fix (W2) | Teacher body-তে "IX" লিখে **অন্য class-এর ছাত্রের ID** পাঠালে marks বসাতে পারতেন — শুধু class-এর নাম যাচাই হচ্ছিল | প্রতিটা ছাত্রের আসল class DB থেকে যাচাই (`denyStudentsOutsideClasses`) + ৪টা test |
+| Push toggle | Server-এ save fail হলেও browser "চালু" দেখাত; পুরনো key-র subscription কাজ করত না | Fail হলে rollback; key বদলালে নতুন subscribe |
+| `teachers/absence` | Role ছাড়া login করা কেউ absence জমা দিতে পারত | `requireRole()` |
+| এই phase-এর confirm dialog | Modal-এর ভেতর থেকে confirm চাইলে **Cancel চাপলে পেছনের modal-ও বন্ধ হয়ে যেত** (browser-এ reproduce করা) | Dialog/Sheet confirm চলাকালীন নিজে বন্ধ হয় না — Delete/Cancel/Escape তিনভাবেই browser-এ যাচাই |
+| এই phase-এর search box | Debounce চলাকালীন "Clear filters" দিলে পুরনো লেখা ফিরে আসত | ঠিক |
+| এই phase-এর confirm migration | `routine-subjects-tab`-এ hook ভুল component-এ বসেছিল | ঠিক (tsc ধরেছিল) |
+
+## 2. Shared components
+| Component | কোথায় | আগে | এখন |
+|---|---|---|---|
+| `FormSection` / `FormGrid` / `FormField` | `components/forms/form-layout.tsx` | ৩টা আলাদা copy, ৩ রকম style | ১টা; mobile-এ `text-base` (iPhone-এ zoom হয় না) |
+| `FilterSelect` | `components/ui/filter-select.tsx` | results ও student filters-এ ২টা copy (~২২০ লাইন) | ১টা; Escape-এ বন্ধ, screen-reader label |
+| `useConfirm()` | `components/ui/confirm-dialog.tsx` | ২০টা browser `confirm()` popup (১৬ file) | App-এর নিজস্ব dialog; delete-এ লাল button |
+| `ChartTooltip` | `components/dashboard/chart-tooltip.tsx` | ৩টা copy | ১টা |
+| `PageHeader`, `StatCard`, `EmptyState`, `SearchInput`, `Spinner` | `components/ui/` | ৭৪ / ২৭ / ৩৪ / ৩৫ / ৩৮টা হাতে লেখা copy | তৈরি; **Sports page-এ pilot** (−৩৯ +২২ লাইন) |
+
+৭টা render test (`tests/unit/shared-ui.test.tsx`)। নিয়ম `CLAUDE.md`-এ: "shared component কখনো local-এ নতুন করে লেখা যাবে না"।
+
+## যাচাই
+| Check | ফল |
+|---|---|
+| `npm run verify -- --build` | PASS (০ fail; ২টা পুরনো lint error touched file-এ — Phase 4) |
+| Tests | 59/59 |
+| Browser | Confirm-inside-modal: Delete ✅ Cancel ✅ Escape ✅; guard ছাড়া bug reproduce ✅ |
+| Code review | ৬ finding → ৪ fixed, ২ রাখা (Spinner এখনো ব্যবহার হয়নি — module migration-এ হবে; gate-এর lint একটু ধীর) |
+
+## যাচাই হয়নি
+Login লাগে এমন page (student/employee edit form-এর নতুন layout, results/student filter, settings-এর confirm) চোখে দেখা হয়নি — test account নেই। Style একটু বদলেছে (uniform), কাজ বদলায়নি।
+
+## পরের ধাপ
+বাকি copy-গুলো (PageHeader ৭৩, EmptyState ৩৩, SearchInput ৩৪, StatCard ২৬, Spinner ৩৮, DataTable ৩৯, Pagination ১৯, PrintShell ~২৯, dropdown ৯৩) module ধরে ধরে migrate — Phase 3.0–3.6-এর সাথে।

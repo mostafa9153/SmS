@@ -29,6 +29,7 @@ import { SubjectMultiSelect } from "@/components/employees/subject-multi-select"
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -765,59 +766,3 @@ export function EmployeeEditForm({
   );
 }
 
-// ── Shared Clean Form Layout Helpers (Identical UX to Student Edit) ──────────
-
-function FormSection({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 space-y-4 shadow-xs">
-      <div className="flex items-center gap-2 border-b border-border/70 pb-3">
-        {icon}
-        <p className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-          {title}
-        </p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function FormGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      {children}
-    </div>
-  );
-}
-
-function FormField({
-  label,
-  children,
-  full,
-}: {
-  label: string;
-  children: React.ReactNode;
-  full?: boolean;
-}) {
-  return (
-    <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
-      <label className="block text-xs font-semibold text-foreground mb-1.5">
-        {label}
-      </label>
-      <div
-        className="[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:border-input [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-xs sm:[&>input]:text-sm [&>input]:h-10 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-primary/20 [&>input]:transition-all
-          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:border-input [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-xs sm:[&>select]:text-sm [&>select]:h-10 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-primary/20 [&>select]:transition-all
-          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:border-input [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-xs sm:[&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-primary/20 [&>textarea]:resize-none"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}

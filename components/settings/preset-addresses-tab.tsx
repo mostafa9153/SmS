@@ -74,6 +74,7 @@ import { Receipt, GraduationCap, Award } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SettingsBackButton } from "./settings-back-button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 function InfoTooltip({ content }: { content: React.ReactNode }) {
   return (
@@ -195,6 +196,7 @@ const SYSTEM_PRESET_ITEMS: PresetItemConfig[] = [
 const ALL_PRESET_ITEMS = [...ACADEMIC_PRESET_ITEMS, ...SYSTEM_PRESET_ITEMS];
 
 export function PresetAddressesTab() {
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const sectionParam = (searchParams.get("section") || searchParams.get("tab")) as PresetSection;
   const initialSection = sectionParam && VALID_PRESET_SECTIONS.includes(sectionParam) ? sectionParam : "defaults";
@@ -301,33 +303,33 @@ export function PresetAddressesTab() {
   };
 
   // Reset to Defaults
-  const handleResetDefaults = () => {
+  const handleResetDefaults = async () => {
     if (activeSection === "defaults") {
-      if (confirm("Reset Student Entry Defaults to system initial defaults?")) {
+      if (await confirm("Reset Student Entry Defaults to system initial defaults?")) {
         setStudentPresets(DEFAULT_STUDENT_ENTRY_PRESETS);
         saveStudentEntryPresetsToDb(DEFAULT_STUDENT_ENTRY_PRESETS);
         showToast({ title: "Reset student entry defaults", type: "info" });
       }
     } else if (activeSection === "address") {
-      if (confirm("Reset all address presets (Villages, P.O, P.S, Districts) to defaults?")) {
+      if (await confirm("Reset all address presets (Villages, P.O, P.S, Districts) to defaults?")) {
         setAddressConfig(DEFAULT_ADDRESS_PRESETS_CONFIG);
         saveAddressPresetsConfigToDb(DEFAULT_ADDRESS_PRESETS_CONFIG);
         showToast({ title: "Reset address presets to defaults", type: "info" });
       }
     } else if (activeSection === "bank") {
-      if (confirm("Reset local bank & IFSC presets to defaults?")) {
+      if (await confirm("Reset local bank & IFSC presets to defaults?")) {
         setBankPresets(DEFAULT_BANK_PRESETS);
         saveBankPresetsToDb(DEFAULT_BANK_PRESETS);
         showToast({ title: "Reset bank presets to defaults", type: "info" });
       }
     } else if (activeSection === "school") {
-      if (confirm("Reset feeder / previous school presets to defaults?")) {
+      if (await confirm("Reset feeder / previous school presets to defaults?")) {
         setSchoolPresets(DEFAULT_SCHOOL_PRESETS);
         saveSchoolPresetsToDb(DEFAULT_SCHOOL_PRESETS);
         showToast({ title: "Reset school presets to defaults", type: "info" });
       }
     } else if (activeSection === "ai") {
-      if (confirm("Reset AI configuration to defaults (Google Gemini 1.5 Flash)?")) {
+      if (await confirm("Reset AI configuration to defaults (Google Gemini 1.5 Flash)?")) {
         setAiProvider("gemini");
         setAiModel("gemini-1.5-flash");
         setAiApiKey("");

@@ -38,6 +38,7 @@ import {
   validateGroups,
 } from "@/lib/routine/routine-groups";
 import { isPooledGroup } from "@/lib/routine/routine-domain";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -215,6 +216,7 @@ export function RoutineGroupsTab({
   onSaveGroup,
   onDeleteGroup,
 }: RoutineGroupsTabProps) {
+  const confirm = useConfirm();
   const [filterClass, setFilterClass] = useState<string>("");
   const [filterStream, setFilterStream] = useState<string>("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -266,7 +268,7 @@ export function RoutineGroupsTab({
     async (id: string) => {
       const g = groups.find((x) => x.id === id);
       if (!g) return;
-      if (!confirm(`Delete group "${g.name}"? Members will lose this parallel block.`)) return;
+      if (!await confirm({ title: `Delete group "${g.name}"? Members will lose this parallel block.`, destructive: true })) return;
       await onDeleteGroup(id);
       showToast({ type: "success", title: "Group deleted", description: g.name });
     },

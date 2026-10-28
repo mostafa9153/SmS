@@ -49,6 +49,7 @@ import {
 import {
   getClassStreamList,
 } from "@/lib/utils/school-profile";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 // Interface for Class Item
 export interface ClassItem {
@@ -192,6 +193,7 @@ export const DEFAULT_CLASSES: ClassItem[] = [
 ];
 
 export function ClassManagementTab() {
+  const confirm = useConfirm();
   const [classes, setClasses] = useState<ClassItem[]>(DEFAULT_CLASSES);
   const [staffList, setStaffList] = useState<{ id: string; full_name: string; designation?: string }[]>([]);
   const [isAddClassOpen, setIsAddClassOpen] = useState(false);
@@ -896,8 +898,8 @@ export function ClassManagementTab() {
     setEditingClass(null);
   };
 
-  const handleDeleteClass = (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to remove ${name} from class management?`)) {
+  const handleDeleteClass = async (id: string, name: string) => {
+    if (await confirm({ title: `Are you sure you want to remove ${name} from class management?`, destructive: true })) {
       const updated = classes.filter((c) => c.id !== id);
       updateAndSyncClasses(updated);
       showToast({

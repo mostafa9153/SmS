@@ -5,6 +5,7 @@ import { QueryProvider } from "@/lib/query-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastContainer } from "@/components/ui/toast-banner";
 import { Toaster } from "sonner";
+import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { NotificationProvider } from "@/lib/stores/notification-store";
 import { TopProgressBar } from "@/components/ui/top-progress-bar";
 
@@ -80,7 +81,7 @@ export default function RootLayout({
         <QueryProvider>
           <NotificationProvider>
             <TooltipProvider>
-              {children}
+              <ConfirmProvider>{children}</ConfirmProvider>
               <ToastContainer />
               {/* sonner toasts (incl. Undo actions); 21 files call toast() from "sonner" */}
               <Toaster position="top-center" richColors closeButton theme="system" />

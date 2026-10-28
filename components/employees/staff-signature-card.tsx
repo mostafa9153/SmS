@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { StaffSignatureModal } from "./staff-signature-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface StaffSignatureCardProps {
   staffId: string;
@@ -23,6 +24,7 @@ export function StaffSignatureCard({
   onSignatureUpdated,
   className,
 }: StaffSignatureCardProps) {
+  const confirm = useConfirm();
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(signatureUrl || undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -42,7 +44,7 @@ export function StaffSignatureCard({
   };
 
   const handleRemoveSignature = async () => {
-    if (!window.confirm(`Are you sure you want to remove the signature for ${staffName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the signature for ${staffName}?`, destructive: true })) {
       return;
     }
 

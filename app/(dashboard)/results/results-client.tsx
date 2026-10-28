@@ -61,6 +61,7 @@ import {
 } from "@/lib/utils/marks-config";
 import { normalizeSubjectName } from "@/lib/utils/marksheet-calc";
 import { StatusBadge } from "@/components/students/status-badge";
+import { FilterSelect } from "@/components/ui/filter-select";
 
 function sanitizeScoreInput(val: string, maxMarks: number): string {
   if (val === "" || val === undefined || val === null) return "";
@@ -915,7 +916,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
             onChange={handleSelectSubject}
             placeholder="Subject"
             options={classSubjects.map((s) => ({ label: s, value: s }))}
-            isPrimaryHighlight
+            highlight
           />
         </div>
       </div>
@@ -1982,100 +1983,3 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
 
 // ----------------------------------------------------------------------------
 // Reusable FilterSelect Helper Component (Matching StudentFiltersBar Exactly)
-// ----------------------------------------------------------------------------
-function FilterSelect({
-  value,
-  onChange,
-  placeholder,
-  options,
-  isPrimaryHighlight = false,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  options: { label: string; value: string }[];
-  isPrimaryHighlight?: boolean;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((o) => String(o.value) === String(value));
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 outline-none select-none cursor-pointer shadow-2xs",
-          isPrimaryHighlight
-            ? "border-primary/60 bg-primary/10 text-primary font-bold ring-1 ring-primary/30 shadow-xs"
-            : value
-            ? "border-primary/40 bg-primary/5 text-foreground font-semibold"
-            : "border-border/90 bg-card hover:bg-background text-foreground/80 hover:text-foreground hover:border-primary/40 hover:shadow-xs",
-          isOpen && "ring-2 ring-primary/25 border-primary shadow-xs"
-        )}
-      >
-        <span suppressHydrationWarning className="truncate max-w-[170px]">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 transition-transform duration-200 shrink-0 ml-0.5",
-            isOpen ? "rotate-180 text-primary" : "text-muted-foreground/80"
-          )}
-        />
-      </button>
-
-      {/* Floating Animated Popover */}
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-[220px] sm:w-[260px] rounded-2xl border border-border/90 bg-popover text-popover-foreground p-2 shadow-2xl z-[100] animate-in fade-in-0 zoom-in-95 duration-150">
-          <div className="px-2.5 py-1.5 mb-1.5 border-b border-border/60 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 rounded-xl">
-            <span>{placeholder}</span>
-          </div>
-
-          <div className="max-h-[260px] overflow-y-auto pr-1 space-y-1 custom-scrollbar">
-            {options.map((opt) => {
-              const isSelected = String(opt.value) === String(value);
-              return (
-                <button
-                  key={String(opt.value)}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
-                    isSelected
-                      ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                      : "text-foreground hover:bg-primary/10 hover:text-primary"
-                  )}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-primary-foreground shrink-0 ml-1.5" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

@@ -6,11 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { SportsEvent, SportsParticipant } from "@/lib/sports/types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trophy, Plus, Users, Printer, Medal, Search, Edit2, Trash2, Sliders, ClipboardCheck, ListChecks, X } from "lucide-react";
+import { Trophy, Plus, Users, Printer, Medal, Edit2, Trash2, Sliders, ClipboardCheck, ListChecks, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSportsConfig } from "@/lib/sports/use-sports-config";
 import {
@@ -24,6 +22,10 @@ import {
 } from "@/lib/sports/use-sports-events";
 import { SportsRulesModal } from "@/components/sports/sports-rules-modal";
 import { SportsEventFormDialog } from "@/components/sports/sports-event-form-dialog";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const CATEGORIES = ["All", "Track", "Field", "Fun", "Team"] as const;
 
@@ -109,16 +111,12 @@ export default function SportsDashboardPage() {
 
   return (
     <div className="p-3 sm:p-5 md:p-6 space-y-4 max-w-7xl mx-auto pb-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
-            <Trophy className="h-5 w-5" />
-          </div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Sports & Athletics</h1>
-        </div>
-
-        <div className="grid grid-cols-3 sm:flex items-center gap-2">
+      <PageHeader
+        icon={Trophy}
+        title="Sports & Athletics"
+        actionsClassName="grid grid-cols-3 sm:flex"
+        actions={
+          <>
           <Button
             variant="outline"
             size="sm"
@@ -144,38 +142,20 @@ export default function SportsDashboardPage() {
             <span className="sm:hidden">New</span>
             <span className="hidden sm:inline">New Event</span>
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {stats.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.label} className="rounded-2xl px-3.5 py-3 border shadow-2xs flex-row items-center gap-3">
-              <div className="p-2 rounded-xl bg-muted/60 shrink-0">
-                <Icon className={cn("h-4 w-4", s.color)} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-lg sm:text-xl font-black leading-none">{s.value}</div>
-                <div className="text-[11px] font-semibold text-muted-foreground mt-1 truncate">{s.label}</div>
-              </div>
-            </Card>
-          );
-        })}
+        {stats.map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} iconClassName={s.color} />
+        ))}
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 bg-card p-2.5 rounded-2xl border shadow-2xs">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 text-sm rounded-xl"
-          />
-        </div>
+        <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search events..." className="flex-1 min-w-0" />
 
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar">
@@ -220,9 +200,11 @@ export default function SportsDashboardPage() {
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="border border-dashed rounded-2xl p-10 text-center text-sm text-muted-foreground space-y-3">
-          <p>{hasFilters ? "No events match these filters." : "No events yet."}</p>
-          {hasFilters ? (
+        <EmptyState
+          icon={Trophy}
+          className="border border-dashed rounded-2xl"
+          title={hasFilters ? "No events match these filters." : "No events yet."}
+          action={hasFilters ? (
             <Button
               variant="outline"
               size="sm"
@@ -242,7 +224,7 @@ export default function SportsDashboardPage() {
               New Event
             </Button>
           )}
-        </div>
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredEvents.map((event) => {
