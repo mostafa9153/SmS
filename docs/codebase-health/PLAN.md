@@ -97,5 +97,6 @@ Score = প্রতিটা metric-কে 0–10 normalise করে গড়
 | Phase | Status |
 |---|---|
 | 0 | ✅ Done (2.9 → 3.2) |
-| 1 | 🟡 Next |
+| 1 | ✅ Done (2.9 → 4.8) |
+| 2 | 🟡 Next |
 | 1–4 | ⏳ |
