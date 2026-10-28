@@ -183,6 +183,34 @@ export function isTeacherQualifiedForSubject(
   return lists.some((subs) => subs.some((s) => subjectBaseName(s) === base));
 }
 
+/**
+ * Removes classes where no subject is ticked in any section (they teach nothing and only clutter the
+ * profile), together with their sections and period entries. `keep` holds classes kept for a group pick.
+ */
+export function dropEmptyClasses(teacher: RoutineTeacher, keep: Set<string> = new Set()): RoutineTeacher {
+  const inClass = (cls: string) => (k: string) =>
+    k === cls || k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`);
+  const hasSubjects = (cls: string) =>
+    Boolean(teacher.classSubjects?.[cls]?.length) ||
+    Object.entries(teacher.sectionSubjects || {}).some(([k, subs]) => inClass(cls)(k) && subs?.length > 0);
+  const classes = teacher.qualifiedClasses || [];
+  const empty = classes.filter((c) => !keep.has(c) && !hasSubjects(c));
+  if (empty.length === 0) return teacher;
+
+  const without = <T,>(map: Record<string, T> | undefined) =>
+    map && Object.fromEntries(Object.entries(map).filter(([k]) => !empty.some((c) => inClass(c)(k))));
+  return {
+    ...teacher,
+    qualifiedClasses: classes.filter((c) => !empty.includes(c)),
+    classSubjects: without(teacher.classSubjects),
+    sectionSubjects: without(teacher.sectionSubjects),
+    classSections: without(teacher.classSections),
+    classPeriods: without(teacher.classPeriods),
+    sectionPeriods: without(teacher.sectionPeriods),
+    subjectPeriods: without(teacher.subjectPeriods),
+  };
+}
+
 /** A teacher teaches only the ticked classes; an empty list means no classes yet. */
 function teacherHasClass(teacher: RoutineTeacher, cls: string): boolean {
   const q = teacher.qualifiedClasses;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { autoBuildRoutineAssignmentsWithReport } from "@/lib/routine/routine-auto-assign";
 import {
   calculateTeacherConfiguredLoads,
+  dropEmptyClasses,
   isTeacherAssignedToSubject,
   isTeacherQualifiedForSubject,
 } from "@/lib/routine/routine-helpers";
@@ -85,6 +86,22 @@ describe("split theory/lab subjects", () => {
     const r = autoBuildRoutineAssignmentsWithReport([classes[0]], [phy], [labOnly]);
     expect(r.assignments).toEqual([expect.objectContaining({ teacherId: "lab", isLab: true, periodsPerWeek: 2 })]);
     expect(r.unstaffed).toEqual([expect.objectContaining({ subjectName: "Physics (Theory)", periods: 4 })]);
+  });
+});
+
+describe("dropEmptyClasses", () => {
+  it("removes a class with nothing ticked but keeps one held for a group", () => {
+    const t = teacher({
+      qualifiedClasses: ["Class V", "Class XI", "Class XII"],
+      classSubjects: { "Class V": ["Mathematics"], "Class XI": [], "Class XII": [] },
+      sectionSubjects: { "Class V::A": ["Mathematics"], "Class XI::A": [], "Class XII::A": [] },
+      classSections: { "Class V": ["A"], "Class XI": ["A"], "Class XII": ["A"] },
+      subjectPeriods: { "Class V::A::Mathematics": 2, "Class XI::A::History": 3 },
+    });
+    const out = dropEmptyClasses(t, new Set(["Class XII"]));
+    expect(out.qualifiedClasses).toEqual(["Class V", "Class XII"]);
+    expect(Object.keys(out.sectionSubjects || {})).toEqual(["Class V::A", "Class XII::A"]);
+    expect(out.subjectPeriods).toEqual({ "Class V::A::Mathematics": 2 });
   });
 });
 

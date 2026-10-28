@@ -36,6 +36,7 @@ import {
   sanitizeTeacherSubjectPeriods,
   calculateTotalSchoolSectionDemand,
   calculateTeacherConfiguredLoads,
+  dropEmptyClasses,
 } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -1413,7 +1414,11 @@ export function RoutineTeachersTab({
       const finalSubject = (primarySubject === "__custom__" ? customPrimarySubject : primarySubject).trim();
       const finalClassTeacher = classTeacherOf && classTeacherOf !== "__none__" ? classTeacherOf.trim() : null;
 
-      const payload: RoutineTeacher = {
+      // A class kept only for a group pick stays; a class with nothing ticked is dropped
+      const groupClasses = new Set(
+        selectedClasses.filter((c) => groupsForClass(c).some((g) => g.options.some((o) => groupPicks.has(o.id))))
+      );
+      const payload: RoutineTeacher = dropEmptyClasses({
         id: teacherId,
         name: teacherName.trim(),
         shortName: shortName.trim() || generateInitials(teacherName.trim()),
@@ -1429,10 +1434,10 @@ export function RoutineTeachersTab({
         primarySubject: finalSubject || null,
         classTeacherOf: finalClassTeacher,
         classTeacherFirstPeriods: finalClassTeacher ? Number(classTeacherFirstPeriods) || 3 : null,
-      };
+      }, groupClasses);
 
       await onSaveTeacher(payload);
-      await applyGroupPicks(teacherId, selectedClasses);
+      await applyGroupPicks(teacherId, payload.qualifiedClasses || []);
       await syncRoutineTeacherToClasses(teacherName.trim(), finalClassTeacher, originalClassTeacherOf);
 
       setIsEditorOpen(false);
