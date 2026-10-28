@@ -15,6 +15,39 @@ import Link from "next/link";
 
 import { useSearchParams } from "next/navigation";
 
+const STATE_KEY = "sms_readmission_wizard_state";
+/** sessionStorage flag present while the wizard is mounted; survives a reload, not navigation. */
+const LIVE_KEY = "sms_readmission_live";
+const STATE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+interface SavedWizardState {
+  step: number;
+  mode: "online" | "offline" | null;
+  studentData: any;
+  skippedReview: boolean;
+  savedAt?: number;
+}
+
+function readSavedState(): SavedWizardState | null {
+  try {
+    const raw = localStorage.getItem(STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedWizardState & { admissionResult?: unknown; showSuccessModal?: boolean };
+    const expired = !parsed.savedAt || Date.now() - parsed.savedAt > STATE_MAX_AGE_MS;
+    if (expired || parsed.admissionResult || parsed.showSuccessModal || parsed.step >= 4 || !parsed.studentData) {
+      localStorage.removeItem(STATE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function studentLabel(data: any): string {
+  return data?.name || data?.student_name || data?.studentName || "previous student";
+}
+
 export function ReAdmissionWizard() {
   const searchParams = useSearchParams();
   const urlClass = searchParams.get("class");
@@ -28,40 +61,49 @@ export function ReAdmissionWizard() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [skippedReview, setSkippedReview] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // Restore wizard state on mount if saved
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        if (urlClass) {
-          setMode("offline");
-          setStep(2);
-        } else {
-          const saved = localStorage.getItem("sms_readmission_wizard_state");
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.admissionResult || parsed.showSuccessModal || parsed.step === 4) {
-              localStorage.removeItem("sms_readmission_wizard_state");
-              setStep(1);
-              setMode(null);
-              setStudentData(null);
-              setAdmissionResult(null);
-              setShowSuccessModal(false);
-              setSkippedReview(false);
-            } else {
-              if (parsed.step) setStep(parsed.step);
-              if (parsed.mode) setMode(parsed.mode);
-              if (parsed.studentData) setStudentData(parsed.studentData);
-              if (parsed.skippedReview !== undefined) setSkippedReview(parsed.skippedReview);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Could not restore re-admission state:", e);
-      } finally {
-        setIsLoaded(true);
-      }
+  // A pending session found on a fresh visit (not a reload): ask before resuming.
+  const [resumeOffer, setResumeOffer] = useState<SavedWizardState | null>(null);
+  // Read before any effect runs (React strict mode remounts would clear the flag first).
+  const [wasReload] = useState(() => {
+    try {
+      return typeof window !== "undefined" && sessionStorage.getItem(LIVE_KEY) === "1";
+    } catch {
+      return false;
     }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(LIVE_KEY, "1");
+    } catch {}
+    return () => {
+      try {
+        sessionStorage.removeItem(LIVE_KEY);
+      } catch {}
+    };
+  }, []);
+
+  const applySaved = (saved: SavedWizardState) => {
+    setStep(saved.step);
+    setMode(saved.mode);
+    setStudentData(saved.studentData);
+    setSkippedReview(Boolean(saved.skippedReview));
+  };
+
+  // Restore: a reload continues silently; a fresh visit offers to resume instead of
+  // silently reopening an old student (the stale-student bug).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (urlClass) {
+      setMode("offline");
+      setStep(2);
+    } else {
+      const saved = readSavedState();
+      if (saved && wasReload) applySaved(saved);
+      else if (saved) setResumeOffer(saved);
+    }
+    setIsLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per class link
   }, [urlClass]);
 
   // Save state on change
@@ -70,19 +112,20 @@ export function ReAdmissionWizard() {
       try {
         if (!admissionResult && !showSuccessModal && step > 1 && step < 4) {
           localStorage.setItem(
-            "sms_readmission_wizard_state",
-            JSON.stringify({ step, mode, studentData, skippedReview })
+            STATE_KEY,
+            JSON.stringify({ step, mode, studentData, skippedReview, savedAt: Date.now() } satisfies SavedWizardState)
           );
-        } else if (step === 1 || admissionResult || showSuccessModal) {
-          localStorage.removeItem("sms_readmission_wizard_state");
+        } else if ((step === 1 && !resumeOffer) || admissionResult || showSuccessModal) {
+          localStorage.removeItem(STATE_KEY);
         }
       } catch (e) {
         console.warn("Could not save re-admission state:", e);
       }
     }
-  }, [step, mode, studentData, admissionResult, showSuccessModal, skippedReview, isLoaded]);
+  }, [step, mode, studentData, admissionResult, showSuccessModal, skippedReview, isLoaded, resumeOffer]);
 
   const handleRestart = () => {
+    setResumeOffer(null);
     setStep(1);
     setMode(null);
     setStudentData(null);
@@ -90,7 +133,7 @@ export function ReAdmissionWizard() {
     setShowSuccessModal(false);
     setSkippedReview(false);
     if (typeof window !== "undefined") {
-      localStorage.removeItem("sms_readmission_wizard_state");
+      localStorage.removeItem(STATE_KEY);
     }
   };
 
@@ -101,7 +144,7 @@ export function ReAdmissionWizard() {
     setSkippedReview(false);
     setStep(2); // Keep existing mode and sticky class/section
     if (typeof window !== "undefined") {
-      localStorage.removeItem("sms_readmission_wizard_state");
+      localStorage.removeItem(STATE_KEY);
     }
   };
 
@@ -253,6 +296,28 @@ export function ReAdmissionWizard() {
 
           {/* Step Content Area */}
           <div className="p-2 sm:p-6 min-h-[420px]">
+        {resumeOffer && step === 1 && (
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2.5">
+            <span className="text-xs sm:text-sm font-medium">
+              Unfinished re-admission: <span className="font-bold">{studentLabel(resumeOffer.studentData)}</span>
+            </span>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => {
+                  applySaved(resumeOffer);
+                  setResumeOffer(null);
+                }}
+              >
+                Continue
+              </Button>
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={handleRestart}>
+                Start new
+              </Button>
+            </div>
+          </div>
+        )}
         {step === 1 && (
           <Step1ModeSelect onSelectMode={handleSelectMode} selectedMode={mode} />
         )}

@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { admissionFormSchema, type AdmissionFormData } from "@/lib/validations/admission-form-schema";
+import { loadAdmissionDraft, saveAdmissionDraft } from "@/lib/admission/form-draft";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -157,6 +158,8 @@ interface AdmissionApplicationFormProps {
   isSubmitting?: boolean;
   mode?: "public" | "offline" | "review";
   checklist?: React.ReactNode;
+  /** Enables refresh-safe drafts, scoped to this key (e.g. `readmission:<studentId>`). Callers clear it on success. */
+  draftKey?: string;
 }
 
 export function AdmissionApplicationForm({
@@ -167,6 +170,7 @@ export function AdmissionApplicationForm({
   isSubmitting = false,
   mode = "public",
   checklist,
+  draftKey,
 }: AdmissionApplicationFormProps) {
   // Accordion open/close state for all 9 sections
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
@@ -286,16 +290,8 @@ export function AdmissionApplicationForm({
     const updatedSaved = { ...savedSections, [currentSec]: true };
     setSavedSections(updatedSaved);
 
-    // 3. Real-time draft save
-    if (typeof window !== "undefined") {
-      try {
-        const data = getValues();
-        localStorage.setItem("sms_admission_apply_draft", JSON.stringify(data));
-        localStorage.setItem("sms_admission_saved_sections", JSON.stringify(updatedSaved));
-      } catch (e) {
-        console.warn("Could not save draft:", e);
-      }
-    }
+    // 3. Real-time draft save (scoped to this form/student)
+    if (draftKey) saveAdmissionDraft(draftKey, getValues(), updatedSaved);
 
     // 4. Next section transition
     const currentIndex = SECTION_ORDER.indexOf(currentSec);
@@ -720,40 +716,23 @@ export function AdmissionApplicationForm({
     }
   }, [watchSameAddress, setValue, getValues]);
 
-  // Restore draft on mount if available
+  // Restore this form's own draft once (after a refresh); drafts never cross forms or students.
+  const draftRestored = React.useRef(false);
   useEffect(() => {
-    if (typeof window !== "undefined" && !initialData && (!aiExtractedData || Object.keys(aiExtractedData).length === 0)) {
-      try {
-        const savedDraft = localStorage.getItem("sms_admission_apply_draft");
-        if (savedDraft) {
-          const parsed = JSON.parse(savedDraft);
-          if (parsed && typeof parsed === "object") {
-            Object.keys(parsed).forEach((k) => {
-              if (parsed[k] !== undefined && parsed[k] !== null && parsed[k] !== "") {
-                setValue(k as any, parsed[k]);
-              }
-            });
-          }
-        }
-
-        const savedSecs = localStorage.getItem("sms_admission_saved_sections");
-        if (savedSecs) {
-          const parsedSecs = JSON.parse(savedSecs);
-          if (parsedSecs && typeof parsedSecs === "object") {
-            setSavedSections(parsedSecs);
-            // Open the first unsaved section or active section
-            const nextUnsaved = SECTION_ORDER.find((s) => !parsedSecs[s]) || "A";
-            setOpenSections({
-              A: false, B: false, C: false, D: false, E: false, F: false, G: false, H: false, I: false,
-              [nextUnsaved]: true,
-            });
-          }
-        }
-      } catch (e) {
-        console.warn("Could not restore draft:", e);
-      }
-    }
-  }, [initialData, aiExtractedData, setValue]);
+    if (!draftKey || draftRestored.current) return;
+    draftRestored.current = true;
+    const draft = loadAdmissionDraft(draftKey);
+    if (!draft) return;
+    Object.entries(draft.values).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") setValue(k as any, v as any);
+    });
+    setSavedSections(draft.savedSections);
+    const nextUnsaved = SECTION_ORDER.find((sec) => !draft.savedSections[sec]) || "A";
+    setOpenSections({
+      A: false, B: false, C: false, D: false, E: false, F: false, G: false, H: false, I: false,
+      [nextUnsaved]: true,
+    });
+  }, [draftKey, setValue]);
 
   const onFormError = (formErrors: any) => {
     const keys = Object.keys(formErrors);

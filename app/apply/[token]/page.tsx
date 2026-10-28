@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import { AdmissionApplicationForm } from "@/components/admission/admission-application-form";
 import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import type { AdmissionFormData } from "@/lib/validations/admission-form-schema";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+
+const DRAFT_KEY = "public-apply";
 
 type LinkState = { status: "loading" } | { status: "closed"; message: string } | { status: "open"; siteKey: string | null };
 
@@ -45,10 +48,7 @@ export default function PublicAdmissionPage({ params }: { params: Promise<{ toke
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || "Submission failed. Please try again.");
-      try {
-        localStorage.removeItem("sms_admission_apply_draft");
-        localStorage.removeItem("sms_admission_saved_sections");
-      } catch {}
+      clearAdmissionDraft(DRAFT_KEY);
       setResult(json.data);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Submission failed. Please try again.");
@@ -119,6 +119,7 @@ export default function PublicAdmissionPage({ params }: { params: Promise<{ toke
           submitButtonText="অনলাইন আবেদন জমা দিন (Submit Application)"
           isSubmitting={isSubmitting}
           mode="public"
+          draftKey={DRAFT_KEY}
           checklist={link.siteKey ? <TurnstileWidget siteKey={link.siteKey} onToken={onToken} resetKey={captchaReset} /> : undefined}
         />
       </div>

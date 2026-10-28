@@ -10,6 +10,9 @@ import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import { toOnlineApplicationPayload } from "@/lib/admission/application-payload";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+
+const DRAFT_KEY = "online-apply";
 
 export default function PublicOnlineApplyPage() {
   const { profile } = useSchoolProfile();
@@ -73,13 +76,7 @@ export default function PublicOnlineApplyPage() {
       // Fire celebration animation
       fireConfettiCelebration();
 
-      // Clear any cached drafts
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.removeItem("sms_admission_apply_draft");
-          localStorage.removeItem("sms_admission_saved_sections");
-        } catch (_) {}
-      }
+      clearAdmissionDraft(DRAFT_KEY);
 
       toast.success("অনলাইন আবেদন সফলভাবে জমা হয়েছে!", {
         description: "আপনার আবেদন নম্বর তৈরি হয়েছে। রসিদটি প্রিন্ট করে রাখুন।",
@@ -99,12 +96,7 @@ export default function PublicOnlineApplyPage() {
     setIsSubmitted(false);
     setSubmittedData(null);
     setApplicationResult(null);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.removeItem("sms_admission_apply_draft");
-        localStorage.removeItem("sms_admission_saved_sections");
-      } catch (_) {}
-    }
+    clearAdmissionDraft(DRAFT_KEY);
   };
 
   // SUCCESSFUL SUBMISSION RECEIPT VIEW
@@ -407,6 +399,7 @@ export default function PublicOnlineApplyPage() {
           submitButtonText="অনলাইন আবেদন জমা দিন (Submit Application)"
           isSubmitting={isSubmitting}
           mode="public"
+          draftKey={DRAFT_KEY}
         />
       </div>
     </div>

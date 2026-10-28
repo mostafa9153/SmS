@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { AdmissionApplicationForm, type AdmissionFormData } from "@/components/admission/admission-application-form";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 
 interface Step3ReviewProps {
   onBack: () => void;
@@ -104,7 +105,10 @@ export function Step3Review({ onBack, onNext, mode, initialData }: Step3ReviewPr
     };
   }, [initialData]);
 
+  const draftKey = `readmission:${initialData?.id ?? "unknown"}`;
+
   const handleFormSubmit = (submittedData: AdmissionFormData) => {
+    clearAdmissionDraft(draftKey);
     // Merge updated form fields with original student identifiers
     const mergedData = {
       ...initialData,
@@ -156,6 +160,7 @@ export function Step3Review({ onBack, onNext, mode, initialData }: Step3ReviewPr
           initialData={mappedInitialData}
           onSubmit={handleFormSubmit}
           mode="review"
+          draftKey={draftKey}
           submitButtonText="Verify & Proceed to Finalize"
         />
       </div>

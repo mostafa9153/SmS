@@ -19,6 +19,9 @@ import {
   Sparkle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+
+const OFFLINE_DRAFT_KEY = "new-offline";
 
 interface Step2OfflineProps {
   onNext: (appData: any) => void;
@@ -201,6 +204,7 @@ export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps
   };
 
   const handleFormSubmit = (data: AdmissionFormData) => {
+    clearAdmissionDraft(OFFLINE_DRAFT_KEY);
     onNext({
       ...data,
       studentName: data.studentName,
@@ -326,6 +330,7 @@ export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps
               onSubmit={handleFormSubmit}
               submitButtonText="Proceed to Verification (Step 3)"
               mode="offline"
+              draftKey={aiExtractedData ? undefined : OFFLINE_DRAFT_KEY}
             />
           </TabsContent>
 
