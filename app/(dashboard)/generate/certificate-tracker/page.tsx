@@ -22,6 +22,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -397,22 +398,16 @@ export default function CertificateTrackerPage() {
   return (
     <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
       {/* Clean Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            <Award className="h-4 w-4" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Certificate Tracker
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
-                {totalCerts}
-              </span>
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Controls */}
+      <PageHeader
+        title="Certificate Tracker"
+        icon={Award}
+        badge={
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+            {totalCerts}
+          </span>
+        }
+        className="border-b pb-3.5"
+        actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -444,7 +439,8 @@ export default function CertificateTrackerPage() {
             Issue Certificate
           </Link>
         </div>
-      </div>
+        }
+      />
 
       {/* Clean Unified Verification Bar */}
       <div className="space-y-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
@@ -57,21 +58,11 @@ export default function AdmissionHubPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
-        <div className="flex items-center gap-3.5">
-          <div className="h-12 w-12 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-500 dark:text-orange-400 flex items-center justify-center shrink-0">
-            <GraduationCap className="h-6 w-6" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-foreground">
-              Admission &amp; Re-admission Portal
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Online applications &bull; Document verification &bull; Class rollover &bull; Session 2026-27
-            </p>
-          </div>
-        </div>
-
+      <PageHeader
+        title="Admission & Re-admission Portal"
+        icon={GraduationCap}
+        className="border-b border-border/50 pb-5"
+        actions={
         <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
           <Link
             href="/generate/admission-form?tab=tracker"
@@ -103,7 +94,8 @@ export default function AdmissionHubPage() {
             <span className="truncate">Online Portal</span>
           </Link>
         </div>
-      </div>
+        }
+      />
 
       {/* Visual Overview Metrics (NEW: Pending, Confirmed, Re-Admitted, Invoice Print Queue) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">

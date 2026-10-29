@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getOldStudents, type OldStudentItem } from "@/lib/data/students";
 import { Calendar, GraduationCap, Users, Phone, User } from "lucide-react";
 import { Pagination } from "@/components/ui/pagination";
+import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -89,12 +90,7 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
   return (
     <div className="space-y-5 p-4 md:p-6 max-w-[1400px] mx-auto">
       {/* Top Header */}
-      <div className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <GraduationCap className="h-6 w-6 text-primary" />
-          Old Students Archive
-        </h1>
-      </div>
+      <PageHeader title="Old Students Archive" icon={GraduationCap} className="border-b border-border pb-4" />
 
       {/* Filter and Search Bar (Clean & Lightweight with Year Dropdown) */}
       <Card className="shadow-xs border-border/80">

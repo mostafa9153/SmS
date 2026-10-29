@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Calendar, CheckCircle2, XCircle, AlertCircle, Phone, Info, Save, ArrowLeft, Clock, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { Calendar, CheckCircle2, XCircle, AlertCircle, Phone, Info, Save, Clock, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -147,18 +148,11 @@ export default function StudentAttendancePage() {
   return (
     <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link href="/teacher" className="p-2 bg-muted hover:bg-muted/80 rounded-xl transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Student Attendance</h1>
-            <p className="text-sm text-muted-foreground">Record and track daily attendance</p>
-          </div>
-        </div>
-        
-        <Button 
+      <PageHeader
+        title="Student Attendance"
+        back="/teacher"
+        actions={
+        <Button
           variant={showAnalytics ? "default" : "outline"}
           onClick={() => setShowAnalytics(!showAnalytics)} 
           className="flex items-center gap-2 rounded-xl transition-all h-11 px-5 shadow-sm"
@@ -167,7 +161,8 @@ export default function StudentAttendancePage() {
           {showAnalytics ? "Hide Analytics" : "View Global Analytics"}
           {showAnalytics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </Button>
-      </div>
+        }
+      />
 
       {/* Analytics Visuals (Hidden by default) */}
       {showAnalytics && (

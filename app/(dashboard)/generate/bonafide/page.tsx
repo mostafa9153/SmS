@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, Suspense } from "react";
-import Link from "next/link";
 import { Student } from "@/lib/types";
 import {
   BonafideCertificatePrintableView,
   BonafideCertificateData,
 } from "@/components/certificate/bonafide-certificate-printable-view";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,6 @@ import { StudentPicker, StudentPickerMode } from "@/components/certificate/stude
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Printer,
-  ArrowLeft,
   Users,
   FileCheck,
   History,
@@ -374,23 +373,11 @@ function BonafideGeneratorContent() {
   return (
     <div className="p-3.5 sm:p-6 max-w-[1750px] mx-auto space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Studio Header: Hidden in Print */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border rounded-2xl p-4 shadow-2xs print:hidden">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/generate"
-            className="p-2 rounded-xl border bg-muted/40 hover:bg-muted text-foreground transition-all"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-foreground">
-                Bonafide Certificate Studio
-              </h1>
-            </div>
-          </div>
-        </div>
-
+      <PageHeader
+        title="Bonafide Certificate Studio"
+        back="/generate"
+        className="bg-card border rounded-2xl p-4 shadow-2xs print:hidden"
+        actions={
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
@@ -412,7 +399,8 @@ function BonafideGeneratorContent() {
             Print
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Main Studio Grid: Unwraps in Print */}
       <div className="grid grid-cols-1 xl:grid-cols-[500px_1fr] gap-5 print:block print:w-full print:m-0 print:p-0">

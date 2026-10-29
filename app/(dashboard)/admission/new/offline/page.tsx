@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
+import { PageHeader } from "@/components/ui/page-header";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { AdmissionFormGeneratorContent } from "@/app/(dashboard)/generate/admission-form/page";
@@ -8,7 +9,6 @@ import { AiScanContent } from "@/app/(dashboard)/admission/new/ai-scan/page";
 import {
   Camera,
   Printer,
-  ArrowLeft,
   FileCheck2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,29 +34,11 @@ function OfflineAdmissionCenterContent() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-[1700px] mx-auto space-y-5">
       {/* Top Single Unified Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 print:hidden">
-        {/* Left: Back Link & Page Title */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admission/new"
-            className="p-2.5 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Back to New Admission Tracker"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <span>Offline Admission Center</span>
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {activeTab === "generator"
-                ? "Generate and batch-print official admission forms with auto serial numbering."
-                : "Scan paper admission forms via device camera or image upload powered by Gemini AI."}
-            </p>
-          </div>
-        </div>
-
-        {/* Center / Right: ONLY 2 Sections */}
+      <PageHeader
+        title="Offline Admission Center"
+        back="/admission/new"
+        className="md:flex-row md:items-center border-b pb-4 print:hidden"
+        actions={
         <div className="flex items-center gap-2.5 flex-wrap">
           <div className="flex items-center bg-muted/80 p-1 rounded-2xl border">
             <button
@@ -97,7 +79,8 @@ function OfflineAdmissionCenterContent() {
             <span>Applications</span>
           </Link>
         </div>
-      </div>
+        }
+      />
 
       {/* Section 1: Form Generator */}
       {activeTab === "generator" && (

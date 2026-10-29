@@ -7,9 +7,10 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createStudent } from "@/lib/data/students";
-import { ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
+import { Sparkles, CheckCircle2 } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { PageHeader } from "@/components/ui/page-header";
 import { SchoolIdInput } from "@/components/students/school-id-input";
 import { GuardianRelationshipSelect } from "@/components/students/guardian-relationship-select";
 import { SmartAddressInput } from "@/components/students/smart-address-input";
@@ -488,22 +489,7 @@ export function StudentAddEditForm({
   return (
     <div className={isEmbedded ? "space-y-6" : "p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5"}>
       {!isEmbedded && (
-        <>
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
-
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold">Add Student</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              Fill in the comprehensive student details below.
-            </p>
-          </div>
-        </>
+        <PageHeader title="Add Student" back />
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

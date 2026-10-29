@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { GraduationCap, ArrowLeft, Mail, Phone, Calendar, BookOpen, MapPin, Key, CheckCircle2, AlertCircle, Award, UserCheck, IndianRupee, Lock, Eye, EyeOff, Pencil, LogOut, CreditCard, Briefcase, User, ShieldCheck } from "lucide-react";
+import { GraduationCap, Mail, Phone, Calendar, BookOpen, MapPin, Key, CheckCircle2, AlertCircle, UserCheck, IndianRupee, Lock, Eye, EyeOff, Pencil, LogOut, CreditCard, Briefcase, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -190,22 +191,11 @@ export default function UniversalProfilePage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto animate-fade-in-up">
       {/* Top Header / Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/60">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4 text-primary" />
-            <span>Back</span>
-          </button>
-          <div className="h-4 w-px bg-border/60" />
-          <h1 className="text-base font-bold text-foreground tracking-tight">
-            Faculty / Staff Profile
-          </h1>
-        </div>
-
+      <PageHeader
+        title="Faculty / Staff Profile"
+        back
+        className="pb-2 border-b border-border/60"
+        actions={
         <div className="flex items-center gap-2">
           <Link
             href="/profile/edit"
@@ -228,7 +218,8 @@ export default function UniversalProfilePage() {
             <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Profile Identity Card */}
       <section className="p-6 rounded-3xl bg-card border border-border/80 relative overflow-hidden shadow-xs">

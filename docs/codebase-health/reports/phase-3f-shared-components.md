@@ -149,3 +149,50 @@ A `git stash --keep-index` briefly took the uncommitted `AGENTS.md` edit, which 
 
 ### Not verified
 Not looked at in a browser (login required).
+
+---
+
+# Phase 3f part 5: PageHeader hand migration (2026-10-29)
+
+15 hand-made page headers moved to `PageHeader`.
+- **Admission:** portal, AI scan, offline.
+- **Generate:** hub, bonafide, blank pad, certificate tracker.
+- **Profile / admin:** admin hub, profile, employee profile.
+- **Students:** attendance, add, edit, old-students archive.
+
+Back links became `back`. The count, status and ID chips became `badge`. Each page's own action buttons are unchanged.
+
+**Subtitles dropped under AGENTS.md:**
+- "Record and track daily attendance"
+- "Fill in the comprehensive student details below"
+- The two offline tab descriptions
+- "Online applications • Document verification • …"
+
+Where a subtitle carried data, it was kept:
+- "Edit Student: *name*" moves into the title.
+- "ID: …" moves into the employee badge.
+
+**Kept as they are, on purpose:**
+| Header | Why kept |
+|---|---|
+| Student profile hero card | Many chips and actions |
+| Admission form generator | Has an embedded mode with no title |
+| Presets hub | Custom `SettingsBackButton` and live "Active: …" |
+| The two wizards | Headers inside a card with a step bar |
+| "Profile Not Linked" | Error screen |
+| Public `/apply` pages | Print and receipt pages |
+| Print-only headers | Not screen headers |
+
+### Verification
+| Check | Result |
+|---|---|
+| `npm run verify -- --build` | PASS (1 warn: pre-existing lint errors, Phase 4) |
+| Review | 2 notes, no change needed: the offline header becomes a row from 640px instead of 768px; "Back to Profile" becomes the shared icon back button (same `router.back()`) |
+| Unused imports or `router` left by the change | removed |
+
+### Process slips (caught before commit)
+- The header script counted self-closing `<div />` twice, so the profile page cut too early. Caught by the line count; the file was reverted and redone.
+- Two off-by-one action-line starts. Caught by `tsc`; the employee page was reverted and redone.
+
+### Not verified
+Not looked at in a browser (login required).

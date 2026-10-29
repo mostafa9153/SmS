@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Award, Trophy, FileCheck2, Printer, Search, ShieldCheck, ArrowRight, CheckCircle2, GraduationCap, Receipt, Layers, Clock, ExternalLink, BookOpen, ClipboardList, Check, AlertCircle, Hash, QrCode, School, FileBadge2, Info, SlidersHorizontal, Contact, FileText, FileCheck, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -550,14 +551,10 @@ function GenerateHubPageContent() {
       <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-600/10 via-indigo-600/10 to-blue-600/10 border border-purple-500/20 p-3.5 sm:p-5 shadow-xs relative overflow-hidden">
         <div className="absolute right-0 top-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-gradient-to-br from-purple-500/15 to-transparent blur-3xl pointer-events-none" />
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 relative z-10">
-          <div className="space-y-0.5">
-            <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-foreground">
-              Document & Certificate Generator
-            </h1>
-          </div>
-
-          {/* Clean Action Buttons (Full width 2-column grid on mobile phones) */}
+        <PageHeader
+          title="Document & Certificate Generator"
+          className="relative z-10"
+          actions={
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
             <Link
               href="/generate/certificate-tracker"
@@ -574,7 +571,8 @@ function GenerateHubPageContent() {
               <span className="truncate">Admission Portal</span>
             </Link>
           </div>
-        </div>
+          }
+        />
       </div>
 
       {/* 2. Compact Tracker & Quick Verification Strip */}

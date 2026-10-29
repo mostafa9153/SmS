@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, Suspense } from "react";
-import Link from "next/link";
 import {
   BlankPadPrintableView,
   BlankPadData,
@@ -10,6 +9,7 @@ import {
   StructuredLetterData,
 } from "@/components/certificate/blank-pad-printable-view";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
-  ArrowLeft,
   RotateCcw,
   FileText,
   SlidersHorizontal,
@@ -254,26 +253,16 @@ function BlankPadGeneratorContent() {
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-[1700px] mx-auto space-y-3 sm:space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Studio Header: Hidden in Print */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 bg-card border rounded-2xl p-3 sm:p-4 shadow-2xs print:hidden">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <Link
-            href="/generate"
-            className="p-2 rounded-xl border bg-muted/40 hover:bg-muted text-foreground transition-all shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                Blank Pad & Letterhead
-              </h1>
-              <Badge variant="outline" className="text-[10px] font-mono uppercase font-semibold">
-                {padData.paperSize} Portrait
-              </Badge>
-            </div>
-          </div>
-        </div>
-
+      <PageHeader
+        title="Blank Pad & Letterhead"
+        back="/generate"
+        badge={
+          <Badge variant="outline" className="text-[10px] font-mono uppercase font-semibold">
+            {padData.paperSize} Portrait
+          </Badge>
+        }
+        className="gap-2.5 sm:gap-3 bg-card border rounded-2xl p-3 sm:p-4 shadow-2xs print:hidden"
+        actions={
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <Button
             variant="outline"
@@ -294,7 +283,8 @@ function BlankPadGeneratorContent() {
             Print Pad
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Main Studio Grid: Unwraps in Print */}
       <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 sm:gap-5 print:block print:w-full print:m-0 print:p-0">

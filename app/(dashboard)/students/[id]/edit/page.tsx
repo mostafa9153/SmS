@@ -7,8 +7,8 @@ import { z } from "zod";
 import { useRouter, useParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStudentById, updateStudent } from "@/lib/data/students";
-import { ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/ui/page-header";
 import type { Student } from "@/lib/types";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
@@ -515,20 +515,7 @@ export default function EditStudentPage() {
 
   return (
     <div className="p-3.5 sm:p-6 max-w-5xl mx-auto space-y-4 sm:space-y-5">
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors active:scale-95"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to Profile
-      </button>
-
-      <div>
-        <h1 className="text-lg sm:text-xl font-bold">Edit Student</h1>
-        <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-          Updating: <span className="font-medium text-foreground">{student.name}</span>
-        </p>
-      </div>
+      <PageHeader title={<>Edit Student: <span className="font-medium">{student.name}</span></>} back />
 
       <form onSubmit={handleSubmit(onSubmit, onFormError)} className="space-y-6">
 

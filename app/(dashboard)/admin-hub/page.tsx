@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ShieldAlert,
   ShieldCheck,
@@ -13,7 +12,6 @@ import {
   CalendarClock,
   MapPin,
   ArrowRight,
-  ArrowLeft,
   Settings,
   Lock,
   ChevronRight,
@@ -23,13 +21,13 @@ import {
   Sliders,
   Database,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AdminHubPage() {
-  const router = useRouter();
   const [stats, setStats] = useState({
     totalTeachers: 0,
     activeTeachers: 0,
@@ -130,26 +128,16 @@ export default function AdminHubPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto animate-fade-in-up">
       {/* 1. Top Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/60">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4 text-primary" />
-            <span>Back</span>
-          </button>
-          <div className="h-4 w-px bg-border/60" />
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-bold text-foreground tracking-tight">
-              Administrative Control Centers
-            </h1>
-            <Badge className="bg-indigo-600 text-white dark:bg-indigo-500 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shadow-2xs">
-              Admin Panel
-            </Badge>
-          </div>
-        </div>
-
+      <PageHeader
+        title="Administrative Control Centers"
+        back
+        badge={
+          <Badge className="bg-indigo-600 text-white dark:bg-indigo-500 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shadow-2xs">
+            Admin Panel
+          </Badge>
+        }
+        className="pb-2 border-b border-border/60"
+        actions={
         <div className="flex items-center gap-2">
           <Link
             href="/settings/presets"
@@ -172,7 +160,8 @@ export default function AdminHubPage() {
             <span className="hidden sm:inline">Settings</span>
           </Link>
         </div>
-      </div>
+        }
+      />
 
       {/* 2. Key Operational Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
