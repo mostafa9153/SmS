@@ -27,3 +27,11 @@ jobs:
       - name: Conventions on the PR diff (guard, undo, secrets, routes)
         if: github.event_name == 'pull_request'
         run: node scripts/verify.mjs --base origin/${{ github.base_ref }}
+      - name: Build
+        timeout-minutes: 15
+        run: npx next build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: placeholder-service-role-key
