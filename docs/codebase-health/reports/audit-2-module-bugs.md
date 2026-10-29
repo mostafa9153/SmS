@@ -128,3 +128,23 @@ The full list comes from `scratchpad/unchecked-writes.js` (re-runnable; I can ad
 9. A-DATA-2: needs a migration
 10. A-DATA-3: needs a migration and a duplicate check
 11. A-DATA-4
+
+---
+
+## Fixed (2026-10-29, after approval)
+| ID | Fix |
+|---|---|
+| A-SEC-1 | `/api/admin/backup/auth` now issues a random nonce as the OAuth `state` and stores it in an httpOnly cookie (path limited to the callback, `SameSite=Lax`, 10 min). The callback rejects a missing or mismatched `state` with a constant-time compare, then clears the cookie. The admin id passed to the token exchange now comes from the verified session, not from `state` |
+| A-SEC-2 | `admin/users` (3 handlers): the first-admin bootstrap runs only when the count is exactly `0` and the query succeeded. Any error now denies |
+| A-API-1 | `POST /api/admission/re-admission/batch` **deleted**, together with its unused client wrapper `executeBatchReAdmission` (no screen called it, see Audit 3) |
+| A-API-2 | `GET /api/admission/tracker` → `requireStaff("can_print_admission_form", "can_view_admission_applications", "can_handle_new_admission")` |
+| A-API-3 | `GET`/`POST /api/teachers/attendance` → `requireRole()` (Admin/Staff/Teacher, no Guest) plus `denyOutsideClasses` for teachers with a class list |
+
+Behaviour changes to know:
+- A Teacher **without** one of those three admission permissions now gets 403 on the admission form tracker.
+- A Teacher whose `allowed_classes` list is set can only read or save attendance for those classes. An empty list still means every class, as before.
+- Anyone who opened the Google consent screen **before** this deploy has to click "Connect Drive" again.
+
+Verification: `npm run verify -- --build` PASS. Not tested end-to-end with a real Google consent (needs your OAuth client and a signed-in admin).
+
+Still open: A-SEC-3 and the rest of the table above.
