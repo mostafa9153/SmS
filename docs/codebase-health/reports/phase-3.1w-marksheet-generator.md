@@ -16,7 +16,7 @@ None. The file had no raw fetch, `alert` or `confirm`.
 
 ## Verified
 
-`npm run verify -- --build`: PASS, 0 fail, 0 warn. A whitespace-insensitive line comparison shows only the `export` keyword added to the constant.
+`npm run verify -- --build`: PASS, 0 fail, 1 warn. The warn is the native `<select>` for the class picker in `single-mode-section.tsx`; it moved unchanged from the original page. Swapping it for `CustomSelect` changes the UI, so it is left for the shared-component migration (phase 3f). A whitespace-insensitive line comparison shows only the `export` keyword added to the constant.
 
 ## Not verified
 
