@@ -110,9 +110,6 @@ function SportsPrintStudioContent() {
     setSelectedWinnerIndex("all");
   };
 
-  const selectClass =
-    "w-full h-9 rounded-xl border bg-background px-3 text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none";
-
   const docButton = (d: (typeof DOCS)[number]) => {
     const Icon = d.icon;
     const isActive = activeTab === d.key;

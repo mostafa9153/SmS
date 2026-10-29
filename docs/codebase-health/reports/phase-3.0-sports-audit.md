@@ -94,4 +94,7 @@ select academic_year, count(*) from sports_athletes group by 1 order by 1;
 ```
 Events were saved with the calendar year. If the school's current academic year in admission settings is a different number, those events will not show until the setting or the rows agree.
 
-**Not done yet:** splitting `enroll/page.tsx` and `results/page.tsx` into smaller parts. That is pure structure, with no change in behaviour.
+**Page split (done, same behaviour):**
+- **Enroll:** `enroll/page.tsx` went from 537 to 118 lines. The parts are `components/sports/enroll/student-picker.tsx`, `components/sports/enroll/enrolled-list.tsx` and `lib/sports/use-enrollment.ts`.
+- **Results:** `results/page.tsx` went from 517 to 198 lines. The parts are `components/sports/results/score-table.tsx` and `lib/sports/use-score-sheet.ts`, plus the pure scoring rules in `lib/sports/score-sheet.ts`, which `tests/unit/score-sheet.test.ts` covers (best of three, ties 1-1-3, ordinals).
+- **Lint:** the sports module now has 0 warnings. The rules dialog no longer sets state in an effect.

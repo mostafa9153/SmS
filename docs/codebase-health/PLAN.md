@@ -56,6 +56,7 @@ Score = প্রতিটা metric-কে 0–10 normalise করে গড়
 - Gate: jscpd ↓, build, tests।
 
 ### ⭐ User rule — Bug & wiring audit: report first, fix after confirm (added 2026-10-28, via forked session)
+> **Superseded 2026-10-29:** the user now wants fixes applied without asking; reports are still written, after the fix.
 প্রতিটা phase / module-এ **আগে report**, user যেগুলো confirm করবেন **শুধু সেগুলো fix**। এই নিয়ম আগের "যা খুশি করো" অনুমতির উপরে প্রাধান্য পাবে।
 
 Report-এ থাকবে:

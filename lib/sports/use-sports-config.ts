@@ -21,7 +21,9 @@ export function getSavedSportsConfig(): SportsConfig {
           parsed.enforcementMode === "strict" ? "strict" : "warning",
       };
     }
-  } catch (err) {}
+  } catch {
+    // Unreadable cache: fall back to the defaults.
+  }
   return DEFAULT_SPORTS_CONFIG;
 }
 
@@ -55,14 +57,15 @@ export function useSportsConfig() {
 
     fetchConfig();
 
-    const handleUpdate = (e: CustomEvent<SportsConfig>) => {
-      if (e.detail) setConfig(e.detail);
+    const handleUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<SportsConfig>).detail;
+      if (detail) setConfig(detail);
     };
 
-    window.addEventListener("sms_sports_config_updated" as any, handleUpdate);
+    window.addEventListener("sms_sports_config_updated", handleUpdate);
     return () => {
       isMounted = false;
-      window.removeEventListener("sms_sports_config_updated" as any, handleUpdate);
+      window.removeEventListener("sms_sports_config_updated", handleUpdate);
     };
   }, []);
 

@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSportsConfig } from "@/lib/sports/use-sports-config";
-import { Sliders, ShieldCheck, AlertCircle, Infinity as InfinityIcon } from "lucide-react";
+import { Sliders, ShieldCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 interface SportsRulesModalProps {
@@ -20,12 +20,15 @@ export function SportsRulesModal({ open, onOpenChange }: SportsRulesModalProps) 
   const [mode, setMode] = useState<"warning" | "strict">(config.enforcementMode);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
+  // Start from the saved rules each time the dialog opens
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setLimit(config.maxEventsPerStudent);
       setMode(config.enforcementMode);
     }
-  }, [open, config]);
+  }
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +41,7 @@ export function SportsRulesModal({ open, onOpenChange }: SportsRulesModalProps) 
       if (!saved) throw new Error("Failed to save rules");
       toast.success("Sports participation rules updated");
       onOpenChange(false);
-    } catch (err: any) {
+    } catch {
       toast.error("Failed to save rules");
     } finally {
       setIsSaving(false);
