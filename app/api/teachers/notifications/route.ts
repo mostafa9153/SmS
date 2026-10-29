@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/teachers/notifications - Get notifications for current user
 export async function GET() {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -30,8 +33,11 @@ export async function GET() {
 }
 
 // PATCH /api/teachers/notifications - Mark notification(s) as read
+// undo: n/a — only flips read flags on the caller's own notifications
 export async function PATCH(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {

@@ -586,32 +586,6 @@ export async function undoCohortPromotion(params: {
   return res.json();
 }
 
-export interface BatchReAdmissionPayload {
-  studentIds: string[];
-  targetClass: string;
-  targetSection: string;
-  targetAcademicYear?: number | string;
-  rollStrategy?: "rank" | "preserve" | "alphabetical";
-  isInvoiceQueued?: boolean;
-  feePaid?: boolean;
-  feeAmount?: number;
-}
-
-export async function executeBatchReAdmission(payload: BatchReAdmissionPayload) {
-  const res = await fetch("/api/admission/re-admission/batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Batch re-admission failed");
-  }
-
-  return res.json();
-}
-
 export interface StatusActionPayload {
   action: "tc_out" | "drop_out" | "archive_stale";
   studentIds?: string[];

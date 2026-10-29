@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { FileText, Printer, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 const TC_REASONS = [
   { label: "Transfer / Parent Relocation", value: "Transfer / Parent Relocation" },
@@ -43,7 +44,7 @@ export function IssueTcDialog({
 }: IssueTcDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayIST();
 
   const [tcDate, setTcDate] = useState<string>(todayStr);
   const [tcReason, setTcReason] = useState<string>("Transfer / Parent Relocation");

@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets, type ClassPresetItem } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { usePrintPortal } from "@/lib/hooks/use-print-portal";
 import { cn } from "@/lib/utils";
 import { PrintPreview } from "@/components/print/print-preview";
 import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
@@ -78,25 +79,7 @@ function ClassTeacherListContent() {
   const isEmpty = rows.length === 0;
   const canPrint = rows.length > 0;
 
-  const portalRef = useRef<HTMLDivElement | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => {
-    let el = document.getElementById(PRINT_PORTAL_ID) as HTMLDivElement | null;
-    if (!el) {
-      el = document.createElement("div");
-      el.id = PRINT_PORTAL_ID;
-      document.body.appendChild(el);
-    }
-    portalRef.current = el;
-    setPortalReady(true);
-    return () => {
-      if (el && el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-      portalRef.current = null;
-    };
-  }, []);
+  const portalEl = usePrintPortal(PRINT_PORTAL_ID);
 
   const printableProps = {
     rows,
@@ -152,8 +135,8 @@ function ClassTeacherListContent() {
         </PrintPreview>
       )}
 
-      {portalReady && portalRef.current && canPrint &&
-        createPortal(<ClassTeacherListPrintable {...printableProps} />, portalRef.current)}
+      {portalEl && canPrint &&
+        createPortal(<ClassTeacherListPrintable {...printableProps} />, portalEl)}
     </div>
   );
 }

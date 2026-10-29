@@ -73,6 +73,7 @@ import {
 import type { TeacherPortalStats, TeacherChatMessage, TeacherAbsence } from "@/lib/types/teacher";
 import { TaskCardSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
 import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -116,7 +117,7 @@ export default function TeacherDashboardPage() {
   const [absences, setAbsences] = useState<TeacherAbsence[]>([]);
   const [isMarkAbsenceOpen, setIsMarkAbsenceOpen] = useState(false);
   const [selectedAbsenceDates, setSelectedAbsenceDates] = useState<string[]>([
-    new Date().toISOString().split("T")[0],
+    todayIST(),
   ]);
   const [calViewYear, setCalViewYear] = useState<number>(new Date().getFullYear());
   const [calViewMonth, setCalViewMonth] = useState<number>(new Date().getMonth()); // 0-indexed
@@ -155,7 +156,7 @@ export default function TeacherDashboardPage() {
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceClass, setAttendanceClass] = useState("V");
   const [attendanceSection, setAttendanceSection] = useState("A");
-  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [attendanceDate, setAttendanceDate] = useState(todayIST());
   const [attendanceRoster, setAttendanceRoster] = useState<any[]>([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
@@ -561,7 +562,7 @@ export default function TeacherDashboardPage() {
   };
 
   // Check today's absence status
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayIST();
   const isAbsentToday = absences.some((a) => {
     if (a.dates && Array.isArray(a.dates)) {
       return a.dates.includes(todayStr);

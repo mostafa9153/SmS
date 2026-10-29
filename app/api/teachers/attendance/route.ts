@@ -1,24 +1,24 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { denyOutsideClasses, requireRole } from "@/lib/api/guard";
+import { todayIST } from "@/lib/utils/date";
 
 // GET /api/teachers/attendance - Fetch student attendance for a class/section/date
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
     const className = searchParams.get("className") || searchParams.get("class_name");
     const section = searchParams.get("section") || "ALL";
-    const date = searchParams.get("date") || new Date().toISOString().split("T")[0];
+    const date = searchParams.get("date") || todayIST();
 
     if (!className) {
       return NextResponse.json({ error: "Class name is required" }, { status: 400 });
     }
+    const outside = denyOutsideClasses(gate.auth, className);
+    if (outside) return outside;
 
     const adminClient = createAdminClient();
 
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
       
       // Consecutive absences (going backward from 'date' or yesterday if today is not marked yet)
       let consecutiveAbsences = 0;
-      let checkDate = new Date(date);
+      const checkDate = new Date(date);
       // Sort records descending by date
       const pastRecords = studentRecords
         .filter((a: any) => a.attendance_date <= date)
@@ -131,11 +131,9 @@ export async function GET(req: Request) {
 // POST /api/teachers/attendance - Bulk save student attendance records
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
+    const user = gate.auth.user!;
 
     const body = await req.json();
     const { className, section = "ALL", date, records = [] } = body;
@@ -143,6 +141,8 @@ export async function POST(req: Request) {
     if (!className || !date || !Array.isArray(records) || records.length === 0) {
       return NextResponse.json({ error: "Class name, date, and attendance records are required." }, { status: 400 });
     }
+    const outside = denyOutsideClasses(gate.auth, className);
+    if (outside) return outside;
 
     const adminClient = createAdminClient();
 

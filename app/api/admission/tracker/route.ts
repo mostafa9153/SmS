@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function GET(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_print_admission_form", "can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
     const academicYear = searchParams.get("academicYear") || "2026";
@@ -73,7 +71,7 @@ export async function GET(req: Request) {
     }
 
     // 3. Filter by Date range if provided
-    let records = (rawRows || []).filter((item) => {
+    const records = (rawRows || []).filter((item) => {
       const itemDate = (item.admitted_at || item.created_at || "").slice(0, 10);
       if (fromDate && itemDate < fromDate) return false;
       if (toDate && itemDate > toDate) return false;

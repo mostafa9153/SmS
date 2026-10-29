@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 
 // GET /api/admin/users - List all users with their roles
-// guard: custom — Admin check per handler, plus a first-admin bootstrap when user_roles is empty (audit 2: A-1).
+// guard: custom — Admin check per handler, plus a first-admin bootstrap only when user_roles is provably empty (fails closed, audit 2 A-SEC-2).
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -26,8 +26,9 @@ export async function GET() {
     // Check if role is admin or if no roles exist yet (first admin setup)
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }
@@ -85,8 +86,9 @@ export async function POST(req: Request) {
 
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }
@@ -295,8 +297,9 @@ export async function DELETE(req: Request) {
 
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }

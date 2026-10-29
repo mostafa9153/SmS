@@ -553,9 +553,14 @@ export function TeacherLoungeDrawer({
     textareaRef.current?.focus();
   };
 
+  // Focus happens in an effect so the click handler never touches the ref
+  const [mentionFocus, setMentionFocus] = useState(0);
+  useEffect(() => {
+    if (mentionFocus) textareaRef.current?.focus();
+  }, [mentionFocus]);
   const handleMentionUser = (name: string) => {
     setInputText((prev) => `${prev ? `${prev} ` : ""}@${name} `);
-    textareaRef.current?.focus();
+    setMentionFocus((n) => n + 1);
   };
 
   const filteredMessages = useMemo(() => {

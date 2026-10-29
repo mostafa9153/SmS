@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Types
+        run: npx tsc --noEmit -p .
+      - name: Lint (errors only, whole repo)
+        run: npx eslint . --quiet
+      - name: Unit tests
+        run: npx vitest run
+      - name: Conventions on the PR diff (guard, undo, secrets, routes)
+        if: github.event_name == 'pull_request'
+        run: node scripts/verify.mjs --base origin/${{ github.base_ref }}

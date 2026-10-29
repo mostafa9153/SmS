@@ -15,6 +15,9 @@ const eslintConfig = defineConfig([
     "node_modules/**",
     ".agents/**",
     "scratch/**",
+    ".claude/**",
+    // One-off root artifacts (see CLAUDE.md "Ignore")
+    "patch_*.js",
     "next-env.d.ts",
   ]),
   {

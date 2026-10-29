@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { dateLabelIST } from "@/lib/utils/date";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 
@@ -41,7 +42,7 @@ export async function POST(
           .update({
             invoice_status: "cancelled",
             payment_status: "Voided",
-            remarks: `Admission reverted back to pending on ${new Date().toLocaleDateString()}`,
+            remarks: `Admission reverted back to pending on ${dateLabelIST()}`,
             updated_at: new Date().toISOString(),
           })
           .eq("invoice_number", app.payment_receipt_no);

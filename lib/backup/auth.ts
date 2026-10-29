@@ -16,6 +16,9 @@ export interface AdminAuthResult {
   statusCode?: number;
 }
 
+/** httpOnly cookie holding the Drive OAuth `state` nonce between /backup/auth and its callback. */
+export const OAUTH_STATE_COOKIE = "drive_oauth_state";
+
 export async function verifyAdminUser(): Promise<AdminAuthResult> {
   try {
     const supabase = await createClient();

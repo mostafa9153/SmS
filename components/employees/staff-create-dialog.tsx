@@ -18,6 +18,7 @@ import { ClassMultiSelectDropdown } from "@/components/employees/class-multi-sel
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 interface StaffCreateDialogProps {
   open: boolean;
@@ -46,7 +47,7 @@ export function StaffCreateDialog({
     status: "ACTIVE",
     caste: "General",
     basic_pay: "",
-    joining_date: new Date().toISOString().split("T")[0],
+    joining_date: todayIST(),
     appointed_subject: "",
     academic_section: "Secondary",
 

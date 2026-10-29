@@ -18,6 +18,7 @@ import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 interface ExportColumn {
   id: string;
@@ -241,7 +242,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
 
-      const timestamp = new Date().toISOString().split("T")[0];
+      const timestamp = todayIST();
       const filterTag = activeFilters.class ? `_Class_${activeFilters.class}` : "";
       const filename = `Students_Report${filterTag}_${timestamp}.${fileFormat}`;
 

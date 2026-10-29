@@ -4,6 +4,7 @@ import { dbCreateStudent } from "@/lib/supabase/db-students";
 import type { Student, StudentStatus } from "@/lib/types";
 import { pgQuote } from "@/lib/supabase/filters";
 import { requireStaff } from "@/lib/api/guard";
+import { todayIST } from "@/lib/utils/date";
 
 export async function POST(req: Request) {
   try {
@@ -160,8 +161,8 @@ export async function POST(req: Request) {
 
           currentStatus: (app.admission_type === "new" ? "New Admission" : "Continuing") as StudentStatus,
           admissionYear: Number(app.academic_year) || currentYear,
-          admissionDate: app.admission_date || new Date().toISOString().split("T")[0],
-          presentClassAdmissionDate: new Date().toISOString().split("T")[0],
+          admissionDate: app.admission_date || todayIST(),
+          presentClassAdmissionDate: todayIST(),
           reAdmissionStatus: "admitted",
           reAdmittedAt: new Date().toISOString(),
           reAdmittedSession: String(app.academic_year || currentYear),

@@ -1,6 +1,7 @@
 import type ExcelJS from "exceljs";
 import type { TableRow, TableCell } from "docx";
 import type { Student } from "@/lib/types";
+import { todayIST } from "@/lib/utils/date";
 
 export interface SectionMatrixRow {
   classLevel: string; // "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"
@@ -746,7 +747,7 @@ export async function exportClassicStrengthExcel(
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Students_Strength_${data.academicYear}_${new Date().toISOString().split("T")[0]}.xlsx`;
+  a.download = `Students_Strength_${data.academicYear}_${todayIST()}.xlsx`;
   a.click();
   window.URL.revokeObjectURL(url);
 }
@@ -1136,7 +1137,7 @@ export async function exportClassicStrengthWord(
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Students_Strength_${data.academicYear}_${new Date().toISOString().split("T")[0]}.docx`;
+  a.download = `Students_Strength_${data.academicYear}_${todayIST()}.docx`;
   a.click();
   window.URL.revokeObjectURL(url);
 }
@@ -1253,7 +1254,7 @@ export function exportClassicStrengthCsv(
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Students_Strength_${data.academicYear}_${new Date().toISOString().split("T")[0]}.csv`;
+  a.download = `Students_Strength_${data.academicYear}_${todayIST()}.csv`;
   a.click();
   window.URL.revokeObjectURL(url);
 }

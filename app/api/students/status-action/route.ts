@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
+import { todayIST } from "@/lib/utils/date";
 
 const PENDING_STATUSES = [
   "Promoted But Not Admitted",
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     const supabase = createAdminClient();
     const currentYear = new Date().getFullYear();
     const nowIso = new Date().toISOString();
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayIST();
 
     // ACTION 1: Issue Transfer Certificate (TC Out)
     if (action === "tc_out") {

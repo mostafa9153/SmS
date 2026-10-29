@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { sortClasses, CLASS_ORDER } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ const METADATA_CACHE_TTL_MS = 3 * 60 * 1000; // 3 minutes
 // GET /api/students/metadata - Returns lightweight distinct filter options
 export async function GET() {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
 
     // Verify session

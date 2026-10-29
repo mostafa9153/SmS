@@ -47,12 +47,15 @@ export function RoutineHistorySection({
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [issuesOf, setIssuesOf] = useState<RoutineHistoryEntry | null>(null);
+  // "x ago" labels are relative to the last load of the list
+  const [now, setNow] = useState(() => Date.now());
 
   const loadHistory = async () => {
     setIsLoading(true);
     try {
       const items = await fetchGeneratedRoutineHistoryDb(10);
       setHistory(items);
+      setNow(Date.now());
     } catch (err) {
       console.error("Failed to load routine history:", err);
     } finally {
@@ -115,7 +118,7 @@ export function RoutineHistorySection({
   };
 
   const getRelativeTime = (date: Date) => {
-    const diffMs = Date.now() - date.getTime();
+    const diffMs = now - date.getTime();
     const diffMins = Math.round(diffMs / 60000);
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;

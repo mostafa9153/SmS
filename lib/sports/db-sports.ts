@@ -14,9 +14,9 @@ let memoryEvents: SportsEvent[] = PRESET_SPORTS_EVENTS.map((e, idx) => ({
   participantCount: 0,
 }));
 
-let memoryAthletes: Record<string, SportsAthlete> = {}; // key: studentId
-let memoryRegistrations: Record<string, { eventId: string; studentId: string; status: string; laneOrHeat?: string }> = {};
-let memoryResults: Record<string, { eventId: string; studentId: string; trial1?: string; trial2?: string; trial3?: string; bestScore?: string; rankPosition?: number | null; remarks?: string }> = {};
+const memoryAthletes: Record<string, SportsAthlete> = {}; // key: studentId
+const memoryRegistrations: Record<string, { eventId: string; studentId: string; status: string; laneOrHeat?: string }> = {};
+const memoryResults: Record<string, { eventId: string; studentId: string; trial1?: string; trial2?: string; trial3?: string; bestScore?: string; rankPosition?: number | null; remarks?: string }> = {};
 
 export async function getSportsEvents(academicYear?: number): Promise<SportsEvent[]> {
   const year = academicYear || new Date().getFullYear();
