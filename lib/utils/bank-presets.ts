@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface BankPresetItem {
   id: string;
   bankName: string;
@@ -81,27 +82,8 @@ export async function fetchBankPresetsFromDb(): Promise<BankPresetItem[]> {
 }
 
 export async function saveBankPresetsToDb(items: BankPresetItem[]): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(BANK_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(BANK_PRESETS_EVENT, { detail: items }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "bank_presets",
-        value: items,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post bank presets to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("bank_presets", items, {
+    label: "Bank presets saved",
+    mirror: { storageKey: BANK_PRESETS_STORAGE_KEY, event: BANK_PRESETS_EVENT, detail: true },
+  });
 }

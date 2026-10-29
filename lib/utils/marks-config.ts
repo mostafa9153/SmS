@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 /**
  * Centralized Evaluation Marks Distribution & Configuration System
  * Handles per-class, per-exam marks division, subject counts, subject lists,
@@ -428,14 +429,11 @@ export function saveMarksSchemes(schemes: ClassMarksScheme[]): void {
     console.error("Failed to save marks schemes:", e);
   }
 
-  // Background sync to database
-  try {
-    fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "marks_schemes", value: schemes }),
-    }).catch((err) => console.warn("Background DB sync for marks schemes failed:", err));
-  } catch {}
+  void saveSchoolConfig("marks_schemes", schemes, {
+    label: "Marks schemes saved",
+    mirror: { storageKey: STORAGE_KEY, event: "sms_marks_schemes_updated" },
+    localFirst: true,
+  });
 }
 
 /**
@@ -612,14 +610,11 @@ export function savePromotionPolicy(policy: PromotionPolicy): void {
     console.error("Failed to save promotion policy:", e);
   }
 
-  // Background sync to database
-  try {
-    fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: "promotion_policy", value: policy }),
-    }).catch((err) => console.warn("Background DB sync for promotion policy failed:", err));
-  } catch {}
+  void saveSchoolConfig("promotion_policy", policy, {
+    label: "Promotion policy saved",
+    mirror: { storageKey: PROMOTION_POLICY_KEY, event: "sms_promotion_policy_updated" },
+    localFirst: true,
+  });
 }
 
 // ----------------------------------------------------------------------------

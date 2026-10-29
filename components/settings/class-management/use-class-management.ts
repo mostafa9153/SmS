@@ -10,6 +10,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ClassItem } from "@/components/settings/class-management/types";
 import { DEFAULT_CLASSES } from "@/components/settings/class-management/constants";
 import { getNextAvailableLetter, isHigherSecondaryClass } from "@/components/settings/class-management/helpers";
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 
 export function useClassManagement() {
   const confirm = useConfirm();
@@ -55,13 +56,11 @@ export function useClassManagement() {
     }
     syncConfiguredClassesToRoutine(updated).catch((e) => console.warn("syncConfiguredClassesToRoutine:", e));
 
-    apiFetch("/api/school-config", { method: "POST", json: { key: "class_management", value: updated } })
-      .then(() => {
-        import("@/lib/utils/school-config-client").then(({ invalidateSchoolConfigClientCache }) =>
-          invalidateSchoolConfigClientCache()
-        );
-      })
-      .catch((err) => console.warn("Background DB sync for classes failed:", err));
+    void saveSchoolConfig("class_management", updated, {
+      label: "Classes saved",
+      mirror: { storageKey: "sms_class_management", event: "sms_class_management_updated" },
+      localFirst: true,
+    });
   };
 
   useEffect(() => {

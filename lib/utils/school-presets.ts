@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export const DEFAULT_SCHOOL_PRESETS: string[] = [
   "Marigachi Free Primary School",
   "Krishnachandrapur F.P. School",
@@ -44,27 +45,8 @@ export async function fetchSchoolPresetsFromDb(): Promise<string[]> {
 }
 
 export async function saveSchoolPresetsToDb(items: string[]): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: items }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "school_presets",
-        value: items,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post school presets to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("school_presets", items, {
+    label: "School presets saved",
+    mirror: { storageKey: SCHOOL_PRESETS_STORAGE_KEY, event: SCHOOL_PRESETS_EVENT, detail: true },
+  });
 }

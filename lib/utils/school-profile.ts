@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface SchoolProfileData {
   schoolName: string;
   schoolCode: string;
@@ -397,30 +398,11 @@ export async function fetchSchoolProfileFromDb(): Promise<SchoolProfileData> {
 }
 
 /**
- * Saves the school profile to both localStorage and the Supabase database.
+ * Saves the school profile to the database, then mirrors it to localStorage.
  */
 export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "school_profile",
-        value: profile,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to save school profile to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("school_profile", profile, {
+    label: "School profile saved",
+    mirror: { storageKey: "sms_school_profile", event: "sms_school_profile_updated", detail: true },
+  });
 }

@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
@@ -268,11 +269,11 @@ export function SchoolDetailsTab() {
           });
           localStorage.setItem("sms_class_management", JSON.stringify(updatedClasses));
           window.dispatchEvent(new Event("sms_class_management_updated"));
-          fetch("/api/school-config", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: "class_management", value: updatedClasses }),
-          }).catch((err) => console.warn("Background DB sync for classes failed:", err));
+          void saveSchoolConfig("class_management", updatedClasses, {
+            label: "Class streams updated",
+            mirror: { storageKey: "sms_class_management", event: "sms_class_management_updated" },
+            localFirst: true,
+          });
         }
       } catch (e) {
         console.warn("Class stream sync skipped:", e);

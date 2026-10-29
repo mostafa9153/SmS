@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface PostOfficeOption {
   name: string;
   pincode: string;
@@ -216,27 +217,8 @@ export async function fetchAddressPresetsConfigFromDb(): Promise<AddressPresetsC
 }
 
 export async function saveAddressPresetsConfigToDb(config: AddressPresetsConfig): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: config }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "address_presets_config",
-        value: config,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post address presets config to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("address_presets_config", config, {
+    label: "Address presets saved",
+    mirror: { storageKey: ADDRESS_CONFIG_STORAGE_KEY, event: ADDRESS_CONFIG_EVENT, detail: true },
+  });
 }

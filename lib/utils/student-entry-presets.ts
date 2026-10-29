@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface StudentEntryPresets {
   defaultGuardianRelationship: string; // "Father" | "Mother" | "Uncle" | "Grandfather" | "Grandmother" | "None" | string
   defaultReligion: string; // "Hinduism" | "Islam" | "Christianity" | "Sikhism" | "Buddhism" | "Jainism" | "None" | string
@@ -67,29 +68,10 @@ export async function fetchStudentEntryPresetsFromDb(): Promise<StudentEntryPres
  * Persists the presets to the Supabase database.
  */
 export async function saveStudentEntryPresetsToDb(presets: StudentEntryPresets): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(STUDENT_ENTRY_PRESETS_STORAGE_KEY, JSON.stringify(presets));
-    window.dispatchEvent(new CustomEvent(STUDENT_ENTRY_PRESETS_EVENT, { detail: presets }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "student_entry_presets",
-        value: presets,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post student entry presets to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("student_entry_presets", presets, {
+    label: "Student entry defaults saved",
+    mirror: { storageKey: STUDENT_ENTRY_PRESETS_STORAGE_KEY, event: STUDENT_ENTRY_PRESETS_EVENT, detail: true },
+  });
 }
 
 /**
