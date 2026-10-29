@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { requireRole, teacherPermissions } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
@@ -249,24 +249,29 @@ export async function GET(request: Request) {
   }
 }
 
+// undo: n/a — follow-up: settings are saved localStorage-first and re-synced in the background, so an undo would have to reset those browser caches too (phase 3.3 report)
 export async function POST(request: Request) {
   try {
-    const gate = await requireRole(["Admin", "Staff"]);
+    // Admin and Staff may change any key; a Teacher only the EMS keys, and only with can_manage_ems.
+    const gate = await requireRole();
     if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    // Allow Admins and Staff to update presets and configuration
-    if (auth.role !== "Admin" && auth.role !== "Staff") {
-      return NextResponse.json(
-        { error: "Forbidden: Only staff and admins can change school configuration" },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const { key, value } = body;
+
+    if (auth.role === "Teacher") {
+      const emsKey = typeof key === "string" && key.startsWith("ems_");
+      if (!emsKey || !teacherPermissions(gate.auth).can_manage_ems) {
+        return NextResponse.json(
+          { error: "Forbidden: only staff and admins can change school configuration" },
+          { status: 403 }
+        );
+      }
+    }
 
     if (!key || value === undefined) {
       return NextResponse.json(

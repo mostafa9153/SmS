@@ -3,6 +3,19 @@ import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { mustWrite } from "@/lib/supabase/write";
+import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
+import { pickSelfEditable } from "@/lib/employees/self-edit";
+
+/** Tables that lose rows when a staff profile is deleted (ON DELETE CASCADE on teacher_id). */
+const STAFF_CASCADE_TABLES = [
+  "teacher_class_assignments",
+  "teacher_task_assignees",
+  "teacher_permission_grants",
+  "teacher_absences",
+  "teacher_routine_slots",
+  "routine_teacher_availability",
+];
+
 
 // GET /api/employees/[id]
 export async function GET(
@@ -38,7 +51,6 @@ export async function GET(
 }
 
 // PATCH /api/employees/[id] - Update staff profile
-// undo: n/a — follow-up: staff edit/delete undo needs the staff cascade map (audit-2 report); delete has a confirm dialog
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -59,8 +71,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Forbidden: You do not have permission to update this staff profile." }, { status: 403 });
     }
 
-    const body = await req.json();
+    const rawBody = await req.json();
+    // A teacher editing their own profile cannot touch pay, designation, status or IDs.
+    const body: Record<string, any> = isAdmin
+      ? rawBody
+      : pickSelfEditable(rawBody);
     const admin = createAdminClient();
+    const staffBefore = await snapshotRows(admin, "staff_profiles", "id", id);
+    const rolesBefore = await snapshotRows(admin, "user_roles", "staff_id", id);
 
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -136,7 +154,19 @@ export async function PATCH(
         .eq("staff_id", id), "user_roles update");
     }
 
-    return NextResponse.json({ success: true, staff: updated });
+    const undoId = await recordUndo({
+      actorId: auth.user?.id ?? "",
+      action: "staff.update",
+      label: `Edit ${updated?.full_name ?? "staff"} profile`,
+      entity: "staff_profiles",
+      entityId: id,
+      steps: [
+        { table: "staff_profiles", op: "upsert", rows: staffBefore },
+        { table: "user_roles", op: "upsert", rows: rolesBefore },
+      ],
+      guard: { table: "staff_profiles", id, updated_at: updated?.updated_at ?? null },
+    });
+    return NextResponse.json({ success: true, staff: updated, undoId });
   } catch (error: any) {
     console.error("PATCH staff error:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
@@ -162,6 +192,14 @@ export async function DELETE(
     const { id } = await params;
     const admin = createAdminClient();
 
+    // Before-images: the profile, the login link (set to null on delete) and every cascaded child.
+    const staffBefore = await snapshotRows(admin, "staff_profiles", "id", id);
+    const rolesBefore = await snapshotRows(admin, "user_roles", "staff_id", id);
+    const childBefore: RestoreStep[] = [];
+    for (const table of STAFF_CASCADE_TABLES) {
+      childBefore.push({ table, op: "upsert", rows: await snapshotRows(admin, table, "teacher_id", id) });
+    }
+
     const { error } = await admin
       .from("staff_profiles")
       .delete()
@@ -172,7 +210,21 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, message: "Staff profile deleted successfully" });
+    // Order matters: the profile first, then rows that point at it.
+    const undoId = await recordUndo({
+      actorId: auth.user?.id ?? "",
+      action: "staff.delete",
+      label: `Delete ${staffBefore[0]?.full_name ?? "staff"}`,
+      entity: "staff_profiles",
+      entityId: id,
+      steps: [
+        { table: "staff_profiles", op: "upsert", rows: staffBefore },
+        { table: "user_roles", op: "upsert", rows: rolesBefore },
+        ...childBefore,
+      ],
+      ttlHours: 72,
+    });
+    return NextResponse.json({ success: true, message: "Staff profile deleted successfully", undoId });
   } catch (error: any) {
     console.error("DELETE staff error:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });

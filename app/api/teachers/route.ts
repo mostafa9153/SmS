@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { DEFAULT_TEACHER_PERMISSIONS } from "@/lib/types/teacher";
 import { mustWrite } from "@/lib/supabase/write";
+import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
 import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/teachers - List all teaching staff with their account, permissions, active grants, and assigned classes
@@ -226,7 +227,7 @@ export async function POST(req: Request) {
 }
 
 // PATCH /api/teachers - Update permissions, temporary grants, or reset teacher password
-// undo: n/a — follow-up: permission toggles are re-settable on the same screen; no journal yet (audit-2 report)
+// undo: permissions, appointed subject and temporary grants are journaled; a password reset cannot be replayed
 export async function PATCH(req: Request) {
   try {
     const gate = await requireRole(["Admin"]);
@@ -287,6 +288,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Target userId or staffId is required." }, { status: 400 });
     }
 
+    // Before-images for undo (the password reset is not journaled: it cannot be replayed).
+    const rolesBefore = targetUserId ? await snapshotRows(adminClient, "user_roles", "user_id", targetUserId) : [];
+    const staffBefore = targetStaffId ? await snapshotRows(adminClient, "staff_profiles", "id", targetStaffId) : [];
+    let createdGrantId: string | null = null;
+
     // 1. If appointedSubject updated for teacher
     if (appointedSubject !== undefined && targetStaffId) {
       const { data: currentStaff } = await adminClient
@@ -338,7 +344,7 @@ export async function PATCH(req: Request) {
     if (temporaryGrant && targetUserId) {
       const { permissionKey, expiresAt, taskId } = temporaryGrant;
       if (permissionKey && expiresAt) {
-        await mustWrite(adminClient.from("teacher_permission_grants").insert({
+        const grantInsert = await mustWrite(adminClient.from("teacher_permission_grants").insert({
           user_id: targetUserId,
           teacher_id: targetStaffId || null,
           permission_key: permissionKey,
@@ -346,7 +352,8 @@ export async function PATCH(req: Request) {
           granted_by: user.id,
           expires_at: expiresAt,
           is_active: true,
-        }), "teacher_permission_grants insert");
+        }).select("id").single(), "teacher_permission_grants insert");
+        createdGrantId = grantInsert.data?.id ?? null;
 
         // Temporarily activate in user_roles.permissions
         const { data: uRole } = await adminClient
@@ -369,7 +376,23 @@ export async function PATCH(req: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, message: "Teacher account updated successfully" });
+    const steps: RestoreStep[] = [
+      { table: "staff_profiles", op: "upsert", rows: staffBefore },
+      { table: "user_roles", op: "upsert", rows: rolesBefore },
+    ];
+    if (createdGrantId) steps.push({ table: "teacher_permission_grants", op: "delete", column: "id", values: [createdGrantId] });
+    const undoId = permissions || appointedSubject !== undefined || temporaryGrant
+      ? await recordUndo({
+          actorId: user.id,
+          action: "teacher.update",
+          label: "Update teacher access",
+          entity: "user_roles",
+          entityId: targetUserId ?? targetStaffId,
+          steps,
+        })
+      : null;
+
+    return NextResponse.json({ success: true, message: "Teacher account updated successfully", undoId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

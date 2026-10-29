@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -46,11 +47,7 @@ export function StaffDeleteDialog({
         throw new Error(data.error || "Failed to delete staff record");
       }
 
-      showToast({
-        type: "success",
-        title: "Staff Deleted",
-        description: `${staffName} (${uniqueId}) has been removed from the registry.`,
-      });
+      toastWithUndo(`${staffName} (${uniqueId}) has been removed from the registry.`, data.undoId, () => router.refresh());
 
       onOpenChange(false);
       router.push("/employees");

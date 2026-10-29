@@ -7,6 +7,7 @@ import { ArrowLeft, Save, Briefcase, User, MapPin, GraduationCap, Building2, Boo
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import { cn } from "@/lib/utils";
 import {
   ClassMultiSelectDropdown,
@@ -204,11 +205,7 @@ export function EmployeeEditForm({
         throw new Error(data.error || "Failed to update employee profile");
       }
 
-      showToast({
-        type: "success",
-        title: "Profile Updated",
-        description: "Employee details have been saved to the database.",
-      });
+      toastWithUndo("Employee details saved.", data.undoId, () => router.refresh());
 
       router.push(backTarget);
       router.refresh();

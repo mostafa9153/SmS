@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { mustWrite } from "@/lib/supabase/write";
+import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
 
 // Mapping of task types to required permissions
 const TASK_PERMISSION_MAP: Record<string, string> = {
@@ -326,7 +327,7 @@ export async function POST(req: Request) {
 }
 
 // PATCH /api/teachers/tasks - Update task status or submit completion report
-// undo: n/a — follow-up: task status/delete has no journal yet (audit-2 report); clear-all is demo data
+// undo: admin status changes are journaled; a teacher updating their own progress/report is their own entry and can be resubmitted
 export async function PATCH(req: Request) {
   try {
     const gate = await requireRole();
@@ -383,6 +384,8 @@ export async function PATCH(req: Request) {
 
     // If Admin is approving or updating overall task
     if (isAdmin) {
+      const taskBefore = taskId && status ? await snapshotRows(adminClient, "teacher_tasks", "id", taskId) : [];
+      const assigneeBefore = assigneeId && status ? await snapshotRows(adminClient, "teacher_task_assignees", "id", assigneeId) : [];
       if (taskId && status) {
         await mustWrite(adminClient
           .from("teacher_tasks")
@@ -397,7 +400,18 @@ export async function PATCH(req: Request) {
           .eq("id", assigneeId), "teacher_task_assignees update");
       }
 
-      return NextResponse.json({ success: true, message: "Task status updated by admin." });
+      const undoId = await recordUndo({
+        actorId: user.id,
+        action: "teacher.task.status",
+        label: "Change task status",
+        entity: "teacher_tasks",
+        entityId: taskId ?? assigneeId,
+        steps: [
+          { table: "teacher_tasks", op: "upsert", rows: taskBefore },
+          { table: "teacher_task_assignees", op: "upsert", rows: assigneeBefore },
+        ],
+      });
+      return NextResponse.json({ success: true, message: "Task status updated by admin.", undoId });
     }
 
     return NextResponse.json({ success: true });
@@ -436,14 +450,33 @@ export async function DELETE(req: Request) {
     const clearAll = searchParams.get("clearAll") === "true";
 
     if (clearAll) {
+      const allTasks = await adminClient.from("teacher_tasks").select("*");
+      const allAssignees = await adminClient.from("teacher_task_assignees").select("*");
+      if (allTasks.error || allAssignees.error) {
+        return NextResponse.json({ error: "Could not snapshot tasks before clearing" }, { status: 500 });
+      }
       await mustWrite(adminClient.from("teacher_task_assignees").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "teacher_task_assignees delete");
       await mustWrite(adminClient.from("teacher_tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "teacher_tasks delete");
-      return NextResponse.json({ success: true, message: "All demo tasks cleared successfully." });
+      const undoId = await recordUndo({
+        actorId: user.id,
+        action: "teacher.task.clear",
+        label: "Clear all tasks",
+        entity: "teacher_tasks",
+        steps: [
+          { table: "teacher_tasks", op: "upsert", rows: allTasks.data ?? [] },
+          { table: "teacher_task_assignees", op: "upsert", rows: allAssignees.data ?? [] },
+        ],
+        ttlHours: 72,
+      });
+      return NextResponse.json({ success: true, message: "All demo tasks cleared successfully.", undoId });
     }
 
     if (!taskId) {
       return NextResponse.json({ error: "Task ID is required." }, { status: 400 });
     }
+
+    const taskBefore = await snapshotRows(adminClient, "teacher_tasks", "id", taskId);
+    const assigneesBefore = await snapshotRows(adminClient, "teacher_task_assignees", "task_id", taskId);
 
     // Delete assignees first, then the task
     await mustWrite(adminClient.from("teacher_task_assignees").delete().eq("task_id", taskId), "teacher_task_assignees delete");
@@ -453,7 +486,20 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: delErr.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Task deleted successfully." });
+    const steps: RestoreStep[] = [
+      { table: "teacher_tasks", op: "upsert", rows: taskBefore },
+      { table: "teacher_task_assignees", op: "upsert", rows: assigneesBefore },
+    ];
+    const undoId = await recordUndo({
+      actorId: user.id,
+      action: "teacher.task.delete",
+      label: "Delete task",
+      entity: "teacher_tasks",
+      entityId: taskId,
+      steps,
+      ttlHours: 72,
+    });
+    return NextResponse.json({ success: true, message: "Task deleted successfully.", undoId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

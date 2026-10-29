@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import type { TeacherPermissions } from "@/lib/types/teacher";
 import { DataTableSkeleton, StatCardsGridSkeleton } from "@/components/ui/skeleton-loaders";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -326,7 +327,7 @@ function AdminTeacherManagementContent() {
         setTeachers((prev) =>
           prev.map((t) => (t.id === teacher.id ? { ...t, permissions: updatedPerms } : t))
         );
-        showToast(`Updated permissions for ${teacher.fullName}`);
+        toastWithUndo(`Updated permissions for ${teacher.fullName}`, data.undoId, loadData);
       } else {
         setErrorMsg(data.error || "Failed to update permission");
       }
@@ -367,7 +368,7 @@ function AdminTeacherManagementContent() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(`${nextState ? "Enabled" : "Disabled"} ${targetSection.title} for ${teacher.fullName}`);
+        toastWithUndo(`${nextState ? "Enabled" : "Disabled"} ${targetSection.title} for ${teacher.fullName}`, data.undoId, loadData);
       } else {
         setErrorMsg(data.error || "Failed to update permissions");
         loadData();
@@ -485,7 +486,7 @@ function AdminTeacherManagementContent() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("Task verified & approved!");
+        toastWithUndo("Task verified & approved!", data.undoId, loadData);
         loadData();
       }
     } catch (err) {
@@ -500,7 +501,7 @@ function AdminTeacherManagementContent() {
       const res = await fetch(`/api/teachers/tasks?id=${taskId}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        showToast("Task deleted successfully");
+        toastWithUndo("Task deleted successfully", data.undoId, loadData);
         loadData();
       } else {
         setErrorMsg(data.error || "Failed to delete task");
@@ -1553,11 +1554,11 @@ function AdminTeacherManagementContent() {
                           }),
                         });
                         if (res.ok) {
-                          setSuccessMsg(`Permissions saved for ${configureTeacher.fullName}`);
+                          const saved = await res.json().catch(() => ({}));
+                          toastWithUndo(`Permissions saved for ${configureTeacher.fullName}`, saved.undoId, loadData);
                           setConfigureTeacher(null);
                           setPendingPerms(null);
                           loadData();
-                          setTimeout(() => setSuccessMsg(""), 3000);
                         } else {
                           const err = await res.json();
                           setErrorMsg(err.error || "Failed to save permissions");
