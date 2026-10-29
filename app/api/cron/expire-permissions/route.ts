@@ -4,11 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
+import { notifyCronRefused } from "@/lib/api/cron";
 
+// undo: n/a — scheduled system job; expiry is the grant's own end date
 export async function GET(req: Request) {
   if (!hasCronSecret(req)) {
     const gate = await requireRole(["Admin"]);
-    if (!gate.ok) return gate.response;
+    if (!gate.ok) {
+      await notifyCronRefused(req, "cron.refused.permissions", "Permission expiry job");
+      return gate.response;
+    }
   }
 
   try {
@@ -31,30 +36,35 @@ export async function GET(req: Request) {
     }
 
     let revokedCount = 0;
+    const failures: string[] = [];
 
+    // Revoke first and deactivate the grant last: a failed step leaves the grant
+    // active, so the next run retries it instead of leaving the permission on.
     for (const grant of expiredGrants) {
-      // Mark grant as inactive
-      await admin
-        .from("teacher_permission_grants")
-        .update({ is_active: false })
-        .eq("id", grant.id);
-
       // Check if user still has other active grants for the same permission
-      const { data: otherActive } = await admin
+      const { data: otherActive, error: otherError } = await admin
         .from("teacher_permission_grants")
         .select("id")
         .eq("user_id", grant.user_id)
         .eq("permission_key", grant.permission_key)
         .eq("is_active", true)
         .gt("expires_at", nowIso);
+      if (otherError) {
+        failures.push(`${grant.permission_key}: ${otherError.message}`);
+        continue;
+      }
 
       if (!otherActive || otherActive.length === 0) {
         // Fetch current user_roles permissions
-        const { data: userRole } = await admin
+        const { data: userRole, error: roleError } = await admin
           .from("user_roles")
           .select("permissions")
           .eq("user_id", grant.user_id)
-          .single();
+          .maybeSingle();
+        if (roleError) {
+          failures.push(`${grant.permission_key}: ${roleError.message}`);
+          continue;
+        }
 
         if (userRole?.permissions) {
           const updatedPerms = {
@@ -62,10 +72,14 @@ export async function GET(req: Request) {
             [grant.permission_key]: false,
           };
 
-          await admin
+          const { error: revokeError } = await admin
             .from("user_roles")
             .update({ permissions: updatedPerms })
             .eq("user_id", grant.user_id);
+          if (revokeError) {
+            failures.push(`${grant.permission_key}: ${revokeError.message}`);
+            continue;
+          }
 
           clearUserRoleCache(grant.user_id);
           revokedCount++;
@@ -78,14 +92,25 @@ export async function GET(req: Request) {
           });
         }
       }
+
+      // Mark grant as inactive
+      const { error: deactivateError } = await admin
+        .from("teacher_permission_grants")
+        .update({ is_active: false })
+        .eq("id", grant.id);
+      if (deactivateError) failures.push(`${grant.permission_key}: ${deactivateError.message}`);
     }
 
     if (revokedCount > 0) {
       await notify({ roles: ["Admin"], title: "Temporary permissions expired", message: `${revokedCount} teacher permission grant(s) reached their end date and were revoked.`, link: "/teacher-management", source: "cron.permissions" });
     }
+    if (failures.length > 0) {
+      await notifyAdminsOfError("cron.permissions", `${failures.length} expired permission(s) could not be revoked`, failures.join("; "), "/teacher-management");
+    }
 
     return NextResponse.json({
-      success: true,
+      success: failures.length === 0,
+      failedCount: failures.length,
       expiredCount: expiredGrants.length,
       revokedCount,
     });

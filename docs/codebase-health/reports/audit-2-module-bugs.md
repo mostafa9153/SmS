@@ -12,6 +12,7 @@ Nothing in this file has been changed in code. Each item needs your **yes / no /
 | 🔴 High | A-API-1 | `POST /api/admission/re-admission/batch`: any signed-in non-Guest (any teacher) can batch re-admit through the service-role client |
 | 🟠 Med-High | A-DATA-1 | Re-admission admit `upsert`s the invoice on `invoice_number`. Typing a receipt number that is already used **overwrites another student's invoice** without any message |
 | A-TIME-1/2 | New `lib/utils/date.ts`: `todayIST()`, `nowTimeIST()`, `dateLabelIST()` (zone `Asia/Kolkata`). All 26 `new Date().toISOString().slice(0,10)` "today" sites now use `todayIST()`: attendance date and save check, admission and TC dates, joining date, invoice `issue_date`, export file names. The 3 server `toLocale*` calls (invoice `issue_time` in both admit routes, revert remark) use the IST helpers. 2 unit tests (01:30 IST is already the new day; 10:15 AM wall clock) |
+| A-CRON-1 | New `lib/api/cron.ts` `notifyCronRefused()`: when Vercel cron (user-agent `vercel-cron`) is refused by `expire-permissions` or `backup/cron`, admins get a bell + push error saying `CRON_SECRET` is missing or wrong. At most once per 20 h per job, so a spoofed caller cannot flood the bell. `expire-permissions` now checks every write, revokes the permission before deactivating the grant (a failed step is retried next night instead of leaving the permission on), and reports failures. 2 unit tests. **Still yours:** set `CRON_SECRET` in Vercel |
 | 🟠 Med-High | A-DATA-2 | EMS exam routines, seat allocations and start time live **only in one browser's localStorage**. Other devices and staff never see them, and clearing the browser loses them |
 | 🟠 Med-High | A-ERR-1 | 104 Supabase writes never read `error`. A failed step in a multi-step flow (admit, promotion undo, status action, routine save, data wipe) reports success and leaves half-written data |
 | 🟠 Medium | A-API-2 | `GET /api/admission/tracker`: any teacher can read every admission record |
@@ -150,4 +151,4 @@ Behaviour changes to know:
 
 Verification: `npm run verify -- --build` PASS. Not tested end-to-end with a real Google consent (needs your OAuth client and a signed-in admin).
 
-Still open: A-DATA-2/3/4, A-ERR-1, A-YEAR-1, A-CRON-1.
+Still open: A-DATA-2/3/4, A-ERR-1, A-YEAR-1.
