@@ -286,15 +286,15 @@ export function useTrackerCore({
 
       // 2. Fetch from backend API
       try {
-        const data = await apiFetch<{ valid?: boolean; data?: DBInvoiceRow; message?: string }>(
+        const data = await apiFetch<{ valid?: boolean; invoice?: DBInvoiceRow; message?: string }>(
           `/api/invoices/verify?number=${encodeURIComponent(numToSearch)}`
         );
 
-        if (data.valid && data.data) {
+        if (data.valid && data.invoice) {
           setVerificationResult({
             checked: true,
             valid: true,
-            invoice: data.data,
+            invoice: data.invoice,
           });
         } else {
           setVerificationResult({
