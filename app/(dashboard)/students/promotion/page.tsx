@@ -29,6 +29,7 @@ import { ArrowRight, CheckCircle2, AlertTriangle, RotateCcw, Sparkles, Sliders, 
 import Link from "next/link";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -836,89 +837,26 @@ function PromotionPageContent() {
 
       {/* Summary Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
-        <div
-          onClick={() => setFilterCategory("all")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-primary/50",
-            filterCategory === "all" ? "ring-2 ring-primary border-primary" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-[11px] font-bold">Total Roster</span>
-            <Users className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1">{metrics.total}</p>
-        </div>
-
-        <div
-          onClick={() => setFilterCategory("promoted")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-emerald-500",
-            filterCategory === "promoted" ? "ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400">
-            <span className="text-[11px] font-bold">Promoted / Advanced</span>
-            <Check className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1 text-emerald-700 dark:text-emerald-400">{metrics.promoted}</p>
-        </div>
-
-        <div
-          onClick={() => setFilterCategory("detained")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-rose-500",
-            filterCategory === "detained" ? "ring-2 ring-rose-500 border-rose-500 bg-rose-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-rose-700 dark:text-rose-400">
-            <span className="text-[11px] font-bold">Detained / Repeat</span>
-            <AlertTriangle className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1 text-rose-700 dark:text-rose-400">{metrics.detained}</p>
-        </div>
-
-        <div
-          onClick={() => setFilterCategory("supplementary")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-amber-500",
-            filterCategory === "supplementary" ? "ring-2 ring-amber-500 border-amber-500 bg-amber-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-amber-700 dark:text-amber-400">
-            <span className="text-[11px] font-bold">Supplementary</span>
-            <RefreshCw className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1 text-amber-700 dark:text-amber-400">{metrics.supplementary}</p>
-        </div>
-
-        <div
-          onClick={() => setFilterCategory("sent_up")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-blue-500",
-            filterCategory === "sent_up" ? "ring-2 ring-blue-500 border-blue-500 bg-blue-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-blue-700 dark:text-blue-400">
-            <span className="text-[11px] font-bold">Sent Up / Board</span>
-            <Award className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1 text-blue-700 dark:text-blue-400">{metrics.sentUp + metrics.passedOut}</p>
-        </div>
-
-        <div
-          onClick={() => setFilterCategory("overridden")}
-          className={cn(
-            "rounded-xl border p-2.5 sm:p-3 bg-card cursor-pointer transition-all hover:border-indigo-500",
-            filterCategory === "overridden" ? "ring-2 ring-indigo-500 border-indigo-500 bg-indigo-500/5" : ""
-          )}
-        >
-          <div className="flex items-center justify-between text-indigo-700 dark:text-indigo-400">
-            <span className="text-[11px] font-bold">Overridden</span>
-            <Sparkles className="h-3.5 w-3.5" />
-          </div>
-          <p className="text-lg sm:text-xl font-bold mt-1 text-indigo-700 dark:text-indigo-400">{metrics.overridden}</p>
-        </div>
+        {([
+          { key: "all", label: "Total Roster", value: metrics.total, icon: Users, iconCls: "text-muted-foreground", valueCls: undefined, activeCls: "ring-primary border-primary" },
+          { key: "promoted", label: "Promoted / Advanced", value: metrics.promoted, icon: Check, iconCls: "text-emerald-700 dark:text-emerald-400", valueCls: "text-emerald-700 dark:text-emerald-400", activeCls: "ring-emerald-500 border-emerald-500 bg-emerald-500/5" },
+          { key: "detained", label: "Detained / Repeat", value: metrics.detained, icon: AlertTriangle, iconCls: "text-rose-700 dark:text-rose-400", valueCls: "text-rose-700 dark:text-rose-400", activeCls: "ring-rose-500 border-rose-500 bg-rose-500/5" },
+          { key: "supplementary", label: "Supplementary", value: metrics.supplementary, icon: RefreshCw, iconCls: "text-amber-700 dark:text-amber-400", valueCls: "text-amber-700 dark:text-amber-400", activeCls: "ring-amber-500 border-amber-500 bg-amber-500/5" },
+          { key: "sent_up", label: "Sent Up / Board", value: metrics.sentUp + metrics.passedOut, icon: Award, iconCls: "text-blue-700 dark:text-blue-400", valueCls: "text-blue-700 dark:text-blue-400", activeCls: "ring-blue-500 border-blue-500 bg-blue-500/5" },
+          { key: "overridden", label: "Overridden", value: metrics.overridden, icon: Sparkles, iconCls: "text-indigo-700 dark:text-indigo-400", valueCls: "text-indigo-700 dark:text-indigo-400", activeCls: "ring-indigo-500 border-indigo-500 bg-indigo-500/5" },
+        ] as const).map(({ key, label, value, icon, iconCls, valueCls, activeCls }) => (
+          <StatCard
+            key={key}
+            label={label}
+            value={value}
+            icon={icon}
+            iconClassName={iconCls}
+            valueClassName={valueCls}
+            onClick={() => setFilterCategory(key)}
+            active={filterCategory === key}
+            className={filterCategory === key ? activeCls : undefined}
+          />
+        ))}
       </div>
 
       {/* Floating / Action Execution Bar */}

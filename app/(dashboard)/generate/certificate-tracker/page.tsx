@@ -42,6 +42,7 @@ import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
+import { StatCard } from "@/components/ui/stat-card";
 
 export default function CertificateTrackerPage() {
   const confirm = useConfirm();
@@ -595,83 +596,25 @@ export default function CertificateTrackerPage() {
 
       {/* Clean Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        <div
-          onClick={() => setTypeFilter("ALL")}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-primary/50",
-            typeFilter === "ALL" ? "border-primary/60 ring-1 ring-primary/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Total Issued</span>
-            <Award className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="text-xl font-bold font-mono text-foreground">{totalCerts}</div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "character-certificate" ? "ALL" : "character-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-amber-500/50",
-            typeFilter === "character-certificate" ? "border-amber-500 ring-1 ring-amber-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Character</span>
-            <FileCheck className="h-3.5 w-3.5 text-amber-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-amber-600">
-            {stats?.byType.character || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "pass-certificate" ? "ALL" : "pass-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-sky-500/50",
-            typeFilter === "pass-certificate" ? "border-sky-500 ring-1 ring-sky-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Pass Out</span>
-            <GraduationCap className="h-3.5 w-3.5 text-sky-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-sky-600">
-            {stats?.byType.pass || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "transfer-certificate" ? "ALL" : "transfer-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-indigo-500/50",
-            typeFilter === "transfer-certificate" ? "border-indigo-500 ring-1 ring-indigo-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Transfer (TC)</span>
-            <Layers className="h-3.5 w-3.5 text-indigo-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-indigo-600">
-            {stats?.byType.transfer || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "kanyashree" ? "ALL" : "kanyashree"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-purple-500/50",
-            typeFilter === "kanyashree" ? "border-purple-500 ring-1 ring-purple-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Kanyashree</span>
-            <Sparkles className="h-3.5 w-3.5 text-purple-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-purple-600">
-            {stats?.byType.kanyashree || 0}
-          </div>
-        </div>
+        {([
+          { key: "ALL", label: "Total Issued", value: totalCerts, icon: Award, iconCls: "text-primary", valueCls: undefined, activeCls: "ring-1 ring-primary/20 border-primary/60" },
+          { key: "character-certificate", label: "Character", value: stats?.byType.character || 0, icon: FileCheck, iconCls: "text-amber-500", valueCls: "text-amber-600", activeCls: "ring-1 ring-amber-500/20 border-amber-500" },
+          { key: "pass-certificate", label: "Pass Out", value: stats?.byType.pass || 0, icon: GraduationCap, iconCls: "text-sky-500", valueCls: "text-sky-600", activeCls: "ring-1 ring-sky-500/20 border-sky-500" },
+          { key: "transfer-certificate", label: "Transfer (TC)", value: stats?.byType.transfer || 0, icon: Layers, iconCls: "text-indigo-500", valueCls: "text-indigo-600", activeCls: "ring-1 ring-indigo-500/20 border-indigo-500" },
+          { key: "kanyashree", label: "Kanyashree", value: stats?.byType.kanyashree || 0, icon: Sparkles, iconCls: "text-purple-500", valueCls: "text-purple-600", activeCls: "ring-1 ring-purple-500/20 border-purple-500" },
+        ] as const).map(({ key, label, value, icon, iconCls, valueCls, activeCls }) => (
+          <StatCard
+            key={key}
+            label={label}
+            value={value}
+            icon={icon}
+            iconClassName={iconCls}
+            valueClassName={valueCls}
+            onClick={() => setTypeFilter((prev) => (key === "ALL" || prev !== key ? key : "ALL"))}
+            active={typeFilter === key}
+            className={typeFilter === key ? activeCls : undefined}
+          />
+        ))}
       </div>
 
       {/* Class Quick Filters (Clean horizontal pills) */}

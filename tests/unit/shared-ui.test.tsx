@@ -40,6 +40,15 @@ describe("shared UI primitives", () => {
     expect(html(<Spinner label="Saving" />)).toContain("Saving");
   });
 
+  it("StatCard is a plain tile by default and a pressed toggle button as a filter", () => {
+    const plain = html(<StatCard label="Events" value={12} hint="3 today" />);
+    expect(plain).not.toContain("<button");
+    expect(plain).toContain("3 today");
+    const filter = html(<StatCard label="Events" value={12} onClick={() => {}} active />);
+    expect(filter).toMatch(/<button[^>]*type="button"/);
+    expect(filter).toContain('aria-pressed="true"');
+  });
+
   it("ChartTooltip is empty when inactive and shows percent with total", () => {
     expect(html(<ChartTooltip active={false} payload={[]} />)).toBe("");
     const out = html(<ChartTooltip active payload={[{ name: "OBC", value: 25, payload: {} }]} total={100} />);

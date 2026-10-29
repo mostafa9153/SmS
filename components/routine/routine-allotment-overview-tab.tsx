@@ -11,6 +11,7 @@ import {
 } from "@/lib/routine/types";
 import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/ui/stat-card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -713,36 +714,24 @@ export function RoutineAllotmentOverviewTab({
     <div className="space-y-6 w-full animate-in fade-in duration-150">
       {/* 1. Global Balance Status Ribbon */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-        <div className="bg-card border rounded-lg p-3.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground">Total Subject Demand</span>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-xl font-bold font-mono text-foreground">{grandTotalDemand}</span>
-            <span className="text-xs text-muted-foreground">p/wk</span>
-          </div>
-        </div>
-
-        <div className="bg-card border rounded-lg p-3.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground">Total Faculty Allotment</span>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-xl font-bold font-mono text-primary">{grandTotalTeacherLoad}</span>
-            <span className="text-xs text-muted-foreground">p/wk</span>
-          </div>
-        </div>
-
-        <div className="bg-card border rounded-lg p-3.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground">Unallocated Deficit</span>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className={cn("text-xl font-bold font-mono", totalMissingPeriods > 0 ? "text-amber-500" : "text-emerald-500")}>
-              {totalMissingPeriods}
-            </span>
-            <span className="text-xs text-muted-foreground">periods missing</span>
-          </div>
-        </div>
-
-        <div className="bg-card border rounded-lg p-3.5 shadow-xs flex flex-col justify-between">
-          <span className="text-[11px] font-medium text-muted-foreground">Cross-Check Health</span>
-          <div className="flex items-center gap-1.5 mt-1">
-            {isSystemBalanced ? (
+        <StatCard
+          label="Total Subject Demand"
+          value={<>{grandTotalDemand} <span className="text-xs font-normal text-muted-foreground">p/wk</span></>}
+        />
+        <StatCard
+          label="Total Faculty Allotment"
+          value={<>{grandTotalTeacherLoad} <span className="text-xs font-normal text-muted-foreground">p/wk</span></>}
+          valueClassName="text-primary"
+        />
+        <StatCard
+          label="Unallocated Deficit"
+          value={<>{totalMissingPeriods} <span className="text-xs font-normal text-muted-foreground">periods missing</span></>}
+          valueClassName={totalMissingPeriods > 0 ? "text-amber-500" : "text-emerald-500"}
+        />
+        <StatCard
+          label="Cross-Check Health"
+          value={
+            isSystemBalanced ? (
               <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1 text-xs font-semibold">
                 <CheckCircle2 className="w-3.5 h-3.5" /> 100% Balanced
               </Badge>
@@ -755,9 +744,9 @@ export function RoutineAllotmentOverviewTab({
                   ? `${totalOverloadedTeachers} Overloaded`
                   : "Mismatch"}
               </Badge>
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       </div>
 
       {/* 2. Control Bar: Search & Issue Filter */}

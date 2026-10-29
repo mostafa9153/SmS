@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Users, Clock, CheckCircle, Banknote, Eye, FileText, ChevronRight, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,22 +102,10 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
       <div className="flex-1 overflow-auto p-3 sm:p-6 bg-muted/10 space-y-3 sm:space-y-6 pb-28 sm:pb-10">
         {/* Metric Cards: 2x2 on mobile, 4 columns on desktop */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Applications</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-foreground">{stats.total}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Online Pending</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-amber-600">{stats.onlinePending}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Admitted</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-emerald-600">{stats.totalAdmitted}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Collected</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-primary">₹{stats.totalCollected.toLocaleString("en-IN")}</div>
-          </Card>
+          <StatCard label="Total Applications" value={stats.total} />
+          <StatCard label="Online Pending" value={stats.onlinePending} valueClassName="text-amber-600" />
+          <StatCard label="Total Admitted" value={stats.totalAdmitted} valueClassName="text-emerald-600" />
+          <StatCard label="Total Collected" value={`₹${stats.totalCollected.toLocaleString("en-IN")}`} valueClassName="text-primary" />
         </div>
 
         {/* Search & Filter Card */}

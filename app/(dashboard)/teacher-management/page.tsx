@@ -34,6 +34,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
 import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState } from "@/components/ui/empty-state";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -602,53 +603,15 @@ function AdminTeacherManagementContent() {
         <div className="py-2 mb-6"><StatCardsGridSkeleton count={4} /></div>
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="p-5 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-semibold text-xs uppercase tracking-wider group-hover:text-blue-600 transition-colors">Total Teachers</span>
-              <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <Users className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-foreground mt-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              {teachers.length}
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-semibold text-xs uppercase tracking-wider group-hover:text-emerald-600 transition-colors">Active Accounts</span>
-              <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <CheckCircle2 className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-foreground mt-3 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-              {teachers.filter(t => t.hasLogin).length}
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-semibold text-xs uppercase tracking-wider group-hover:text-amber-600 transition-colors">Tasks Assigned</span>
-              <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <ClipboardList className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-foreground mt-3 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-              {tasks.length}
-            </p>
-          </div>
-
-          <div className="p-5 rounded-2xl bg-card border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="font-semibold text-xs uppercase tracking-wider group-hover:text-indigo-600 transition-colors">Total Collections</span>
-              <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <IndianRupee className="h-4 w-4" />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-black text-foreground mt-3 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-              ₹{performance.reduce((sum, p) => sum + Number(p.total_fees_collected || 0), 0).toLocaleString()}
-            </p>
-          </div>
+          <StatCard label="Total Teachers" value={teachers.length} icon={Users} iconClassName="text-blue-600 dark:text-blue-400" />
+          <StatCard label="Active Accounts" value={teachers.filter(t => t.hasLogin).length} icon={CheckCircle2} iconClassName="text-emerald-600 dark:text-emerald-400" />
+          <StatCard label="Tasks Assigned" value={tasks.length} icon={ClipboardList} iconClassName="text-amber-600 dark:text-amber-400" />
+          <StatCard
+            label="Total Collections"
+            value={`₹${performance.reduce((sum, p) => sum + Number(p.total_fees_collected || 0), 0).toLocaleString()}`}
+            icon={IndianRupee}
+            iconClassName="text-indigo-600 dark:text-indigo-400"
+          />
         </div>
       )}
 
@@ -1080,59 +1043,16 @@ function AdminTeacherManagementContent() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Visual KPI Aggregate Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/15 via-card to-card border border-emerald-500/30 shadow-xs relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase text-[10px] text-emerald-600 dark:text-emerald-400">Total Faculty Collections</span>
-                  <div className="h-7 w-7 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                    <IndianRupee className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-black text-foreground mt-2">
-                  ₹{totalSchoolCollected.toLocaleString()}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Verified fee collections</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-500/15 via-card to-card border border-blue-500/30 shadow-xs relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase text-[10px] text-blue-600 dark:text-blue-400">Total Re-Admissions</span>
-                  <div className="h-7 w-7 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                    <Users className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-black text-foreground mt-2">
-                  {totalSchoolReadmissions}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Students admitted by faculty</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-card to-card border border-amber-500/30 shadow-xs relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase text-[10px] text-amber-600 dark:text-amber-400">Marksheets Created</span>
-                  <div className="h-7 w-7 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                    <TrendingUp className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="text-2xl sm:text-3xl font-black text-foreground mt-2">
-                  {totalSchoolMarksheets}
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Documents generated</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/15 via-card to-card border border-indigo-500/30 shadow-xs relative overflow-hidden">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-semibold uppercase text-[10px] text-indigo-600 dark:text-indigo-400">Top Faculty Collector</span>
-                  <div className="h-7 w-7 rounded-lg bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                    <Trophy className="h-4 w-4" />
-                  </div>
-                </div>
-                <p className="text-base sm:text-lg font-extrabold text-foreground mt-2 truncate">
-                  {topCollector?.teacher_name || "N/A"}
-                </p>
-                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                  ₹{Number(topCollector?.total_fees_collected || 0).toLocaleString()} collected
-                </p>
-              </div>
+              <StatCard label="Total Faculty Collections" value={`₹${totalSchoolCollected.toLocaleString()}`} icon={IndianRupee} iconClassName="text-emerald-600 dark:text-emerald-400" />
+              <StatCard label="Total Re-Admissions" value={totalSchoolReadmissions} icon={Users} iconClassName="text-blue-600 dark:text-blue-400" />
+              <StatCard label="Marksheets Created" value={totalSchoolMarksheets} icon={TrendingUp} iconClassName="text-amber-600 dark:text-amber-400" />
+              <StatCard
+                label={`Top Collector · ₹${Number(topCollector?.total_fees_collected || 0).toLocaleString()}`}
+                value={topCollector?.teacher_name || "N/A"}
+                icon={Trophy}
+                iconClassName="text-indigo-600 dark:text-indigo-400"
+                valueClassName="text-base sm:text-lg truncate"
+              />
             </div>
 
             {/* Visual Contribution Leaderboard */}

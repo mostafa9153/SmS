@@ -73,3 +73,42 @@ Note: a running `next dev` on :3000 served a stale PageHeader after the edits (h
 
 ### Left for module phases (hand work, varied markup)
 StatCard (26), search pickers with keyboard/dropdown (9), headers with subtitles or custom layouts (~30), EmptyStates with icons/actions (~20), DataTable (39), Pagination (19), PrintShell (~29), dropdown unification (93).
+
+---
+
+# Phase 3f part 3: StatCard hand migration (2026-10-29)
+
+`StatCard` gained props instead of local copies: `valueClassName`, `hint` (a data line, never filler), and `onClick` + `active`. With `onClick` the tile renders as a real `<button aria-pressed>`, so filter tiles now work from the keyboard (before they were `div onClick`).
+
+| Page / component | Tiles |
+|---|---|
+| Students → Promotion (filter tiles) | 6 |
+| Certificate tracker (filter tiles) | 5 |
+| Teacher dashboard | 5 |
+| Teacher management (overview + performance KPIs) | 8 |
+| New admission dashboard | 4 |
+| Bulk upload result | 4 |
+| Backup & restore | 3 |
+| Routine allotment overview | 4 |
+| Staff stats cards | 4 |
+| **Total** | **43** |
+
+Filler sub-lines removed under AGENTS.md ("Registered employees", "Verified fee collections", …). Data sub-lines kept as `hint` or in the label ("Top Collector · ₹X", "% of staff").
+
+**Kept as they are, on purpose:** these are rich panels, not stat tiles; forcing them into StatCard would drop data.
+- Main dashboard `StatCards`: bento hero, demographic pills.
+- Re-admission dashboard: previous-year comparison.
+- Admission form tracker: online/offline breakdown.
+- Invoice tracker modal: progress bars.
+- Invoices page: has a session dropdown inside.
+- Admission page: progress breakdown.
+
+### Verification
+| Check | Result |
+|---|---|
+| `npm run verify -- --build` | PASS (0 fail, 0 warn) |
+| Tests | 70/70 (+1: plain tile vs `aria-pressed` toggle button, `hint`) |
+| Code review | 6 findings, 5 fixed: long values overflowing on mobile, `div` inside `button`, bulk-upload status tint lost, certificate ring weight, positional tuples changed to named objects. 1 kept: hover border is primary rather than the tile's colour (cosmetic) |
+
+### Not verified
+Not looked at in a browser: the pages need a login. The look is uniform now (icon on the left, number + label). Behaviour is unchanged: the filter tiles set the same filter values as before.

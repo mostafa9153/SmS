@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { StatCard } from "@/components/ui/stat-card";
 import { createClient } from "@/lib/supabase/client";
 import { TeacherLoungeDrawer } from "@/components/teacher/teacher-lounge-drawer";
 import { Button } from "@/components/ui/button";
@@ -708,60 +709,19 @@ export default function TeacherDashboardPage() {
 
       {/* Performance & Collection Metrics Bar (5 Metrics) */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 hover:border-emerald-500/40 transition-all duration-300 group hover:-translate-y-0.5 shadow-xs hover:shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">Re-Admissions</span>
-            <div className="h-8 w-8 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
-              <UserCheck className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-foreground">{stats.readmissionsCount}</p>
-        </div>
-
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 hover:border-teal-500/40 transition-all duration-300 group hover:-translate-y-0.5 shadow-xs hover:shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">Fee Collection</span>
-            <div className="h-8 w-8 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600 dark:text-teal-400 group-hover:scale-110 transition-transform">
-              <IndianRupee className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-foreground">₹{stats.totalCollected.toLocaleString()}</p>
-        </div>
-
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 hover:border-amber-500/40 transition-all duration-300 group hover:-translate-y-0.5 shadow-xs hover:shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">Tasks Pending</span>
-            <div className="h-8 w-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 group-hover:scale-110 transition-transform">
-              <Clock className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-foreground">{stats.tasksPending}</p>
-        </div>
-
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 hover:border-indigo-500/40 transition-all duration-300 group hover:-translate-y-0.5 shadow-xs hover:shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">Tasks Finished</span>
-            <div className="h-8 w-8 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-foreground">{stats.tasksCompleted}</p>
-        </div>
-
-        <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 hover:border-rose-500/40 transition-all duration-300 group hover:-translate-y-0.5 shadow-xs hover:shadow-md">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-muted-foreground group-hover:text-rose-600 dark:group-hover:text-rose-400 transition-colors">Leave Days ({new Date().getFullYear()})</span>
-            <div className="h-8 w-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-600 dark:text-rose-400 group-hover:scale-110 transition-transform">
-              <CalendarX className="h-4 w-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-rose-600 dark:text-rose-400">
-            {absences
-              .filter((a) => new Date(a.start_date).getFullYear() === new Date().getFullYear())
-              .reduce((acc, a) => acc + (a.dates?.length || 1), 0)}{" "}
-            <span className="text-xs text-muted-foreground font-medium">Days</span>
-          </p>
-        </div>
+        <StatCard label="Re-Admissions" value={stats.readmissionsCount} icon={UserCheck} iconClassName="text-emerald-600 dark:text-emerald-400" />
+        <StatCard label="Fee Collection" value={`₹${stats.totalCollected.toLocaleString()}`} icon={IndianRupee} iconClassName="text-teal-600 dark:text-teal-400" />
+        <StatCard label="Tasks Pending" value={stats.tasksPending} icon={Clock} iconClassName="text-amber-600 dark:text-amber-400" />
+        <StatCard label="Tasks Finished" value={stats.tasksCompleted} icon={CheckCircle2} iconClassName="text-indigo-600 dark:text-indigo-400" />
+        <StatCard
+          label={`Leave Days (${new Date().getFullYear()})`}
+          value={absences
+            .filter((a) => new Date(a.start_date).getFullYear() === new Date().getFullYear())
+            .reduce((acc, a) => acc + (a.dates?.length || 1), 0)}
+          icon={CalendarX}
+          iconClassName="text-rose-600 dark:text-rose-400"
+          valueClassName="text-rose-600 dark:text-rose-400"
+        />
       </section>
 
       {/* Leave & Absence Tracker Section (Monthly & Yearly History) */}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowRight, ArrowLeft, RotateCcw, Sparkles, History, Info, Download, GraduationCap, Award, Archive, Trash2, Calendar, Layers, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/ui/stat-card";
 import {
   Dialog,
   DialogContent,
@@ -1402,22 +1403,10 @@ function BulkUploadPageContent() {
 
           {/* Metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-lg border bg-emerald-50/60 border-emerald-200 p-3 text-center">
-              <p className="text-xs font-semibold text-emerald-800">Records Created</p>
-              <p className="text-2xl font-bold text-emerald-700 mt-1">{importResult.summary.createdCount}</p>
-            </div>
-            <div className="rounded-lg border bg-sky-50/60 border-sky-200 p-3 text-center">
-              <p className="text-xs font-semibold text-sky-800">Records Updated</p>
-              <p className="text-2xl font-bold text-sky-700 mt-1">{importResult.summary.updatedCount}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/60 p-3 text-center">
-              <p className="text-xs font-semibold text-muted-foreground">Skipped</p>
-              <p className="text-2xl font-bold text-muted-foreground mt-1">{importResult.summary.skippedCount}</p>
-            </div>
-            <div className="rounded-lg border bg-rose-50/60 border-rose-200 p-3 text-center">
-              <p className="text-xs font-semibold text-rose-800">Failed / Errors</p>
-              <p className="text-2xl font-bold text-rose-700 mt-1">{importResult.summary.errorCount}</p>
-            </div>
+            <StatCard label="Records Created" value={importResult.summary.createdCount} className="bg-emerald-50/60 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30" valueClassName="text-emerald-700 dark:text-emerald-400" />
+            <StatCard label="Records Updated" value={importResult.summary.updatedCount} className="bg-sky-50/60 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30" valueClassName="text-sky-700 dark:text-sky-400" />
+            <StatCard label="Skipped" value={importResult.summary.skippedCount} className="bg-muted/60" valueClassName="text-muted-foreground" />
+            <StatCard label="Failed / Errors" value={importResult.summary.errorCount} className="bg-rose-50/60 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" valueClassName="text-rose-700 dark:text-rose-400" />
           </div>
 
           {/* Detailed Skipped / Failed Table if any */}

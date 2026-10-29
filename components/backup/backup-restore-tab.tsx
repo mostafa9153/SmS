@@ -26,6 +26,7 @@ import {
   FileCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -364,43 +365,15 @@ export function BackupRestoreTab() {
     <div className="space-y-6">
       {/* 1. Quick Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Active Students</span>
-              <p className="text-2xl font-bold text-foreground">{dbSummary?.totalStudents ?? 0}</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Layers className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Exam Records</span>
-              <p className="text-2xl font-bold text-foreground">{dbSummary?.totalResults ?? 0}</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-600 dark:text-violet-400">
-              <FileCode className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Last Cloud Backup</span>
-              <p className="text-sm font-bold text-foreground truncate max-w-[170px]">
-                {formatDate(status?.lastBackupAt)}
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <CloudCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Active Students" value={dbSummary?.totalStudents ?? 0} icon={Layers} />
+        <StatCard label="Exam Records" value={dbSummary?.totalResults ?? 0} icon={FileCode} iconClassName="text-violet-600 dark:text-violet-400" />
+        <StatCard
+          label="Last Cloud Backup"
+          value={formatDate(status?.lastBackupAt)}
+          icon={CloudCheck}
+          iconClassName="text-emerald-600 dark:text-emerald-400"
+          valueClassName="text-sm sm:text-sm truncate"
+        />
       </div>
 
       {/* 2. Main Google Drive WhatsApp-Style Integration Card */}
