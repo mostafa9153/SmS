@@ -13,7 +13,20 @@ export const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
   A3: { w: 297, h: 420 },
 };
 
+export const PAPER_SIZES = Object.keys(PAPER_MM) as PaperSize[];
+
 export const MARGIN_SIDES = ["top", "right", "bottom", "left"] as const;
+
+const even = (mm: number): PrintMargins => ({ top: mm, right: mm, bottom: mm, left: mm });
+
+/** One-click margins in the paper panel. */
+export const MARGIN_PRESETS = [
+  { label: "None", margins: even(0) },
+  { label: "Narrow", margins: even(5) },
+  { label: "Normal", margins: even(10) },
+] as const;
+
+export const sameMargins = (a: PrintMargins, b: PrintMargins) => MARGIN_SIDES.every((s) => a[s] === b[s]);
 
 /** Page width/height in mm for a paper size turned to an orientation. */
 export function pageSizeMm(paper: PaperSize, orientation: PaperOrientation = "portrait") {

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   MARGIN_SIDES,
-  PAPER_MM,
+  PAPER_SIZES,
   pageSizeMm,
   type PaperOrientation,
   type PaperSize,
@@ -28,7 +28,7 @@ function isMargins(v: unknown): v is PrintMargins {
 /** Parses a saved settings string. Accepts both shapes pages used before (`paper` or `paperSize`). */
 export function readSavedPaper(
   raw: string | null,
-  papers: PaperSize[] = Object.keys(PAPER_MM) as PaperSize[]
+  papers: PaperSize[] = PAPER_SIZES
 ): Partial<Pick<Required<PaperDefaults>, "paper" | "orientation" | "margins">> {
   if (!raw) return {};
   try {
@@ -49,7 +49,7 @@ export function usePaperSettings(storageKey: string, defaults: PaperDefaults) {
   const [paper, setPaper] = useState<PaperSize>(defaults.paper);
   const [orientation, setOrientation] = useState<PaperOrientation>(defaults.orientation ?? "portrait");
   const [margins, setMargins] = useState<PrintMargins>(defaults.margins);
-  const papersKey = (defaults.papers ?? ["A5", "A4"]).join(",");
+  const papersKey = (defaults.papers ?? PAPER_SIZES).join(",");
   const papers = useMemo(() => papersKey.split(",") as PaperSize[], [papersKey]);
 
   useEffect(() => {

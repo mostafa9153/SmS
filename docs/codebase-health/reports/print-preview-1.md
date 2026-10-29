@@ -22,6 +22,15 @@ The preview's behaviour (zoom by wheel, pinch or buttons, drag, double-tap, fit)
 - `CLAUDE.md` has a "Print pages" rule.
 - `npm run verify` warns on a hand-written `@page`, and on a `ZoomPanViewport` / `PinchZoomViewer` used outside `components/print/`.
 
+### Template defaults (update)
+- **Paper:** A5, A4 and A3 are all available by default. A page narrows the list to what its layout can actually print. Bonafide keeps A5/A4, because its print CSS has no A3 sizes.
+- **Orientation:** the portrait/landscape switch is opt-in per page (`orientations`). Only layouts drawn for both should turn it on.
+- **Margins:** each page keeps its own default. The panel adds three one-click presets, and the preset that matches the current margins is highlighted. Typing a custom value still works.
+  - None: 0 mm
+  - Narrow: 5 mm
+  - Normal: 10 mm
+- These presets are the two margins the pages already used (the attendance register uses 5 mm; the certificates use 10 mm). Word's 12.7 / 25.4 mm presets would eat too much of an A5 certificate.
+
 ## Pilot: Bonafide certificate
 - 110 lines removed, 9 added.
 - Same defaults (A5, 0 mm margins), same storage key `bonafide-paper-settings`, same preview size and position.

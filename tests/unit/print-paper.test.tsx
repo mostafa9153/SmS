@@ -43,6 +43,14 @@ describe("print paper", () => {
     expect(open).toContain("Margin (mm)");
     expect(open).toContain("landscape");
     expect(open).toContain('aria-pressed="true"');
+    // three one-click margins; the current one (none of them here) is not pressed
+    expect(open).toContain("None");
+    expect(open).toContain("Narrow");
+    expect(open).toContain("Normal");
+    const zero = renderToStaticMarkup(
+      <PaperSettingsPanel settings={settings({ margins: { top: 0, right: 0, bottom: 0, left: 0 } })} defaultOpen />
+    );
+    expect(zero).toMatch(/aria-pressed="true"[^>]*>None/);
     const locked = renderToStaticMarkup(<PaperSettingsPanel settings={settings()} defaultOpen lockMargins />);
     expect(locked).not.toContain("Margin (mm)");
   });

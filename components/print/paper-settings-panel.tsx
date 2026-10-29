@@ -5,7 +5,14 @@ import { ChevronDown, Save } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { MARGIN_SIDES, pageSizeMm, type PaperOrientation, type PaperSize } from "@/lib/print/paper";
+import {
+  MARGIN_PRESETS,
+  MARGIN_SIDES,
+  pageSizeMm,
+  sameMargins,
+  type PaperOrientation,
+  type PaperSize,
+} from "@/lib/print/paper";
 import type { PaperSettings } from "@/components/print/use-paper-settings";
 
 const choice = (active: boolean) =>
@@ -36,7 +43,7 @@ export function PaperSettingsPanel({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const choices = papers ?? settings.papers;
-  const { paper, setPaper, orientation, setOrientation, margins, setMargin, save } = settings;
+  const { paper, setPaper, orientation, setOrientation, margins, setMargins, setMargin, save } = settings;
 
   return (
     <Card className={cn("rounded-2xl border shadow-2xs", className)}>
@@ -83,6 +90,23 @@ export function PaperSettingsPanel({
             {!lockMargins && (
               <>
                 <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {MARGIN_PRESETS.map((p) => {
+                    const active = sameMargins(margins, p.margins);
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setMargins({ ...p.margins })}
+                        className={cn(choice(active), "p-1.5 text-[11px]")}
+                      >
+                        {p.label}
+                        <span className="block text-[9px] opacity-75 font-mono">{p.margins.top} mm</span>
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   {MARGIN_SIDES.map((side) => (
                     <label key={side} className="space-y-0.5">

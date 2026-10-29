@@ -73,7 +73,12 @@ function BonafideGeneratorContent() {
   }
 
   // Paper Format State: Default to A5 Portrait
-  const paper = usePaperSettings("bonafide-paper-settings", { paper: "A5", margins: { top: 0, right: 0, bottom: 0, left: 0 } });
+  // The certificate layout is drawn for A5/A4 portrait only
+  const paper = usePaperSettings("bonafide-paper-settings", {
+    paper: "A5",
+    papers: ["A5", "A4"],
+    margins: { top: 0, right: 0, bottom: 0, left: 0 },
+  });
   const paperSize: "A5" | "A4" = paper.paper === "A4" ? "A4" : "A5";
 
   // Student Selection (shared picker: single search or bulk roster)
