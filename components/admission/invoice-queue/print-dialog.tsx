@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Printer, Lock, Unlock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { InvoiceQueueState } from "./use-invoice-queue";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function PrintDialog({ queue }: { queue: InvoiceQueueState }) {
   const { activePrintGroup, activeSingleStudent, clearQueueMutation, currentBatchInvoices, customClass, customFeeItems, formattedEndReceipt, formattedStartReceipt, handleExecutePrint, invoiceSeq, isAmountLocked, isClassLocked, isInvoiceNoLocked, printCopyType, printModalOpen, schoolProfile, setCustomClass, setCustomFeeItems, setInvoiceSeq, setIsAmountLocked, setIsClassLocked, setIsInvoiceNoLocked, setPrintCopyType, setPrintModalOpen } = queue;
@@ -72,17 +73,13 @@ export function PrintDialog({ queue }: { queue: InvoiceQueueState }) {
                       {customClass || activePrintGroup?.class || activeSingleStudent?.presentClass || "VI"}
                     </span>
                   ) : (
-                    <select
+                    <CustomSelect
                       value={customClass}
-                      onChange={(e) => setCustomClass(e.target.value)}
-                      className="h-6 px-1.5 text-xs font-bold border rounded bg-background text-foreground cursor-pointer"
-                    >
-                      {["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"].map((cls) => (
-                        <option key={cls} value={cls}>
-                          Class {cls}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v: string) => setCustomClass(v)}
+                      searchable={false}
+                      triggerClassName="h-6 px-1.5 text-xs font-bold"
+                      options={["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"].map((cls) => ({ value: cls, label: `Class ${cls}` }))}
+                    />
                   )}
                   <button
                     type="button"

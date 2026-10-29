@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 
 import type { TeacherDashboardState } from "./use-teacher-dashboard";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function AbsenceTracker({ gen }: { gen: TeacherDashboardState }) {
   const { absences, setIsMarkAbsenceOpen, setTrackerFilterMonth, setTrackerFilterYear, trackerFilterMonth, trackerFilterYear } = gen;
@@ -27,51 +28,33 @@ export function AbsenceTracker({ gen }: { gen: TeacherDashboardState }) {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/60">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1.5">Year:</label>
-            <select
+            <CustomSelect
               value={trackerFilterYear}
-              onChange={(e) => setTrackerFilterYear(Number(e.target.value))}
-              className="h-7 text-xs bg-transparent border-0 font-bold text-foreground cursor-pointer focus:outline-none"
-            >
-              {[
-                new Date().getFullYear() + 1,
-                new Date().getFullYear(),
-                new Date().getFullYear() - 1,
-                new Date().getFullYear() - 2,
-              ].map((y) => (
-                <option key={y} value={y} className="bg-card text-foreground">
-                  {y}
-                </option>
-              ))}
-            </select>
+              onChange={(v: string) => setTrackerFilterYear(Number(v))}
+              searchable={false}
+              triggerClassName="h-7 text-xs font-bold border-0 bg-transparent"
+              options={[1, 0, -1, -2].map((d) => {
+                const y = new Date().getFullYear() + d;
+                return { value: y, label: String(y) };
+              })}
+            />
           </div>
 
           <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/60">
             <label className="text-[10px] font-bold text-muted-foreground uppercase px-1.5">Month:</label>
-            <select
+            <CustomSelect
               value={trackerFilterMonth}
-              onChange={(e) => setTrackerFilterMonth(e.target.value)}
-              className="h-7 text-xs bg-transparent border-0 font-bold text-foreground cursor-pointer focus:outline-none"
-            >
-              <option value="ALL" className="bg-card text-foreground">All Months</option>
-              {[
-                { val: "1", label: "Jan" },
-                { val: "2", label: "Feb" },
-                { val: "3", label: "Mar" },
-                { val: "4", label: "Apr" },
-                { val: "5", label: "May" },
-                { val: "6", label: "Jun" },
-                { val: "7", label: "Jul" },
-                { val: "8", label: "Aug" },
-                { val: "9", label: "Sep" },
-                { val: "10", label: "Oct" },
-                { val: "11", label: "Nov" },
-                { val: "12", label: "Dec" },
-              ].map((m) => (
-                <option key={m.val} value={m.val} className="bg-card text-foreground">
-                  {m.label}
-                </option>
-              ))}
-            </select>
+              onChange={(v: string) => setTrackerFilterMonth(v)}
+              searchable={false}
+              triggerClassName="h-7 text-xs font-bold border-0 bg-transparent"
+              options={[
+                { value: "ALL", label: "All Months" },
+                ...["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((label, i) => ({
+                  value: String(i + 1),
+                  label,
+                })),
+              ]}
+            />
           </div>
 
           <Button

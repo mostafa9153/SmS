@@ -13,12 +13,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Armchair, Columns, Sparkles, ChevronDown } from "lucide-react";
+import { Plus, Trash2, Armchair, Columns, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmsRoom, RoomColumnConfig } from "@/lib/ems/types";
 import { calculateRoomCapacity } from "@/lib/ems/room-storage";
 
 import { cleanColumnLabel } from "@/lib/ems/room-storage";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface RoomEditorDialogProps {
   isOpen: boolean;
@@ -247,18 +248,16 @@ export function RoomEditorDialog({
                     {/* Seats Per Bench Dropdown */}
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-[11px] text-muted-foreground font-medium">Seats/Bench:</span>
-                      <div className="relative">
-                        <select
-                          value={col.seatsPerBench}
-                          onChange={(e) => updateColumnSeatsPerBench(idx, Math.min(3, Math.max(1, parseInt(e.target.value) || 2)))}
-                          className="h-8 pl-2.5 pr-7 text-xs font-semibold rounded-lg border border-input bg-background hover:border-primary/40 focus:ring-2 focus:ring-primary/20 outline-none appearance-none cursor-pointer transition-all shadow-2xs"
-                        >
-                          <option value={1}>1 Seat / Bench</option>
-                          <option value={2}>2 Seats / Bench</option>
-                          <option value={3}>3 Seats / Bench</option>
-                        </select>
-                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground absolute right-2 top-2.5 pointer-events-none" />
-                      </div>
+                      <CustomSelect
+                        value={col.seatsPerBench}
+                        onChange={(v: string) => updateColumnSeatsPerBench(idx, Math.min(3, Math.max(1, parseInt(v) || 2)))}
+                        searchable={false}
+                        options={[
+                          { value: 1, label: "1 Seat / Bench" },
+                          { value: 2, label: "2 Seats / Bench" },
+                          { value: 3, label: "3 Seats / Bench" },
+                        ]}
+                      />
                     </div>
 
                     {/* Capacity badge */}

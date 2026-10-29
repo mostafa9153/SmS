@@ -11,6 +11,7 @@ import { PrintPreview } from "@/components/print/print-preview";
 import { Search, User, BookOpen, RefreshCw, Calendar, Eye } from "lucide-react";
 import { STANDARD_CLASSES } from "@/components/generate/marksheet/constants";
 import type { MarksheetGeneratorState } from "./use-marksheet-generator";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 export function SingleModeSection({ mk }: { mk: MarksheetGeneratorState }) {
   const { activeSubjectMax, dbResultsLoaded, fetchStudentResultsFromDB, filteredStudents, generatorMode, handleClassChange, handleMarkChange, handleSelectStudent, includeDigitalSignature, isFetchingResults, marksheet, schoolProfile, selectedStudent, setIncludeDigitalSignature, setMarksheet, setStudentSearch, studentSearch } = mk;
@@ -90,17 +91,14 @@ export function SingleModeSection({ mk }: { mk: MarksheetGeneratorState }) {
                   </div>
                   <div>
                     <Label className="text-[10px] font-semibold text-muted-foreground">Class</Label>
-                    <select
+                    <CustomSelect
                       value={marksheet.studentClass}
-                      onChange={(e) => handleClassChange(e.target.value)}
-                      className="w-full text-xs h-7 rounded-md border border-input bg-background px-2 font-bold"
-                    >
-                      {STANDARD_CLASSES.map((c) => (
-                        <option key={c} value={c}>
-                          Class {c}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v: string) => handleClassChange(v)}
+                      searchable={false}
+                      className="w-full"
+                      triggerClassName="h-7 text-xs font-bold"
+                      options={STANDARD_CLASSES.map((c) => ({ value: c, label: `Class ${c}` }))}
+                    />
                   </div>
                   <div>
                     <Label className="text-[10px] font-semibold text-muted-foreground">Roll No.</Label>

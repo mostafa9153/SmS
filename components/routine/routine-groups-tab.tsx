@@ -40,6 +40,7 @@ import {
 } from "@/lib/routine/routine-groups";
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -303,35 +304,25 @@ export function RoutineGroupsTab({
           )}
         </div>
 
-        <select
+        <CustomSelect
           value={filterClass}
-          onChange={(e) => {
-            setFilterClass(e.target.value);
+          onChange={(v: string) => {
+            setFilterClass(v);
             setFilterStream("");
           }}
-          className="h-8 rounded-md border px-2 text-xs bg-background"
-        >
-          <option value="">All classes</option>
-          {classNameOptions.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+          searchable={false}
+          triggerClassName="h-8 text-xs"
+          options={[{ value: "", label: "All classes" }, ...classNameOptions.map((n) => ({ value: n, label: n }))]}
+        />
 
-        <select
+        <CustomSelect
           value={filterStream}
-          onChange={(e) => setFilterStream(e.target.value)}
+          onChange={(v: string) => setFilterStream(v)}
           disabled={!filterClass}
-          className="h-8 rounded-md border px-2 text-xs bg-background disabled:opacity-50"
-        >
-          <option value="">All streams</option>
-          {streamOptions.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+          searchable={false}
+          triggerClassName="h-8 text-xs"
+          options={[{ value: "", label: "All streams" }, ...streamOptions.map((s) => ({ value: s, label: s }))]}
+        />
 
         <Button size="sm" onClick={openAdd} className="h-8 text-xs font-semibold px-3 gap-1.5">
           <Plus className="h-3.5 w-3.5" />
@@ -733,37 +724,29 @@ function GroupDialog({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Class *</Label>
-                  <select
+                  <CustomSelect
                     value={className}
-                    onChange={(e) => {
-                      setClassName(e.target.value);
+                    onChange={(v: string) => {
+                      setClassName(v);
                       setStream("");
                     }}
-                    className="h-8 w-full rounded-md border px-2 text-xs bg-background"
-                  >
-                    <option value="">—</option>
-                    {classNameOptions.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    searchable={false}
+                    className="w-full"
+                    triggerClassName="h-8 text-xs"
+                    options={[{ value: "", label: "—" }, ...classNameOptions.map((n) => ({ value: n, label: n }))]}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Stream (optional)</Label>
-                  <select
+                  <CustomSelect
                     value={stream}
-                    onChange={(e) => setStream(e.target.value)}
+                    onChange={(v: string) => setStream(v)}
                     disabled={streamOptions.length === 0}
-                    className="h-8 w-full rounded-md border px-2 text-xs bg-background disabled:opacity-50"
-                  >
-                    <option value="">Any</option>
-                    {streamOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
+                    searchable={false}
+                    className="w-full"
+                    triggerClassName="h-8 text-xs"
+                    options={[{ value: "", label: "Any" }, ...streamOptions.map((s) => ({ value: s, label: s }))]}
+                  />
                 </div>
                 <div className="space-y-1 sm:col-span-1">
                   <Label className="text-[11px] font-medium">Resolved sections</Label>
@@ -787,18 +770,14 @@ function GroupDialog({
               <div className="space-y-2">
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Class *</Label>
-                  <select
+                  <CustomSelect
                     value={className}
-                    onChange={(e) => selectClassSections(e.target.value)}
-                    className="h-8 w-full rounded-md border px-2 text-xs bg-background"
-                  >
-                    <option value="">—</option>
-                    {classNameOptions.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v: string) => selectClassSections(v)}
+                    searchable={false}
+                    className="w-full"
+                    triggerClassName="h-8 text-xs"
+                    options={[{ value: "", label: "—" }, ...classNameOptions.map((n) => ({ value: n, label: n }))]}
+                  />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {classSections.map((c) => {
@@ -855,27 +834,20 @@ function GroupDialog({
               {options.map((o) => (
                 <div key={o.id} className="grid grid-cols-12 items-center text-xs">
                   <div className="col-span-11 py-1.5 px-2">
-                    <select
+                    <CustomSelect
                       value={o.subjectId}
-                      onChange={(e) =>
-                        updateOption(o.id, { subjectId: e.target.value, teacherId: "" })
-                      }
-                      className={cn(
-                        "h-8 w-full rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                        showErrors && !o.subjectId && "border-destructive ring-destructive/30"
-                      )}
-                    >
-                      <option value="">Select subject</option>
-                      {dialogSubjects.map((s) => (
-                        <option
-                          key={s.id}
-                          value={s.id}
-                          disabled={s.id !== o.subjectId && options.some((x) => x.subjectId === s.id)}
-                        >
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "" })}
+                      className="w-full"
+                      triggerClassName={cn("h-8 text-xs", showErrors && !o.subjectId && "border-destructive ring-destructive/30")}
+                      options={[
+                        { value: "", label: "Select subject" },
+                        ...dialogSubjects.map((s) => ({
+                          value: s.id,
+                          label: s.name,
+                          disabled: s.id !== o.subjectId && options.some((x) => x.subjectId === s.id),
+                        })),
+                      ]}
+                    />
                   </div>
                   <div className="col-span-1 py-1 px-2 text-center">
                     <button
