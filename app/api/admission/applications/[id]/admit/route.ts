@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { receiptConflict } from "@/lib/admission/receipt-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 
@@ -78,13 +79,24 @@ export async function POST(
     }
 
     let paymentReceiptNo = (body.paymentReceiptNo || app.payment_receipt_no || "").trim();
+    const ownIds = [assignedSchoolId, app.application_no];
     if (!paymentReceiptNo || paymentReceiptNo.startsWith("REC-")) {
       const { count } = await supabase
         .from("admission_applications")
         .select("*", { count: "exact", head: true })
         .eq("academic_year", String(currentYear));
-      const nextNum = (count || 0) + 1;
-      paymentReceiptNo = `MHS/AF/${yearSuffix}/${String(nextNum).padStart(4, "0")}`;
+      // count+1 can already be taken (deleted or reverted applications): step past used numbers
+      let nextNum = (count || 0) + 1;
+      for (let tries = 0; ; tries++, nextNum++) {
+        paymentReceiptNo = `MHS/AF/${yearSuffix}/${String(nextNum).padStart(4, "0")}`;
+        const conflict = await receiptConflict(supabase, paymentReceiptNo, ownIds);
+        if (!conflict) break;
+        if (tries >= 50 || conflict.startsWith("Could not")) return NextResponse.json({ error: conflict }, { status: 409 });
+      }
+    } else {
+      // Checked before any write so a used receipt number never half-admits the applicant
+      const conflict = await receiptConflict(supabase, paymentReceiptNo, ownIds);
+      if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     }
     const assignedStream = body.stream || app.stream || null;
     const photoUrl = body.photoUrl || app.photo_url || null;

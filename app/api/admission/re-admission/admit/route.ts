@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
+import { receiptConflict } from "@/lib/admission/receipt-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    // Covers every action here (admit, cancel, reset); the class scope is checked below
+    const gate = await requireStaff("can_handle_readmission");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const body = await req.json();
     const {
@@ -173,6 +174,12 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
+    }
+
+    // Checked before any write so a used receipt number never half-admits the student
+    if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
+      const conflict = await receiptConflict(supabase, paymentReceiptNo.trim(), [student.school_id, student.id]);
+      if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     }
 
     const updatePayload: Record<string, any> = {

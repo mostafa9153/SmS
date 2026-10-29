@@ -16,6 +16,7 @@ Nothing in this file has been changed in code. Each item needs your **yes / no /
 | 🟠 Medium | A-API-2 | `GET /api/admission/tracker`: any teacher can read every admission record |
 | 🟠 Medium | A-API-3 | `POST /api/teachers/attendance`: any signed-in user can write attendance for any class |
 | 🟠 Medium | A-SEC-3 | 6 routes check only `auth.getUser()` (no role). If **Supabase email sign-up is enabled** on the project, anyone can create an account and read student results, metadata, dashboard stats and attendance analytics, and post in teacher chat |
+| A-DATA-1 | New `lib/admission/receipt-guard.ts` (`receiptConflict`) runs **before any write** in re-admission admit and application admit. A free number, a blank slip, or the same student's own invoice is allowed. A number already filled for another student returns 409 "Receipt X is already used for <name>". A failed lookup also blocks. Auto-generated `MHS/AF/…` numbers now step past numbers that are already used (count+1 could collide after deletes). Re-admission admit is now behind `requireStaff("can_handle_readmission")` for every action; before, "reset" and "cancel" skipped that permission. 3 unit tests |
 | 🟠 Medium | A-TIME-1 | Server code formats time without `timeZone`. On Vercel (UTC), invoice `issue_time` and the "reverted on" dates are 5h30m behind IST |
 | 🟡 Medium | A-TIME-2 | 27 places use `new Date().toISOString().slice(0,10)` as "today". This is the UTC date, so it is still yesterday in IST between 00:00 and 05:30. Affects attendance date, admission and TC dates, certificate and invoice dates |
 | 🟡 Medium | A-YEAR-1 | 72 hard-coded years ("2026", "2025", "2027" dropdowns, `|| "2026"` defaults, `APP-2026-` numbers). On 1 Jan 2027, defaults and filters silently point at the wrong session |
@@ -148,4 +149,4 @@ Behaviour changes to know:
 
 Verification: `npm run verify -- --build` PASS. Not tested end-to-end with a real Google consent (needs your OAuth client and a signed-in admin).
 
-Still open: everything else in the table above (A-DATA-*, A-ERR-1, A-TIME-*, A-YEAR-1, A-CRON-1).
+Still open: A-DATA-2/3/4, A-ERR-1, A-TIME-*, A-YEAR-1, A-CRON-1.
