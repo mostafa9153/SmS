@@ -13,8 +13,11 @@ import { ViewApplicationFormDialog } from "./view-application-form-dialog";
 import { format } from "date-fns";
 import { SearchInput } from "@/components/ui/search-input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
+  const currentSession = useAcademicYear();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<any[]>([]);
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
@@ -44,7 +47,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
 
   const filteredApps = applications.filter(a => {
     if (yearFilter !== "All") {
-      const yr = a.academicYear || a.academic_year || "2026";
+      const yr = a.academicYear || a.academic_year || String(currentYearIST());
       if (yr !== yearFilter) return false;
     }
     if (sourceFilter !== "All") {
@@ -122,9 +125,10 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Years</SelectItem>
-                  <SelectItem value="2026">2026 (Current)</SelectItem>
-                  <SelectItem value="2027">2027 (Next)</SelectItem>
-                  <SelectItem value="2025">2025 (Prev)</SelectItem>
+                  {([[0, "Current"], [1, "Next"], [-1, "Prev"]] as const).map(([offset, label]) => {
+                    const y = String(Number(currentSession) + offset);
+                    return <SelectItem key={y} value={y}>{y} ({label})</SelectItem>;
+                  })}
                 </SelectContent>
               </Select>
 
@@ -171,7 +175,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                 <EmptyState compact title="No applications found" />
               ) : (
                 filteredApps.map(app => {
-                  const formNum = app.applicationNo || app.formNo || (app.targetClass ? `APP-2026-${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8));
+                  const formNum = app.applicationNo || app.formNo || (app.targetClass ? `APP-${app.academicYear || currentSession}-${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8));
                   const cls = app.admittedClass || app.targetClass || "V";
                   const sec = app.admittedSection ? ` - ${app.admittedSection}` : "";
                   const roll = app.admittedRoll ? ` • Roll #${app.admittedRoll}` : "";
@@ -249,7 +253,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                         title="Click to open filled admission form"
                       >
                         <TableCell className="font-medium text-xs font-mono">
-                          {app.applicationNo || app.formNo || (app.targetClass ? `AP/${app.academicYear || "2026"}/${app.targetClass}/${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8))}
+                          {app.applicationNo || app.formNo || (app.targetClass ? `AP/${app.academicYear || String(currentYearIST())}/${app.targetClass}/${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8))}
                         </TableCell>
                         <TableCell className="font-semibold text-foreground group-hover:text-primary transition-colors">
                           {app.studentName}

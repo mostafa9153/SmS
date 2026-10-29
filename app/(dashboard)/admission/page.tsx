@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { getAdmissionApplications } from "@/lib/data/admission";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import {
   GraduationCap,
   UserPlus,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 
 export default function AdmissionHubPage() {
+  const academicYear = useAcademicYear();
   const { data: students = [], isLoading: loadingStudents } = useQuery({
     queryKey: ["students"],
     queryFn: () => getStudents("summary"),
@@ -118,7 +120,7 @@ export default function AdmissionHubPage() {
         <div className="bg-white dark:bg-card border border-emerald-300/80 dark:border-emerald-800/40 rounded-3xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-400">
-              NEW: CONFIRMED 2026
+              NEW: CONFIRMED {academicYear}
             </span>
             <span className="p-1.5 rounded-full bg-emerald-100/80 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
@@ -133,7 +135,7 @@ export default function AdmissionHubPage() {
         <div className="bg-white dark:bg-card border border-orange-300/80 dark:border-orange-800/40 rounded-3xl p-4 sm:p-5 shadow-2xs hover:shadow-xs transition-all relative overflow-hidden">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-orange-700 dark:text-orange-400">
-              RE-ADMITTED 2026
+              RE-ADMITTED {academicYear}
             </span>
             <span className="p-1.5 rounded-full bg-orange-100/80 text-orange-500 dark:bg-orange-950/50 dark:text-orange-400">
               <RefreshCw className="h-4 w-4" />

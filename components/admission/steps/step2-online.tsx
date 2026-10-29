@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { currentYearIST } from "@/lib/utils/academic-year";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -145,7 +146,7 @@ export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) 
           <EmptyState icon={Search} title="No pending applications found" className="border border-dashed bg-muted/20 rounded-xl" />
         ) : (
           filteredApps.map(app => {
-            const displayAppNo = app.applicationNo || app.formNo || (app.targetClass ? `APP-2026-${app.id.slice(0, 4).toUpperCase()}` : `APP-${app.id.slice(0, 6).toUpperCase()}`);
+            const displayAppNo = app.applicationNo || app.formNo || (app.targetClass ? `APP-${app.academicYear || currentYearIST()}-${app.id.slice(0, 4).toUpperCase()}` : `APP-${app.id.slice(0, 6).toUpperCase()}`);
             const guardian = app.guardianName || app.fatherName || "";
             const contact = app.contactNumber || app.studentContact || app.primaryMobile || "";
 

@@ -7,6 +7,7 @@ import {
   getEffectiveHeadTitle,
 } from "@/lib/utils/school-profile";
 import { CheckCircle2 } from "lucide-react";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface InvoicePrintableViewProps {
   data: InvoiceData;
@@ -34,7 +35,7 @@ function CompactInvoiceSlip({
     data.isBlankTemplate || (!data.studentName?.trim() && !data.studentId?.trim())
   );
 
-  const qrPayload = `MHS-INV:${data.invoiceNumber || "INV-001"}|ID:${data.studentId || "N/A"}|AMT:Rs.${grandTotal}|SESS:${data.academicSession || "2026"}`;
+  const qrPayload = `MHS-INV:${data.invoiceNumber || "INV-001"}|ID:${data.studentId || "N/A"}|AMT:Rs.${grandTotal}|SESS:${data.academicSession || String(currentYearIST())}`;
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between text-slate-900 font-sans text-xs select-none px-1">

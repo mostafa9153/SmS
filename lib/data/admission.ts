@@ -3,6 +3,7 @@ import type {
   AdmissionSettings,
   Student,
 } from "@/lib/types";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface InvoiceQueueGroup {
   class: string;
@@ -317,7 +318,7 @@ export async function getAdmissionSettings(): Promise<AdmissionSettings> {
       schoolId: "default",
       aiProvider: "gemini",
       aiModel: "gemini-1.5-flash",
-      currentAcademicYear: "2026",
+      currentAcademicYear: String(currentYearIST()),
       newAdmissionActive: true,
       readmissionActive: true,
     };

@@ -38,6 +38,9 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 
 export function AdmissionFormTrackerModal({
   isOpen,
@@ -136,7 +139,7 @@ function computeDateRange(preset: DatePreset, customStart: string, customEnd: st
 const CLASS_LIST = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
 export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
-  const currentYearStr = String(new Date().getFullYear());
+  const currentYearStr = String(currentYearIST());
   const { profile: schoolProfile } = useSchoolProfile();
   const [mounted, setMounted] = useState(false);
   const [isPrintingLedger, setIsPrintingLedger] = useState(false);
@@ -146,7 +149,9 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   }, []);
 
   // Draft Filter States (Edited by UI Controls before Proceed is clicked)
-  const [draftSession, setDraftSession] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedDraftSession, setDraftSession] = useState<string | null>(null);
+  const draftSession = pickedDraftSession ?? currentSession;
   const [draftClass, setDraftClass] = useState<string>("ALL");
   const [draftType, setDraftType] = useState<string>("ALL");
   const [draftChannel, setDraftChannel] = useState<string>("ALL");
@@ -166,7 +171,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
     endDate: string;
     search: string;
   }>({
-    session: "2026",
+    session: String(currentYearIST()),
     targetClass: "ALL",
     admissionType: "ALL",
     channel: "ALL",
@@ -217,7 +222,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   });
 
   const availableYears = useMemo(() => {
-    return data?.availableYears || [currentYearStr, String(Number(currentYearStr) - 1), "2025", "2024"];
+    return data?.availableYears || sessionYears(currentYearStr);
   }, [data?.availableYears, currentYearStr]);
 
   const isHistoryMode = appliedFilters.session !== currentYearStr && appliedFilters.session !== "ALL";
@@ -282,9 +287,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   // Options for Dropdowns
   const sessionOptions = useMemo(() => {
     const set = new Set<string>(availableYears);
-    set.add("2026");
-    set.add("2025");
-    set.add("2024");
+    sessionYears(currentSession).forEach((y) => set.add(y));
     const sorted = Array.from(set).sort((a, b) => b.localeCompare(a));
     return [
       { label: "All Sessions", value: "ALL" },
@@ -293,7 +296,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
         value: s,
       })),
     ];
-  }, [availableYears, currentYearStr]);
+  }, [availableYears, currentYearStr, currentSession]);
 
   const classSelectOptions = useMemo(() => {
     return [

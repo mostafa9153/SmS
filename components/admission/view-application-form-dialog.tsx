@@ -15,6 +15,7 @@ import {
 } from "@/components/admission-form/types";
 import { getSavedSchoolProfile } from "@/lib/utils/school-profile";
 import { PrintPreview } from "@/components/print/print-preview";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface ViewApplicationFormDialogProps {
   open: boolean;
@@ -61,7 +62,7 @@ export function ViewApplicationFormDialog({
   // Map application to Form V-IX data
   const formVIxData: AdmissionFormVIxData = {
     formNo: formNumber,
-    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    academicYear: application.academicYear || (application as any).academic_year || String(currentYearIST()),
     admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
       slNo: formNumber,
@@ -126,7 +127,7 @@ export function ViewApplicationFormDialog({
   // Map application to Form XI data
   const formXIData: AdmissionFormXIData = {
     formNo: formNumber,
-    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    academicYear: application.academicYear || (application as any).academic_year || String(currentYearIST()),
     admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
       doa: application.admissionDate || (application.admittedAt ? application.admittedAt.split("T")[0] : ""),

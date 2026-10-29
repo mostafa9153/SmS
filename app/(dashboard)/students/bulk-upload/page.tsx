@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, Suspense } from "react";
+import { currentYearIST, sessionYears } from "@/lib/utils/academic-year";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowRight, ArrowLeft, RotateCcw, Sparkles, History, Info, Download, GraduationCap, Award, Archive, Trash2, Calendar, Lock } from "lucide-react";
@@ -61,12 +62,12 @@ const STEPS = [
 ];
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const YEAR_OPTIONS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015];
 
 function BulkUploadPageContent() {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentYearIST();
+  const yearOptions = sessionYears(currentYear, 11).map(Number);
 
   // Wizard State with URL synchronization
   const stepParam = searchParams.get("step");
@@ -323,7 +324,7 @@ function BulkUploadPageContent() {
     setUploadType(mode);
     setSelectedTemplate("auto");
     if (mode === "old_students") {
-      setTargetSessionYear(2025);
+      setTargetSessionYear(currentYear - 1);
       setTargetStatus("Passed Out");
     } else if (mode === "current_students") {
       setTargetSessionYear(currentYear);
@@ -774,7 +775,7 @@ function BulkUploadPageContent() {
                       value={targetSessionYear}
                       disabled={uploadType === "current_students"}
                       onChange={(val) => setTargetSessionYear(Number(val))}
-                      options={YEAR_OPTIONS.map((yr) => ({
+                      options={yearOptions.map((yr) => ({
                         label: `Session ${yr} ${yr === currentYear ? "(Current Active)" : "(Historical Session)"}`,
                         value: yr,
                       }))}
@@ -845,7 +846,7 @@ function BulkUploadPageContent() {
                     <CustomSelect
                       value={resultYear}
                       onChange={(val) => setResultYear(Number(val))}
-                      options={YEAR_OPTIONS.map((yr) => ({
+                      options={yearOptions.map((yr) => ({
                         label: `Session ${yr} ${yr === currentYear ? "(Current)" : "(Historical Archive)"}`,
                         value: yr,
                       }))}

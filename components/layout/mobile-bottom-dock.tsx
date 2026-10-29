@@ -24,6 +24,8 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionLabel } from "@/lib/utils/academic-year";
 
 interface HubAction {
   title: string;
@@ -134,6 +136,7 @@ const HUB_ACTIONS: HubAction[] = [
 ];
 
 export function MobileBottomDock() {
+  const currentSession = useAcademicYear();
   const pathname = usePathname();
   const [isHubOpen, setIsHubOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -307,7 +310,7 @@ export function MobileBottomDock() {
                   Marigachi SMS Hub
                 </SheetTitle>
                 <SheetDescription className="text-xs text-muted-foreground mt-0.5">
-                  Quick Operations & Modules · Session 2026-27
+                  Quick Operations & Modules · Session {sessionLabel(currentSession)}
                 </SheetDescription>
               </div>
             </div>

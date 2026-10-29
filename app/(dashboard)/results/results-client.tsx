@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { currentYearIST, sessionYears } from "@/lib/utils/academic-year";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -73,7 +74,7 @@ const NO_SCOPE: string[] = [];
 export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedClasses?: string[] }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentYearIST();
 
   const classParam = searchParams.get("class");
   const sectionParam = searchParams.get("section");
@@ -794,11 +795,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
             value={String(academicYear)}
             onChange={(v) => handleSelectAcademicYear(parseInt(v, 10))}
             placeholder="Year"
-            options={[
-              { label: "2026", value: "2026" },
-              { label: "2025", value: "2025" },
-              { label: "2024", value: "2024" },
-            ]}
+            options={sessionYears(currentYear).map((y) => ({ label: y, value: y }))}
           />
 
           {/* Class filter */}

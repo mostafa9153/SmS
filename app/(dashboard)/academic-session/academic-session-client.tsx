@@ -10,10 +10,11 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
 import { Spinner } from "@/components/ui/spinner";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export default function AcademicSessionClient() {
-  const [currentYear, setCurrentYear] = useState<string>("2026");
-  const [upcomingYear, setUpcomingYear] = useState<string>("2027");
+  const [currentYear, setCurrentYear] = useState<string>(() => String(currentYearIST()));
+  const [upcomingYear, setUpcomingYear] = useState<string>(() => String(currentYearIST() + 1));
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -23,7 +24,7 @@ export default function AcademicSessionClient() {
         if (settings?.currentAcademicYear) {
           const yr = String(settings.currentAcademicYear);
           setCurrentYear(yr);
-          setUpcomingYear(String(Number(yr) + 1 || 2027));
+          setUpcomingYear(String(Number(yr) + 1 || currentYearIST() + 1));
         }
       })
       .catch((err) => {

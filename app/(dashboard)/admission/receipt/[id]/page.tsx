@@ -8,6 +8,7 @@ import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
 import { Printer, CheckCircle2, ShieldCheck, QrCode } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export default function ApplicationReceiptPage({
   params,
@@ -84,7 +85,7 @@ export default function ApplicationReceiptPage({
           </div>
 
           <div className="inline-block bg-slate-900 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider mt-1">
-            New Admission Application Receipt (Session 2026)
+            New Admission Application Receipt (Session {application.academicYear || currentYearIST()})
           </div>
         </div>
 

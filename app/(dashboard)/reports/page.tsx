@@ -14,9 +14,13 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 
 export default function ReportsPage() {
-  const [sessionYear, setSessionYear] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedSessionYear, setSessionYear] = useState<string | null>(null);
+  const sessionYear = pickedSessionYear ?? currentSession;
   const [printOrientation, setPrintOrientation] = useState<"landscape" | "portrait">("landscape");
   const [asOnDate, setAsOnDate] = useState<string>(
     new Date().toLocaleDateString("en-GB", { day: "numeric", month: "numeric", year: "numeric" })
@@ -82,11 +86,7 @@ export default function ReportsPage() {
               <CustomSelect
                 value={sessionYear}
                 onChange={(val) => setSessionYear(val)}
-                options={[
-                  { label: "2026 Session", value: "2026" },
-                  { label: "2025 Session", value: "2025" },
-                  { label: "2024 Session", value: "2024" },
-                ]}
+                options={sessionYears(currentSession).map((y) => ({ label: `${y} Session`, value: y }))}
               />
             </div>
 

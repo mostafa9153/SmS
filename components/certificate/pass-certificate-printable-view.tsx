@@ -10,6 +10,7 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface PassCertificateData {
   certificateNo: string;
@@ -115,7 +116,7 @@ export function PassCertificatePrintableView({ data, schoolProfile }: PassCertif
       : data.dateOfBirth
     : "DD/MM/YYYY";
 
-  const qrPayload = `MHS-PASS:${data.certificateNo || "PASS-2026"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|YEAR:${data.passingYear || "2026"}`;
+  const qrPayload = `MHS-PASS:${data.certificateNo || "PASS-2026"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|YEAR:${data.passingYear || String(currentYearIST())}`;
 
   const dobInWords = data.dateOfBirthWords || formatDobToWords(data.dateOfBirth);
 
@@ -258,7 +259,7 @@ export function PassCertificatePrintableView({ data, schoolProfile }: PassCertif
             </span>{" "}
             in the academic session{" "}
             <span className="font-mono font-bold text-slate-900">
-              {data.passingYear || "2026"}
+              {data.passingYear || String(currentYearIST())}
             </span>
             {data.isCompletedOrPassedOut ? (
               <>, has successfully completed {pronounPossessive} course of studies and passed out from this institution.</>

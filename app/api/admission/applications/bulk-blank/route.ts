@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function POST(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
 
     const insertPayloads = serials.map((serial: string) => ({
       application_no: serial,
-      academic_year: academicYear || "2026",
+      academic_year: academicYear || String(currentYearIST()),
       admission_type: admissionType || "new",
       form_method: "offline",
       target_class: targetClass || "V",

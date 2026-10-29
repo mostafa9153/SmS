@@ -14,6 +14,7 @@ import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal } from 
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -23,7 +24,7 @@ interface Step4FinalizeProps {
 }
 
 export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: Step4FinalizeProps) {
-  const currentYear = academicYear || appData?.academicYear || "2026";
+  const currentYear = academicYear || appData?.academicYear || String(currentYearIST());
   const { profile } = useSchoolProfile();
   const configuredStreams = getSchoolConfiguredStreams(profile);
   const [targetClass, setTargetClass] = useState(appData.targetClass || "V");

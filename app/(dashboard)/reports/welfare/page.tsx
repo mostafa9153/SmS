@@ -7,6 +7,8 @@ import { Printer, PackageOpen } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,13 +56,6 @@ const GENDER_OPTIONS = [
   { label: "Girls Only", value: "female" },
 ];
 
-const SESSION_OPTIONS = [
-  { label: "2026 Session", value: "2026" },
-  { label: "2025 Session", value: "2025" },
-  { label: "2024 Session", value: "2024" },
-  { label: "2023 Session", value: "2023" },
-];
-
 function WelfareReportContent() {
   const searchParams = useSearchParams();
   const { profile: schoolProfile } = useSchoolProfile();
@@ -69,12 +64,14 @@ function WelfareReportContent() {
   const initialClass = searchParams.get("class") || "all";
   const initialSection = searchParams.get("section") || "all";
   const initialGender = searchParams.get("gender") || "all";
-  const initialSession = searchParams.get("sessionYear") || "2026";
+  const currentSession = useAcademicYear();
+  const urlSession = searchParams.get("sessionYear");
 
   const [selectedClass, setSelectedClass] = useState<string>(initialClass);
   const [selectedSection, setSelectedSection] = useState<string>(initialSection);
   const [selectedGender, setSelectedGender] = useState<string>(initialGender);
-  const [sessionYear, setSessionYear] = useState<string>(initialSession);
+  const [pickedSessionYear, setSessionYear] = useState<string | null>(urlSession);
+  const sessionYear = pickedSessionYear ?? currentSession;
 
   // Distribution item selection
   const [selectedItemKey, setSelectedItemKey] = useState<string>("Sabuj Sathi (Bicycle)");
@@ -277,7 +274,7 @@ function WelfareReportContent() {
               <CustomSelect
                 value={sessionYear}
                 onChange={(val) => setSessionYear(String(val))}
-                options={SESSION_OPTIONS}
+                options={sessionYears(currentSession, 3).map((y) => ({ label: `${y} Session`, value: y }))}
               />
             </div>
 

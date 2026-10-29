@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
 import { CalendarCheck, Receipt, BookOpen, Users, ShieldCheck, Sparkles, Award } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionLabel } from "@/lib/utils/academic-year";
 
 interface ActivityRingProps {
   stats?: {
@@ -27,6 +29,7 @@ interface ActivityRingProps {
 }
 
 export function AppleActivityRings({ stats: propStats, className }: ActivityRingProps) {
+  const currentSession = useAcademicYear();
   const [viewMode, setViewMode] = useState<"academic" | "demographics">("academic");
 
   const { data: fetchedStats } = useQuery({
@@ -298,7 +301,7 @@ export function AppleActivityRings({ stats: propStats, className }: ActivityRing
                   </div>
                   <div>
                     <p className="text-xs font-bold text-foreground">Fee Collections</p>
-                    <p className="text-[10px] text-muted-foreground">Session 2026-27 challan receipts</p>
+                    <p className="text-[10px] text-muted-foreground">Session {sessionLabel(currentSession)} challan receipts</p>
                   </div>
                 </div>
                 <div className="text-right">

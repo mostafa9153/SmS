@@ -11,6 +11,7 @@ import {
   getSavedSchoolProfile,
   getEffectiveHeadTitle,
 } from "@/lib/utils/school-profile";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface MarksheetPrintableViewProps {
   data: MarksheetData;
@@ -49,7 +50,7 @@ export function MarksheetPrintableView({ data, schoolProfile, includeDigitalSign
       : "py-[1.8px]";
   const tbodyFontSize = data.subjects.length >= 8 ? "text-[8.8px]" : "text-[9.2px]";
 
-  const qrPayload = `MHS-MS:${data.studentId || "N/A"}|ROLL:${data.rollNo || ""}|CLASS:${data.studentClass || ""}|SESS:${data.academicYear || "2026"}`;
+  const qrPayload = `MHS-MS:${data.studentId || "N/A"}|ROLL:${data.rollNo || ""}|CLASS:${data.studentClass || ""}|SESS:${data.academicYear || String(currentYearIST())}`;
 
   return (
     <div
@@ -143,7 +144,7 @@ export function MarksheetPrintableView({ data, schoolProfile, includeDigitalSign
           {/* CCE Document Title */}
           <div className="text-center py-0">
             <h2 className="text-[13px] sm:text-[14px] font-extrabold tracking-wider text-[#14206b] uppercase underline underline-offset-4 decoration-[#14206b] inline-block font-serif">
-              Continuous &amp; Comprehensive Evaluation &ndash; {data.academicYear || "2026"}
+              Continuous &amp; Comprehensive Evaluation &ndash; {data.academicYear || String(currentYearIST())}
             </h2>
             <div className="text-[9px] italic text-neutral-600 font-sans mt-0.5 font-medium">
               Annual Academic Progress Report Card

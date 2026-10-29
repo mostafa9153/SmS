@@ -6,6 +6,7 @@ import type { AdmissionApplication } from "@/lib/types";
 import { pgContains } from "@/lib/supabase/filters";
 import { notify } from "@/lib/notifications/notify";
 import { createAdmissionApplication } from "@/lib/admission/application-row";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function GET(req: Request) {
   try {
@@ -62,7 +63,7 @@ export async function GET(req: Request) {
       return {
         id: row.id,
         applicationNo: row.application_no,
-        academicYear: row.academic_year || "2026",
+        academicYear: row.academic_year || String(currentYearIST()),
         admissionType: row.admission_type || "new",
         formMethod: row.form_method || "offline",
         targetClass: row.target_class,

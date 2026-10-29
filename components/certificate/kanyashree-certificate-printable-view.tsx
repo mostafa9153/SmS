@@ -10,6 +10,7 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface KanyashreeCertificateData {
   certificateNo: string;
@@ -284,7 +285,7 @@ export function KanyashreeCertificatePrintableView({
               Class {data.presentClass || "IX"}
             </span>{" "}
             (Section: <span className="font-bold text-slate-900">{data.presentSection || "A"}</span>, Roll No.: <span className="font-bold text-slate-900 font-mono">{data.presentRoll || "10"}</span>) in the academic session{" "}
-            <span className="font-mono font-bold text-slate-900">{data.academicSession || "2026"}</span>.
+            <span className="font-mono font-bold text-slate-900">{data.academicSession || String(currentYearIST())}</span>.
           </p>
 
           <p>

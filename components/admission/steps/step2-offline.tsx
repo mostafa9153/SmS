@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 const OFFLINE_DRAFT_KEY = "new-offline";
 
@@ -209,7 +210,7 @@ export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps
       ...data,
       studentName: data.studentName,
       targetClass: data.presentClass,
-      academicYear: academicYear || "2026",
+      academicYear: academicYear || String(currentYearIST()),
       formMethod: aiExtractedData ? "ai_scan" : "offline",
       // Address standard flattened format
       address: `${data.presentVillage}, ${data.presentPostOffice}, ${data.presentPoliceStation}, ${data.presentDistrict} - ${data.presentPincode}`,

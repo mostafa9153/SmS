@@ -2,6 +2,7 @@ import type ExcelJS from "exceljs";
 import type { TableRow, TableCell } from "docx";
 import type { Student } from "@/lib/types";
 import { todayIST } from "@/lib/utils/date";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface SectionMatrixRow {
   classLevel: string; // "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"
@@ -88,7 +89,7 @@ export function computeClassicStrengthData(
   students: Student[],
   schoolName = "MARIGACHI HIGH SCHOOL (H. S.)",
   customDate?: string,
-  academicYear = "2026"
+  academicYear = String(currentYearIST())
 ): ClassicReportData {
   const activeStudents = students.filter(
     (s) => s.currentStatus === "Continuing" || !s.currentStatus
@@ -342,7 +343,7 @@ export async function exportClassicStrengthExcel(
   students: Student[],
   schoolName = "MARIGACHI HIGH SCHOOL (H. S.)",
   customDate?: string,
-  academicYear = "2026"
+  academicYear = String(currentYearIST())
 ) {
   const data = computeClassicStrengthData(students, schoolName, customDate, academicYear);
   const ExcelJS = (await import("exceljs")).default;
@@ -759,7 +760,7 @@ export async function exportClassicStrengthWord(
   students: Student[],
   schoolName = "MARIGACHI HIGH SCHOOL (H. S.)",
   customDate?: string,
-  academicYear = "2026"
+  academicYear = String(currentYearIST())
 ) {
   const data = computeClassicStrengthData(students, schoolName, customDate, academicYear);
 
@@ -1149,7 +1150,7 @@ export function exportClassicStrengthCsv(
   students: Student[],
   schoolName = "MARIGACHI HIGH SCHOOL (H. S.)",
   customDate?: string,
-  academicYear = "2026"
+  academicYear = String(currentYearIST())
 ) {
   const data = computeClassicStrengthData(students, schoolName, customDate, academicYear);
   const rows: string[][] = [];

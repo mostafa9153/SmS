@@ -1,5 +1,6 @@
 "use client";
 import { useState, Suspense } from "react";
+import { currentYearIST } from "@/lib/utils/academic-year";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getStudentById, getStudentResultHistory, saveStudentResult, deleteStudent } from "@/lib/data/students";
@@ -54,7 +55,7 @@ function StudentProfilePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const currentYear = new Date().getFullYear();
+  const currentYear = currentYearIST();
 
   const tabParam = searchParams.get("tab");
   const initialTab = tabParam && VALID_STUDENT_TABS.includes(tabParam) ? tabParam : "personal";
@@ -870,7 +871,7 @@ function StudentProfilePageContent() {
               </div>
             </div>
 
-            {/* Section 1: Current Active Academic Session (2026) */}
+            {/* Section 1: Current Active Academic Session */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -949,7 +950,7 @@ function StudentProfilePageContent() {
                             }}
                             className="w-full flex items-center justify-center gap-1.5 rounded-lg border bg-muted/40 py-1.5 text-xs font-medium hover:bg-muted transition-colors mt-2"
                           >
-                            <Pencil className="h-3 w-3 text-muted-foreground" /> Update 2026 Marks
+                            <Pencil className="h-3 w-3 text-muted-foreground" /> Update {currentYear} Marks
                           </button>
                         </div>
                       ) : (

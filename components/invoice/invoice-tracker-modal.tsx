@@ -26,13 +26,16 @@ import { type InvoiceData, DEFAULT_FEE_ITEMS } from "@/lib/utils/fee-config";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
 import { todayIST } from "@/lib/utils/date";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 
 function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
   return {
     invoiceNumber: inv.invoice_number,
     issueDate: inv.issue_date,
     issueTime: inv.issue_time || "",
-    academicSession: inv.academic_session || "2026",
+    academicSession: inv.academic_session || String(currentYearIST()),
     studentId: inv.student_id || undefined,
     studentName: inv.student_name || "",
     studentClass: inv.student_class,
@@ -208,7 +211,9 @@ export function InvoiceTrackerModal({
 
   // Filters for Registry Dashboard
   const [tableSearch, setTableSearch] = useState("");
-  const [sessionFilter, setSessionFilter] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedSessionFilter, setSessionFilter] = useState<string | null>(null);
+  const sessionFilter = pickedSessionFilter ?? currentSession;
   const [typeFilter, setTypeFilter] = useState<"ALL" | "FILLED" | "BLANK">("ALL");
   const [admissionCategoryFilter, setAdmissionCategoryFilter] = useState<
     "ALL" | "NEW_ONLINE" | "NEW_OFFLINE" | "RE_ONLINE" | "RE_OFFLINE"
@@ -472,7 +477,7 @@ export function InvoiceTrackerModal({
 
   // Options for Academic Session / Year Dropdown
   const sessionOptions = useMemo(() => {
-    const set = new Set<string>(["2026", "2025", "2024", "2023"]);
+    const set = new Set<string>(sessionYears(currentSession, 3));
     invoicesList.forEach((inv) => {
       if (inv.academic_session?.trim()) {
         set.add(inv.academic_session.trim());
@@ -482,18 +487,18 @@ export function InvoiceTrackerModal({
     return [
       { label: "All Sessions", value: "ALL" },
       ...sorted.map((s) => ({
-        label: s === "2026" ? `${s} (Current)` : `Session ${s}`,
+        label: s === currentSession ? `${s} (Current)` : `Session ${s}`,
         value: s,
       })),
     ];
-  }, [invoicesList]);
+  }, [invoicesList, currentSession]);
 
   // Dynamic stats calculation based on selected Academic Session
   const displayedStats = useMemo(() => {
     const pool =
       sessionFilter === "ALL"
         ? invoicesList
-        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter);
+        : invoicesList.filter((inv) => (inv.academic_session || String(currentYearIST())).trim() === sessionFilter);
 
     if (pool.length === 0 && stats && sessionFilter === "ALL") {
       return stats;
@@ -531,7 +536,7 @@ export function InvoiceTrackerModal({
     const pool =
       sessionFilter === "ALL"
         ? invoicesList
-        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter);
+        : invoicesList.filter((inv) => (inv.academic_session || String(currentYearIST())).trim() === sessionFilter);
 
     pool.forEach((inv) => {
       const cls = (inv.student_class || "").trim().toUpperCase();
@@ -547,7 +552,7 @@ export function InvoiceTrackerModal({
     const poolLength =
       sessionFilter === "ALL"
         ? invoicesList.length
-        : invoicesList.filter((inv) => (inv.academic_session || "2026").trim() === sessionFilter).length;
+        : invoicesList.filter((inv) => (inv.academic_session || String(currentYearIST())).trim() === sessionFilter).length;
 
     return [
       { label: `All Classes (${poolLength})`, value: "ALL" },
@@ -584,7 +589,7 @@ export function InvoiceTrackerModal({
   // Filtered list for Registry Dashboard
   const filteredList = useMemo(() => {
     return invoicesList.filter((inv) => {
-      if (sessionFilter !== "ALL" && (inv.academic_session || "2026").trim() !== sessionFilter) return false;
+      if (sessionFilter !== "ALL" && (inv.academic_session || String(currentYearIST())).trim() !== sessionFilter) return false;
 
       if (typeFilter === "FILLED" && inv.is_blank) return false;
       if (typeFilter === "BLANK" && !inv.is_blank) return false;
@@ -902,7 +907,7 @@ export function InvoiceTrackerModal({
   // Filter count active check
   const isFiltered =
     Boolean(tableSearch.trim()) ||
-    sessionFilter !== "2026" ||
+    sessionFilter !== currentSession ||
     typeFilter !== "ALL" ||
     modeFilter !== "ALL" ||
     classFilter !== "ALL" ||
@@ -1293,7 +1298,7 @@ export function InvoiceTrackerModal({
                       type="button"
                       onClick={() => {
                         setTableSearch("");
-                        setSessionFilter("2026");
+                        setSessionFilter(null);
                         setTypeFilter("ALL");
                         setAdmissionCategoryFilter("ALL");
                         setClassFilter("ALL");

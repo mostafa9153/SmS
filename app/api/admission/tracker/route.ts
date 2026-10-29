@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
+import { currentYearIST, sessionYears } from "@/lib/utils/academic-year";
 
 export async function GET(req: Request) {
   try {
@@ -8,7 +9,7 @@ export async function GET(req: Request) {
     if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
-    const academicYear = searchParams.get("academicYear") || "2026";
+    const academicYear = searchParams.get("academicYear") || String(currentYearIST());
     const fromDate = searchParams.get("fromDate"); // YYYY-MM-DD
     const toDate = searchParams.get("toDate");     // YYYY-MM-DD
     const targetClass = searchParams.get("targetClass"); // "all" or specific class
@@ -24,9 +25,7 @@ export async function GET(req: Request) {
       .order("academic_year", { ascending: false });
 
     const availableYearsSet = new Set<string>();
-    availableYearsSet.add(new Date().getFullYear().toString());
-    availableYearsSet.add("2026");
-    availableYearsSet.add("2025");
+    sessionYears(currentYearIST(), 1).forEach((y) => availableYearsSet.add(y));
     yearRows?.forEach((r) => {
       if (r.academic_year) availableYearsSet.add(String(r.academic_year));
     });

@@ -14,6 +14,8 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 
 interface ReAdmissionDashboardProps {
   onClose: () => void;
@@ -24,7 +26,9 @@ export function ReAdmissionDashboard({
   onClose,
   onSelectStudentForAdmission,
 }: ReAdmissionDashboardProps) {
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedSelectedYear, setSelectedYear] = useState<string | null>(null);
+  const selectedYear = pickedSelectedYear ?? currentSession;
 
   const [selectedClass, setSelectedClass] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -153,9 +157,9 @@ export function ReAdmissionDashboard({
               <SelectValue placeholder="Session" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2026" className="text-xs font-medium">2026</SelectItem>
-              <SelectItem value="2025" className="text-xs font-medium">2025</SelectItem>
-              <SelectItem value="2024" className="text-xs font-medium">2024</SelectItem>
+              {sessionYears(currentSession).map((y) => (
+                <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>
+              ))}
               <SelectItem value="2023" className="text-xs font-medium">2023</SelectItem>
             </SelectContent>
           </Select>

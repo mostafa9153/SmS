@@ -47,6 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 interface NavChildSubItem {
   label: string;
@@ -510,6 +511,7 @@ export function Sidebar({
   mobile?: boolean;
   onClose?: () => void;
 }) {
+  const currentSession = useAcademicYear();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -690,7 +692,7 @@ export function Sidebar({
                   {fullName}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {designation || role} · Session 2026
+                  {designation || role} · Session {currentSession}
                 </p>
               </div>
             </div>
@@ -700,7 +702,7 @@ export function Sidebar({
             <DropdownMenuLabel className="p-2">
               <div className="flex flex-col">
                 <span className="font-bold text-xs text-foreground truncate">{fullName}</span>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">{designation || role || "User"} · Session 2026</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">{designation || role || "User"} · Session {currentSession}</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
