@@ -100,7 +100,7 @@ export function StaffFiltersBar({
       {/* Filter Dropdowns Grid */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1 border-t border-border/40">
         {/* Designation Filter */}
-        <CustomSelect
+        <CustomSelect placeholder="All Designations"
           value={filters.designation ?? ""}
           onChange={(v: string) =>
             onChange({
@@ -113,7 +113,7 @@ export function StaffFiltersBar({
         />
 
         {/* Caste Filter */}
-        <CustomSelect
+        <CustomSelect placeholder="All Castes"
           value={filters.caste ?? ""}
           onChange={(v: string) =>
             onChange({

@@ -304,7 +304,7 @@ export function RoutineGroupsTab({
           )}
         </div>
 
-        <CustomSelect
+        <CustomSelect placeholder="All classes"
           value={filterClass}
           onChange={(v: string) => {
             setFilterClass(v);
@@ -315,7 +315,7 @@ export function RoutineGroupsTab({
           options={[{ value: "", label: "All classes" }, ...classNameOptions.map((n) => ({ value: n, label: n }))]}
         />
 
-        <CustomSelect
+        <CustomSelect placeholder="All streams"
           value={filterStream}
           onChange={(v: string) => setFilterStream(v)}
           disabled={!filterClass}
@@ -724,7 +724,7 @@ function GroupDialog({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Class *</Label>
-                  <CustomSelect
+                  <CustomSelect placeholder="—"
                     value={className}
                     onChange={(v: string) => {
                       setClassName(v);
@@ -738,7 +738,7 @@ function GroupDialog({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Stream (optional)</Label>
-                  <CustomSelect
+                  <CustomSelect placeholder="Any"
                     value={stream}
                     onChange={(v: string) => setStream(v)}
                     disabled={streamOptions.length === 0}
@@ -770,7 +770,7 @@ function GroupDialog({
               <div className="space-y-2">
                 <div className="space-y-1">
                   <Label className="text-[11px] font-medium">Class *</Label>
-                  <CustomSelect
+                  <CustomSelect placeholder="—"
                     value={className}
                     onChange={(v: string) => selectClassSections(v)}
                     searchable={false}
@@ -826,15 +826,15 @@ function GroupDialog({
               </Button>
             </div>
 
-            <div className="rounded-md border divide-y overflow-hidden">
-              <div className="grid grid-cols-12 bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="rounded-md border divide-y">
+              <div className="grid grid-cols-12 rounded-t-md bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <div className="col-span-11 py-2 px-2.5">Subject</div>
                 <div className="col-span-1 py-2 px-1 text-center"></div>
               </div>
               {options.map((o) => (
                 <div key={o.id} className="grid grid-cols-12 items-center text-xs">
                   <div className="col-span-11 py-1.5 px-2">
-                    <CustomSelect
+                    <CustomSelect placeholder="Select subject"
                       value={o.subjectId}
                       onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "" })}
                       className="w-full"

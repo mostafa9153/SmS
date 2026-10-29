@@ -120,7 +120,7 @@ export function SubjectMultiSelect({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
         {!isCustomMode ? (
           <div className="flex-1 flex gap-2">
-            <CustomSelect
+            <CustomSelect placeholder="Select subject to add..."
               value={selectedSubject}
               onChange={(v: string) => {
                 if (v === "CUSTOM") {
