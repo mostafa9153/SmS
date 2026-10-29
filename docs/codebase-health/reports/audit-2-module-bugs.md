@@ -139,6 +139,7 @@ The full list comes from `scratchpad/unchecked-writes.js` (re-runnable; I can ad
 | A-API-1 | `POST /api/admission/re-admission/batch` **deleted**, together with its unused client wrapper `executeBatchReAdmission` (no screen called it, see Audit 3) |
 | A-API-2 | `GET /api/admission/tracker` → `requireStaff("can_print_admission_form", "can_view_admission_applications", "can_handle_new_admission")` |
 | A-API-3 | `GET`/`POST /api/teachers/attendance` → `requireRole()` (Admin/Staff/Teacher, no Guest) plus `denyOutsideClasses` for teachers with a class list |
+| A-SEC-3 | `requireRole()` now runs at the start of all 10 handlers in `results/student/[id]`, `students/metadata`, `dashboard/stats`, `attendance/analytics`, `teachers/chat` (GET, POST), `teachers/chat/[id]` (PATCH, DELETE) and `teachers/notifications` (GET, PATCH). A signed-in account with no `user_roles` row (a self sign-up) is now refused. The old `getUser()` lines stay because chat reads `user_metadata` from them. Undo exemptions are written in the code: chat edits are the sender's own and its delete is soft; notifications only flip read flags |
 
 Behaviour changes to know:
 - A Teacher **without** one of those three admission permissions now gets 403 on the admission form tracker.
@@ -147,4 +148,4 @@ Behaviour changes to know:
 
 Verification: `npm run verify -- --build` PASS. Not tested end-to-end with a real Google consent (needs your OAuth client and a signed-in admin).
 
-Still open: A-SEC-3 and the rest of the table above.
+Still open: everything else in the table above (A-DATA-*, A-ERR-1, A-TIME-*, A-YEAR-1, A-CRON-1).

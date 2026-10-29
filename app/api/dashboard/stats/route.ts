@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import type { StudentStatus } from "@/lib/types";
 import { normalizeSocialCategory } from "@/lib/utils/excel-parser";
@@ -17,6 +18,8 @@ export function invalidateDashboardStatsCache() {
 
 export async function GET() {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
 
     // Get current logged-in user to verify session
