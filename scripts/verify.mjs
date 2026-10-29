@@ -85,6 +85,8 @@ const rules = [
   { level: "WARN", name: "Raw fetch('/api') in UI (use apiFetch)", re: /\bfetch\(\s*["'`]\/api\//, only: (f) => !f.startsWith("app/api/") },
   { level: "WARN", name: "react-hot-toast (use sonner)", re: /react-hot-toast/ },
   { level: "WARN", name: "console.log left in", re: /console\.log\(/, only: (f) => !f.startsWith("scripts/") },
+  { level: "WARN", name: "Hand-written @page (use PrintPageStyle + usePaperSettings)", re: /@page\s*[{\w]/, only: (f) => !/^(lib|components)\/print\/|^app\/globals\.css$|^tests\//.test(f) },
+  { level: "WARN", name: "Print preview without PrintPreview", re: /<(ZoomPanViewport|PinchZoomViewer)\b/, only: (f) => !f.startsWith("components/print/") },
 ];
 for (const r of rules) {
   const hits = [];

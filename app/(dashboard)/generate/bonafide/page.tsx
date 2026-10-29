@@ -22,8 +22,6 @@ import {
   History,
   User,
   MapPin,
-  ChevronDown,
-  Save,
 } from "lucide-react";
 import {
   Select,
@@ -32,9 +30,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 
-type PrintMargins = { top: number; right: number; bottom: number; left: number };
 import {
   getEffectiveHeadTitle,
   parseStudentAddress,
@@ -51,7 +50,6 @@ import {
   recordPrintedCertificate,
   buildBonafideCertInsert,
 } from "@/lib/utils/certificate-registry";
-import { cn } from "@/lib/utils";
 
 const PURPOSE_PRESETS = [
   { label: "Scholarship (OASIS / SVMCM / Aikyashree)", value: "Scholarship Application (OASIS / SVMCM / Aikyashree)" },
@@ -75,7 +73,8 @@ function BonafideGeneratorContent() {
   }
 
   // Paper Format State: Default to A5 Portrait
-  const [paperSize, setPaperSize] = useState<"A5" | "A4">("A5");
+  const paper = usePaperSettings("bonafide-paper-settings", { paper: "A5", margins: { top: 0, right: 0, bottom: 0, left: 0 } });
+  const paperSize: "A5" | "A4" = paper.paper === "A4" ? "A4" : "A5";
 
   // Student Selection (shared picker: single search or bulk roster)
   const [pickerMode, setPickerMode] = useState<StudentPickerMode>("bulk");
@@ -91,31 +90,6 @@ function BonafideGeneratorContent() {
   const [conduct, setConduct] = useState<string>("exemplary moral character");
   const [includeDigitalSignature, setIncludeDigitalSignature] = useState<boolean>(true);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
-  const [paperOpen, setPaperOpen] = useState(false);
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
-  const pageW = paperSize === "A5" ? 148 : 210;
-  const pageH = paperSize === "A5" ? 210 : 297;
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("bonafide-paper-settings");
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.paperSize) setPaperSize(s.paperSize as "A5" | "A4");
-        if (s.margins) setMargins(s.margins);
-      }
-    } catch {}
-  }, []);
-
-  const savePaperSettings = () => {
-    try {
-      localStorage.setItem("bonafide-paper-settings", JSON.stringify({ paperSize, margins }));
-    } catch {}
-  };
 
   // Editable Student Particulars Form State
   const [studentForm, setStudentForm] = useState({
@@ -699,89 +673,16 @@ function BonafideGeneratorContent() {
               </div>
             </CardContent>
           </Card>
-          {/* Paper & Margin */}
-          <Card className="rounded-2xl border shadow-2xs">
-            <CardContent className="p-3.5">
-              <button
-                type="button"
-                onClick={() => setPaperOpen((v) => !v)}
-                className="w-full flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <span>Paper &amp; Margin</span>
-                <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
-              </button>
-              {paperOpen && (
-                <div className="mt-3 space-y-2">
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPaperSize("A5")}
-                      className={cn(
-                        "p-2 rounded-xl border text-center transition-all cursor-pointer",
-                        paperSize === "A5"
-                          ? "border-primary bg-primary/10 text-primary font-bold"
-                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <p className="text-xs">A5 Portrait</p>
-                      <p className="text-[10px] opacity-75 font-mono">148 × 210 mm</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaperSize("A4")}
-                      className={cn(
-                        "p-2 rounded-xl border text-center transition-all cursor-pointer",
-                        paperSize === "A4"
-                          ? "border-primary bg-primary/10 text-primary font-bold"
-                          : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                      )}
-                    >
-                      <p className="text-xs">A4 Portrait</p>
-                      <p className="text-[10px] opacity-75 font-mono">210 × 297 mm</p>
-                    </button>
-                  </div>
-                  <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(["top", "right", "bottom", "left"] as const).map((side) => (
-                      <label key={side} className="space-y-0.5">
-                        <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step={1}
-                          value={margins[side]}
-                          onChange={(e) => updateMargin(side, e.target.value)}
-                          className="h-8 text-xs"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={savePaperSettings}
-                    className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
-                  >
-                    <Save className="h-3.5 w-3.5" />
-                    Save Settings
-                  </button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <PaperSettingsPanel settings={paper} />
         </div>
 
-        {/* Right: ZoomPanViewport preview */}
-        <ZoomPanViewport
-          resetKey={paperSize}
-          fitMode="contain"
-          className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
-        >
+        <PrintPreview resetKey={paperSize}>
           <BonafideCertificatePrintableView
             data={activeCertData}
             schoolProfile={schoolProfile}
           />
-        </ZoomPanViewport>
+        </PrintPreview>
+        <PrintPageStyle pageW={paper.pageW} pageH={paper.pageH} margins={paper.margins} />
 
         {/* Hidden print container (single & batch) */}
         <div id="printable-bonafide-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
@@ -823,11 +724,6 @@ function BonafideGeneratorContent() {
           .print\\:hidden,
           button {
             display: none !important;
-          }
-
-          @page {
-            size: ${pageW}mm ${pageH}mm;
-            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
           html,
