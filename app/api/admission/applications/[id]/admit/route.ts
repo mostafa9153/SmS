@@ -6,6 +6,7 @@ import { requireStaff } from "@/lib/api/guard";
 import { nowTimeIST, todayIST } from "@/lib/utils/date";
 import { mustWrite } from "@/lib/supabase/write";
 import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(
   req: Request,
@@ -36,7 +37,7 @@ export async function POST(
     const assignedClass = body.class || app.target_class || "V";
     const feeAmount = body.feeAmount !== undefined ? parseFloat(body.feeAmount) : (app.fee_amount || 0);
     const feePaid = body.feePaid !== undefined ? !!body.feePaid : true;
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const yearSuffix = String(currentYear).slice(-2);
 
     if (app.status === "admitted" && !body.forceReAdmit) {

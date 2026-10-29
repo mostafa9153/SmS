@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireRole } from "@/lib/api/guard";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function GET(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const { searchParams } = new URL(req.url);
     const selectedClass = searchParams.get("class");
     const selectedSection = searchParams.get("section");
     const yearParam = searchParams.get("year");
-    const currentYear = yearParam ? parseInt(yearParam, 10) : new Date().getFullYear();
+    const currentYear = yearParam ? parseInt(yearParam, 10) : (await getAcademicYear());
     const prevYear = currentYear - 1;
 
     if (!selectedClass) {

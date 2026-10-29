@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { DEFAULT_TEACHER_PERMISSIONS } from "@/lib/types/teacher";
 import { mustWrite } from "@/lib/supabase/write";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/teachers - List all teaching staff with their account, permissions, active grants, and assigned classes
 export async function GET() {
@@ -40,7 +41,7 @@ export async function GET() {
     }
 
     // 3. Fetch all active class assignments
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const { data: classAssignments } = await adminClient
       .from("teacher_class_assignments")
       .select("*")

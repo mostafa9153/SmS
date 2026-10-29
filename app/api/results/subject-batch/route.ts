@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { dbSaveSubjectBatchMarks, SaveSubjectBatchParams } from "@/lib/supabase/db-results";
 import { requireStaff } from "@/lib/api/guard";
 import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // POST /api/results/subject-batch
 export async function POST(req: Request) {
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
 
     const result = await dbSaveSubjectBatchMarks(
       {
-        academicYear: academicYear || new Date().getFullYear(),
+        academicYear: academicYear || (await getAcademicYear()),
         class: className,
         section: body.section,
         examName,

@@ -1,19 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireRole } from "@/lib/api/guard";
 import { pgQuote } from "@/lib/supabase/filters";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function GET(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
     const targetClass = searchParams.get("class") || "V";
     const targetSection = searchParams.get("section") || "A";
-    const currentYear = searchParams.get("academicYear") || String(new Date().getFullYear());
+    const currentYear = searchParams.get("academicYear") || String((await getAcademicYear()));
 
     const supabase = createAdminClient();
 

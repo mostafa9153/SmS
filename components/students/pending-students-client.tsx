@@ -34,6 +34,7 @@ import Link from "next/link";
 import { Clock, Search, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, Users, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
+import { toastWithUndo } from "@/lib/undo/client";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const SECTIONS = ["A", "B", "C", "D"];
@@ -154,16 +155,20 @@ export function PendingStudentsClient() {
     return students.filter((s) => selectedIds.has(s.id));
   }, [students, selectedIds]);
 
+  const refreshRegisters = () => {
+    queryClient.invalidateQueries({ queryKey: ["pending-students"] });
+    queryClient.invalidateQueries({ queryKey: ["students"] });
+    queryClient.invalidateQueries({ queryKey: ["old-students"] });
+  };
+
   // Drop Out Mutation
   const dropOutMutation = useMutation({
     mutationFn: (ids: string[]) => markStudentsDropOut(ids, "Marked Drop Out from Pending Register"),
     onSuccess: (res) => {
-      toast.success(res.message || "Marked students as Drop Out");
+      toastWithUndo(res.message || "Marked students as Drop Out", res.undoId, refreshRegisters);
       setSelectedIds(new Set());
       setDropOutConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
+      refreshRegisters();
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to mark Drop Out");
@@ -175,11 +180,9 @@ export function PendingStudentsClient() {
     setIsArchivingStale(true);
     try {
       const res = await archiveStalePendingStudents();
-      toast.success(res.message || `Archived ${res.count} stale student(s) to Drop Out.`);
+      toastWithUndo(res.message || `Archived ${res.count} stale student(s) to Drop Out.`, res.undoId, refreshRegisters);
       setArchiveStaleConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
+      refreshRegisters();
     } catch (err: any) {
       toast.error(err.message || "Failed to archive stale students");
     } finally {

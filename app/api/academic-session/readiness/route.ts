@@ -1,29 +1,17 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/api/guard";
 import { dbGetSessionReadiness } from "@/lib/supabase/db-academic-session";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/academic-session/readiness
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Role check: Staff and Admin can view session readiness
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
-
-    if (!roleData || (roleData.role !== "Admin" && roleData.role !== "Staff")) {
-      return NextResponse.json({ error: "Forbidden: Access denied" }, { status: 403 });
-    }
+    // Staff and Admin can view session readiness
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
-    const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : new Date().getFullYear();
+    const year = searchParams.get("year") ? parseInt(searchParams.get("year")!) : (await getAcademicYear());
     const examName = searchParams.get("examName") || "Annual Examination";
     const minPassPercentage = searchParams.get("minPassPercentage") ? parseInt(searchParams.get("minPassPercentage")!) : 30;
     const section = searchParams.get("section") || "secondary";

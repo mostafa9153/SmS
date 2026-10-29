@@ -8,6 +8,7 @@ import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-lad
 import { nowTimeIST, todayIST } from "@/lib/utils/date";
 import { mustWrite } from "@/lib/supabase/write";
 import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(req: Request) {
   try {
@@ -84,13 +85,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Student not found in active directory" }, { status: 404 });
     }
 
-    const { data: settingsRow } = await supabase
-      .from("admission_settings")
-      .select("current_academic_year")
-      .eq("school_id", "default")
-      .maybeSingle();
-    const settingsYear = Number(settingsRow?.current_academic_year);
-    const currentYear = settingsYear > 0 ? settingsYear : new Date().getFullYear();
+    const currentYear = await getAcademicYear();
 
     if (action === "not_admitted") {
       const { data: updated, error } = await supabase

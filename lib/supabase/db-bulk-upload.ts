@@ -7,6 +7,7 @@ import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "./
 import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 import { mustWrite, softWrite } from "@/lib/supabase/write";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 interface ProcessResult {
   summary: ImportBatchSummary;
@@ -28,7 +29,7 @@ export async function dbProcessBulkUpload(
   uploadType: "current_students" | "old_students" = "current_students"
 ): Promise<ProcessResult> {
   const supabase = createAdminClient();
-  const currentYear = new Date().getFullYear();
+  const currentYear = await getAcademicYear();
 
   // 1. Gather all potential lookup identifiers
   const lookupSchoolIds = rows.map((r) => r.schoolId?.trim()).filter(Boolean) as string[];
@@ -682,7 +683,7 @@ export async function dbProcessResultsBulkUpload(
   targetExamName?: string
 ): Promise<ProcessResultsResult> {
   const supabase = createAdminClient();
-  const currentYear = new Date().getFullYear();
+  const currentYear = await getAcademicYear();
 
   // 1. Fetch candidate students by identifiers & relevant class cohorts
   const lookupSchoolIds = rows.map((r) => r.schoolId?.trim().toUpperCase()).filter(Boolean) as string[];

@@ -20,6 +20,7 @@ import { useRouter } from "next/navigation";
 import { FileText, Printer, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { todayIST } from "@/lib/utils/date";
+import { toastWithUndo } from "@/lib/undo/client";
 
 const TC_REASONS = [
   { label: "Transfer / Parent Relocation", value: "Transfer / Parent Relocation" },
@@ -65,17 +66,20 @@ export function IssueTcDialog({
     if (!student) return;
     setIsSubmitting(true);
     try {
-      await issueTransferCertificate(student.id, {
+      const res = await issueTransferCertificate(student.id, {
         tcDate,
         tcReason,
         tcNo: tcNo.trim() || undefined,
       });
 
-      toast.success(`Transfer Certificate issued for ${student.name}. Moved to Old Register.`);
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+      const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ["students"] });
+        queryClient.invalidateQueries({ queryKey: ["pending-students"] });
+        queryClient.invalidateQueries({ queryKey: ["old-students"] });
+        queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+      };
+      toastWithUndo(`Transfer Certificate issued for ${student.name}. Moved to Old Register.`, res.undoId, refresh);
+      refresh();
 
       onOpenChange(false);
       onSuccess?.();

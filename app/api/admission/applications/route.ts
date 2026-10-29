@@ -7,6 +7,7 @@ import { pgContains } from "@/lib/supabase/filters";
 import { notify } from "@/lib/notifications/notify";
 import { createAdmissionApplication } from "@/lib/admission/application-row";
 import { currentYearIST } from "@/lib/utils/academic-year";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function GET(req: Request) {
   try {
@@ -150,7 +151,7 @@ export async function POST(req: Request) {
     const supabase = createAdminClient();
     const body = await req.json();
 
-    const currentYearStr = String(new Date().getFullYear());
+    const currentYearStr = String((await getAcademicYear()));
     const academicYear = body.academicYear || currentYearStr;
     const targetClass = body.targetClass || body.presentClass || "V";
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { denyOutsideClasses, requireRole, requireStaff } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { 
   dbGetStudentById, 
@@ -83,13 +83,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const gate = await requireRole();
+    // Teachers need the edit permission, and only for their own classes.
+    const gate = await requireStaff("can_edit_student_profile");
     if (!gate.ok) return gate.response;
     const { id } = await params;
-    const role = await getUserRole();
-    if (role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const role = gate.auth.role;
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -112,6 +110,10 @@ export async function PATCH(
     if (!oldStudent) {
       return NextResponse.json({ error: "Student not found" }, { status: 404 });
     }
+    const outside =
+      denyOutsideClasses(gate.auth, oldStudent.presentClass) ??
+      (parseResult.data.presentClass ? denyOutsideClasses(gate.auth, parseResult.data.presentClass) : null);
+    if (outside) return outside;
 
     // Staff cannot update Aadhaar (only Admin can update Aadhaar)
     if (role !== "Admin") {

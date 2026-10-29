@@ -7,6 +7,7 @@ import type {
   SubjectMarksMap,
 } from "@/lib/types";
 import { sortClasses } from "@/lib/utils";
+import { apiFetch } from "@/lib/api/client";
 
 /**
  * Returns all students (unfiltered, unpaginated).
@@ -136,25 +137,6 @@ export async function deleteStudent(id: string): Promise<{ undoId: string | null
   }
   const data = await res.json();
   return { undoId: data.undoId ?? null };
-}
-
-/**
- * Bulk promotes/updates a list of students to a new class/section/status.
- */
-export async function bulkUpdateStudents(
-  updates: Array<{ id: string; changes: Partial<Omit<Student, "id">> }>
-): Promise<Student[]> {
-  const res = await fetch("/api/students/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ updates }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Bulk update failed");
-  }
-  const data = await res.json();
-  return data.students || [];
 }
 
 // ── Utility / derived data helpers ──────────────────────────
@@ -595,19 +577,14 @@ export interface StatusActionPayload {
   reason?: string;
 }
 
+export interface StatusActionResult {
+  count: number;
+  message: string;
+  undoId?: string | null;
+}
+
 export async function executeStudentStatusAction(payload: StatusActionPayload) {
-  const res = await fetch("/api/students/status-action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Status action execution failed");
-  }
-
-  return res.json();
+  return apiFetch<StatusActionResult>("/api/students/status-action", { method: "POST", json: payload });
 }
 
 export async function issueTransferCertificate(

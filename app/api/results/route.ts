@@ -4,6 +4,7 @@ import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-res
 import type { Semester } from "@/lib/types";
 import { requireStaff } from "@/lib/api/guard";
 import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
@@ -15,7 +16,7 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const academicYear = parseInt(searchParams.get("year") || String(new Date().getFullYear()), 10);
+    const academicYear = parseInt(searchParams.get("year") || String((await getAcademicYear())), 10);
     const className = searchParams.get("class") || "V";
     const section = searchParams.get("section") || undefined;
     const examName = searchParams.get("exam") || "Annual Examination";
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     const savedResult = await dbSaveOrUpdateResult(
       {
         studentId,
-        academicYear: academicYear || new Date().getFullYear(),
+        academicYear: academicYear || (await getAcademicYear()),
         class: className,
         section: section || "A",
         roll: roll || 1,

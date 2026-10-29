@@ -15,6 +15,7 @@ import {
 } from "@/lib/admission/public-link";
 import { turnstileConfigured, verifyTurnstile } from "@/lib/security/turnstile";
 import { notify } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // Unauthenticated endpoint. It can only *create* a pending application; it never
 // reads, updates or deletes, and every value the school controls is forced server-side.
@@ -127,7 +128,7 @@ export async function POST(req: Request, { params }: Params) {
     return fail(400, "presentClass: Invalid class.");
   }
 
-  const academicYear = String(new Date().getFullYear());
+  const academicYear = String((await getAcademicYear()));
   const { count: existing } = await supabase
     .from("admission_applications")
     .select("id", { count: "exact", head: true })

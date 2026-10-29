@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/api/guard";
 import { recordUndo, snapshotRows } from "@/lib/undo/journal";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 const MAX_CLASS_TEACHERS = 2;
 
@@ -22,7 +23,7 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const year = Number(searchParams.get("year")) || new Date().getFullYear();
+    const year = Number(searchParams.get("year")) || (await getAcademicYear());
 
     const adminClient = createAdminClient();
     const { data: assignments, error } = await adminClient
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
       );
     }
     const { teacherId, className, section, roleType, subject } = parsed.data;
-    const targetYear = parsed.data.academicYear ?? new Date().getFullYear();
+    const targetYear = parsed.data.academicYear ?? (await getAcademicYear());
     const adminClient = createAdminClient();
 
     const subjectName = roleType === "SUBJECT_TEACHER" ? subject || "General" : null;

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { mustWrite, softWrite } from "@/lib/supabase/write";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/auth/profile - Fetch current user's profile
 // guard: custom — any signed-in user reads their own profile; users without a role row get a fallback profile
@@ -105,7 +106,7 @@ export async function GET() {
 
     if (staffData) {
       // Fetch teacher class assignments
-      const currentYear = new Date().getFullYear();
+      const currentYear = await getAcademicYear();
       const { data: assigns } = await adminClient
         .from("teacher_class_assignments")
         .select("*")

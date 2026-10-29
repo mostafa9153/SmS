@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { StudentStatus } from "@/lib/types";
 import { normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { calculateExactAge, normalizeClassName } from "@/lib/utils";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 interface CachedStats {
   data: any;
@@ -61,7 +62,7 @@ export async function GET() {
       }
     }
 
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
 
     // 1. Status grouping
     const statusCounts = (allStudentsData || []).reduce(

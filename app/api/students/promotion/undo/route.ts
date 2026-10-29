@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 import { mustWrite, softWrite } from "@/lib/supabase/write";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(req: Request) {
   try {
@@ -125,7 +126,7 @@ export async function POST(req: Request) {
       table_name: "students",
       metadata: {
         sourceClass: sourceClass || "multiple",
-        academicYear: academicYear || new Date().getFullYear(),
+        academicYear: academicYear || (await getAcademicYear()),
         totalRestored: restoredCount,
         resetToContinuing,
       },

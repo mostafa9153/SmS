@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { currentYearIST } from "@/lib/utils/academic-year";
+import { clearAcademicYearCache } from "@/lib/academic/current-year";
 
 export async function GET() {
   try {
@@ -115,6 +116,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    clearAcademicYearCache();
     const savedKey = data.ai_api_key || "";
     const maskedSavedKey = savedKey.length > 4 ? `••••••••${savedKey.slice(-4)}` : (savedKey ? "••••" : "");
 

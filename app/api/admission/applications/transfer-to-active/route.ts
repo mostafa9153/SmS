@@ -7,6 +7,7 @@ import { requireStaff } from "@/lib/api/guard";
 import { todayIST } from "@/lib/utils/date";
 import { mustWrite } from "@/lib/supabase/write";
 import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(req: Request) {
   try {
@@ -50,7 +51,7 @@ export async function POST(req: Request) {
 
     const transferredStudents: Array<{ id: string; name: string; schoolId: string; class: string; roll: number }> = [];
     const skippedWarnings: Array<{ id: string; name: string; reason: string }> = [];
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
 
     for (const app of admittedApps) {
       const extra = app.ai_extracted_data && typeof app.ai_extracted_data === "object" ? app.ai_extracted_data : {};

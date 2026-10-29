@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { dbCalculateAndAssignRanks } from "@/lib/supabase/db-results";
 import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // POST /api/results/calculate-ranks - Recalculate ranks for a class
 export async function POST(req: Request) {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
     if (outside) return outside;
 
     const result = await dbCalculateAndAssignRanks(
-      academicYear || new Date().getFullYear(),
+      academicYear || (await getAcademicYear()),
       className,
       examName || "Annual Examination"
     );
