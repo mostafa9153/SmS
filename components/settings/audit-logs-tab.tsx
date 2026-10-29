@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
 import { EmptyState } from "@/components/ui/empty-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface AuditLogEntry {
   id: string;
@@ -71,11 +72,7 @@ export function AuditLogsTab() {
   const { data: logsData, isLoading: isLoadingLogs } = useQuery({
     queryKey: ["admin", "audit-logs"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/audit-logs");
-      if (!res.ok) {
-        throw new Error("Failed to fetch audit logs");
-      }
-      return res.json() as Promise<{ logs: AuditLogEntry[] }>;
+      return apiFetch<{ logs: AuditLogEntry[] }>("/api/admin/audit-logs");
     },
     staleTime: 2 * 60 * 1000,
   });

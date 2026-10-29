@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { StudentAddEditForm } from "@/components/students/student-add-edit-form";
 import { AdmitStudentDialog } from "@/components/admission/admit-student-dialog";
 import { AdmissionSuccessDialog } from "@/components/admission/admission-success-dialog";
+import { apiFetch } from "@/lib/api/client";
 
 export function AiScanContent({
   hideBackLink,
@@ -156,17 +157,10 @@ export function AiScanContent({
 
     setIsScanning(true);
     try {
-      const res = await fetch("/api/admission/ai-scan", {
+      const data = await apiFetch<{ extracted?: any }>("/api/admission/ai-scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: capturedImage }),
+        json: { imageBase64: capturedImage },
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "AI Scan failed");
-      }
 
       const ext = data.extracted || {};
       setExtractedData(ext);
@@ -186,10 +180,9 @@ export function AiScanContent({
 
     try {
       setIsSavingPending(true);
-      const res = await fetch("/api/admission/applications", {
+      const data = await apiFetch<{ application: any }>("/api/admission/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: ({
           studentName: candidateName,
           gender: extractedData.gender || "Male",
           dob: extractedData.dob || extractedData.dateOfBirth,
@@ -215,9 +208,6 @@ export function AiScanContent({
           aiExtractedData: extractedData,
         }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save application");
 
       queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
       showToast(`Application ${data.application.applicationNo || ""} saved as Pending!`, "success");
@@ -234,10 +224,9 @@ export function AiScanContent({
 
     try {
       // Create pending application first in staging
-      const res = await fetch("/api/admission/applications", {
+      const data = await apiFetch<{ application: any }>("/api/admission/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: ({
           studentName: candidateName,
           gender: extractedData.gender || "Male",
           dob: extractedData.dob || extractedData.dateOfBirth,
@@ -263,9 +252,6 @@ export function AiScanContent({
           aiExtractedData: extractedData,
         }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save application");
 
       setAdmittedAppData(data.application);
       setAdmitModalOpen(true);

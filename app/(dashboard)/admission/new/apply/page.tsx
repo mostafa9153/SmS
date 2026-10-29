@@ -11,6 +11,7 @@ import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import { toOnlineApplicationPayload } from "@/lib/admission/application-payload";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+import { apiFetch } from "@/lib/api/client";
 
 const DRAFT_KEY = "online-apply";
 
@@ -57,18 +58,7 @@ export default function PublicOnlineApplyPage() {
     try {
       const payload = toOnlineApplicationPayload(formData, currentYear);
 
-      const res = await fetch("/api/admission/applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to submit application");
-      }
-
-      const json = await res.json();
+      const json = await apiFetch<any>("/api/admission/applications", { method: "POST", json: payload });
       setApplicationResult(json.application || json);
       setSubmittedData(formData);
       setIsSubmitted(true);

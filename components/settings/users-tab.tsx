@@ -15,6 +15,7 @@ import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface UserProfile {
   id: string;
@@ -69,12 +70,7 @@ export function UsersTab() {
   const { data: usersData, isLoading: isLoadingUsers, error: usersError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/users");
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to fetch users");
-      }
-      return res.json() as Promise<{ users: UserProfile[] }>;
+      return apiFetch<{ users: UserProfile[] }>("/api/admin/users");
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -82,16 +78,7 @@ export function UsersTab() {
   // Create User Mutation
   const createUserMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create user");
-      }
-      return res.json();
+      return apiFetch("/api/admin/users", { method: "POST", json: payload });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -120,14 +107,7 @@ export function UsersTab() {
   // Delete User Mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/users?id=${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to delete user");
-      }
-      return res.json();
+      return apiFetch(`/api/admin/users?id=${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -155,23 +135,7 @@ export function UsersTab() {
       newPassword?: string;
       adminPassword?: string;
     }) => {
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      let errData: any = null;
-      try {
-        errData = await res.json();
-      } catch {
-        // Fallback if response is empty or non-JSON
-      }
-
-      if (!res.ok) {
-        throw new Error(errData?.error || `Failed to update user (${res.status})`);
-      }
-      return errData;
+      return apiFetch("/api/admin/users", { method: "PATCH", json: payload });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });

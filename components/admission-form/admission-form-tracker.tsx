@@ -41,6 +41,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { currentYearIST } from "@/lib/utils/academic-year";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { sessionYears } from "@/lib/utils/academic-year";
+import { apiFetch } from "@/lib/api/client";
 
 export function AdmissionFormTrackerModal({
   isOpen,
@@ -212,11 +213,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
       if (appliedFilters.admissionType !== "ALL") params.append("admissionType", appliedFilters.admissionType.toLowerCase());
       if (appliedFilters.channel !== "ALL") params.append("channel", appliedFilters.channel.toLowerCase());
 
-      const res = await fetch(`/api/admission/tracker?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error("Failed to load admission tracker records");
-      }
-      return res.json();
+      return apiFetch<any>(`/api/admission/tracker?${params.toString()}`);
     },
     staleTime: 30 * 1000,
   });

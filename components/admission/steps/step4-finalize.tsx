@@ -15,6 +15,7 @@ import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog"
 import { getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { currentYearIST } from "@/lib/utils/academic-year";
+import { apiFetch } from "@/lib/api/client";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -144,10 +145,9 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
 
       // If offline manual entry or scan (no existing application ID yet), create it in DB first
       if (!appId) {
-        const createRes = await fetch("/api/admission/applications", {
+        const createJson = await apiFetch<any>("/api/admission/applications", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: ({
             ...appData,
             studentName: appData?.studentName || "New Student",
             targetClass,
@@ -187,12 +187,6 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
           }),
         });
 
-        if (!createRes.ok) {
-          const createErr = await createRes.json().catch(() => ({}));
-          throw new Error(createErr.error || "Failed to create admission application record");
-        }
-
-        const createJson = await createRes.json();
         appId = createJson.application?.id || createJson.id;
       }
 

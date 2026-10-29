@@ -23,6 +23,7 @@ import {
 } from "@/lib/utils/fee-config";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
+import { apiFetch } from "@/lib/api/client";
 
 const VALID_APP_STATUSES = ["pending", "admitted", "rejected", "all"] as const;
 
@@ -87,9 +88,8 @@ function ApplicationsDeskPageContent() {
   const fetchNextInvoiceNumber = async () => {
     try {
       setIsFetchingInvoiceNo(true);
-      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
-      const data = await res.json();
-      if (res.ok && typeof data.nextSequence === "number") {
+      const data = await apiFetch<{ nextSequence?: number }>(`/api/invoices/next-sequence?year=${currentYear}`);
+      if (typeof data.nextSequence === "number") {
         return generateInvoiceNumber(data.nextSequence, currentYear);
       }
     } catch (e) {

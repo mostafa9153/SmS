@@ -7,6 +7,7 @@ import { CalendarCheck, Receipt, BookOpen, Users, ShieldCheck, Sparkles, Award }
 import { cn } from "@/lib/utils";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { sessionLabel } from "@/lib/utils/academic-year";
+import { apiFetch } from "@/lib/api/client";
 
 interface ActivityRingProps {
   stats?: {
@@ -42,9 +43,7 @@ export function AppleActivityRings({ stats: propStats, className }: ActivityRing
     queryKey: ["invoice-stats"],
     queryFn: async () => {
       try {
-        const res = await fetch("/api/invoices/stats");
-        if (!res.ok) return null;
-        return await res.json();
+        return await apiFetch<any>("/api/invoices/stats");
       } catch {
         return null;
       }

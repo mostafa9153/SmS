@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 const AVAILABLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -73,16 +74,7 @@ export function DangerZoneTab() {
       subScope?: string;
       presetTarget?: string;
     }) => {
-      const res = await fetch("/api/admin/data-wipeout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Data wipeout operation failed");
-      }
-      return res.json();
+      return apiFetch<any>("/api/admin/data-wipeout", { method: "POST", json: payload });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });

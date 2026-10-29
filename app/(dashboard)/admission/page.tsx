@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { apiFetch } from "@/lib/api/client";
 import {
   GraduationCap,
   UserPlus,
@@ -35,9 +36,11 @@ export default function AdmissionHubPage() {
   const { data: statsData } = useQuery({
     queryKey: ["admission-stats"],
     queryFn: async () => {
-      const res = await fetch("/api/admission/stats");
-      if (!res.ok) return { reAdmissionVasul: 0, newAdmissionVasul: 0 };
-      return res.json();
+      try {
+        return await apiFetch<any>("/api/admission/stats");
+      } catch {
+        return { reAdmissionVasul: 0, newAdmissionVasul: 0 };
+      }
     },
     staleTime: 60 * 1000,
   });

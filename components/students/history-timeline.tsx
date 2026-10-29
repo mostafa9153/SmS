@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface HistoryTimelineProps {
   history: AcademicHistoryEntry[];
@@ -60,17 +61,7 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
   // Mutation to save history correction
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await fetch(`/api/students/${studentId}/history`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to save correction");
-      }
-      return res.json();
+      return apiFetch(`/api/students/${studentId}/history`, { method: "PATCH", json: payload });
     },
     onSuccess: () => {
       // Invalidate queries so student profile updates instantly

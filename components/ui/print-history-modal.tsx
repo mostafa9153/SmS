@@ -26,6 +26,7 @@ import {
   type PrintBatchRecord,
 } from "@/lib/utils/print-history";
 import type { DocumentType } from "@/lib/utils/document-sequence";
+import { apiFetch } from "@/lib/api/client";
 
 interface PrintHistoryModalProps {
   isOpen: boolean;
@@ -49,9 +50,8 @@ export function PrintHistoryModal({
     if (docType === "invoice") {
       setIsLoading(true);
       try {
-        const res = await fetch("/api/invoices/batches");
-        const data = await res.json();
-        if (res.ok && Array.isArray(data.batches) && data.batches.length > 0) {
+        const data = await apiFetch<{ batches?: any[] }>("/api/invoices/batches");
+        if (Array.isArray(data.batches) && data.batches.length > 0) {
           const mapped: PrintBatchRecord[] = data.batches.map((b: any) => ({
             id: b.batchId,
             timestamp:
@@ -99,23 +99,19 @@ export function PrintHistoryModal({
     const target = history.find((h) => h.id === batchId);
     if (docType === "invoice") {
       try {
-        const res = await fetch("/api/invoices/batches", {
+        const data = await apiFetch<{ newSequence?: number }>("/api/invoices/batches", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             batchId,
             startSerial: target?.startSerial,
             endSerial: target?.endSerial,
-          }),
+          },
         });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          await loadHistory();
-          if (onUndoBatch && typeof data.newSequence === "number") {
-            onUndoBatch(data.newSequence);
-          }
-          return;
+        await loadHistory();
+        if (onUndoBatch && typeof data.newSequence === "number") {
+          onUndoBatch(data.newSequence);
         }
+        return;
       } catch (e) {
         console.warn("DB undo error, falling back:", e);
       }

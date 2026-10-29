@@ -23,6 +23,7 @@ import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog"
 import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface AdmitStudentDialogProps {
   open: boolean;
@@ -108,9 +109,8 @@ function AdmitStudentDialogInner({
   // Fetch next sequential invoice number from DB
   const fetchNextInvoiceNumber = async () => {
     try {
-      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
-      const data = await res.json();
-      if (res.ok && typeof data.nextSequence === "number") {
+      const data = await apiFetch<{ nextSequence?: number }>(`/api/invoices/next-sequence?year=${currentYear}`);
+      if (typeof data.nextSequence === "number") {
         return generateInvoiceNumber(data.nextSequence, currentYear);
       }
     } catch (e) {

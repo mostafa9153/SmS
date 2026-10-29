@@ -17,6 +17,7 @@ import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { calculateDetailedAge, cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch, ApiError } from "@/lib/api/client";
 
 export default function UniversalProfilePage() {
   const router = useRouter();
@@ -37,16 +38,12 @@ export default function UniversalProfilePage() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/profile");
-      const data = await res.json();
-      if (data.success) {
-        setProfileData(data);
-        setFullNameInput(data.user?.fullName || data.staff?.full_name || "");
-      } else {
-        router.replace("/login");
-      }
+      const data = await apiFetch<any>("/api/auth/profile");
+      setProfileData(data);
+      setFullNameInput(data.user?.fullName || data.staff?.full_name || "");
     } catch (err) {
       console.error("Error loading profile:", err);
+      if (err instanceof ApiError) router.replace("/login");
     } finally {
       setLoading(false);
     }
@@ -83,20 +80,11 @@ export default function UniversalProfilePage() {
 
     setUpdatingPassword(true);
     try {
-      const res = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSuccessMsg("Profile and credentials updated successfully!");
-        setNewPassword("");
-        setConfirmPassword("");
-        loadProfile();
-      } else {
-        setErrorMsg(data.error || "Failed to update profile.");
-      }
+      await apiFetch("/api/auth/profile", { method: "PATCH", json: payload });
+      setSuccessMsg("Profile and credentials updated successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+      loadProfile();
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred while updating profile.");
     } finally {

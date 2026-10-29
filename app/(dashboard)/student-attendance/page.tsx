@@ -13,6 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { todayIST } from "@/lib/utils/date";
 import { toastWithUndo } from "@/lib/undo/client";
+import { apiFetch } from "@/lib/api/client";
 
 export default function StudentAttendancePage() {
   
@@ -37,13 +38,10 @@ export default function StudentAttendancePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/teachers/attendance?className=${className}&section=${section}&date=${date}`);
-      const data = await res.json();
-      if (data.success) {
-        setRoster(data.roster || []);
-      } else {
-        setError(data.error || "Failed to load roster");
-      }
+      const data = await apiFetch<{ roster?: any[] }>(
+        `/api/teachers/attendance?className=${className}&section=${section}&date=${date}`
+      );
+      setRoster(data.roster || []);
     } catch (err: any) {
       setError(err.message || "Failed to load roster");
     } finally {
@@ -53,11 +51,7 @@ export default function StudentAttendancePage() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const res = await fetch(`/api/attendance/analytics`);
-      const data = await res.json();
-      if (data.success) {
-        setAnalytics(data);
-      }
+      setAnalytics(await apiFetch(`/api/attendance/analytics`));
     } catch (err) {
       console.error("Failed to load analytics", err);
     }
@@ -72,11 +66,8 @@ export default function StudentAttendancePage() {
     setHistoryStudent(student);
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/students/${student.studentId}/attendance`);
-      const data = await res.json();
-      if(data.success) {
-        setHistoryData(data.history || []);
-      }
+      const data = await apiFetch<{ history?: any[] }>(`/api/students/${student.studentId}/attendance`);
+      setHistoryData(data.history || []);
     } catch (e) {
       console.error(e);
     }
@@ -107,20 +98,13 @@ export default function StudentAttendancePage() {
         })),
       };
 
-      const res = await fetch("/api/teachers/attendance", {
+      const data = await apiFetch<{ undoId?: string | null }>("/api/teachers/attendance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        json: payload,
       });
-
-      const data = await res.json();
-      if (data.success) {
-        setSuccess("Attendance saved successfully!");
-        toastWithUndo("Attendance saved", data.undoId, fetchRoster);
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(data.error || "Failed to save attendance");
-      }
+      setSuccess("Attendance saved successfully!");
+      toastWithUndo("Attendance saved", data.undoId, fetchRoster);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to save attendance");
     } finally {

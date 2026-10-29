@@ -19,6 +19,7 @@ import { StaffSignatureAvatar } from "@/components/employees/staff-signature-ava
 import { CustomSelect } from "@/components/ui/custom-select";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -194,16 +195,7 @@ export function EmployeeEditForm({
         },
       };
 
-      const res = await fetch(`/api/employees/${staff.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to update employee profile");
-      }
+      const data = await apiFetch<{ undoId?: string | null }>(`/api/employees/${staff.id}`, { method: "PATCH", json: payload });
 
       toastWithUndo("Employee details saved.", data.undoId, () => router.refresh());
 

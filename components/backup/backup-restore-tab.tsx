@@ -44,6 +44,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BackupFrequency, DriveBackupFile, GoogleAccountInfo, RestorePreview } from "@/lib/backup/types";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
+
+type RestoreResult = { summary?: { restoredStudents?: number; restoredResults?: number } };
 
 export function BackupRestoreTab() {
   const confirm = useConfirm();
@@ -67,17 +70,12 @@ export function BackupRestoreTab() {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["admin", "backup-status"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/backup/drive");
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to fetch backup status");
-      }
-      return res.json() as Promise<{
+      return apiFetch<{
         status: GoogleAccountInfo;
         backups: DriveBackupFile[];
         driveError: string | null;
         dbSummary: { totalStudents: number; totalResults: number };
-      }>;
+      }>("/api/admin/backup/drive");
     },
     staleTime: 60 * 1000,
   });
@@ -95,12 +93,7 @@ export function BackupRestoreTab() {
   // 2. Connect Google Drive Mutation (Initiates OAuth redirect)
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/auth");
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to initiate Google authorization");
-      }
-      return res.json() as Promise<{ authUrl: string }>;
+      return apiFetch<{ authUrl: string }>("/api/admin/backup/auth");
     },
     onSuccess: (data) => {
       if (data.authUrl) {
@@ -119,12 +112,7 @@ export function BackupRestoreTab() {
   // 3. Backup to Drive Now Mutation
   const backupNowMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/drive", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Backup upload failed");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "POST" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -146,16 +134,7 @@ export function BackupRestoreTab() {
   // 4. Update Frequency Mutation
   const updateFrequencyMutation = useMutation({
     mutationFn: async (frequency: BackupFrequency) => {
-      const res = await fetch("/api/admin/backup/drive", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frequency }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update schedule");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "PATCH", json: { frequency } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -177,12 +156,7 @@ export function BackupRestoreTab() {
   // 5. Disconnect Google Drive Mutation
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/drive", { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to disconnect");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -206,37 +180,25 @@ export function BackupRestoreTab() {
     mutationFn: async () => {
       if (restoreSource === "drive") {
         if (!selectedDriveFile) throw new Error("No cloud backup selected.");
-        const res = await fetch("/api/admin/backup/drive/restore", {
+        return apiFetch<RestoreResult>("/api/admin/backup/drive/restore", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             fileId: selectedDriveFile.id,
             adminPassword,
             mode: restoreMode,
-          }),
+          },
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Cloud restoration failed");
-        }
-        return res.json();
       } else {
         if (!uploadedPayload) throw new Error("No local file loaded.");
-        const res = await fetch("/api/admin/backup/restore", {
+        return apiFetch<RestoreResult>("/api/admin/backup/restore", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             action: "execute",
             payload: uploadedPayload,
             adminPassword,
             mode: restoreMode,
-          }),
+          },
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Local restoration failed");
-        }
-        return res.json();
       }
     },
     onSuccess: (data) => {

@@ -8,6 +8,7 @@ import { StaffSignatureModal } from "./staff-signature-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffSignatureCardProps {
   staffId: string;
@@ -50,13 +51,7 @@ export function StaffSignatureCard({
 
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/employees/${staffId}/signature`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to remove signature");
-      }
+      await apiFetch(`/api/employees/${staffId}/signature`, { method: "DELETE" });
 
       handleRemoved();
       showToast({

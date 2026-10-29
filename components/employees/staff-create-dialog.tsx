@@ -19,6 +19,7 @@ import { SubjectMultiSelect } from "@/components/employees/subject-multi-select"
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Spinner } from "@/components/ui/spinner";
 import { todayIST } from "@/lib/utils/date";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffCreateDialogProps {
   open: boolean;
@@ -182,16 +183,7 @@ export function StaffCreateDialog({
         },
       };
 
-      const res = await fetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to register employee");
-      }
+      const data = await apiFetch<{ staff: any }>("/api/employees", { method: "POST", json: payload });
 
       showToast({
         type: "success",

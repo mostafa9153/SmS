@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 import { currentYearIST } from "@/lib/utils/academic-year";
+import { apiFetch } from "@/lib/api/client";
 
 const OFFLINE_DRAFT_KEY = "new-offline";
 
@@ -131,21 +132,13 @@ export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps
     toast.info("Uploading & processing document with Gemini AI...");
 
     try {
-      const res = await fetch("/api/admission/ai-scan", {
+      const json = await apiFetch<{ extracted?: any }>("/api/admission/ai-scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: {
           imageBase64: base64,
           mimeType: mimeType,
-        }),
+        },
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "AI scanning failed");
-      }
-
-      const json = await res.json();
       const extracted = json.extracted || {};
 
       toast.success("Document scanned & data extracted successfully!");
