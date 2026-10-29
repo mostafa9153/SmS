@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/api/guard";
-import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
-import { sendWebPushNotification } from "@/lib/push-notifications";
+import { notify } from "@/lib/notifications/notify";
+import { recordUndo } from "@/lib/undo/journal";
 
 export async function POST(req: Request) {
   const gate = await requireRole();
@@ -77,35 +77,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // Dispatch in-app notification & instant web push to all admins
-    const { data: adminUsers } = await adminClient
-      .from("user_roles")
-      .select("user_id")
-      .ilike("role", "%admin%");
-
-    const adminIds = (adminUsers || []).map((a) => a.user_id).filter(Boolean);
-    const notifTitle = `Teacher Absence: ${teacherName}`;
-    const notifMsg = `${teacherName} marked absent for ${startDate === endDate ? startDate : `${startDate} to ${endDate}`}. Reason: ${reason || "Not specified"}.`;
-
-    for (const adminId of adminIds) {
-      await dispatchTeacherNotification({
-        userId: adminId,
-        title: notifTitle,
-        message: notifMsg,
-        link: "/teacher-management",
-      });
-    }
-
-    // Trigger instant Web Push notification to admins
-    await sendWebPushNotification({
-      userIds: adminIds,
-      role: "admin",
-      title: notifTitle,
-      body: notifMsg,
-      url: "/teacher-management",
+    const undoId = await recordUndo({
+      actorId: user.id,
+      action: "teacher.absence",
+      label: `Absence recorded: ${teacherName}`,
+      entity: "teacher_absences",
+      entityId: absence.id,
+      steps: [{ table: "teacher_absences", op: "delete", column: "id", values: [absence.id] }],
     });
 
-    return NextResponse.json({ success: true, absence });
+    await notify({
+      roles: ["Admin"],
+      title: `Teacher Absence: ${teacherName}`,
+      message: `${teacherName} marked absent for ${startDate === endDate ? startDate : `${startDate} to ${endDate}`}. Reason: ${reason || "Not specified"}.`,
+      link: "/teacher-management",
+      source: "teacher.absence",
+      createdBy: user.id,
+      push: true,
+    });
+
+    return NextResponse.json({ success: true, absence, undoId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to record absence" }, { status: 500 });
   }

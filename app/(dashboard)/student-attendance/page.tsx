@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { todayIST } from "@/lib/utils/date";
+import { toastWithUndo } from "@/lib/undo/client";
 
 export default function StudentAttendancePage() {
   
@@ -115,6 +116,7 @@ export default function StudentAttendancePage() {
       const data = await res.json();
       if (data.success) {
         setSuccess("Attendance saved successfully!");
+        toastWithUndo("Attendance saved", data.undoId, fetchRoster);
         setTimeout(() => setSuccess(""), 3000);
       } else {
         setError(data.error || "Failed to save attendance");

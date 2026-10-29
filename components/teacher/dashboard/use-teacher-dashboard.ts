@@ -2,6 +2,7 @@
 
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -306,7 +307,7 @@ export function useTeacherDashboard() {
           ? customAbsenceReason.trim() || "Other leave reasons"
           : absenceReason;
 
-      await apiFetch("/api/teachers/absence", {
+      const res = await apiFetch<{ undoId?: string | null }>("/api/teachers/absence", {
         method: "POST",
         json: {
           startDate,
@@ -315,6 +316,7 @@ export function useTeacherDashboard() {
           reason: finalReason,
         },
       });
+      toastWithUndo("Absence recorded", res.undoId, loadDashboardData);
       setAbsenceSuccessMsg(
         `Recorded ${sortedDates.length} leave day(s) successfully! Administrator has been notified.`
       );
@@ -390,6 +392,7 @@ export function useTeacherDashboard() {
         },
       });
       setAttendanceSuccessMsg(data.message || "Attendance recorded successfully!");
+      toastWithUndo("Attendance saved", data.undoId, loadAttendanceRoster);
       setTimeout(() => setAttendanceSuccessMsg(""), 3500);
     } catch (err: any) {
       setAttendanceError(err.message || "Error saving attendance");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { denyOutsideClasses, requireRole } from "@/lib/api/guard";
 import { todayIST } from "@/lib/utils/date";
+import { recordUndo, snapshotRows } from "@/lib/undo/journal";
 
 // GET /api/teachers/attendance - Fetch student attendance for a class/section/date
 export async function GET(req: Request) {
@@ -170,19 +171,40 @@ export async function POST(req: Request) {
       updated_at: new Date().toISOString(),
     }));
 
-    const { error: upsertError } = await adminClient
+    const studentIds = new Set<string>(rowsToUpsert.map((r: any) => r.student_id));
+    const before = (await snapshotRows(adminClient, "student_attendance", "attendance_date", date)).filter(
+      (r: any) => studentIds.has(r.student_id),
+    );
+    const beforeIds = new Set<string>(before.map((r: any) => r.id));
+
+    const { data: saved, error: upsertError } = await adminClient
       .from("student_attendance")
       .upsert(rowsToUpsert, {
         onConflict: "student_id,attendance_date",
-      });
+      })
+      .select("id");
 
     if (upsertError) {
       return NextResponse.json({ error: upsertError.message }, { status: 500 });
     }
 
+    const createdIds = (saved ?? []).map((r: any) => r.id).filter((id: string) => !beforeIds.has(id));
+    const undoId = await recordUndo({
+      actorId: user.id,
+      action: "teacher.attendance",
+      label: `Attendance saved: ${className} ${date}`,
+      entity: "student_attendance",
+      entityId: date,
+      steps: [
+        { table: "student_attendance", op: "upsert", rows: before },
+        { table: "student_attendance", op: "delete", column: "id", values: createdIds },
+      ],
+    });
+
     return NextResponse.json({
       success: true,
       message: `Recorded attendance for ${records.length} students on ${date}.`,
+      undoId,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to save student attendance" }, { status: 500 });
