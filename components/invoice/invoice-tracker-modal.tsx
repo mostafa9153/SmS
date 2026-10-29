@@ -25,6 +25,7 @@ import { InvoicePrintableView } from "@/components/invoice/invoice-printable-vie
 import { type InvoiceData, DEFAULT_FEE_ITEMS } from "@/lib/utils/fee-config";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
+import { todayIST } from "@/lib/utils/date";
 
 function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
   return {
@@ -728,7 +729,7 @@ export function InvoiceTrackerModal({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `school_invoices_registry_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `school_invoices_registry_${todayIST()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

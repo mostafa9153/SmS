@@ -10,6 +10,7 @@ import { StaffCreateDialog } from "@/components/employees/staff-create-dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
+import { todayIST } from "@/lib/utils/date";
 
 interface EmployeesClientProps {
   initialStaff: StaffProfile[];
@@ -144,7 +145,7 @@ export default function EmployeesClient({
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Staff Records");
 
-    const fileName = `Staff_Directory_${new Date().toISOString().split("T")[0]}.xlsx`;
+    const fileName = `Staff_Directory_${todayIST()}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   };
 

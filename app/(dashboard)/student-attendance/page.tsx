@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { EmptyState } from "@/components/ui/empty-state";
+import { todayIST } from "@/lib/utils/date";
 
 export default function StudentAttendancePage() {
   
@@ -19,7 +20,7 @@ export default function StudentAttendancePage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayIST());
   const [className, setClassName] = useState("V");
   const [section, setSection] = useState("A");
 
@@ -125,7 +126,7 @@ export default function StudentAttendancePage() {
     }
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayIST();
   const isPastDate = date < todayStr;
   const isFutureDate = date > todayStr;
   const canEdit = !isPastDate && !isFutureDate;

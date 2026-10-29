@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { receiptConflict } from "@/lib/admission/receipt-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
+import { nowTimeIST, todayIST } from "@/lib/utils/date";
 
 export async function POST(
   req: Request,
@@ -116,7 +117,7 @@ export async function POST(
       payment_receipt_no: paymentReceiptNo,
       payment_mode: body.paymentMode || app.payment_mode || "Cash",
       admitted_at: new Date().toISOString(),
-      admission_date: new Date().toISOString().split("T")[0],
+      admission_date: todayIST(),
       admitted_by: body.admittedBy || auth.fullName || auth.role || "Teacher",
       is_transferred_to_active: false,
       updated_at: new Date().toISOString(),
@@ -168,8 +169,8 @@ export async function POST(
           {
             invoice_number: paymentReceiptNo,
             academic_session: `${currentYear} – ${currentYear + 1}`,
-            issue_date: new Date().toISOString().split("T")[0],
-            issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+            issue_date: todayIST(),
+            issue_time: nowTimeIST(),
             student_id: assignedSchoolId || app.application_no,
             student_name: app.student_name,
             student_class: assignedClass,

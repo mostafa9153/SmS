@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { denyOutsideClasses, requireRole } from "@/lib/api/guard";
+import { todayIST } from "@/lib/utils/date";
 
 // GET /api/teachers/attendance - Fetch student attendance for a class/section/date
 export async function GET(req: Request) {
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const className = searchParams.get("className") || searchParams.get("class_name");
     const section = searchParams.get("section") || "ALL";
-    const date = searchParams.get("date") || new Date().toISOString().split("T")[0];
+    const date = searchParams.get("date") || todayIST();
 
     if (!className) {
       return NextResponse.json({ error: "Class name is required" }, { status: 400 });

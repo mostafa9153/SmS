@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTeacherPortalStats } from "@/lib/supabase/db-teachers";
 import { fetchTeacherRoutineData } from "@/lib/supabase/teacher-routine";
+import { todayIST } from "@/lib/utils/date";
 
 // guard: custom — supabase.auth.getUser(); data scoped to the caller's own staff_id
 export async function GET(req: Request) {
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
     const effectiveStaffId = roleRow?.staff_id;
 
     const currentYear = new Date().getFullYear();
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayIST();
 
     // 2. Fetch staff profile, stats, tasks, classes, activities, notifications, absences, routine concurrently
     const [

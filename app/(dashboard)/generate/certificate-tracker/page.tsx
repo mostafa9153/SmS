@@ -44,6 +44,7 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
+import { todayIST } from "@/lib/utils/date";
 
 export default function CertificateTrackerPage() {
   const confirm = useConfirm();
@@ -343,7 +344,7 @@ export default function CertificateTrackerPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Certificates_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Certificates_${todayIST()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

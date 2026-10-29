@@ -30,6 +30,7 @@ import {
 } from "@/lib/utils/student-entry-presets";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
 import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 const studentSchema = z.object({
   // Identity
@@ -248,8 +249,8 @@ export function StudentAddEditForm({
       nss: false,
       scoutsGuides: false,
       admissionYear: new Date().getFullYear(),
-      admissionDate: new Date().toISOString().split("T")[0],
-      presentClassAdmissionDate: new Date().toISOString().split("T")[0],
+      admissionDate: todayIST(),
+      presentClassAdmissionDate: todayIST(),
       presentClass: "V",
       presentSection: "A",
       presentRoll: 1,

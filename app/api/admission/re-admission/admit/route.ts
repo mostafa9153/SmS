@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
+import { nowTimeIST, todayIST } from "@/lib/utils/date";
 
 export async function POST(req: Request) {
   try {
@@ -157,7 +158,7 @@ export async function POST(req: Request) {
     }
     const targetSection = newSection || student.present_section;
     const targetRoll = newRoll ? parseInt(String(newRoll)) : (student.present_roll || 1);
-    const todayDateStr = new Date().toISOString().split("T")[0];
+    const todayDateStr = todayIST();
 
     // Check teacher permissions
     if (auth.role === "Teacher") {
@@ -415,8 +416,8 @@ export async function POST(req: Request) {
             {
               invoice_number: paymentReceiptNo.trim(),
               academic_session: `${currentYear} – ${currentYear + 1}`,
-              issue_date: new Date().toISOString().split("T")[0],
-              issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+              issue_date: todayIST(),
+              issue_time: nowTimeIST(),
               student_id: updatePayload.school_id || student.school_id || student.id,
               student_name: updatePayload.name || student.name,
               student_class: targetClass,
