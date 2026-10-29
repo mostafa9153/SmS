@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole, teacherPermissions } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { recordUndo, snapshotRows } from "@/lib/undo/journal";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,7 @@ async function saveConfigToStorage(
   key: string,
   value: any,
   userId?: string
-): Promise<boolean> {
+): Promise<"primary" | "fallback" | false> {
   // 1. Try primary system_config table
   try {
     const { error } = await supabase.from("system_config").upsert({
@@ -84,7 +85,7 @@ async function saveConfigToStorage(
       updated_at: new Date().toISOString(),
     });
     if (!error) {
-      return true;
+      return "primary";
     }
   } catch (e) {
     console.warn(`system_config table write failed for ${key}, falling back to audit_log:`, e);
@@ -101,7 +102,7 @@ async function saveConfigToStorage(
       metadata: value,
     });
     if (!error) {
-      return true;
+      return "fallback";
     }
   } catch (e) {
     console.warn(`Fallback audit_log write error for ${key}:`, e);
@@ -128,6 +129,9 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const key = searchParams.get("key");
+    // The client asks for a fresh read right after an undo, so a cached value must not be served.
+    const fresh = searchParams.get("fresh") === "1";
+    if (fresh) memoryConfigCache = null;
 
     const supabase = createAdminClient();
 
@@ -249,7 +253,6 @@ export async function GET(request: Request) {
   }
 }
 
-// undo: n/a — follow-up: settings are saved localStorage-first and re-synced in the background, so an undo would have to reset those browser caches too (phase 3.3 report)
 export async function POST(request: Request) {
   try {
     // Admin and Staff may change any key; a Teacher only the EMS keys, and only with can_manage_ems.
@@ -289,9 +292,11 @@ export async function POST(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const success = await saveConfigToStorage(supabase, key, value, auth.user?.id);
+    // Before-image so the save can be undone (a missing row means the key did not exist yet).
+    const before = await snapshotRows(supabase, "system_config", "key", key);
+    const saved = await saveConfigToStorage(supabase, key, value, auth.user?.id);
 
-    if (!success) {
+    if (!saved) {
       return NextResponse.json(
         { error: `Failed to save configuration for ${key}` },
         { status: 500 }
@@ -301,10 +306,26 @@ export async function POST(request: Request) {
     // Invalidate cache
     memoryConfigCache = null;
 
+    // The audit_log fallback is an append-only history, so only a system_config write can be undone.
+    const undoId =
+      saved === "primary"
+        ? await recordUndo({
+            actorId: auth.user?.id ?? "",
+            action: "school-config.save",
+            label: `Settings saved: ${key}`,
+            entity: "system_config",
+            entityId: key,
+            steps: before.length
+              ? [{ table: "system_config", op: "upsert", rows: before }]
+              : [{ table: "system_config", op: "delete", column: "key", values: [key] }],
+          })
+        : null;
+
     return NextResponse.json({
       success: true,
       key,
       updatedAt: new Date().toISOString(),
+      undoId,
     });
   } catch (err: any) {
     console.error("Unexpected error in POST /api/school-config:", err);
