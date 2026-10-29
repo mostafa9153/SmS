@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import React, { useState } from "react";
 import {
   Dialog,
@@ -51,7 +52,7 @@ export function RoomsManagerDialog({
 
   const handleDelete = async (roomId: string) => {
     if (safeRooms.length <= 1) {
-      alert("At least one classroom must remain in the system.");
+      toast.error("At least one classroom must remain in the system.");
       return;
     }
     if (await confirm({ title: "Are you sure you want to delete this room layout?", destructive: true })) {

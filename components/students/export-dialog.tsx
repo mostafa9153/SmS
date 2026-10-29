@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, FileSpreadsheet, CheckSquare, Square, Sparkles, Check, ExternalLink, RotateCcw } from "lucide-react";
@@ -224,7 +225,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
       const filtered = res.data || [];
 
       if (filtered.length === 0) {
-        alert("No students found matching the applied filters.");
+        toast.error("No students found matching the applied filters.");
         return;
       }
 
@@ -254,7 +255,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
 
       onOpenChange(false);
     } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      toast.error(`Export failed: ${err.message}`);
     } finally {
       setIsExporting(false);
     }

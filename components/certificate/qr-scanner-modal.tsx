@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Camera,
@@ -210,7 +211,7 @@ export function QRScannerModal({
           if (code && code.data) {
             handleDetected(code.data);
           } else {
-            alert("No QR code was detected in this image. Please upload a clear photo of the certificate QR.");
+            toast.error("No QR code was detected in this image. Please upload a clear photo of the certificate QR.");
           }
         }
       };
