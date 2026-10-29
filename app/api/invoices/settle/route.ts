@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { dbUpdateInvoiceStatuses, type InvoiceStatusUpdate } from "@/lib/supabase/db-invoices";
 import { requireStaff } from "@/lib/api/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { recordUndo } from "@/lib/undo/journal";
 
 /**
  * POST /api/invoices/settle
@@ -40,16 +42,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { data: before } = await createAdminClient()
+      .from("admission_invoices")
+      .select("*")
+      .in("invoice_number", updates.map((u) => u.invoice_number));
     const result = await dbUpdateInvoiceStatuses(updates);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
+    const undoId = await recordUndo({
+      actorId: gate.auth.user?.id ?? "",
+      action: "invoice.settle",
+      label: `Settle ${updates.length} invoice(s)`,
+      entity: "admission_invoices",
+      steps: [{ table: "admission_invoices", op: "upsert", rows: before ?? [] }],
+    });
+
     return NextResponse.json({
       success: true,
       updatedCount: result.updatedCount,
       message: `${result.updatedCount} invoice(s) settled successfully`,
+      undoId,
     });
   } catch (err: any) {
     console.error("Error in settle POST:", err);

@@ -45,6 +45,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
 import { todayIST } from "@/lib/utils/date";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { toast } from "sonner";
 
 export default function CertificateTrackerPage() {
   const confirm = useConfirm();
@@ -257,11 +260,19 @@ export default function CertificateTrackerPage() {
     if (!await confirm(confirmMsg)) return;
 
     try {
-      await fetch(`/api/certificates/${cert.id}`, {
+      const saved = await apiFetch<{ undoId?: string | null }>(`/api/certificates/${cert.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        json: { status: newStatus },
       });
+      const applyStatus = (status: "Valid" | "Cancelled") => {
+        setCertificates((prev) => prev.map((c) => (c.id === cert.id ? { ...c, status } : c)));
+        setSelectedCert((prev) => (prev && prev.id === cert.id ? { ...prev, status } : prev));
+      };
+      toastWithUndo(
+        newStatus === "Cancelled" ? `Certificate ${cert.certificate_no} cancelled.` : `Certificate ${cert.certificate_no} re-validated.`,
+        saved.undoId,
+        () => applyStatus(cert.status as "Valid" | "Cancelled")
+      );
 
       setCertificates((prev) =>
         prev.map((c) => (c.id === cert.id ? { ...c, status: newStatus } : c))
@@ -280,6 +291,7 @@ export default function CertificateTrackerPage() {
       }
     } catch (e) {
       console.error("Error updating status:", e);
+      toast.error(e instanceof Error ? e.message : "Could not update certificate status");
     }
   };
 

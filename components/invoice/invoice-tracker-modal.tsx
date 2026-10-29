@@ -18,6 +18,7 @@ import { ShieldCheck, Search, CheckCircle2, XCircle, FileText, UserCheck, Refres
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import type { DBInvoiceRow, InvoiceStats, TeacherSettlementSummary } from "@/lib/supabase/db-invoices";
 import { getLocalCachedInvoices, getLocalStats } from "@/lib/utils/invoice-registry";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
@@ -869,6 +870,7 @@ export function InvoiceTrackerModal({
       );
 
       let apiSynced = false;
+      let settleUndoId: string | null = null;
       try {
         const res = await fetch("/api/invoices/settle", {
           method: "POST",
@@ -878,18 +880,26 @@ export function InvoiceTrackerModal({
         const data = await res.json();
         if (res.ok && data.success) {
           apiSynced = true;
+          settleUndoId = data.undoId ?? null;
         }
       } catch (err) {
         console.warn("Could not sync settlement to backend, saved to local ledger:", err);
       }
 
-      showToast({
-        type: "success",
-        title: "Settlement Completed!",
-        description: apiSynced
-          ? `${updates.length} invoices settled and synced to database.`
-          : `${updates.length} invoices settled in local registry.`,
-      });
+      if (apiSynced && settleUndoId) {
+        toastWithUndo(`${updates.length} invoices settled and synced to database.`, settleUndoId, () => {
+          void loadRegistryData();
+          void loadTeacherInvoices(selectedSettlementTeacher);
+        });
+      } else {
+        showToast({
+          type: "success",
+          title: "Settlement Completed!",
+          description: apiSynced
+            ? `${updates.length} invoices settled and synced to database.`
+            : `${updates.length} invoices settled in local registry.`,
+        });
+      }
 
       await loadRegistryData();
       await loadTeacherInvoices(selectedSettlementTeacher);
