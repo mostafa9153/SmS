@@ -16,14 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Switch } from "@/components/ui/switch";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Printer,
@@ -31,8 +26,6 @@ import {
   Calendar,
   GraduationCap,
   RotateCcw,
-  ChevronDown,
-  Save,
 } from "lucide-react";
 import { getEffectiveHeadTitle, parseStudentAddress } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
@@ -57,12 +50,6 @@ function getNextClass(currentClass: string): string {
   return ladderNextClass(currentClass) ?? "College / Higher Studies";
 }
 
-type PaperSize = "A5" | "A4" | "A3";
-type PaperOrientation = "portrait" | "landscape";
-interface PrintMargins { top: number; right: number; bottom: number; left: number; }
-const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
-};
 
 function PassCertificateGeneratorContent() {
   const searchParams = useSearchParams();
@@ -81,33 +68,13 @@ function PassCertificateGeneratorContent() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const [paper, setPaper] = useState<PaperSize>("A5");
-  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
-  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
-  const [paperOpen, setPaperOpen] = useState(false);
+  const paperSettings = usePaperSettings("pass-cert-paper-settings", {
+    paper: "A5",
+    orientation: "portrait",
+    margins: { top: 10, right: 10, bottom: 10, left: 10 },
+  });
+  const { paper, orientation, margins, pageW, pageH } = paperSettings;
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("pass-cert-paper-settings");
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.paper) setPaper(s.paper as PaperSize);
-        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
-        if (s.margins) setMargins(s.margins);
-      }
-    } catch {}
-  }, []);
-  const savePaperSettings = () => {
-    try {
-      localStorage.setItem("pass-cert-paper-settings", JSON.stringify({ paper, orientation, margins }));
-    } catch {}
-  };
-  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
-  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
 
   const currentYear = new Date().getFullYear();
   const [certSeq, setCertSeq] = useState<number>(1);
@@ -740,74 +707,17 @@ function PassCertificateGeneratorContent() {
             </CardContent>
           </Card>
 
-          {/* Paper & Margin Collapsible */}
-          <div className="border-t pt-2">
-            <button
-              type="button"
-              onClick={() => setPaperOpen((v) => !v)}
-              className="w-full flex items-center justify-between px-1 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span>Paper &amp; Margin</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
-            </button>
-            {paperOpen && (
-              <div className="space-y-2 pt-1">
-                <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
-                  <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="A5">A5</SelectItem>
-                    <SelectItem value="A4">A4</SelectItem>
-                    <SelectItem value="A3">A3</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
-                  <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="portrait">Portrait</SelectItem>
-                    <SelectItem value="landscape">Landscape</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {(["top", "right", "bottom", "left"] as const).map((side) => (
-                    <label key={side} className="space-y-0.5">
-                      <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step={1}
-                        value={margins[side]}
-                        onChange={(e) => updateMargin(side, e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={savePaperSettings}
-                  className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  Save Settings
-                </button>
-              </div>
-            )}
-          </div>
+          <PaperSettingsPanel settings={paperSettings} orientations variant="section" />
         </div>
 
         {/* RIGHT COLUMN: Certificate Preview */}
         <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
           {/* Certificate Canvas with ZoomPanViewport */}
           <div id="printable-pass-certificate-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
-            <ZoomPanViewport
-              resetKey={`${paper}-${orientation}`}
-              fitMode="contain"
-              className="h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] w-full print:hidden"
-            >
+            <PrintPreview resetKey={`${paper}-${orientation}`}>
               <PassCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
-            </ZoomPanViewport>
+            </PrintPreview>
+            <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
             <div className="hidden print:block">
               <PassCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </div>
@@ -844,7 +754,6 @@ function PassCertificateGeneratorContent() {
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           header, aside, nav, .print\\:hidden, button { display: none !important; }
-          @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; }
           html, body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important;
             width: ${pageW}mm !important; height: auto !important; max-width: ${pageW}mm !important;
             overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

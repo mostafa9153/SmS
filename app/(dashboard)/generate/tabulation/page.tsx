@@ -31,19 +31,12 @@ import {
   Users,
   CheckCheck,
   RefreshCw,
-  ChevronDown,
-  Save,
 } from "lucide-react";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
-import { cn } from "@/lib/utils";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 import { PageHeader } from "@/components/ui/page-header";
 
-type PaperSize = "A5" | "A4" | "A3";
-type PaperOrientation = "portrait" | "landscape";
-type PrintMargins = { top: number; right: number; bottom: number; left: number };
-const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
-};
 
 export default function TabulationGeneratorPage() {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -75,33 +68,13 @@ export default function TabulationGeneratorPage() {
   // Layout & Preview state
   const [showWatermark, setShowWatermark] = useState<boolean>(true);
   const [manualCount, setManualCount] = useState<number>(31);
-  const [paper, setPaper] = useState<PaperSize>("A4");
-  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
-  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
-  const [paperOpen, setPaperOpen] = useState(false);
+  const paperSettings = usePaperSettings("tabulation-paper-settings", {
+    paper: "A4",
+    orientation: "portrait",
+    margins: { top: 0, right: 0, bottom: 0, left: 0 },
+  });
+  const { paper, orientation, margins, pageW, pageH } = paperSettings;
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("tabulation-paper-settings");
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.paper) setPaper(s.paper as PaperSize);
-        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
-        if (s.margins) setMargins(s.margins);
-      }
-    } catch {}
-  }, []);
-  const savePaperSettings = () => {
-    try {
-      localStorage.setItem("tabulation-paper-settings", JSON.stringify({ paper, orientation, margins }));
-    } catch {}
-  };
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
-  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
-  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
 
   // Sync freshest classes from DB
   useEffect(() => {
@@ -510,65 +483,12 @@ export default function TabulationGeneratorPage() {
 
           {/* Paper & Margin */}
           <div className="p-3 bg-card border rounded-xl space-y-1">
-            <button
-              type="button"
-              onClick={() => setPaperOpen((v) => !v)}
-              className="w-full flex items-center justify-between py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span>Paper &amp; Margin</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
-            </button>
-            {paperOpen && (
-              <div className="mt-2 space-y-2">
-                <CustomSelect
-                  value={paper}
-                  onChange={(v) => v && setPaper(v as PaperSize)}
-                  options={[
-                    { value: "A5", label: "A5" },
-                    { value: "A4", label: "A4" },
-                    { value: "A3", label: "A3" },
-                  ]}
-                />
-                <CustomSelect
-                  value={orientation}
-                  onChange={(v) => v && setOrientation(v as PaperOrientation)}
-                  options={[
-                    { value: "portrait", label: "Portrait" },
-                    { value: "landscape", label: "Landscape" },
-                  ]}
-                />
-                <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {(["top", "right", "bottom", "left"] as const).map((side) => (
-                    <label key={side} className="space-y-0.5">
-                      <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        step={1}
-                        value={margins[side]}
-                        onChange={(e) => updateMargin(side, e.target.value)}
-                        className="h-8 text-xs"
-                      />
-                    </label>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={savePaperSettings}
-                  className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  Save Settings
-                </button>
-              </div>
-            )}
+            <PaperSettingsPanel settings={paperSettings} orientations variant="bare" />
           </div>
         </div>
 
         {/* ZoomPanViewport preview */}
-        <ZoomPanViewport
+        <PrintPreview
           resetKey={`${selectedClass}-${selectedSection}-${paper}-${orientation}-${subjectsToRender.length}`}
           fitMode={subjectsToRender.length > 1 ? "width" : "contain"}
           className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
@@ -587,7 +507,8 @@ export default function TabulationGeneratorPage() {
               />
             </div>
           ))}
-        </ZoomPanViewport>
+        </PrintPreview>
+        <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
 
         {/* Hidden print container */}
         <div id="tabulation-printable-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
@@ -619,10 +540,6 @@ export default function TabulationGeneratorPage() {
       {/* ============================================================== */}
       <style jsx global>{`
         @media print {
-          @page {
-            size: ${pageW}mm ${pageH}mm;
-            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
-          }
 
           body,
           html {

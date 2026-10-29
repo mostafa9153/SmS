@@ -24,10 +24,7 @@ export function PrintPreview({
     <ZoomPanViewport
       resetKey={resetKey}
       fitMode={fitMode}
-      className={cn(
-        "order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden",
-        className
-      )}
+      className={cn("h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] w-full print:hidden", className)}
     >
       {children}
     </ZoomPanViewport>

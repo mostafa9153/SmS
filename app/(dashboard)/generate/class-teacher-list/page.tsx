@@ -6,24 +6,15 @@ import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets, type ClassPresetItem } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 import {
   ClassTeacherListPrintable,
   MIN_USABLE_MM,
-  PAPER_MM,
   getPageCount,
   type ClassTeacherRow,
-  type PaperOrientation,
-  type PaperSize,
   type PrintMargins,
 } from "@/components/teacher/class-teacher-list-printable";
 import { Printer } from "lucide-react";
@@ -49,9 +40,12 @@ function ClassTeacherListContent() {
   const classPresets = useMemo(() => getSavedClassPresets() as PresetWithTeachers[], []);
   const academicYear = new Date().getFullYear();
 
-  const [paper, setPaper] = useState<PaperSize>("A4");
-  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
-  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
+  const paperSettings = usePaperSettings("class-teacher-list-paper-settings", {
+    paper: "A4",
+    orientation: "portrait",
+    margins: { top: 10, right: 10, bottom: 10, left: 10 },
+  });
+  const { paper, orientation, margins, pageW, pageH } = paperSettings;
 
   const { profile: schoolProfile } = useSchoolProfile();
 
@@ -71,13 +65,10 @@ function ClassTeacherListContent() {
   }, [classPresets]);
 
   const effectiveMargins = useMemo<PrintMargins>(() => {
-    const base = PAPER_MM[paper];
-    const pageW = orientation === "landscape" ? base.h : base.w;
-    const pageH = orientation === "landscape" ? base.w : base.h;
     const [left, right] = shrinkPair(margins.left, margins.right, pageW);
     const [top, bottom] = shrinkPair(margins.top, margins.bottom, pageH);
     return { top, right, bottom, left };
-  }, [margins, paper, orientation]);
+  }, [margins, pageW, pageH]);
 
   const pageCount = useMemo(
     () => getPageCount(rows.length, paper, orientation, effectiveMargins),
@@ -120,11 +111,6 @@ function ClassTeacherListContent() {
     headSignatureUrl: schoolProfile?.headSignatureUrl,
   };
 
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
-
   const previewShell =
     "h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 print:hidden";
 
@@ -133,53 +119,7 @@ function ClassTeacherListContent() {
       <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
         <PageHeader back="/generate" title="Class Teacher List" />
 
-        <div className="space-y-2 border-t pt-3">
-          <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paper</p>
-          <Select value={paper} onValueChange={(val) => val && setPaper(val as PaperSize)}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="A5">A5</SelectItem>
-              <SelectItem value="A4">A4</SelectItem>
-              <SelectItem value="A3">A3</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Orientation</p>
-          <Select
-            value={orientation}
-            onValueChange={(val) => val && setOrientation(val as PaperOrientation)}
-          >
-            <SelectTrigger className="w-full capitalize">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="portrait">Portrait</SelectItem>
-              <SelectItem value="landscape">Landscape</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2 border-t pt-3">
-          <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Margin (mm)</p>
-          <div className="grid grid-cols-2 gap-2">
-            {(["top", "right", "bottom", "left"] as const).map((side) => (
-              <label key={side} className="space-y-1">
-                <span className="px-1 text-[10px] font-semibold capitalize text-muted-foreground">{side}</span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  step={1}
-                  value={margins[side]}
-                  onChange={(e) => updateMargin(side, e.target.value)}
-                  className="h-9 text-sm"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
+        <PaperSettingsPanel settings={paperSettings} orientations variant="section" defaultOpen />
 
         <div className="border-t pt-3">
           <Button
@@ -203,13 +143,13 @@ function ClassTeacherListContent() {
           No classes configured.
         </div>
       ) : (
-        <ZoomPanViewport
+        <PrintPreview
           fitMode={pageCount > 1 ? "width" : "contain"}
           resetKey={`${paper}-${orientation}-${pageCount}`}
           className={cn(previewShell, "w-full")}
         >
           <ClassTeacherListPrintable {...printableProps} preview />
-        </ZoomPanViewport>
+        </PrintPreview>
       )}
 
       {portalReady && portalRef.current && canPrint &&

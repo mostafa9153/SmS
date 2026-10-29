@@ -3,14 +3,10 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-export type PaperSize = "A5" | "A4" | "A3";
-export type PaperOrientation = "portrait" | "landscape";
-export interface PrintMargins {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
+import { PAPER_MM, type PaperOrientation, type PaperSize, type PrintMargins } from "@/lib/print/paper";
+
+export { PAPER_MM };
+export type { PaperOrientation, PaperSize, PrintMargins };
 
 export interface ClassTeacherRow {
   className: string;
@@ -31,12 +27,6 @@ interface ClassTeacherListPrintableProps {
   headSignatureUrl?: string;
   preview?: boolean;
 }
-
-export const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 },
-  A4: { w: 210, h: 297 },
-  A3: { w: 297, h: 420 },
-};
 
 // Reference content area: A4 with 10mm margins. Font and spacing scale against this.
 const REF_AREA_MM2 = 190 * 277;

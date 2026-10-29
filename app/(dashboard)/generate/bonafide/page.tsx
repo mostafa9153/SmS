@@ -681,7 +681,7 @@ function BonafideGeneratorContent() {
           <PaperSettingsPanel settings={paper} />
         </div>
 
-        <PrintPreview resetKey={paperSize}>
+        <PrintPreview resetKey={paperSize} className="order-1 xl:order-2 sticky top-2 xl:top-4 z-20">
           <BonafideCertificatePrintableView
             data={activeCertData}
             schoolProfile={schoolProfile}
