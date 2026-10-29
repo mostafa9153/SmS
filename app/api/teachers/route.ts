@@ -389,6 +389,7 @@ export async function PATCH(req: Request) {
           entity: "user_roles",
           entityId: targetUserId ?? targetStaffId,
           steps,
+          ttlHours: 1,
         })
       : null;
 

@@ -14,6 +14,10 @@ Scope read: `app/api/results/*`, `app/api/attendance/analytics`, `app/api/academ
 
 Test: `tests/unit/results-undo.test.ts` (3 tests: snapshot filter, restore + delete-created steps, edit-only save).
 
+## Review follow-up
+
+An independent review of this and the next two commits found three problems in the results undo, fixed afterwards: (1) the before-image only covered the class, but the save upserts on student + year + exam, so saving a past year's marks for a student now in a higher class would have been "undone" by deleting that student's old result — the saved students' own rows are now in the snapshot; (2) a failure to write the journal after a successful save made the request report failure — it now returns no `undoId` instead; (3) the whole-class before-image could revert marks entered later by someone else — the undo now expires after 1 hour instead of 24.
+
 ## Verified
 
 `npm run verify -- --build`: PASS, 0 fail, 0 warn.

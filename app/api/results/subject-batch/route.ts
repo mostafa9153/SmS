@@ -26,7 +26,8 @@ export async function POST(req: Request) {
     if (outside) return outside;
 
     const year = academicYear || (await getAcademicYear());
-    const classBefore = await snapshotClassResults(year, className, examName);
+    const savedIds = scores.map((s) => s.studentId);
+    const classBefore = await snapshotClassResults(year, className, examName, savedIds);
     const result = await dbSaveSubjectBatchMarks(
       {
         academicYear: year,
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
       academicYear: year,
       className,
       examName,
+      studentIds: savedIds,
       before: classBefore,
     });
     return NextResponse.json({ success: true, count: result.count, undoId });

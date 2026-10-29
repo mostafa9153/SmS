@@ -25,6 +25,10 @@ Test: `tests/unit/self-edit.test.ts` (2 tests).
 - Undo of a staff delete assumes every restored table has a primary key the upsert can match (all use `id`; `user_roles` uses its own key). The `teacher_activity_logs` and `teacher_chat_messages` rows lose their link on delete (`ON DELETE SET NULL`) and are not restored.
 - The teacher EMS gate is not covered by a test; route-level tests need an auth mock that does not exist yet.
 
+## Review follow-up
+
+The same review found: a teacher's self-edit journaled the full `user_roles` row, so a stale undo could bring back permissions an admin had revoked — self-edits now journal only the profile, and both the profile and the permission undo last 1 hour. Still open: deleting a staff profile also nulls `teacher_id` on `teacher_activity_logs`, `teacher_chat_messages`, `student_attendance` and `student_marks`, and deleting a task nulls `teacher_permission_grants.task_id`; those links are not restored by undo (snapshots could be very large). Undo also does not clear the 60 s role cache, so restored permissions can lag by up to a minute.
+
 ## Deliberately not done
 
 - **Settings undo** (`POST /api/school-config`): school profile, class management, marks schemes and the presets are saved to localStorage first and synced to the server in the background from about ten different files. A server-side undo would leave the browser copy ahead of the database. The saves need to move to `apiFetch` with the server as the source of truth first (same pattern as the sports config). The route carries an `// undo: n/a` note with this reason.

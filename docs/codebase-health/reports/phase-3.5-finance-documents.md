@@ -28,6 +28,10 @@ Backup, cron, push subscribe and dashboard routes were already guarded and annot
 - No signed-in run: settle invoices then Undo; cancel a certificate then Undo; call `POST /api/invoices` as a teacher with and without the permission.
 - The settle undo restores `admission_invoices` rows by their own primary key; the local-ledger fallback in the tracker modal (used when the API is down) is not journaled.
 
+## Review follow-up
+
+The certificate undo now also resets the verify panel. The invoice tracker keeps a localStorage ledger that is not rolled back by an undo, so in the local-fallback path an undone settlement can still show as settled until the registry reloads.
+
 ## Open
 
 - `/api/push/send` has no caller anywhere in the repo (health scorecard lists it as an orphan). It lets any Admin/Staff broadcast a push to chosen users or a role. Left in place in case something outside the repo calls it; remove it if nothing does.

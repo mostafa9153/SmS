@@ -78,7 +78,7 @@ export async function PATCH(
       : pickSelfEditable(rawBody);
     const admin = createAdminClient();
     const staffBefore = await snapshotRows(admin, "staff_profiles", "id", id);
-    const rolesBefore = await snapshotRows(admin, "user_roles", "staff_id", id);
+    const rolesBefore = isAdmin ? await snapshotRows(admin, "user_roles", "staff_id", id) : [];
 
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -165,6 +165,7 @@ export async function PATCH(
         { table: "user_roles", op: "upsert", rows: rolesBefore },
       ],
       guard: { table: "staff_profiles", id, updated_at: updated?.updated_at ?? null },
+      ttlHours: 1,
     });
     return NextResponse.json({ success: true, staff: updated, undoId });
   } catch (error: any) {

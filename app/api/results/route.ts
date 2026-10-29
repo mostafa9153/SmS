@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     if (outside) return outside;
 
     const year = academicYear || (await getAcademicYear());
-    const classBefore = await snapshotClassResults(year, className, examName || "Annual Examination");
+    const classBefore = await snapshotClassResults(year, className, examName || "Annual Examination", [studentId]);
     const savedResult = await dbSaveOrUpdateResult(
       {
         studentId,
@@ -72,6 +72,7 @@ export async function POST(req: Request) {
       academicYear: year,
       className,
       examName: examName || "Annual Examination",
+      studentIds: [studentId],
       before: classBefore,
     });
     return NextResponse.json({ success: true, result: savedResult, undoId });

@@ -271,7 +271,15 @@ export default function CertificateTrackerPage() {
       toastWithUndo(
         newStatus === "Cancelled" ? `Certificate ${cert.certificate_no} cancelled.` : `Certificate ${cert.certificate_no} re-validated.`,
         saved.undoId,
-        () => applyStatus(cert.status as "Valid" | "Cancelled")
+        () => {
+          const restored = cert.status as "Valid" | "Cancelled";
+          applyStatus(restored);
+          setVerificationResult((prev) =>
+            prev.certificate?.id === cert.id
+              ? { ...prev, valid: restored === "Valid", certificate: { ...prev.certificate, status: restored } }
+              : prev
+          );
+        }
       );
 
       setCertificates((prev) =>

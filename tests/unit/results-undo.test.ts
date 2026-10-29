@@ -11,14 +11,20 @@ vi.mock("@/lib/supabase/admin", () => ({
         then: (resolve: (r: unknown) => unknown) => Promise.resolve(resolve({ data: afterRows, error: null })),
         select: () => builder,
         eq: (col: string, val: unknown) => (eqCalls.push([col, val]), builder),
+        in: (col: string, val: unknown) => (eqCalls.push([`in:${col}`, val]), builder),
       };
       return builder;
     },
   }),
 }));
 
+let failJournal = false;
 vi.mock("@/lib/undo/journal", () => ({
-  recordUndo: async (input: Record<string, any>) => (recorded.push(input), "undo-1"),
+  recordUndo: async (input: Record<string, any>) => {
+    if (failJournal) throw new Error("journal down");
+    recorded.push(input);
+    return "undo-1";
+  },
 }));
 
 const { recordResultsUndo, snapshotClassResults } = await import("@/lib/academic/results-undo");
@@ -41,7 +47,25 @@ describe("snapshotClassResults", () => {
   });
 });
 
+describe("snapshotClassResults with student ids", () => {
+  it("also reads the saved students' own rows, which sit under another class", async () => {
+    afterRows = [{ id: "r1" }];
+    await snapshotClassResults(2025, "VI", "Annual Examination", ["S1"]);
+    expect(eqCalls).toContainEqual(["in:student_id", ["S1"]]);
+  });
+});
+
 describe("recordResultsUndo", () => {
+  it("returns null instead of throwing when the journal cannot be written", async () => {
+    afterRows = [];
+    const bad = vi.spyOn(console, "error").mockImplementation(() => {});
+    failJournal = true;
+    const id = await recordResultsUndo({ actorId: "u", action: "a", label: "l", academicYear: 2026, className: "V", examName: "E", before: [{ id: "r1" }] });
+    failJournal = false;
+    bad.mockRestore();
+    expect(id).toBeNull();
+  });
+
   it("restores the old rows and deletes rows the save created", async () => {
     const before = [{ id: "r1", marks_obtained: 40 }];
     afterRows = [{ id: "r1", marks_obtained: 55 }, { id: "r2", marks_obtained: 70 }];
