@@ -39,3 +39,20 @@ The split was scripted from the TypeScript AST (hook body, JSX segments, used id
 ## Review
 
 An independent read-only review found no bugs: hook order in the EMS page is unchanged (the hook runs before the `mounted` skeleton), the print canvases keep their DOM position, `<style jsx global>` compiles in its own component, and the four `apiFetch` calls resolve the same fields as before. One intended change was confirmed: a 500 from the queued-count route now reaches the bell once (add `meta: { silent: true }` to the query if that is unwanted).
+
+## Part 2 — the two hooks
+
+Both hooks were split the same way: a `core` hook keeps every `useState`, ref, query and effect (so hook and effect order stay as they were), and section hooks hold the handlers. A section hook takes the earlier hooks' outputs as `ctx`; the main hook composes them and returns the spread of all outputs, so no component changed.
+
+| Hook | Before | After |
+|---|---|---|
+| `use-ems-master.ts` | 1,628 | 19 (composition) + core 626, class groups 566, rooms 139, routine 209, allocation 187 |
+| `use-invoice-generator.ts` | 1,001 | 19 (composition) + core ~508, student select 152, bulk data 172, fees 97, print 173 |
+
+- Hook and effect order: the call sequence of `use*` hooks before and after is identical for EMS; for the invoice hook the only difference is that the `syncSequenceFromDatabase` callback and its mount effect sit below the `invoice` state. The React Compiler lint rule flagged them as using `setInvoice` and `setBulkStartingNo` before they were declared once the hook was small enough to analyse; they stay ahead of every other effect, so run order is unchanged.
+- A whitespace-insensitive line comparison of old and new files shows no missing line.
+- The `useEffect` that loads a student from the URL moved into the student-select section (it calls `handleSelectStudent`); it still runs after the two effects that precede it.
+- `npm run verify -- --build`: PASS, 0 fail, 0 warn (the earlier `@page` warning cleared once the check saw the file as unchanged content).
+- Still unverified: the signed-in walkthrough listed above.
+- Largest files left in these folders: `use-ems-core.ts` 626 and `use-ems-class-groups.ts` 566 lines, both under the 800-line warning.
+- Independent review of part 2 (static, against HEAD): no regression. Effect order, hook order, memo dependencies and refs match the originals, no returned name collides, and every original return key is still returned.
