@@ -36,6 +36,25 @@ The preview's behaviour (zoom by wheel, pinch or buttons, drag, double-tap, fit)
 - Same defaults (A5, 0 mm margins), same storage key `bonafide-paper-settings`, same preview size and position.
 - New: Save shows a toast; the size buttons have `aria-pressed`.
 
+## Rollout to every print page (update)
+| Area | Page | Preview | Paper / margin |
+|---|---|---|---|
+| Generate | Bonafide | shared | A5/A4, margins + presets |
+| Generate | Character certificate, Kanyashree, Pass, TC | shared | A5/A4/A3, orientation, margins (same keys as before) |
+| Generate | Attendance register, Tabulation | shared | A5/A4/A3, orientation, margins |
+| Generate | Class-teacher list | shared | A5/A4/A3, orientation, margins. **New:** settings can now be saved (`class-teacher-list-paper-settings`) |
+| Generate | Blank pad | shared | A4/A5, margins. The size buttons moved into the panel; a content reset keeps the saved size |
+| Generate | ID card, Marksheet, Admission form, Invoice | shared | fixed `@page` (physical sizes), no margin setting |
+| Sports | Print studio | shared | A5/A4/A3, orientation, margins. **New:** can be saved (`sports-print-paper-settings`) |
+| EMS | Print dialog, Print studio | shared (old zoom buttons removed; the preview has its own) | no margin setting: admit cards (21/20 per A4) and bench slips (57/56) are fixed grids |
+| Routine | Timetable | (prints the live grid) | **New** "A3 Landscape" button next to Print: A3/A4, orientation, margins. Default stays A3 landscape, 0 mm |
+| Admission | Invoice batch dialog, Application form dialog | shared, with a separate hidden print copy | — |
+
+- **Not moved:** the EMS room blueprint keeps `PinchZoomViewer`. It is an interactive seat map, not a print preview.
+- **Removed:** about 600 lines of per-page paper state, panels and `@page` rules.
+
+**Mistake caught during the rollout:** the first migration script cut `@page` rules at the `}` inside `${pageW}`. That left broken CSS in four certificate pages; I found it in the diff and fixed it before commit, and the script now treats `${…}` as one unit.
+
 ## Verification
 | Check | Result |
 |---|---|

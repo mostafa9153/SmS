@@ -14,7 +14,7 @@ import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
 import { EmsAttendanceSheetPrintable } from "./ems-attendance-sheet-printable";
 import { EmsGateNoticePrintable } from "./ems-gate-notice-printable";
-import { Printer, FileText, Tag, ClipboardList, DoorOpen, ZoomIn, ZoomOut, RotateCcw, Calendar, Layers, Settings2, X, Building, Check, Sparkles, Users, Sliders, CheckCircle2 } from "lucide-react";
+import { Printer, FileText, Tag, ClipboardList, DoorOpen, RotateCcw, Calendar, Layers, Settings2, X, Building, Check, Sparkles, Users, Sliders, CheckCircle2 } from "lucide-react";
 
 import {
   getDynamicSubjectsForClasses,
@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { PrintPreview } from "@/components/print/print-preview";
 import { SearchInput } from "@/components/ui/search-input";
 
 export interface EmsPrintDialogProps {
@@ -55,7 +55,6 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
   const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(33);
   const [examHalf, setExamHalf] = useState<ExamHalf>("1st Half");
-  const [zoom, setZoom] = useState<number>(0.8);
   const [schoolProfile, setSchoolProfile] = useState<SchoolProfileData>(getSavedSchoolProfile());
   const [roomSearch, setRoomSearch] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -1341,35 +1340,8 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                 </div>
               )}
 
-              {/* Zoom Controls & Prominent Close Button */}
+              {/* Close button (zoom lives in the preview) */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-white/70 dark:bg-neutral-950/70 backdrop-blur-md rounded-xl border border-white/80 dark:border-neutral-800 p-0.5 shadow-2xs">
-                  <button
-                    onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.1).toFixed(2))))}
-                    className="p-1.5 hover:bg-white/80 dark:hover:bg-neutral-800 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
-                    title="Zoom Out (-10%)"
-                  >
-                    <ZoomOut className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-xs font-mono px-2 text-slate-700 dark:text-neutral-300 select-none min-w-[44px] text-center font-bold">
-                    {Math.round(zoom * 100)}%
-                  </span>
-                  <button
-                    onClick={() => setZoom((z) => Math.min(1.5, Number((z + 0.1).toFixed(2))))}
-                    className="p-1.5 hover:bg-white/80 dark:hover:bg-neutral-800 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
-                    title="Zoom In (+10%)"
-                  >
-                    <ZoomIn className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setZoom(0.8)}
-                    className="p-1.5 hover:bg-white/80 dark:hover:bg-neutral-800 text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white rounded-lg ml-0.5 transition-colors cursor-pointer"
-                    title="Reset to 80% view"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                  </button>
-                </div>
-
                 {/* Prominent High-Contrast Close Button */}
                 <button
                   onClick={() => onOpenChange(false)}
@@ -1385,17 +1357,9 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
               </div>
             </div>
 
-            {/* Document Canvas Container with Full Height & Smooth Touch Pinch Zoom */}
-            <div className="flex-1 overflow-auto p-3 sm:p-6 flex justify-center items-start print:p-0 print:m-0 print:overflow-visible print:bg-white relative z-0">
-              <PinchZoomViewer
-                scale={zoom}
-                onScaleChange={setZoom}
-                minScale={0.4}
-                maxScale={2.0}
-                showControls={false}
-                enableScrollMode={true}
-                canvasClassName="p-0 border-none bg-transparent shadow-none"
-              >
+            {/* Document canvas: shared print preview (zoom, drag, fit) */}
+            <div className="flex-1 min-h-0 p-3 sm:p-6 print:p-0 print:m-0 relative z-0">
+              <PrintPreview fill resetKey={`${activeDoc}-${orientation}`}>
                 <div
                   id="ems-printable-canvas"
                   className="shadow-[0_25px_60px_-15px_rgba(15,23,42,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
@@ -1455,7 +1419,7 @@ export const EmsPrintDialog: React.FC<EmsPrintDialogProps> = ({
                     />
                   )}
                 </div>
-              </PinchZoomViewer>
+              </PrintPreview>
             </div>
           </div>
         </div>

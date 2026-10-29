@@ -10,7 +10,7 @@ import { EmsAdmitCardPrintable } from "./ems-admit-card-printable";
 import { EmsBenchSlipsPrintable } from "./ems-bench-slips-printable";
 import { EmsAttendanceSheetPrintable } from "./ems-attendance-sheet-printable";
 import { EmsGateNoticePrintable } from "./ems-gate-notice-printable";
-import { Printer, FileText, Tag, ClipboardList, DoorOpen, ZoomIn, ZoomOut, RotateCcw, Maximize2, Calendar, Settings2, Sliders, SlidersHorizontal, X, Building2, Check, Sparkles, Users, CheckCircle2, ArrowLeft, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { Printer, FileText, Tag, ClipboardList, DoorOpen, Calendar, Settings2, Sliders, SlidersHorizontal, X, Building2, Check, Sparkles, Users, CheckCircle2, ArrowLeft, ChevronDown, ChevronUp, Info } from "lucide-react";
 import {
   getDynamicSubjectsForClasses,
   getDatabaseSubjectsForClass,
@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { PrintPreview } from "@/components/print/print-preview";
 import { SearchInput } from "@/components/ui/search-input";
 
 export interface EmsPrintStudioProps {
@@ -54,7 +54,6 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
   const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
   const [admitCardsPerPage, setAdmitCardsPerPage] = useState<number>(8);
   const [benchSlipsPerPage, setBenchSlipsPerPage] = useState<number>(33);
-  const [zoom, setZoom] = useState<number>(0.85);
   const [isOptionsOpen, setIsOptionsOpen] = useState<boolean>(false);
   const [isRoomPopoverOpen, setIsRoomPopoverOpen] = useState<boolean>(false);
   const [roomSearch, setRoomSearch] = useState<string>("");
@@ -1384,72 +1383,11 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
             </span>
           </div>
 
-          {/* Zoom Controls */}
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center bg-background rounded-xl border border-border p-0.5 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.max(0.3, Number((z - 0.1).toFixed(2))))}
-                className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
-                title="Zoom Out (-10%)"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
-              <span className="text-xs font-mono px-2 text-foreground select-none min-w-[44px] text-center font-bold">
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setZoom((z) => Math.min(1.6, Number((z + 0.1).toFixed(2))))}
-                className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
-                title="Zoom In (+10%)"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setZoom(0.85)}
-                className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg ml-0.5 transition-colors cursor-pointer"
-                title="Reset to 85% view"
-              >
-                <RotateCcw className="w-3 h-3" />
-              </button>
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setZoom(1.0)}
-              className="h-8 px-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground rounded-xl hidden sm:flex items-center gap-1"
-              title="Fit 100% scale"
-            >
-              <Maximize2 className="w-3 h-3" />
-              <span>100%</span>
-            </Button>
-          </div>
         </div>
 
-        {/* Scrollable Canvas Viewport with Touch Pinch-to-Zoom & Photo Lightbox */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-2 sm:p-4 pb-36 bg-muted/10 print:p-0 print:m-0 print:overflow-visible print:bg-white relative custom-scrollbar">
-          <PinchZoomViewer
-            scale={zoom}
-            onScaleChange={setZoom}
-            minScale={0.3}
-            maxScale={3.0}
-            showControls={false}
-            enableScrollMode={true}
-            title={
-              activeDoc === "admit"
-                ? "EMS Admit Cards"
-                : activeDoc === "slips"
-                  ? "EMS Desk Slips"
-                  : activeDoc === "attendance"
-                    ? "EMS Attendance Sheet"
-                    : "EMS Gate Notice"
-            }
-            canvasClassName="bg-transparent border-0 p-0 sm:p-4 shadow-none justify-center"
-          >
+        {/* Document canvas: shared print preview (zoom, drag, fit) */}
+        <div className="p-2 sm:p-4 pb-36 sm:pb-4 print:p-0 print:m-0 relative">
+          <PrintPreview resetKey={`${activeDoc}-${orientation}-${targetRoomId}`}>
             <div
               id="ems-printable-canvas"
               className="shadow-[0_20px_50px_-15px_rgba(0,0,0,0.25),_0_0_0_1px_rgba(0,0,0,0.06)] dark:shadow-[0_20px_50px_-15px_rgba(0,0,0,0.7),_0_0_0_1px_rgba(255,255,255,0.1)] print:shadow-none print:transform-none print:w-full print:m-0 print:p-0 flex flex-col items-center"
@@ -1509,7 +1447,7 @@ export const EmsPrintStudio: React.FC<EmsPrintStudioProps> = ({
                 />
               )}
             </div>
-          </PinchZoomViewer>
+          </PrintPreview>
         </div>
       </div>
 

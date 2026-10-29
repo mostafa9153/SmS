@@ -23,7 +23,7 @@ import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { PrintPreview } from "@/components/print/print-preview";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
@@ -104,7 +104,6 @@ export default function AdmissionQueuePage() {
   const [activeSingleStudent, setActiveSingleStudent] = useState<UnifiedQueueCandidate | null>(null);
   const [printCopyType, setPrintCopyType] = useState<"both" | "student" | "school">("student");
   const [printModalOpen, setPrintModalOpen] = useState(false);
-  const [previewZoom, setPreviewZoom] = useState<number>(0.95);
 
   const INVOICE_STORAGE_KEY = `sms_admission_invoice_last_seq_${currentYear}`;
   const PREV_INVOICE_STORAGE_KEY = `sms_admission_invoice_prev_seq_${currentYear}`;
@@ -1354,28 +1353,24 @@ export default function AdmissionQueuePage() {
             </div>
           </DialogHeader>
 
-          {/* Printable Scrollable Canvas with Pinch-to-Zoom */}
-          <div
-            id="bulk-invoice-preview-viewport"
-            className="flex-1 overflow-y-auto max-h-[75vh] custom-scrollbar p-1"
-          >
-            <PinchZoomViewer
-              initialScale={0.75}
-              minScale={0.4}
-              maxScale={2.0}
-              scale={previewZoom}
-              onScaleChange={setPreviewZoom}
-              showControls={false}
-              canvasClassName="min-h-[460px] bg-slate-100/90 dark:bg-slate-900/70"
-            >
-              <div id="bulk-invoice-print-container" className="flex justify-center w-full">
+          {/* Preview (shared zoom/drag/fit); the hidden copy below is what prints */}
+          <div id="bulk-invoice-preview-viewport" className="flex-1 min-h-0 p-1">
+            <PrintPreview fill resetKey={`${printCopyType}-${currentBatchInvoices.length}`} className="h-[70vh]">
+              <div className="flex justify-center w-full">
                 <InvoicePrintableBatchView
                   invoices={currentBatchInvoices}
                   copyType={printCopyType}
                   schoolProfile={schoolProfile}
                 />
               </div>
-            </PinchZoomViewer>
+            </PrintPreview>
+            <div id="bulk-invoice-print-container" className="hidden print:flex justify-center w-full">
+              <InvoicePrintableBatchView
+                invoices={currentBatchInvoices}
+                copyType={printCopyType}
+                schoolProfile={schoolProfile}
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>

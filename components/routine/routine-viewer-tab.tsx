@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Printer,
   FileDown,
+  FileText,
   Calendar,
   Users,
   School,
@@ -37,6 +38,10 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 import { cn } from "@/lib/utils";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import { showToast } from "@/components/ui/toast-banner";
@@ -1082,6 +1087,14 @@ export function RoutineViewerTab({
     }
   };
 
+  // The timetable stretches to the paper width, so any size/orientation/margin prints
+  const paperSettings = usePaperSettings("routine-paper-settings", {
+    paper: "A3",
+    papers: ["A3", "A4"],
+    orientation: "landscape",
+    margins: { top: 0, right: 0, bottom: 0, left: 0 },
+  });
+
   const handlePrint = () => {
     window.print();
   };
@@ -1414,6 +1427,19 @@ export function RoutineViewerTab({
               <span className="hidden sm:inline">Print Timetable</span>
             </Button>
 
+            <Popover>
+              <PopoverTrigger
+                className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-md border border-input bg-background text-xs font-semibold shadow-xs hover:bg-accent cursor-pointer"
+                title="Paper & margin"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{paperSettings.paper} {paperSettings.orientation === "landscape" ? "Landscape" : "Portrait"}</span>
+              </PopoverTrigger>
+              <PopoverContent align="end" side="bottom" sideOffset={8} className="w-72 p-3 rounded-2xl">
+                <PaperSettingsPanel settings={paperSettings} orientations variant="bare" defaultOpen />
+              </PopoverContent>
+            </Popover>
+
             {/* Zoom Controls */}
             <div className="flex items-center bg-muted/60 border border-input rounded-md p-0.5 gap-0.5 shadow-2xs h-8">
               <button
@@ -1506,6 +1532,8 @@ export function RoutineViewerTab({
         </div>
       </div>
 
+      <PrintPageStyle pageW={paperSettings.pageW} pageH={paperSettings.pageH} margins={paperSettings.margins} />
+
       {/* Timetable Grid Container */}
       <div
         ref={printSheetRef}
@@ -1516,7 +1544,6 @@ export function RoutineViewerTab({
       >
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
-            @page { size: A3 landscape; margin: 0; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .routine-print-sheet,
             .routine-print-sheet div {
