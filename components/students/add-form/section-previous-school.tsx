@@ -4,7 +4,7 @@ import { Controller } from "react-hook-form";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SmartPreviousSchoolInput } from "@/components/students/smart-previous-school-input";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
-import { STREAM_OPTIONS } from "@/components/students/add-form/constants";
+import { STREAM_OPTIONS } from "@/components/students/form/constants";
 import type { StudentAddEditFormState } from "./use-student-add-edit-form";
 
 export function PreviousSchoolSection({ sf }: { sf: StudentAddEditFormState }) {

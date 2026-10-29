@@ -12,6 +12,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import { getSavedStudentEntryPresets, fetchStudentEntryPresetsFromDb, applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
 import { todayIST } from "@/lib/utils/date";
 import { FormData, studentSchema } from "@/components/students/add-form/schema";
+import { splitCsvFields } from "@/lib/utils/csv-fields";
 
 export function useStudentAddEditForm({
   aiExtractedData,
@@ -219,14 +220,14 @@ export function useStudentAddEditForm({
     mutationFn: (formData: FormData) => {
       const data = applyStudentEntryDefaults(formData);
 
-      const languageGroup = data.languageGroupInput ? data.languageGroupInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      const mandatorySubjects = data.mandatorySubjectsInput ? data.mandatorySubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      const additionalSubjects = data.additionalSubjectsInput ? data.additionalSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      const coCurricularSubjects = data.coCurricularSubjectsInput ? data.coCurricularSubjectsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const languageGroup = splitCsvFields(data.languageGroupInput);
+      const mandatorySubjects = splitCsvFields(data.mandatorySubjectsInput);
+      const additionalSubjects = splitCsvFields(data.additionalSubjectsInput);
+      const coCurricularSubjects = splitCsvFields(data.coCurricularSubjectsInput);
 
-      const facilitiesProvided = data.facilitiesProvidedInput ? data.facilitiesProvidedInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      const cwsnFacilities = data.cwsnFacilitiesInput ? data.cwsnFacilitiesInput.split(",").map(s => s.trim()).filter(Boolean) : [];
-      const competitionsOlympiads = data.competitionsOlympiadsInput ? data.competitionsOlympiadsInput.split(",").map(s => s.trim()).filter(Boolean) : [];
+      const facilitiesProvided = splitCsvFields(data.facilitiesProvidedInput);
+      const cwsnFacilities = splitCsvFields(data.cwsnFacilitiesInput);
+      const competitionsOlympiads = splitCsvFields(data.competitionsOlympiadsInput);
 
       const {
         languageGroupInput: _l,

@@ -4,7 +4,7 @@ import { Controller } from "react-hook-form";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
-import { CLASSES, STREAM_OPTIONS } from "@/components/students/add-form/constants";
+import { CLASSES, STREAM_OPTIONS } from "@/components/students/form/constants";
 import type { StudentAddEditFormState } from "./use-student-add-edit-form";
 
 export function EnrolmentSection({ sf }: { sf: StudentAddEditFormState }) {

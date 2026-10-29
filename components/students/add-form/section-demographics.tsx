@@ -4,7 +4,7 @@ import { Controller } from "react-hook-form";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { SchoolIdInput } from "@/components/students/school-id-input";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
-import { INDIAN_RELIGIONS, MOTHER_TONGUES } from "@/components/students/add-form/constants";
+import { INDIAN_RELIGIONS, MOTHER_TONGUES } from "@/components/students/form/constants";
 import type { StudentAddEditFormState } from "./use-student-add-edit-form";
 
 export function DemographicsSection({ sf }: { sf: StudentAddEditFormState }) {

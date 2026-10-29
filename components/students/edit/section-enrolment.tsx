@@ -5,7 +5,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { MEDIUM_OF_INSTRUCTION_OPTIONS } from "@/lib/constants/student-options";
 import { getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
-import { CLASSES } from "@/components/students/edit/constants";
+import { CLASSES } from "@/components/students/form/constants";
 import type { EditStudentState } from "./use-edit-student";
 
 export function EnrolmentSection({ edit }: { edit: EditStudentState }) {

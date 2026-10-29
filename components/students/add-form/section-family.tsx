@@ -6,7 +6,7 @@ import { GuardianRelationshipSelect } from "@/components/students/guardian-relat
 import { SmartAddressInput } from "@/components/students/smart-address-input";
 import { OCCUPATION_OPTIONS } from "@/lib/constants/student-options";
 import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
-import { QUALIFICATION_OPTIONS } from "@/components/students/add-form/constants";
+import { QUALIFICATION_OPTIONS } from "@/components/students/form/constants";
 import type { StudentAddEditFormState } from "./use-student-add-edit-form";
 
 export function FamilySection({ sf }: { sf: StudentAddEditFormState }) {
