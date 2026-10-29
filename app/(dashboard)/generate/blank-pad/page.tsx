@@ -23,7 +23,6 @@ import {
   SlidersHorizontal,
   Layers,
   ChevronDown,
-  Save,
   Lock,
   Unlock,
   AlignLeft,
@@ -44,10 +43,11 @@ import {
   saveDocumentSequence,
   formatDocumentNumber,
 } from "@/lib/utils/document-sequence";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 import { CustomSelect } from "@/components/ui/custom-select";
 
-interface PrintMargins { top: number; right: number; bottom: number; left: number; }
 
 function BlankPadGeneratorContent() {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -204,7 +204,7 @@ function BlankPadGeneratorContent() {
       signoffAlign: "right",
     });
     setPadData({
-      paperSize: "A4",
+      paperSize: paper === "A5" ? "A5" : "A4", // paper size is a saved setting, not part of the reset
       fontStyle: "classic",
       letterMode: "structured",
       bodyFontSize: 15,
@@ -223,32 +223,18 @@ function BlankPadGeneratorContent() {
     });
   };
 
-  const isA4 = padData.paperSize === "A4";
-
-  const [margins, setMargins] = useState<PrintMargins>({ top: 0, right: 0, bottom: 0, left: 0 });
-  const [paperOpen, setPaperOpen] = useState(false);
-
+  // The pad layout is drawn for A4/A5 portrait; the paper panel is the only place the size changes
+  const paperSettings = usePaperSettings("blank-pad-paper-settings", {
+    paper: "A4",
+    papers: ["A4", "A5"],
+    margins: { top: 0, right: 0, bottom: 0, left: 0 },
+  });
+  const { paper, margins, pageW, pageH } = paperSettings;
+  const isA4 = paper === "A4";
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("blank-pad-paper-settings");
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.paperSize) setPadData((prev) => ({ ...prev, paperSize: s.paperSize }));
-        if (s.margins) setMargins(s.margins);
-      }
-    } catch {}
-  }, []);
-  const savePaperSettings = () => {
-    try {
-      localStorage.setItem("blank-pad-paper-settings", JSON.stringify({ paperSize: padData.paperSize, margins }));
-    } catch {}
-  };
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
-  const pageW = isA4 ? 210 : 148;
-  const pageH = isA4 ? 297 : 210;
+    const paperSize = paper === "A5" ? "A5" : "A4";
+    setPadData((prev) => (prev.paperSize === paperSize ? prev : { ...prev, paperSize }));
+  }, [paper]);
 
   return (
     <div className="p-2 sm:p-4 md:p-6 max-w-[1700px] mx-auto space-y-3 sm:space-y-4 print:p-0 print:m-0 print:max-w-none print:space-y-0">
@@ -299,38 +285,6 @@ function BlankPadGeneratorContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-3.5 pt-0 space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPadData((prev) => ({ ...prev, paperSize: "A4" }));
-                  }}
-                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                    padData.paperSize === "A4"
-                      ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  <p className="text-xs">A4 Portrait</p>
-                  <p className="text-[10px] opacity-75 font-mono">210 × 297 mm</p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPadData((prev) => ({ ...prev, paperSize: "A5" }));
-                  }}
-                  className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer ${
-                    padData.paperSize === "A5"
-                      ? "border-primary bg-primary/10 text-primary font-bold shadow-2xs"
-                      : "border-border bg-background text-muted-foreground hover:bg-muted/50"
-                  }`}
-                >
-                  <p className="text-xs">A5 Portrait</p>
-                  <p className="text-[10px] opacity-75 font-mono">148 × 210 mm</p>
-                </button>
-              </div>
-
               <div className="space-y-1.5">
                 <Label className="text-xs">Border Design</Label>
                 <div className="relative">
@@ -404,46 +358,7 @@ function BlankPadGeneratorContent() {
                 </div>
               </div>
 
-              {/* Collapsible Margin Section */}
-              <div className="pt-2 border-t space-y-1">
-                <button
-                  type="button"
-                  onClick={() => setPaperOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-1 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <span>Margin</span>
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${paperOpen ? "rotate-180" : ""}`} />
-                </button>
-                {paperOpen && (
-                  <div className="space-y-1.5 pt-1">
-                    <p className="px-1 text-[10px] text-muted-foreground">Margin (mm)</p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {(["top", "right", "bottom", "left"] as const).map((side) => (
-                        <label key={side} className="space-y-0.5">
-                          <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            min={0}
-                            step={1}
-                            value={margins[side]}
-                            onChange={(e) => updateMargin(side, e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        </label>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={savePaperSettings}
-                      className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      Save Settings
-                    </button>
-                  </div>
-                )}
-              </div>
+              <PaperSettingsPanel settings={paperSettings} variant="section" defaultOpen />
             </CardContent>
           </Card>
 
@@ -1324,11 +1239,7 @@ function BlankPadGeneratorContent() {
           </Card>
         </div>
 
-        <ZoomPanViewport
-          resetKey={`${padData.paperSize}-${padData.borderStyle}`}
-          fitMode="contain"
-          className="order-1 xl:order-2 h-[46dvh] sm:h-[52dvh] xl:h-[calc(100dvh-2rem)] sticky top-2 xl:top-4 z-20 w-full print:hidden"
-        >
+        <PrintPreview resetKey={`${padData.paperSize}-${padData.borderStyle}`} className="order-1 xl:order-2 sticky top-2 xl:top-4 z-20">
           <BlankPadPrintableView
             data={{
               ...padData,
@@ -1343,7 +1254,8 @@ function BlankPadGeneratorContent() {
             }}
             schoolProfile={schoolProfile}
           />
-        </ZoomPanViewport>
+        </PrintPreview>
+        <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
         <div id="printable-pad-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
           <BlankPadPrintableView
             data={{
@@ -1371,11 +1283,6 @@ function BlankPadGeneratorContent() {
           .print\\:hidden,
           button {
             display: none !important;
-          }
-
-          @page {
-            size: ${pageW}mm ${pageH}mm;
-            margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           }
 
           html,

@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview } from "@/components/print/print-preview";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Printer,
@@ -978,13 +978,13 @@ function MarksheetGeneratorContent() {
             </div>
 
             {/* Scrollable Canvas for Single Preview */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey="single-marksheet"
               className="h-[460px] sm:h-[580px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
             >
               <MarksheetPrintableView data={marksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
-            </ZoomPanViewport>
+            </PrintPreview>
           </div>
         </div>
       )}
@@ -1185,13 +1185,13 @@ function MarksheetGeneratorContent() {
             </div>
 
             {/* Scrollable Canvas for Batch Preview */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey={`bulk-marksheet-${currentPreviewIndex}`}
               className="h-[460px] sm:h-[580px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
             >
               <MarksheetPrintableView data={activeBulkPreviewMarksheet} schoolProfile={schoolProfile} includeDigitalSignature={includeDigitalSignature} />
-            </ZoomPanViewport>
+            </PrintPreview>
           </div>
         </div>
       )}

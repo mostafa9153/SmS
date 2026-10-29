@@ -27,7 +27,7 @@ import {
   InvoicePrintableA4Sheet,
 } from "@/components/invoice/invoice-printable-view";
 import { InvoiceTrackerModal } from "@/components/invoice/invoice-tracker-modal";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview } from "@/components/print/print-preview";
 import { recordPrintedInvoices } from "@/lib/utils/invoice-registry";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Button } from "@/components/ui/button";
@@ -1617,7 +1617,7 @@ function InvoiceGeneratorContent() {
             </div>
 
             {/* Printable Canvas Viewport */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey="single-invoice"
               className="h-[460px] sm:h-[580px] w-full print:hidden"
@@ -1625,7 +1625,7 @@ function InvoiceGeneratorContent() {
               <div style={{ width: "210mm", height: "146mm" }} className="shrink-0">
                 <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
               </div>
-            </ZoomPanViewport>
+            </PrintPreview>
             {/* Print-only output */}
             <div id="printable-invoice-canvas" className="hidden print:block" style={{ width: "210mm", height: "146mm" }}>
               <InvoicePrintableView data={invoice} copyType={copyType} schoolProfile={schoolProfile} />
@@ -2316,7 +2316,7 @@ function InvoiceGeneratorContent() {
 
             {/* Scaled Preview Viewport */}
             {bulkInvoices.length > 0 ? (
-              <ZoomPanViewport
+              <PrintPreview
                 fitMode="contain"
                 resetKey={`bulk-${isA4FourUp}`}
                 className="h-[460px] sm:h-[580px] w-full print:hidden"
@@ -2347,7 +2347,7 @@ function InvoiceGeneratorContent() {
                     />
                   )}
                 </div>
-              </ZoomPanViewport>
+              </PrintPreview>
             ) : (
               <div className="py-24 text-center text-muted-foreground text-xs flex flex-col items-center justify-center gap-2 border border-border/80 rounded-2xl bg-muted/40 min-h-[460px]">
                 <Users className="h-8 w-8 text-muted-foreground/40" />

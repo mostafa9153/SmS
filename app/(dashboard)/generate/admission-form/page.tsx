@@ -58,7 +58,7 @@ import { getDynamicClassList } from "@/lib/ems/ems-config-loader";
 import { PrintHistoryModal } from "@/components/ui/print-history-modal";
 import { recordPrintBatch } from "@/lib/utils/print-history";
 import { AdmissionFormTrackerModal } from "@/components/admission-form/admission-form-tracker";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview } from "@/components/print/print-preview";
 
 export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { profile: schoolProfile } = useSchoolProfile();
@@ -1609,7 +1609,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
             </div>
 
             {/* Screen Preview Viewport */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey={`${activeTab}-${activePageView}`}
               className="h-[460px] sm:h-[500px] lg:h-[calc(100dvh-14rem)] w-full print:hidden"
@@ -1627,7 +1627,7 @@ export function AdmissionFormGeneratorContent({ embedded = false }: { embedded?:
                   activePage={activePageView}
                 />
               )}
-            </ZoomPanViewport>
+            </PrintPreview>
           </div>
         </div>
       </div>

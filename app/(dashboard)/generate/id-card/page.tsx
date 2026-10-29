@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { PrintPreview } from "@/components/print/print-preview";
 import { Printer, Users, CheckSquare, Square, Eye, ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Calendar, Layers, GraduationCap, AlertTriangle, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
@@ -546,7 +546,7 @@ function StudentIDCardStudioContent() {
             </div>
 
             {/* Live Visual Canvas */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey={`id-card-${previewIndex}`}
               className="h-[580px] lg:h-[calc(100dvh-16rem)] w-full print:hidden"
@@ -568,7 +568,7 @@ function StudentIDCardStudioContent() {
                   <p className="text-xs mt-1">Select at least one student from the left panel to preview.</p>
                 </div>
               )}
-            </ZoomPanViewport>
+            </PrintPreview>
 
             {/* Printing Format Notice */}
             <div className="text-center text-xs text-muted-foreground max-w-md">
