@@ -35,3 +35,13 @@ Nothing was run signed in. Worth trying as a Teacher limited to one class:
 - `students/[id]/edit/page.tsx`: about 1,000 lines duplicate `student-add-edit-form.tsx`. Make the edit page reuse the form.
 - `bulk-upload/page.tsx` and `excel-parser.ts`: split them up and add parser tests.
 - `admission/invoices/page.tsx`: split it up.
+
+## Deferred: merging the student edit page into the shared form
+Measured overlap: the edit page and `student-add-edit-form.tsx` share about 900 lines, but differ in 493 added and 359 removed lines. The edit page has fields and logic the form lacks: status fields, masked Aadhaar, undo on save.
+
+Merging them blind risks a field that silently stops saving on the most important record in the system. Do this with a signed-in session:
+1. Make a field-by-field list of both forms.
+2. Move the edit-only parts into the form behind a `mode="edit"` prop.
+3. Save one student before and after the change and compare the row.
+
+Also noted for that change: the form's default `admissionYear` is still the calendar year. It should be `useAcademicYear()`.
