@@ -36,14 +36,14 @@ export function useSportsConfig() {
         const res = await fetch("/api/school-config?key=sports_config");
         if (res.ok) {
           const json = await res.json();
-          if (json?.data?.value && isMounted) {
+          if (json?.data && isMounted) {
             const merged: SportsConfig = {
               maxEventsPerStudent:
-                typeof json.data.value.maxEventsPerStudent === "number"
-                  ? json.data.value.maxEventsPerStudent
+                typeof json.data.maxEventsPerStudent === "number"
+                  ? json.data.maxEventsPerStudent
                   : DEFAULT_SPORTS_CONFIG.maxEventsPerStudent,
               enforcementMode:
-                json.data.value.enforcementMode === "strict" ? "strict" : "warning",
+                json.data.enforcementMode === "strict" ? "strict" : "warning",
             };
             setConfig(merged);
             localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));

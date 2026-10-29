@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
@@ -11,6 +12,9 @@ const VALID_KEYS = [
   "promotion_policy",
   "ems_rooms",
   "ems_allocations",
+  "ems_exam_routines",
+  "ems_exam_start_time",
+  "ems_section_orders",
   "address_presets_config",
   "bank_presets",
   "school_presets",
@@ -115,6 +119,8 @@ const CACHE_TTL_MS = 60 * 1000;
 
 export async function GET(request: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -131,7 +137,8 @@ export async function GET(request: Request) {
       }
 
       // Serve from memory cache if available
-      if (memoryConfigCache && Date.now() - memoryConfigCache.cachedAt < CACHE_TTL_MS) {
+      // EMS keys are edited live from several devices; never serve them from this instance's cache.
+      if (!key.startsWith("ems_") && memoryConfigCache && Date.now() - memoryConfigCache.cachedAt < CACHE_TTL_MS) {
         const cachedMap = memoryConfigCache.data?.data;
         if (cachedMap && cachedMap[key] !== undefined) {
           return NextResponse.json(
@@ -244,6 +251,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -24,6 +24,7 @@ import {
   fetchRoomsFromDb,
   deleteAllocation,
 } from "@/lib/ems/room-storage";
+import { pullExamSetup, pushExamSetup } from "@/lib/ems/exam-setup-sync";
 import {
   fetchContinuingStudents,
   generateAutoAllocation,
@@ -693,11 +694,14 @@ function EmsMasterPageContent() {
     return {};
   });
   const [activeRoutineClass, setActiveRoutineClass] = useState<string>("");
+  // Pushes wait until the shared exam setup is loaded, so a stale cache never overwrites it.
+  const examSetupSynced = useRef(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("sms_ems_exam_start_time", examStartTime);
+        if (examSetupSynced.current) pushExamSetup("startTime");
       } catch {}
     }
   }, [examStartTime]);
@@ -706,6 +710,7 @@ function EmsMasterPageContent() {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("sms_ems_exam_routines", JSON.stringify(routinesByClass));
+        if (examSetupSynced.current) pushExamSetup("routines");
       } catch {}
     }
   }, [routinesByClass]);
@@ -809,6 +814,7 @@ function EmsMasterPageContent() {
         }
       });
       localStorage.setItem("sms_ems_section_orders", JSON.stringify(orders));
+      pushExamSetup("sectionOrders");
     } catch {}
   };
 
@@ -931,6 +937,13 @@ function EmsMasterPageContent() {
     }
     const savedAllocs = getSavedAllocations();
     setSavedAllocations(savedAllocs);
+
+    // Shared exam setup (routine, start time, section order) from the database
+    pullExamSetup().then((setup) => {
+      if (setup.routines) setRoutinesByClass(setup.routines);
+      if (setup.startTime) setExamStartTime(setup.startTime);
+      examSetupSynced.current = true;
+    });
 
     // Fetch latest saved allocations from Database
     fetchAllocationsFromDb().then((dbAllocs) => {

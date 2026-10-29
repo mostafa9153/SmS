@@ -259,8 +259,8 @@ export async function fetchAllocationsFromDb(): Promise<ExamAllocation[]> {
     const res = await fetch("/api/school-config?key=ems_allocations");
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.value) && data.value.length > 0) {
-        const dbAllocations: ExamAllocation[] = data.value.slice(0, MAX_SAVED_ALLOCATIONS);
+      if (data && Array.isArray(data.data) && data.data.length > 0) {
+        const dbAllocations: ExamAllocation[] = data.data.slice(0, MAX_SAVED_ALLOCATIONS);
         safePersistAllocations(dbAllocations);
         return dbAllocations;
       }
@@ -280,8 +280,8 @@ export async function fetchRoomsFromDb(): Promise<EmsRoom[]> {
     const res = await fetch("/api/school-config?key=ems_rooms");
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.value) && data.value.length > 0) {
-        const sanitized = sanitizeRoomColumns(data.value);
+      if (data && Array.isArray(data.data) && data.data.length > 0) {
+        const sanitized = sanitizeRoomColumns(data.data);
         memoryRooms = sanitized;
         safeWriteItem(ROOMS_STORAGE_KEY, sanitized);
         return sanitized;
