@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { softWrite } from "@/lib/supabase/write";
 
 export const PUBLIC_LIMITS = {
   /** Max request body for a public submission. */
@@ -65,12 +66,12 @@ export async function logAttempt(
   supabase: SupabaseClient,
   entry: { ipHash: string; contactHash?: string | null; outcome: AttemptOutcome; applicationId?: string | null },
 ) {
-  await supabase.from("public_admission_attempts").insert({
+  await softWrite(supabase.from("public_admission_attempts").insert({
     ip_hash: entry.ipHash,
     contact_hash: entry.contactHash ?? null,
     outcome: entry.outcome,
     application_id: entry.applicationId ?? null,
-  });
+  }), "public_admission_attempts insert");
 }
 
 /** Returns the reason a submission must be throttled, or null when it may proceed. */

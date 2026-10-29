@@ -5,6 +5,8 @@ import type { Student, StudentStatus } from "@/lib/types";
 import { pgQuote } from "@/lib/supabase/filters";
 import { requireStaff } from "@/lib/api/guard";
 import { todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   try {
@@ -182,7 +184,7 @@ export async function POST(req: Request) {
         const createdStudent = await dbCreateStudent(studentInput);
 
         // Update application record
-        await supabase
+        await mustWrite(supabase
           .from("admission_applications")
           .update({
             is_transferred_to_active: true,
@@ -191,20 +193,20 @@ export async function POST(req: Request) {
             school_id: createdStudent.schoolId,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", app.id);
+          .eq("id", app.id), "admission_applications update");
 
         // Update invoice record with created student's schoolId
         if (app.payment_receipt_no) {
           try {
-            await supabase
+            await mustWrite(supabase
               .from("admission_invoices")
               .update({
                 student_id: createdStudent.schoolId || createdStudent.id,
                 updated_at: new Date().toISOString(),
               })
-              .eq("invoice_number", app.payment_receipt_no);
+              .eq("invoice_number", app.payment_receipt_no), "admission_invoices update");
           } catch (invErr) {
-            console.warn("Could not link invoice to created student:", invErr);
+            await notifyAdminsOfError("admission.transfer", "Could not link invoice to created student", invErr, "/admission");
           }
         }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { 
   dbGetStudentById, 
@@ -11,6 +12,7 @@ import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { studentUpdateSchema } from "@/lib/validations/student-schema";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
+import { softWrite } from "@/lib/supabase/write";
 
 /** Tables holding a student's data, in restore order (students first). */
 const STUDENT_RESTORE_ORDER: [table: string, column: string][] = [
@@ -36,6 +38,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const { id } = await params;
     const role = await getUserRole();
     if (role === "Guest") {
@@ -57,13 +61,13 @@ export async function GET(
       const supabase = await createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user && student.aadhaar) {
-        await supabase.from("audit_log").insert({
+        await softWrite(supabase.from("audit_log").insert({
           performed_by: user.id,
           action: "VIEW_AADHAAR",
           table_name: "students",
           record_id: student.id,
           metadata: { reason: "Viewing student detailed profile" },
-        });
+        }), "audit_log insert");
       }
     }
 
@@ -79,6 +83,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const { id } = await params;
     const role = await getUserRole();
     if (role === "Guest") {
@@ -142,14 +148,14 @@ export async function PATCH(
     // Create audit log entry for update (non-blocking)
     try {
       const supabase = await createClient();
-      await supabase.from("audit_log").insert({
+      await softWrite(supabase.from("audit_log").insert({
         performed_by: user.id,
         action: "UPDATE",
         table_name: "students",
         record_id: id,
         old_values: oldStudent,
         new_values: updatedStudent,
-      });
+      }), "audit_log insert");
     } catch (auditErr) {
       console.warn("Audit log entry failed:", auditErr);
     }
@@ -166,6 +172,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const { id } = await params;
     const role = await getUserRole();
     if (role === "Guest") {
@@ -196,13 +204,13 @@ export async function DELETE(
       ? await recordUndo({ actorId: user.id, action: "student.delete", label: `Delete ${oldStudent.name}`, entity: "students", entityId: id, steps, ttlHours: 72 })
       : null;
     if (user) {
-      await supabase.from("audit_log").insert({
+      await softWrite(supabase.from("audit_log").insert({
         performed_by: user.id,
         action: "DELETE",
         table_name: "students",
         record_id: id,
         old_values: oldStudent,
-      });
+      }), "audit_log insert");
     }
 
     return NextResponse.json({ success: true, undoId });

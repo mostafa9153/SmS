@@ -5,6 +5,8 @@ import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 import { nowTimeIST, todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   try {
@@ -363,14 +365,14 @@ export async function POST(req: Request) {
             .maybeSingle();
 
           if (!prevRecord) {
-            await supabase.from("academic_history").insert({
+            await mustWrite(supabase.from("academic_history").insert({
               student_id: student.id,
               year: currentYear - 1,
               class: student.present_class,
               section: student.present_section,
               roll: student.present_roll,
               status: "Continuing",
-            });
+            }), "academic_history insert");
           }
         }
 
@@ -382,7 +384,7 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (currRecord) {
-          await supabase
+          await mustWrite(supabase
             .from("academic_history")
             .update({
               class: targetClass,
@@ -390,19 +392,19 @@ export async function POST(req: Request) {
               roll: targetRoll,
               status: "Continuing",
             })
-            .eq("id", currRecord.id);
+            .eq("id", currRecord.id), "academic_history update");
         } else {
-          await supabase.from("academic_history").insert({
+          await mustWrite(supabase.from("academic_history").insert({
             student_id: student.id,
             year: currentYear,
             class: targetClass,
             section: targetSection,
             roll: targetRoll,
             status: "Continuing",
-          });
+          }), "academic_history insert");
         }
       } catch (histErr) {
-        console.warn("Could not record academic_history:", histErr);
+        await notifyAdminsOfError("admission.readmit", "Could not record academic_history", histErr, "/admission");
       }
     })();
     dbPromises.push(historyPromise);
@@ -412,7 +414,7 @@ export async function POST(req: Request) {
     const invPromise = (async () => {
       try {
         if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
-          await supabase.from("admission_invoices").upsert(
+          await mustWrite(supabase.from("admission_invoices").upsert(
             {
               invoice_number: paymentReceiptNo.trim(),
               academic_session: `${currentYear} – ${currentYear + 1}`,
@@ -439,9 +441,9 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             },
             { onConflict: "invoice_number" }
-          );
+          ), "admission_invoices upsert");
 
-          await supabase.from("teacher_activity_logs").insert({
+          await mustWrite(supabase.from("teacher_activity_logs").insert({
             user_id: auth.user?.id || null,
             teacher_id: auth.staffId || null,
             teacher_name: auth.fullName || "Staff",
@@ -455,9 +457,9 @@ export async function POST(req: Request) {
               receipt_no: paymentReceiptNo.trim(),
               payment_status: feePaid ? "Paid" : "Due",
             },
-          });
+          }), "teacher_activity_logs insert");
         } else {
-          await supabase.from("teacher_activity_logs").insert({
+          await mustWrite(supabase.from("teacher_activity_logs").insert({
             user_id: auth.user?.id || null,
             teacher_id: auth.staffId || null,
             teacher_name: auth.fullName || "Staff",
@@ -468,10 +470,10 @@ export async function POST(req: Request) {
             section: targetSection,
             amount_collected: 0,
             metadata: { fee_paid: feePaid },
-          });
+          }), "teacher_activity_logs insert");
         }
       } catch (invErr) {
-        console.warn("Could not log invoice / teacher activity:", invErr);
+        await notifyAdminsOfError("admission.readmit", "Could not log invoice / teacher activity", invErr, "/admission");
       }
     })();
     dbPromises.push(invPromise);

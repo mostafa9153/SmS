@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AuthContext } from "@/lib/supabase/auth-helper";
+import { softWrite } from "@/lib/supabase/write";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- rows are opaque table snapshots */
 
@@ -113,7 +114,7 @@ export async function performUndo(id: string, auth: AuthContext): Promise<UndoRe
     return { ok: true, label: entry.label };
   } catch (err) {
     // Release the claim so the user can retry after the cause is fixed.
-    await supabase.from("undoable_actions").update({ undone_at: null, undone_by: null }).eq("id", id);
+    await softWrite(supabase.from("undoable_actions").update({ undone_at: null, undone_by: null }).eq("id", id), "undoable_actions update");
     console.error("[undo] replay failed:", err);
     return { ok: false, status: 500, error: err instanceof Error ? err.message : "Undo failed." };
   }

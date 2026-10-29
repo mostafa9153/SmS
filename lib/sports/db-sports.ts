@@ -5,6 +5,7 @@ import {
   SportsParticipant,
   PRESET_SPORTS_EVENTS,
 } from "./types";
+import { mustWrite } from "@/lib/supabase/write";
 
 // In-memory / fallback store for offline development and instant resilience
 let memoryEvents: SportsEvent[] = PRESET_SPORTS_EVENTS.map((e, idx) => ({
@@ -599,11 +600,11 @@ export async function getOrCreateChestNumber(
           .maybeSingle();
 
         if (!conflict) {
-          await supabase
+          await mustWrite(supabase
             .from("sports_athletes")
             .update({ chest_number: preferredChestNumber.trim() })
             .eq("student_id", studentId)
-            .eq("academic_year", academicYear);
+            .eq("academic_year", academicYear), "sports_athletes update");
           return preferredChestNumber.trim();
         }
       }
@@ -636,11 +637,11 @@ export async function getOrCreateChestNumber(
       finalChestNo = String(nextNum);
     }
 
-    await supabase.from("sports_athletes").insert({
+    await mustWrite(supabase.from("sports_athletes").insert({
       academic_year: academicYear,
       student_id: studentId,
       chest_number: finalChestNo,
-    });
+    }), "sports_athletes insert");
 
     return finalChestNo;
   } catch (err) {}
@@ -724,11 +725,11 @@ export async function enrollStudentsInEvent(
 export async function removeStudentFromEvent(eventId: string, studentId: string): Promise<boolean> {
   try {
     const supabase = createAdminClient();
-    await supabase
+    await mustWrite(supabase
       .from("sports_event_registrations")
       .delete()
       .eq("event_id", eventId)
-      .eq("student_id", studentId);
+      .eq("student_id", studentId), "sports_event_registrations delete");
   } catch (err) {}
 
   delete memoryRegistrations[`${eventId}-${studentId}`];
@@ -751,7 +752,7 @@ export async function saveEventResults(
   try {
     const supabase = createAdminClient();
     for (const res of results) {
-      await supabase.from("sports_event_results").upsert(
+      await mustWrite(supabase.from("sports_event_results").upsert(
         {
           event_id: eventId,
           student_id: res.studentId,
@@ -764,7 +765,7 @@ export async function saveEventResults(
           updated_at: new Date().toISOString(),
         },
         { onConflict: "event_id,student_id" }
-      );
+      ), "sports_event_results upsert");
     }
     return true;
   } catch (err) {}
@@ -805,7 +806,7 @@ export async function updateChestNumber(
       return { success: false, error: `Chest number ${cleanChest} is already assigned to another student.` };
     }
 
-    await supabase
+    await mustWrite(supabase
       .from("sports_athletes")
       .upsert(
         {
@@ -815,7 +816,7 @@ export async function updateChestNumber(
           updated_at: new Date().toISOString(),
         },
         { onConflict: "academic_year,student_id" }
-      );
+      ), "sports_athletes upsert");
     return { success: true };
   } catch (err) {}
 

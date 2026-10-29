@@ -4,6 +4,7 @@ import type { Student, StudentStatus, Semester } from "@/lib/types";
 import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc";
 import { getSavedPromotionPolicy } from "@/lib/utils/marks-config";
 import { getNextClass } from "@/lib/academic/class-ladder";
+import { mustWrite, softWrite } from "@/lib/supabase/write";
 
 export const SECONDARY_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X"];
 export const HIGHER_SECONDARY_CLASSES = ["XI", "XII"];
@@ -493,7 +494,7 @@ export async function dbExecuteSessionTransition(
   }
 
   // Audit Log
-  await supabase.from("audit_log").insert({
+  await softWrite(supabase.from("audit_log").insert({
     performed_by: performedByUserId,
     action: "SESSION_TRANSITION",
     table_name: "students",
@@ -509,7 +510,7 @@ export async function dbExecuteSessionTransition(
       passedOutCount,
       totalProcessed: studentUpdates.length,
     },
-  });
+  }), "audit_log insert");
 
   return {
     success: true,
@@ -970,7 +971,7 @@ export async function dbExecuteSessionTransitionHS(
   const CHUNK_SIZE = 100;
   for (let i = 0; i < historyInserts.length; i += CHUNK_SIZE) {
     const chunk = historyInserts.slice(i, i + CHUNK_SIZE);
-    await supabase.from("academic_history").insert(chunk);
+    await mustWrite(supabase.from("academic_history").insert(chunk), "academic_history insert");
   }
 
   const BATCH_SIZE = 25;
@@ -981,7 +982,7 @@ export async function dbExecuteSessionTransitionHS(
     );
   }
 
-  await supabase.from("audit_log").insert({
+  await softWrite(supabase.from("audit_log").insert({
     performed_by: performedByUserId,
     action: "SESSION_TRANSITION_HS",
     table_name: "students",
@@ -999,7 +1000,7 @@ export async function dbExecuteSessionTransitionHS(
       passedOutCount,
       totalProcessed: studentUpdates.length,
     },
-  });
+  }), "audit_log insert");
 
   return {
     success: true,

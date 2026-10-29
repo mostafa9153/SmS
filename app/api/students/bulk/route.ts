@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { dbUpdateStudent } from "@/lib/supabase/db-students";
 
 import { studentBulkUpdateSchema } from "@/lib/validations/student-schema";
+import { softWrite } from "@/lib/supabase/write";
 
 // POST /api/students/bulk - Bulk update students (e.g. for promotions, roll changes)
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     
     // Get current logged-in user
@@ -54,7 +58,7 @@ export async function POST(req: Request) {
     const updatedStudents = await Promise.all(updatePromises);
 
     // Log the bulk update action in audit log
-    await supabase.from("audit_log").insert({
+    await softWrite(supabase.from("audit_log").insert({
       performed_by: user.id,
       action: "BULK_UPDATE",
       table_name: "students",
@@ -62,7 +66,7 @@ export async function POST(req: Request) {
         count: updates.length,
         studentIds: updates.map((u) => u.id)
       },
-    });
+    }), "audit_log insert");
 
     return NextResponse.json({ success: true, students: updatedStudents });
   } catch (error: any) {

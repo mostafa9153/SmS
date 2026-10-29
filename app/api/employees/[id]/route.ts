@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { mustWrite } from "@/lib/supabase/write";
 
 // GET /api/employees/[id]
 export async function GET(
@@ -8,6 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
@@ -34,11 +38,14 @@ export async function GET(
 }
 
 // PATCH /api/employees/[id] - Update staff profile
+// undo: n/a — follow-up: staff edit/delete undo needs the staff cascade map (audit-2 report); delete has a confirm dialog
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
@@ -123,10 +130,10 @@ export async function PATCH(
     }
 
     if (body.full_name) {
-      await admin
+      await mustWrite(admin
         .from("user_roles")
         .update({ full_name: body.full_name })
-        .eq("staff_id", id);
+        .eq("staff_id", id), "user_roles update");
     }
 
     return NextResponse.json({ success: true, staff: updated });
@@ -142,6 +149,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });

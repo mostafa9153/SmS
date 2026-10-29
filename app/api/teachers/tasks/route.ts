@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
+import { mustWrite } from "@/lib/supabase/write";
 
 // Mapping of task types to required permissions
 const TASK_PERMISSION_MAP: Record<string, string> = {
@@ -14,6 +16,8 @@ const TASK_PERMISSION_MAP: Record<string, string> = {
 // GET /api/teachers/tasks - List tasks
 export async function GET(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -133,6 +137,8 @@ export async function GET(req: Request) {
 // POST /api/teachers/tasks - Admin creates and assigns a task to 1 or more teachers with permission handling
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -270,7 +276,7 @@ export async function POST(req: Request) {
         const alreadyHasPerm = !!currentPerms[requiredPermission];
 
         // Insert grant record into teacher_permission_grants
-        await adminClient.from("teacher_permission_grants").insert({
+        await mustWrite(adminClient.from("teacher_permission_grants").insert({
           user_id: roleRow.user_id,
           teacher_id: roleRow.staff_id,
           permission_key: requiredPermission,
@@ -278,7 +284,7 @@ export async function POST(req: Request) {
           granted_by: user.id,
           expires_at: expiresAtIso,
           is_active: true,
-        });
+        }), "teacher_permission_grants insert");
 
         // Activate permission in user_roles if not already permanently enabled
         if (!alreadyHasPerm) {
@@ -286,10 +292,10 @@ export async function POST(req: Request) {
             ...currentPerms,
             [requiredPermission]: true,
           };
-          await adminClient
+          await mustWrite(adminClient
             .from("user_roles")
             .update({ permissions: updated })
-            .eq("user_id", roleRow.user_id);
+            .eq("user_id", roleRow.user_id), "user_roles update");
 
           clearUserRoleCache(roleRow.user_id);
           grantedCount++;
@@ -320,8 +326,11 @@ export async function POST(req: Request) {
 }
 
 // PATCH /api/teachers/tasks - Update task status or submit completion report
+// undo: n/a — follow-up: task status/delete has no journal yet (audit-2 report); clear-all is demo data
 export async function PATCH(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -375,17 +384,17 @@ export async function PATCH(req: Request) {
     // If Admin is approving or updating overall task
     if (isAdmin) {
       if (taskId && status) {
-        await adminClient
+        await mustWrite(adminClient
           .from("teacher_tasks")
           .update({ status, updated_at: new Date().toISOString() })
-          .eq("id", taskId);
+          .eq("id", taskId), "teacher_tasks update");
       }
 
       if (assigneeId && status) {
-        await adminClient
+        await mustWrite(adminClient
           .from("teacher_task_assignees")
           .update({ status })
-          .eq("id", assigneeId);
+          .eq("id", assigneeId), "teacher_task_assignees update");
       }
 
       return NextResponse.json({ success: true, message: "Task status updated by admin." });
@@ -400,6 +409,8 @@ export async function PATCH(req: Request) {
 // DELETE /api/teachers/tasks - Admin deletes a task or clears demo tasks
 export async function DELETE(req: Request) {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -425,8 +436,8 @@ export async function DELETE(req: Request) {
     const clearAll = searchParams.get("clearAll") === "true";
 
     if (clearAll) {
-      await adminClient.from("teacher_task_assignees").delete().neq("id", "00000000-0000-0000-0000-000000000000");
-      await adminClient.from("teacher_tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await mustWrite(adminClient.from("teacher_task_assignees").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "teacher_task_assignees delete");
+      await mustWrite(adminClient.from("teacher_tasks").delete().neq("id", "00000000-0000-0000-0000-000000000000"), "teacher_tasks delete");
       return NextResponse.json({ success: true, message: "All demo tasks cleared successfully." });
     }
 
@@ -435,7 +446,7 @@ export async function DELETE(req: Request) {
     }
 
     // Delete assignees first, then the task
-    await adminClient.from("teacher_task_assignees").delete().eq("task_id", taskId);
+    await mustWrite(adminClient.from("teacher_task_assignees").delete().eq("task_id", taskId), "teacher_task_assignees delete");
     const { error: delErr } = await adminClient.from("teacher_tasks").delete().eq("id", taskId);
 
     if (delErr) {

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { StudentStatus, Semester } from "@/lib/types";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
+import { softWrite } from "@/lib/supabase/write";
 
 export interface StudentPromotionItem {
   studentId: string;
@@ -37,6 +39,8 @@ export interface PromotionRequestBody {
 // POST /api/students/promotion
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -277,7 +281,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Audit Log
-    await adminClient.from("audit_log").insert({
+    await softWrite(adminClient.from("audit_log").insert({
       performed_by: user.id,
       action: "PROMOTION_WIZARD_EXECUTE",
       table_name: "students",
@@ -298,7 +302,7 @@ export async function POST(req: Request) {
         passedOutCount,
         overriddenCount,
       },
-    });
+    }), "audit_log insert");
 
     await notify({
       roles: ["Admin", "Staff"],

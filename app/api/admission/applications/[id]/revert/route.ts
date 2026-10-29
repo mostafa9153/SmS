@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { dateLabelIST } from "@/lib/utils/date";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(
   req: Request,
@@ -37,7 +39,7 @@ export async function POST(
     // 2. Void or cancel associated invoice
     if (app.payment_receipt_no) {
       try {
-        await supabase
+        await mustWrite(supabase
           .from("admission_invoices")
           .update({
             invoice_status: "cancelled",
@@ -45,9 +47,9 @@ export async function POST(
             remarks: `Admission reverted back to pending on ${dateLabelIST()}`,
             updated_at: new Date().toISOString(),
           })
-          .eq("invoice_number", app.payment_receipt_no);
+          .eq("invoice_number", app.payment_receipt_no), "admission_invoices update");
       } catch (invErr) {
-        console.warn("Could not void invoice during admission revert:", invErr);
+        await notifyAdminsOfError("admission.revert", "Could not void invoice during admission revert", invErr, "/admission");
       }
     }
 

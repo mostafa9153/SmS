@@ -6,6 +6,7 @@ import { mapDBStudentToStudent, type DBStudent } from "./db-students";
 import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "./db-results";
 import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";
+import { mustWrite, softWrite } from "@/lib/supabase/write";
 
 interface ProcessResult {
   summary: ImportBatchSummary;
@@ -536,7 +537,9 @@ export async function dbProcessBulkUpload(
             message: `Insert failed: ${singleErr?.message || "Unknown error"}`,
           });
         } else {
-          await supabase.from("academic_history").insert({
+          // The student row exists, so keep going (its audit entry is needed for rollback)
+          // and report the missing history on this row.
+          const { error: histErr } = await supabase.from("academic_history").insert({
             student_id: singleRec.id,
             year: singleRec.admission_year,
             class: singleRec.present_class,
@@ -544,6 +547,13 @@ export async function dbProcessBulkUpload(
             roll: singleRec.present_roll,
             status: singleRec.current_status,
           });
+          if (histErr) {
+            errorsList.push({
+              rowNumber: item.rowNumber,
+              name: item.incomingData.name,
+              message: `Student created, but academic history failed: ${histErr.message}`,
+            });
+          }
 
           createAuditEntries.push({
             performed_by: userId,
@@ -612,7 +622,7 @@ export async function dbProcessBulkUpload(
   }
 
   // Insert master batch entry in audit log to ensure the batch is permanently tracked in history
-  await supabase.from("audit_log").insert({
+  await softWrite(supabase.from("audit_log").insert({
     performed_by: userId,
     action: "BATCH_UPLOAD",
     table_name: "students",
@@ -626,7 +636,7 @@ export async function dbProcessBulkUpload(
       skipped_count: skippedCount,
       error_count: errorCount,
     },
-  });
+  }), "audit_log insert");
 
   const summary: ImportBatchSummary = {
     batchId,
@@ -987,7 +997,7 @@ export async function dbProcessResultsBulkUpload(
   }
 
   // Insert master batch entry in audit log to ensure results batch is permanently tracked in history
-  await supabase.from("audit_log").insert({
+  await softWrite(supabase.from("audit_log").insert({
     performed_by: userId,
     action: "BATCH_UPLOAD",
     table_name: "student_results",
@@ -1003,7 +1013,7 @@ export async function dbProcessResultsBulkUpload(
       skipped_count: skippedCount,
       error_count: errorCount,
     },
-  });
+  }), "audit_log insert");
 
   const summary: ImportBatchSummary = {
     batchId,
@@ -1076,7 +1086,7 @@ export async function dbRollbackBatch(
 
     if (entry.action === "CREATE" && entry.record_id) {
       // Delete the record created in this batch
-      await supabase.from(tableName).delete().eq("id", entry.record_id);
+      await mustWrite(supabase.from(tableName).delete().eq("id", entry.record_id), `${tableName} delete`);
       deletedCount++;
     } else if (entry.action === "UPDATE" && entry.record_id && entry.old_values) {
       // Revert the record back to its previous values
@@ -1085,13 +1095,13 @@ export async function dbRollbackBatch(
       delete oldVals.created_at;
       oldVals.updated_at = new Date().toISOString();
 
-      await supabase.from(tableName).update(oldVals).eq("id", entry.record_id);
+      await mustWrite(supabase.from(tableName).update(oldVals).eq("id", entry.record_id), `${tableName} update`);
       revertedCount++;
     }
   }
 
   // Log the rollback action
-  await supabase.from("audit_log").insert({
+  await softWrite(supabase.from("audit_log").insert({
     performed_by: userId,
     action: "ROLLBACK",
     table_name: batchLogs[0]?.table_name || "batch_rollback",
@@ -1101,7 +1111,7 @@ export async function dbRollbackBatch(
       deleted_new_records: deletedCount,
       reverted_updated_records: revertedCount,
     },
-  });
+  }), "audit_log insert");
 
   return {
     success: true,

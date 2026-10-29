@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { softWrite } from "@/lib/supabase/write";
 
 // Keys come only from env (generate with `npx web-push generate-vapid-keys`).
 // Without them push is disabled; the in-app bell still works.
@@ -83,7 +84,7 @@ export async function sendWebPushNotification(options: SendPushOptions): Promise
           return { endpoint: sub.endpoint, success: true };
         } catch (err: any) {
           if (err.statusCode === 410 || err.statusCode === 404) {
-            await admin.from("teacher_push_subscriptions").delete().eq("id", sub.id);
+            await softWrite(admin.from("teacher_push_subscriptions").delete().eq("id", sub.id), "teacher_push_subscriptions delete");
           }
           throw err;
         }

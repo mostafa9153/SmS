@@ -3,6 +3,8 @@ import { receiptConflict } from "@/lib/admission/receipt-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { nowTimeIST, todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(
   req: Request,
@@ -165,7 +167,7 @@ export async function POST(
     // 3. Record invoice in admission_invoices table
     if (paymentReceiptNo) {
       try {
-        await supabase.from("admission_invoices").upsert(
+        await mustWrite(supabase.from("admission_invoices").upsert(
           {
             invoice_number: paymentReceiptNo,
             academic_session: `${currentYear} – ${currentYear + 1}`,
@@ -189,9 +191,9 @@ export async function POST(
             updated_at: new Date().toISOString(),
           },
           { onConflict: "invoice_number" }
-        );
+        ), "admission_invoices upsert");
       } catch (invErr) {
-        console.warn("Could not record admission invoice:", invErr);
+        await notifyAdminsOfError("admission.admit", "Could not record admission invoice", invErr, "/admission");
       }
     }
 

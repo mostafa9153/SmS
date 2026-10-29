@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
+import { mustWrite, softWrite } from "@/lib/supabase/write";
 
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -106,16 +110,16 @@ export async function POST(req: Request) {
       const ids = targetStudents.map((s) => s.id);
       for (let i = 0; i < ids.length; i += 100) {
         const chunk = ids.slice(i, i + 100);
-        await adminClient
+        await mustWrite(adminClient
           .from("academic_history")
           .delete()
           .in("student_id", chunk)
-          .eq("year", academicYear);
+          .eq("year", academicYear), "academic_history delete");
       }
     }
 
     // Audit log
-    await adminClient.from("audit_log").insert({
+    await softWrite(adminClient.from("audit_log").insert({
       performed_by: user.id,
       action: "PROMOTION_UNDO",
       table_name: "students",
@@ -125,7 +129,7 @@ export async function POST(req: Request) {
         totalRestored: restoredCount,
         resetToContinuing,
       },
-    });
+    }), "audit_log insert");
 
     await notify({ roles: ["Admin", "Staff"], severity: "warning", title: "Promotion rolled back", message: `${restoredCount} student(s) restored to Continuing status.`, link: "/promotion", source: "students.promotion.undo" });
 

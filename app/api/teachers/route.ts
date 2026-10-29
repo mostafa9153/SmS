@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { DEFAULT_TEACHER_PERMISSIONS } from "@/lib/types/teacher";
+import { mustWrite } from "@/lib/supabase/write";
 
 // GET /api/teachers - List all teaching staff with their account, permissions, active grants, and assigned classes
 export async function GET() {
   try {
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -87,6 +91,8 @@ export async function GET() {
 // POST /api/teachers - Create or link login credentials for a teaching staff member
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -196,10 +202,10 @@ export async function POST(req: Request) {
     }
 
     // 3. Update staff_profiles with the official email
-    await adminClient
+    await mustWrite(adminClient
       .from("staff_profiles")
       .update({ email: cleanEmail })
-      .eq("id", staffId);
+      .eq("id", staffId), "staff_profiles update");
 
     clearUserRoleCache(targetAuthUserId);
 
@@ -219,8 +225,11 @@ export async function POST(req: Request) {
 }
 
 // PATCH /api/teachers - Update permissions, temporary grants, or reset teacher password
+// undo: n/a — follow-up: permission toggles are re-settable on the same screen; no journal yet (audit-2 report)
 export async function PATCH(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -328,7 +337,7 @@ export async function PATCH(req: Request) {
     if (temporaryGrant && targetUserId) {
       const { permissionKey, expiresAt, taskId } = temporaryGrant;
       if (permissionKey && expiresAt) {
-        await adminClient.from("teacher_permission_grants").insert({
+        await mustWrite(adminClient.from("teacher_permission_grants").insert({
           user_id: targetUserId,
           teacher_id: targetStaffId || null,
           permission_key: permissionKey,
@@ -336,7 +345,7 @@ export async function PATCH(req: Request) {
           granted_by: user.id,
           expires_at: expiresAt,
           is_active: true,
-        });
+        }), "teacher_permission_grants insert");
 
         // Temporarily activate in user_roles.permissions
         const { data: uRole } = await adminClient
@@ -350,10 +359,10 @@ export async function PATCH(req: Request) {
           [permissionKey]: true,
         };
 
-        await adminClient
+        await mustWrite(adminClient
           .from("user_roles")
           .update({ permissions: updatedPerms })
-          .eq("user_id", targetUserId);
+          .eq("user_id", targetUserId), "user_roles update");
 
         clearUserRoleCache(targetUserId);
       }

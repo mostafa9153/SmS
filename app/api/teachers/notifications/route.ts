@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mustWrite } from "@/lib/supabase/write";
 
 // GET /api/teachers/notifications - Get notifications for current user
 export async function GET() {
@@ -50,19 +51,19 @@ export async function PATCH(req: Request) {
     const adminClient = createAdminClient();
 
     if (markAllAsRead) {
-      await adminClient
+      await mustWrite(adminClient
         .from("teacher_notifications")
         .update({ is_read: true })
-        .eq("user_id", user.id);
+        .eq("user_id", user.id), "teacher_notifications update");
       return NextResponse.json({ success: true, message: "All marked as read" });
     }
 
     if (id) {
-      await adminClient
+      await mustWrite(adminClient
         .from("teacher_notifications")
         .update({ is_read: true })
         .eq("id", id)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id), "teacher_notifications update");
       return NextResponse.json({ success: true });
     }
 

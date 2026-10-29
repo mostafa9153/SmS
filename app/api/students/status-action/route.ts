@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 const PENDING_STATUSES = [
   "Promoted But Not Admitted",
@@ -14,6 +16,50 @@ const PENDING_STATUSES = [
   "exam fail - C.C",
   "C.C.H.S.",
 ];
+
+type HistoryStudent = { id: string; present_class: string | null; present_section: string | null; present_roll: number | null };
+
+/**
+ * Write this year's academic_history status for each student. The student row is already
+ * updated, so a failure here does not fail the request; it is collected and sent to admins.
+ */
+async function recordHistoryStatus(
+  supabase: ReturnType<typeof createAdminClient>,
+  students: HistoryStudent[],
+  year: number,
+  status: string,
+) {
+  const failed: string[] = [];
+  for (const s of students) {
+    try {
+      const { data: exist, error } = await supabase
+        .from("academic_history")
+        .select("id")
+        .eq("student_id", s.id)
+        .eq("year", year)
+        .maybeSingle();
+      if (error) throw error;
+
+      if (exist) {
+        await mustWrite(supabase.from("academic_history").update({ status }).eq("id", exist.id), "academic_history update");
+      } else {
+        await mustWrite(supabase.from("academic_history").insert({
+          student_id: s.id,
+          year,
+          class: s.present_class,
+          section: s.present_section,
+          roll: s.present_roll,
+          status,
+        }), "academic_history insert");
+      }
+    } catch (err) {
+      failed.push(`${s.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  if (failed.length > 0) {
+    await notifyAdminsOfError("students.status-action", `Academic history not saved for ${failed.length} student(s) marked ${status}`, failed.join("; "));
+  }
+}
 
 export async function POST(req: Request) {
   try {
@@ -63,39 +109,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: updErr.message }, { status: 500 });
       }
 
-      // Record in academic history
-      try {
-        for (const s of updatedStudents || []) {
-          const { data: exist } = await supabase
-            .from("academic_history")
-            .select("id")
-            .eq("student_id", s.id)
-            .eq("year", currentYear)
-            .maybeSingle();
-
-          if (exist) {
-            await supabase
-              .from("academic_history")
-              .update({ status: "TC Out" })
-              .eq("id", exist.id);
-          } else {
-            await supabase.from("academic_history").insert({
-              student_id: s.id,
-              year: currentYear,
-              class: s.present_class,
-              section: s.present_section,
-              roll: s.present_roll,
-              status: "TC Out",
-            });
-          }
-        }
-      } catch (hErr) {
-        console.warn("Could not record academic_history for TC Out:", hErr);
-      }
+      await recordHistoryStatus(supabase, updatedStudents || [], currentYear, "TC Out");
 
       // Log teacher activity
       try {
-        await supabase.from("teacher_activity_logs").insert({
+        await mustWrite(supabase.from("teacher_activity_logs").insert({
           user_id: auth.user?.id || null,
           teacher_id: auth.staffId || null,
           teacher_name: auth.fullName || "Staff",
@@ -107,7 +125,7 @@ export async function POST(req: Request) {
             reason: departureReason,
             tc_no: tcNo,
           },
-        });
+        }), "teacher_activity_logs insert");
       } catch (lErr) {
         console.warn("Could not log TC activity:", lErr);
       }
@@ -144,35 +162,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: updErr.message }, { status: 500 });
       }
 
-      // Record in academic history
-      try {
-        for (const s of updatedStudents || []) {
-          const { data: exist } = await supabase
-            .from("academic_history")
-            .select("id")
-            .eq("student_id", s.id)
-            .eq("year", currentYear)
-            .maybeSingle();
-
-          if (exist) {
-            await supabase
-              .from("academic_history")
-              .update({ status: "Drop Out" })
-              .eq("id", exist.id);
-          } else {
-            await supabase.from("academic_history").insert({
-              student_id: s.id,
-              year: currentYear,
-              class: s.present_class,
-              section: s.present_section,
-              roll: s.present_roll,
-              status: "Drop Out",
-            });
-          }
-        }
-      } catch (hErr) {
-        console.warn("Could not record academic_history for Drop Out:", hErr);
-      }
+      await recordHistoryStatus(supabase, updatedStudents || [], currentYear, "Drop Out");
 
       return NextResponse.json({
         success: true,

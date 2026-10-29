@@ -825,6 +825,7 @@ export async function dbSearchStudents(
 }
 
 import { generateSchoolId } from "@/lib/supabase/school-id-generator";
+import { mustWrite } from "@/lib/supabase/write";
 
 // CREATE student
 export async function dbCreateStudent(input: Omit<Student, "id" | "academicHistory">): Promise<Student> {
@@ -1037,7 +1038,7 @@ export async function dbUpdateStudent(
         .maybeSingle();
 
       if (existingHist) {
-        await supabase
+        await mustWrite(supabase
           .from("academic_history")
           .update({
             class: entry.class,
@@ -1047,9 +1048,9 @@ export async function dbUpdateStudent(
             semester: toNullableString(entry.semester),
             detention_count: toNullableNumber(entry.detentionCount),
           })
-          .eq("id", existingHist.id);
+          .eq("id", existingHist.id), "academic_history update");
       } else {
-        await supabase.from("academic_history").insert({
+        await mustWrite(supabase.from("academic_history").insert({
           student_id: id,
           year: entry.year,
           class: entry.class,
@@ -1058,7 +1059,7 @@ export async function dbUpdateStudent(
           status: entry.status,
           semester: toNullableString(entry.semester),
           detention_count: toNullableNumber(entry.detentionCount),
-        });
+        }), "academic_history insert");
       }
     }
   }
@@ -1118,8 +1119,8 @@ export async function dbUpdateStudent(
 export async function dbDeleteStudent(id: string): Promise<boolean> {
   const admin = createAdminClient();
   // Clean up any dependent child tables to prevent foreign key constraint violations
-  await admin.from("academic_history").delete().eq("student_id", id);
-  await admin.from("student_results").delete().eq("student_id", id);
+  await mustWrite(admin.from("academic_history").delete().eq("student_id", id), "academic_history delete");
+  await mustWrite(admin.from("student_results").delete().eq("student_id", id), "student_results delete");
   const { error } = await admin.from("students").delete().eq("id", id);
   if (error) throw new Error(error.message);
   return true;

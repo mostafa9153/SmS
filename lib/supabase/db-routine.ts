@@ -14,6 +14,7 @@ import {
 import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { withDerivedGroupSettings } from "@/lib/routine/routine-groups";
+import { mustWrite } from "@/lib/supabase/write";
 
 export interface RoutineFullState {
   settings: RoutineSettings;
@@ -536,11 +537,11 @@ export async function upsertRoomDb(room: { id?: string; name: string; isLab?: bo
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_rooms").upsert({
+    await mustWrite(supabase.from("routine_rooms").upsert({
       id,
       name: room.name,
       is_lab: isLab,
-    });
+    }), "routine_rooms upsert");
   } catch (err) {
     console.warn("upsertRoomDb:", err);
   }
@@ -558,7 +559,7 @@ export async function deleteRoomDb(id: string): Promise<boolean> {
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_rooms").delete().eq("id", id);
+    await mustWrite(supabase.from("routine_rooms").delete().eq("id", id), "routine_rooms delete");
     return true;
   } catch (err) {
     console.warn("deleteRoomDb:", err);
@@ -603,7 +604,7 @@ export async function upsertClassDb(cls: { id?: string; className: string; secti
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_classes").upsert(
+    await mustWrite(supabase.from("routine_classes").upsert(
       {
         id,
         class_name: cls.className,
@@ -611,7 +612,7 @@ export async function upsertClassDb(cls: { id?: string; className: string; secti
         daily_periods: cls.dailyPeriods || null,
       },
       { onConflict: "class_name,section" }
-    );
+    ), "routine_classes upsert");
   } catch (err) {
     console.warn("upsertClassDb:", err);
   }
@@ -710,7 +711,7 @@ export async function deleteClassDb(id: string): Promise<boolean> {
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_classes").delete().eq("id", id);
+    await mustWrite(supabase.from("routine_classes").delete().eq("id", id), "routine_classes delete");
     return true;
   } catch (err) {
     console.warn("deleteClassDb:", err);
@@ -826,7 +827,7 @@ export async function upsertSubjectDb(subj: {
     const { error } = await supabase.from("routine_subjects").upsert(payload);
     if (error) {
       console.warn("upsertSubjectDb primary payload error, trying base fallback:", error);
-      await supabase.from("routine_subjects").upsert({
+      await mustWrite(supabase.from("routine_subjects").upsert({
         id,
         name: subj.name.trim(),
         class_name: subj.className || null,
@@ -841,7 +842,7 @@ export async function upsertSubjectDb(subj: {
         periods_per_week: subj.periodsPerWeek ?? 5,
         theory_periods: subj.theoryPeriods ?? (Boolean(subj.isLab) ? 4 : 5),
         lab_periods: subj.labPeriods ?? (Boolean(subj.isLab) ? 2 : 0),
-      });
+      }), "routine_subjects upsert");
     }
   } catch (err) {
     console.warn("upsertSubjectDb catch:", err);
@@ -979,7 +980,7 @@ export async function batchUpsertSubjectsDb(
         max_per_day: s.maxPerDay,
         periods_per_week: s.periodsPerWeek,
       }));
-      await supabase.from("routine_subjects").upsert(baseRows);
+      await mustWrite(supabase.from("routine_subjects").upsert(baseRows), "routine_subjects upsert");
     }
   } catch (err) {
     console.warn("batchUpsertSubjectsDb catch:", err);
@@ -999,7 +1000,7 @@ export async function deleteSubjectDb(id: string): Promise<boolean> {
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_subjects").delete().eq("id", id);
+    await mustWrite(supabase.from("routine_subjects").delete().eq("id", id), "routine_subjects delete");
     return true;
   } catch (err) {
     console.warn("deleteSubjectDb:", err);
@@ -1142,9 +1143,9 @@ export async function deleteTeacherDb(id: string): Promise<boolean> {
 
   const supabase = createClient();
   try {
-    await supabase.from("routine_teacher_availability").delete().eq("teacher_id", id);
-    await supabase.from("routine_teacher_availability").delete().eq("id", id);
-    await supabase.from("routine_assignments").delete().eq("teacher_id", id);
+    await mustWrite(supabase.from("routine_teacher_availability").delete().eq("teacher_id", id), "routine_teacher_availability delete");
+    await mustWrite(supabase.from("routine_teacher_availability").delete().eq("id", id), "routine_teacher_availability delete");
+    await mustWrite(supabase.from("routine_assignments").delete().eq("teacher_id", id), "routine_assignments delete");
     return true;
   } catch (err) {
     console.warn("deleteTeacherDb:", err);
@@ -1408,7 +1409,7 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
     }
 
     // 2. Then it becomes the only active one
-    await supabase.from("routine_generated_cache").update({ is_active: false }).neq("id", inserted.id);
+    await mustWrite(supabase.from("routine_generated_cache").update({ is_active: false }).neq("id", inserted.id), "routine_generated_cache update");
 
     // 3. Auto-remove older routines beyond last 10
     await pruneOldGeneratedRoutinesDb(10);
@@ -1477,8 +1478,8 @@ export async function activateGeneratedRoutineDb(id: string): Promise<GeneratedR
     if (error || !target) return null;
 
     // Set target active, others inactive
-    await supabase.from("routine_generated_cache").update({ is_active: false }).neq("id", id);
-    await supabase.from("routine_generated_cache").update({ is_active: true }).eq("id", id);
+    await mustWrite(supabase.from("routine_generated_cache").update({ is_active: false }).neq("id", id), "routine_generated_cache update");
+    await mustWrite(supabase.from("routine_generated_cache").update({ is_active: true }).eq("id", id), "routine_generated_cache update");
 
     const generated: GeneratedRoutine = {
       id: target.id,
@@ -1531,10 +1532,10 @@ export async function deleteGeneratedRoutineHistoryDb(id: string): Promise<boole
       .limit(1);
 
     if (remaining && remaining.length > 0 && !remaining[0].is_active) {
-      await supabase
+      await mustWrite(supabase
         .from("routine_generated_cache")
         .update({ is_active: true })
-        .eq("id", remaining[0].id);
+        .eq("id", remaining[0].id), "routine_generated_cache update");
     }
 
     if (typeof window !== "undefined") {
@@ -1752,7 +1753,7 @@ export async function upsertSubjectGroupDb(group: {
     if (hErr) console.warn("upsertSubjectGroupDb header:", hErr);
 
     // 2. replace section memberships (scope='section')
-    await supabase.from("routine_subject_group_sections").delete().eq("group_id", id);
+    await mustWrite(supabase.from("routine_subject_group_sections").delete().eq("group_id", id), "routine_subject_group_sections delete");
     if (group.scope === "section" && group.sectionIds.length > 0) {
       const secRows = group.sectionIds.map((cid) => ({ group_id: id, class_id: cid }));
       const { error: sErr } = await supabase

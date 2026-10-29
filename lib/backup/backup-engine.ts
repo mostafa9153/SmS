@@ -6,6 +6,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BackupPayload, RestorePreview, RestoreResult } from "./types";
+import { mustWrite } from "@/lib/supabase/write";
 
 // Primary tables to back up in order of dependency
 export const KNOWN_BACKUP_TABLES = [
@@ -108,7 +109,7 @@ export async function generateBackupSnapshot(adminUser?: { id: string; email: st
   // Record audit log for the backup action
   if (adminUser?.id) {
     try {
-      await supabase.from("audit_log").insert({
+      await mustWrite(supabase.from("audit_log").insert({
         performed_by: adminUser.id,
         action: "SYSTEM_BACKUP_EXPORTED",
         table_name: "students",
@@ -117,7 +118,7 @@ export async function generateBackupSnapshot(adminUser?: { id: string; email: st
           resultsCount: studentResults.length,
           timestamp,
         },
-      });
+      }), "audit_log insert");
     } catch (e) {
       console.warn("Could not log backup export:", e);
     }
@@ -207,11 +208,11 @@ export async function restoreBackup(
   // 1. If Clean Restore: Clear existing records in reverse dependency order
   if (mode === "clean_restore") {
     // Delete student_results first (foreign key dependency)
-    await supabase.from("student_results").delete().not("id", "is", null);
+    await mustWrite(supabase.from("student_results").delete().not("id", "is", null), "student_results delete");
     // Delete academic_history
-    await supabase.from("academic_history").delete().not("id", "is", null);
+    await mustWrite(supabase.from("academic_history").delete().not("id", "is", null), "academic_history delete");
     // Delete students
-    await supabase.from("students").delete().not("id", "is", null);
+    await mustWrite(supabase.from("students").delete().not("id", "is", null), "students delete");
   }
 
   // 2. Restore Students

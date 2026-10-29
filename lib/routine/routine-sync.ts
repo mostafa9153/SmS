@@ -20,6 +20,7 @@ import {
   parseSectionAndStream,
 } from "./routine-helpers";
 import { showToast } from "@/components/ui/toast-banner";
+import { softWrite } from "@/lib/supabase/write";
 
 export interface SyncClassItem {
   id: string;
@@ -624,7 +625,7 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
     }
 
     if (idsToDelete.length > 0) {
-      await supabase.from("routine_subjects").delete().in("id", idsToDelete);
+      await softWrite(supabase.from("routine_subjects").delete().in("id", idsToDelete), "routine_subjects delete");
     }
 
     if (toUpsert.length > 0) {
@@ -723,7 +724,7 @@ export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncCla
     if (idsToDelete.length > 0) {
       setLocalRoutineState({ classes: toKeep });
       const supabase = createClient();
-      await supabase.from("routine_classes").delete().in("id", idsToDelete);
+      await softWrite(supabase.from("routine_classes").delete().in("id", idsToDelete), "routine_classes delete");
       window.dispatchEvent(new Event("sms_routine_state_updated"));
     }
   } catch (err) {

@@ -75,6 +75,7 @@ export async function GET(req: Request) {
 
 import { studentCreateSchema } from "@/lib/validations/student-schema";
 import { requireStaff } from "@/lib/api/guard";
+import { softWrite } from "@/lib/supabase/write";
 
 // POST /api/students - Create a student
 export async function POST(req: Request) {
@@ -100,13 +101,13 @@ export async function POST(req: Request) {
     // Create audit log for student creation using existing user object
     const supabase = await createClient();
     if (auth.user) {
-      await supabase.from("audit_log").insert({
+      await softWrite(supabase.from("audit_log").insert({
         performed_by: auth.user.id,
         action: "CREATE",
         table_name: "students",
         record_id: student.id,
         new_values: student,
-      });
+      }), "audit_log insert");
     }
 
     return NextResponse.json({ success: true, student });

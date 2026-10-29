@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mustWrite } from "@/lib/supabase/write";
 
 export const dynamic = "force-dynamic";
 
@@ -63,11 +64,11 @@ export async function POST(req: Request) {
 
     if (upsertError) {
       console.warn("Failed to upsert system_config, falling back to audit_log:", upsertError);
-      await supabase.from("audit_log").insert({
+      await mustWrite(supabase.from("audit_log").insert({
         action: "SYSTEM_CONFIG",
         table_name: CONFIG_KEY,
         metadata: order,
-      });
+      }), "audit_log insert");
     }
 
     return NextResponse.json({ success: true });

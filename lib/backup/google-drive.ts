@@ -6,6 +6,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BackupFrequency, BackupPayload, DriveBackupFile, GoogleAccountInfo } from "./types";
+import { mustWrite } from "@/lib/supabase/write";
 
 const GOOGLE_OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -107,12 +108,12 @@ export async function saveBackupConfig(newConfig: Partial<StoredBackupConfig>, a
   }
 
   // 2. Fallback to audit_log
-  await supabase.from("audit_log").insert({
+  await mustWrite(supabase.from("audit_log").insert({
     performed_by: adminUserId || null,
     action: "SYSTEM_CONFIG",
     table_name: "backup_settings",
     metadata: merged,
-  });
+  }), "audit_log insert");
 
   return merged;
 }
