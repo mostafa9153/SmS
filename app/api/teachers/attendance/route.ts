@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { denyOutsideClasses, requireRole } from "@/lib/api/guard";
 import { todayIST } from "@/lib/utils/date";
-import { recordUndo, snapshotRows } from "@/lib/undo/journal";
+import { recordUndo } from "@/lib/undo/journal";
 
 // GET /api/teachers/attendance - Fetch student attendance for a class/section/date
 export async function GET(req: Request) {
@@ -172,9 +172,15 @@ export async function POST(req: Request) {
     }));
 
     const studentIds = new Set<string>(rowsToUpsert.map((r: any) => r.student_id));
-    const before = (await snapshotRows(adminClient, "student_attendance", "attendance_date", date)).filter(
-      (r: any) => studentIds.has(r.student_id),
-    );
+    const { data: beforeRows, error: beforeError } = await adminClient
+      .from("student_attendance")
+      .select("*")
+      .eq("attendance_date", date)
+      .in("student_id", [...studentIds]);
+    if (beforeError) {
+      return NextResponse.json({ error: beforeError.message }, { status: 500 });
+    }
+    const before = beforeRows ?? [];
     const beforeIds = new Set<string>(before.map((r: any) => r.id));
 
     const { data: saved, error: upsertError } = await adminClient
