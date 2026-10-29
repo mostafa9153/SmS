@@ -43,20 +43,10 @@ if (lintable.length) {
   const errorsOf = (json) => JSON.parse(json).flatMap((r) => r.messages.filter((m) => m.severity === 2).map((m) => ({ file: r.filePath, line: m.line, rule: m.ruleId })));
   let errs = [];
   try { errs = errorsOf(lint.stdout); } catch { errs = [{ file: "", line: 0, rule: "eslint output unreadable" }]; }
-  // Only errors this change introduced fail; ones already in the file at `base` are reported as pre-existing.
-  const fresh = [], old = [];
-  for (const file of [...new Set(errs.map((e) => e.file))]) {
-    const rel = file ? file.split("\\").join("/").replace(`${process.cwd().split("\\").join("/")}/`, "") : "";
-    const before = rel ? run(`git show "${base}:${rel}" | npx eslint -f json --stdin --stdin-filename "${rel}"`) : null;
-    const baseCount = {};
-    try { for (const e of errorsOf(before.stdout)) baseCount[e.rule] = (baseCount[e.rule] ?? 0) + 1; } catch { /* new file */ }
-    for (const e of errs.filter((x) => x.file === file)) {
-      const line = `${rel}:${e.line} ${e.rule}`;
-      if (baseCount[e.rule] > 0) { baseCount[e.rule]--; old.push(line); } else fresh.push(line);
-    }
-  }
-  add(fresh.length ? "FAIL" : "PASS", "ESLint: no new errors", fresh.slice(0, 10).join("\n"));
-  if (old.length) add("WARN", "ESLint: pre-existing errors in touched files (Phase 4 cleanup)", old.slice(0, 10).join("\n"));
+  // The repo is at zero lint errors (Phase 4), so any error in a changed file fails.
+  const cwd = `${process.cwd().split("\\").join("/")}/`;
+  const lines = errs.map((e) => `${e.file.split("\\").join("/").replace(cwd, "")}:${e.line} ${e.rule}`);
+  add(lines.length ? "FAIL" : "PASS", "ESLint: no errors in changed files", lines.slice(0, 10).join("\n"));
 }
 
 // ---- 3. tests

@@ -169,7 +169,7 @@ export default function StudentAttendancePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
           {/* Class Overview Donut */}
           <div className="bg-card border border-border p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 self-start w-full text-center">Today's Class Overview</h2>
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 self-start w-full text-center">Today&apos;s Class Overview</h2>
             <div className="h-44 w-full max-w-[240px] relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

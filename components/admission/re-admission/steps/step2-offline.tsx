@@ -69,17 +69,6 @@ export function Step2Offline({
     }).catch(() => {});
   }, []);
 
-  // Auto-fetch candidates on mount and filter/search changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (selectedClass) {
-        fetchCandidates();
-      }
-    }, 250);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, selectedSection, statusFilter, searchQuery]);
-
   // Fetch candidates on filter change or click
   const fetchCandidates = async () => {
     if (!selectedClass) {
@@ -111,6 +100,17 @@ export function Step2Offline({
       setLoading(false);
     }
   };
+
+  // Auto-fetch candidates on mount and filter/search changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedClass) {
+        fetchCandidates();
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, selectedSection, statusFilter, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();

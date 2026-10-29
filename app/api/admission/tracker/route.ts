@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 
+// guard: custom — any signed-in non-Guest can read; no role/permission check yet (audit-2 A-API-2, awaiting decision)
 export async function GET(req: Request) {
   try {
     const auth = await getAuthenticatedUserRole();
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
     }
 
     // 3. Filter by Date range if provided
-    let records = (rawRows || []).filter((item) => {
+    const records = (rawRows || []).filter((item) => {
       const itemDate = (item.admitted_at || item.created_at || "").slice(0, 10);
       if (fromDate && itemDate < fromDate) return false;
       if (toDate && itemDate > toDate) return false;

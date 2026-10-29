@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { usePrintPortal } from "@/lib/hooks/use-print-portal";
 import {
   Select,
   SelectContent,
@@ -102,25 +103,7 @@ function AttendanceRegisterContent() {
 
   const isEmpty = !isLoading && students.length === 0;
 
-  const portalRef = useRef<HTMLDivElement | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => {
-    let el = document.getElementById("attendance-register-print-portal") as HTMLDivElement | null;
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "attendance-register-print-portal";
-      document.body.appendChild(el);
-    }
-    portalRef.current = el;
-    setPortalReady(true);
-    return () => {
-      if (el && el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-      portalRef.current = null;
-    };
-  }, []);
+  const portalEl = usePrintPortal("attendance-register-print-portal");
 
   return (
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
@@ -283,14 +266,14 @@ function AttendanceRegisterContent() {
       <style dangerouslySetInnerHTML={{ __html: `@media print { @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; } }` }} />
 
       {/* Print portal: rendered at body level so print CSS can isolate it */}
-      {portalReady && portalRef.current && !isEmpty && !isLoading && createPortal(
+      {portalEl && !isEmpty && !isLoading && createPortal(
         <AttendanceRegisterPrintable
           students={students}
           className={selectedClass}
           section={selectedSection}
           schoolLogoUrl={schoolProfile?.schoolLogoUrl || "/school-logo.png"}
         />,
-        portalRef.current
+        portalEl
       )}
     </div>
   );

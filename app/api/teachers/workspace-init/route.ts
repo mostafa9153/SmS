@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTeacherPortalStats } from "@/lib/supabase/db-teachers";
 import { fetchTeacherRoutineData } from "@/lib/supabase/teacher-routine";
 
+// guard: custom — supabase.auth.getUser(); data scoped to the caller's own staff_id
 export async function GET(req: Request) {
   try {
     const supabase = await createClient();
@@ -247,7 +248,7 @@ export async function GET(req: Request) {
           };
 
     const tasks = tasksRes.status === "fulfilled" ? tasksRes.value : [];
-    let classes = classesRes.status === "fulfilled" ? classesRes.value : [];
+    const classes = classesRes.status === "fulfilled" ? classesRes.value : [];
     const activities = activitiesRes.status === "fulfilled" ? activitiesRes.value : [];
     const notifications = notificationsRes.status === "fulfilled" ? notificationsRes.value : [];
     const absences = absencesRes.status === "fulfilled" ? absencesRes.value : [];

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/teachers/attendance - Fetch student attendance for a class/section/date
+// guard: custom — supabase.auth.getUser() only; no role/class check yet (audit-2 A-API-3, awaiting decision)
 export async function GET(req: Request) {
   try {
     const supabase = await createClient();
@@ -82,7 +83,7 @@ export async function GET(req: Request) {
       
       // Consecutive absences (going backward from 'date' or yesterday if today is not marked yet)
       let consecutiveAbsences = 0;
-      let checkDate = new Date(date);
+      const checkDate = new Date(date);
       // Sort records descending by date
       const pastRecords = studentRecords
         .filter((a: any) => a.attendance_date <= date)

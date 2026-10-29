@@ -478,7 +478,7 @@ function BonafideGeneratorContent() {
               {/* Father Name & Date of Birth */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Father's Name</Label>
+                  <Label className="text-xs font-semibold">Father&apos;s Name</Label>
                   <Input
                     value={studentForm.fatherName}
                     onChange={(e) => setStudentForm((prev) => ({ ...prev, fatherName: e.target.value }))}

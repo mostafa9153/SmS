@@ -290,7 +290,7 @@ export function syncBatchRoutineSubjectsToMarksSchemes(
       );
 
       if (matchingItems.length > 0) {
-        let currentSubjs = [...(scheme.subjects || [])];
+        const currentSubjs = [...(scheme.subjects || [])];
         let schemeModified = false;
 
         for (const item of matchingItems) {

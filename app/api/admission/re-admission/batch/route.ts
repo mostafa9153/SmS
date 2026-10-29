@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 
+// guard: custom — any signed-in non-Guest; no role/permission check yet (audit-2 A-API-1, awaiting decision)
 export async function POST(req: Request) {
   try {
     const auth = await getAuthenticatedUserRole();
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Fetch marks if rank strategy
-    let marksMap = new Map<string, number>();
+    const marksMap = new Map<string, number>();
     if (rollStrategy === "rank") {
       const { data: results } = await supabase
         .from("results")
