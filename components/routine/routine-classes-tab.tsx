@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { RoutineClass, RoutineSettings } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -642,9 +643,8 @@ export function RoutineClassesTab({
             <tbody className="divide-y divide-border">
               {classes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    <School className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>No classes configured yet. Click &quot;Sync from Presets&quot; above.</span>
+                  <td colSpan={6}>
+                    <EmptyState compact icon={School} title={<>No classes yet. Use &quot;Sync from Presets&quot; above.</>} />
                   </td>
                 </tr>
               ) : (

@@ -10,6 +10,8 @@ import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { QuickReAdmitDialog } from "@/components/students/quick-re-admit-dialog";
 import { IssueTcDialog } from "@/components/students/issue-tc-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Clock, Search, GraduationCap, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, CheckCircle2, Users, ChevronRight, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
+import { Clock, Search, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, Users, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -387,10 +389,8 @@ export function PendingStudentsClient() {
                 ))
               ) : students.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="font-semibold text-xs text-foreground">No pending students found</p>
-                    <p className="text-[11px] mt-0.5">All students are actively enrolled or archived.</p>
+                  <td colSpan={6}>
+                    <EmptyState compact icon={Users} title="No pending students found" />
                   </td>
                 </tr>
               ) : (
@@ -533,36 +533,14 @@ export function PendingStudentsClient() {
         </div>
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              Showing {students.length} of {totalCount} pending students
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-7 text-xs px-2.5"
-              >
-                Previous
-              </Button>
-              <span className="font-semibold text-foreground px-2">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-7 text-xs px-2.5"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          total={totalCount}
+          pageSize={pageSize}
+          className="border-t bg-muted/20"
+        />
       </div>
 
       {/* Modals & Dialogs */}

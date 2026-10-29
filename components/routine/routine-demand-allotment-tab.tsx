@@ -11,6 +11,7 @@ import {
   RoutineSubjectGroup,
 } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -786,9 +787,8 @@ export function RoutineDemandAllotmentTab({
             <tbody className="divide-y divide-border">
               {filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-10 text-center text-muted-foreground">
-                    <Scale className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>No matching class allotments found.</span>
+                  <td colSpan={9}>
+                    <EmptyState compact icon={Scale} title="No matching class allotments found" />
                   </td>
                 </tr>
               ) : (

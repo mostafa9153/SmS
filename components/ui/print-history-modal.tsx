@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -188,13 +189,7 @@ export function PrintHistoryModal({
 
         <div className="p-5 overflow-y-auto flex-1 space-y-3">
           {history.length === 0 ? (
-            <div className="py-12 text-center text-muted-foreground space-y-2">
-              <Printer className="h-8 w-8 mx-auto opacity-40 text-muted-foreground" />
-              <p className="text-sm font-semibold">No print history found for this session</p>
-              <p className="text-xs max-w-sm mx-auto">
-                Whenever you print single or bulk forms, details will be automatically logged here so you can undo any batch.
-              </p>
-            </div>
+            <EmptyState icon={Printer} title="No print history for this session" />
           ) : (
             history.map((item) => {
               const isUndone = !!item.undone;

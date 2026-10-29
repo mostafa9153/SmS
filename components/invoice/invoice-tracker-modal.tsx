@@ -9,10 +9,12 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { ShieldCheck, Search, CheckCircle2, XCircle, FileText, UserCheck, Users, RefreshCw, Calendar, CreditCard, ChevronRight, ChevronLeft, Sparkles, GraduationCap, CheckCheck, Ban, IndianRupee, ClipboardList, Download, Copy, Receipt, Layers, SlidersHorizontal, TrendingUp, LayoutDashboard, Filter, Printer, ArrowRight } from "lucide-react";
+import { ShieldCheck, Search, CheckCircle2, XCircle, FileText, UserCheck, RefreshCw, Calendar, CreditCard, ChevronRight, Sparkles, GraduationCap, CheckCheck, Ban, IndianRupee, ClipboardList, Download, Copy, Receipt, Layers, SlidersHorizontal, TrendingUp, LayoutDashboard, Filter, Printer, ArrowRight } from "lucide-react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
@@ -1344,39 +1346,32 @@ export function InvoiceTrackerModal({
                   {/* Table Content List */}
                   <div className="divide-y divide-border/60 max-h-[380px] overflow-y-auto text-xs">
                     {filteredList.length === 0 ? (
-                      <div className="p-10 text-center text-muted-foreground space-y-2">
-                        <div className="h-12 w-12 rounded-2xl bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground/60 border border-border/60">
-                          <FileText className="h-6 w-6" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-foreground text-sm">No matching invoices found in registry</p>
-                          <p className="text-xs text-muted-foreground mt-0.5 max-w-sm mx-auto">
-                            {invoicesList.length > 0
-                              ? "Try adjusting your search keywords, date range, or clearing active filters."
-                              : "Generated and printed invoices will automatically populate this central audit ledger."}
-                          </p>
-                        </div>
-                        {isFiltered && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setTableSearch("");
-                              setTypeFilter("ALL");
-                              setAdmissionCategoryFilter("ALL");
-                              setModeFilter("ALL");
-                              setClassFilter("ALL");
-                              setStatusFilter("ALL");
-                              setDateFilterPreset("ALL");
-                              setStartDate("");
-                              setEndDate("");
-                            }}
-                            className="h-8 text-xs mt-2 rounded-xl cursor-pointer"
-                          >
-                            Clear All Filters
-                          </Button>
-                        )}
-                      </div>
+                      <EmptyState
+                        icon={FileText}
+                        title={invoicesList.length > 0 ? "No matching invoices" : "No invoices yet"}
+                        action={
+                          isFiltered && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setTableSearch("");
+                                setTypeFilter("ALL");
+                                setAdmissionCategoryFilter("ALL");
+                                setModeFilter("ALL");
+                                setClassFilter("ALL");
+                                setStatusFilter("ALL");
+                                setDateFilterPreset("ALL");
+                                setStartDate("");
+                                setEndDate("");
+                              }}
+                              className="h-8 text-xs rounded-xl cursor-pointer"
+                            >
+                              Clear All Filters
+                            </Button>
+                          )
+                        }
+                      />
                     ) : (
                       paginatedList.map((inv) => {
                         const isCancelled = (inv as any).invoice_status === "cancelled";
@@ -1505,35 +1500,15 @@ export function InvoiceTrackerModal({
 
                   {/* PAGINATION FOOTER */}
                   {filteredList.length > 0 && (
-                    <div className="p-2.5 px-4 bg-muted/30 border-t flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        Showing {(currentPage - 1) * PAGE_SIZE + 1}–
-                        {Math.min(currentPage * PAGE_SIZE, filteredList.length)} of {filteredList.length} records
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage <= 1}
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          className="h-7 w-7 p-0 rounded-lg cursor-pointer"
-                        >
-                          <ChevronLeft className="h-3.5 w-3.5" />
-                        </Button>
-                        <span className="text-[11px] font-mono font-bold px-2">
-                          {currentPage} / {totalPages}
-                        </span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentPage >= totalPages}
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          className="h-7 w-7 p-0 rounded-lg cursor-pointer"
-                        >
-                          <ChevronRight className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
+                    <Pagination
+                      page={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      total={filteredList.length}
+                      pageSize={PAGE_SIZE}
+                      alwaysShow
+                      className="p-2.5 px-4 bg-muted/30 border-t"
+                    />
                   )}
                 </div>
               )}
@@ -1789,11 +1764,7 @@ export function InvoiceTrackerModal({
                 </div>
 
                 {settlementTeachers.length === 0 ? (
-                  <div className="text-center py-6 text-muted-foreground text-xs">
-                    <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="font-semibold">No teacher assignments found.</p>
-                    <p className="text-[10px] mt-1">Print blank invoices and assign them to a teacher first.</p>
-                  </div>
+                  <EmptyState compact icon={ClipboardList} title="No teacher assignments. Assign printed blank invoices to a teacher first." />
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {settlementTeachers.map((teacher) => {

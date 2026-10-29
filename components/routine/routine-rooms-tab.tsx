@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { RoutineRoom } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload, Save } from "lucide-react";
@@ -212,9 +213,8 @@ export function RoutineRoomsTab({ rooms, onSaveRoom, onDeleteRoom }: RoutineRoom
             <tbody className="divide-y divide-border">
               {rooms.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="py-8 text-center text-muted-foreground">
-                    <Building2 className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>No dedicated rooms added yet. Classes will default to standard classrooms.</span>
+                  <td colSpan={3}>
+                    <EmptyState compact icon={Building2} title="No dedicated rooms. Classes use standard classrooms." />
                   </td>
                 </tr>
               ) : (

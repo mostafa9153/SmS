@@ -12,6 +12,7 @@ import {
   RoutineSettings,
 } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -375,9 +376,8 @@ export function RoutineGroupsTab({
             <tbody className="divide-y divide-border">
               {visibleGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
-                    <Layers className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <div>No subject groups yet.</div>
+                  <td colSpan={4}>
+                    <EmptyState compact icon={Layers} title="No subject groups yet" />
                   </td>
                 </tr>
               ) : (

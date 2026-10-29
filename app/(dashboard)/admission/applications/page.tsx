@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdmissionApplications, admitNewStudentApplication } from "@/lib/data/admission";
 import type { AdmissionApplication } from "@/lib/types";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -252,13 +253,7 @@ function ApplicationsDeskPageContent() {
             Loading applications...
           </div>
         ) : filteredApps.length === 0 ? (
-          <div className="p-12 text-center space-y-2">
-            <Clock className="h-10 w-10 text-muted-foreground/50 mx-auto" />
-            <p className="text-sm font-semibold text-foreground">No applications found</p>
-            <p className="text-xs text-muted-foreground">
-              Submit a new application or adjust search filters.
-            </p>
-          </div>
+          <EmptyState icon={Clock} title="No applications found" />
         ) : (
           <div>
             {/* Mobile Card List (Visible on mobile, hidden on md+) */}

@@ -14,6 +14,7 @@ import {
 import type { StudentStatus, Semester, StudentResult } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -912,10 +913,7 @@ function PromotionPageContent() {
           ))}
         </div>
       ) : displayedStudents.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-8 text-center space-y-2">
-          <Users className="h-8 w-8 mx-auto text-muted-foreground/50" />
-          <p className="text-sm font-bold">No students found matching current filters</p>
-        </div>
+        <EmptyState icon={Users} title="No students found matching current filters" className="rounded-2xl border bg-card" />
       ) : (
         <div className="rounded-2xl border bg-card overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">

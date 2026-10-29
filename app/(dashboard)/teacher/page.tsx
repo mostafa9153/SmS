@@ -37,7 +37,6 @@ import {
   History,
   Lock,
   UserPlus,
-  Printer,
   Maximize2,
   Minimize2,
   Paperclip,
@@ -49,6 +48,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { createClient } from "@/lib/supabase/client";
 import { TeacherLoungeDrawer } from "@/components/teacher/teacher-lounge-drawer";
@@ -654,7 +654,7 @@ export default function TeacherDashboardPage() {
                     </div>
                     <div className="max-h-72 overflow-y-auto divide-y divide-border/40 my-2 pr-1">
                       {notifications.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic text-center py-4">No notifications yet.</p>
+                        <EmptyState compact title="No notifications yet" />
                       ) : (
                         notifications.map((n) => (
                           <div
@@ -819,13 +819,11 @@ export default function TeacherDashboardPage() {
 
           if (filteredAbsences.length === 0) {
             return (
-              <div className="p-8 text-center text-muted-foreground space-y-1">
-                <CheckCircle2 className="h-7 w-7 mx-auto text-emerald-500 opacity-60" />
-                <p className="text-xs font-bold text-foreground">No leave records found</p>
-                <p className="text-[11px]">
-                  You have no absences recorded for {trackerFilterMonth === "ALL" ? `year ${trackerFilterYear}` : `selected period`}.
-                </p>
-              </div>
+              <EmptyState
+                compact
+                icon={CheckCircle2}
+                title={`No leave records for ${trackerFilterMonth === "ALL" ? `year ${trackerFilterYear}` : "the selected period"}`}
+              />
             );
           }
 
@@ -2184,11 +2182,7 @@ export default function TeacherDashboardPage() {
                 <p className="text-xs">Loading students for Class {attendanceClass} ({attendanceSection})...</p>
               </div>
             ) : attendanceRoster.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <GraduationCap className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                <p className="text-xs font-bold text-foreground">No students found</p>
-                <p className="text-[11px]">No active students found in Class {attendanceClass} ({attendanceSection}).</p>
-              </div>
+              <EmptyState compact icon={GraduationCap} title={`No active students in Class ${attendanceClass} (${attendanceSection})`} className="p-12" />
             ) : (
               <table className="w-full text-left text-xs">
                 <thead className="bg-muted/60 border-b border-border/80 sticky top-0 z-10 text-[11px] text-muted-foreground">

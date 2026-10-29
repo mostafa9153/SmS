@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -141,10 +142,7 @@ export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) 
         {loading ? (
           <div className="flex items-center justify-center p-12 text-muted-foreground text-xs">Loading applications...</div>
         ) : filteredApps.length === 0 ? (
-          <Card className="border-dashed flex flex-col items-center justify-center p-8 sm:p-12 text-center text-muted-foreground bg-muted/20 rounded-xl">
-            <Search className="w-10 h-10 mb-3 opacity-20" />
-            <p className="font-semibold text-sm">No pending applications found</p>
-          </Card>
+          <EmptyState icon={Search} title="No pending applications found" className="border border-dashed bg-muted/20 rounded-xl" />
         ) : (
           filteredApps.map(app => {
             const displayAppNo = app.applicationNo || app.formNo || (app.targetClass ? `APP-2026-${app.id.slice(0, 4).toUpperCase()}` : `APP-${app.id.slice(0, 6).toUpperCase()}`);

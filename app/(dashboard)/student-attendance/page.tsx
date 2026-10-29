@@ -307,10 +307,7 @@ export default function StudentAttendancePage() {
             <p className="text-sm font-medium">Loading class roster...</p>
           </div>
         ) : roster.length === 0 ? (
-          <div className="p-16 text-center text-muted-foreground bg-card border border-border rounded-2xl shadow-sm">
-            <p className="text-lg font-bold text-foreground mb-2">No students found.</p>
-            <p className="text-sm">Please select a valid class and section to begin.</p>
-          </div>
+          <EmptyState title="No students found. Select a class and section." className="bg-card border border-border rounded-2xl shadow-sm" />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {roster.map(student => {

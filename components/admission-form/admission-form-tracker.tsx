@@ -8,7 +8,6 @@ import {
   Filter,
   RefreshCw,
   Calendar,
-  Layers,
   GraduationCap,
   Users,
   Download,
@@ -17,14 +16,13 @@ import {
   Clock,
   Archive,
   Printer,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   LayoutDashboard,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -715,35 +713,14 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                {Math.min(currentPage * pageSize, filteredRecords.length)} of {filteredRecords.length} records
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-7 w-7 p-0 cursor-pointer"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="px-2 font-bold">{currentPage}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-7 w-7 p-0 cursor-pointer"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            total={filteredRecords.length}
+            pageSize={pageSize}
+            className="border-t bg-muted/20"
+          />
         </Card>
       </div>
 

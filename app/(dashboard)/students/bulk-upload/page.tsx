@@ -3,8 +3,9 @@
 import { useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowRight, ArrowLeft, RotateCcw, Sparkles, History, Info, Download, GraduationCap, Award, Archive, Trash2, Calendar, Layers, Lock } from "lucide-react";
+import { Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowRight, ArrowLeft, RotateCcw, Sparkles, History, Info, Download, GraduationCap, Award, Archive, Trash2, Calendar, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import {
   Dialog,
@@ -1591,10 +1592,7 @@ function BulkUploadPageContent() {
                 <p className="text-xs text-muted-foreground font-medium">Fetching batch history from audit logs…</p>
               </div>
             ) : pastBatches.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground space-y-1">
-                <p className="font-semibold text-foreground">No past bulk import batches found.</p>
-                <p>New spreadsheet bulk imports will automatically appear here with their timestamp & batch ID.</p>
-              </div>
+              <EmptyState compact title="No past bulk import batches" />
             ) : (
               pastBatches.map((batch: any) => {
                 const isResultBatch =

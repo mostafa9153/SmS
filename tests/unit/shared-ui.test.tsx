@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
 import { FilterSelect } from "@/components/ui/filter-select";
 import { SearchInput } from "@/components/ui/search-input";
+import { Pagination } from "@/components/ui/pagination";
 
 const html = (node: React.ReactElement) => renderToStaticMarkup(node);
 
@@ -47,6 +48,14 @@ describe("shared UI primitives", () => {
     const filter = html(<StatCard label="Events" value={12} onClick={() => {}} active />);
     expect(filter).toMatch(/<button[^>]*type="button"/);
     expect(filter).toContain('aria-pressed="true"');
+  });
+
+  it("Pagination hides on one page and shows the record range", () => {
+    expect(html(<Pagination page={1} totalPages={1} onPageChange={() => {}} />)).toBe("");
+    expect(html(<Pagination page={1} totalPages={1} onPageChange={() => {}} total={5} pageSize={10} alwaysShow />)).toContain("1–5 of 5");
+    const out = html(<Pagination page={2} totalPages={3} onPageChange={() => {}} total={25} pageSize={10} />);
+    expect(out).toContain("11–20 of 25");
+    expect(out).toContain('aria-label="Previous page"');
   });
 
   it("ChartTooltip is empty when inactive and shows percent with total", () => {

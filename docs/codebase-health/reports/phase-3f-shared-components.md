@@ -112,3 +112,40 @@ Filler sub-lines removed under AGENTS.md ("Registered employees", "Verified fee 
 
 ### Not verified
 Not looked at in a browser: the pages need a login. The look is uniform now (icon on the left, number + label). Behaviour is unchanged: the filter tiles set the same filter values as before.
+
+---
+
+# Phase 3f part 4: Pagination + EmptyState hand migration (2026-10-29)
+
+**Pagination:** a new shared `components/ui/pagination.tsx`.
+- Shows "a–b of N", or "Page x of y".
+- Hides itself on a single page unless `alwaysShow` is set.
+- Takes `disabled`.
+- Real `<nav aria-label>` with labelled buttons.
+- Replaced all 4 hand-made bars: admission form tracker, archived students, pending students, invoice tracker.
+- The earlier estimate of "19" counted printable page-splitters, which are not pagination.
+
+**EmptyState:** replaced 18 hand-made "No … found" blocks. Data stays in the title ("No active students in Class VI (A)", "No archived students for 2025"). Under AGENTS.md, the explanatory second lines were dropped.
+
+| Where | Count |
+|---|---|
+| Teacher dashboard (notifications, leave, attendance roster) | 3 |
+| Invoice tracker (registry, keeps the "Clear All Filters" action, and settlement) | 2 |
+| Archived students (cards and table) | 2 |
+| Routine tabs (classes, rooms, groups, allotment) | 4 |
+| Applications, attendance, bulk-upload history, promotion, online admission step, pending students, print history | 7 |
+
+The unused imports these left behind (and a few that were already unused in the same import lines) are removed.
+
+### Verification
+| Check | Result |
+|---|---|
+| `npm run verify -- --build` | PASS (1 warn: pre-existing lint errors in touched files, Phase 4) |
+| Tests | +1 Pagination test (single page hidden, range, labelled buttons) |
+| Review | 3 findings: 28px tap targets → 32px (fixed), "1–0 of 0" with an empty total (fixed), footer wording changed from count to range (kept, same information) |
+
+### Process slip (caught and fixed)
+A `git stash --keep-index` briefly took the uncommitted `AGENTS.md` edit, which is the user's file and is never committed by me. It was restored from the stash right away, and the stash was dropped. `git diff AGENTS.md` matches what it was before.
+
+### Not verified
+Not looked at in a browser (login required).
