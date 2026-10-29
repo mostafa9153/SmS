@@ -2,6 +2,7 @@
 
 import React from "react";
 import { SportsParticipant, SportsEvent } from "@/lib/sports/types";
+import { sessionLabel } from "@/lib/utils/academic-year";
 
 export type CertificateTemplate = "classic" | "ornate" | "navy" | "gold-curve";
 
@@ -69,7 +70,7 @@ function CertificateClassic({
               Certificate of Merit &amp; Achievement
             </div>
             <p className="text-[11px] font-sans font-semibold text-gray-700 uppercase tracking-widest mt-1">
-              Annual Athletic Sports Meet • {new Date().getFullYear()}
+              Annual Athletic Sports Meet • {sessionLabel(event.academicYear)}
             </p>
           </div>
         </div>
@@ -196,7 +197,7 @@ const LaurelWreath = () => (
 function CertificateOrnate({
   winner, event, schoolName, schoolAddress, logoSrc, rankText, rankBadgeColor,
 }: ReturnType<typeof resolveProps> & { winner: SportsParticipant; event: SportsEvent }) {
-  const year = new Date().getFullYear();
+  const year = sessionLabel(event.academicYear);
   const dateStr = new Date().toLocaleDateString("en-GB");
 
   return (

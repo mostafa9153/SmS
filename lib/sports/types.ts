@@ -65,9 +65,8 @@ export interface SportsParticipant {
   remarks?: string;
 }
 
-export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
+export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id" | "academicYear">[] = [
   {
-    academicYear: new Date().getFullYear(),
     name: "100m Sprint",
     category: "Track",
     gender: "All",
@@ -77,7 +76,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Standard 100 meters sprint track race",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "200m Sprint",
     category: "Track",
     gender: "All",
@@ -87,7 +85,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "200 meters sprint race",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "400m Race",
     category: "Track",
     gender: "All",
@@ -97,7 +94,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "One full lap track race",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "800m Race",
     category: "Track",
     gender: "All",
@@ -107,7 +103,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Two lap distance race",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Long Jump",
     category: "Field",
     gender: "All",
@@ -117,7 +112,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Standard sandpit horizontal jump with 3 trials",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "High Jump",
     category: "Field",
     gender: "All",
@@ -127,7 +121,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Vertical bar jump competition",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Shot Put",
     category: "Field",
     gender: "All",
@@ -137,7 +130,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Heavy spherical ball throw with 3 trials",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Discus Throw",
     category: "Field",
     gender: "All",
@@ -147,7 +139,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Heavy disc throw with 3 trials",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "4x100m Relay",
     category: "Track",
     gender: "All",
@@ -157,7 +148,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Four-athlete baton relay",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Sack Race",
     category: "Fun",
     gender: "All",
@@ -167,7 +157,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Fun race in burlap sacks",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Spoon & Marble Race",
     category: "Fun",
     gender: "All",
@@ -177,7 +166,6 @@ export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
     description: "Balancing marble on a spoon held in mouth",
   },
   {
-    academicYear: new Date().getFullYear(),
     name: "Tug of War",
     category: "Fun",
     gender: "All",

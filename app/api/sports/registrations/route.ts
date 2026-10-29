@@ -1,21 +1,24 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/api/guard";
+import { requireRole, requireStaff } from "@/lib/api/guard";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { recordUndo } from "@/lib/undo/journal";
 import {
-  getEventParticipants,
   enrollStudentsInEvent,
-  removeStudentFromEvent,
+  getEventParticipants,
   getStudentRegistrationCounts,
+  removeStudentFromEvent,
 } from "@/lib/sports/db-sports";
+import { sportsError, yearParam } from "@/lib/sports/api";
 
+// GET ?eventId=<uuid> → participants · ?studentCounts=true&academicYear=2026 → events per student
 export async function GET(req: Request) {
   const gate = await requireRole();
   if (!gate.ok) return gate.response;
 
   try {
     const { searchParams } = new URL(req.url);
-    const getCounts = searchParams.get("studentCounts");
-    if (getCounts === "true") {
-      const counts = await getStudentRegistrationCounts();
+    if (searchParams.get("studentCounts") === "true") {
+      const counts = await getStudentRegistrationCounts(yearParam(searchParams.get("academicYear")));
       return NextResponse.json({ success: true, data: counts });
     }
 
@@ -23,37 +26,30 @@ export async function GET(req: Request) {
     if (!eventId) {
       return NextResponse.json({ success: false, error: "eventId is required" }, { status: 400 });
     }
-
-    const participants = await getEventParticipants(eventId);
-    return NextResponse.json({ success: true, data: participants });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: true, data: await getEventParticipants(eventId) });
+  } catch (err) {
+    return sportsError(err);
   }
 }
 
+// undo: n/a — creates registrations; removing a participant is the reverse action
 export async function POST(req: Request) {
-  const gate = await requireRole();
+  const gate = await requireStaff("can_manage_sports");
   if (!gate.ok) return gate.response;
 
   try {
-    const body = await req.json();
-    const { eventId, studentIds, academicYear } = body;
+    const { eventId, studentIds } = await req.json();
     if (!eventId || !Array.isArray(studentIds) || studentIds.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "eventId and array of studentIds are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "eventId and array of studentIds are required" }, { status: 400 });
     }
-
-    const result = await enrollStudentsInEvent(eventId, studentIds, academicYear);
-    return NextResponse.json({ success: true, data: result });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({ success: true, data: await enrollStudentsInEvent(eventId, studentIds) });
+  } catch (err) {
+    return sportsError(err);
   }
 }
 
 export async function DELETE(req: Request) {
-  const gate = await requireRole();
+  const gate = await requireStaff("can_manage_sports");
   if (!gate.ok) return gate.response;
 
   try {
@@ -61,15 +57,28 @@ export async function DELETE(req: Request) {
     const eventId = searchParams.get("eventId");
     const studentId = searchParams.get("studentId");
     if (!eventId || !studentId) {
-      return NextResponse.json(
-        { success: false, error: "eventId and studentId are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "eventId and studentId are required" }, { status: 400 });
     }
 
+    const admin = createAdminClient();
+    const pick = (table: string) => admin.from(table).select("*").eq("event_id", eventId).eq("student_id", studentId);
+    const [reg, res] = await Promise.all([pick("sports_event_registrations"), pick("sports_event_results")]);
+    if (reg.error || res.error) throw new Error(`Snapshot failed: ${(reg.error ?? res.error)!.message}`);
+
     await removeStudentFromEvent(eventId, studentId);
-    return NextResponse.json({ success: true, message: "Participant removed successfully" });
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    const undoId = await recordUndo({
+      actorId: gate.auth.user?.id,
+      action: "sports.participant.remove",
+      label: "Remove participant",
+      entity: "sports_event_registrations",
+      entityId: eventId,
+      steps: [
+        { table: "sports_event_registrations", op: "upsert", rows: reg.data ?? [] },
+        { table: "sports_event_results", op: "upsert", rows: res.data ?? [] },
+      ],
+    });
+    return NextResponse.json({ success: true, message: "Participant removed successfully", undoId });
+  } catch (err) {
+    return sportsError(err);
   }
 }

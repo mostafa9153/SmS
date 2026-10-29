@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/api/client";
 import { useState, useEffect, useCallback } from "react";
 import { SportsConfig, DEFAULT_SPORTS_CONFIG } from "./types";
 
@@ -33,23 +34,20 @@ export function useSportsConfig() {
     let isMounted = true;
     async function fetchConfig() {
       try {
-        const res = await fetch("/api/school-config?key=sports_config");
-        if (res.ok) {
-          const json = await res.json();
-          if (json?.data && isMounted) {
-            const merged: SportsConfig = {
-              maxEventsPerStudent:
-                typeof json.data.maxEventsPerStudent === "number"
-                  ? json.data.maxEventsPerStudent
-                  : DEFAULT_SPORTS_CONFIG.maxEventsPerStudent,
-              enforcementMode:
-                json.data.enforcementMode === "strict" ? "strict" : "warning",
-            };
-            setConfig(merged);
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
-          }
+        // apiFetch unwraps `data`; a key that was never saved comes back as the bare envelope.
+        const res = await apiFetch<Partial<SportsConfig> & { success?: boolean; data?: null }>("/api/school-config?key=sports_config");
+        const saved = res?.success === true && res.data === null ? null : res;
+        if (saved && isMounted) {
+          const merged: SportsConfig = {
+            maxEventsPerStudent:
+              typeof saved.maxEventsPerStudent === "number" ? saved.maxEventsPerStudent : DEFAULT_SPORTS_CONFIG.maxEventsPerStudent,
+            enforcementMode: saved.enforcementMode === "strict" ? "strict" : "warning",
+          };
+          setConfig(merged);
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         }
-      } catch (err) {
+      } catch {
+        // Keep the cached copy; apiFetch already reported the failure.
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -68,28 +66,17 @@ export function useSportsConfig() {
     };
   }, []);
 
+  // Server first: the rules are enforced there, so a local-only change would mislead.
   const saveConfig = useCallback(async (newConfig: SportsConfig): Promise<boolean> => {
-    setConfig(newConfig);
-    if (typeof window !== "undefined") {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newConfig));
-      window.dispatchEvent(
-        new CustomEvent("sms_sports_config_updated", { detail: newConfig })
-      );
-    }
-
     try {
-      await fetch("/api/school-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: "sports_config",
-          value: newConfig,
-        }),
-      });
-      return true;
-    } catch (err) {
+      await apiFetch("/api/school-config", { method: "POST", json: { key: "sports_config", value: newConfig } });
+    } catch {
       return false;
     }
+    setConfig(newConfig);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newConfig));
+    window.dispatchEvent(new CustomEvent("sms_sports_config_updated", { detail: newConfig }));
+    return true;
   }, []);
 
   return { config, saveConfig, isLoading };

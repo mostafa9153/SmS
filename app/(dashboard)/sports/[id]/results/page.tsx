@@ -3,16 +3,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { SportsParticipant } from "@/lib/sports/types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import type { SportsParticipant } from "@/lib/sports/types";
 import { Save, Award, Wand2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { useSportsEvents, getUnitSuffix, isLowerBetter } from "@/lib/sports/use-sports-events";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { useSportsEvents, useSportsParticipants, useRefreshSports, getUnitSuffix, isLowerBetter } from "@/lib/sports/use-sports-events";
 import { SportsEventHeader } from "@/components/sports/sports-event-header";
 import { SearchInput } from "@/components/ui/search-input";
 
@@ -62,7 +63,8 @@ function SportsResultsView({ eventId }: { eventId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [rankFilter, setRankFilter] = useState<"all" | "podium">("all");
 
-  const { data: events = [], refetch: refetchEvents } = useSportsEvents();
+  const { data: events = [] } = useSportsEvents();
+  const refreshSports = useRefreshSports();
   const event = events.find((e) => e.id === eventId);
   const isField = event?.category === "Field";
   const isTrack = event?.category === "Track";
@@ -71,14 +73,7 @@ function SportsResultsView({ eventId }: { eventId: string }) {
   const lowerBetter = isLowerBetter(event?.measurementUnit);
   const canAutoRank = event?.scoringType !== "Rank_Only" && event?.measurementUnit !== "None";
 
-  const { data: participantsData, isLoading, refetch } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-participants", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/sports/registrations?eventId=${eventId}`);
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
+  const { data: participantsData, isLoading } = useSportsParticipants(eventId);
   const participants = useMemo(() => participantsData ?? [], [participantsData]);
 
   // Load server values whenever fresh data arrives (also after every save)
@@ -174,17 +169,14 @@ function SportsResultsView({ eventId }: { eventId: string }) {
     setIsSaving(true);
     try {
       const resultsPayload = Object.entries(scores).map(([studentId, data]) => ({ studentId, ...data }));
-      const res = await fetch("/api/sports/results", {
+      const { undoId } = await apiFetch<{ undoId?: string }>("/api/sports/results", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, results: resultsPayload }),
+        json: { eventId, results: resultsPayload },
       });
-      if (!res.ok) throw new Error("Failed to save results");
-      toast.success("Results saved");
-      await refetch();
-      refetchEvents();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save results");
+      toastWithUndo("Results saved", undoId, refreshSports);
+      await refreshSports();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save results");
     } finally {
       setIsSaving(false);
     }

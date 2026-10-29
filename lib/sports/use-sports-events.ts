@@ -1,19 +1,58 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { SportsEvent } from "./types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/api/client";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import type { SportsEvent, SportsParticipant } from "./types";
 
 export const SPORTS_CLASS_OPTIONS = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
+// One set of query keys for every sports page, so moving between pages reuses the cache.
+export const sportsKeys = {
+  all: ["sports"] as const,
+  events: (year: string) => ["sports", "events", year] as const,
+  athletes: (year: string) => ["sports", "athletes", year] as const,
+  counts: (year: string) => ["sports", "student-counts", year] as const,
+  participants: (eventId: string) => ["sports", "participants", eventId] as const,
+};
+
 export function useSportsEvents() {
+  const year = useAcademicYear();
   return useQuery<SportsEvent[]>({
-    queryKey: ["sports-events"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/events");
-      const json = await res.json();
-      return json.data || [];
-    },
+    queryKey: sportsKeys.events(year),
+    queryFn: () => apiFetch<SportsEvent[]>(`/api/sports/events?academicYear=${year}`),
   });
+}
+
+export function useSportsAthletes(enabled = true) {
+  const year = useAcademicYear();
+  return useQuery<SportsParticipant[]>({
+    queryKey: sportsKeys.athletes(year),
+    queryFn: () => apiFetch<SportsParticipant[]>(`/api/sports/athletes?academicYear=${year}`),
+    enabled,
+  });
+}
+
+export function useSportsParticipants(eventId: string | undefined) {
+  return useQuery<SportsParticipant[]>({
+    queryKey: sportsKeys.participants(eventId ?? ""),
+    queryFn: () => apiFetch<SportsParticipant[]>(`/api/sports/registrations?eventId=${eventId}`),
+    enabled: Boolean(eventId),
+  });
+}
+
+export function useStudentEventCounts() {
+  const year = useAcademicYear();
+  return useQuery<Record<string, number>>({
+    queryKey: sportsKeys.counts(year),
+    queryFn: () => apiFetch<Record<string, number>>(`/api/sports/registrations?studentCounts=true&academicYear=${year}`),
+  });
+}
+
+/** Marks every sports query stale after a change (events, counts, participants, athletes). */
+export function useRefreshSports() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: sportsKeys.all });
 }
 
 export type SportsEventStatus = "empty" | "enrolled" | "scoring" | "completed";

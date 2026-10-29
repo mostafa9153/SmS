@@ -56,3 +56,42 @@ Most bugs below come from this. Fixing it once (remove the memory store, let err
 - **C1**: should Teachers be able to enter results? If yes, I will add a `can_manage_sports` permission; if no, writes become Admin/Staff only.
 - **S9**: enforce `maxParticipants`, or drop it?
 - **The rest**: confirm the order above, or tell me which items to skip.
+
+## Done (2026-10-29)
+Owner's decisions: Teachers may manage sports with a new permission; `maxParticipants` is enforced.
+
+| Item | Change |
+|---|---|
+| S1–S3 | Memory store removed. Every query throws on error; routes answer 400 (rule broken) or 500. Empty table → empty list, plus an **Add standard events** button that saves the presets for the year |
+| S4 | Chest numbers are assigned only at enrolment, in one bulk insert, lowest free number from 101. A unique-index clash (another enrolment at the same moment) retries with fresh data, up to 3 tries. The participants GET no longer writes |
+| S5 | Removing a participant also removes their result. Event counts ignore results of students who are no longer registered (old orphan rows) |
+| S6 | Events, athletes, counts and chest numbers use the academic year (`useAcademicYear` on the client; the event's own year on the server). Certificates print the session label (`2026-27`) |
+| S7 | Rules are saved to the server first and only then applied locally; the dialog shows an error when the save fails |
+| S8, S9, S10 | The server enforces the event's participant limit and the strict per-student limit. The event form has a **Max entries** field, and a limit can be cleared |
+| C1 | New teacher permission `can_manage_sports` (Teacher Management → Results & Exam). Reads stay open to every role; all writes use `requireStaff("can_manage_sports")` |
+| C2 | Undo on event edit and delete (with its registrations and results), participant removal, results save (old rows back, new rows removed) and chest number change |
+| C3 | Delete uses `useConfirm()` |
+| C4 | All 15 client calls use `apiFetch`. One shared set of hooks and query keys (`lib/sports/use-sports-events.ts`), so moving between sports pages reuses the cache |
+
+**Speed:**
+- **Event list:** loads only this year's registrations and results, through two parallel queries.
+- **Participant list:** two round trips, where it used to take four or more, plus one write per missing chest number.
+- **Enrolling 40 students:** about 6 queries, down from about 150.
+- **Results save:** one upsert instead of one per row.
+- **Athlete list:** no long id list in the URL.
+
+**Verified:**
+- `npm run verify -- --build` passed.
+- 6 new unit tests in `tests/unit/db-sports.test.ts`: participant limit, strict limit, chest-number clash retry, a failed write reaching the caller, orphan results not counted, a DB error not turning into fake events.
+- Smoke test: all 10 sports API calls return 401 without a session, and the pages redirect to login.
+
+**Not verified:** nothing was run signed in, so enrolment, results, undo and the new permission have not been tried in the app.
+
+**Check before relying on the year filter (read-only):**
+```sql
+select academic_year, count(*) from sports_events group by 1 order by 1;
+select academic_year, count(*) from sports_athletes group by 1 order by 1;
+```
+Events were saved with the calendar year. If the school's current academic year in admission settings is a different number, those events will not show until the setting or the rows agree.
+
+**Not done yet:** splitting `enroll/page.tsx` and `results/page.tsx` into smaller parts. That is pure structure, with no change in behaviour.

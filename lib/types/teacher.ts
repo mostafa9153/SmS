@@ -37,6 +37,7 @@ export interface TeacherPermissions {
   can_enter_results: boolean;                   // Result / Marks Entry (Default: false)
   can_view_seating_plan: boolean;               // Exam Seating Plan View (Default: false)
   can_manage_ems: boolean;                      // EMS (Auto Seating & Exam Hall) (Default: false)
+  can_manage_sports: boolean;                   // Sports: events, enrolment, results (Default: false)
 
   // === 5. 📊 Reports & Analytics ===
   can_view_reports: boolean;                    // View Reports & Analytics (Default: false)
@@ -79,6 +80,7 @@ export const DEFAULT_TEACHER_PERMISSIONS: TeacherPermissions = {
   can_enter_results: false,
   can_view_seating_plan: false,
   can_manage_ems: false,
+  can_manage_sports: false,
 
   // 5. Reports
   can_view_reports: false,

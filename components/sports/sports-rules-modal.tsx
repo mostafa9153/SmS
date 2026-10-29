@@ -31,10 +31,11 @@ export function SportsRulesModal({ open, onOpenChange }: SportsRulesModalProps) 
     e.preventDefault();
     setIsSaving(true);
     try {
-      await saveConfig({
+      const saved = await saveConfig({
         maxEventsPerStudent: limit,
         enforcementMode: mode,
       });
+      if (!saved) throw new Error("Failed to save rules");
       toast.success("Sports participation rules updated");
       onOpenChange(false);
     } catch (err: any) {

@@ -131,6 +131,7 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
       { key: "can_enter_results", label: "Result / Marks Entry", desc: "Enter exam scores for assigned subjects & classes" },
       { key: "can_view_seating_plan", label: "Exam Seating Plan", desc: "View exam hall arrangement and roll seating" },
       { key: "can_manage_ems", label: "EMS Auto Seating", desc: "Manage exam halls and auto seating generator" },
+      { key: "can_manage_sports", label: "Sports & Games", desc: "Create events, enrol students and record results" },
     ],
   },
   {
@@ -778,6 +779,7 @@ function AdminTeacherManagementContent() {
                                 can_enter_results: existingPerms.can_enter_results ?? false,
                                 can_view_seating_plan: existingPerms.can_view_seating_plan ?? false,
                                 can_manage_ems: existingPerms.can_manage_ems ?? false,
+                                can_manage_sports: existingPerms.can_manage_sports ?? false,
                                 can_view_reports: existingPerms.can_view_reports ?? false,
                               });
                             }}

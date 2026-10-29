@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { SportsParticipant } from "@/lib/sports/types";
+import type { SportsParticipant } from "@/lib/sports/types";
 import { Student } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,8 +14,18 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Check, UserCheck, AlertTriangle, Edit2, Trash2, Sliders, X, Medal } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { useSportsConfig } from "@/lib/sports/use-sports-config";
-import { useSportsEvents, SPORTS_CLASS_OPTIONS, GENDER_LABEL } from "@/lib/sports/use-sports-events";
+import {
+  useSportsEvents,
+  useSportsParticipants,
+  useStudentEventCounts,
+  useRefreshSports,
+  SPORTS_CLASS_OPTIONS,
+  GENDER_LABEL,
+} from "@/lib/sports/use-sports-events";
 import { SportsRulesModal } from "@/components/sports/sports-rules-modal";
 import { SportsEventHeader } from "@/components/sports/sports-event-header";
 import { SearchInput } from "@/components/ui/search-input";
@@ -43,7 +53,9 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
   const [editingStudentId, setEditingStudentId] = useState<string | null>(null);
   const [editingChestNo, setEditingChestNo] = useState("");
 
-  const { data: events = [], refetch: refetchEvents } = useSportsEvents();
+  const { data: events = [] } = useSportsEvents();
+  const academicYear = useAcademicYear();
+  const refreshAll = useRefreshSports();
   const event = events.find((e) => e.id === eventId);
 
   const eligibleClassesList = event?.eligibleClasses.length ? event.eligibleClasses : SPORTS_CLASS_OPTIONS;
@@ -55,38 +67,14 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
       : eligibleClassesList[0]
     : "";
 
-  const {
-    data: participants = [],
-    isLoading: isLoadingParticipants,
-    refetch: refetchParticipants,
-  } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-participants", eventId],
-    queryFn: async () => {
-      const res = await fetch(`/api/sports/registrations?eventId=${eventId}`);
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
-
-  const { data: studentEventCounts = {}, refetch: refetchStudentCounts } = useQuery<Record<string, number>>({
-    queryKey: ["sports-student-counts"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/registrations?studentCounts=true");
-      const json = await res.json();
-      return json.data || {};
-    },
-  });
+  const { data: participants = [], isLoading: isLoadingParticipants } = useSportsParticipants(eventId);
+  const { data: studentEventCounts = {} } = useStudentEventCounts();
 
   // Whole class in one request; sections are derived and filtered client-side
   const { data: classStudents = [], isLoading: isLoadingStudents } = useQuery<Student[]>({
     queryKey: ["students", selectedClass],
-    queryFn: async () => {
-      const res = await fetch(
-        `/api/students?paginated=false&projection=summary&class=${encodeURIComponent(selectedClass)}`
-      );
-      const json = await res.json();
-      return json.data || [];
-    },
+    queryFn: () =>
+      apiFetch<Student[]>(`/api/students?paginated=false&projection=summary&class=${encodeURIComponent(selectedClass)}`),
     enabled: Boolean(selectedClass),
   });
 
@@ -145,27 +133,19 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
     });
   };
 
-  const refreshAll = () => {
-    refetchParticipants();
-    refetchStudentCounts();
-    refetchEvents();
-  };
-
   const handleEnroll = async () => {
     if (selectedStudentIds.size === 0) return;
     setIsEnrolling(true);
     try {
-      const res = await fetch("/api/sports/registrations", {
+      const { enrolledCount } = await apiFetch<{ enrolledCount: number }>("/api/sports/registrations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, studentIds: Array.from(selectedStudentIds) }),
+        json: { eventId, studentIds: Array.from(selectedStudentIds) },
       });
-      if (!res.ok) throw new Error("Enrollment failed");
-      toast.success(`Enrolled ${selectedStudentIds.size} student(s)`);
+      toast.success(`Enrolled ${enrolledCount} student(s)`);
       setSelectedStudentIds(new Set());
       refreshAll();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to enroll students");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to enroll students");
     } finally {
       setIsEnrolling(false);
     }
@@ -173,32 +153,29 @@ function SportsEnrollmentView({ eventId }: { eventId: string }) {
 
   const handleRemove = async (p: SportsParticipant) => {
     try {
-      const res = await fetch(`/api/sports/registrations?eventId=${eventId}&studentId=${p.studentId}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) throw new Error("Failed to remove student");
-      toast.success(`${p.studentName} removed`);
+      const { undoId } = await apiFetch<{ undoId?: string }>(
+        `/api/sports/registrations?eventId=${eventId}&studentId=${p.studentId}`,
+        { method: "DELETE" },
+      );
+      toastWithUndo(`${p.studentName} removed`, undoId, refreshAll);
       refreshAll();
-    } catch (err: any) {
-      toast.error(err.message || "Removal failed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Removal failed");
     }
   };
 
   const handleUpdateChestNumber = async (studentId: string) => {
     if (!editingChestNo.trim()) return;
     try {
-      const res = await fetch("/api/sports/athletes", {
+      const { undoId } = await apiFetch<{ undoId?: string }>("/api/sports/athletes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ studentId, chestNumber: editingChestNo.trim() }),
+        json: { studentId, chestNumber: editingChestNo.trim(), academicYear: event?.academicYear ?? academicYear },
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to update chest number");
-      toast.success("Chest number updated");
+      toastWithUndo("Chest number updated", undoId, refreshAll);
       setEditingStudentId(null);
-      refetchParticipants();
-    } catch (err: any) {
-      toast.error(err.message || "Update failed");
+      refreshAll();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
     }
   };
 

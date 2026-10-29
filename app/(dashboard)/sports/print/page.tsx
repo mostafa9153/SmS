@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { SportsParticipant } from "@/lib/sports/types";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,7 +11,7 @@ import { SportsCallSheetPrintableView } from "@/components/sports/sports-call-sh
 import { SportsScoreSheetPrintableView } from "@/components/sports/sports-score-sheet-printable";
 import { SportsChestBibPrintableView } from "@/components/sports/sports-chest-bib-printable";
 import { SportsCertificatePrintableView, CertificateTemplate } from "@/components/sports/sports-certificate-printable";
-import { useSportsEvents, SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
+import { useSportsEvents, useSportsAthletes, useSportsParticipants, SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
 import { ArrowLeft, Printer, FileText, ClipboardList, Tag, Award } from "lucide-react";
 import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
 import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
@@ -67,25 +65,10 @@ function SportsPrintStudioContent() {
     router.replace(`/sports/print?${qs.toString()}`, { scroll: false });
   }, [activeTab, currentEventId, activeDoc.perEvent, router]);
 
-  const { data: participants = [], isLoading: isLoadingParticipants } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-participants", currentEvent?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/sports/registrations?eventId=${currentEvent!.id}`);
-      const json = await res.json();
-      return json.data || [];
-    },
-    enabled: Boolean(currentEvent?.id),
-  });
+  const { data: participants = [], isLoading: isLoadingParticipants } = useSportsParticipants(currentEvent?.id);
 
   // One master bib per athlete, listing every event they joined
-  const { data: allAthletes = [], isLoading: isLoadingAthletes } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-all-athletes"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/athletes");
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
+  const { data: allAthletes = [], isLoading: isLoadingAthletes } = useSportsAthletes();
 
   const bibClassOptions = useMemo(() => {
     const present = new Set(allAthletes.map((a) => a.presentClass));
