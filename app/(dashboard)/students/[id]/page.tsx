@@ -95,16 +95,14 @@ function StudentProfilePageContent() {
 
   const addResultMutation = useMutation({
     mutationFn: (payload: any) => saveStudentResult(payload),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["student-results-history", id] });
       setIsAddResultOpen(false);
       setResMarks("");
       setResRemarks("");
       setResError("");
-      showToast({
-        type: "success",
-        title: "Result Saved",
-        description: `Successfully recorded ${resExam} marks for ${student?.name}.`,
+      toastWithUndo(`Recorded ${resExam} marks for ${student?.name}.`, data.undoId, () => {
+        queryClient.invalidateQueries({ queryKey: ["student-results-history", id] });
       });
     },
     onError: (err: any) => {

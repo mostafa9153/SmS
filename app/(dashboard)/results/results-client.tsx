@@ -31,6 +31,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import {
   getDynamicClassFullMarks,
   getSavedPromotionPolicy,
@@ -386,13 +387,11 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
         scores: entries,
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["results"] });
       setIsBatchModified(false);
-      showToast({
-        type: "success",
-        title: "Subject Marks Saved",
-        description: `Marks for ${selectedSubject} saved and ranks updated.`,
+      toastWithUndo(`Marks for ${selectedSubject} saved and ranks updated.`, data?.undoId, () => {
+        queryClient.invalidateQueries({ queryKey: ["results"] });
       });
     },
     onError: (err: any) => {
@@ -417,10 +416,8 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
     mutationFn: () => recalculateClassRanks(academicYear, selectedClass, selectedExam),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["results"] });
-      showToast({
-        type: "success",
-        title: "Ranks Recalculated",
-        description: data.message || "Dual Section & Class ranks updated.",
+      toastWithUndo(data.message || "Dual Section & Class ranks updated.", data.undoId, () => {
+        queryClient.invalidateQueries({ queryKey: ["results"] });
       });
     },
     onError: (err: any) => {
@@ -529,7 +526,7 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
     });
 
     try {
-      await saveStudentResult({
+      const saved = await saveStudentResult({
         studentId: editingStudentResult.studentId,
         academicYear,
         class: selectedClass,
@@ -545,10 +542,8 @@ export default function ResultsClient({ allowedClasses = NO_SCOPE }: { allowedCl
 
       queryClient.invalidateQueries({ queryKey: ["results"] });
       setEditingStudentResult(null);
-      showToast({
-        type: "success",
-        title: "Marks Saved",
-        description: "Student marks updated and re-ranked.",
+      toastWithUndo("Student marks updated and re-ranked.", saved.undoId, () => {
+        queryClient.invalidateQueries({ queryKey: ["results"] });
       });
     } catch (e: any) {
       setModalError(e.message || "Failed to save marks.");

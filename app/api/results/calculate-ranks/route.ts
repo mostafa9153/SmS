@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { dbCalculateAndAssignRanks } from "@/lib/supabase/db-results";
 import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
 import { getAcademicYear } from "@/lib/academic/current-year";
+import { recordResultsUndo, snapshotClassResults } from "@/lib/academic/results-undo";
 
 // POST /api/results/calculate-ranks - Recalculate ranks for a class
 export async function POST(req: Request) {
@@ -20,16 +21,25 @@ export async function POST(req: Request) {
     const outside = denyOutsideClasses(gate.auth, className);
     if (outside) return outside;
 
-    const result = await dbCalculateAndAssignRanks(
-      academicYear || (await getAcademicYear()),
+    const year = academicYear || (await getAcademicYear());
+    const exam = examName || "Annual Examination";
+    const classBefore = await snapshotClassResults(year, className, exam);
+    const result = await dbCalculateAndAssignRanks(year, className, exam);
+    const undoId = await recordResultsUndo({
+      actorId: user.id,
+      action: "results.ranks",
+      label: "Recalculate ranks",
+      academicYear: year,
       className,
-      examName || "Annual Examination"
-    );
+      examName: exam,
+      before: classBefore,
+    });
 
     return NextResponse.json({
       success: true,
       message: `Ranks recalculated for Class ${className}. ${result.classUpdated} records updated.`,
       ...result,
+      undoId,
     });
   } catch (error: any) {
     console.error("Rank calculation error:", error);

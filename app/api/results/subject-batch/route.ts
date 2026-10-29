@@ -3,6 +3,7 @@ import { dbSaveSubjectBatchMarks, SaveSubjectBatchParams } from "@/lib/supabase/
 import { requireStaff } from "@/lib/api/guard";
 import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
 import { getAcademicYear } from "@/lib/academic/current-year";
+import { recordResultsUndo, snapshotClassResults } from "@/lib/academic/results-undo";
 
 // POST /api/results/subject-batch
 export async function POST(req: Request) {
@@ -24,9 +25,11 @@ export async function POST(req: Request) {
     const outside = await denyStudentsOutsideClasses(gate.auth, className, scores.map((s) => s.studentId));
     if (outside) return outside;
 
+    const year = academicYear || (await getAcademicYear());
+    const classBefore = await snapshotClassResults(year, className, examName);
     const result = await dbSaveSubjectBatchMarks(
       {
-        academicYear: academicYear || (await getAcademicYear()),
+        academicYear: year,
         class: className,
         section: body.section,
         examName,
@@ -36,7 +39,16 @@ export async function POST(req: Request) {
       user.id
     );
 
-    return NextResponse.json({ success: true, count: result.count });
+    const undoId = await recordResultsUndo({
+      actorId: user.id,
+      action: "results.subject-batch",
+      label: `Save ${subjectName} marks`,
+      academicYear: year,
+      className,
+      examName,
+      before: classBefore,
+    });
+    return NextResponse.json({ success: true, count: result.count, undoId });
   } catch (error: any) {
     console.error("Subject batch save API error:", error);
     return NextResponse.json({ error: error.message || "Failed to save subject batch marks" }, { status: 500 });

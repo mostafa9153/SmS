@@ -302,18 +302,7 @@ export async function saveStudentResult(input: {
   subjectMarks?: SubjectMarksMap;
   remarks?: string;
 }) {
-  const res = await fetch("/api/results", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save student result");
-  }
-
-  return res.json();
+  return apiFetch<{ result: unknown; undoId?: string | null }>("/api/results", { method: "POST", json: input });
 }
 
 /**
@@ -334,18 +323,7 @@ export async function saveSubjectBatchMarks(input: {
     isAbsent?: boolean;
   }>;
 }) {
-  const res = await fetch("/api/results/subject-batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save subject batch marks");
-  }
-
-  return res.json();
+  return apiFetch<{ count: number; undoId?: string | null }>("/api/results/subject-batch", { method: "POST", json: input });
 }
 
 /**
@@ -356,18 +334,10 @@ export async function recalculateClassRanks(
   className: string,
   examName = "Annual Examination"
 ) {
-  const res = await fetch("/api/results/calculate-ranks", {
+  return apiFetch<{ message?: string; undoId?: string | null }>("/api/results/calculate-ranks", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ academicYear, class: className, examName }),
+    json: { academicYear, class: className, examName },
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to recalculate ranks");
-  }
-
-  return res.json();
 }
 
 /**

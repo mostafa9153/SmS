@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { todayIST } from "@/lib/utils/date";
 
 export async function GET(req: Request) {
   try {
@@ -15,14 +16,14 @@ export async function GET(req: Request) {
 
     const adminClient = createAdminClient();
 
-    // Today's date
-    const today = new Date();
-    const todayStr = today.toISOString().split("T")[0];
-
-    // 7 days ago
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 6); // today + 6 past days = 7 days trend
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+    // School days follow IST; the UTC date is still "yesterday" until 05:30.
+    const todayStr = todayIST();
+    const dayBack = (n: number) => {
+      const d = new Date(`${todayStr}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - n);
+      return d.toISOString().split("T")[0];
+    };
+    const sevenDaysAgoStr = dayBack(6); // today + 6 past days = 7 days trend
 
     // Fetch all attendance for the last 7 days
     const { data: attendanceData, error } = await adminClient
@@ -48,9 +49,7 @@ export async function GET(req: Request) {
     
     // Initialize map with last 7 days
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const dStr = d.toISOString().split("T")[0];
+      const dStr = dayBack(i);
       trendMap.set(dStr, { date: dStr, present: 0, absent: 0 });
     }
 

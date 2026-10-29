@@ -448,7 +448,8 @@ export async function dbSaveSubjectBatchMarks(
   }
 
   const { data: existingResults, error: fetchErr } = await resultsQuery;
-  if (fetchErr) console.error("Error fetching existing results for batch update:", fetchErr);
+  // Without the existing rows the upsert below would overwrite every other subject's marks.
+  if (fetchErr) throw new Error(`Could not load existing marks: ${fetchErr.message}`);
 
   const existingMap = new Map<string, any>();
   for (const r of existingResults || []) {
