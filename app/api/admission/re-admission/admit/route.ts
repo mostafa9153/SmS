@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { receiptConflict } from "@/lib/admission/receipt-guard";
+import { rollConflict } from "@/lib/admission/roll-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
@@ -184,6 +185,15 @@ export async function POST(req: Request) {
       const conflict = await receiptConflict(supabase, paymentReceiptNo.trim(), [student.school_id, student.id]);
       if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     }
+
+    const rollTaken = await rollConflict(supabase, {
+      className: targetClass,
+      section: targetSection,
+      roll: targetRoll,
+      academicYear: currentYear,
+      excludeStudentId: student.id,
+    });
+    if (rollTaken) return NextResponse.json({ error: rollTaken }, { status: 409 });
 
     const updatePayload: Record<string, any> = {
       present_class: targetClass,

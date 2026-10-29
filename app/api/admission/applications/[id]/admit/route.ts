@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { receiptConflict } from "@/lib/admission/receipt-guard";
+import { rollConflict } from "@/lib/admission/roll-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { nowTimeIST, todayIST } from "@/lib/utils/date";
@@ -101,6 +102,15 @@ export async function POST(
       const conflict = await receiptConflict(supabase, paymentReceiptNo, ownIds);
       if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     }
+    const rollTaken = await rollConflict(supabase, {
+      className: assignedClass,
+      section: assignedSection,
+      roll: assignedRoll,
+      academicYear: app.academic_year || currentYear,
+      excludeApplicationId: app.id,
+    });
+    if (rollTaken) return NextResponse.json({ error: rollTaken }, { status: 409 });
+
     const assignedStream = body.stream || app.stream || null;
     const photoUrl = body.photoUrl || app.photo_url || null;
 
