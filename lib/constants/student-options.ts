@@ -42,16 +42,6 @@ export const GUARDIAN_DEFAULT_PRESET_OPTIONS: OptionItem[] = [
   { label: "None (No Default)", value: "None" },
 ];
 
-export const RELIGION_OPTIONS: OptionItem[] = [
-  { label: "Islam", value: "Islam" },
-  { label: "Hinduism", value: "Hinduism" },
-  { label: "Christianity", value: "Christianity" },
-  { label: "Sikhism", value: "Sikhism" },
-  { label: "Buddhism", value: "Buddhism" },
-  { label: "Jainism", value: "Jainism" },
-  { label: "Other", value: "Other" },
-];
-
 export const RELIGION_DEFAULT_PRESET_OPTIONS: OptionItem[] = [
   { label: "Hinduism", value: "Hinduism" },
   { label: "Islam", value: "Islam" },

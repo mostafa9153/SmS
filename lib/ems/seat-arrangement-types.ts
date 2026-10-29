@@ -1,19 +1,9 @@
 // EMS Seat Arrangement Types — UE (Even) and UU (Uneven) Models
-import { AllocatedRoom, SeatAssignment, EmsRoom, AutoAllocationClassInput } from "./types";
-import { Student } from "@/lib/types";
+import { AllocatedRoom } from "./types";
 
 export type ArrangementPattern = "INTERLEAVED" | "FIXED_U" | "UE" | "UU";
 
 export type FillDirection = "top-to-bottom" | "bottom-to-top";
-
-export interface SeatArrangementMetadata {
-  pattern: ArrangementPattern;
-  fillDirection: FillDirection;
-  sequenceIndex: number; // 1-based index within the current class fill thread
-  classCode: string;
-  sectionCode?: string;
-  threadId: string; // Identifier for the continuous fill thread
-}
 
 export interface ColumnClassAllocationConfig {
   columnIndex: number;

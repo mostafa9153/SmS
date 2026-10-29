@@ -26,20 +26,6 @@ export function getSavedSchoolPresets(): string[] {
   return DEFAULT_SCHOOL_PRESETS;
 }
 
-export function saveSchoolPresets(items: string[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: items }));
-  } catch (e) {
-    console.error("Failed to save school presets to storage", e);
-  }
-
-  saveSchoolPresetsToDb(items).catch((err) => {
-    console.warn("Background DB sync for school presets failed:", err);
-  });
-}
-
 export async function fetchSchoolPresetsFromDb(): Promise<string[]> {
   try {
     const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");

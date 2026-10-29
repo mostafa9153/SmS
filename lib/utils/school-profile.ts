@@ -285,7 +285,6 @@ export function formatFullSchoolAddress(parts: {
   return result;
 }
 
-
 /**
  * Robustly parses a free-form student address string into clean Village, P.O., P.S., District, and PIN,
  * correctly handling labeled tokens (Vill-, P.O.-, P.S.-, Dist.-) and preventing label duplication.
@@ -375,21 +374,6 @@ export function getSavedSchoolProfile(): SchoolProfileData {
   return DEFAULT_SCHOOL_PROFILE;
 }
 
-export function saveSchoolProfile(profile: SchoolProfileData): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
-  } catch (e) {
-    console.error("Failed to save school profile to storage", e);
-  }
-
-  // Background sync to database
-  saveSchoolProfileToDb(profile).catch((err) => {
-    console.warn("Background DB sync for school profile failed:", err);
-  });
-}
-
 /**
  * Asynchronously fetches the latest school profile from Supabase system_config
  * and synchronizes it into local storage with in-flight deduplication and caching.
@@ -440,6 +424,3 @@ export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise
     return false;
   }
 }
-
-
-

@@ -297,23 +297,6 @@ export function validateGroups(args: {
 }
 
 /**
- * Subjects effectively taught to a class as ORDINARY (non-group) periods.
- * All four stream-filter copy-paste sites across the codebase should route
- * through this helper so filtering stays consistent and never double-counts
- * a group option.
- */
-export function filterOutGroupedSubjects(
-  classId: string,
-  subjects: RoutineSubject[],
-  groups: RoutineSubjectGroup[]
-): RoutineSubject[] {
-  if (!groups || groups.length === 0) return subjects;
-  const grouped = getGroupedSubjectIds(classId, groups);
-  if (grouped.size === 0) return subjects;
-  return subjects.filter((s) => !grouped.has(s.id));
-}
-
-/**
  * For solver / payload construction: flatten groups into solver-ready
  * records. The solver sees only classIds[] + options and does not know
  * about scope. Non-pooled groups are expanded into one record per section.

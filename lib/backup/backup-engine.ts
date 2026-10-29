@@ -8,20 +8,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BackupPayload, RestorePreview, RestoreResult } from "./types";
 import { mustWrite } from "@/lib/supabase/write";
 
-// Primary tables to back up in order of dependency
-export const KNOWN_BACKUP_TABLES = [
-  "students",
-  "academic_history",
-  "student_results",
-  "staff_profiles",
-  "admission_invoices",
-  "certificates_registry",
-  "admission_applications",
-  "admission_settings",
-  "system_config",
-  "exam_configs",
-] as const;
-
 // Helper to fetch all rows with pagination to avoid Supabase default 1000 limit
 async function fetchAllRows(tableName: string): Promise<any[]> {
   const supabase = createAdminClient();

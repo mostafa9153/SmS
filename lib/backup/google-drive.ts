@@ -431,20 +431,6 @@ export async function downloadDriveBackup(fileId: string): Promise<BackupPayload
 }
 
 // -------------------------------------------------------------
-// 9. Delete a Specific Backup File from Google Drive
-// -------------------------------------------------------------
-export async function deleteDriveBackup(fileId: string): Promise<boolean> {
-  const accessToken = await getValidAccessToken();
-
-  const res = await fetch(`${GOOGLE_DRIVE_API_BASE}/files/${fileId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  return res.ok;
-}
-
-// -------------------------------------------------------------
 // 10. Disconnect Google Drive
 // -------------------------------------------------------------
 export async function disconnectGoogleDrive(adminUserId?: string) {

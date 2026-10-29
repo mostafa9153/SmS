@@ -192,12 +192,6 @@ export function saveRooms(rooms: EmsRoom[]): Promise<boolean> {
   return syncKeyToDb("ems_rooms", rooms);
 }
 
-// Get single room by ID
-export function getRoomById(id: string): EmsRoom | undefined {
-  const rooms = getSavedRooms();
-  return rooms.find((r) => r.id === id);
-}
-
 // Save or update a single room
 export function saveRoom(room: EmsRoom): void {
   const rooms = getSavedRooms();

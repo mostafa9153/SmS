@@ -5,24 +5,6 @@ import type {
 } from "@/lib/types";
 import { currentYearIST } from "@/lib/utils/academic-year";
 
-export interface InvoiceQueueGroup {
-  class: string;
-  section: string;
-  totalCount: number;
-  students: Array<{
-    id: string;
-    name: string;
-    schoolId?: string;
-    class: string;
-    section: string;
-    roll: number;
-    guardianName?: string;
-    contactNumber?: string;
-    source: "new_admission" | "re_admission";
-    admittedAt?: string;
-  }>;
-}
-
 export async function getAdmissionApplications(filters?: {
   status?: string;
   targetClass?: string;

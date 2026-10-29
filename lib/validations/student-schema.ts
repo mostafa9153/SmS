@@ -222,7 +222,3 @@ export const studentBulkUpdateSchema = z.object({
     })
   ).min(1, "Updates array must contain at least one student"),
 });
-
-export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
-export type StudentUpdateInput = z.infer<typeof studentUpdateSchema>;
-export type StudentBulkUpdateInput = z.infer<typeof studentBulkUpdateSchema>;

@@ -190,20 +190,6 @@ export function getSavedAddressPresetsConfig(): AddressPresetsConfig {
   return DEFAULT_ADDRESS_PRESETS_CONFIG;
 }
 
-export function saveAddressPresetsConfig(config: AddressPresetsConfig): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: config }));
-  } catch (e) {
-    console.error("Failed to save address presets config to storage", e);
-  }
-
-  saveAddressPresetsConfigToDb(config).catch((err) => {
-    console.warn("Background DB sync for address presets config failed:", err);
-  });
-}
-
 export async function fetchAddressPresetsConfigFromDb(): Promise<AddressPresetsConfig> {
   try {
     const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");

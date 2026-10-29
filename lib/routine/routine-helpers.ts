@@ -16,20 +16,11 @@ export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts
   Arts: ["History", "Geography", "Political Science", "Philosophy", "Education", "Sociology", "Sanskrit", "Arabic"],
 };
 
-export const PRESET_STREAMS = ["General", "Science", "Arts", "Commerce", "Vocational"] as const;
-
 /**
  * Standardizes delimiter formatting for section key (e.g. "Class 10::A")
  */
 export function toSectionKey(className: string, section: string): string {
   return `${(className || "").trim()}::${(section || "").trim()}`;
-}
-
-/**
- * Standardizes delimiter formatting for class subject key (e.g. "Class 10::Math")
- */
-export function toClassSubjectKey(className: string, subjectName: string): string {
-  return `${(className || "").trim()}::${(subjectName || "").trim()}`;
 }
 
 /**
@@ -221,23 +212,6 @@ function teacherHasClass(teacher: RoutineTeacher, cls: string): boolean {
     Object.keys(teacher.sectionSubjects || {}).some(
       (k) => k.startsWith(`${cls}::`) || k.startsWith(`${cls}-`) || k.startsWith(`${cls}_`)
     )
-  );
-}
-
-/**
- * Safely retrieves section period override with backwards compatibility
- */
-export function getTeacherSectionPeriod(
-  teacher: RoutineTeacher,
-  className: string,
-  section: string
-): number | undefined {
-  const cls = (className || "").trim();
-  const sec = (section || "").trim();
-  return (
-    teacher.sectionPeriods?.[`${cls}::${sec}`] ??
-    teacher.sectionPeriods?.[`${cls}-${sec}`] ??
-    teacher.sectionPeriods?.[`${cls}_${sec}`]
   );
 }
 
@@ -554,42 +528,6 @@ export function getConfiguredStreamsForClass(className: string): Array<"Science"
 }
 
 /**
- * Filters subjects appropriate for a given class and section/stream
- */
-export function filterSubjectsForClassStream(
-  subjects: RoutineSubject[],
-  className: string,
-  section?: string
-): RoutineSubject[] {
-  const clsLower = (className || "").trim().toLowerCase();
-  const isHs = isHsClass(className);
-
-  const classSubs = subjects.filter(
-    (s) => !s.className || s.className.trim().toLowerCase() === clsLower
-  );
-
-  if (!isHs) {
-    return classSubs;
-  }
-
-  const { stream: parsedStream } = parseSectionAndStream(section || "");
-  const configuredStreams = getConfiguredStreamsForClass(className);
-  const targetStream =
-    parsedStream && parsedStream.toLowerCase() !== "general" && parsedStream.toLowerCase() !== "all"
-      ? parsedStream
-      : configuredStreams[0] || "Arts";
-
-  return classSubs.filter((s) => {
-    const detStream = detectSubjectStream(s.name, s.stream);
-    return (
-      detStream === "Common" ||
-      Boolean(s.isCommon) ||
-      detStream.toLowerCase() === targetStream.toLowerCase()
-    );
-  });
-}
-
-/**
  * Returns the effective subject list for a class — the subjects that will
  * run as ORDINARY (non-group) periods. Subjects that appear as a parallel
  * option inside one of the class's groups are filtered out and counted
@@ -610,23 +548,6 @@ export function getEffectiveClassSubjects(
   }
   if (grouped.size === 0) return subjects;
   return subjects.filter((s) => !grouped.has(s.id));
-}
-
-/**
- * Weekly cost (periods) a class contributes via its subject groups.
- * Each group counts ONCE for its member class regardless of pooling.
- */
-export function calculateClassGroupPeriods(
-  cls: RoutineClass,
-  groups?: Array<{ sectionIds: string[]; periodsPerWeek: number; periodSize: 1 | 2 }>
-): number {
-  if (!groups || groups.length === 0) return 0;
-  let total = 0;
-  for (const g of groups) {
-    if (!g.sectionIds || !g.sectionIds.includes(cls.id)) continue;
-    total += Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
-  }
-  return total;
 }
 
 /**

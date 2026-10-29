@@ -11,7 +11,6 @@ import {
 import {
   getSavedMarksSchemes,
   saveMarksSchemes,
-  type ClassMarksScheme,
   isSubjectLab,
 } from "@/lib/utils/marks-config";
 import {
@@ -503,16 +502,6 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
 }
 
 /**
- * Routine subjects are downstream; no-op to prevent routine from modifying academic marks schemes
- */
-export function syncRemoveRoutineSubjectFromMarksSchemes(
-  _classNameOrCode: string,
-  _subjectName: string
-): void {
-  // Presets is the authoritative academic catalog; Routine does not mutate Marks Schemes.
-}
-
-/**
  * Sync all subjects from Presets (/settings/presets?section=marks_scheme) to Routine Subjects
  */
 // Single-flight: page auto-sync, strict-mode double effects and the manual button must not
@@ -643,13 +632,6 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
 }
 
 /**
- * Backward compatibility alias for syncAllSubjectsFromPresetsToRoutine
- */
-export async function syncAllSubjectsBidirectional(): Promise<void> {
-  await syncAllSubjectsFromPresetsToRoutine();
-}
-
-/**
  * Prunes / syncs routine classes to match configured school classes & streams.
  * Removes orphaned streams (e.g. Science/Commerce if school only runs Arts).
  */
@@ -731,4 +713,3 @@ export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncCla
     console.warn("syncConfiguredClassesToRoutine error:", err);
   }
 }
-

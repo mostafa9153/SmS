@@ -1421,8 +1421,6 @@ export async function saveGeneratedRoutineDb(routine: GeneratedRoutine): Promise
   }
 }
 
-export const saveRoutineGeneratedDb = saveGeneratedRoutineDb;
-
 /**
  * Fetch last 10 generated routine runs for the history list
  */

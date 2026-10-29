@@ -34,6 +34,26 @@ const unguardedRoutes = sourceFiles("app/api")
   .filter((f) => !PUBLIC_ROUTES.some((p) => f.includes(p)))
   .filter((f) => !/requireRole|requireStaff|getAuthenticatedUserRole|verifyAdminUser|getUser\(|hasCronSecret|CRON_SECRET/.test(readFileSync(f, "utf8")));
 
+// Routes no client code references by URL (the reverse of verify's client→route check).
+// Called from outside the app: OAuth redirect target.
+const EXTERNAL_ROUTES = ["/api/admin/backup/auth/callback"];
+const clientText = [...sourceFiles("app").filter((f) => !f.split("\\").join("/").startsWith("app/api/")), ...sourceFiles("components"), ...sourceFiles("lib"), "proxy.ts", "vercel.json"]
+  .map((f) => readFileSync(f, "utf8"))
+  .join("\n");
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const orphanRoutes = sourceFiles("app/api")
+  .map((f) => f.split("\\").join("/"))
+  .filter((f) => f.endsWith("/route.ts"))
+  .map((f) => f.replace(/^app/, "").replace(/\/route\.ts$/, ""))
+  .filter((url) => !EXTERNAL_ROUTES.includes(url))
+  .filter((url) => {
+    const segs = url.split("/");
+    const dyn = segs.findIndex((s) => s.startsWith("["));
+    if (dyn === -1) return !new RegExp(escapeRe(url) + "(?![\\w-])").test(clientText);
+    const tail = segs.slice(dyn + 1).join("/");
+    return !(clientText.includes(segs.slice(0, dyn).join("/") + "/") && (!tail || clientText.includes("/" + tail)));
+  });
+
 const files = SRC.flatMap((d) => sourceFiles(d)).concat("proxy.ts");
 const lineCounts = files.map((f) => readFileSync(f, "utf8").split("\n").length);
 const loc = lineCounts.reduce((a, b) => a + b, 0);
@@ -105,6 +125,7 @@ const report = {
   vulns: audit,
   testsPassed,
   unguardedRoutes,
+  orphanRoutes,
   testsOk: tests.ok,
   build,
   scores,

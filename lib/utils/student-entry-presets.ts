@@ -40,23 +40,6 @@ export function getSavedStudentEntryPresets(): StudentEntryPresets {
 }
 
 /**
- * Saves presets locally and triggers background sync to Supabase.
- */
-export function saveStudentEntryPresets(presets: StudentEntryPresets): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STUDENT_ENTRY_PRESETS_STORAGE_KEY, JSON.stringify(presets));
-    window.dispatchEvent(new CustomEvent(STUDENT_ENTRY_PRESETS_EVENT, { detail: presets }));
-  } catch (e) {
-    console.error("Failed to save student entry presets to storage", e);
-  }
-
-  saveStudentEntryPresetsToDb(presets).catch((err) => {
-    console.warn("Background DB sync for student entry presets failed:", err);
-  });
-}
-
-/**
  * Fetches the presets from Supabase database via the school-config endpoint.
  */
 export async function fetchStudentEntryPresetsFromDb(): Promise<StudentEntryPresets> {

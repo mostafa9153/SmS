@@ -65,16 +65,6 @@ export interface SportsParticipant {
   remarks?: string;
 }
 
-export interface SportsResultEntry {
-  studentId: string;
-  trial1?: string;
-  trial2?: string;
-  trial3?: string;
-  bestScore?: string;
-  rankPosition?: number | null;
-  remarks?: string;
-}
-
 export const PRESET_SPORTS_EVENTS: Omit<SportsEvent, "id">[] = [
   {
     academicYear: new Date().getFullYear(),

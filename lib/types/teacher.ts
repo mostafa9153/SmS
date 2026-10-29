@@ -86,60 +86,6 @@ export const DEFAULT_TEACHER_PERMISSIONS: TeacherPermissions = {
   allowed_classes: [],
 };
 
-export type ClassRoleType = "CLASS_TEACHER" | "SUBJECT_TEACHER";
-
-export interface TeacherClassAssignment {
-  id: string;
-  teacher_id: string;
-  teacher_name?: string;
-  user_id?: string | null;
-  academic_year: number;
-  class_name: string;
-  section: string;
-  role_type: ClassRoleType;
-  subject?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export type TaskType = "RE_ADMISSION" | "MARKSHEET" | "INVOICE_COLLECTION" | "GENERAL";
-export type TaskStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
-export type AssigneeStatus = "ASSIGNED" | "IN_PROGRESS" | "SUBMITTED" | "APPROVED";
-
-export interface TaskCompletionReport {
-  students_count?: number;
-  fees_collected?: number;
-  notes?: string;
-  submitted_at?: string;
-}
-
-export interface TeacherTaskAssignee {
-  id: string;
-  task_id: string;
-  teacher_id: string;
-  teacher_name?: string;
-  user_id: string;
-  status: AssigneeStatus;
-  completion_report: TaskCompletionReport;
-  assigned_at: string;
-  completed_at?: string | null;
-}
-
-export interface TeacherTask {
-  id: string;
-  title: string;
-  description?: string | null;
-  task_type: TaskType;
-  target_class?: string | null;
-  target_section?: string | null;
-  due_date?: string | null;
-  status: TaskStatus;
-  created_by?: string | null;
-  created_at: string;
-  updated_at: string;
-  assignees?: TeacherTaskAssignee[];
-}
-
 export type TeacherActionType =
   | "RE_ADMISSION"
   | "INVOICE_GENERATED"
@@ -147,88 +93,12 @@ export type TeacherActionType =
   | "CERTIFICATE_GENERATED"
   | "ADMIT_CARD_GENERATED";
 
-export interface TeacherActivityLog {
-  id: string;
-  user_id: string | null;
-  teacher_id: string | null;
-  teacher_name: string;
-  action_type: TeacherActionType;
-  target_student_id?: string | null;
-  target_student_name?: string | null;
-  student_class?: string | null;
-  section?: string | null;
-  amount_collected: number;
-  metadata: Record<string, any>;
-  created_at: string;
-}
-
-export interface TeacherNotification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  link?: string | null;
-  is_read: boolean;
-  created_at: string;
-}
-
 export interface TeacherPortalStats {
   readmissionsCount: number;
   totalCollected: number;
   tasksPending: number;
   tasksCompleted: number;
   marksheetsCount: number;
-}
-
-export interface AdminTeacherPerformanceItem {
-  teacher_id: string;
-  teacher_name: string;
-  designation?: string;
-  user_id?: string | null;
-  total_readmissions: number;
-  total_fees_collected: number;
-  total_marksheets: number;
-  tasks_completed: number;
-  tasks_pending: number;
-  email?: string;
-  permissions?: TeacherPermissions;
-  class_assignments?: TeacherClassAssignment[];
-}
-
-export interface TeacherItem {
-  id: string;
-  uniqueId: string;
-  fullName: string;
-  designation?: string;
-  email?: string;
-  mobile?: string;
-  status: string;
-  profilePictureUrl?: string;
-  appointedSubject?: string;
-  primaryMeta?: Record<string, any>;
-  hasLogin: boolean;
-  userId?: string | null;
-  role?: string | null;
-  permissions?: TeacherPermissions;
-  assignments?: TeacherClassAssignment[];
-}
-
-export interface TeacherMetadataResponse {
-  classes: string[];
-  sections: string[];
-  subjects: string[];
-}
-
-export interface TeacherPermissionGrant {
-  id: string;
-  user_id: string;
-  teacher_id?: string | null;
-  permission_key: keyof TeacherPermissions | string;
-  task_id?: string | null;
-  granted_by?: string | null;
-  expires_at: string;
-  is_active: boolean;
-  created_at: string;
 }
 
 export interface TeacherChatMessage {
@@ -256,54 +126,3 @@ export interface TeacherAbsence {
   created_at: string;
   updated_at: string;
 }
-
-export interface StudentMark {
-  id: string;
-  academic_year: number;
-  student_id: string;
-  student_name?: string;
-  roll_no?: string;
-  class_name: string;
-  section: string;
-  subject: string;
-  exam_type: "S1" | "S2" | "S3" | string;
-  full_marks: number;
-  marks_obtained: number | null;
-  grade?: string | null;
-  remarks?: string | null;
-  entered_by?: string | null;
-  teacher_id?: string | null;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface TeacherPushSubscription {
-  id: string;
-  user_id: string;
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TeacherRoutineSlot {
-  id: string;
-  teacher_id?: string | null;
-  user_id?: string | null;
-  day_of_week: string;
-  period_number: number;
-  start_time?: string | null;
-  end_time?: string | null;
-  class_name: string;
-  section: string;
-  subject: string;
-  room_no?: string | null;
-  academic_year: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
-

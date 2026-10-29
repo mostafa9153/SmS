@@ -51,3 +51,18 @@ This is harmless (no runtime cost) and low priority. Dropping the `export` keywo
 3. Add the two scans to `npm run health`: unused exports, and routes with no caller (a route→client "wiring" check, the reverse of the existing client→route check).
 
 Scan scripts (re-runnable): `unused-exports.js` and `orphan-routes.js` in this session's scratchpad. They can move to `scripts/` with step 3.
+
+## Done (2026-10-29)
+- **Batch re-admission route:** already removed in Audit 2 (A-API-1); nothing left to do.
+- **Section 2 deleted:** re-scanned first (the list had drifted since the audit), then removed every export no file mentions, in three passes because deleting a type can orphan the types it used (`TaskType`, `TaskStatus`, `TeacherTaskAssignee`, `UuArrangeResult` …). 21 files, about 740 lines, plus the imports that became unused. Declarations were removed through the TypeScript AST, not by hand.
+- **Health scan:** `npm run health` now reports `orphanRoutes` (API routes no client code calls). Unused exports were already counted by knip there.
+- **Verified:** `npm run verify` passed (types, lint, tests, client→route, conventions) and `next build` passed. Removed names were also searched in `python-backend/`, `scripts/` and `supabase/`: no hits. No smoke test: only unreferenced code was removed, so no route or page behaves differently.
+
+## Still waiting on a decision (nothing deleted)
+| Item | Recommendation |
+|---|---|
+| Academic session rollover (`readiness`, `transition`) | Build a screen: it is the year-end rollover. Feature work, so it needs your go-ahead |
+| Application revert / edit / delete / transfer-to-active | Wire into the Applications page if staff need them, else delete |
+| `POST /api/students/bulk`, `getDistinctAdmissionYears`, `getOldStudentYears` | Delete unless a screen is planned |
+| `POST /api/push/send` | The only route `orphanRoutes` still lists. Delete unless something outside the app calls it |
+| Section 3 (228 over-exported names) | Leave: no runtime cost |

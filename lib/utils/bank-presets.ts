@@ -63,20 +63,6 @@ export function getSavedBankPresets(): BankPresetItem[] {
   return DEFAULT_BANK_PRESETS;
 }
 
-export function saveBankPresets(items: BankPresetItem[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(BANK_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(BANK_PRESETS_EVENT, { detail: items }));
-  } catch (e) {
-    console.error("Failed to save bank presets to storage", e);
-  }
-
-  saveBankPresetsToDb(items).catch((err) => {
-    console.warn("Background DB sync for bank presets failed:", err);
-  });
-}
-
 export async function fetchBankPresetsFromDb(): Promise<BankPresetItem[]> {
   try {
     const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
