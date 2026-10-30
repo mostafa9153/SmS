@@ -20,12 +20,10 @@ export function useViewerExport(ctx: ViewerCoreState) {
       workbook.creator = "SMS Web App";
       
       const maxPeriods = settings.periodsPerDay;
-      const headerRow = ["Day / Class", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
       
       // Reusable styles
       const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } };
       const headerFont = { color: { argb: 'FFFFFFFF' }, bold: true };
-      const dayRowFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6E6FA' } };
       
       const borderAll: any = {
         top: { style: 'thin', color: { argb: 'FFBFBFBF' } },
@@ -55,137 +53,185 @@ export function useViewerExport(ctx: ViewerCoreState) {
         }
       };
 
-      // --- 1. MASTER (DAY-WISE) SHEET ---
-      const wsMaster = workbook.addWorksheet("Master (Day-wise)");
-      let mRowIdx = 1;
+      // Master sheets: one table, every working day side by side (day band over its period columns)
+      const halfDays: number[] = Array.isArray(settings.halfDays) ? settings.halfDays : [];
+      const halfDayPeriods = Number(settings.halfDayPeriods) || maxPeriods;
+      const dayPeriodCount = (dIdx: number) => (halfDays.includes(dIdx) ? Math.min(halfDayPeriods, maxPeriods) : maxPeriods);
+      const breakAfter: number[] = Array.isArray(settings.breaks) ? settings.breaks : [];
+      // [strong band, light tint, zebra tint] per day: days differ by hue, rows by a faint stripe
+      const DAY_PALETTE: [string, string, string][] = [
+        ["FF2F5D9E", "FFF3F7FD", "FFE3ECF9"],
+        ["FF1E8A6E", "FFF2FAF7", "FFDFF3EC"],
+        ["FF7B4FA0", "FFF8F4FC", "FFEDE3F6"],
+        ["FFC27A12", "FFFEF9F0", "FFFBEBD0"],
+        ["FFC0392B", "FFFDF4F3", "FFF9E0DD"],
+        ["FF2A8FA8", "FFF2FAFC", "FFDDF1F6"],
+        ["FF6B6B6B", "FFF7F7F7", "FFEAEAEA"],
+      ];
+      const solid = (argb: string): any => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+      const THICK = { style: 'medium', color: { argb: 'FF1F1F1F' } };
+      const BREAK_EDGE = { style: 'mediumDashed', color: { argb: 'FFE08A00' } };
+      const THIN = { style: 'thin', color: { argb: 'FFD0D0D0' } };
 
-      settings.workingDays.forEach((dIdx, dPos) => {
-        const titleRow = wsMaster.getRow(mRowIdx);
-        titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " ---";
-        titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF333333' } };
-        titleRow.getCell(1).fill = dayRowFill;
-        wsMaster.mergeCells(mRowIdx, 1, mRowIdx, maxPeriods + 1);
-        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        mRowIdx++;
-
-        const startTblRow = mRowIdx;
-        wsMaster.getRow(mRowIdx).values = headerRow;
-        mRowIdx++;
-
-        classes.forEach((c) => {
-          const classLimit = c.dailyPeriods || maxPeriods;
-          const rowData = [c.className + " - " + c.section];
-
-          for (let p = 1; p <= maxPeriods; p++) {
-            if (p > classLimit) {
-              rowData.push("");
-            } else {
-              const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
-              if (cellData) {
-                if (cellData.gid) {
-                  // Parallel group cell: list all options stacked.
-                  const text = getCellOptions(cellData)
-                    .map((o) => {
-                      const s = subjectMap.get(o.sid);
-                      const t = teacherMap.get(o.tid);
-                      return `${s?.name || "?"} (${t?.shortName || "?"})`;
-                    })
-                    .join(" | ");
-                  rowData.push(text);
-                } else {
-                  const subj = subjectMap.get(cellData.sid);
-                  const tch = teacherMap.get(cellData.tid);
-                  rowData.push((subj?.name || "Unknown") + "\n(" + (tch?.shortName || "?") + ")");
-                }
-              } else {
-                 rowData.push("-");
-              }
-            }
-          }
-          wsMaster.getRow(mRowIdx).values = rowData;
-          wsMaster.getRow(mRowIdx).height = 44;
-          mRowIdx++;
+      const buildSideBySide = (
+        sheet: any,
+        label: string,
+        rowLabels: string[],
+        cellText: (rowIdx: number, dPos: number, dIdx: number, p: number) => string
+      ) => {
+        // Column map: 1 = row label, then each day's periods, then the label again so a row is never lost
+        const cols: { dPos: number; p: number; col: number }[] = [];
+        const dayRange: { first: number; last: number }[] = [];
+        let col = 2;
+        settings.workingDays.forEach((dIdx, dPos) => {
+          const count = dayPeriodCount(dIdx);
+          dayRange[dPos] = { first: col, last: col + count - 1 };
+          for (let p = 1; p <= count; p++) cols.push({ dPos, p, col: col + p - 1 });
+          col += count;
         });
-        
-        applyTableStyles(wsMaster, startTblRow, mRowIdx - startTblRow, maxPeriods + 1);
-        mRowIdx += 2;
-      });
+        const lastCol = col; // mirrored label column
+        const lastRow = 2 + rowLabels.length;
 
-      // --- 2. MASTER (TEACHER-WISE) SHEET ---
-      const wsMasterTeacher = workbook.addWorksheet("Master (Teacher-wise)");
-      let mtRowIdx = 1;
-      const teacherHeaderRow = ["Teacher / Faculty", ...Array.from({ length: maxPeriods }, (_, i) => "Period " + (i + 1))];
-      const teacherDayRowFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2EFDA' } };
-      const teacherHeaderFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF385723' } };
-
-      const sortedFaculty = [...teachers].sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name));
-
-      settings.workingDays.forEach((dIdx, dPos) => {
-        const titleRow = wsMasterTeacher.getRow(mtRowIdx);
-        titleRow.getCell(1).value = "--- " + DAY_NAMES[dIdx] + " (Teacher Master) ---";
-        titleRow.getCell(1).font = { bold: true, size: 13, color: { argb: 'FF274E13' } };
-        titleRow.getCell(1).fill = teacherDayRowFill;
-        wsMasterTeacher.mergeCells(mtRowIdx, 1, mtRowIdx, maxPeriods + 1);
-        titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        mtRowIdx++;
-
-        const startTblRow = mtRowIdx;
-        wsMasterTeacher.getRow(mtRowIdx).values = teacherHeaderRow;
-        mtRowIdx++;
-
-        sortedFaculty.forEach((tch) => {
-          const rowData: any[] = [
-            tch.name + (tch.shortName ? ` (${tch.shortName})` : "") + (tch.primarySubject ? ` [${tch.primarySubject}]` : "")
-          ];
-
-          for (let p = 1; p <= maxPeriods; p++) {
-            const pPos = p - 1;
-            let assignedClass: RoutineClass | null = null;
-            let assignedCell: any = null;
-            let matchedOpt: { sid: string; tid: string; rid?: string | null } | null = null;
-
-            const seenGroupUnits = new Set<string>();
-            for (const c of classes) {
-              const cellData = routine.grid[c.id]?.[dPos]?.[pPos];
-              if (!cellData || !cellHasTeacher(cellData, tch.id)) continue;
-              if (cellData.gid) {
-                if (seenGroupUnits.has(cellData.gid)) continue;
-                seenGroupUnits.add(cellData.gid);
-              }
-              const opt = getCellOptions(cellData).find((o) => o.tid === tch.id);
-              if (!opt) continue;
-              assignedClass = c;
-              assignedCell = cellData;
-              matchedOpt = opt;
-              break;
-            }
-
-            if (assignedClass && assignedCell && matchedOpt) {
-              const subj = subjectMap.get(matchedOpt.sid);
-              const room = matchedOpt.rid ? roomMap.get(matchedOpt.rid) : null;
-              let text = `${assignedClass.className}-${assignedClass.section}\n${subj?.name || "Unknown"}`;
-              if (assignedCell.lab) text += " (Lab)";
-              if (assignedCell.gid) text += " [Group]";
-              if (room) text += `\n[${room.name}]`;
-              rowData.push(text);
-            } else {
-              rowData.push("-");
-            }
-          }
-
-          wsMasterTeacher.getRow(mtRowIdx).values = rowData;
-          wsMasterTeacher.getRow(mtRowIdx).height = 44;
-          mtRowIdx++;
+        // Header: day bands (row 1) over period numbers (row 2)
+        sheet.getCell(1, 1).value = label;
+        sheet.mergeCells(1, 1, 2, 1);
+        sheet.getCell(1, lastCol).value = label;
+        sheet.mergeCells(1, lastCol, 2, lastCol);
+        settings.workingDays.forEach((dIdx, dPos) => {
+          const { first, last } = dayRange[dPos];
+          const [strong] = DAY_PALETTE[dPos % DAY_PALETTE.length];
+          sheet.getCell(1, first).value = (DAY_NAMES[dIdx] + (halfDays.includes(dIdx) ? " (Half)" : "")).toUpperCase();
+          if (last > first) sheet.mergeCells(1, first, 1, last);
+          for (let c = first; c <= last; c++) sheet.getCell(1, c).fill = solid(strong);
+        });
+        cols.forEach(({ dPos, p, col: c }) => {
+          const [strong] = DAY_PALETTE[dPos % DAY_PALETTE.length];
+          const cell = sheet.getCell(2, c);
+          cell.value = breakAfter.includes(p) && p < dayPeriodCount(settings.workingDays[dPos]) ? `P${p}\n▸ break` : `P${p}`;
+          cell.fill = solid(strong);
         });
 
-        applyTableStyles(wsMasterTeacher, startTblRow, mtRowIdx - startTblRow, maxPeriods + 1);
-        for (let c = 1; c <= maxPeriods + 1; c++) {
-          const hCell = wsMasterTeacher.getCell(startTblRow, c);
-          hCell.fill = teacherHeaderFill;
-          hCell.font = headerFont;
+        // Body
+        rowLabels.forEach((rowLabel, rIdx) => {
+          const r = 3 + rIdx;
+          sheet.getCell(r, 1).value = rowLabel;
+          sheet.getCell(r, lastCol).value = rowLabel;
+          cols.forEach(({ dPos, p, col: c }) => {
+            const text = cellText(rIdx, dPos, settings.workingDays[dPos], p);
+            sheet.getCell(r, c).value = text;
+          });
+          sheet.getRow(r).height = 46;
+        });
+
+        // Styling pass
+        sheet.getColumn(1).width = 28;
+        sheet.getColumn(lastCol).width = 28;
+        cols.forEach(({ col: c }) => (sheet.getColumn(c).width = 13));
+        for (let r = 1; r <= lastRow; r++) {
+          for (let c = 1; c <= lastCol; c++) {
+            const cell = sheet.getCell(r, c);
+            const isLabel = c === 1 || c === lastCol;
+            const meta = cols.find((x) => x.col === c);
+            const dayRng = meta ? dayRange[meta.dPos] : null;
+            const border: any = { top: THIN, bottom: THIN, left: THIN, right: THIN };
+            if (dayRng) {
+              if (c === dayRng.first) border.left = THICK;
+              if (c === dayRng.last) border.right = THICK;
+              if (meta && breakAfter.includes(meta.p) && c !== dayRng.last) border.right = BREAK_EDGE;
+            }
+            if (isLabel) {
+              border.left = THICK;
+              border.right = THICK;
+            }
+            if (r <= 2) {
+              border.top = THICK;
+              if (r === 2) border.bottom = THICK;
+            }
+            if (r === lastRow) border.bottom = THICK;
+            cell.border = border;
+
+            if (r <= 2) {
+              cell.font = { color: { argb: 'FFFFFFFF' }, bold: true, size: r === 1 ? 12 : 10 };
+              cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              if (isLabel) cell.fill = solid('FF1F1F1F');
+            } else if (isLabel) {
+              cell.font = { bold: true, size: 10 };
+              cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true, indent: 1 };
+              cell.fill = solid(r % 2 === 0 ? 'FFE9E9E9' : 'FFF6F6F6');
+            } else if (meta) {
+              const [, tint, zebra] = DAY_PALETTE[meta.dPos % DAY_PALETTE.length];
+              const empty = !cell.value || cell.value === "-" || cell.value === "";
+              cell.fill = solid(r % 2 === 0 ? zebra : tint);
+              cell.font = empty ? { size: 9, color: { argb: 'FFB5B5B5' } } : { size: 9, bold: true, color: { argb: 'FF1A1A1A' } };
+              cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            }
+          }
         }
-        mtRowIdx += 2;
-      });
+
+        sheet.views = [{ state: 'frozen', xSplit: 1, ySplit: 2 }];
+        sheet.pageSetup = {
+          orientation: 'landscape',
+          paperSize: 8,
+          fitToPage: true,
+          fitToWidth: 1,
+          fitToHeight: 0,
+          printTitlesRow: '1:2',
+          printTitlesColumn: 'A:A',
+        };
+      };
+
+      // --- 1. MASTER (DAY-WISE) SHEET: classes x days side by side ---
+      const wsMaster = workbook.addWorksheet("Master (Day-wise)");
+      buildSideBySide(
+        wsMaster,
+        "Class",
+        classes.map((c) => c.className + " - " + c.section),
+        (rIdx, dPos, _dIdx, p) => {
+          const c = classes[rIdx];
+          if (p > (c.dailyPeriods || maxPeriods)) return "";
+          const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
+          if (!cellData) return "-";
+          if (cellData.gid) {
+            return getCellOptions(cellData)
+              .map((o) => `${subjectMap.get(o.sid)?.name || "?"} (${teacherMap.get(o.tid)?.shortName || "?"})`)
+              .join(" | ");
+          }
+          return (subjectMap.get(cellData.sid)?.name || "Unknown") + "\n(" + (teacherMap.get(cellData.tid)?.shortName || "?") + ")";
+        }
+      );
+
+      // --- 2. MASTER (TEACHER-WISE) SHEET: teachers x days side by side ---
+      const wsMasterTeacher = workbook.addWorksheet("Master (Teacher-wise)");
+      const sortedFaculty = [...teachers].sort((a, b) => (a.shortName || a.name).localeCompare(b.shortName || b.name));
+      buildSideBySide(
+        wsMasterTeacher,
+        "Teacher \\ Day",
+        sortedFaculty.map(
+          (tch) => tch.name + (tch.shortName ? ` (${tch.shortName})` : "") + (tch.primarySubject ? ` [${tch.primarySubject}]` : "")
+        ),
+        (rIdx, dPos, _dIdx, p) => {
+          const tch = sortedFaculty[rIdx];
+          const seenGroupUnits = new Set<string>();
+          for (const c of classes) {
+            const cellData = routine.grid[c.id]?.[dPos]?.[p - 1];
+            if (!cellData || !cellHasTeacher(cellData, tch.id)) continue;
+            if (cellData.gid) {
+              if (seenGroupUnits.has(cellData.gid)) continue;
+              seenGroupUnits.add(cellData.gid);
+            }
+            const opt = getCellOptions(cellData).find((o) => o.tid === tch.id);
+            if (!opt) continue;
+            const subj = subjectMap.get(opt.sid);
+            const room = opt.rid ? roomMap.get(opt.rid) : null;
+            let text = `${c.className}-${c.section}\n${subj?.name || "Unknown"}`;
+            if (cellData.lab) text += " (Lab)";
+            if (cellData.gid) text += " [Group]";
+            if (room) text += `\n[${room.name}]`;
+            return text;
+          }
+          return "-";
+        }
+      );
 
       // --- 3. CLASS-WISE SHEET ---
       const wsClass = workbook.addWorksheet("Class-wise");
