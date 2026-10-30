@@ -8,6 +8,8 @@ export const SECONDARY_CLASS_NEXT: Record<string, string> = Object.fromEntries(
   SECONDARY_CLASSES.slice(0, -1).map((c) => [c, getNextClass(c)!])
 );
 
+export const HIGHER_SECONDARY_CLASS_NEXT: Record<string, string> = { XI: "XII" };
+
 export const CLASS_NEXT: Record<string, string> = {
   ...SECONDARY_CLASS_NEXT,
   ...HIGHER_SECONDARY_CLASS_NEXT,
