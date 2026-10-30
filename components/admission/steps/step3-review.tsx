@@ -5,16 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AdmissionApplicationForm, AdmissionFormData } from "@/components/admission/admission-application-form";
-import { ArrowLeft } from "lucide-react";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 
 interface Step3ReviewProps {
   appData: any;
-  onBack: () => void;
   onNext: (updatedData: any) => void;
 }
 
-export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
+export function Step3Review({ appData, onNext }: Step3ReviewProps) {
   const [checklist, setChecklist] = useState({
     checkAadhaar: false,
     checkBankPassbook: false,
@@ -112,9 +110,6 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-bold tracking-tight">Review & Verify Application</h2>
             {appData?.applicationNo && (

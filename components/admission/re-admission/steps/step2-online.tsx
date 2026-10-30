@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, ArrowRight, Share2, RefreshCw, Globe, Copy, Check } from "lucide-react";
+import { ArrowRight, Share2, RefreshCw, Globe, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import { cn, sortClasses } from "@/lib/utils";
@@ -18,10 +18,9 @@ import { SearchInput } from "@/components/ui/search-input";
 
 interface Step2OnlineProps {
   onNext: (appData: any) => void;
-  onBack: () => void;
 }
 
-export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
+export function Step2Online({ onNext }: Step2OnlineProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [origin, setOrigin] = useState("");
@@ -84,9 +83,6 @@ export function Step2Online({ onNext, onBack }: Step2OnlineProps) {
       {/* Header controls bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-card border shadow-xs">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <span className="text-sm font-bold text-foreground">Online Submissions</span>
         </div>
 

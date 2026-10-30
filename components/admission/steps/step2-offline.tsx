@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { AdmissionApplicationForm, AdmissionFormData } from "@/components/admission/admission-application-form";
 import {
-  ArrowLeft,
   Scan,
   Keyboard,
   Camera,
@@ -27,11 +26,10 @@ const OFFLINE_DRAFT_KEY = "new-offline";
 
 interface Step2OfflineProps {
   onNext: (appData: any) => void;
-  onBack: () => void;
   academicYear?: string;
 }
 
-export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps) {
+export function Step2Offline({ onNext, academicYear }: Step2OfflineProps) {
   const [entryMethod, setEntryMethod] = useState<"manual" | "ai">("manual");
   const [isScanning, setIsScanning] = useState(false);
   const [useCamera, setUseCamera] = useState(false);
@@ -218,9 +216,6 @@ export function Step2Offline({ onNext, onBack, academicYear }: Step2OfflineProps
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
         <div>
           <h2 className="text-lg font-bold tracking-tight">Offline Data Entry</h2>
         </div>

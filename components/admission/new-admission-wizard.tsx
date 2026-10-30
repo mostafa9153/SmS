@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { LayoutDashboard, Check, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { useBackHandler } from "@/lib/hooks/use-back-handler";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () => void }) {
@@ -23,6 +24,7 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
   const [admissionResult, setAdmissionResult] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  useBackHandler(step > 1 && !showSuccessModal ? () => setStep(step - 1) : null);
 
   // Restore wizard state on mount
   useEffect(() => {
@@ -201,7 +203,6 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         {step === 2 && mode === "online" && (
           <Step2Online
             academicYear={academicYear}
-            onBack={() => setStep(1)}
             onNext={(data) => {
               setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(3);
@@ -211,7 +212,6 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         {step === 2 && mode === "offline" && (
           <Step2Offline
             academicYear={academicYear}
-            onBack={() => setStep(1)}
             onNext={(data) => {
               setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(3);
@@ -221,7 +221,6 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
         {step === 3 && (
           <Step3Review
             appData={{ ...appData, academicYear: appData?.academicYear || academicYear }}
-            onBack={() => setStep(2)}
             onNext={(data) => {
               setAppData({ ...data, academicYear: data?.academicYear || academicYear });
               setStep(4);
@@ -232,7 +231,6 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
           <Step4Finalize
             appData={{ ...appData, academicYear: appData?.academicYear || academicYear }}
             academicYear={academicYear}
-            onBack={() => setStep(3)}
             onAdmit={(res) => {
               setAdmissionResult(res);
               setShowSuccessModal(true);

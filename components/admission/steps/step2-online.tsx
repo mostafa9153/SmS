@@ -10,18 +10,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Link as LinkIcon, Download, ArrowLeft, User, Phone, Clock, Share2, ArrowRight } from "lucide-react";
+import { Search, Link as LinkIcon, Download, User, Phone, Clock, Share2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "react-qr-code";
 import { SearchInput } from "@/components/ui/search-input";
 
 interface Step2OnlineProps {
   onNext: (appData: any) => void;
-  onBack: () => void;
   academicYear?: string;
 }
 
-export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) {
+export function Step2Online({ onNext, academicYear }: Step2OnlineProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [classFilter, setClassFilter] = useState("all");
   const [origin, setOrigin] = useState("");
@@ -78,9 +77,6 @@ export function Step2Online({ onNext, onBack, academicYear }: Step2OnlineProps) 
       {/* Header Bar */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <h2 className="text-base sm:text-lg font-bold tracking-tight truncate">Online Applications</h2>
         </div>
 

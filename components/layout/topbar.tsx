@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SoundToggle } from "@/components/ui/sound-toggle";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useSidebar } from "@/components/layout/sidebar-context";
+import { runBackHandler } from "@/lib/hooks/use-back-handler";
 
 export function Topbar() {
   const router = useRouter();
@@ -89,7 +90,7 @@ export function Topbar() {
       {/* Navigation / Back Button (on the left side of search bar) */}
       <button
         type="button"
-        onClick={() => router.back()}
+        onClick={() => { if (!runBackHandler()) router.back(); }}
         title="Go Back (পেছনে যান)"
         aria-label="Go Back"
         className="group relative flex h-8 w-8 items-center justify-center rounded-xl bg-primary/10 hover:bg-primary/20 text-primary dark:bg-[#FACC15]/15 dark:hover:bg-[#FACC15]/25 dark:text-[#FACC15] border border-primary/20 dark:border-[#FACC15]/30 shadow-2xs hover:shadow-xs transition-all duration-200 hover:scale-105 active:scale-95 shrink-0 cursor-pointer"

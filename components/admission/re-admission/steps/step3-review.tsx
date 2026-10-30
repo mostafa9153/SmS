@@ -3,18 +3,17 @@
 import React, { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { AdmissionApplicationForm, type AdmissionFormData } from "@/components/admission/admission-application-form";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 
 interface Step3ReviewProps {
-  onBack: () => void;
   onNext: (updatedData: any) => void;
   mode: "online" | "offline";
   initialData: any;
 }
 
-export function Step3Review({ onBack, onNext, mode, initialData }: Step3ReviewProps) {
+export function Step3Review({ onNext, mode, initialData }: Step3ReviewProps) {
   const isOnline = mode === "online";
 
   // Pre-fill all fields from the student record / application
@@ -129,9 +128,6 @@ export function Step3Review({ onBack, onNext, mode, initialData }: Step3ReviewPr
       {/* Header Bar */}
       <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-card border shadow-xs">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0" title="Back">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-foreground">
               {isOnline ? "Online Application Verification" : "Profile Verification"}

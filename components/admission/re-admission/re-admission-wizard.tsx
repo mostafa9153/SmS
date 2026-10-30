@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useBackHandler } from "@/lib/hooks/use-back-handler";
 import { Step1ModeSelect } from "./steps/step1-mode";
 import { Step2Offline } from "./steps/step2-offline";
 import { Step2Online } from "./steps/step2-online";
@@ -61,6 +62,13 @@ export function ReAdmissionWizard() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [skippedReview, setSkippedReview] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  useBackHandler(
+    showDashboard
+      ? () => setShowDashboard(false)
+      : step > 1 && !showSuccessModal
+      ? () => setStep(step === 4 && skippedReview ? 2 : step - 1)
+      : null
+  );
   // A pending session found on a fresh visit (not a reload): ask before resuming.
   const [resumeOffer, setResumeOffer] = useState<SavedWizardState | null>(null);
   // Read before any effect runs (React strict mode remounts would clear the flag first).
@@ -326,7 +334,6 @@ export function ReAdmissionWizard() {
           <Step2Offline
             onNext={handleStep2Next}
             onQuickAdmit={handleStep2QuickAdmit}
-            onBack={() => setStep(1)}
             initialClass={urlClass || undefined}
             initialSection={urlSection || undefined}
           />
@@ -335,13 +342,11 @@ export function ReAdmissionWizard() {
         {step === 2 && mode === "online" && (
           <Step2Online
             onNext={handleStep2Next}
-            onBack={() => setStep(1)}
           />
         )}
 
         {step === 3 && (
           <Step3Review
-            onBack={() => setStep(2)}
             onNext={handleStep3Next}
             mode={mode || "offline"}
             initialData={studentData}
@@ -350,7 +355,6 @@ export function ReAdmissionWizard() {
 
         {step === 4 && (
           <Step4Finalize
-            onBack={() => setStep(skippedReview ? 2 : 3)}
             onAdmit={handleAdmitComplete}
             studentData={studentData}
           />

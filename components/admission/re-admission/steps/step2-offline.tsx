@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ArrowLeft, ArrowRight, User, CheckCircle2, XCircle, Clock, RefreshCw, Zap } from "lucide-react";
+import { Search, ArrowRight, User, CheckCircle2, XCircle, Clock, RefreshCw, Zap } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
@@ -25,7 +25,6 @@ function promotionLabel(cls: string) {
 interface Step2OfflineProps {
   onNext: (studentData: Student) => void;
   onQuickAdmit?: (studentData: Student) => void;
-  onBack: () => void;
   initialClass?: string;
   initialSection?: string;
 }
@@ -33,7 +32,6 @@ interface Step2OfflineProps {
 export function Step2Offline({
   onNext,
   onQuickAdmit,
-  onBack,
   initialClass,
   initialSection,
 }: Step2OfflineProps) {
@@ -130,9 +128,6 @@ export function Step2Offline({
       {/* Header controls & Selection bar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 p-2.5 sm:p-3 rounded-xl bg-card border shadow-xs">
         <div className="flex items-center gap-2 min-w-0">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0" title="Back to Mode">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <span className="text-xs sm:text-sm font-bold text-foreground truncate">Select Candidate</span>
         </div>
 

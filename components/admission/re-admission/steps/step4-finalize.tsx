@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Camera, User, Receipt, CheckCircle2, GraduationCap } from "lucide-react";
+import { Camera, User, Receipt, CheckCircle2, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";
@@ -17,12 +17,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { apiFetch } from "@/lib/api/client";
 
 interface Step4FinalizeProps {
-  onBack: () => void;
   onAdmit: (result: any) => void;
   studentData: any;
 }
 
-export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizeProps) {
+export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
   const currentClass = studentData.presentClass || studentData.present_class || studentData.targetClass || "VI";
   const previousClass = studentData.previous_class || studentData.previousClass || studentData.present_class || studentData.presentClass;
   const studentName = studentData.studentName || studentData.name || "Student";
@@ -167,9 +166,6 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
       {/* Header Bar */}
       <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-card border shadow-xs">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={onBack} className="h-8 w-8 shrink-0">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-foreground">Promotion & Finalize</span>
             <Badge variant="outline" className="text-[10px] font-semibold text-primary">

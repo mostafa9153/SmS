@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Camera, Upload, CheckCircle, Calculator, Info, User, Receipt } from "lucide-react";
+import { Camera, Upload, CheckCircle, Calculator, Info, User, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";
@@ -18,13 +18,12 @@ import { currentYearIST } from "@/lib/utils/academic-year";
 import { apiFetch } from "@/lib/api/client";
 
 interface Step4FinalizeProps {
-  onBack: () => void;
   onAdmit: (result: any) => void;
   appData?: any;
   academicYear?: string;
 }
 
-export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: Step4FinalizeProps) {
+export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4FinalizeProps) {
   const currentYear = academicYear || appData?.academicYear || String(currentYearIST());
   const { profile } = useSchoolProfile();
   const configuredStreams = getSchoolConfiguredStreams(profile);
@@ -263,9 +262,6 @@ export function Step4Finalize({ onBack, onAdmit, appData = {}, academicYear }: S
   return (
     <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-right-4 duration-300">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} disabled={isSubmitting}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
         <div>
           <h2 className="text-lg font-bold tracking-tight">Finalize Admission</h2>
         </div>
