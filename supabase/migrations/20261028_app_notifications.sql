@@ -43,7 +43,7 @@ CREATE POLICY "app_notifications_select_own" ON public.app_notifications
   FOR SELECT TO authenticated
   USING (
     recipient_user_id = (SELECT auth.uid())
-    OR recipient_role = (SELECT role FROM public.user_roles WHERE user_id = (SELECT auth.uid()))
+    OR recipient_role = (SELECT role::text FROM public.user_roles WHERE user_id = (SELECT auth.uid()))
   );
 
 DROP POLICY IF EXISTS "app_notification_receipts_own" ON public.app_notification_receipts;
