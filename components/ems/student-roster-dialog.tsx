@@ -15,7 +15,7 @@ import { X, Users, UserCheck, UserX, RotateCcw, CheckSquare, Square } from "luci
 import { cn } from "@/lib/utils";
 import { SearchInput } from "@/components/ui/search-input";
 
-export interface StudentRosterDialogProps {
+interface StudentRosterDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;

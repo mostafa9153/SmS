@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface AuditIssue {
+interface AuditIssue {
   id: string;
   type: "error" | "warning" | "info";
   category:

@@ -6,12 +6,12 @@ import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 import { formatRoomName, getClassNumericRank, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 
-export interface ClassSubjectConfig {
+interface ClassSubjectConfig {
   headers: string[];
   dates: string[];
 }
 
-export interface EmsAttendanceSheetPrintableProps {
+interface EmsAttendanceSheetPrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;

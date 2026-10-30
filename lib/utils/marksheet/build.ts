@@ -5,7 +5,7 @@ import { MarksheetData, SubjectMarksheetRow } from "@/lib/utils/marksheet/types"
 /**
  * Summary totals across all subjects
  */
-export interface MarksheetGrandTotals {
+interface MarksheetGrandTotals {
   maxPossibleMarks: number;
   totalMarksObtained: number;
   overallPercentage: number;

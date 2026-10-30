@@ -149,7 +149,7 @@ export interface DBAcademicHistory {
 }
 
 // Generate deterministic public photo URL from Supabase Storage
-export function getStudentPhotoUrl(id: string): string {
+function getStudentPhotoUrl(id: string): string {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   return `${supabaseUrl}/storage/v1/object/public/student-photos/${id}.webp`;
 }

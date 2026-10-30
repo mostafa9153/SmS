@@ -6,7 +6,7 @@ import { SportsConfig, DEFAULT_SPORTS_CONFIG } from "./types";
 
 const LOCAL_STORAGE_KEY = "sms_sports_config_v1";
 
-export function getSavedSportsConfig(): SportsConfig {
+function getSavedSportsConfig(): SportsConfig {
   if (typeof window === "undefined") return DEFAULT_SPORTS_CONFIG;
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY);

@@ -80,7 +80,7 @@ export function buildSchoolId(
   return `${prefix}/${cls}/${year}/${reg}`;
 }
 
-export interface ParsedSchoolId {
+interface ParsedSchoolId {
   prefix: string;
   classStr: string;
   year: string;

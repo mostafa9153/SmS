@@ -32,7 +32,7 @@ interface QRScannerModalProps {
   onScanSuccess: (certificateNo: string) => void;
 }
 
-export function extractCertificateNumber(rawCode: string): string {
+function extractCertificateNumber(rawCode: string): string {
   const trimmed = rawCode.trim();
   try {
     const url = new URL(trimmed);

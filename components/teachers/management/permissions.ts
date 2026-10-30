@@ -2,13 +2,13 @@ import { GraduationCap, ClipboardList, FileCheck, Activity, BarChart3 } from "lu
 import { TeacherPermissions } from "@/lib/types/teacher";
 
 
-export interface PermissionItem {
+interface PermissionItem {
   key: keyof TeacherPermissions;
   label: string;
   desc: string;
 }
 
-export interface PermissionSection {
+interface PermissionSection {
   id: string;
   title: string;
   shortTitle: string;

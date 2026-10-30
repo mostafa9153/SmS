@@ -6,7 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export interface AdminAuthResult {
+interface AdminAuthResult {
   isAdmin: boolean;
   user?: {
     id: string;

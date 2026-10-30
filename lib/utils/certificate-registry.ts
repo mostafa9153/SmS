@@ -29,7 +29,7 @@ export function getLocalCachedCertificates(): DBCertificateRow[] {
 /**
  * Save certificate(s) to localStorage cache
  */
-export function saveLocalCachedCertificates(certs: DBCertificateInsert[]) {
+function saveLocalCachedCertificates(certs: DBCertificateInsert[]) {
   if (typeof window === "undefined" || !certs.length) return;
   try {
     const current = getLocalCachedCertificates();

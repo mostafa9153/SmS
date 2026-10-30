@@ -136,7 +136,7 @@ export function getTeacherSubjectPeriod(
 }
 
 /** "Bengali (Theory)" and "Bengali" name the same subject; the variant only splits theory/lab periods. */
-export function subjectBaseName(name: string): string {
+function subjectBaseName(name: string): string {
   return (name || "").trim().toLowerCase().replace(/\s*\((theory|lab|practical)\)/i, "").trim();
 }
 

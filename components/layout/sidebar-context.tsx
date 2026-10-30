@@ -2,9 +2,9 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
-export const DEFAULT_SIDEBAR_WIDTH = 228; // Slightly narrower than default 256px
-export const MIN_SIDEBAR_WIDTH = 190;
-export const MAX_SIDEBAR_WIDTH = 360;
+const DEFAULT_SIDEBAR_WIDTH = 228; // Slightly narrower than default 256px
+const MIN_SIDEBAR_WIDTH = 190;
+const MAX_SIDEBAR_WIDTH = 360;
 
 interface SidebarContextType {
   isOpen: boolean;

@@ -538,7 +538,7 @@ export async function undoCohortPromotion(params: {
   return res.json();
 }
 
-export interface StatusActionPayload {
+interface StatusActionPayload {
   action: "tc_out" | "drop_out" | "archive_stale";
   studentIds?: string[];
   tcDate?: string;
@@ -547,13 +547,13 @@ export interface StatusActionPayload {
   reason?: string;
 }
 
-export interface StatusActionResult {
+interface StatusActionResult {
   count: number;
   message: string;
   undoId?: string | null;
 }
 
-export async function executeStudentStatusAction(payload: StatusActionPayload) {
+async function executeStudentStatusAction(payload: StatusActionPayload) {
   return apiFetch<StatusActionResult>("/api/students/status-action", { method: "POST", json: payload });
 }
 

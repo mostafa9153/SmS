@@ -11,7 +11,7 @@ import {
   type PrintMargins,
 } from "@/lib/print/paper";
 
-export interface PaperDefaults {
+interface PaperDefaults {
   paper: PaperSize;
   /** Sizes this layout supports; also the panel's choices. */
   papers?: PaperSize[];

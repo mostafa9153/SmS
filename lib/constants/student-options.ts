@@ -1,4 +1,4 @@
-export interface OptionItem {
+interface OptionItem {
   label: string;
   value: string;
 }

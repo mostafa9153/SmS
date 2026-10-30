@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, X } from "lucide-react";
 
 
-export interface MissingRollsWarningButtonProps {
+interface MissingRollsWarningButtonProps {
   classNameCode: string;
   section: string;
   rollFrom: number;

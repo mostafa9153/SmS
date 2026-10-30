@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- request bodies are loosely typed form payloads */
 
-export interface ApplicationOverrides {
+interface ApplicationOverrides {
   /** Force values the caller must not take from the request (e.g. public submissions). */
   force?: Record<string, any>;
 }

@@ -3,7 +3,7 @@
  * `new Date().toISOString().slice(0, 10)` is the UTC date: before 05:30 IST it is still yesterday.
  * Use these instead of toISOString / toLocale* without a timeZone.
  */
-export const SCHOOL_TIME_ZONE = "Asia/Kolkata";
+const SCHOOL_TIME_ZONE = "Asia/Kolkata";
 
 /** "YYYY-MM-DD" for `at` (default now) on the school's calendar. */
 export function todayIST(at: Date = new Date()): string {

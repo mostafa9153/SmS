@@ -356,7 +356,7 @@ export function getDefaultSeatDirection(
   }
 }
 
-export function arrangeRoomInterleaved(
+function arrangeRoomInterleaved(
   room: EmsRoom,
   columnConfigs: ColumnClassAllocationConfig[],
   studentPool: Map<string, Student[]>,
@@ -608,7 +608,7 @@ export function arrangeRoomInterleaved(
 }
 
 // Backward-compatible alias for arrangeRoomUe
-export const arrangeRoomUe = arrangeRoomInterleaved;
+const arrangeRoomUe = arrangeRoomInterleaved;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 2. FIXED OUTER U-LOOP ALGORITHM (2:1 Ratio - School Standard)
@@ -636,7 +636,7 @@ export const arrangeRoomUe = arrangeRoomInterleaved;
  * - Multi-Room Cascade:
  *   - Students seamlessly waterfall into subsequent rooms without resetting.
  */
-export function arrangeRoomFixedU(
+function arrangeRoomFixedU(
   room: EmsRoom,
   columnConfigs: ColumnClassAllocationConfig[],
   studentPool: Map<string, Student[]>,

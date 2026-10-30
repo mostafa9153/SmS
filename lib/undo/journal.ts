@@ -10,14 +10,14 @@ export type RestoreStep =
   | { table: string; op: "upsert"; rows: Record<string, any>[] }
   | { table: string; op: "delete"; column: string; values: (string | number)[] };
 
-export interface UndoGuard {
+interface UndoGuard {
   table: string;
   id: string;
   /** The row's updated_at right after the action; undo refuses if it changed since. */
   updated_at: string | null;
 }
 
-export interface RecordUndoInput {
+interface RecordUndoInput {
   actorId: string;
   action: string;
   label: string;
@@ -73,7 +73,7 @@ export async function recordUndo(input: RecordUndoInput): Promise<string | null>
   }
 }
 
-export type UndoResult =
+type UndoResult =
   | { ok: true; label: string }
   | { ok: false; status: 403 | 404 | 409 | 410 | 500; error: string };
 

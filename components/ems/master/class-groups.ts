@@ -10,7 +10,7 @@ export const sortClassGroups = (groups: ClassGroupConfig[]): ClassGroupConfig[] 
   return [...groups].sort((a, b) => getClassNumericRank(a.class) - getClassNumericRank(b.class));
 };
 
-export interface SectionStudentStats {
+interface SectionStudentStats {
   count: number;
   totalEnrolled: number;
   minRoll: number;

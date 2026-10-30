@@ -17,7 +17,7 @@ const ACTIVE_STATUSES = [
 
 export { ACTIVE_STATUSES };
 
-export interface AttendanceRegisterStudent {
+interface AttendanceRegisterStudent {
   presentRoll: number;
   name: string;
   fatherName: string;

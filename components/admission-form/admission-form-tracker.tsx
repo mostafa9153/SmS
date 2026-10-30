@@ -63,7 +63,7 @@ export function AdmissionFormTrackerModal({
   );
 }
 
-export type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "THIS_MONTH" | "CUSTOM";
+type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "THIS_MONTH" | "CUSTOM";
 
 interface TrackerItem {
   id: string;
@@ -139,7 +139,7 @@ function computeDateRange(preset: DatePreset, customStart: string, customEnd: st
 
 const CLASS_LIST = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
+function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   const currentYearStr = String(currentYearIST());
   const { profile: schoolProfile } = useSchoolProfile();
   const [mounted, setMounted] = useState(false);

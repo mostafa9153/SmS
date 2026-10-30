@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { ClassAllotmentRow } from "@/components/routine/demand-allotment/types";
 import { isSubSubFullyAllotted } from "@/components/routine/demand-allotment/helpers";
 
-export interface AllotmentRowItemProps {
+interface AllotmentRowItemProps {
   row: ClassAllotmentRow;
   isExpanded: boolean;
   onToggleExpand: (id: string) => void;

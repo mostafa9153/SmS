@@ -8,7 +8,7 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || "mailto:admin@school.internal";
 
-export const pushConfigured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
+const pushConfigured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 
 if (pushConfigured) {
   try {
@@ -18,7 +18,7 @@ if (pushConfigured) {
   }
 }
 
-export interface SendPushOptions {
+interface SendPushOptions {
   userIds?: string[];
   role?: string; // e.g. "admin", "teacher"
   title: string;

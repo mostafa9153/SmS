@@ -1,7 +1,7 @@
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { pgContains } from "@/lib/supabase/filters";
 
-export interface OldStudentSummary {
+interface OldStudentSummary {
   id: string;
   name: string;
   schoolId?: string;

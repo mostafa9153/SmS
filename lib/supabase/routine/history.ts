@@ -24,7 +24,7 @@ export interface RoutineHistoryEntry {
 /**
  * Automatically delete routines older than the most recent `keepCount` (default: 10)
  */
-export async function pruneOldGeneratedRoutinesDb(keepCount: number = 10): Promise<boolean> {
+async function pruneOldGeneratedRoutinesDb(keepCount: number = 10): Promise<boolean> {
   const supabase = createClient();
   try {
     const { data, error } = await supabase

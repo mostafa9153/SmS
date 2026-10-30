@@ -12,7 +12,7 @@ export interface TabulationStudentItem {
   thirdMarks?: string | number;
 }
 
-export interface TabulationSheetProps {
+interface TabulationSheetProps {
   schoolProfile: SchoolProfileData;
   academicYear: number | string;
   evaluationTitle?: string; // e.g. "Summative Evaluation"

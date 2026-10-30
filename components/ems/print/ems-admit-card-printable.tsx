@@ -7,7 +7,7 @@ import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/em
 import { isHigherSecondaryClass, toShortStream, normalizeClassCode } from "@/lib/ems/seat-arrangement-algorithm";
 import { cn } from "@/lib/utils";
 
-export interface EmsAdmitCardPrintableProps {
+interface EmsAdmitCardPrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;

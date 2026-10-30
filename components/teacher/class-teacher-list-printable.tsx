@@ -34,7 +34,7 @@ const MIN_ROW_MM = 6;
 const MAX_ROW_MM = 14;
 export const MIN_USABLE_MM = 60;
 
-export function getPageBox(paper: PaperSize, orientation: PaperOrientation, margins: PrintMargins) {
+function getPageBox(paper: PaperSize, orientation: PaperOrientation, margins: PrintMargins) {
   const base = PAPER_MM[paper];
   const pageW = orientation === "landscape" ? base.h : base.w;
   const pageH = orientation === "landscape" ? base.w : base.h;
@@ -56,7 +56,7 @@ export function getPageCount(
   return Math.max(1, Math.ceil(rowCount / m.rowsPerPage));
 }
 
-export function getFitMetrics(box: { usableW: number; usableH: number }) {
+function getFitMetrics(box: { usableW: number; usableH: number }) {
   const k = Math.sqrt((box.usableW * box.usableH) / REF_AREA_MM2);
   const headerMm = 30 * k;
   const theadMm = 8 * k;

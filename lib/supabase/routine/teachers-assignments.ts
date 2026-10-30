@@ -181,7 +181,7 @@ async function writeAssignmentRows(rows: AssignmentRow[]): Promise<string | null
 /**
  * Upsert Assignment
  */
-export async function upsertAssignmentDb(asg: {
+async function upsertAssignmentDb(asg: {
   id?: string;
   classId: string;
   subjectId: string;
@@ -301,7 +301,7 @@ export async function batchUpsertAssignmentsDb(
 /**
  * Delete Assignment
  */
-export async function deleteAssignmentDb(id: string): Promise<boolean> {
+async function deleteAssignmentDb(id: string): Promise<boolean> {
   const local = getLocalRoutineState() || {};
   if (local.assignments) {
     setLocalRoutineState({ assignments: local.assignments.filter((a) => a.id !== id) });

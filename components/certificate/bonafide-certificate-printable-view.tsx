@@ -79,7 +79,7 @@ function numberToEnglishWords(num: number): string {
   return String(num);
 }
 
-export function formatDobToWords(dateStr?: string): string {
+function formatDobToWords(dateStr?: string): string {
   if (!dateStr) return "";
   const parts = dateStr.includes("-") ? dateStr.split("-") : dateStr.split("/");
   let y: number, m: number, d: number;

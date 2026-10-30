@@ -10,7 +10,7 @@ import { evaluateStudentPromotionEligibility } from "@/lib/utils/marksheet-calc"
 //   Class VII/VIII (8 subjects): 1st=30, 2nd=50, Annual=70 per subject
 //   Class IX/X (7 subjects): 1st/2nd=40+10=50, Annual=90+10=100 per subject
 // ------------------------------------------------------------------
-export const CLASS_EXAM_FULL_MARKS: Record<string, Record<string, number>> = {
+const CLASS_EXAM_FULL_MARKS: Record<string, Record<string, number>> = {
   V:    { "1st": 100,  "2nd": 150,  "annual": 250 },
   VI:   { "1st": 210,  "2nd": 350,  "annual": 490 },
   VII:  { "1st": 240,  "2nd": 400,  "annual": 560 },
@@ -31,7 +31,7 @@ function resolveExamSlot(examName?: string): "1st" | "2nd" | "annual" {
 }
 
 // Backward-compat alias (annual marks per class, kept for any legacy reference)
-export const CLASS_DEFAULT_FULL_MARKS: Record<string, number> = Object.fromEntries(
+const CLASS_DEFAULT_FULL_MARKS: Record<string, number> = Object.fromEntries(
   Object.entries(CLASS_EXAM_FULL_MARKS).map(([cls, exams]) => [cls, exams["annual"]])
 );
 

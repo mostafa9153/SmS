@@ -6,7 +6,7 @@ import { getClassScheme, getStandardSubjectsForClass, normalizeSubjectName } fro
 // Automatic Promotion & Lifecycle Status Evaluation Engine
 // ============================================================================
 
-export interface SubjectEvaluationDetail {
+interface SubjectEvaluationDetail {
   subjectName: string;
   theoryMarks?: number;
   theoryFullMarks?: number;
@@ -27,7 +27,7 @@ export interface SubjectEvaluationDetail {
   isSupplementaryCleared?: boolean;
 }
 
-export interface StudentPromotionEvaluation {
+interface StudentPromotionEvaluation {
   studentId: string;
   studentName?: string;
   currentClass: string;

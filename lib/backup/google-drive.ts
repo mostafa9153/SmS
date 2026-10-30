@@ -226,7 +226,7 @@ export async function exchangeCodeForTokens(code: string, redirectUri: string, a
 // -------------------------------------------------------------
 // 4. Get Valid Access Token using Refresh Token
 // -------------------------------------------------------------
-export async function getValidAccessToken(): Promise<string> {
+async function getValidAccessToken(): Promise<string> {
   const config = await getBackupConfig();
   if (!config.refreshToken) {
     throw new Error("No Google Account is currently connected. Please connect Google Drive first.");
@@ -263,7 +263,7 @@ export async function getValidAccessToken(): Promise<string> {
 // -------------------------------------------------------------
 // 5. Get or Create Dedicated Backup Folder in Google Drive
 // -------------------------------------------------------------
-export async function getOrCreateBackupFolder(accessToken: string): Promise<string> {
+async function getOrCreateBackupFolder(accessToken: string): Promise<string> {
   // 1. Search for existing folder
   const query = encodeURIComponent(
     `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`

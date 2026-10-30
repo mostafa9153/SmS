@@ -36,7 +36,7 @@ export function getGroupsForClass(
  * one of this class's groups. These should NOT be counted again in
  * ordinary demand/auto-assignment.
  */
-export function getGroupedSubjectIds(
+function getGroupedSubjectIds(
   classId: string,
   groups: RoutineSubjectGroup[]
 ): Set<string> {
@@ -50,10 +50,10 @@ export function getGroupedSubjectIds(
 }
 
 /** An option with no teacher yet. Teachers are assigned from the Teachers tab, so this is the normal state of a new group. */
-export const isUnstaffedOption = (o: { teacherId?: string | null }): boolean => !o.teacherId;
+const isUnstaffedOption = (o: { teacherId?: string | null }): boolean => !o.teacherId;
 
 /** Every option has a teacher: the group can be handed to the solver. */
-export const isGroupStaffed = (g: RoutineSubjectGroup): boolean =>
+const isGroupStaffed = (g: RoutineSubjectGroup): boolean =>
   g.options.length > 0 && g.options.every((o) => !isUnstaffedOption(o));
 
 /**
@@ -81,7 +81,7 @@ export function withDerivedGroupSettings(
   });
 }
 
-export interface ClassGroupAllotment {
+interface ClassGroupAllotment {
   group: RoutineSubjectGroup;
   periods: number;
   options: { subjectId: string; subjectName: string; teacher: RoutineTeacher | null }[];
@@ -170,7 +170,7 @@ export function cellHasRoom(cell: RoutineCellData | null | undefined, rid: strin
   return cell.opts.some((o) => (o.rid || null) === rid);
 }
 
-export interface GroupValidationIssue {
+interface GroupValidationIssue {
   groupId: string;
   groupName: string;
   severity: "error" | "warning";
@@ -301,7 +301,7 @@ export function validateGroups(args: {
  * records. The solver sees only classIds[] + options and does not know
  * about scope. Non-pooled groups are expanded into one record per section.
  */
-export interface SolverGroupPayload {
+interface SolverGroupPayload {
   gid: string;
   name: string;
   classIds: string[];

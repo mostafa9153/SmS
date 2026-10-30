@@ -683,7 +683,7 @@ export async function dbGetNextInvoiceSequence(year?: number): Promise<{
 // ─────────────────────────────────────────────────────────────
 // Get Printed Invoice Batches from Database
 // ─────────────────────────────────────────────────────────────
-export interface DBInvoiceBatch {
+interface DBInvoiceBatch {
   batchId: string;
   count: number;
   startSerial: number;

@@ -6,7 +6,7 @@ import { Receipt, GraduationCap, Award } from "lucide-react";
 export type PresetSection = "defaults" | "classes" | "marks_scheme" | "fee" | "address" | "bank" | "school" | "ai";
 export const VALID_PRESET_SECTIONS: PresetSection[] = ["defaults", "classes", "marks_scheme", "fee", "address", "bank", "school", "ai"];
 
-export interface PresetItemConfig {
+interface PresetItemConfig {
   id: PresetSection;
   title: string;
   tag: string;

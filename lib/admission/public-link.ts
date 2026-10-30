@@ -13,7 +13,7 @@ export const PUBLIC_LIMITS = {
   globalPerHour: 300,
 } as const;
 
-export interface PublicLinkConfig {
+interface PublicLinkConfig {
   enabled: boolean;
   token: string | null;
   expiresAt: string | null;
@@ -60,7 +60,7 @@ export function clientIp(req: Request): string {
   return forwarded || req.headers.get("x-real-ip") || "unknown";
 }
 
-export type AttemptOutcome = "accepted" | "rate_limited" | "captcha_failed" | "invalid" | "honeypot" | "duplicate" | "error";
+type AttemptOutcome = "accepted" | "rate_limited" | "captcha_failed" | "invalid" | "honeypot" | "duplicate" | "error";
 
 export async function logAttempt(
   supabase: SupabaseClient,

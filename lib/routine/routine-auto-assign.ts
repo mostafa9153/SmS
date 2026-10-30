@@ -33,14 +33,14 @@ export function autoBuildRoutineAssignments(
   return autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups).assignments;
 }
 
-export interface UnstaffedSubject {
+interface UnstaffedSubject {
   className: string;
   section: string;
   subjectName: string;
   periods: number;
 }
 
-export interface AutoAssignReport {
+interface AutoAssignReport {
   assignments: RoutineAssignment[];
   /** Silent decisions the builder had to make; each one is something the owner may want to fix */
   warnings: string[];

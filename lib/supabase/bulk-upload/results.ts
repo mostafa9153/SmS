@@ -4,7 +4,7 @@ import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "@/
 import { softWrite } from "@/lib/supabase/write";
 import { getAcademicYear } from "@/lib/academic/current-year";
 
-export interface ProcessResultsResult {
+interface ProcessResultsResult {
   summary: ImportBatchSummary;
   details: {
     created: Array<{ name: string; examName: string; academicYear: number; marks: number }>;

@@ -98,7 +98,7 @@ export function getDynamicSectionsForClass(classCode: string): string[] {
 /**
  * Clean and simplify long subject names for exam columns (e.g. "Bengali (1st Language)" -> "Bengali").
  */
-export function simplifySubjectName(fullName: string): string {
+function simplifySubjectName(fullName: string): string {
   if (!fullName) return "Exam";
   return fullName
     .replace(/\s*\([^)]*\)/g, "") // remove parentheticals like (1st Language)

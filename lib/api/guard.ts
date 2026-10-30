@@ -3,11 +3,11 @@ import { getAuthenticatedUserRole, type AuthContext } from "@/lib/supabase/auth-
 import { DEFAULT_TEACHER_PERMISSIONS, type TeacherPermissions } from "@/lib/types/teacher";
 
 type Role = Exclude<AuthContext["role"], "Guest">;
-export type TeacherPermission = Exclude<keyof TeacherPermissions, "allowed_classes">;
+type TeacherPermission = Exclude<keyof TeacherPermissions, "allowed_classes">;
 
 const SIGNED_IN: Role[] = ["Admin", "Staff", "Teacher"];
 
-export type GuardResult =
+type GuardResult =
   | { ok: true; auth: AuthContext }
   | { ok: false; response: NextResponse };
 

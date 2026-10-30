@@ -11,7 +11,7 @@ const KEYS = {
   sectionOrders: { local: "sms_ems_section_orders", db: "ems_section_orders" },
 } as const;
 
-export type ExamSetupKey = keyof typeof KEYS;
+type ExamSetupKey = keyof typeof KEYS;
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- stored values are opaque JSON */
 type ExamSetup = Partial<Record<ExamSetupKey, any>>;

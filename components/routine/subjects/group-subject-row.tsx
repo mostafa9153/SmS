@@ -12,7 +12,7 @@ import { groupTeacherLoad } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 
-export interface GroupSubjectRowProps {
+interface GroupSubjectRowProps {
   group: RoutineSubjectGroup;
   members: RoutineSubject[];
   onEdit: (group: RoutineSubjectGroup, members: RoutineSubject[]) => void;

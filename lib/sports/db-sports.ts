@@ -399,7 +399,7 @@ export async function removeStudentFromEvent(eventId: string, studentId: string)
 
 // ---------- Results ----------
 
-export interface SportsResultInput {
+interface SportsResultInput {
   studentId: string;
   trial1?: string;
   trial2?: string;

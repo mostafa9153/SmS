@@ -18,7 +18,7 @@ const ROLE_OPTIONS = [
   { value: "CLASS_TEACHER", label: "Class Teacher" },
 ];
 
-export interface ClassAssignment {
+interface ClassAssignment {
   id: string;
   teacherId?: string;
   teacher_id?: string;

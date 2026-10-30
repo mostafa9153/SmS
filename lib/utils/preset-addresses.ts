@@ -13,7 +13,7 @@ export interface AddressPresetsConfig {
   districts: string[];
 }
 
-export const DEFAULT_VILLAGES: string[] = [
+const DEFAULT_VILLAGES: string[] = [
   "Marigachi",
   "Krishnachandrapur",
   "Khakurdaha",
@@ -21,7 +21,7 @@ export const DEFAULT_VILLAGES: string[] = [
   "Radhakantapur",
 ];
 
-export const DEFAULT_GRAM_PANCHAYATS: string[] = [
+const DEFAULT_GRAM_PANCHAYATS: string[] = [
   "Khakurdaha",
   "Mathurapur",
   "Raidighi",
@@ -31,7 +31,7 @@ export const DEFAULT_GRAM_PANCHAYATS: string[] = [
   "Radhakantapur",
 ];
 
-export const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
+const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
   { name: "Marigachi", pincode: "743349" },
   { name: "Mathurapur", pincode: "743354" },
   { name: "Khakurdaha", pincode: "743349" },
@@ -39,7 +39,7 @@ export const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
   { name: "Radhakantapur", pincode: "743349" },
 ];
 
-export const DEFAULT_BLOCKS: string[] = [
+const DEFAULT_BLOCKS: string[] = [
   "Mathurapur-I",
   "Mathurapur-II",
   "Mandirbazar",
@@ -51,7 +51,7 @@ export const DEFAULT_BLOCKS: string[] = [
   "Kakdwip",
 ];
 
-export const DEFAULT_POLICE_STATIONS: string[] = [
+const DEFAULT_POLICE_STATIONS: string[] = [
   "Mathurapur",
   "Mandirbazar",
   "Kulpi",
@@ -61,7 +61,7 @@ export const DEFAULT_POLICE_STATIONS: string[] = [
   "Jaynagar",
 ];
 
-export const DEFAULT_DISTRICTS: string[] = [
+const DEFAULT_DISTRICTS: string[] = [
   "South 24 Parganas",
   "North 24 Parganas",
   "Kolkata",

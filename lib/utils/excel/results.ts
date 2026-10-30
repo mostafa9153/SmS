@@ -5,7 +5,7 @@ import { normalizeClass } from "./normalizers";
 //  Result Bulk Upload Parser & Mapping Helpers
 // ---------------------------------------------------------------
 
-export interface ResultFieldDefinition {
+interface ResultFieldDefinition {
   key: string;
   label: string;
   category: string;
@@ -49,7 +49,7 @@ export const RESULT_TARGET_FIELDS: ResultFieldDefinition[] = [
   { key: "workEducation", label: "Work Education", category: "Subjects", icon: "🔧", aliases: ["work education", "socially useful productive work", "supw", "work ed"] },
 ];
 
-export type ResultColumnMapping = Record<string, string>;
+type ResultColumnMapping = Record<string, string>;
 
 export const RESULT_TEMPLATE_PRESETS: Record<string, { name: string; mapping: ResultColumnMapping }> = {
   wbSummative: {

@@ -5,7 +5,7 @@
 
 import { calculateExactAge } from "@/lib/utils";
 
-export interface StudentEligibilityInput {
+interface StudentEligibilityInput {
   gender?: string | null;
   dob?: string | null;
   presentClass?: string | null;
@@ -18,7 +18,7 @@ export interface StudentEligibilityInput {
   hasDisabilityCertificate?: boolean | null;
 }
 
-export type ScholarshipId =
+type ScholarshipId =
   | "kanyashree_k1"
   | "kanyashree_k2"
   | "sikshashree"
@@ -30,7 +30,7 @@ export type ScholarshipId =
   | "sabooj_sathi"
   | "cwsn_scholarship";
 
-export interface ScholarshipSchemeMeta {
+interface ScholarshipSchemeMeta {
   id: ScholarshipId;
   name: string;
   shortCode: string;
@@ -41,7 +41,7 @@ export interface ScholarshipSchemeMeta {
   description: string;
 }
 
-export const SCHOLARSHIP_REGISTRY: Record<ScholarshipId, ScholarshipSchemeMeta> = {
+const SCHOLARSHIP_REGISTRY: Record<ScholarshipId, ScholarshipSchemeMeta> = {
   kanyashree_k1: {
     id: "kanyashree_k1",
     name: "Kanyashree Prakalpa (K1)",

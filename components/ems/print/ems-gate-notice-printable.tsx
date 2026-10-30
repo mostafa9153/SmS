@@ -6,7 +6,7 @@ import { SchoolProfileData } from "@/lib/utils/school-profile";
 import { cleanColumnLabel } from "@/lib/ems/room-storage";
 import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangement-algorithm";
 
-export interface EmsGateNoticePrintableProps {
+interface EmsGateNoticePrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;

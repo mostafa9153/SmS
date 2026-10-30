@@ -21,7 +21,7 @@ export function cleanColumnLabel(label?: string, columnIndex?: number): string {
 }
 
 // Default pre-configured classrooms for immediate use
-export const DEFAULT_ROOMS: EmsRoom[] = [
+const DEFAULT_ROOMS: EmsRoom[] = [
   {
     id: "room-101",
     roomNumber: "Room 101",
@@ -418,7 +418,7 @@ export function saveActiveAllocation(allocation: ExamAllocation): void {
   safeWriteItem(ACTIVE_ALLOCATION_STORAGE_KEY, allocation);
 }
 
-export function clearActiveAllocation(): void {
+function clearActiveAllocation(): void {
   if (typeof window === "undefined") return;
   memoryActiveAllocation = null;
   try {
@@ -430,7 +430,7 @@ export function clearActiveAllocation(): void {
 }
 
 // Get allocation by ID
-export function getAllocationById(id: string): ExamAllocation | undefined {
+function getAllocationById(id: string): ExamAllocation | undefined {
   const allocations = getSavedAllocations();
   const found = allocations.find((a) => a.id === id);
   if (found) return found;

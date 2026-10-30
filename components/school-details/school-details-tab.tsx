@@ -40,7 +40,7 @@ import {
  * Helper to identify Higher Secondary classes (Classes XI and XII / 11 and 12).
  * Stream is ONLY applicable to Classes XI and XII.
  */
-export function isHigherSecondaryClass(code?: string, name?: string): boolean {
+function isHigherSecondaryClass(code?: string, name?: string): boolean {
   const normCode = (code || "").trim().toUpperCase();
   const normName = (name || "").trim().toUpperCase();
   return (

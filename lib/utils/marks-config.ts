@@ -120,7 +120,7 @@ export function getDefaultHsSubjectMarks(subjectName: string): { written: number
   return { written: 40, practical: 10 };
 }
 
-export interface SubjectCategory {
+interface SubjectCategory {
   category: string;
   subjects: string[];
 }
@@ -630,7 +630,7 @@ export interface ClassPresetItem {
   isAutoPass?: boolean;
 }
 
-export const DEFAULT_CLASS_PRESETS_DATA: ClassPresetItem[] = [
+const DEFAULT_CLASS_PRESETS_DATA: ClassPresetItem[] = [
   { id: "c-5", name: "Class V", code: "V", sections: ["A", "B"], isAutoPass: true },
   { id: "c-6", name: "Class VI", code: "VI", sections: ["A", "B"], isAutoPass: true },
   { id: "c-7", name: "Class VII", code: "VII", sections: ["A", "B"], isAutoPass: true },

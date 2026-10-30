@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { detectSubjectStream, isHsClass } from "@/lib/routine/routine-helpers";
 
 
-export interface SubjectTableRowProps {
+interface SubjectTableRowProps {
   subject: RoutineSubject;
   activeClass: string;
   onEdit: (s: RoutineSubject) => void;

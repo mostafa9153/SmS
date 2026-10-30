@@ -8,7 +8,7 @@ import { Edit2, Trash2, Award, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { getTeacherSubjectPeriod } from "@/lib/routine/routine-helpers";
 
-export interface TeacherTableRowProps {
+interface TeacherTableRowProps {
   teacher: RoutineTeacher;
   load: number;
   groupChips?: { key: string; className: string; label: string }[];

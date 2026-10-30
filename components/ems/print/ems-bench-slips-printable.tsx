@@ -7,7 +7,7 @@ import { isHigherSecondaryClass, toShortStream } from "@/lib/ems/seat-arrangemen
 import { formatRoomName, getClassNumericRank, toColumnMajorGrid } from "@/lib/ems/ems-config-loader";
 import { cn } from "@/lib/utils";
 
-export interface EmsBenchSlipsPrintableProps {
+interface EmsBenchSlipsPrintableProps {
   rooms: AllocatedRoom[];
   academicYear: number;
   examType: string;

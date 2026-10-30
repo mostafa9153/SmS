@@ -136,7 +136,7 @@ export function getClassStreamList(streamStr?: string, fallbackStreams: string[]
  * Returns the sections configured for a specific stream of a class.
  * Falls back to general sections if no per-stream sections are defined.
  */
-export function getStreamSections(
+function getStreamSections(
   classItem?: { sections?: string[]; streamSections?: Record<string, string[]> },
   streamName?: string
 ): string[] {

@@ -8,7 +8,7 @@ import { onClientNotification, type ClientNotificationEvent } from "@/lib/notifi
 import type { AppNotification, NotificationCategory } from "@/lib/notifications/types";
 
 export type { AppNotification };
-export type NotificationType = NotificationCategory;
+type NotificationType = NotificationCategory;
 
 interface NotificationContextProps {
   notifications: AppNotification[];

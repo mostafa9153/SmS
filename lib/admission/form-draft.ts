@@ -7,7 +7,7 @@ const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 /** Pre-2026-10-28 shared keys; every form read and wrote these, mixing students. */
 const LEGACY_KEYS = ["sms_admission_apply_draft", "sms_admission_saved_sections"];
 
-export interface AdmissionDraft {
+interface AdmissionDraft {
   values: Record<string, unknown>;
   savedSections: Record<string, boolean>;
   savedAt: number;

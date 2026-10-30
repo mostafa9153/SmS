@@ -151,7 +151,7 @@ export function useSchoolConfigQuery() {
 }
 
 /** Where a config key is mirrored in the browser, and the event that tells open screens to re-read it. */
-export interface ConfigMirror {
+interface ConfigMirror {
   storageKey: string;
   event: string;
   /** Dispatch a CustomEvent carrying the value instead of a plain Event. */

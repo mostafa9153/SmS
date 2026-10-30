@@ -1,6 +1,6 @@
 export const CLASS_LADDER = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"] as const;
 
-export type LadderClass = (typeof CLASS_LADDER)[number];
+type LadderClass = (typeof CLASS_LADDER)[number];
 
 const ROMAN_BY_NUMBER: Record<string, LadderClass> = {
   "5": "V", "6": "VI", "7": "VII", "8": "VIII",
@@ -46,7 +46,7 @@ export function isLegalClassTransition(
   return !!target && getAllowedTargetClasses(from).includes(target);
 }
 
-export const EXIT_STATUSES = ["Passed Out", "TC Out", "Sent Up M.P.", "Sent Up H.S."] as const;
+const EXIT_STATUSES = ["Passed Out", "TC Out", "Sent Up M.P.", "Sent Up H.S."] as const;
 
 export function isExitStatus(status: string | null | undefined): boolean {
   return !!status && (EXIT_STATUSES as readonly string[]).includes(status);

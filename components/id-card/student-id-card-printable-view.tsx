@@ -59,7 +59,7 @@ function generateCode128BModules(text: string): boolean[] {
   return modules;
 }
 
-export function Code128BarcodeSVG({ value, className = "h-7 w-40" }: { value: string; className?: string }) {
+function Code128BarcodeSVG({ value, className = "h-7 w-40" }: { value: string; className?: string }) {
   const modules = useMemo(() => generateCode128BModules(value), [value]);
 
   return (
@@ -81,7 +81,7 @@ export function Code128BarcodeSVG({ value, className = "h-7 w-40" }: { value: st
 // ============================================================
 // Student ID Card Data Interface
 // ============================================================
-export interface StudentIDCardProps {
+interface StudentIDCardProps {
   student: Student;
   schoolProfile: SchoolProfileData;
   academicSession: string; // e.g. "2026" or "2026-27"

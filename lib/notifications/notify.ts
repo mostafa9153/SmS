@@ -8,7 +8,7 @@ import {
   type NotificationSeverity,
 } from "@/lib/notifications/types";
 
-export interface NotifyInput {
+interface NotifyInput {
   /** A single user, one or more roles, or both. */
   userId?: string;
   roles?: NotificationRole[];

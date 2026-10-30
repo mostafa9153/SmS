@@ -20,7 +20,7 @@ export function onClientNotification(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-export function emitClientNotification(event: ClientNotificationEvent) {
+function emitClientNotification(event: ClientNotificationEvent) {
   listeners.forEach((l) => l(event));
 }
 

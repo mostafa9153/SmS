@@ -12,7 +12,7 @@ export function maskAadhaar(aadhaar?: string): string | undefined {
   return `••••-••••-${cleaned.slice(8)}`;
 }
 
-export const STUDENT_SUMMARY_COLUMNS = [
+const STUDENT_SUMMARY_COLUMNS = [
   "id",
   "school_id",
   "name",

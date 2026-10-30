@@ -58,7 +58,7 @@ export function formatMissingRolls(rolls: number[]): string {
   return ranges.join(", ");
 }
 
-export interface MissingRollsInfo {
+interface MissingRollsInfo {
   class: string;
   section: string;
   rollFrom: number;
@@ -122,7 +122,7 @@ export function detectAllMissingRolls(
 }
 
 // Check for missing rolls / reg numbers and return found students + mismatch items
-export function filterAndValidateClassStudents(
+function filterAndValidateClassStudents(
   allStudents: Student[],
   className: string,
   section: string,

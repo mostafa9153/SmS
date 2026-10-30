@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { TeacherAvailabilityMatrix } from "./teacher-availability-matrix";
 
-export interface TeacherEditorFormProps {
+interface TeacherEditorFormProps {
   isSubmitting: boolean;
   editingTeacherId: string | null;
   teacherName: string;

@@ -270,7 +270,7 @@ export async function deleteSubjectGroupDb(id: string): Promise<boolean> {
  * Return the list of group ids a given teacher is referenced in (via any option).
  * Used by teacher-delete safety checks.
  */
-export async function fetchGroupsReferencingTeacherDb(teacherId: string): Promise<
+async function fetchGroupsReferencingTeacherDb(teacherId: string): Promise<
   Array<{ groupId: string; groupName: string }>
 > {
   const supabase = createClient();

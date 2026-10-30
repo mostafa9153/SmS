@@ -12,7 +12,7 @@ import {
 import { Lock, Unlock, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface SchoolIdInputProps {
+interface SchoolIdInputProps {
   value?: string;
   onChange?: (value: string) => void;
   disabled?: boolean;

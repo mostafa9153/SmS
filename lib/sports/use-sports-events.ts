@@ -8,7 +8,7 @@ import type { SportsEvent, SportsParticipant } from "./types";
 export const SPORTS_CLASS_OPTIONS = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
 // One set of query keys for every sports page, so moving between pages reuses the cache.
-export const sportsKeys = {
+const sportsKeys = {
   all: ["sports"] as const,
   events: (year: string) => ["sports", "events", year] as const,
   athletes: (year: string) => ["sports", "athletes", year] as const,
@@ -55,7 +55,7 @@ export function useRefreshSports() {
   return () => queryClient.invalidateQueries({ queryKey: sportsKeys.all });
 }
 
-export type SportsEventStatus = "empty" | "enrolled" | "scoring" | "completed";
+type SportsEventStatus = "empty" | "enrolled" | "scoring" | "completed";
 
 export function getEventStatus(event: SportsEvent): SportsEventStatus {
   if (!event.participantCount) return "empty";

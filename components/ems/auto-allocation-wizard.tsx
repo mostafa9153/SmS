@@ -36,7 +36,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getClassColorStyle } from "./seat-card";
 
-export interface HsStudentStats {
+interface HsStudentStats {
   count: number;
   totalEnrolled: number;
   minRegNo: string;
@@ -152,7 +152,7 @@ export const calculateHsStudentStats = (
 };
 
 // Warning Dialog for HS Students missing Board Registration Numbers
-export interface MissingHsRegistrationDialogProps {
+interface MissingHsRegistrationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   missingStudents: MissingHsStudentInfo[];

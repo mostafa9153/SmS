@@ -21,7 +21,7 @@ import {
 import { showToast } from "@/components/ui/toast-banner";
 import { softWrite } from "@/lib/supabase/write";
 
-export interface SyncClassItem {
+interface SyncClassItem {
   id: string;
   name: string;
   code: string;
@@ -214,7 +214,7 @@ export function normalizeClassToCode(cls?: string | null): string {
 /**
  * Normalizes class string to full standard display name (e.g. "V" -> "Class V", "Class 5" -> "Class V")
  */
-export function normalizeClassToFullName(cls?: string | null): string {
+function normalizeClassToFullName(cls?: string | null): string {
   const code = normalizeClassToCode(cls);
   return `Class ${code}`;
 }
@@ -223,7 +223,7 @@ export function normalizeClassToFullName(cls?: string | null): string {
  * Checks if two subject names are conceptually the same
  * e.g. "Bengali" and "Bengali (1st Language)" or "Mathematics" and "Mathematics"
  */
-export function isSameSubject(a: string, b: string): boolean {
+function isSameSubject(a: string, b: string): boolean {
   if (!a || !b) return false;
   const clean = (s: string) => s.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
   const cleanA = clean(a);
@@ -234,7 +234,7 @@ export function isSameSubject(a: string, b: string): boolean {
 /**
  * Sync from Routine Subjects -> Marks Schemes (School Details & Exam Marks)
  */
-export function syncRoutineSubjectToMarksSchemes(subj: {
+function syncRoutineSubjectToMarksSchemes(subj: {
   name: string;
   className?: string | null;
   stream?: string | null;
@@ -274,7 +274,7 @@ export function syncRoutineSubjectToMarksSchemes(subj: {
 /**
  * Sync from Routine Batch Subjects -> Marks Schemes
  */
-export function syncBatchRoutineSubjectsToMarksSchemes(
+function syncBatchRoutineSubjectsToMarksSchemes(
   subjectsList: { name: string; className?: string | null; stream?: string | null }[]
 ): void {
   if (typeof window === "undefined" || !Array.isArray(subjectsList) || subjectsList.length === 0) return;
