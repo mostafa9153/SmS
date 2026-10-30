@@ -9,8 +9,10 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T = unknown>(url: string, init?: RequestInit & { json?: unknown }): Promise<T> {
-  const { json, headers, ...rest } = init ?? {};
+// `raw: true` returns the whole payload instead of unwrapping `data` (for bodies that carry
+// `student`, `undoId`, `pagination` or other siblings next to it).
+export async function apiFetch<T = unknown>(url: string, init?: RequestInit & { json?: unknown; raw?: boolean }): Promise<T> {
+  const { json, raw, headers, ...rest } = init ?? {};
   const res = await fetch(url, {
     ...rest,
     headers: json !== undefined ? { "Content-Type": "application/json", ...headers } : headers,
@@ -22,5 +24,5 @@ export async function apiFetch<T = unknown>(url: string, init?: RequestInit & { 
     const message = payload?.error || payload?.message || `${res.status} ${res.statusText}`.trim();
     throw new ApiError(message, res.status, url);
   }
-  return (payload?.data ?? payload) as T;
+  return (raw ? payload : payload?.data ?? payload) as T;
 }
