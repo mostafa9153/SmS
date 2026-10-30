@@ -46,9 +46,10 @@ export function calculateAllotmentGaps(
     const { stream } = parseSectionAndStream(cls.section || "");
     const streamKnown = isHsClass(cls.className) && stream && !["general", "all"].includes(stream.toLowerCase());
 
-    const own = subjects.filter(
-      (s) => (!s.className || s.className.trim().toLowerCase() === clsLower) && !grouped.has(s.id)
-    );
+    const classSubjects = subjects.filter((s) => !s.className || s.className.trim().toLowerCase() === clsLower);
+    // Group members are staffed through the group, never from a teacher's own subject list
+    const groupedKeys = new Set(classSubjects.filter((s) => grouped.has(s.id)).map((s) => baseKey(s.name)));
+    const own = classSubjects.filter((s) => !grouped.has(s.id));
     const subjectByKey = new Map<string, RoutineSubject>();
     for (const s of own) {
       if (streamKnown) {
@@ -78,7 +79,8 @@ export function calculateAllotmentGaps(
       for (const subName of getTeacherSectionSubjects(t, cls.className, cls.section)) {
         const key = baseKey(subName);
         const matched = subjectByKey.get(key);
-        if (!matched && own.some((s) => baseKey(s.name) === key)) continue; // run through a group or another stream
+        if (groupedKeys.has(key)) continue;
+        if (!matched && own.some((s) => baseKey(s.name) === key)) continue; // another stream
         const periods = getTeacherSubjectPeriod(t, cls.className, cls.section, subName, matched?.periodsPerWeek || 5);
         let row = byKey.get(key);
         if (!row) {

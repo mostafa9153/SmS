@@ -32,3 +32,14 @@ describe("calculateAllotmentGaps", () => {
     expect(rows[0].unstaffed).toEqual(["Arabic"]);
   });
 });
+
+describe("group members on a teacher profile", () => {
+  it("are not reported as over-allotted", () => {
+    const g = {
+      id: "g1", name: "3rd", scope: "section", sectionIds: ["c1"], pooled: false, periodsPerWeek: 3, periodSize: 1,
+      options: [{ id: "o1", groupId: "g1", subjectId: "s1", teacherId: "t1" }, { id: "o2", groupId: "g1", subjectId: "s2", teacherId: "t2" }],
+    } as unknown as RoutineSubjectGroup;
+    const rows = calculateAllotmentGaps([teacher("t1", ["Sanskrit"], 3)], [cls], [sub("s1", "Sanskrit", 3), sub("s2", "Arabic", 3)], [g]);
+    expect(rows).toEqual([]);
+  });
+});

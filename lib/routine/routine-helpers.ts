@@ -611,6 +611,7 @@ type GroupPeriodShape = {
   options: unknown[];
   periodsPerWeek: number;
   periodSize: 1 | 2;
+  sectionIds?: string[];
 };
 
 /** The slot a group occupies in each of its sections; this is what counts against class capacity. */
@@ -619,12 +620,25 @@ export function groupSlotPeriods(g: { periodsPerWeek: number; periodSize: 1 | 2 
 }
 
 /**
- * Periods beyond that one slot per section: a section-wise group also runs every other option
- * in each section, and those teacher periods have to be assigned too. A class-wise group
- * shares its slot across sections, so it has none.
+ * Teacher periods a group needs per week, all sections together. Every option has its own teacher,
+ * so a class-wise group (one shared slot) costs options x slot, and a section-wise group costs
+ * that once per section. This is the number the Teachers tab allots against.
+ */
+export function groupTotalPeriods(g: GroupPeriodShape): number {
+  const sections = Math.max(1, g.sectionIds?.length ?? 1);
+  const units = isPooledGroup(g.scope) ? 1 : sections;
+  return Math.max(1, g.options.length) * groupSlotPeriods(g) * units;
+}
+
+/**
+ * Per-section share of the periods beyond the group's slot: every other option still needs its own
+ * teacher period. Class-wise groups spread their one shared total over their sections.
  */
 export function groupExtraPeriods(g: GroupPeriodShape): number {
-  return isPooledGroup(g.scope) ? 0 : Math.max(0, g.options.length - 1) * groupSlotPeriods(g);
+  const sections = Math.max(1, g.sectionIds?.length ?? 1);
+  const slot = groupSlotPeriods(g);
+  if (!isPooledGroup(g.scope)) return Math.max(0, g.options.length - 1) * slot;
+  return Math.max(0, Math.round((groupTotalPeriods(g) - slot * sections) / sections));
 }
 
 /** Group share of the school-wide demand, split into slots (capacity) and extra option periods. */
@@ -632,12 +646,12 @@ export function calculateSchoolGroupDemand(
   groups: Array<GroupPeriodShape & { sectionIds: string[] }>
 ): { slots: number; extra: number } {
   let slots = 0;
-  let extra = 0;
+  let total = 0;
   for (const g of groups) {
     slots += groupSlotPeriods(g) * g.sectionIds.length;
-    extra += groupExtraPeriods(g) * g.sectionIds.length;
+    total += g.sectionIds.length > 0 ? groupTotalPeriods(g) : 0;
   }
-  return { slots, extra };
+  return { slots, extra: total - slots };
 }
 
 /**
@@ -667,7 +681,7 @@ export function calculateTotalSchoolSectionDemand(
   // the existing stream matching stays intact for the ordinary subjects.
   if (groups && groups.length > 0) {
     for (const g of groups) {
-      totalDemand += (groupSlotPeriods(g) + groupExtraPeriods(g)) * (g.sectionIds?.length || 0);
+      if ((g.sectionIds?.length || 0) > 0) totalDemand += groupTotalPeriods(g);
     }
   }
 

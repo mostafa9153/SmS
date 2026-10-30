@@ -23,10 +23,10 @@ export function SubjectsTable({ tab }: { tab: RoutineSubjectsState }) {
             {currentClassSubjects.length} Subjects
           </Badge>
           <Badge 
-            variant={currentClassTotalPeriods > 44 ? "destructive" : "outline"} 
-            className={cn("text-[10px] font-mono font-bold", currentClassTotalPeriods <= 44 && "bg-primary/10 text-primary border-primary/30")}
+            variant={(currentClassOrdinaryPeriods + currentClassGroupSlots) > 44 ? "destructive" : "outline"} 
+            className={cn("text-[10px] font-mono font-bold", (currentClassOrdinaryPeriods + currentClassGroupSlots) <= 44 && "bg-primary/10 text-primary border-primary/30")}
           >
-            {formatDemandBreakdown(currentClassOrdinaryPeriods, currentClassGroupSlots, currentClassGroupExtra)} p/wk / section {currentClassTotalPeriods > 44 && "(Overload!)"}
+            {formatDemandBreakdown(currentClassOrdinaryPeriods, currentClassGroupSlots, currentClassGroupExtra)} p/wk / section {(currentClassOrdinaryPeriods + currentClassGroupSlots) > 44 && "(Overload!)"}
           </Badge>
           {activeClassSections.length > 0 && (
             <Badge variant="outline" className="text-[10px] font-mono text-foreground font-semibold border-border/80">
