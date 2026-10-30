@@ -11,6 +11,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "health": "node scripts/health.mjs",
+    "prepare": "git config core.hooksPath .githooks || true",
     "verify": "node scripts/verify.mjs"
   },
   "dependencies": {

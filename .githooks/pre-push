@@ -1,0 +1,2 @@
+#!/bin/sh
+sh scripts/prepush-check.sh
