@@ -5,6 +5,7 @@ import { dbExecuteSessionTransition } from "@/lib/supabase/db-academic-session";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 // POST /api/academic-session/transition
+// guard: custom — signed-in Admin check via getUser + user_roles
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();

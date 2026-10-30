@@ -5,6 +5,7 @@ import { downloadDriveBackup } from "@/lib/backup/google-drive";
 import { restoreBackup } from "@/lib/backup/backup-engine";
 import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
+// guard: custom — verifyAdminUser() plus admin password re-entry
 export async function POST(req: Request) {
   const auth = await verifyAdminUser();
   if (!auth.isAdmin || !auth.user) {

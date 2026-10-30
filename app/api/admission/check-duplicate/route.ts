@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { pgQuote } from "@/lib/supabase/filters";
 
+// guard: custom — getAuthenticatedUserRole(), Guest rejected
 export async function GET(req: Request) {
   try {
     const auth = await getAuthenticatedUserRole();

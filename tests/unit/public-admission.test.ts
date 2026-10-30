@@ -1,10 +1,10 @@
 // Abuse tests for the unauthenticated public admission endpoint.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWx12345678";
+const LINK_ID = "AbCdEfGhIjKlMnOpQrStUvWx12345678";
 
 const state = {
-  settings: { public_link_enabled: true, public_link_token: TOKEN, public_link_expires_at: null as string | null, new_admission_active: true },
+  settings: { public_link_enabled: true, public_link_token: LINK_ID, public_link_expires_at: null as string | null, new_admission_active: true },
   attemptsCount: 0,
   /** Per-call counts for the attempts table, consumed in order before attemptsCount. */
   countQueue: [] as number[],
@@ -60,12 +60,12 @@ const validForm = {
   presentClass: "V", admissionType: "new", mediumOfInstruction: "Bengali",
 };
 
-const params = (token = TOKEN) => ({ params: Promise.resolve({ token }) });
-const post = (body: unknown, token = TOKEN) =>
+const params = (token = LINK_ID) => ({ params: Promise.resolve({ token }) });
+const post = (body: unknown, token = LINK_ID) =>
   POST(new Request(`http://x/api/public/admission/${token}`, { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body), headers: { "x-forwarded-for": "1.2.3.4" } }), params(token));
 
 beforeEach(() => {
-  state.settings = { public_link_enabled: true, public_link_token: TOKEN, public_link_expires_at: null, new_admission_active: true };
+  state.settings = { public_link_enabled: true, public_link_token: LINK_ID, public_link_expires_at: null, new_admission_active: true };
   state.attemptsCount = 0;
   state.countQueue = [];
   state.duplicateCount = 0;
@@ -77,7 +77,7 @@ beforeEach(() => {
 describe("public admission link", () => {
   it("hides closed, expired, wrong or malformed links behind 404", async () => {
     expect((await GET(new Request("http://x"), params("short"))).status).toBe(404);
-    expect((await GET(new Request("http://x"), params(TOKEN.replace("A", "B")))).status).toBe(404);
+    expect((await GET(new Request("http://x"), params(LINK_ID.replace("A", "B")))).status).toBe(404);
     state.settings.public_link_enabled = false;
     expect((await GET(new Request("http://x"), params())).status).toBe(404);
     state.settings.public_link_enabled = true;
