@@ -37,8 +37,6 @@ export function DefaultsSection({ presets }: { presets: PresetAddressesState }) 
                       const ok = await saveStudentEntryPresetsToDb(studentPresets);
                       if (ok) {
                         showToast({ title: "Student entry defaults saved successfully!", type: "success" });
-                      } else {
-                        showToast({ title: "Saved locally.", type: "info" });
                       }
                     } finally {
                       setIsSaving(false);

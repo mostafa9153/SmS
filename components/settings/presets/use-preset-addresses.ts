@@ -106,10 +106,9 @@ export function usePresetAddresses() {
         }),
       ]);
 
+      // A rejected preset save has already shown its own error toast.
       if (studentOk && addrOk && bankOk && schoolOk) {
         showToast({ title: "All system presets & AI settings saved successfully!", type: "success" });
-      } else {
-        showToast({ title: "Saved locally. DB sync completed.", type: "info" });
       }
     } catch (err) {
       showToast({ title: "Error saving presets to database", type: "error" });

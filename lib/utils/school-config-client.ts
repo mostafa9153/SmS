@@ -184,7 +184,13 @@ export async function saveSchoolConfig<T>(
     invalidateSchoolConfigClientCache();
     toastWithUndo(opts.label, res.undoId, async () => {
       const config = await fetchSchoolConfigClient(true);
-      if (config && config[key] !== undefined && config[key] !== null) writeMirror(opts.mirror, config[key]);
+      if (!config) return;
+      if (config[key] !== undefined && config[key] !== null) {
+        writeMirror(opts.mirror, config[key]);
+      } else if (typeof window !== "undefined") {
+        // The undo removed a key that did not exist before the save.
+        try { localStorage.removeItem(opts.mirror.storageKey); } catch {}
+      }
     });
     return true;
   } catch (err) {

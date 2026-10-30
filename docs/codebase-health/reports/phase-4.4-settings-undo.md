@@ -17,3 +17,9 @@
 
 ## Not verified
 Real undo round trip against Supabase, signed-in settings screens.
+
+## Review follow-up
+- Callers no longer add a "Saved locally" toast after a failed server-first save (the helper already shows the error); the school details tab no longer writes the unsaved profile to localStorage first.
+- Undoing the first-ever save of a key now removes the browser copy (open screens refresh on their next load, no event is fired).
+- Left as is: the undo has no guard against a later save of the same key, because the journal guard looks rows up by `id` and `system_config` is keyed by `key`. Undo of A after saving B restores A.
+- Edits made while offline now live only in the open screen until the next successful save.

@@ -279,17 +279,16 @@ export function SchoolDetailsTab() {
         console.warn("Class stream sync skipped:", e);
       }
 
-      localStorage.setItem("sms_school_profile", JSON.stringify(profileToSave));
       const success = await saveSchoolProfileToDb(profileToSave);
       setIsSavingProfile(false);
       setIsCloudSynced(success);
-      showToast({
-        type: success ? "success" : "info",
-        title: success ? "Saved to Cloud Database" : "Saved Locally",
-        description: success
-          ? "Institutional metadata & HS stream settings synchronized across all devices."
-          : "Saved in browser storage.",
-      });
+      if (success) {
+        showToast({
+          type: "success",
+          title: "Saved to Cloud Database",
+          description: "Institutional metadata & HS stream settings synchronized across all devices.",
+        });
+      }
     } catch (e) {
       setIsSavingProfile(false);
       showToast({
