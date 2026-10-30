@@ -1,13 +1,22 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Users } from "lucide-react";
+import { calculateAllotmentGaps } from "@/lib/routine/allotment-gaps";
+import { AllotmentGapsDialog } from "./allotment-gaps-dialog";
 import { TeacherSummaryBadges } from "./teacher-summary-badges";
 import { TeacherTableRow } from "./teacher-table-row";
 
 import type { RoutineTeachersState } from "./use-routine-teachers";
 
 export function TeachersListTable({ rt }: { rt: RoutineTeachersState }) {
-  const { classTotalSubjectsMap, editingTeacherId, groupChipsByTeacher, groupMemberNamesByClass, handleDelete, handleEdit, isEditorOpen, onDeleteTeacher, settings, subjects, teacherLoadMap, teachers, totalAllottedLoad, totalAssignedSubjects, totalSchoolDemand, totalSchoolSubjects, unassignedSubjects } = rt;
+  const { classes, groups, classTotalSubjectsMap, editingTeacherId, groupChipsByTeacher, groupMemberNamesByClass, handleDelete, handleEdit, isEditorOpen, onDeleteTeacher, settings, subjects, teacherLoadMap, teachers, totalAllottedLoad, totalAssignedSubjects, totalSchoolDemand, totalSchoolSubjects, unassignedSubjects } = rt;
+  const [gapsOpen, setGapsOpen] = useState(false);
+  const [gapsTab, setGapsTab] = useState<"all" | "over" | "missing">("all");
+  const gapRows = useMemo(
+    () => calculateAllotmentGaps(teachers, classes, subjects, groups),
+    [teachers, classes, subjects, groups]
+  );
   return (
     <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
       <div className="px-4 py-2 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-2">
@@ -18,6 +27,23 @@ export function TeachersListTable({ rt }: { rt: RoutineTeachersState }) {
           totalAssignedSubjects={totalAssignedSubjects}
           unassignedSubjects={unassignedSubjects}
           totalSchoolSubjects={totalSchoolSubjects}
+          onOpenGaps={(tab) => {
+            setGapsTab(tab);
+            setGapsOpen(true);
+          }}
+        />
+        <AllotmentGapsDialog
+          open={gapsOpen}
+          onOpenChange={setGapsOpen}
+          rows={gapRows}
+          initialTab={gapsTab}
+          onEditTeacher={(id) => {
+            const t = teachers.find((x) => x.id === id);
+            if (t) {
+              setGapsOpen(false);
+              handleEdit(t);
+            }
+          }}
         />
       </div>
 

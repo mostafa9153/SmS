@@ -11,6 +11,7 @@ interface TeacherSummaryBadgesProps {
   totalAssignedSubjects: number;
   totalSchoolSubjects: number;
   unassignedSubjects?: string[];
+  onOpenGaps?: (tab: "all" | "over" | "missing") => void;
 }
 
 export function TeacherSummaryBadges({
@@ -20,6 +21,7 @@ export function TeacherSummaryBadges({
   totalAssignedSubjects,
   totalSchoolSubjects,
   unassignedSubjects = [],
+  onOpenGaps,
 }: TeacherSummaryBadgesProps) {
   const [showMissing, setShowMissing] = useState(false);
   return (
@@ -31,8 +33,13 @@ export function TeacherSummaryBadges({
 
       <Badge
         variant="outline"
+        role={onOpenGaps ? "button" : undefined}
+        onClick={() =>
+          onOpenGaps?.(totalAllottedLoad > totalSchoolSubjectPeriods ? "over" : totalAllottedLoad < totalSchoolSubjectPeriods ? "missing" : "all")
+        }
         className={cn(
           "text-[10px] font-mono font-semibold px-2 py-0.5 gap-1",
+          onOpenGaps && "cursor-pointer",
           totalAllottedLoad === totalSchoolSubjectPeriods && totalSchoolSubjectPeriods > 0
             ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-300/40"
             : totalAllottedLoad > totalSchoolSubjectPeriods && totalSchoolSubjectPeriods > 0
@@ -47,7 +54,7 @@ export function TeacherSummaryBadges({
         variant="outline"
         role={unassignedSubjects.length > 0 ? "button" : undefined}
         title={unassignedSubjects.length > 0 ? `Not assigned: ${unassignedSubjects.join(", ")}` : undefined}
-        onClick={() => unassignedSubjects.length > 0 && setShowMissing((v) => !v)}
+        onClick={() => (onOpenGaps ? onOpenGaps("missing") : unassignedSubjects.length > 0 && setShowMissing((v) => !v))}
         className={cn(
           "text-[10px] font-mono font-semibold px-2 py-0.5 gap-1",
           totalAssignedSubjects === totalSchoolSubjects && totalSchoolSubjects > 0
