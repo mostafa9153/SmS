@@ -118,5 +118,3 @@ export function useTrackerActions(ctx: TrackerCoreState & TrackerDerivedState) {
     handlePrintLedger,
   };
 }
-
-export type TrackerActionsState = ReturnType<typeof useTrackerActions>;

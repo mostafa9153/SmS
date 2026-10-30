@@ -188,5 +188,3 @@ export function useTrackerSettlement(ctx: TrackerCoreState) {
     settlementSummary,
   };
 }
-
-export type TrackerSettlementState = ReturnType<typeof useTrackerSettlement>;

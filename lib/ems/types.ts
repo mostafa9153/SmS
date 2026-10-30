@@ -7,19 +7,7 @@ export type ExamType =
   | "Test Examination"
   | "3rd Summative Evaluation / Test Examination"
   | "Sem I"
-  | "Sem II";
-
-export const EXAM_TYPES: ExamType[] = [
-  "1st Summative Evaluation",
-  "2nd Summative Evaluation",
-  "3rd Summative Evaluation",
-  "Test Examination",
-  "3rd Summative Evaluation / Test Examination",
-  "Sem I",
-  "Sem II",
-];
-
-export const EMS_ELIGIBLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI"] as const;
+  | "Sem II";export const EMS_ELIGIBLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI"] as const;
 
 export function getExamTypesForClasses(classes: string[]): ExamType[] {
   if (!classes || classes.length === 0) {
@@ -66,13 +54,7 @@ export function getExamTypesForClasses(classes: string[]): ExamType[] {
 
   // Default for junior classes (5 to 9)
   return ["1st Summative Evaluation", "2nd Summative Evaluation", "3rd Summative Evaluation"];
-}
-
-export function getExamTypesForClass(classCode?: string): ExamType[] {
-  return getExamTypesForClasses(classCode ? [classCode] : []);
-}
-
-// Compact label helper for UI dropdowns where space is tight
+}// Compact label helper for UI dropdowns where space is tight
 export function getExamTypeDisplayLabel(type: ExamType): string {
   if (type === "3rd Summative Evaluation / Test Examination") {
     return "3rd Summative / Test Examination";

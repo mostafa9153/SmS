@@ -392,5 +392,3 @@ export function useTeachersSave(ctx: TeachersCoreState & TeachersAllocationState
     toggleSubjectForSection,
   };
 }
-
-export type TeachersSaveState = ReturnType<typeof useTeachersSave>;

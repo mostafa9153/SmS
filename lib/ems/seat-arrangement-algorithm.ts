@@ -1,13 +1,7 @@
 // EMS Seat Arrangement Algorithm — UE (Even) & UU (Uneven) with Continuity Rule
 import { AllocatedRoom, SeatAssignment, EmsRoom, AutoAllocationClassInput } from "./types";
 import { Student } from "@/lib/types";
-import {
-  ArrangementPattern,
-  FillDirection,
-  ColumnClassAllocationConfig,
-  RoomArrangementConfig,
-  ArrangementPromptState,
-} from "./seat-arrangement-types";
+import { ArrangementPattern, FillDirection, ColumnClassAllocationConfig } from "./seat-arrangement-types";
 
 // Normalize class code for robust matching
 export function normalizeClassCode(c?: string): string {
@@ -897,29 +891,4 @@ export function arrangeRoomUnified(
     return arrangeRoomFixedU(room, columnConfigs, studentPool, classCursors);
   }
   return arrangeRoomInterleaved(room, columnConfigs, studentPool, classCursors);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. MASTER ARRANGE DISPATCHER (Room-by-Room with Overflow Handling)
-// ─────────────────────────────────────────────────────────────────────────────
-export function arrangeRoom(
-  room: EmsRoom,
-  config: RoomArrangementConfig,
-  studentPool: Map<string, Student[]>,
-  classCursors: Map<string, number>
-): {
-  allocatedRoom: AllocatedRoom;
-  updatedCursors: Map<string, number>;
-  pausePrompt?: ArrangementPromptState;
-} {
-  const result = arrangeRoomInterleaved(
-    room,
-    config.columnAssignments,
-    studentPool,
-    classCursors
-  );
-  return {
-    allocatedRoom: result.allocatedRoom,
-    updatedCursors: result.updatedCursors,
-  };
 }

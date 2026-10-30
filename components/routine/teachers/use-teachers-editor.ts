@@ -381,5 +381,3 @@ export function useTeachersEditor(ctx: TeachersCoreState) {
     toggleClass,
   };
 }
-
-export type TeachersEditorState = ReturnType<typeof useTeachersEditor>;

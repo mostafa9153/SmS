@@ -21,5 +21,3 @@ export function useViewerPaper() {
     paperSettings,
   };
 }
-
-export type ViewerPaperState = ReturnType<typeof useViewerPaper>;

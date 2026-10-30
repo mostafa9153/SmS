@@ -6,7 +6,6 @@ import type {
   Semester,
   SubjectMarksMap,
 } from "@/lib/types";
-import { sortClasses } from "@/lib/utils";
 import { apiFetch } from "@/lib/api/client";
 
 /**
@@ -165,12 +164,6 @@ export async function getDistinctClasses(): Promise<string[]> {
 export async function getDistinctSections(): Promise<string[]> {
   const meta = await getStudentFilterMetadata();
   return meta.sections || [];
-}
-
-/** Returns unique sorted admission years */
-export async function getDistinctAdmissionYears(): Promise<number[]> {
-  const meta = await getStudentFilterMetadata();
-  return meta.admissionYears || [];
 }
 
 /** Returns aggregate dashboard stats derived from the full dataset */
@@ -354,56 +347,6 @@ export async function getStudentResultHistory(studentId: string) {
 }
 
 /**
- * Fetch whole-school academic session readiness audit.
- */
-export async function getSessionReadiness(
-  year?: number,
-  examName = "Annual Examination",
-  minPassPercentage = 30,
-  section: "secondary" | "higher_secondary" = "secondary"
-) {
-  const params = new URLSearchParams();
-  if (year) params.append("year", String(year));
-  params.append("examName", examName);
-  params.append("minPassPercentage", String(minPassPercentage));
-  params.append("section", section);
-
-  const res = await fetch(`/api/academic-session/readiness?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch session readiness audit");
-  }
-  const data = await res.json();
-  return data.report;
-}
-
-/**
- * Execute whole-school academic session transition.
- */
-export async function executeSessionTransition(params: {
-  fromYear: number;
-  toYear: number;
-  rollStrategy: "rank" | "preserve" | "alphabetical";
-  examName?: string;
-  minPassPercentage?: number;
-  overriddenStudentIds?: string[];
-  section?: "secondary" | "higher_secondary";
-}) {
-  const res = await fetch("/api/academic-session/transition", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Session transition execution failed");
-  }
-
-  return res.json();
-}
-
-/**
  * Fetch current authenticated user's profile and role.
  */
 export async function getCurrentUserRole(): Promise<{
@@ -434,21 +377,6 @@ export interface OldStudentItem {
   guardianName?: string;
   contact?: string;
   dob?: string;
-}
-
-export async function getOldStudentYears(): Promise<number[]> {
-  try {
-    const res = await fetch("/api/students/old-students?meta=years");
-    if (!res.ok) {
-      const cur = new Date().getFullYear();
-      return [cur - 1, cur - 2, cur - 3, cur - 4];
-    }
-    const data = await res.json();
-    return data.years || [];
-  } catch {
-    const cur = new Date().getFullYear();
-    return [cur - 1, cur - 2, cur - 3, cur - 4];
-  }
 }
 
 export async function getOldStudents(params: {

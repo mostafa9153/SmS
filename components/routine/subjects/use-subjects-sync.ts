@@ -311,5 +311,3 @@ export function useSubjectsSync(ctx: SubjectsCoreState & SubjectsEditingState) {
     handleSyncFromPresets,
   };
 }
-
-export type SubjectsSyncState = ReturnType<typeof useSubjectsSync>;

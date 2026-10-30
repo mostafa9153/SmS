@@ -563,5 +563,3 @@ export function useEmsClassGroups(ctx: EmsCore) {
     handleUpdateSectionRoll,
   };
 }
-
-export type EmsClassGroups = ReturnType<typeof useEmsClassGroups>;

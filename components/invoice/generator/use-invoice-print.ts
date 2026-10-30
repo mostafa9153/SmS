@@ -169,5 +169,3 @@ export function useInvoicePrint(ctx: InvoiceCore & InvoiceBulkData) {
     toggleStudentSelection,
   };
 }
-
-export type InvoicePrint = ReturnType<typeof useInvoicePrint>;

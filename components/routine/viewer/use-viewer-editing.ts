@@ -216,5 +216,3 @@ export function useViewerEditing(ctx: ViewerCoreState) {
     handleUndo,
   };
 }
-
-export type ViewerEditingState = ReturnType<typeof useViewerEditing>;

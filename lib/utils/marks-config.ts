@@ -57,16 +57,7 @@ export interface ClassMarksScheme {
   }>;
 
   notes?: string;
-}
-
-export function getSchemeSplitVariations(scheme?: ClassMarksScheme): MarksSplitVariation[] {
-  if (scheme?.splitVariations && scheme.splitVariations.length > 0) {
-    return scheme.splitVariations;
-  }
-  return DEFAULT_HS_SPLIT_VARIATIONS;
-}
-
-/**
+}/**
  * Checks if a subject is naturally a lab/practical subject by default
  */
 export function isDefaultLabSubject(subjectName?: string): boolean {

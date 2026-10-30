@@ -205,5 +205,3 @@ export function useEmsRoutine(ctx: EmsCore) {
     setDraggedRowIndex,
   };
 }
-
-export type EmsRoutine = ReturnType<typeof useEmsRoutine>;

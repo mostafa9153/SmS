@@ -28,17 +28,7 @@ export interface SportsConfig {
 export const DEFAULT_SPORTS_CONFIG: SportsConfig = {
   maxEventsPerStudent: 3,
   enforcementMode: "warning",
-};
-
-export interface SportsAthlete {
-  id: string;
-  academicYear: number;
-  studentId: string;
-  chestNumber: string;
-  createdAt?: string;
-}
-
-export interface SportsParticipant {
+};export interface SportsParticipant {
   registrationId: string;
   eventId: string;
   studentId: string;

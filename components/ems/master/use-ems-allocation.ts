@@ -184,5 +184,3 @@ export function useEmsAllocation(ctx: EmsCore & EmsRoomSetup) {
     handleSwapSeats,
   };
 }
-
-export type EmsAllocation = ReturnType<typeof useEmsAllocation>;

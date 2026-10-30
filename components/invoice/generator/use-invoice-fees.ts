@@ -93,5 +93,3 @@ export function useInvoiceFees(ctx: InvoiceCore) {
     handleSaveAsDefaultFeeStructure,
   };
 }
-
-export type InvoiceFees = ReturnType<typeof useInvoiceFees>;

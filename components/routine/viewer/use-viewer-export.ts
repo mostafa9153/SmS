@@ -328,5 +328,3 @@ export function useViewerExport(ctx: ViewerCoreState) {
     handleExportExcel,
   };
 }
-
-export type ViewerExportState = ReturnType<typeof useViewerExport>;

@@ -148,5 +148,3 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
     updateInvoiceClass,
   };
 }
-
-export type InvoiceStudentSelect = ReturnType<typeof useInvoiceStudentSelect>;

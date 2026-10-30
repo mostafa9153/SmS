@@ -263,31 +263,7 @@ export async function fetchAllocationsFromDb(): Promise<ExamAllocation[]> {
     console.warn("[EMS Storage] Could not fetch allocations from DB:", err);
   }
   return getSavedAllocations();
-}
-
-/**
- * Fetch saved rooms directly from Supabase / API Database and sync locally
- */
-export async function fetchRoomsFromDb(): Promise<EmsRoom[]> {
-  if (typeof window === "undefined") return DEFAULT_ROOMS;
-  try {
-    const res = await fetch("/api/school-config?key=ems_rooms");
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.data) && data.data.length > 0) {
-        const sanitized = sanitizeRoomColumns(data.data);
-        memoryRooms = sanitized;
-        safeWriteItem(ROOMS_STORAGE_KEY, sanitized);
-        return sanitized;
-      }
-    }
-  } catch (err) {
-    console.warn("[EMS Storage] Could not fetch rooms from DB:", err);
-  }
-  return getSavedRooms();
-}
-
-/**
+}/**
  * Quota-safe writer for allocations.
  * Progressively prunes older allocations when localStorage quota is exceeded.
  */
