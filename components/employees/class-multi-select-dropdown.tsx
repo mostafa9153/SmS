@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export const DEFAULT_SCHOOL_CLASSES = [
+const DEFAULT_SCHOOL_CLASSES = [
   "Class V",
   "Class VI",
   "Class VII",

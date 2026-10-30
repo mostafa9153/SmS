@@ -6,14 +6,16 @@ import {
   type DBInvoiceInsert,
 } from "@/lib/supabase/db-invoices";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 import { logTeacherActivity } from "@/lib/supabase/db-teachers";
 
+// undo: n/a — creates invoice rows; the Admin batch undo (/api/invoices/batches) reverses a printed batch
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    // A teacher needs the invoice permission explicitly (the old check let a missing flag through).
+    const gate = await requireStaff("can_generate_invoices");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const body = await req.json();
 
@@ -28,13 +30,6 @@ export async function POST(req: Request) {
 
     if (invoicesToSave.length === 0) {
       return NextResponse.json({ error: "No invoice data provided" }, { status: 400 });
-    }
-
-    if (auth.role === "Teacher" && auth.permissions?.can_generate_invoices === false) {
-      return NextResponse.json(
-        { error: "Forbidden: You do not have permission to generate fee invoices." },
-        { status: 403 }
-      );
     }
 
     // Attach current user name/email if available

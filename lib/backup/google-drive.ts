@@ -6,6 +6,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BackupFrequency, BackupPayload, DriveBackupFile, GoogleAccountInfo } from "./types";
+import { mustWrite } from "@/lib/supabase/write";
 
 const GOOGLE_OAUTH_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -107,12 +108,12 @@ export async function saveBackupConfig(newConfig: Partial<StoredBackupConfig>, a
   }
 
   // 2. Fallback to audit_log
-  await supabase.from("audit_log").insert({
+  await mustWrite(supabase.from("audit_log").insert({
     performed_by: adminUserId || null,
     action: "SYSTEM_CONFIG",
     table_name: "backup_settings",
     metadata: merged,
-  });
+  }), "audit_log insert");
 
   return merged;
 }
@@ -225,7 +226,7 @@ export async function exchangeCodeForTokens(code: string, redirectUri: string, a
 // -------------------------------------------------------------
 // 4. Get Valid Access Token using Refresh Token
 // -------------------------------------------------------------
-export async function getValidAccessToken(): Promise<string> {
+async function getValidAccessToken(): Promise<string> {
   const config = await getBackupConfig();
   if (!config.refreshToken) {
     throw new Error("No Google Account is currently connected. Please connect Google Drive first.");
@@ -262,7 +263,7 @@ export async function getValidAccessToken(): Promise<string> {
 // -------------------------------------------------------------
 // 5. Get or Create Dedicated Backup Folder in Google Drive
 // -------------------------------------------------------------
-export async function getOrCreateBackupFolder(accessToken: string): Promise<string> {
+async function getOrCreateBackupFolder(accessToken: string): Promise<string> {
   // 1. Search for existing folder
   const query = encodeURIComponent(
     `name='${DRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`
@@ -427,20 +428,6 @@ export async function downloadDriveBackup(fileId: string): Promise<BackupPayload
 
   const rawJson = await downloadRes.json();
   return rawJson as BackupPayload;
-}
-
-// -------------------------------------------------------------
-// 9. Delete a Specific Backup File from Google Drive
-// -------------------------------------------------------------
-export async function deleteDriveBackup(fileId: string): Promise<boolean> {
-  const accessToken = await getValidAccessToken();
-
-  const res = await fetch(`${GOOGLE_DRIVE_API_BASE}/files/${fileId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  return res.ok;
 }
 
 // -------------------------------------------------------------

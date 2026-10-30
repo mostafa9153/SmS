@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { StaffSignatureModal } from "./staff-signature-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffSignatureCardProps {
   staffId: string;
@@ -23,6 +25,7 @@ export function StaffSignatureCard({
   onSignatureUpdated,
   className,
 }: StaffSignatureCardProps) {
+  const confirm = useConfirm();
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(signatureUrl || undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -42,19 +45,13 @@ export function StaffSignatureCard({
   };
 
   const handleRemoveSignature = async () => {
-    if (!window.confirm(`Are you sure you want to remove the signature for ${staffName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the signature for ${staffName}?`, destructive: true })) {
       return;
     }
 
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/employees/${staffId}/signature`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to remove signature");
-      }
+      await apiFetch(`/api/employees/${staffId}/signature`, { method: "DELETE" });
 
       handleRemoved();
       showToast({

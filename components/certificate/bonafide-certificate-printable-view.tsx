@@ -10,6 +10,7 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface BonafideCertificateData {
   paperSize?: "A5" | "A4";
@@ -78,7 +79,7 @@ function numberToEnglishWords(num: number): string {
   return String(num);
 }
 
-export function formatDobToWords(dateStr?: string): string {
+function formatDobToWords(dateStr?: string): string {
   if (!dateStr) return "";
   const parts = dateStr.includes("-") ? dateStr.split("-") : dateStr.split("/");
   let y: number, m: number, d: number;
@@ -137,7 +138,7 @@ export function BonafideCertificatePrintableView({
 
   const dobInWords = data.dateOfBirthWords || formatDobToWords(data.dateOfBirth);
 
-  const qrPayload = `MHS-CERT:${data.certificateNo || "MHS/BC"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|SESS:${data.academicSession || "2026"}`;
+  const qrPayload = `MHS-CERT:${data.certificateNo || "MHS/BC"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|SESS:${data.academicSession || String(currentYearIST())}`;
 
   return (
     <div

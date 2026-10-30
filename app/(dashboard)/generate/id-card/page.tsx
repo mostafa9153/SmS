@@ -8,36 +8,19 @@ import { Student } from "@/lib/types";
 import {
   StudentIDCardPrintableView,
 } from "@/components/id-card/student-id-card-printable-view";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
-import {
-  Printer,
-  ArrowLeft,
-  Search,
-  Users,
-  CheckSquare,
-  Square,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  ShieldCheck,
-  Calendar,
-  Layers,
-  GraduationCap,
-  AlertTriangle,
-  AlertCircle,
-  X,
-  CheckCircle2,
-} from "lucide-react";
+import { PrintPreview } from "@/components/print/print-preview";
+import { Printer, Users, CheckSquare, Square, Eye, ChevronLeft, ChevronRight, Sparkles, ShieldCheck, Calendar, Layers, GraduationCap, AlertTriangle, AlertCircle, X, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
+import { SearchInput } from "@/components/ui/search-input";
+import { PageHeader } from "@/components/ui/page-header";
 
 export interface MissingStudentField {
   key: string;
@@ -265,29 +248,16 @@ function StudentIDCardStudioContent() {
     <div className="min-h-screen bg-muted/20 pb-12 print:bg-white print:p-0 print:m-0">
       {/* Studio Header (Hidden in Print) */}
       <div className="border-b bg-card print:hidden">
-        <div className="max-w-[1700px] mx-auto px-4 py-4 sm:px-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/generate"
-              className="h-9 w-9 rounded-xl border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-            <div>
-              <div className="flex items-center gap-2">
+        <PageHeader
+          back="/generate"
+          title="Bulk Student ID Card Studio"
+          badge={<div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20">
                   CR80 PVC Single
                 </span>
                 <span className="text-xs text-muted-foreground">54mm × 85.6mm</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground mt-0.5">
-                Bulk Student ID Card Studio
-              </h1>
-            </div>
-          </div>
-
-          {/* Print Action Button */}
-          <div className="flex items-center gap-2.5">
+              </div>}
+          actions={<div className="flex items-center gap-2.5">
             <Button
               onClick={handlePrintBulk}
               disabled={studentsToPrint.length === 0}
@@ -297,8 +267,9 @@ function StudentIDCardStudioContent() {
               <Printer className="h-4 w-4" />
               <span>Print {studentsToPrint.length} ID Cards</span>
             </Button>
-          </div>
-        </div>
+          </div>}
+          className="max-w-[1700px] mx-auto px-4 py-4 sm:px-6"
+        />
       </div>
 
       {/* Main Studio Workspace (Hidden in Print) */}
@@ -344,16 +315,7 @@ function StudentIDCardStudioContent() {
               </div>
 
               {/* Search input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Search by student name, roll, or ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 text-xs h-9 rounded-xl"
-                />
-              </div>
+              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by student name, roll, or ID..." size="sm" />
             </div>
 
             {/* Customization Card: Session, Valid Date, Banner */}
@@ -584,7 +546,7 @@ function StudentIDCardStudioContent() {
             </div>
 
             {/* Live Visual Canvas */}
-            <ZoomPanViewport
+            <PrintPreview
               fitMode="contain"
               resetKey={`id-card-${previewIndex}`}
               className="h-[580px] lg:h-[calc(100dvh-16rem)] w-full print:hidden"
@@ -606,7 +568,7 @@ function StudentIDCardStudioContent() {
                   <p className="text-xs mt-1">Select at least one student from the left panel to preview.</p>
                 </div>
               )}
-            </ZoomPanViewport>
+            </PrintPreview>
 
             {/* Printing Format Notice */}
             <div className="text-center text-xs text-muted-foreground max-w-md">

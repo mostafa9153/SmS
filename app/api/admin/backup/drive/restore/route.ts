@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { verifyAdminUser } from "@/lib/backup/auth";
 import { downloadDriveBackup } from "@/lib/backup/google-drive";
 import { restoreBackup } from "@/lib/backup/backup-engine";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(req: Request) {
   const auth = await verifyAdminUser();
@@ -43,9 +44,11 @@ export async function POST(req: Request) {
       adminEmail: auth.user.email,
     });
 
+    await notify({ roles: ["Admin"], severity: "warning", title: "Database restored from Google Drive", message: `Mode: ${mode}. Restored by ${auth.user.email}.`, link: "/settings/backup", source: "backup.restore.drive", push: true });
     return NextResponse.json(result);
   } catch (err: any) {
     console.error("Cloud restore failed:", err);
+    await notifyAdminsOfError("backup.restore.drive", "Google Drive restore failed", err, "/settings/backup");
     return NextResponse.json({ error: err.message || "Cloud restoration failed" }, { status: 500 });
   }
 }

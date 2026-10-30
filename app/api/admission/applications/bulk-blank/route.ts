@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_print_admission_form");
+    if (!gate.ok) return gate.response;
 
     const supabase = createAdminClient();
     const body = await req.json();
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
 
     const insertPayloads = serials.map((serial: string) => ({
       application_no: serial,
-      academic_year: academicYear || "2026",
+      academic_year: academicYear || String(currentYearIST()),
       admission_type: admissionType || "new",
       form_method: "offline",
       target_class: targetClass || "V",

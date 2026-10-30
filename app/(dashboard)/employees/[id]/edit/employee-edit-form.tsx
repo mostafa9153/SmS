@@ -3,23 +3,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Save,
-  Loader2,
-  Briefcase,
-  User,
-  MapPin,
-  GraduationCap,
-  Building2,
-  BookOpen,
-  CheckCircle2,
-  Sparkles,
-} from "lucide-react";
+import { ArrowLeft, Save, Briefcase, User, MapPin, GraduationCap, Building2, BookOpen, CheckCircle2, Sparkles } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
+import { toastWithUndo } from "@/lib/undo/client";
 import { cn } from "@/lib/utils";
 import {
   ClassMultiSelectDropdown,
@@ -28,6 +16,10 @@ import {
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { FormField, FormGrid, FormSection } from "@/components/forms/form-layout";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface EmployeeEditFormProps {
   staff: any;
@@ -203,22 +195,9 @@ export function EmployeeEditForm({
         },
       };
 
-      const res = await fetch(`/api/employees/${staff.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const data = await apiFetch<{ undoId?: string | null }>(`/api/employees/${staff.id}`, { method: "PATCH", json: payload });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to update employee profile");
-      }
-
-      showToast({
-        type: "success",
-        title: "Profile Updated",
-        description: "Employee details have been saved to the database.",
-      });
+      toastWithUndo("Employee details saved.", data.undoId, () => router.refresh());
 
       router.push(backTarget);
       router.refresh();
@@ -283,7 +262,7 @@ export function EmployeeEditForm({
           >
             {isSaving ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Spinner className="mr-1.5 h-3.5 w-3.5" />
                 Saving...
               </>
             ) : (
@@ -360,13 +339,15 @@ export function EmployeeEditForm({
             </FormField>
 
             <FormField label="Role / Employee Type">
-              <select
+              <CustomSelect
                 value={formData.employee_type}
-                onChange={(e) => setFormData({ ...formData, employee_type: e.target.value })}
-              >
-                <option value="TEACHING">Teaching Staff</option>
-                <option value="NON_TEACHING">Non-Teaching Staff</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, employee_type: v })}
+                searchable={false}
+                options={[
+                  { value: "TEACHING", label: "Teaching Staff" },
+                  { value: "NON_TEACHING", label: "Non-Teaching Staff" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Designation">
@@ -378,28 +359,32 @@ export function EmployeeEditForm({
             </FormField>
 
             <FormField label="Employment Status">
-              <select
+              <CustomSelect
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-                <option value="RETIRED">Retired</option>
-                <option value="SUSPENDED">Suspended</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, status: v })}
+                searchable={false}
+                options={[
+                  { value: "ACTIVE", label: "Active" },
+                  { value: "INACTIVE", label: "Inactive" },
+                  { value: "RETIRED", label: "Retired" },
+                  { value: "SUSPENDED", label: "Suspended" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Caste Category">
-              <select
+              <CustomSelect
                 value={formData.caste}
-                onChange={(e) => setFormData({ ...formData, caste: e.target.value })}
-              >
-                <option value="General">General</option>
-                <option value="SC">SC</option>
-                <option value="ST">ST</option>
-                <option value="OBC-A">OBC-A</option>
-                <option value="OBC-B">OBC-B</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, caste: v })}
+                searchable={false}
+                options={[
+                  { value: "General", label: "General" },
+                  { value: "SC", label: "SC" },
+                  { value: "ST", label: "ST" },
+                  { value: "OBC-A", label: "OBC-A" },
+                  { value: "OBC-B", label: "OBC-B" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Basic Pay (₹)">
@@ -525,42 +510,48 @@ export function EmployeeEditForm({
             </FormField>
 
             <FormField label="Gender">
-              <select
+              <CustomSelect
                 value={formData.gender}
-                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-              >
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, gender: v })}
+                searchable={false}
+                options={[
+                  { value: "Male", label: "Male" },
+                  { value: "Female", label: "Female" },
+                  { value: "Other", label: "Other" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Marital Status">
-              <select
+              <CustomSelect
                 value={formData.marital_status}
-                onChange={(e) => setFormData({ ...formData, marital_status: e.target.value })}
-              >
-                <option value="Married">Married</option>
-                <option value="Unmarried">Unmarried</option>
-                <option value="Divorced">Divorced</option>
-                <option value="Widowed">Widowed</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, marital_status: v })}
+                searchable={false}
+                options={[
+                  { value: "Married", label: "Married" },
+                  { value: "Unmarried", label: "Unmarried" },
+                  { value: "Divorced", label: "Divorced" },
+                  { value: "Widowed", label: "Widowed" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Blood Group">
-              <select
+              <CustomSelect
                 value={formData.blood_group}
-                onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
-              >
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, blood_group: v })}
+                searchable={false}
+                options={[
+                  { value: "A+", label: "A+" },
+                  { value: "A-", label: "A-" },
+                  { value: "B+", label: "B+" },
+                  { value: "B-", label: "B-" },
+                  { value: "O+", label: "O+" },
+                  { value: "O-", label: "O-" },
+                  { value: "AB+", label: "AB+" },
+                  { value: "AB-", label: "AB-" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Aadhaar Number (12 digits)">
@@ -584,15 +575,15 @@ export function EmployeeEditForm({
             </FormField>
 
             <FormField label="Differently Abled">
-              <select
+              <CustomSelect
                 value={formData.differently_abled ? "YES" : "NO"}
-                onChange={(e) =>
-                  setFormData({ ...formData, differently_abled: e.target.value === "YES" })
-                }
-              >
-                <option value="NO">No</option>
-                <option value="YES">Yes</option>
-              </select>
+                onChange={(v: string) => setFormData({ ...formData, differently_abled: v === "YES" })}
+                searchable={false}
+                options={[
+                  { value: "NO", label: "No" },
+                  { value: "YES", label: "Yes" },
+                ]}
+              />
             </FormField>
 
             <FormField label="Health Scheme Opted">
@@ -736,7 +727,7 @@ export function EmployeeEditForm({
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Spinner className="h-4 w-4" />
                 Saving Changes...
               </>
             ) : (
@@ -752,59 +743,3 @@ export function EmployeeEditForm({
   );
 }
 
-// ── Shared Clean Form Layout Helpers (Identical UX to Student Edit) ──────────
-
-function FormSection({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/80 bg-card p-5 sm:p-6 space-y-4 shadow-xs">
-      <div className="flex items-center gap-2 border-b border-border/70 pb-3">
-        {icon}
-        <p className="text-sm sm:text-base font-bold text-foreground tracking-tight">
-          {title}
-        </p>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function FormGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-      {children}
-    </div>
-  );
-}
-
-function FormField({
-  label,
-  children,
-  full,
-}: {
-  label: string;
-  children: React.ReactNode;
-  full?: boolean;
-}) {
-  return (
-    <div className={full ? "sm:col-span-2 md:col-span-3" : ""}>
-      <label className="block text-xs font-semibold text-foreground mb-1.5">
-        {label}
-      </label>
-      <div
-        className="[&>input]:w-full [&>input]:rounded-xl [&>input]:border [&>input]:border-input [&>input]:bg-background [&>input]:px-3.5 [&>input]:py-2 [&>input]:text-xs sm:[&>input]:text-sm [&>input]:h-10 [&>input]:outline-none [&>input]:focus:ring-2 [&>input]:focus:ring-primary/20 [&>input]:transition-all
-          [&>select]:w-full [&>select]:rounded-xl [&>select]:border [&>select]:border-input [&>select]:bg-background [&>select]:px-3.5 [&>select]:py-2 [&>select]:text-xs sm:[&>select]:text-sm [&>select]:h-10 [&>select]:outline-none [&>select]:focus:ring-2 [&>select]:focus:ring-primary/20 [&>select]:transition-all
-          [&>textarea]:w-full [&>textarea]:rounded-xl [&>textarea]:border [&>textarea]:border-input [&>textarea]:bg-background [&>textarea]:px-3.5 [&>textarea]:py-2 [&>textarea]:text-xs sm:[&>textarea]:text-sm [&>textarea]:outline-none [&>textarea]:focus:ring-2 [&>textarea]:focus:ring-primary/20 [&>textarea]:resize-none"
-      >
-        {children}
-      </div>
-    </div>
-  );
-}

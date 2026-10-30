@@ -10,8 +10,9 @@ import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { QuickReAdmitDialog } from "@/components/students/quick-re-admit-dialog";
 import { IssueTcDialog } from "@/components/students/issue-tc-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,27 +31,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import {
-  Clock,
-  Search,
-  ArrowLeft,
-  GraduationCap,
-  FileText,
-  UserX,
-  UserCheck,
-  MoreHorizontal,
-  RotateCcw,
-  Archive,
-  CheckCircle2,
-  Users,
-  ChevronRight,
-  Filter,
-  Eye,
-  CheckSquare,
-  Square,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { Clock, Search, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, Users, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
+import { toastWithUndo } from "@/lib/undo/client";
 
 const ALL_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 const SECTIONS = ["A", "B", "C", "D"];
@@ -171,16 +155,20 @@ export function PendingStudentsClient() {
     return students.filter((s) => selectedIds.has(s.id));
   }, [students, selectedIds]);
 
+  const refreshRegisters = () => {
+    queryClient.invalidateQueries({ queryKey: ["pending-students"] });
+    queryClient.invalidateQueries({ queryKey: ["students"] });
+    queryClient.invalidateQueries({ queryKey: ["old-students"] });
+  };
+
   // Drop Out Mutation
   const dropOutMutation = useMutation({
     mutationFn: (ids: string[]) => markStudentsDropOut(ids, "Marked Drop Out from Pending Register"),
     onSuccess: (res) => {
-      toast.success(res.message || "Marked students as Drop Out");
+      toastWithUndo(res.message || "Marked students as Drop Out", res.undoId, refreshRegisters);
       setSelectedIds(new Set());
       setDropOutConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
+      refreshRegisters();
     },
     onError: (err: any) => {
       toast.error(err.message || "Failed to mark Drop Out");
@@ -192,11 +180,9 @@ export function PendingStudentsClient() {
     setIsArchivingStale(true);
     try {
       const res = await archiveStalePendingStudents();
-      toast.success(res.message || `Archived ${res.count} stale student(s) to Drop Out.`);
+      toastWithUndo(res.message || `Archived ${res.count} stale student(s) to Drop Out.`, res.undoId, refreshRegisters);
       setArchiveStaleConfirmOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
+      refreshRegisters();
     } catch (err: any) {
       toast.error(err.message || "Failed to archive stale students");
     } finally {
@@ -207,28 +193,14 @@ export function PendingStudentsClient() {
   return (
     <div className="p-3.5 sm:p-6 max-w-7xl mx-auto space-y-3.5 sm:space-y-4">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card p-3 sm:p-4 rounded-2xl border shadow-2xs">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => router.back()}
-            title="Back"
-            className="rounded-xl p-2 min-h-[38px] min-w-[38px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer border"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base sm:text-lg font-bold tracking-tight flex items-center gap-2">
-              <Clock className="h-4.5 w-4.5 text-amber-600" />
-              Pending Students Register
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : totalCount}
-            </span>
-          </div>
-        </div>
-
-        {/* Header Action Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+      <PageHeader
+        back
+        icon={Clock}
+        title="Pending Students Register"
+        badge={<span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+              {isLoading ? <Spinner className="h-3 w-3" /> : totalCount}
+            </span>}
+        actions={<div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
@@ -249,8 +221,9 @@ export function PendingStudentsClient() {
               <span>Re-Admission Portal</span>
             </Button>
           </Link>
-        </div>
-      </div>
+        </div>}
+        className="bg-card p-3 sm:p-4 rounded-2xl border shadow-2xs"
+      />
 
       {/* Control Filter Bar */}
       <div className="rounded-2xl border bg-card p-3 sm:p-4 space-y-3 shadow-2xs">
@@ -419,10 +392,8 @@ export function PendingStudentsClient() {
                 ))
               ) : students.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                    <Users className="h-8 w-8 mx-auto mb-2 opacity-40" />
-                    <p className="font-semibold text-xs text-foreground">No pending students found</p>
-                    <p className="text-[11px] mt-0.5">All students are actively enrolled or archived.</p>
+                  <td colSpan={6}>
+                    <EmptyState compact icon={Users} title="No pending students found" />
                   </td>
                 </tr>
               ) : (
@@ -565,36 +536,14 @@ export function PendingStudentsClient() {
         </div>
 
         {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              Showing {students.length} of {totalCount} pending students
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="h-7 text-xs px-2.5"
-              >
-                Previous
-              </Button>
-              <span className="font-semibold text-foreground px-2">
-                Page {page} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="h-7 text-xs px-2.5"
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          total={totalCount}
+          pageSize={pageSize}
+          className="border-t bg-muted/20"
+        />
       </div>
 
       {/* Modals & Dialogs */}
@@ -657,7 +606,7 @@ export function PendingStudentsClient() {
               disabled={dropOutMutation.isPending}
               className="text-xs h-8 bg-rose-600 hover:bg-rose-700 text-white"
             >
-              {dropOutMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Confirm Drop Out"}
+              {dropOutMutation.isPending ? <Spinner className="h-3.5 w-3.5" /> : "Confirm Drop Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -700,7 +649,7 @@ export function PendingStudentsClient() {
               disabled={isArchivingStale}
               className="text-xs h-8 bg-amber-600 hover:bg-amber-700 text-white"
             >
-              {isArchivingStale ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Execute Stale Archive"}
+              {isArchivingStale ? <Spinner className="h-3.5 w-3.5" /> : "Execute Stale Archive"}
             </Button>
           </DialogFooter>
         </DialogContent>

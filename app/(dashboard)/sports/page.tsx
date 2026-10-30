@@ -2,19 +2,21 @@
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { SportsEvent, SportsParticipant } from "@/lib/sports/types";
+import type { SportsEvent } from "@/lib/sports/types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Trophy, Plus, Users, Printer, Medal, Search, Edit2, Trash2, Sliders, ClipboardCheck, ListChecks, X } from "lucide-react";
+import { Trophy, Plus, Users, Printer, Medal, Edit2, Trash2, Sliders, ClipboardCheck, ListChecks, X } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { useSportsConfig } from "@/lib/sports/use-sports-config";
 import {
   useSportsEvents,
+  useSportsAthletes,
+  useRefreshSports,
   SPORTS_CLASS_OPTIONS,
   getEventStatus,
   EVENT_STATUS_META,
@@ -24,6 +26,10 @@ import {
 } from "@/lib/sports/use-sports-events";
 import { SportsRulesModal } from "@/components/sports/sports-rules-modal";
 import { SportsEventFormDialog } from "@/components/sports/sports-event-form-dialog";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const CATEGORIES = ["All", "Track", "Field", "Fun", "Team"] as const;
 
@@ -37,20 +43,14 @@ export default function SportsDashboardPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<SportsEvent | null>(null);
 
-  const [deletingEvent, setDeletingEvent] = useState<SportsEvent | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isAddingPresets, setIsAddingPresets] = useState(false);
+  const confirm = useConfirm();
+  const academicYear = useAcademicYear();
+  const refreshSports = useRefreshSports();
 
-  const { data: events = [], isLoading, refetch } = useSportsEvents();
-
+  const { data: events = [], isLoading } = useSportsEvents();
   // Unique athletes (one per student, across all events)
-  const { data: allAthletes = [] } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-all-athletes"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/athletes");
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
+  const { data: allAthletes = [] } = useSportsAthletes();
 
   const filteredEvents = useMemo(
     () =>
@@ -84,19 +84,32 @@ export default function SportsDashboardPage() {
     setFormOpen(true);
   };
 
-  const handleDeleteEvent = async () => {
-    if (!deletingEvent) return;
-    setIsDeleting(true);
+  const handleDeleteEvent = async (event: SportsEvent) => {
+    const ok = await confirm({
+      title: `Delete ${event.name}?`,
+      description: event.participantCount ? `${event.participantCount} registrations and their scores will be removed.` : undefined,
+      destructive: true,
+    });
+    if (!ok) return;
     try {
-      const res = await fetch(`/api/sports/events?id=${deletingEvent.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete event");
-      toast.success("Event deleted");
-      setDeletingEvent(null);
-      refetch();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete event");
+      const { undoId } = await apiFetch<{ undoId?: string }>(`/api/sports/events?id=${event.id}`, { method: "DELETE" });
+      toastWithUndo("Event deleted", undoId, refreshSports);
+      refreshSports();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete event");
+    }
+  };
+
+  const handleAddPresets = async () => {
+    setIsAddingPresets(true);
+    try {
+      const { added } = await apiFetch<{ added: number }>("/api/sports/events", { method: "POST", json: { preset: true, academicYear } });
+      toast.success(added ? `Added ${added} standard events` : "Standard events already added");
+      refreshSports();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to add events");
     } finally {
-      setIsDeleting(false);
+      setIsAddingPresets(false);
     }
   };
 
@@ -109,16 +122,12 @@ export default function SportsDashboardPage() {
 
   return (
     <div className="p-3 sm:p-5 md:p-6 space-y-4 max-w-7xl mx-auto pb-16">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary/10 text-primary rounded-xl shrink-0">
-            <Trophy className="h-5 w-5" />
-          </div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight">Sports & Athletics</h1>
-        </div>
-
-        <div className="grid grid-cols-3 sm:flex items-center gap-2">
+      <PageHeader
+        icon={Trophy}
+        title="Sports & Athletics"
+        actionsClassName="grid grid-cols-3 sm:flex"
+        actions={
+          <>
           <Button
             variant="outline"
             size="sm"
@@ -144,38 +153,20 @@ export default function SportsDashboardPage() {
             <span className="sm:hidden">New</span>
             <span className="hidden sm:inline">New Event</span>
           </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {stats.map((s) => {
-          const Icon = s.icon;
-          return (
-            <Card key={s.label} className="rounded-2xl px-3.5 py-3 border shadow-2xs flex-row items-center gap-3">
-              <div className="p-2 rounded-xl bg-muted/60 shrink-0">
-                <Icon className={cn("h-4 w-4", s.color)} />
-              </div>
-              <div className="min-w-0">
-                <div className="text-lg sm:text-xl font-black leading-none">{s.value}</div>
-                <div className="text-[11px] font-semibold text-muted-foreground mt-1 truncate">{s.label}</div>
-              </div>
-            </Card>
-          );
-        })}
+        {stats.map((s) => (
+          <StatCard key={s.label} label={s.label} value={s.value} icon={s.icon} iconClassName={s.color} />
+        ))}
       </div>
 
       {/* Toolbar */}
       <div className="flex flex-col lg:flex-row lg:items-center gap-2 bg-card p-2.5 rounded-2xl border shadow-2xs">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 h-9 text-sm rounded-xl"
-          />
-        </div>
+        <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search events..." className="flex-1 min-w-0" />
 
         <div className="flex items-center gap-2 justify-between">
           <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar">
@@ -220,9 +211,11 @@ export default function SportsDashboardPage() {
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="border border-dashed rounded-2xl p-10 text-center text-sm text-muted-foreground space-y-3">
-          <p>{hasFilters ? "No events match these filters." : "No events yet."}</p>
-          {hasFilters ? (
+        <EmptyState
+          icon={Trophy}
+          className="border border-dashed rounded-2xl"
+          title={hasFilters ? "No events match these filters." : "No events yet."}
+          action={hasFilters ? (
             <Button
               variant="outline"
               size="sm"
@@ -237,12 +230,18 @@ export default function SportsDashboardPage() {
               Clear filters
             </Button>
           ) : (
-            <Button size="sm" className="rounded-xl gap-1.5" onClick={openCreate}>
-              <Plus className="h-3.5 w-3.5" />
-              New Event
-            </Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="rounded-xl gap-1.5" disabled={isAddingPresets} onClick={handleAddPresets}>
+                <ListChecks className="h-3.5 w-3.5" />
+                {isAddingPresets ? "Adding..." : "Add standard events"}
+              </Button>
+              <Button size="sm" className="rounded-xl gap-1.5" onClick={openCreate}>
+                <Plus className="h-3.5 w-3.5" />
+                New Event
+              </Button>
+            </div>
           )}
-        </div>
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {filteredEvents.map((event) => {
@@ -287,7 +286,7 @@ export default function SportsDashboardPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setDeletingEvent(event)}
+                      onClick={() => handleDeleteEvent(event)}
                       className="h-7 w-7 rounded-lg text-destructive hover:bg-destructive/10"
                       title="Delete"
                     >
@@ -348,30 +347,8 @@ export default function SportsDashboardPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         event={editingEvent}
-        onSaved={() => refetch()}
+        onSaved={refreshSports}
       />
-
-      {/* Delete Confirmation */}
-      <Dialog open={Boolean(deletingEvent)} onOpenChange={(open) => !open && setDeletingEvent(null)}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Delete {deletingEvent?.name}?</DialogTitle>
-          </DialogHeader>
-          {(deletingEvent?.participantCount || 0) > 0 && (
-            <p className="text-xs text-destructive font-semibold">
-              {deletingEvent?.participantCount} registrations and their scores will be removed.
-            </p>
-          )}
-          <DialogFooter className="pt-2">
-            <Button variant="outline" onClick={() => setDeletingEvent(null)} className="rounded-xl">
-              Cancel
-            </Button>
-            <Button variant="destructive" disabled={isDeleting} onClick={handleDeleteEvent} className="rounded-xl font-bold">
-              {isDeleting ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <SportsRulesModal open={isRulesOpen} onOpenChange={setIsRulesOpen} />
     </div>

@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
 import { dbCreateStudent } from "@/lib/supabase/db-students";
 import type { Student, StudentStatus } from "@/lib/types";
+import { pgQuote } from "@/lib/supabase/filters";
+import { requireStaff } from "@/lib/api/guard";
+import { todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const supabase = createAdminClient();
     const body = await req.json();
@@ -25,7 +28,7 @@ export async function POST(req: Request) {
     if (Array.isArray(applicationIds) && applicationIds.length > 0) {
       query = query.in("id", applicationIds);
     } else if (className && className !== "all") {
-      query = query.or(`admitted_class.eq.${className},target_class.eq.${className}`);
+      query = query.or(`admitted_class.eq.${pgQuote(className)},target_class.eq.${pgQuote(className)}`);
     }
 
     if (academicYear && academicYear !== "all") {
@@ -48,7 +51,7 @@ export async function POST(req: Request) {
 
     const transferredStudents: Array<{ id: string; name: string; schoolId: string; class: string; roll: number }> = [];
     const skippedWarnings: Array<{ id: string; name: string; reason: string }> = [];
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
 
     for (const app of admittedApps) {
       const extra = app.ai_extracted_data && typeof app.ai_extracted_data === "object" ? app.ai_extracted_data : {};
@@ -161,8 +164,8 @@ export async function POST(req: Request) {
 
           currentStatus: (app.admission_type === "new" ? "New Admission" : "Continuing") as StudentStatus,
           admissionYear: Number(app.academic_year) || currentYear,
-          admissionDate: app.admission_date || new Date().toISOString().split("T")[0],
-          presentClassAdmissionDate: new Date().toISOString().split("T")[0],
+          admissionDate: app.admission_date || todayIST(),
+          presentClassAdmissionDate: todayIST(),
           reAdmissionStatus: "admitted",
           reAdmittedAt: new Date().toISOString(),
           reAdmittedSession: String(app.academic_year || currentYear),
@@ -182,7 +185,7 @@ export async function POST(req: Request) {
         const createdStudent = await dbCreateStudent(studentInput);
 
         // Update application record
-        await supabase
+        await mustWrite(supabase
           .from("admission_applications")
           .update({
             is_transferred_to_active: true,
@@ -191,20 +194,20 @@ export async function POST(req: Request) {
             school_id: createdStudent.schoolId,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", app.id);
+          .eq("id", app.id), "admission_applications update");
 
         // Update invoice record with created student's schoolId
         if (app.payment_receipt_no) {
           try {
-            await supabase
+            await mustWrite(supabase
               .from("admission_invoices")
               .update({
                 student_id: createdStudent.schoolId || createdStudent.id,
                 updated_at: new Date().toISOString(),
               })
-              .eq("invoice_number", app.payment_receipt_no);
+              .eq("invoice_number", app.payment_receipt_no), "admission_invoices update");
           } catch (invErr) {
-            console.warn("Could not link invoice to created student:", invErr);
+            await notifyAdminsOfError("admission.transfer", "Could not link invoice to created student", invErr, "/admission");
           }
         }
 

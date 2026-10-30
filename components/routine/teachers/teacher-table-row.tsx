@@ -8,7 +8,7 @@ import { Edit2, Trash2, Award, AlertTriangle, CheckCircle2 } from "lucide-react"
 import { cn } from "@/lib/utils";
 import { getTeacherSubjectPeriod } from "@/lib/routine/routine-helpers";
 
-export interface TeacherTableRowProps {
+interface TeacherTableRowProps {
   teacher: RoutineTeacher;
   load: number;
   groupChips?: { key: string; className: string; label: string }[];
@@ -35,8 +35,15 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
 }: TeacherTableRowProps) {
   const isOverloaded = load > t.maxPeriods;
 
-  const qClasses = t.qualifiedClasses || Object.keys(t.classSubjects || {});
   const cSubjects = t.classSubjects || {};
+  // Subjects shown per class: group members are shown as group chips instead
+  const shownSubsOf = (cls: string) => {
+    const hidden = groupMemberNames[cls];
+    const subs = cSubjects[cls] || [];
+    return hidden ? subs.filter((s) => !hidden.has(s.trim().toLowerCase())) : subs;
+  };
+  // A class with no subjects ticked teaches nothing, so it is not listed
+  const qClasses = (t.qualifiedClasses || Object.keys(cSubjects)).filter((cls) => shownSubsOf(cls).length > 0);
   const cSections = t.classSections || {};
   const cPeriods = t.classPeriods || {};
   const sPeriods = t.sectionPeriods || {};
@@ -91,19 +98,17 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
         )}
       </td>
       <td className="py-2.5 px-4">
-        {qClasses.length === 0 ? (
+        {qClasses.length === 0 && groupChips.length === 0 ? (
           <span className="text-muted-foreground text-[11px] italic">
-            All classes & subjects
+            No classes assigned
           </span>
         ) : (
           <div className="flex flex-wrap gap-1.5 max-w-lg">
             {qClasses.map((cls) => {
-              const subs = cSubjects[cls] || [];
               const secs = cSections[cls] || [];
               const periodTarget = cPeriods[cls];
 
-              const hidden = groupMemberNames[cls];
-              const shownSubs = hidden ? subs.filter((s) => !hidden.has(s.trim().toLowerCase())) : subs;
+              const shownSubs = shownSubsOf(cls);
               const formattedSubs =
                 shownSubs.length > 0
                   ? shownSubs
@@ -113,6 +118,8 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
                             s.name.trim().toLowerCase() === sub.trim().toLowerCase() &&
                             (!s.className || s.className.trim().toLowerCase() === cls.trim().toLowerCase())
                         );
+                        // A name the class curriculum no longer has (renamed or removed in Presets)
+                        if (!matchedSub) return `${sub} (not in curriculum)`;
                         const totalSubDemand =
                           matchedSub?.periodsPerWeek && matchedSub.periodsPerWeek > 0
                             ? matchedSub.periodsPerWeek
@@ -127,7 +134,7 @@ export const TeacherTableRow = React.memo(function TeacherTableRow({
                         return `${sub} (${directP}/${totalSubDemand}p)`;
                       })
                       .join(", ")
-                  : "All";
+                  : "No subjects";
 
               return (
                 <div

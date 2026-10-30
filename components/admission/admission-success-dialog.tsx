@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Printer, Check, FileText, ArrowRight, X } from "lucide-react";
 import { InvoicePrintableView } from "@/components/invoice/invoice-printable-view";
 import { type InvoiceData } from "@/lib/utils/fee-config";
+import { todayIST } from "@/lib/utils/date";
 
 interface AdmissionSuccessDialogProps {
   open: boolean;
@@ -41,7 +42,7 @@ export function AdmissionSuccessDialog({
 
   const invoiceData: InvoiceData = useMemo(() => ({
     invoiceNumber: receiptNo || `REC-${Math.abs(roll * 1000 + (feeAmount || 0)).toString().padStart(6, "0")}`,
-    issueDate: new Date().toISOString().split("T")[0],
+    issueDate: todayIST(),
     issueTime: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
     academicSession: `${currentYear} – ${currentYear + 1}`,
     studentName: studentName || "Student",

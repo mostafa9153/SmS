@@ -117,8 +117,8 @@ class SoundFeedbackManager {
   }
 }
 
-export const soundManager = new SoundFeedbackManager();
+const soundManager = new SoundFeedbackManager();
 export const playTap = () => soundManager.playTap();
-export const playSuccess = () => soundManager.playSuccess();
+const playSuccess = () => soundManager.playSuccess();
 export const toggleSound = () => soundManager.toggle();
 export const isSoundEnabled = () => soundManager.isEnabled();

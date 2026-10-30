@@ -4,19 +4,10 @@ import React, { useState, useEffect, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { getOldStudents, type OldStudentItem } from "@/lib/data/students";
-import {
-  Search,
-  X,
-  Calendar,
-  GraduationCap,
-  Users,
-  Phone,
-  User,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Calendar, GraduationCap, Users, Phone, User } from "lucide-react";
+import { Pagination } from "@/components/ui/pagination";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/students/status-badge";
 import type { StudentStatus } from "@/lib/types";
@@ -37,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
+import { SearchInput } from "@/components/ui/search-input";
 
 interface OldStudentsClientProps {
   selectedYear: number;
@@ -98,36 +90,14 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
   return (
     <div className="space-y-5 p-4 md:p-6 max-w-[1400px] mx-auto">
       {/* Top Header */}
-      <div className="border-b border-border pb-4">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <GraduationCap className="h-6 w-6 text-primary" />
-          Old Students Archive
-        </h1>
-      </div>
+      <PageHeader title="Old Students Archive" icon={GraduationCap} className="border-b border-border pb-4" />
 
       {/* Filter and Search Bar (Clean & Lightweight with Year Dropdown) */}
       <Card className="shadow-xs border-border/80">
         <CardContent className="p-3 md:p-4">
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
             {/* Search Input */}
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, student ID, father name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-8 text-xs md:text-sm h-9"
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+            <SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search by name, student ID, father name..." size="sm" className="w-full sm:w-80" />
 
             {/* Year Dropdown Filter */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -188,11 +158,7 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
             Failed to load archived records: {(error as Error)?.message || "Unknown error"}
           </Card>
         ) : students.length === 0 ? (
-          <Card className="p-8 text-center text-muted-foreground space-y-2">
-            <Users className="h-8 w-8 stroke-1 mx-auto" />
-            <p className="text-sm font-medium text-foreground">No archived students found</p>
-            <p className="text-xs">No student records match year {selectedYear}.</p>
-          </Card>
+          <EmptyState icon={Users} title={`No archived students for ${selectedYear}`} className="rounded-xl border bg-card" />
         ) : (
           students.map((student, index) => {
             const slNo = (currentPage - 1) * pageSize + index + 1;
@@ -295,13 +261,7 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
               ) : students.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center space-y-2 text-muted-foreground">
-                      <Users className="h-8 w-8 stroke-1" />
-                      <p className="text-sm font-medium text-foreground">No archived students found</p>
-                      <p className="text-xs">
-                        No student records match year {selectedYear}.
-                      </p>
-                    </div>
+                    <EmptyState compact icon={Users} title={`No archived students for ${selectedYear}`} />
                   </TableCell>
                 </TableRow>
               ) : (
@@ -366,35 +326,15 @@ export default function OldStudentsClient({ selectedYear }: OldStudentsClientPro
       </div>
 
       {/* Shared Pagination Bar */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-3 sm:px-4 py-3 rounded-xl border border-border bg-card text-xs shadow-2xs">
-          <span className="text-muted-foreground">
-            Page {currentPage} of {totalPages}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2.5 text-xs"
-              disabled={currentPage <= 1 || isLoading}
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-3.5 w-3.5 mr-1" />
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 px-2.5 text-xs"
-              disabled={currentPage >= totalPages || isLoading}
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        total={totalCount}
+        pageSize={pageSize}
+        disabled={isLoading}
+        className="px-3 sm:px-4 rounded-xl border border-border bg-card shadow-2xs"
+      />
     </div>
   );
 }

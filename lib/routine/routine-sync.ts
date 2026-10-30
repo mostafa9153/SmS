@@ -11,7 +11,6 @@ import {
 import {
   getSavedMarksSchemes,
   saveMarksSchemes,
-  type ClassMarksScheme,
   isSubjectLab,
 } from "@/lib/utils/marks-config";
 import {
@@ -20,8 +19,9 @@ import {
   parseSectionAndStream,
 } from "./routine-helpers";
 import { showToast } from "@/components/ui/toast-banner";
+import { softWrite } from "@/lib/supabase/write";
 
-export interface SyncClassItem {
+interface SyncClassItem {
   id: string;
   name: string;
   code: string;
@@ -214,7 +214,7 @@ export function normalizeClassToCode(cls?: string | null): string {
 /**
  * Normalizes class string to full standard display name (e.g. "V" -> "Class V", "Class 5" -> "Class V")
  */
-export function normalizeClassToFullName(cls?: string | null): string {
+function normalizeClassToFullName(cls?: string | null): string {
   const code = normalizeClassToCode(cls);
   return `Class ${code}`;
 }
@@ -223,7 +223,7 @@ export function normalizeClassToFullName(cls?: string | null): string {
  * Checks if two subject names are conceptually the same
  * e.g. "Bengali" and "Bengali (1st Language)" or "Mathematics" and "Mathematics"
  */
-export function isSameSubject(a: string, b: string): boolean {
+function isSameSubject(a: string, b: string): boolean {
   if (!a || !b) return false;
   const clean = (s: string) => s.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").trim();
   const cleanA = clean(a);
@@ -234,7 +234,7 @@ export function isSameSubject(a: string, b: string): boolean {
 /**
  * Sync from Routine Subjects -> Marks Schemes (School Details & Exam Marks)
  */
-export function syncRoutineSubjectToMarksSchemes(subj: {
+function syncRoutineSubjectToMarksSchemes(subj: {
   name: string;
   className?: string | null;
   stream?: string | null;
@@ -274,7 +274,7 @@ export function syncRoutineSubjectToMarksSchemes(subj: {
 /**
  * Sync from Routine Batch Subjects -> Marks Schemes
  */
-export function syncBatchRoutineSubjectsToMarksSchemes(
+function syncBatchRoutineSubjectsToMarksSchemes(
   subjectsList: { name: string; className?: string | null; stream?: string | null }[]
 ): void {
   if (typeof window === "undefined" || !Array.isArray(subjectsList) || subjectsList.length === 0) return;
@@ -290,7 +290,7 @@ export function syncBatchRoutineSubjectsToMarksSchemes(
       );
 
       if (matchingItems.length > 0) {
-        let currentSubjs = [...(scheme.subjects || [])];
+        const currentSubjs = [...(scheme.subjects || [])];
         let schemeModified = false;
 
         for (const item of matchingItems) {
@@ -502,16 +502,6 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
 }
 
 /**
- * Routine subjects are downstream; no-op to prevent routine from modifying academic marks schemes
- */
-export function syncRemoveRoutineSubjectFromMarksSchemes(
-  _classNameOrCode: string,
-  _subjectName: string
-): void {
-  // Presets is the authoritative academic catalog; Routine does not mutate Marks Schemes.
-}
-
-/**
  * Sync all subjects from Presets (/settings/presets?section=marks_scheme) to Routine Subjects
  */
 // Single-flight: page auto-sync, strict-mode double effects and the manual button must not
@@ -624,7 +614,7 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
     }
 
     if (idsToDelete.length > 0) {
-      await supabase.from("routine_subjects").delete().in("id", idsToDelete);
+      await softWrite(supabase.from("routine_subjects").delete().in("id", idsToDelete), "routine_subjects delete");
     }
 
     if (toUpsert.length > 0) {
@@ -639,13 +629,6 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
     console.warn("syncAllSubjectsFromPresetsToRoutine error:", err);
     return { addedCount: 0 };
   }
-}
-
-/**
- * Backward compatibility alias for syncAllSubjectsFromPresetsToRoutine
- */
-export async function syncAllSubjectsBidirectional(): Promise<void> {
-  await syncAllSubjectsFromPresetsToRoutine();
 }
 
 /**
@@ -723,11 +706,10 @@ export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncCla
     if (idsToDelete.length > 0) {
       setLocalRoutineState({ classes: toKeep });
       const supabase = createClient();
-      await supabase.from("routine_classes").delete().in("id", idsToDelete);
+      await softWrite(supabase.from("routine_classes").delete().in("id", idsToDelete), "routine_classes delete");
       window.dispatchEvent(new Event("sms_routine_state_updated"));
     }
   } catch (err) {
     console.warn("syncConfiguredClassesToRoutine error:", err);
   }
 }
-

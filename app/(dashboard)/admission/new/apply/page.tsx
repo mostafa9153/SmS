@@ -9,6 +9,11 @@ import { School, CheckCircle2, Printer, Download, Sparkles, RefreshCw, Phone, Ma
 import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
+import { toOnlineApplicationPayload } from "@/lib/admission/application-payload";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
+import { apiFetch } from "@/lib/api/client";
+
+const DRAFT_KEY = "online-apply";
 
 export default function PublicOnlineApplyPage() {
   const { profile } = useSchoolProfile();
@@ -51,35 +56,9 @@ export default function PublicOnlineApplyPage() {
   const handleSubmit = async (formData: AdmissionFormData) => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        ...formData,
-        targetClass: formData.presentClass,
-        admissionType: "new",
-        formMethod: "online",
-        academicYear: String(currentYear),
-        // Flattened address strings
-        address: `${formData.presentVillage || ""}, ${formData.presentPostOffice || ""}, ${formData.presentPoliceStation || ""}, ${formData.presentDistrict || ""} - ${formData.presentPincode || ""}`.replace(/^, /, ""),
-        village: formData.presentVillage,
-        gramPanchayat: formData.presentPanchayat,
-        block: formData.presentBlock,
-        postOffice: formData.presentPostOffice,
-        policeStation: formData.presentPoliceStation,
-        district: formData.presentDistrict,
-        pincode: formData.presentPincode,
-      };
+      const payload = toOnlineApplicationPayload(formData, currentYear);
 
-      const res = await fetch("/api/admission/applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.error || "Failed to submit application");
-      }
-
-      const json = await res.json();
+      const json = await apiFetch<any>("/api/admission/applications", { method: "POST", json: payload });
       setApplicationResult(json.application || json);
       setSubmittedData(formData);
       setIsSubmitted(true);
@@ -87,13 +66,7 @@ export default function PublicOnlineApplyPage() {
       // Fire celebration animation
       fireConfettiCelebration();
 
-      // Clear any cached drafts
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.removeItem("sms_admission_apply_draft");
-          localStorage.removeItem("sms_admission_saved_sections");
-        } catch (_) {}
-      }
+      clearAdmissionDraft(DRAFT_KEY);
 
       toast.success("অনলাইন আবেদন সফলভাবে জমা হয়েছে!", {
         description: "আপনার আবেদন নম্বর তৈরি হয়েছে। রসিদটি প্রিন্ট করে রাখুন।",
@@ -113,12 +86,7 @@ export default function PublicOnlineApplyPage() {
     setIsSubmitted(false);
     setSubmittedData(null);
     setApplicationResult(null);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.removeItem("sms_admission_apply_draft");
-        localStorage.removeItem("sms_admission_saved_sections");
-      } catch (_) {}
-    }
+    clearAdmissionDraft(DRAFT_KEY);
   };
 
   // SUCCESSFUL SUBMISSION RECEIPT VIEW
@@ -421,6 +389,7 @@ export default function PublicOnlineApplyPage() {
           submitButtonText="অনলাইন আবেদন জমা দিন (Submit Application)"
           isSubmitting={isSubmitting}
           mode="public"
+          draftKey={DRAFT_KEY}
         />
       </div>
     </div>

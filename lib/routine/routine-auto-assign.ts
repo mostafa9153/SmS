@@ -14,6 +14,8 @@ import {
   detectSubjectStream,
   getEffectiveClassSubjects,
   normalizeSubjectName,
+  isTeacherAssignedToSubject,
+  getTeacherSectionSubjects,
 } from "./routine-helpers";
 
 /**
@@ -31,10 +33,19 @@ export function autoBuildRoutineAssignments(
   return autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups).assignments;
 }
 
-export interface AutoAssignReport {
+interface UnstaffedSubject {
+  className: string;
+  section: string;
+  subjectName: string;
+  periods: number;
+}
+
+interface AutoAssignReport {
   assignments: RoutineAssignment[];
   /** Silent decisions the builder had to make; each one is something the owner may want to fix */
   warnings: string[];
+  /** Subjects no teacher was given in the Teachers tab; they get no assignment (never a guessed teacher) */
+  unstaffed: UnstaffedSubject[];
 }
 
 /**
@@ -50,8 +61,9 @@ export function autoBuildRoutineAssignmentsWithReport(
   groups: RoutineSubjectGroup[] = []
 ): AutoAssignReport {
   const warnings: string[] = [];
-  if (classes.length === 0 || subjects.length === 0 || teachers.length === 0) {
-    return { assignments: [], warnings };
+  const unstaffed: UnstaffedSubject[] = [];
+  if (classes.length === 0 || subjects.length === 0) {
+    return { assignments: [], warnings, unstaffed };
   }
 
   const assignments: RoutineAssignment[] = [];
@@ -130,77 +142,12 @@ export function autoBuildRoutineAssignmentsWithReport(
 
       const secName = (cls.section || "A").trim();
 
-      // Find qualified teachers for this class, section and subject
-      const qualifiedTeachers = teachers.filter((t) => {
-        // 1. Class qualification
-        const qClasses = (t.qualifiedClasses || []).map((c) => c.toLowerCase());
-        const classQualified = qClasses.length === 0 || qClasses.includes(clsNameLower);
-        if (!classQualified) return false;
-
-        // 2. Section qualification
-        if (t.classSections?.[cls.className] !== undefined) {
-          const tSections = t.classSections[cls.className];
-          if (!Array.isArray(tSections) || tSections.length === 0) return false;
-          const clsSec = (cls.section || "A").trim().toLowerCase();
-          const matchesSec = tSections.some((s) => {
-            const sLower = s.trim().toLowerCase();
-            return (
-              sLower === "all" ||
-              sLower === clsSec ||
-              clsSec.includes(sLower) ||
-              sLower.includes(clsSec)
-            );
-          });
-          if (!matchesSec) return false;
-        }
-
-        // 3. Subject qualification (Check section-specific subjects first, then class subjects)
-        const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
-        const secSubs =
-          t.sectionSubjects?.[secKey] ??
-          t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
-          t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`];
-
-        if (secSubs !== undefined) {
-          return (
-            Array.isArray(secSubs) &&
-            secSubs.some((s) => {
-              const sClean = s.trim().toLowerCase();
-              return (
-                sClean === subjNameLower ||
-                sClean === `${subjNameLower} (theory)` ||
-                sClean === `${subjNameLower} (lab)` ||
-                sClean === `${subjNameLower} (practical)` ||
-                subjNameLower === sClean.replace(/\s*\((theory|lab|practical)\)/i, "").trim()
-              );
-            })
-          );
-        }
-
-        // If teacher has ANY sectionSubjects configured for this class, strictly do NOT fall back to classSubjects
-        const hasAnySecConfig = Object.keys(t.sectionSubjects || {}).some(
-          (k) =>
-            k.startsWith(`${cls.className}::`) ||
-            k.startsWith(`${cls.className}-`) ||
-            k.startsWith(`${cls.className}_`)
-        );
-        if (hasAnySecConfig) {
-          return false;
-        }
-
-        const classSubs = t.classSubjects?.[cls.className] || [];
-        if (classSubs.length === 0) return true; // Qualified for all subjects in this class
-        return classSubs.some((s) => {
-          const sClean = s.trim().toLowerCase();
-          return (
-            sClean === subjNameLower ||
-            sClean === `${subjNameLower} (theory)` ||
-            sClean === `${subjNameLower} (lab)` ||
-            sClean === `${subjNameLower} (practical)` ||
-            subjNameLower === sClean.replace(/\s*\((theory|lab|practical)\)/i, "").trim()
-          );
-        });
-      });
+      // Only teachers who were given this subject for this section in the Teachers tab
+      const qualifiedTeachers = teachers.filter((t) => isTeacherAssignedToSubject(t, cls.className, secName, subj.name));
+      if (qualifiedTeachers.length === 0) {
+        unstaffed.push({ className: cls.className, section: secName, subjectName: subj.name, periods: weeklyPeriods });
+        continue;
+      }
 
       // Auto-assign lab room if subject is practical/lab
       let assignedRoomId: string | null = null;
@@ -224,53 +171,30 @@ export function autoBuildRoutineAssignmentsWithReport(
         const theoryDemand = subj.theoryPeriods || Math.max(1, weeklyPeriods - (subj.labPeriods || 2));
         const labDemand = subj.labPeriods || 2;
 
-        // 1. Process Theory Portion
-        const theoryTeachers = qualifiedTeachers.filter((t) => {
-          const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
-          const secSubs =
-            t.sectionSubjects?.[secKey] ??
-            t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
-            t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`] ??
-            t.classSubjects?.[cls.className] ??
-            [];
-          if (secSubs.length === 0) return true;
-          return secSubs.some((s) => {
-            const sc = s.trim().toLowerCase();
-            return sc === `${subjNameLower} (theory)` || sc === subjNameLower;
-          });
-        });
+        const sectionSubs = (t: RoutineTeacher) =>
+          getTeacherSectionSubjects(t, cls.className, secName).map((s) => s.trim().toLowerCase());
+        // 1. Theory portion: a teacher given "X (Theory)" or plain "X"
+        const theoryTeachers = qualifiedTeachers.filter((t) =>
+          sectionSubs(t).some((sc) => sc === `${subjNameLower} (theory)` || sc === subjNameLower)
+        );
+        // 2. Lab portion: a teacher given "X (Lab)" / "X (Practical)" or plain "X"
+        const labTeachers = qualifiedTeachers.filter((t) =>
+          sectionSubs(t).some(
+            (sc) => sc === `${subjNameLower} (lab)` || sc === `${subjNameLower} (practical)` || sc === subjNameLower
+          )
+        );
 
-        // 2. Process Lab Portion
-        const labTeachers = qualifiedTeachers.filter((t) => {
-          const secKey = `${cls.className}::${(cls.section || "A").trim()}`;
-          const secSubs =
-            t.sectionSubjects?.[secKey] ??
-            t.sectionSubjects?.[`${cls.className}-${(cls.section || "A").trim()}`] ??
-            t.sectionSubjects?.[`${cls.className}_${(cls.section || "A").trim()}`] ??
-            t.classSubjects?.[cls.className] ??
-            [];
-          if (secSubs.length === 0) return true;
-          return secSubs.some((s) => {
-            const sc = s.trim().toLowerCase();
-            return (
-              sc === `${subjNameLower} (lab)` ||
-              sc === `${subjNameLower} (practical)` ||
-              sc === subjNameLower
-            );
-          });
-        });
-
-        // Choose Theory Teacher
-        const chosenTheoryTeacher =
-          (theoryTeachers.length > 0 ? theoryTeachers : qualifiedTeachers).sort(
-            (a, b) => (teacherLoads[a.id] || 0) / (a.maxPeriods || 24) - (teacherLoads[b.id] || 0) / (b.maxPeriods || 24)
-          )[0] || teachers[0];
-
-        // Choose Lab Teacher
-        const chosenLabTeacher =
-          (labTeachers.length > 0 ? labTeachers : qualifiedTeachers).sort(
-            (a, b) => (teacherLoads[a.id] || 0) / (a.maxPeriods || 24) - (teacherLoads[b.id] || 0) / (b.maxPeriods || 24)
-          )[0] || chosenTheoryTeacher;
+        // A portion nobody was given stays unstaffed; it never borrows the other portion's teacher
+        const byLoad = (a: RoutineTeacher, b: RoutineTeacher) =>
+          (teacherLoads[a.id] || 0) / (a.maxPeriods || 24) - (teacherLoads[b.id] || 0) / (b.maxPeriods || 24);
+        const chosenTheoryTeacher = theoryTeachers.sort(byLoad)[0];
+        const chosenLabTeacher = labTeachers.sort(byLoad)[0];
+        if (!chosenTheoryTeacher) {
+          unstaffed.push({ className: cls.className, section: secName, subjectName: `${subj.name} (Theory)`, periods: theoryDemand });
+        }
+        if (!chosenLabTeacher) {
+          unstaffed.push({ className: cls.className, section: secName, subjectName: `${subj.name} (Lab)`, periods: labDemand });
+        }
 
         if (chosenTheoryTeacher) {
           assignments.push({
@@ -344,47 +268,32 @@ export function autoBuildRoutineAssignmentsWithReport(
         continue;
       }
 
-      let chosenTeacher: RoutineTeacher | null = null;
+      // Score teachers: prefer matching primarySubject, then explicit section, then classTeacherOf, then lowest relative load
+      const fullClassLabel = `${cls.className}${cls.section && cls.section !== "ALL" ? ` - ${cls.section}` : ""}`.toLowerCase();
 
-      if (qualifiedTeachers.length > 0) {
-        // Score teachers: prefer matching primarySubject, then explicit section, then classTeacherOf, then lowest relative load
-        const fullClassLabel = `${cls.className}${cls.section && cls.section !== "ALL" ? ` - ${cls.section}` : ""}`.toLowerCase();
+      qualifiedTeachers.sort((a, b) => {
+        const aPrimaryMatch = a.primarySubject && a.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
+        const bPrimaryMatch = b.primarySubject && b.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
+        if (aPrimaryMatch !== bPrimaryMatch) return bPrimaryMatch - aPrimaryMatch;
 
-        qualifiedTeachers.sort((a, b) => {
-          const aPrimaryMatch = a.primarySubject && a.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
-          const bPrimaryMatch = b.primarySubject && b.primarySubject.trim().toLowerCase() === subjNameLower ? 1 : 0;
-          if (aPrimaryMatch !== bPrimaryMatch) return bPrimaryMatch - aPrimaryMatch;
+        // Section specific bonus
+        const aSecs = a.classSections?.[cls.className] || [];
+        const bSecs = b.classSections?.[cls.className] || [];
+        const aHasExplicitSec = aSecs.length > 0 ? 1 : 0;
+        const bHasExplicitSec = bSecs.length > 0 ? 1 : 0;
+        if (aHasExplicitSec !== bHasExplicitSec) return bHasExplicitSec - aHasExplicitSec;
 
-          // Section specific bonus
-          const aSecs = a.classSections?.[cls.className] || [];
-          const bSecs = b.classSections?.[cls.className] || [];
-          const aHasExplicitSec = aSecs.length > 0 ? 1 : 0;
-          const bHasExplicitSec = bSecs.length > 0 ? 1 : 0;
-          if (aHasExplicitSec !== bHasExplicitSec) return bHasExplicitSec - aHasExplicitSec;
+        const aIsClassTeacher = a.classTeacherOf && (a.classTeacherOf.toLowerCase() === fullClassLabel || a.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
+        const bIsClassTeacher = b.classTeacherOf && (b.classTeacherOf.toLowerCase() === fullClassLabel || b.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
+        if (aIsClassTeacher !== bIsClassTeacher) return bIsClassTeacher - aIsClassTeacher;
 
-          const aIsClassTeacher = a.classTeacherOf && (a.classTeacherOf.toLowerCase() === fullClassLabel || a.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
-          const bIsClassTeacher = b.classTeacherOf && (b.classTeacherOf.toLowerCase() === fullClassLabel || b.classTeacherOf.toLowerCase() === clsNameLower) ? 1 : 0;
-          if (aIsClassTeacher !== bIsClassTeacher) return bIsClassTeacher - aIsClassTeacher;
-
-          const loadA = teacherLoads[a.id] || 0;
-          const loadB = teacherLoads[b.id] || 0;
-          const capA = a.maxPeriods || 24;
-          const capB = b.maxPeriods || 24;
-          return loadA / capA - loadB / capB;
-        });
-        chosenTeacher = qualifiedTeachers[0];
-      } else {
-        // Fallback: Pick any available teacher with lowest load
-        const allSorted = [...teachers].sort(
-          (a, b) => (teacherLoads[a.id] || 0) - (teacherLoads[b.id] || 0)
-        );
-        chosenTeacher = allSorted[0] || teachers[0];
-        if (chosenTeacher) {
-          warnings.push(
-            `${cls.className} ${cls.section} - ${subj.name}: no qualified teacher, gave it to ${chosenTeacher.name}`
-          );
-        }
-      }
+        const loadA = teacherLoads[a.id] || 0;
+        const loadB = teacherLoads[b.id] || 0;
+        const capA = a.maxPeriods || 24;
+        const capB = b.maxPeriods || 24;
+        return loadA / capA - loadB / capB;
+      });
+      const chosenTeacher = qualifiedTeachers[0];
 
       if (chosenTeacher) {
         // 1. Subject-specific period override (highest priority)
@@ -434,42 +343,5 @@ export function autoBuildRoutineAssignmentsWithReport(
     }
   }
 
-  return { assignments, warnings };
-}
-
-/**
- * Stored assignments are only usable while they still describe the current data. After subjects,
- * teachers, classes or groups change they go stale and must be rebuilt, never fed to the solver.
- */
-export function assignmentsAreCurrent(
-  assignments: RoutineAssignment[],
-  classes: RoutineClass[],
-  subjects: RoutineSubject[],
-  teachers: RoutineTeacher[],
-  groups: RoutineSubjectGroup[] = []
-): boolean {
-  if (assignments.length === 0) return false;
-  const classIds = new Set(classes.map((c) => c.id));
-  const subjectById = new Map(subjects.map((s) => [s.id, s]));
-  const teacherIds = new Set(teachers.map((t) => t.id));
-  const grouped = new Map<string, Set<string>>();
-  for (const g of groups) {
-    for (const cid of g.sectionIds) {
-      const set = grouped.get(cid) || new Set<string>();
-      g.options.forEach((o) => set.add(o.subjectId));
-      grouped.set(cid, set);
-    }
-  }
-  const totals = new Map<string, number>();
-  for (const a of assignments) {
-    if (!classIds.has(a.classId) || !subjectById.has(a.subjectId) || !teacherIds.has(a.teacherId)) return false;
-    if (grouped.get(a.classId)?.has(a.subjectId)) return false;
-    const key = `${a.classId}::${a.subjectId}`;
-    totals.set(key, (totals.get(key) || 0) + a.periodsPerWeek);
-  }
-  for (const [key, total] of totals) {
-    const subj = subjectById.get(key.split("::")[1]);
-    if (subj && subj.periodsPerWeek && !subj.isLab && total !== subj.periodsPerWeek) return false;
-  }
-  return true;
+  return { assignments, warnings, unstaffed };
 }

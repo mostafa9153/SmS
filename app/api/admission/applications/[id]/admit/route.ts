@@ -1,16 +1,21 @@
 import { NextResponse } from "next/server";
+import { receiptConflict } from "@/lib/admission/receipt-guard";
+import { rollConflict } from "@/lib/admission/roll-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
+import { nowTimeIST, todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest" && !auth.user) {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
@@ -32,7 +37,7 @@ export async function POST(
     const assignedClass = body.class || app.target_class || "V";
     const feeAmount = body.feeAmount !== undefined ? parseFloat(body.feeAmount) : (app.fee_amount || 0);
     const feePaid = body.feePaid !== undefined ? !!body.feePaid : true;
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const yearSuffix = String(currentYear).slice(-2);
 
     if (app.status === "admitted" && !body.forceReAdmit) {
@@ -79,14 +84,34 @@ export async function POST(
     }
 
     let paymentReceiptNo = (body.paymentReceiptNo || app.payment_receipt_no || "").trim();
+    const ownIds = [assignedSchoolId, app.application_no];
     if (!paymentReceiptNo || paymentReceiptNo.startsWith("REC-")) {
       const { count } = await supabase
         .from("admission_applications")
         .select("*", { count: "exact", head: true })
         .eq("academic_year", String(currentYear));
-      const nextNum = (count || 0) + 1;
-      paymentReceiptNo = `MHS/AF/${yearSuffix}/${String(nextNum).padStart(4, "0")}`;
+      // count+1 can already be taken (deleted or reverted applications): step past used numbers
+      let nextNum = (count || 0) + 1;
+      for (let tries = 0; ; tries++, nextNum++) {
+        paymentReceiptNo = `MHS/AF/${yearSuffix}/${String(nextNum).padStart(4, "0")}`;
+        const conflict = await receiptConflict(supabase, paymentReceiptNo, ownIds);
+        if (!conflict) break;
+        if (tries >= 50 || conflict.startsWith("Could not")) return NextResponse.json({ error: conflict }, { status: 409 });
+      }
+    } else {
+      // Checked before any write so a used receipt number never half-admits the applicant
+      const conflict = await receiptConflict(supabase, paymentReceiptNo, ownIds);
+      if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
     }
+    const rollTaken = await rollConflict(supabase, {
+      className: assignedClass,
+      section: assignedSection,
+      roll: assignedRoll,
+      academicYear: app.academic_year || currentYear,
+      excludeApplicationId: app.id,
+    });
+    if (rollTaken) return NextResponse.json({ error: rollTaken }, { status: 409 });
+
     const assignedStream = body.stream || app.stream || null;
     const photoUrl = body.photoUrl || app.photo_url || null;
 
@@ -105,7 +130,7 @@ export async function POST(
       payment_receipt_no: paymentReceiptNo,
       payment_mode: body.paymentMode || app.payment_mode || "Cash",
       admitted_at: new Date().toISOString(),
-      admission_date: new Date().toISOString().split("T")[0],
+      admission_date: todayIST(),
       admitted_by: body.admittedBy || auth.fullName || auth.role || "Teacher",
       is_transferred_to_active: false,
       updated_at: new Date().toISOString(),
@@ -153,12 +178,12 @@ export async function POST(
     // 3. Record invoice in admission_invoices table
     if (paymentReceiptNo) {
       try {
-        await supabase.from("admission_invoices").upsert(
+        await mustWrite(supabase.from("admission_invoices").upsert(
           {
             invoice_number: paymentReceiptNo,
             academic_session: `${currentYear} – ${currentYear + 1}`,
-            issue_date: new Date().toISOString().split("T")[0],
-            issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+            issue_date: todayIST(),
+            issue_time: nowTimeIST(),
             student_id: assignedSchoolId || app.application_no,
             student_name: app.student_name,
             student_class: assignedClass,
@@ -177,9 +202,9 @@ export async function POST(
             updated_at: new Date().toISOString(),
           },
           { onConflict: "invoice_number" }
-        );
+        ), "admission_invoices upsert");
       } catch (invErr) {
-        console.warn("Could not record admission invoice:", invErr);
+        await notifyAdminsOfError("admission.admit", "Could not record admission invoice", invErr, "/admission");
       }
     }
 

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { denyOutsideClasses, requireStaff } from "@/lib/api/guard";
+import type { AuthContext } from "@/lib/supabase/auth-helper";
+import { recordUndo } from "@/lib/undo/journal";
+import { todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 const PENDING_STATUSES = [
   "Promoted But Not Admitted",
@@ -14,12 +20,87 @@ const PENDING_STATUSES = [
   "C.C.H.S.",
 ];
 
+type HistoryStudent = { id: string; present_class: string | null; present_section: string | null; present_roll: number | null };
+
+/**
+ * Write this year's academic_history status for each student. The student row is already
+ * updated, so a failure here does not fail the request; it is collected and sent to admins.
+ */
+async function recordHistoryStatus(
+  supabase: ReturnType<typeof createAdminClient>,
+  students: HistoryStudent[],
+  year: number,
+  status: string,
+) {
+  const failed: string[] = [];
+  for (const s of students) {
+    try {
+      const { data: exist, error } = await supabase
+        .from("academic_history")
+        .select("id")
+        .eq("student_id", s.id)
+        .eq("year", year)
+        .maybeSingle();
+      if (error) throw error;
+
+      if (exist) {
+        await mustWrite(supabase.from("academic_history").update({ status }).eq("id", exist.id), "academic_history update");
+      } else {
+        await mustWrite(supabase.from("academic_history").insert({
+          student_id: s.id,
+          year,
+          class: s.present_class,
+          section: s.present_section,
+          roll: s.present_roll,
+          status,
+        }), "academic_history insert");
+      }
+    } catch (err) {
+      failed.push(`${s.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  if (failed.length > 0) {
+    await notifyAdminsOfError("students.status-action", `Academic history not saved for ${failed.length} student(s) marked ${status}`, failed.join("; "));
+  }
+}
+
+type Admin = ReturnType<typeof createAdminClient>;
+type Snapshot = { students: Record<string, unknown>[]; history: { id: string }[] };
+
+/** Student rows and this year's history rows before a status change. */
+async function snapshot(supabase: Admin, ids: string[], year: number): Promise<Snapshot> {
+  const [students, history] = await Promise.all([
+    supabase.from("students").select("*").in("id", ids),
+    supabase.from("academic_history").select("*").in("student_id", ids).eq("year", year),
+  ]);
+  if (students.error || history.error) throw new Error(`Snapshot failed: ${(students.error ?? history.error)!.message}`);
+  return { students: students.data ?? [], history: history.data ?? [] };
+}
+
+/** Undo puts the students and their history back and removes history rows the action created. */
+async function recordStatusUndo(supabase: Admin, auth: AuthContext, label: string, ids: string[], year: number, before: Snapshot) {
+  const { data: after } = await supabase.from("academic_history").select("id").in("student_id", ids).eq("year", year);
+  const existed = new Set(before.history.map((h) => h.id));
+  const created = (after ?? []).map((h) => h.id).filter((id) => !existed.has(id));
+  return recordUndo({
+    actorId: auth.user?.id,
+    action: "students.status",
+    label,
+    entity: "students",
+    steps: [
+      { table: "students", op: "upsert", rows: before.students },
+      { table: "academic_history", op: "upsert", rows: before.history },
+      { table: "academic_history", op: "delete", column: "id", values: created },
+    ],
+    ttlHours: 72,
+  });
+}
+
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_edit_student_profile");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const body = await req.json();
     const {
@@ -32,9 +113,24 @@ export async function POST(req: Request) {
     } = body;
 
     const supabase = createAdminClient();
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const nowIso = new Date().toISOString();
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = todayIST();
+
+    // Teachers act only on students of their own classes, and never school-wide.
+    if (auth.role === "Teacher") {
+      if (action === "archive_stale") {
+        return NextResponse.json({ error: "Forbidden: only Admin or Staff can archive stale students" }, { status: 403 });
+      }
+      if (studentIds.length) {
+        const { data: rows, error } = await supabase.from("students").select("present_class").in("id", studentIds);
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+        for (const r of rows ?? []) {
+          const denied = denyOutsideClasses(auth, r.present_class);
+          if (denied) return denied;
+        }
+      }
+    }
 
     // ACTION 1: Issue Transfer Certificate (TC Out)
     if (action === "tc_out") {
@@ -44,6 +140,7 @@ export async function POST(req: Request) {
 
       const issueDate = tcDate || todayStr;
       const departureReason = tcReason || "Transfer Certificate Issued";
+      const before = await snapshot(supabase, studentIds, currentYear);
 
       const { data: updatedStudents, error: updErr } = await supabase
         .from("students")
@@ -63,39 +160,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: updErr.message }, { status: 500 });
       }
 
-      // Record in academic history
-      try {
-        for (const s of updatedStudents || []) {
-          const { data: exist } = await supabase
-            .from("academic_history")
-            .select("id")
-            .eq("student_id", s.id)
-            .eq("year", currentYear)
-            .maybeSingle();
-
-          if (exist) {
-            await supabase
-              .from("academic_history")
-              .update({ status: "TC Out" })
-              .eq("id", exist.id);
-          } else {
-            await supabase.from("academic_history").insert({
-              student_id: s.id,
-              year: currentYear,
-              class: s.present_class,
-              section: s.present_section,
-              roll: s.present_roll,
-              status: "TC Out",
-            });
-          }
-        }
-      } catch (hErr) {
-        console.warn("Could not record academic_history for TC Out:", hErr);
-      }
+      await recordHistoryStatus(supabase, updatedStudents || [], currentYear, "TC Out");
+      const undoId = await recordStatusUndo(supabase, auth, `TC Out for ${updatedStudents?.length || 0} student(s)`, studentIds, currentYear, before);
 
       // Log teacher activity
       try {
-        await supabase.from("teacher_activity_logs").insert({
+        await mustWrite(supabase.from("teacher_activity_logs").insert({
           user_id: auth.user?.id || null,
           teacher_id: auth.staffId || null,
           teacher_name: auth.fullName || "Staff",
@@ -107,7 +177,7 @@ export async function POST(req: Request) {
             reason: departureReason,
             tc_no: tcNo,
           },
-        });
+        }), "teacher_activity_logs insert");
       } catch (lErr) {
         console.warn("Could not log TC activity:", lErr);
       }
@@ -118,6 +188,7 @@ export async function POST(req: Request) {
         count: updatedStudents?.length || 0,
         message: `Successfully issued Transfer Certificate for ${updatedStudents?.length || 0} student(s). Moved to Old Register.`,
         students: updatedStudents,
+        undoId,
       });
     }
 
@@ -128,6 +199,7 @@ export async function POST(req: Request) {
       }
 
       const dropReason = reason || "Drop Out";
+      const before = await snapshot(supabase, studentIds, currentYear);
 
       const { data: updatedStudents, error: updErr } = await supabase
         .from("students")
@@ -144,35 +216,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: updErr.message }, { status: 500 });
       }
 
-      // Record in academic history
-      try {
-        for (const s of updatedStudents || []) {
-          const { data: exist } = await supabase
-            .from("academic_history")
-            .select("id")
-            .eq("student_id", s.id)
-            .eq("year", currentYear)
-            .maybeSingle();
-
-          if (exist) {
-            await supabase
-              .from("academic_history")
-              .update({ status: "Drop Out" })
-              .eq("id", exist.id);
-          } else {
-            await supabase.from("academic_history").insert({
-              student_id: s.id,
-              year: currentYear,
-              class: s.present_class,
-              section: s.present_section,
-              roll: s.present_roll,
-              status: "Drop Out",
-            });
-          }
-        }
-      } catch (hErr) {
-        console.warn("Could not record academic_history for Drop Out:", hErr);
-      }
+      await recordHistoryStatus(supabase, updatedStudents || [], currentYear, "Drop Out");
+      const undoId = await recordStatusUndo(supabase, auth, `Drop Out for ${updatedStudents?.length || 0} student(s)`, studentIds, currentYear, before);
 
       return NextResponse.json({
         success: true,
@@ -180,6 +225,7 @@ export async function POST(req: Request) {
         count: updatedStudents?.length || 0,
         message: `Marked ${updatedStudents?.length || 0} student(s) as Drop Out. Moved to Old Register.`,
         students: updatedStudents,
+        undoId,
       });
     }
 
@@ -210,6 +256,7 @@ export async function POST(req: Request) {
       }
 
       const staleIds = staleStudents.map((s) => s.id);
+      const before = await snapshot(supabase, staleIds, currentYear);
       const { data: updatedStudents, error: updErr } = await supabase
         .from("students")
         .update({
@@ -231,6 +278,7 @@ export async function POST(req: Request) {
         count: updatedStudents?.length || 0,
         message: `Successfully archived ${updatedStudents?.length || 0} unattended pending student(s) to Drop Out.`,
         students: updatedStudents,
+        undoId: await recordStatusUndo(supabase, auth, `Archive ${updatedStudents?.length || 0} stale student(s)`, staleIds, currentYear, before),
       });
     }
 

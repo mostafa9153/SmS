@@ -5,24 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Calendar,
-  GraduationCap,
-  ArrowRight,
-  School,
-  CheckCircle2,
-  Sliders,
-  Sparkles,
-  Save,
-  Loader2,
-} from "lucide-react";
+import { Calendar, GraduationCap, ArrowRight, School, CheckCircle2, Sliders, Sparkles, Save } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { getAdmissionSettings, saveAdmissionSettings } from "@/lib/data/admission";
+import { Spinner } from "@/components/ui/spinner";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export default function AcademicSessionClient() {
-  const [currentYear, setCurrentYear] = useState<string>("2026");
-  const [upcomingYear, setUpcomingYear] = useState<string>("2027");
+  const [currentYear, setCurrentYear] = useState<string>(() => String(currentYearIST()));
+  const [upcomingYear, setUpcomingYear] = useState<string>(() => String(currentYearIST() + 1));
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
@@ -32,7 +24,7 @@ export default function AcademicSessionClient() {
         if (settings?.currentAcademicYear) {
           const yr = String(settings.currentAcademicYear);
           setCurrentYear(yr);
-          setUpcomingYear(String(Number(yr) + 1 || 2027));
+          setUpcomingYear(String(Number(yr) + 1 || currentYearIST() + 1));
         }
       })
       .catch((err) => {
@@ -137,7 +129,7 @@ export default function AcademicSessionClient() {
             >
               {saving ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   <span>Saving...</span>
                 </>
               ) : (

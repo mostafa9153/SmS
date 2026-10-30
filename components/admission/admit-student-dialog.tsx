@@ -6,19 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  UserCheck,
-  Camera,
-  CheckCircle2,
-  FileCheck,
-  AlertTriangle,
-  CreditCard,
-  Building,
-  User,
-  ShieldCheck,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
+import { UserCheck, Camera, CheckCircle2, FileCheck, AlertTriangle, CreditCard, Building, User, ShieldCheck, Sparkles } from "lucide-react";
 import type { AdmissionApplication } from "@/lib/types";
 import {
   admitNewStudentApplication,
@@ -32,7 +20,10 @@ import {
   getFeeCategoryForClass,
 } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
-import { useSchoolProfile, getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { getSchoolStreamOptions, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface AdmitStudentDialogProps {
   open: boolean;
@@ -118,9 +109,8 @@ function AdmitStudentDialogInner({
   // Fetch next sequential invoice number from DB
   const fetchNextInvoiceNumber = async () => {
     try {
-      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
-      const data = await res.json();
-      if (res.ok && typeof data.nextSequence === "number") {
+      const data = await apiFetch<{ nextSequence?: number }>(`/api/invoices/next-sequence?year=${currentYear}`);
+      if (typeof data.nextSequence === "number") {
         return generateInvoiceNumber(data.nextSequence, currentYear);
       }
     } catch (e) {
@@ -405,7 +395,7 @@ function AdmitStudentDialogInner({
                     <span>Sequential Roll No *</span>
                     {isLoadingRoll && (
                       <span className="text-[9px] text-purple-600 flex items-center gap-0.5">
-                        <Loader2 className="h-2.5 w-2.5 animate-spin" /> Auto-calculating
+                        <Spinner className="h-2.5 w-2.5" /> Auto-calculating
                       </span>
                     )}
                   </label>
@@ -565,7 +555,7 @@ function AdmitStudentDialogInner({
               >
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                     <span>Admitting...</span>
                   </>
                 ) : (

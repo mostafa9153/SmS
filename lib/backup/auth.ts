@@ -6,7 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export interface AdminAuthResult {
+interface AdminAuthResult {
   isAdmin: boolean;
   user?: {
     id: string;
@@ -15,6 +15,9 @@ export interface AdminAuthResult {
   error?: string;
   statusCode?: number;
 }
+
+/** httpOnly cookie holding the Drive OAuth `state` nonce between /backup/auth and its callback. */
+export const OAUTH_STATE_COOKIE = "drive_oauth_state";
 
 export async function verifyAdminUser(): Promise<AdminAuthResult> {
   try {

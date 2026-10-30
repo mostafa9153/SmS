@@ -22,6 +22,7 @@ import {
   User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
@@ -39,8 +40,17 @@ import {
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
 import { getDynamicClassList, type DynamicClassItem } from "@/lib/ems/ems-config-loader";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
+import { StatCard } from "@/components/ui/stat-card";
+import { todayIST } from "@/lib/utils/date";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { toast } from "sonner";
 
 export default function CertificateTrackerPage() {
+  const confirm = useConfirm();
   // Verification State
   const [verifyTerm, setVerifyTerm] = useState("");
   const [isVerifying, startVerifyTransition] = useTransition();
@@ -247,14 +257,30 @@ export default function CertificateTrackerPage() {
         ? `Cancel Certificate ${cert.certificate_no}? It will be marked as invalid.`
         : `Re-validate Certificate ${cert.certificate_no}?`;
 
-    if (!confirm(confirmMsg)) return;
+    if (!await confirm(confirmMsg)) return;
 
     try {
-      await fetch(`/api/certificates/${cert.id}`, {
+      const saved = await apiFetch<{ undoId?: string | null }>(`/api/certificates/${cert.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        json: { status: newStatus },
       });
+      const applyStatus = (status: "Valid" | "Cancelled") => {
+        setCertificates((prev) => prev.map((c) => (c.id === cert.id ? { ...c, status } : c)));
+        setSelectedCert((prev) => (prev && prev.id === cert.id ? { ...prev, status } : prev));
+      };
+      toastWithUndo(
+        newStatus === "Cancelled" ? `Certificate ${cert.certificate_no} cancelled.` : `Certificate ${cert.certificate_no} re-validated.`,
+        saved.undoId,
+        () => {
+          const restored = cert.status as "Valid" | "Cancelled";
+          applyStatus(restored);
+          setVerificationResult((prev) =>
+            prev.certificate?.id === cert.id
+              ? { ...prev, valid: restored === "Valid", certificate: { ...prev.certificate, status: restored } }
+              : prev
+          );
+        }
+      );
 
       setCertificates((prev) =>
         prev.map((c) => (c.id === cert.id ? { ...c, status: newStatus } : c))
@@ -273,6 +299,7 @@ export default function CertificateTrackerPage() {
       }
     } catch (e) {
       console.error("Error updating status:", e);
+      toast.error(e instanceof Error ? e.message : "Could not update certificate status");
     }
   };
 
@@ -337,7 +364,7 @@ export default function CertificateTrackerPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `Certificates_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `Certificates_${todayIST()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -392,22 +419,16 @@ export default function CertificateTrackerPage() {
   return (
     <div className="p-4 sm:p-6 max-w-[1600px] mx-auto space-y-5">
       {/* Clean Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            <Award className="h-4 w-4" />
-          </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-              Certificate Tracker
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
-                {totalCerts}
-              </span>
-            </h1>
-          </div>
-        </div>
-
-        {/* Action Controls */}
+      <PageHeader
+        title="Certificate Tracker"
+        icon={Award}
+        badge={
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">
+            {totalCerts}
+          </span>
+        }
+        className="border-b pb-3.5"
+        actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -439,7 +460,8 @@ export default function CertificateTrackerPage() {
             Issue Certificate
           </Link>
         </div>
-      </div>
+        }
+      />
 
       {/* Clean Unified Verification Bar */}
       <div className="space-y-2">
@@ -477,7 +499,7 @@ export default function CertificateTrackerPage() {
               className="h-9 sm:h-8 text-xs px-4 gap-1.5 w-full sm:w-auto"
             >
               {isVerifying ? (
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
               ) : (
                 <ShieldCheck className="h-3.5 w-3.5" />
               )}
@@ -591,83 +613,25 @@ export default function CertificateTrackerPage() {
 
       {/* Clean Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-        <div
-          onClick={() => setTypeFilter("ALL")}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-primary/50",
-            typeFilter === "ALL" ? "border-primary/60 ring-1 ring-primary/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Total Issued</span>
-            <Award className="h-3.5 w-3.5 text-primary" />
-          </div>
-          <div className="text-xl font-bold font-mono text-foreground">{totalCerts}</div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "character-certificate" ? "ALL" : "character-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-amber-500/50",
-            typeFilter === "character-certificate" ? "border-amber-500 ring-1 ring-amber-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Character</span>
-            <FileCheck className="h-3.5 w-3.5 text-amber-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-amber-600">
-            {stats?.byType.character || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "pass-certificate" ? "ALL" : "pass-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-sky-500/50",
-            typeFilter === "pass-certificate" ? "border-sky-500 ring-1 ring-sky-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Pass Out</span>
-            <GraduationCap className="h-3.5 w-3.5 text-sky-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-sky-600">
-            {stats?.byType.pass || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "transfer-certificate" ? "ALL" : "transfer-certificate"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-indigo-500/50",
-            typeFilter === "transfer-certificate" ? "border-indigo-500 ring-1 ring-indigo-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Transfer (TC)</span>
-            <Layers className="h-3.5 w-3.5 text-indigo-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-indigo-600">
-            {stats?.byType.transfer || 0}
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTypeFilter((prev) => (prev === "kanyashree" ? "ALL" : "kanyashree"))}
-          className={cn(
-            "p-3 rounded-xl border bg-card cursor-pointer transition-all hover:border-purple-500/50",
-            typeFilter === "kanyashree" ? "border-purple-500 ring-1 ring-purple-500/20 shadow-2xs" : "border-border/70"
-          )}
-        >
-          <div className="flex items-center justify-between text-muted-foreground mb-1">
-            <span className="text-[11px] font-semibold">Kanyashree</span>
-            <Sparkles className="h-3.5 w-3.5 text-purple-500" />
-          </div>
-          <div className="text-xl font-bold font-mono text-purple-600">
-            {stats?.byType.kanyashree || 0}
-          </div>
-        </div>
+        {([
+          { key: "ALL", label: "Total Issued", value: totalCerts, icon: Award, iconCls: "text-primary", valueCls: undefined, activeCls: "ring-1 ring-primary/20 border-primary/60" },
+          { key: "character-certificate", label: "Character", value: stats?.byType.character || 0, icon: FileCheck, iconCls: "text-amber-500", valueCls: "text-amber-600", activeCls: "ring-1 ring-amber-500/20 border-amber-500" },
+          { key: "pass-certificate", label: "Pass Out", value: stats?.byType.pass || 0, icon: GraduationCap, iconCls: "text-sky-500", valueCls: "text-sky-600", activeCls: "ring-1 ring-sky-500/20 border-sky-500" },
+          { key: "transfer-certificate", label: "Transfer (TC)", value: stats?.byType.transfer || 0, icon: Layers, iconCls: "text-indigo-500", valueCls: "text-indigo-600", activeCls: "ring-1 ring-indigo-500/20 border-indigo-500" },
+          { key: "kanyashree", label: "Kanyashree", value: stats?.byType.kanyashree || 0, icon: Sparkles, iconCls: "text-purple-500", valueCls: "text-purple-600", activeCls: "ring-1 ring-purple-500/20 border-purple-500" },
+        ] as const).map(({ key, label, value, icon, iconCls, valueCls, activeCls }) => (
+          <StatCard
+            key={key}
+            label={label}
+            value={value}
+            icon={icon}
+            iconClassName={iconCls}
+            valueClassName={valueCls}
+            onClick={() => setTypeFilter((prev) => (key === "ALL" || prev !== key ? key : "ALL"))}
+            active={typeFilter === key}
+            className={typeFilter === key ? activeCls : undefined}
+          />
+        ))}
       </div>
 
       {/* Class Quick Filters (Clean horizontal pills) */}
@@ -721,15 +685,7 @@ export default function CertificateTrackerPage() {
         {/* Table Toolbar */}
         <div className="p-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-2.5 bg-muted/20">
           <div className="flex flex-col sm:flex-row flex-wrap sm:items-center gap-2 flex-1">
-            <div className="relative w-full sm:flex-1 sm:max-w-sm">
-              <Search className="absolute left-2.5 top-3 sm:top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Filter by name, cert no, ID..."
-                value={tableSearch}
-                onChange={(e) => setTableSearch(e.target.value)}
-                className="pl-8 text-base sm:text-xs h-10 sm:h-8 bg-background"
-              />
-            </div>
+            <SearchInput value={tableSearch} onChange={setTableSearch} placeholder="Filter by name, cert no, ID..." size="sm" className="w-full sm:flex-1 sm:max-w-sm" />
 
             <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto">
               <CustomSelect
@@ -807,7 +763,7 @@ export default function CertificateTrackerPage() {
               {isLoading ? (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-muted-foreground">
-                    <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-1.5 text-primary" />
+                    <Spinner className="h-4 w-4 mx-auto mb-1.5 text-primary" />
                     Loading records...
                   </td>
                 </tr>

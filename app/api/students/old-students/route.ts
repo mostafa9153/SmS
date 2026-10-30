@@ -1,13 +1,12 @@
 ﻿import { NextResponse } from "next/server";
 import { dbGetOldStudentYears, dbGetOldStudentsByYear } from "@/lib/supabase/db-students";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireRole } from "@/lib/api/guard";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function GET(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
 
     const { searchParams } = new URL(req.url);
     const meta = searchParams.get("meta");
@@ -19,7 +18,7 @@ export async function GET(req: Request) {
     }
 
     const yearParam = searchParams.get("year");
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const year = yearParam ? parseInt(yearParam, 10) : currentYear - 1;
     const query = searchParams.get("q") || undefined;
     const studentClass = searchParams.get("class") || undefined;

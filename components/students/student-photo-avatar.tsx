@@ -5,6 +5,7 @@ import { Camera, User, RefreshCw, Sparkles, ImagePlus, Trash2 } from "lucide-rea
 import { PhotoStudioModal } from "./photo-studio-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface StudentPhotoAvatarProps {
   studentId: string;
@@ -27,6 +28,7 @@ export function StudentPhotoAvatar({
   size = "md",
   uploadEndpoint,
 }: StudentPhotoAvatarProps) {
+  const confirm = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(photoUrl || undefined);
   const [imageError, setImageError] = useState(false);
@@ -57,7 +59,7 @@ export function StudentPhotoAvatar({
 
   const handleQuickDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to remove the photo for ${studentName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the photo for ${studentName}?`, destructive: true })) {
       return;
     }
     try {

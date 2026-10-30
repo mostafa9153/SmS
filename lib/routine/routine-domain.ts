@@ -8,7 +8,7 @@ import { detectSubjectStream, normalizeSubjectName, isPooledGroup } from "./rout
 // ============================================================
 
 /** Weekly periods a subject asks for, with the same defaults everywhere. */
-export const subjectPeriods = (s: RoutineSubject): number =>
+const subjectPeriods = (s: RoutineSubject): number =>
   s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : s.isLab ? 2 : 5;
 
 /** Identity of a subject within a class. Streams only split HS subjects. */

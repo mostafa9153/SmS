@@ -4,22 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  GraduationCap,
-  Eye,
-  EyeOff,
-  RefreshCw,
-  AlertCircle,
-  Lock,
-  Mail,
-  ArrowRight,
-  Sparkles,
-  BookOpen,
-} from "lucide-react";
+import { GraduationCap, Eye, EyeOff, AlertCircle, Lock, Mail, ArrowRight, Sparkles, BookOpen } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function TeacherLoginPage() {
   const router = useRouter();
@@ -80,7 +70,7 @@ export default function TeacherLoginPage() {
         <div className="flex flex-col items-center gap-3">
           <div className="relative flex items-center justify-center">
             <div className="absolute h-12 w-12 rounded-full border-4 border-emerald-500/25 animate-pulse" />
-            <RefreshCw className="h-6 w-6 animate-spin text-emerald-500 relative z-10" />
+            <Spinner className="h-6 w-6 text-emerald-500 relative z-10" />
           </div>
           <p className="text-xs font-medium text-slate-400">Authenticating Teacher Session...</p>
         </div>
@@ -204,7 +194,7 @@ export default function TeacherLoginPage() {
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                     Signing in...
                   </span>
                 ) : (

@@ -17,7 +17,7 @@ import {
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { RoutineVerificationTab } from "@/components/routine/routine-verification-tab";
-import { RefreshCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function RoutineAssignmentsPage() {
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,6 @@ export default function RoutineAssignmentsPage() {
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [rooms, setRooms] = useState<RoutineRoom[]>([]);
   const [teachers, setTeachers] = useState<RoutineTeacher[]>([]);
-  const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
   const [groups, setGroups] = useState<RoutineSubjectGroup[]>([]);
 
   const loadData = async () => {
@@ -38,7 +37,6 @@ export default function RoutineAssignmentsPage() {
       setSubjects(data.subjects || []);
       setRooms(data.rooms || []);
       setTeachers(data.teachers || []);
-      setAssignments(data.assignments || []);
       setGroups(data.groups || []);
     } catch (err) {
       console.error("Failed to load verification state:", err);
@@ -67,13 +65,12 @@ export default function RoutineAssignmentsPage() {
 
   const handleSaveAssignments = async (newAssignments: RoutineAssignment[]) => {
     await batchUpsertAssignmentsDb(newAssignments);
-    setAssignments(newAssignments);
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-        <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading verification engine...
+        <Spinner className="w-4 h-4 mr-2" /> Loading verification engine...
       </div>
     );
   }
@@ -85,7 +82,6 @@ export default function RoutineAssignmentsPage() {
         classes={classes}
         subjects={subjects}
         teachers={teachers}
-        assignments={assignments}
         rooms={rooms}
         groups={groups}
         onSaveAssignments={handleSaveAssignments}

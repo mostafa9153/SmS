@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
-  ArrowLeft,
   User,
   Phone,
   Mail,
@@ -23,6 +22,7 @@ import {
   Layers,
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -87,47 +87,32 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
   return (
     <div className="p-3.5 sm:p-6 space-y-5 max-w-7xl mx-auto w-full animate-fade-in-up">
       {/* 1. Header Navigation & Action Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/employees"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "icon" }),
-              "rounded-xl h-9 w-9 bg-card hover:bg-muted shadow-2xs border-border flex items-center justify-center"
-            )}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
-                {currentStaff.full_name}
-              </h1>
-              <Badge
-                variant={currentStaff.status === "ACTIVE" ? "default" : "secondary"}
+      <PageHeader
+        title={currentStaff.full_name}
+        back="/employees"
+        badge={
+          <>
+            <Badge
+              variant={currentStaff.status === "ACTIVE" ? "default" : "secondary"}
+              className={cn(
+                "text-[10px] font-semibold uppercase tracking-wider",
+                currentStaff.status === "ACTIVE"
+                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                  : "bg-muted text-muted-foreground"
+              )}
+            >
+              <span
                 className={cn(
-                  "text-[10px] font-semibold uppercase tracking-wider",
-                  currentStaff.status === "ACTIVE"
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                    : "bg-muted text-muted-foreground"
+                  "w-1.5 h-1.5 rounded-full mr-1.5",
+                  currentStaff.status === "ACTIVE" ? "bg-emerald-500" : "bg-muted-foreground"
                 )}
-              >
-                <span
-                  className={cn(
-                    "w-1.5 h-1.5 rounded-full mr-1.5",
-                    currentStaff.status === "ACTIVE" ? "bg-emerald-500" : "bg-muted-foreground"
-                  )}
-                />
-                {currentStaff.status}
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-              Employee ID: {currentStaff.unique_id}
-            </p>
-          </div>
-        </div>
-
-        {/* Top Action Buttons (Print, Edit, Delete) */}
+              />
+              {currentStaff.status}
+            </Badge>
+            <span className="text-xs text-muted-foreground font-mono">ID: {currentStaff.unique_id}</span>
+          </>
+        }
+        actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
@@ -160,7 +145,8 @@ export function EmployeeProfileClient({ staff: initialStaff }: EmployeeProfileCl
             Delete
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* 2. Top Profile Hero Card with 3:4 Passport Photo Frame */}
       <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-blue-600/5 via-indigo-600/5 to-purple-600/5 p-4 sm:p-6 shadow-xs backdrop-blur-xs relative overflow-hidden">

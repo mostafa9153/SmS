@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest" && !auth.user) {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_invoices", "can_generate_invoices");
+    if (!gate.ok) return gate.response;
 
     const body = await req.json();
     const { studentIds, applicationIds } = body;

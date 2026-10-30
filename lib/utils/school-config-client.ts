@@ -1,6 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
 
 interface ConfigCache {
   data: Record<string, any>;
@@ -29,7 +32,7 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
   // 3. Initiate single network request
   pendingFetch = (async () => {
     try {
-      const res = await fetch("/api/school-config");
+      const res = await fetch(forceRefresh ? "/api/school-config?fresh=1" : "/api/school-config", forceRefresh ? { cache: "no-store" } : undefined);
       if (!res.ok) return clientConfigCache?.data || null;
       const json = await res.json();
       const data = json?.data || {};
@@ -145,4 +148,53 @@ export function useSchoolConfigQuery() {
     queryFn: () => fetchSchoolConfigClient(),
     staleTime: CLIENT_CACHE_TTL,
   });
+}
+
+/** Where a config key is mirrored in the browser, and the event that tells open screens to re-read it. */
+interface ConfigMirror {
+  storageKey: string;
+  event: string;
+  /** Dispatch a CustomEvent carrying the value instead of a plain Event. */
+  detail?: boolean;
+}
+
+function writeMirror(mirror: ConfigMirror, value: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(mirror.storageKey, JSON.stringify(value));
+  } catch (e) {
+    console.warn(`Could not mirror ${mirror.storageKey} to localStorage:`, e);
+  }
+  window.dispatchEvent(mirror.detail ? new CustomEvent(mirror.event, { detail: value }) : new Event(mirror.event));
+}
+
+/**
+ * Saves one settings key through /api/school-config and offers Undo.
+ * Server first: the browser copy is written only after the server accepted the value, unless the caller
+ * already wrote it (`localFirst`). A rejected save shows an error toast and returns false.
+ */
+export async function saveSchoolConfig<T>(
+  key: string,
+  value: T,
+  opts: { label: string; mirror: ConfigMirror; localFirst?: boolean },
+): Promise<boolean> {
+  try {
+    const res = await apiFetch<{ undoId?: string | null }>("/api/school-config", { method: "POST", json: { key, value } });
+    if (!opts.localFirst) writeMirror(opts.mirror, value);
+    invalidateSchoolConfigClientCache();
+    toastWithUndo(opts.label, res.undoId, async () => {
+      const config = await fetchSchoolConfigClient(true);
+      if (!config) return;
+      if (config[key] !== undefined && config[key] !== null) {
+        writeMirror(opts.mirror, config[key]);
+      } else if (typeof window !== "undefined") {
+        // The undo removed a key that did not exist before the save.
+        try { localStorage.removeItem(opts.mirror.storageKey); } catch {}
+      }
+    });
+    return true;
+  } catch (err) {
+    toast.error(err instanceof Error && err.message ? err.message : `Could not save ${key.replace(/_/g, " ")}`);
+    return false;
+  }
 }

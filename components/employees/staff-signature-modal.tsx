@@ -12,18 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  FileSignature,
-  Upload,
-  PenTool,
-  RotateCcw,
-  Trash2,
-  Check,
-  Loader2,
-  Image as ImageIcon,
-  Sparkles,
-} from "lucide-react";
+import { FileSignature, Upload, PenTool, RotateCcw, Trash2, Check, Image as ImageIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffSignatureModalProps {
   isOpen: boolean;
@@ -44,6 +37,7 @@ export function StaffSignatureModal({
   onSignatureSaved,
   onSignatureRemoved,
 }: StaffSignatureModalProps) {
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<"upload" | "draw">("upload");
   const [isSaving, setIsSaving] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
@@ -181,15 +175,10 @@ export function StaffSignatureModal({
         const formData = new FormData();
         formData.append("signature", selectedFile);
 
-        const res = await fetch(`/api/employees/${staffId}/signature`, {
+        const data = await apiFetch<{ signatureUrl: string }>(`/api/employees/${staffId}/signature`, {
           method: "POST",
           body: formData,
         });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Failed to upload signature");
-        }
 
         onSignatureSaved(data.signatureUrl);
         showToast({
@@ -212,16 +201,10 @@ export function StaffSignatureModal({
 
         const dataUrl = canvas.toDataURL("image/png");
 
-        const res = await fetch(`/api/employees/${staffId}/signature`, {
+        const data = await apiFetch<{ signatureUrl: string }>(`/api/employees/${staffId}/signature`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ signatureUrl: dataUrl }),
+          json: { signatureUrl: dataUrl },
         });
-
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || "Failed to save drawn signature");
-        }
 
         onSignatureSaved(data.signatureUrl);
         showToast({
@@ -245,19 +228,13 @@ export function StaffSignatureModal({
 
   // Remove handler
   const handleRemove = async () => {
-    if (!window.confirm(`Are you sure you want to remove the signature for ${staffName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the signature for ${staffName}?`, destructive: true })) {
       return;
     }
 
     try {
       setIsRemoving(true);
-      const res = await fetch(`/api/employees/${staffId}/signature`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to remove signature");
-      }
+      await apiFetch(`/api/employees/${staffId}/signature`, { method: "DELETE" });
 
       if (onSignatureRemoved) onSignatureRemoved();
       showToast({
@@ -535,7 +512,7 @@ export function StaffSignatureModal({
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Spinner className="h-3.5 w-3.5" />
                 Saving...
               </>
             ) : (

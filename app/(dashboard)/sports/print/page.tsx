@@ -3,9 +3,7 @@
 import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { SportsParticipant } from "@/lib/sports/types";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -13,17 +11,12 @@ import { SportsCallSheetPrintableView } from "@/components/sports/sports-call-sh
 import { SportsScoreSheetPrintableView } from "@/components/sports/sports-score-sheet-printable";
 import { SportsChestBibPrintableView } from "@/components/sports/sports-chest-bib-printable";
 import { SportsCertificatePrintableView, CertificateTemplate } from "@/components/sports/sports-certificate-printable";
-import { useSportsEvents, SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
-import { ArrowLeft, Printer, FileText, ClipboardList, Tag, Award, ChevronDown } from "lucide-react";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
-import { Input } from "@/components/ui/input";
+import { useSportsEvents, useSportsAthletes, useSportsParticipants, SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
+import { ArrowLeft, Printer, FileText, ClipboardList, Tag, Award } from "lucide-react";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
 
-type PaperSize = "A5" | "A4" | "A3";
-type PaperOrientation = "portrait" | "landscape";
-interface PrintMargins { top: number; right: number; bottom: number; left: number; }
-const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
-};
 
 type DocTab = "bibs" | "call" | "score" | "certificates";
 
@@ -51,18 +44,12 @@ function SportsPrintStudioContent() {
   const [bibClass, setBibClass] = useState<string>("All");
   const [certTemplate, setCertTemplate] = useState<CertificateTemplate>("classic");
 
-  const [paper, setPaper] = useState<PaperSize>("A4");
-  const [orientation, setOrientation] = useState<PaperOrientation>("portrait");
-  const [margins, setMargins] = useState<PrintMargins>({ top: 10, right: 10, bottom: 10, left: 10 });
-  const [paperOpen, setPaperOpen] = useState(false);
-
-  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
-  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
-
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
+  const paperSettings = usePaperSettings("sports-print-paper-settings", {
+    paper: "A4",
+    orientation: "portrait",
+    margins: { top: 10, right: 10, bottom: 10, left: 10 },
+  });
+  const { paper, orientation, margins, pageW, pageH } = paperSettings;
 
   const { profile: schoolProfile } = useSchoolProfile();
   const { data: events = [] } = useSportsEvents();
@@ -78,25 +65,10 @@ function SportsPrintStudioContent() {
     router.replace(`/sports/print?${qs.toString()}`, { scroll: false });
   }, [activeTab, currentEventId, activeDoc.perEvent, router]);
 
-  const { data: participants = [], isLoading: isLoadingParticipants } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-participants", currentEvent?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/sports/registrations?eventId=${currentEvent!.id}`);
-      const json = await res.json();
-      return json.data || [];
-    },
-    enabled: Boolean(currentEvent?.id),
-  });
+  const { data: participants = [], isLoading: isLoadingParticipants } = useSportsParticipants(currentEvent?.id);
 
   // One master bib per athlete, listing every event they joined
-  const { data: allAthletes = [], isLoading: isLoadingAthletes } = useQuery<SportsParticipant[]>({
-    queryKey: ["sports-all-athletes"],
-    queryFn: async () => {
-      const res = await fetch("/api/sports/athletes");
-      const json = await res.json();
-      return json.data || [];
-    },
-  });
+  const { data: allAthletes = [], isLoading: isLoadingAthletes } = useSportsAthletes();
 
   const bibClassOptions = useMemo(() => {
     const present = new Set(allAthletes.map((a) => a.presentClass));
@@ -137,9 +109,6 @@ function SportsPrintStudioContent() {
     setActiveTab(key);
     setSelectedWinnerIndex("all");
   };
-
-  const selectClass =
-    "w-full h-9 rounded-xl border bg-background px-3 text-xs font-semibold focus:ring-2 focus:ring-primary/20 outline-none";
 
   const docButton = (d: (typeof DOCS)[number]) => {
     const Icon = d.icon;
@@ -285,54 +254,7 @@ function SportsPrintStudioContent() {
           )}
         </div>
 
-        {/* Collapsible paper & margin section */}
-        <div className="border-t pt-2">
-          <button
-            type="button"
-            onClick={() => setPaperOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-1 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>Paper & Margin</span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
-          </button>
-
-          {paperOpen && (
-            <div className="space-y-2 pt-1">
-              <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
-                <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A5">A5</SelectItem>
-                  <SelectItem value="A4">A4</SelectItem>
-                  <SelectItem value="A3">A3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
-                <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="portrait">Portrait</SelectItem>
-                  <SelectItem value="landscape">Landscape</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(["top", "right", "bottom", "left"] as const).map((side) => (
-                  <label key={side} className="space-y-0.5">
-                    <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={1}
-                      value={margins[side]}
-                      onChange={(e) => updateMargin(side, e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <PaperSettingsPanel settings={paperSettings} orientations variant="section" />
 
         <div className="border-t pt-3">
           <Button
@@ -374,7 +296,7 @@ function SportsPrintStudioContent() {
           )}
         </div>
       ) : (
-        <ZoomPanViewport
+        <PrintPreview
           resetKey={`${activeTab}-${currentEventId}-${certTemplate}-${selectedWinnerIndex}-${paper}-${orientation}`}
           fitMode={activeTab === "certificates" && certificatesToRender.length > 1 ? "width" : "contain"}
           className="order-1 lg:order-2 h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 w-full print:hidden"
@@ -398,11 +320,10 @@ function SportsPrintStudioContent() {
               ))}
             </div>
           )}
-        </ZoomPanViewport>
+        </PrintPreview>
       )}
 
-      {/* Dynamic @page CSS */}
-      <style dangerouslySetInnerHTML={{ __html: `@media print { @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; } }` }} />
+      <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
 
       {/* Print-only content (ZoomPanViewport is hidden in print) */}
       {!isLoadingDoc && !isEmpty && currentEvent !== undefined || activeTab === "bibs" ? (

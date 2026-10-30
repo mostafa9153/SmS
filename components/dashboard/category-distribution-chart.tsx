@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
+import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
 import {
   PieChart,
   Pie,
@@ -39,29 +40,6 @@ const CATEGORY_COLORS: Record<string, { bg: string; fill: string; text: string; 
     text: "text-emerald-600 dark:text-emerald-400",
     ring: "ring-emerald-500/30",
   },
-};
-
-const CustomTooltip = ({ active, payload, total }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0];
-    const percent = total > 0 ? ((data.value / total) * 100).toFixed(1) : 0;
-    return (
-      <div className="rounded-xl border border-border/80 bg-background/95 backdrop-blur-md p-3 shadow-md text-xs">
-        <p className="font-bold text-foreground flex items-center gap-1.5">
-          <span
-            className="h-2.5 w-2.5 rounded-full inline-block"
-            style={{ backgroundColor: data.payload.fill }}
-          />
-          {data.name} Category
-        </p>
-        <p className="text-muted-foreground mt-1">
-          Students: <span className="font-bold text-foreground font-mono">{data.value}</span>{" "}
-          <span className="text-primary font-semibold">({percent}%)</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
 };
 
 export function CategoryDistributionChart() {
@@ -135,7 +113,7 @@ export function CategoryDistributionChart() {
                   <Cell key={entry.name} fill={entry.fill} />
                 ))}
               </Pie>
-              <Tooltip content={<CustomTooltip total={stats.total} />} />
+              <Tooltip content={<ChartTooltip total={stats.total} swatch title={(p) => `${p.name} Category`} />} />
             </PieChart>
           </ResponsiveContainer>
           {/* Inner Counter Badge */}

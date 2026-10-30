@@ -9,24 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Search,
-  ArrowLeft,
-  ArrowRight,
-  User,
-  Phone,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Loader2,
-  RefreshCw,
-  Hash,
-  Filter,
-  Zap,
-} from "lucide-react";
+import { Search, ArrowLeft, ArrowRight, User, Phone, CheckCircle2, XCircle, Clock, RefreshCw, Hash, Filter, Zap } from "lucide-react";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Step2OfflineProps {
   onNext: (studentData: Student) => void;
@@ -82,17 +69,6 @@ export function Step2Offline({
     }).catch(() => {});
   }, []);
 
-  // Auto-fetch candidates on mount and filter/search changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (selectedClass) {
-        fetchCandidates();
-      }
-    }, 250);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClass, selectedSection, statusFilter, searchQuery]);
-
   // Fetch candidates on filter change or click
   const fetchCandidates = async () => {
     if (!selectedClass) {
@@ -124,6 +100,17 @@ export function Step2Offline({
       setLoading(false);
     }
   };
+
+  // Auto-fetch candidates on mount and filter/search changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (selectedClass) {
+        fetchCandidates();
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedClass, selectedSection, statusFilter, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,7 +216,7 @@ export function Step2Offline({
         {/* Candidates List */}
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            <Spinner className="w-6 h-6 text-primary" />
             <span className="text-xs">Loading candidates{selectedClass !== "all" ? ` for Class ${selectedClass}` : ""}...</span>
           </div>
         ) : candidates.length === 0 ? (

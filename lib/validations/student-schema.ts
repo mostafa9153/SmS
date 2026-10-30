@@ -213,16 +213,3 @@ export const studentCreateSchema = z.object({
 });
 
 export const studentUpdateSchema = studentCreateSchema.partial();
-
-export const studentBulkUpdateSchema = z.object({
-  updates: z.array(
-    z.object({
-      id: z.string().uuid("Invalid student UUID"),
-      changes: studentUpdateSchema,
-    })
-  ).min(1, "Updates array must contain at least one student"),
-});
-
-export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
-export type StudentUpdateInput = z.infer<typeof studentUpdateSchema>;
-export type StudentBulkUpdateInput = z.infer<typeof studentBulkUpdateSchema>;

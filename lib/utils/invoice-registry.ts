@@ -22,7 +22,7 @@ export function getLocalCachedInvoices(): DBInvoiceRow[] {
 /**
  * Save invoices to localStorage cache as client-side backup
  */
-export function saveLocalCachedInvoices(invoices: DBInvoiceInsert[]) {
+function saveLocalCachedInvoices(invoices: DBInvoiceInsert[]) {
   if (typeof window === "undefined" || !invoices.length) return;
   try {
     const current = getLocalCachedInvoices();
@@ -76,7 +76,7 @@ export function saveLocalCachedInvoices(invoices: DBInvoiceInsert[]) {
 /**
  * Convert app InvoiceData array to DB insert payload
  */
-export function convertInvoicesToInsertPayload(
+function convertInvoicesToInsertPayload(
   invoices: InvoiceData[],
   generatorMode: "single" | "bulk",
   copyType: "both" | "student" | "school",

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
+import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
 import {
   BarChart,
   Bar,
@@ -28,20 +29,6 @@ const COLORS = [
   "#0891b2", // Cyan
   "#d97706", // Amber
 ];
-
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-xl border border-border/80 bg-background/95 backdrop-blur-md p-3 shadow-md text-xs">
-        <p className="font-bold text-foreground">{payload[0].payload.class}</p>
-        <p className="text-muted-foreground mt-0.5">
-          Students: <span className="font-bold text-primary">{payload[0].value}</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 
 export function ClassStrengthChart() {
   const { data: stats, isLoading } = useQuery({
@@ -106,7 +93,7 @@ export function ClassStrengthChart() {
               axisLine={false}
               allowDecimals={false}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: "currentColor", opacity: 0.05 }} />
+            <Tooltip content={<ChartTooltip title={(p) => p.payload.class} />} cursor={{ fill: "currentColor", opacity: 0.05 }} />
             <Bar dataKey="students" radius={[6, 6, 0, 0]} maxBarSize={42}>
               {chartData.map((_, idx) => (
                 <Cell

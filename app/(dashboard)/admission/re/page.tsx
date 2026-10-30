@@ -2,7 +2,7 @@
 
 import React, { Suspense } from "react";
 import { ReAdmissionWizard } from "@/components/admission/re-admission/re-admission-wizard";
-import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 
 export default function ReAdmissionPage() {
   return (
@@ -10,7 +10,7 @@ export default function ReAdmissionPage() {
       <Suspense
         fallback={
           <div className="flex flex-col items-center justify-center min-h-[400px] gap-2 text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <Spinner className="w-8 h-8 text-primary" />
           </div>
         }
       >

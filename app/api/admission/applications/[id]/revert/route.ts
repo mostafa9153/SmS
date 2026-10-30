@@ -1,16 +1,17 @@
 import { NextResponse } from "next/server";
+import { dateLabelIST } from "@/lib/utils/date";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const { id } = await params;
     const supabase = createAdminClient();
@@ -38,17 +39,17 @@ export async function POST(
     // 2. Void or cancel associated invoice
     if (app.payment_receipt_no) {
       try {
-        await supabase
+        await mustWrite(supabase
           .from("admission_invoices")
           .update({
             invoice_status: "cancelled",
             payment_status: "Voided",
-            remarks: `Admission reverted back to pending on ${new Date().toLocaleDateString()}`,
+            remarks: `Admission reverted back to pending on ${dateLabelIST()}`,
             updated_at: new Date().toISOString(),
           })
-          .eq("invoice_number", app.payment_receipt_no);
+          .eq("invoice_number", app.payment_receipt_no), "admission_invoices update");
       } catch (invErr) {
-        console.warn("Could not void invoice during admission revert:", invErr);
+        await notifyAdminsOfError("admission.revert", "Could not void invoice during admission revert", invErr, "/admission");
       }
     }
 

@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
+import { mustWrite, softWrite } from "@/lib/supabase/write";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/auth/profile - Fetch current user's profile
+// guard: custom — any signed-in user reads their own profile; users without a role row get a fallback profile
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -57,10 +60,10 @@ export async function GET() {
 
       if (matchedStaff) {
         staffData = matchedStaff;
-        await adminClient
+        await softWrite(adminClient
           .from("user_roles")
           .update({ staff_id: matchedStaff.id })
-          .eq("user_id", user.id);
+          .eq("user_id", user.id), "user_roles update");
       } else {
         const adminUniqueId = `ADM${Math.floor(1000 + Math.random() * 9000)}`;
         const adminName = roleRow.full_name || user.user_metadata?.full_name || user.email?.split("@")[0] || "Administrator";
@@ -93,17 +96,17 @@ export async function GET() {
 
         if (newStaff) {
           staffData = newStaff;
-          await adminClient
+          await softWrite(adminClient
             .from("user_roles")
             .update({ staff_id: newStaff.id })
-            .eq("user_id", user.id);
+            .eq("user_id", user.id), "user_roles update");
         }
       }
     }
 
     if (staffData) {
       // Fetch teacher class assignments
-      const currentYear = new Date().getFullYear();
+      const currentYear = await getAcademicYear();
       const { data: assigns } = await adminClient
         .from("teacher_class_assignments")
         .select("*")
@@ -143,6 +146,7 @@ export async function GET() {
 }
 
 // PATCH /api/auth/profile - Update current user's profile (name or password)
+// undo: n/a — the signed-in user's own name/password; they can change it again
 export async function PATCH(req: Request) {
   try {
     const supabase = await createClient();
@@ -172,10 +176,10 @@ export async function PATCH(req: Request) {
     // 2. If updating name
     if (fullName && fullName.trim()) {
       const cleanName = fullName.trim();
-      await adminClient
+      await mustWrite(adminClient
         .from("user_roles")
         .update({ full_name: cleanName })
-        .eq("user_id", user.id);
+        .eq("user_id", user.id), "user_roles update");
 
       await adminClient.auth.admin.updateUserById(user.id, {
         user_metadata: { ...user.user_metadata, full_name: cleanName },

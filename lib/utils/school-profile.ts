@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface SchoolProfileData {
   schoolName: string;
   schoolCode: string;
@@ -135,7 +136,7 @@ export function getClassStreamList(streamStr?: string, fallbackStreams: string[]
  * Returns the sections configured for a specific stream of a class.
  * Falls back to general sections if no per-stream sections are defined.
  */
-export function getStreamSections(
+function getStreamSections(
   classItem?: { sections?: string[]; streamSections?: Record<string, string[]> },
   streamName?: string
 ): string[] {
@@ -285,7 +286,6 @@ export function formatFullSchoolAddress(parts: {
   return result;
 }
 
-
 /**
  * Robustly parses a free-form student address string into clean Village, P.O., P.S., District, and PIN,
  * correctly handling labeled tokens (Vill-, P.O.-, P.S.-, Dist.-) and preventing label duplication.
@@ -375,21 +375,6 @@ export function getSavedSchoolProfile(): SchoolProfileData {
   return DEFAULT_SCHOOL_PROFILE;
 }
 
-export function saveSchoolProfile(profile: SchoolProfileData): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
-  } catch (e) {
-    console.error("Failed to save school profile to storage", e);
-  }
-
-  // Background sync to database
-  saveSchoolProfileToDb(profile).catch((err) => {
-    console.warn("Background DB sync for school profile failed:", err);
-  });
-}
-
 /**
  * Asynchronously fetches the latest school profile from Supabase system_config
  * and synchronizes it into local storage with in-flight deduplication and caching.
@@ -413,34 +398,11 @@ export async function fetchSchoolProfileFromDb(): Promise<SchoolProfileData> {
 }
 
 /**
- * Saves the school profile to both localStorage and the Supabase database.
+ * Saves the school profile to the database, then mirrors it to localStorage.
  */
 export async function saveSchoolProfileToDb(profile: SchoolProfileData): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("sms_school_profile", JSON.stringify(profile));
-    window.dispatchEvent(new CustomEvent("sms_school_profile_updated", { detail: profile }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "school_profile",
-        value: profile,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to save school profile to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("school_profile", profile, {
+    label: "School profile saved",
+    mirror: { storageKey: "sms_school_profile", event: "sms_school_profile_updated", detail: true },
+  });
 }
-
-export { useSchoolProfile } from "@/lib/hooks/use-school-profile";
-
-

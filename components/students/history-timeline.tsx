@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Pencil, RefreshCw, AlertCircle } from "lucide-react";
+import { Pencil, AlertCircle } from "lucide-react";
 import { cn, STATUS_STYLES } from "@/lib/utils";
 import type { AcademicHistoryEntry, StudentStatus } from "@/lib/types";
 import { StatusBadge } from "@/components/students/status-badge";
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface HistoryTimelineProps {
   history: AcademicHistoryEntry[];
@@ -59,17 +61,7 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
   // Mutation to save history correction
   const mutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await fetch(`/api/students/${studentId}/history`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to save correction");
-      }
-      return res.json();
+      return apiFetch(`/api/students/${studentId}/history`, { method: "PATCH", json: payload });
     },
     onSuccess: () => {
       // Invalidate queries so student profile updates instantly
@@ -267,7 +259,7 @@ export function HistoryTimeline({ history, studentId }: HistoryTimelineProps) {
               <Button type="submit" disabled={mutation.isPending}>
                 {mutation.isPending ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2 h-4 w-4" />
                     Saving...
                   </>
                 ) : (

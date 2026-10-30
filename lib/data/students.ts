@@ -6,7 +6,7 @@ import type {
   Semester,
   SubjectMarksMap,
 } from "@/lib/types";
-import { sortClasses } from "@/lib/utils";
+import { apiFetch } from "@/lib/api/client";
 
 /**
  * Returns all students (unfiltered, unpaginated).
@@ -109,7 +109,7 @@ export async function createStudent(
 export async function updateStudent(
   id: string,
   updates: Partial<Omit<Student, "id">>
-): Promise<Student | null> {
+): Promise<{ student: Student | null; undoId: string | null }> {
   const res = await fetch(`/api/students/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -120,13 +120,13 @@ export async function updateStudent(
     throw new Error(err.error || "Failed to update student profile");
   }
   const data = await res.json();
-  return data.student;
+  return { student: data.student ?? null, undoId: data.undoId ?? null };
 }
 
 /**
  * Deletes a student by ID.
  */
-export async function deleteStudent(id: string): Promise<boolean> {
+export async function deleteStudent(id: string): Promise<{ undoId: string | null }> {
   const res = await fetch(`/api/students/${id}`, {
     method: "DELETE",
   });
@@ -135,26 +135,7 @@ export async function deleteStudent(id: string): Promise<boolean> {
     throw new Error(err.error || "Failed to delete student");
   }
   const data = await res.json();
-  return !!data.success;
-}
-
-/**
- * Bulk promotes/updates a list of students to a new class/section/status.
- */
-export async function bulkUpdateStudents(
-  updates: Array<{ id: string; changes: Partial<Omit<Student, "id">> }>
-): Promise<Student[]> {
-  const res = await fetch("/api/students/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ updates }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Bulk update failed");
-  }
-  const data = await res.json();
-  return data.students || [];
+  return { undoId: data.undoId ?? null };
 }
 
 // ── Utility / derived data helpers ──────────────────────────
@@ -183,12 +164,6 @@ export async function getDistinctClasses(): Promise<string[]> {
 export async function getDistinctSections(): Promise<string[]> {
   const meta = await getStudentFilterMetadata();
   return meta.sections || [];
-}
-
-/** Returns unique sorted admission years */
-export async function getDistinctAdmissionYears(): Promise<number[]> {
-  const meta = await getStudentFilterMetadata();
-  return meta.admissionYears || [];
 }
 
 /** Returns aggregate dashboard stats derived from the full dataset */
@@ -320,18 +295,7 @@ export async function saveStudentResult(input: {
   subjectMarks?: SubjectMarksMap;
   remarks?: string;
 }) {
-  const res = await fetch("/api/results", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save student result");
-  }
-
-  return res.json();
+  return apiFetch<{ result: unknown; undoId?: string | null }>("/api/results", { method: "POST", json: input });
 }
 
 /**
@@ -352,18 +316,7 @@ export async function saveSubjectBatchMarks(input: {
     isAbsent?: boolean;
   }>;
 }) {
-  const res = await fetch("/api/results/subject-batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save subject batch marks");
-  }
-
-  return res.json();
+  return apiFetch<{ count: number; undoId?: string | null }>("/api/results/subject-batch", { method: "POST", json: input });
 }
 
 /**
@@ -374,18 +327,10 @@ export async function recalculateClassRanks(
   className: string,
   examName = "Annual Examination"
 ) {
-  const res = await fetch("/api/results/calculate-ranks", {
+  return apiFetch<{ message?: string; undoId?: string | null }>("/api/results/calculate-ranks", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ academicYear, class: className, examName }),
+    json: { academicYear, class: className, examName },
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to recalculate ranks");
-  }
-
-  return res.json();
 }
 
 /**
@@ -399,56 +344,6 @@ export async function getStudentResultHistory(studentId: string) {
   }
   const data = await res.json();
   return data.results || [];
-}
-
-/**
- * Fetch whole-school academic session readiness audit.
- */
-export async function getSessionReadiness(
-  year?: number,
-  examName = "Annual Examination",
-  minPassPercentage = 30,
-  section: "secondary" | "higher_secondary" = "secondary"
-) {
-  const params = new URLSearchParams();
-  if (year) params.append("year", String(year));
-  params.append("examName", examName);
-  params.append("minPassPercentage", String(minPassPercentage));
-  params.append("section", section);
-
-  const res = await fetch(`/api/academic-session/readiness?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch session readiness audit");
-  }
-  const data = await res.json();
-  return data.report;
-}
-
-/**
- * Execute whole-school academic session transition.
- */
-export async function executeSessionTransition(params: {
-  fromYear: number;
-  toYear: number;
-  rollStrategy: "rank" | "preserve" | "alphabetical";
-  examName?: string;
-  minPassPercentage?: number;
-  overriddenStudentIds?: string[];
-  section?: "secondary" | "higher_secondary";
-}) {
-  const res = await fetch("/api/academic-session/transition", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Session transition execution failed");
-  }
-
-  return res.json();
 }
 
 /**
@@ -482,21 +377,6 @@ export interface OldStudentItem {
   guardianName?: string;
   contact?: string;
   dob?: string;
-}
-
-export async function getOldStudentYears(): Promise<number[]> {
-  try {
-    const res = await fetch("/api/students/old-students?meta=years");
-    if (!res.ok) {
-      const cur = new Date().getFullYear();
-      return [cur - 1, cur - 2, cur - 3, cur - 4];
-    }
-    const data = await res.json();
-    return data.years || [];
-  } catch {
-    const cur = new Date().getFullYear();
-    return [cur - 1, cur - 2, cur - 3, cur - 4];
-  }
 }
 
 export async function getOldStudents(params: {
@@ -586,33 +466,7 @@ export async function undoCohortPromotion(params: {
   return res.json();
 }
 
-export interface BatchReAdmissionPayload {
-  studentIds: string[];
-  targetClass: string;
-  targetSection: string;
-  targetAcademicYear?: number | string;
-  rollStrategy?: "rank" | "preserve" | "alphabetical";
-  isInvoiceQueued?: boolean;
-  feePaid?: boolean;
-  feeAmount?: number;
-}
-
-export async function executeBatchReAdmission(payload: BatchReAdmissionPayload) {
-  const res = await fetch("/api/admission/re-admission/batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Batch re-admission failed");
-  }
-
-  return res.json();
-}
-
-export interface StatusActionPayload {
+interface StatusActionPayload {
   action: "tc_out" | "drop_out" | "archive_stale";
   studentIds?: string[];
   tcDate?: string;
@@ -621,19 +475,14 @@ export interface StatusActionPayload {
   reason?: string;
 }
 
-export async function executeStudentStatusAction(payload: StatusActionPayload) {
-  const res = await fetch("/api/students/status-action", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+interface StatusActionResult {
+  count: number;
+  message: string;
+  undoId?: string | null;
+}
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Status action execution failed");
-  }
-
-  return res.json();
+async function executeStudentStatusAction(payload: StatusActionPayload) {
+  return apiFetch<StatusActionResult>("/api/students/status-action", { method: "POST", json: payload });
 }
 
 export async function issueTransferCertificate(

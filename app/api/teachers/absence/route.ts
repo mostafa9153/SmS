@@ -1,72 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { dispatchTeacherNotification } from "@/lib/supabase/db-teachers";
-import { sendWebPushNotification } from "@/lib/push-notifications";
-
-export async function GET(req: Request) {
-  try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const dateParam = searchParams.get("date");
-    const todayOnly = searchParams.get("today") === "true";
-
-    const adminClient = createAdminClient();
-    const { data: currentRole } = await adminClient
-      .from("user_roles")
-      .select("role, staff_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const roleLower = (currentRole?.role || "").toLowerCase();
-    const isAdmin = roleLower === "admin" || roleLower === "super admin" || roleLower === "super_admin";
-
-    let query = adminClient
-      .from("teacher_absences")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (!isAdmin) {
-      // Teacher can only see their own absences
-      if (currentRole?.staff_id) {
-        query = query.or(`user_id.eq.${user.id},teacher_id.eq.${currentRole.staff_id}`);
-      } else {
-        query = query.eq("user_id", user.id);
-      }
-    }
-
-    const todayStr = new Date().toISOString().split("T")[0];
-    if (todayOnly || dateParam) {
-      const targetDate = dateParam || todayStr;
-      // Filter where targetDate is between start_date and end_date or in dates array
-      query = query
-        .lte("start_date", targetDate)
-        .gte("end_date", targetDate);
-    }
-
-    const { data: absences, error } = await query;
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, absences: absences || [] });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to fetch absences" }, { status: 500 });
-  }
-}
+import { requireRole } from "@/lib/api/guard";
+import { notify } from "@/lib/notifications/notify";
+import { recordUndo } from "@/lib/undo/journal";
 
 export async function POST(req: Request) {
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
+
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = gate.auth;
 
     const body = await req.json();
     const { startDate, endDate, dates = [], reason, teacherId } = body;
@@ -134,35 +77,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    // Dispatch in-app notification & instant web push to all admins
-    const { data: adminUsers } = await adminClient
-      .from("user_roles")
-      .select("user_id")
-      .ilike("role", "%admin%");
-
-    const adminIds = (adminUsers || []).map((a) => a.user_id).filter(Boolean);
-    const notifTitle = `Teacher Absence: ${teacherName}`;
-    const notifMsg = `${teacherName} marked absent for ${startDate === endDate ? startDate : `${startDate} to ${endDate}`}. Reason: ${reason || "Not specified"}.`;
-
-    for (const adminId of adminIds) {
-      await dispatchTeacherNotification({
-        userId: adminId,
-        title: notifTitle,
-        message: notifMsg,
-        link: "/teacher-management",
-      });
-    }
-
-    // Trigger instant Web Push notification to admins
-    await sendWebPushNotification({
-      userIds: adminIds,
-      role: "admin",
-      title: notifTitle,
-      body: notifMsg,
-      url: "/teacher-management",
+    const undoId = await recordUndo({
+      actorId: user.id,
+      action: "teacher.absence",
+      label: `Absence recorded: ${teacherName}`,
+      entity: "teacher_absences",
+      entityId: absence.id,
+      steps: [{ table: "teacher_absences", op: "delete", column: "id", values: [absence.id] }],
     });
 
-    return NextResponse.json({ success: true, absence });
+    await notify({
+      roles: ["Admin"],
+      title: `Teacher Absence: ${teacherName}`,
+      message: `${teacherName} marked absent for ${startDate === endDate ? startDate : `${startDate} to ${endDate}`}. Reason: ${reason || "Not specified"}.`,
+      link: "/teacher-management",
+      source: "teacher.absence",
+      createdBy: user.id,
+      push: true,
+    });
+
+    return NextResponse.json({ success: true, absence, undoId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to record absence" }, { status: 500 });
   }

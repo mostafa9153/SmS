@@ -1,38 +1,28 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Calendar,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Phone,
-  Info,
-  Save,
-  ArrowLeft,
-  Loader2,
-  Clock,
-  BarChart3,
-  ChevronDown,
-  ChevronUp
-} from "lucide-react";
+import { Calendar, CheckCircle2, XCircle, AlertCircle, Phone, Info, Save, Clock, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { todayIST } from "@/lib/utils/date";
+import { toastWithUndo } from "@/lib/undo/client";
+import { apiFetch } from "@/lib/api/client";
 
 export default function StudentAttendancePage() {
-  const router = useRouter();
   
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(todayIST());
   const [className, setClassName] = useState("V");
   const [section, setSection] = useState("A");
 
@@ -48,13 +38,10 @@ export default function StudentAttendancePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/teachers/attendance?className=${className}&section=${section}&date=${date}`);
-      const data = await res.json();
-      if (data.success) {
-        setRoster(data.roster || []);
-      } else {
-        setError(data.error || "Failed to load roster");
-      }
+      const data = await apiFetch<{ roster?: any[] }>(
+        `/api/teachers/attendance?className=${className}&section=${section}&date=${date}`
+      );
+      setRoster(data.roster || []);
     } catch (err: any) {
       setError(err.message || "Failed to load roster");
     } finally {
@@ -64,11 +51,7 @@ export default function StudentAttendancePage() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const res = await fetch(`/api/attendance/analytics`);
-      const data = await res.json();
-      if (data.success) {
-        setAnalytics(data);
-      }
+      setAnalytics(await apiFetch(`/api/attendance/analytics`));
     } catch (err) {
       console.error("Failed to load analytics", err);
     }
@@ -83,11 +66,8 @@ export default function StudentAttendancePage() {
     setHistoryStudent(student);
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/students/${student.studentId}/attendance`);
-      const data = await res.json();
-      if(data.success) {
-        setHistoryData(data.history || []);
-      }
+      const data = await apiFetch<{ history?: any[] }>(`/api/students/${student.studentId}/attendance`);
+      setHistoryData(data.history || []);
     } catch (e) {
       console.error(e);
     }
@@ -118,19 +98,13 @@ export default function StudentAttendancePage() {
         })),
       };
 
-      const res = await fetch("/api/teachers/attendance", {
+      const data = await apiFetch<{ undoId?: string | null }>("/api/teachers/attendance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        json: payload,
       });
-
-      const data = await res.json();
-      if (data.success) {
-        setSuccess("Attendance saved successfully!");
-        setTimeout(() => setSuccess(""), 3000);
-      } else {
-        setError(data.error || "Failed to save attendance");
-      }
+      setSuccess("Attendance saved successfully!");
+      toastWithUndo("Attendance saved", data.undoId, fetchRoster);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
       setError(err.message || "Failed to save attendance");
     } finally {
@@ -138,7 +112,7 @@ export default function StudentAttendancePage() {
     }
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayIST();
   const isPastDate = date < todayStr;
   const isFutureDate = date > todayStr;
   const canEdit = !isPastDate && !isFutureDate;
@@ -161,18 +135,11 @@ export default function StudentAttendancePage() {
   return (
     <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link href="/teacher" className="p-2 bg-muted hover:bg-muted/80 rounded-xl transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Student Attendance</h1>
-            <p className="text-sm text-muted-foreground">Record and track daily attendance</p>
-          </div>
-        </div>
-        
-        <Button 
+      <PageHeader
+        title="Student Attendance"
+        back="/teacher"
+        actions={
+        <Button
           variant={showAnalytics ? "default" : "outline"}
           onClick={() => setShowAnalytics(!showAnalytics)} 
           className="flex items-center gap-2 rounded-xl transition-all h-11 px-5 shadow-sm"
@@ -181,14 +148,15 @@ export default function StudentAttendancePage() {
           {showAnalytics ? "Hide Analytics" : "View Global Analytics"}
           {showAnalytics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </Button>
-      </div>
+        }
+      />
 
       {/* Analytics Visuals (Hidden by default) */}
       {showAnalytics && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-4 duration-300">
           {/* Class Overview Donut */}
           <div className="bg-card border border-border p-6 rounded-2xl shadow-sm flex flex-col items-center justify-center">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 self-start w-full text-center">Today's Class Overview</h2>
+            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 self-start w-full text-center">Today&apos;s Class Overview</h2>
             <div className="h-44 w-full max-w-[240px] relative">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -295,7 +263,7 @@ export default function StudentAttendancePage() {
             onClick={handleSave}
             className="w-full lg:w-auto h-12 px-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md gap-2"
           >
-            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            {saving ? <Spinner className="h-5 w-5" /> : <Save className="h-5 w-5" />}
             Save Changes
           </Button>
         )}
@@ -317,14 +285,11 @@ export default function StudentAttendancePage() {
         
         {loading ? (
           <div className="p-16 text-center text-muted-foreground flex flex-col items-center">
-            <Loader2 className="h-10 w-10 animate-spin mb-4 text-primary/50" />
+            <Spinner className="h-10 w-10 mb-4 text-primary/50" />
             <p className="text-sm font-medium">Loading class roster...</p>
           </div>
         ) : roster.length === 0 ? (
-          <div className="p-16 text-center text-muted-foreground bg-card border border-border rounded-2xl shadow-sm">
-            <p className="text-lg font-bold text-foreground mb-2">No students found.</p>
-            <p className="text-sm">Please select a valid class and section to begin.</p>
-          </div>
+          <EmptyState title="No students found. Select a class and section." className="bg-card border border-border rounded-2xl shadow-sm" />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {roster.map(student => {
@@ -413,7 +378,7 @@ export default function StudentAttendancePage() {
             disabled={saving}
             className="w-full sm:w-80 h-14 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-bold rounded-full shadow-lg transition-transform active:scale-95"
           >
-            {saving ? <Loader2 className="w-6 h-6 animate-spin mr-2" /> : <Save className="w-6 h-6 mr-2" />}
+            {saving ? <Spinner className="w-6 h-6 mr-2" /> : <Save className="w-6 h-6 mr-2" />}
             Submit Attendance
           </Button>
           
@@ -434,13 +399,11 @@ export default function StudentAttendancePage() {
           <div className="p-4 sm:p-6 bg-card">
             {loadingHistory ? (
                <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
-                 <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary/50" />
+                 <Spinner className="h-8 w-8 mb-3 text-primary/50" />
                  <p className="text-sm font-medium">Loading history...</p>
                </div>
             ) : historyData.length === 0 ? (
-               <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-2xl border border-border/50">
-                 <p className="text-sm font-medium">No recent attendance records found.</p>
-               </div>
+               <EmptyState compact title="No recent attendance records found." className="bg-muted/30 rounded-2xl border border-border/50" />
             ) : (
                <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                  {historyData.map((record, i) => (

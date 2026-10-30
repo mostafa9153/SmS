@@ -24,7 +24,7 @@ function getPeriodTimeLabel(periodNum: number): string {
   return times[periodNum] || `Period ${periodNum}`;
 }
 
-export interface TeacherRoutineDataResult {
+interface TeacherRoutineDataResult {
   activeRoutine: {
     id: string;
     title: string;

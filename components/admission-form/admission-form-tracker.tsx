@@ -8,7 +8,6 @@ import {
   Filter,
   RefreshCw,
   Calendar,
-  Layers,
   GraduationCap,
   Users,
   Download,
@@ -17,14 +16,13 @@ import {
   Clock,
   Archive,
   Printer,
-  ChevronLeft,
-  ChevronRight,
   TrendingUp,
   LayoutDashboard,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,8 +35,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
+import { apiFetch } from "@/lib/api/client";
 
 export function AdmissionFormTrackerModal({
   isOpen,
@@ -60,7 +63,7 @@ export function AdmissionFormTrackerModal({
   );
 }
 
-export type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "THIS_MONTH" | "CUSTOM";
+type DatePreset = "ALL" | "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "THIS_MONTH" | "CUSTOM";
 
 interface TrackerItem {
   id: string;
@@ -136,8 +139,8 @@ function computeDateRange(preset: DatePreset, customStart: string, customEnd: st
 
 const CLASS_LIST = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
-export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
-  const currentYearStr = String(new Date().getFullYear());
+function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
+  const currentYearStr = String(currentYearIST());
   const { profile: schoolProfile } = useSchoolProfile();
   const [mounted, setMounted] = useState(false);
   const [isPrintingLedger, setIsPrintingLedger] = useState(false);
@@ -147,7 +150,9 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   }, []);
 
   // Draft Filter States (Edited by UI Controls before Proceed is clicked)
-  const [draftSession, setDraftSession] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedDraftSession, setDraftSession] = useState<string | null>(null);
+  const draftSession = pickedDraftSession ?? currentSession;
   const [draftClass, setDraftClass] = useState<string>("ALL");
   const [draftType, setDraftType] = useState<string>("ALL");
   const [draftChannel, setDraftChannel] = useState<string>("ALL");
@@ -167,7 +172,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
     endDate: string;
     search: string;
   }>({
-    session: "2026",
+    session: String(currentYearIST()),
     targetClass: "ALL",
     admissionType: "ALL",
     channel: "ALL",
@@ -208,17 +213,13 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
       if (appliedFilters.admissionType !== "ALL") params.append("admissionType", appliedFilters.admissionType.toLowerCase());
       if (appliedFilters.channel !== "ALL") params.append("channel", appliedFilters.channel.toLowerCase());
 
-      const res = await fetch(`/api/admission/tracker?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error("Failed to load admission tracker records");
-      }
-      return res.json();
+      return apiFetch<any>(`/api/admission/tracker?${params.toString()}`);
     },
     staleTime: 30 * 1000,
   });
 
   const availableYears = useMemo(() => {
-    return data?.availableYears || [currentYearStr, String(Number(currentYearStr) - 1), "2025", "2024"];
+    return data?.availableYears || sessionYears(currentYearStr);
   }, [data?.availableYears, currentYearStr]);
 
   const isHistoryMode = appliedFilters.session !== currentYearStr && appliedFilters.session !== "ALL";
@@ -283,9 +284,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
   // Options for Dropdowns
   const sessionOptions = useMemo(() => {
     const set = new Set<string>(availableYears);
-    set.add("2026");
-    set.add("2025");
-    set.add("2024");
+    sessionYears(currentSession).forEach((y) => set.add(y));
     const sorted = Array.from(set).sort((a, b) => b.localeCompare(a));
     return [
       { label: "All Sessions", value: "ALL" },
@@ -294,7 +293,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
         value: s,
       })),
     ];
-  }, [availableYears, currentYearStr]);
+  }, [availableYears, currentYearStr, currentSession]);
 
   const classSelectOptions = useMemo(() => {
     return [
@@ -634,7 +633,7 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
                   <tr>
                     <td colSpan={7} className="py-10 text-center text-muted-foreground text-xs">
                       <div className="flex items-center justify-center gap-2">
-                        <RefreshCw className="h-4 w-4 animate-spin text-primary" />
+                        <Spinner className="h-4 w-4 text-primary" />
                         <span>Loading records from database...</span>
                       </div>
                     </td>
@@ -714,35 +713,14 @@ export function AdmissionFormTracker({ onClose }: { onClose?: () => void }) {
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="p-3 border-t bg-muted/20 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                {Math.min(currentPage * pageSize, filteredRecords.length)} of {filteredRecords.length} records
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-7 w-7 p-0 cursor-pointer"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </Button>
-                <span className="px-2 font-bold">{currentPage}</span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-7 w-7 p-0 cursor-pointer"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            total={filteredRecords.length}
+            pageSize={pageSize}
+            className="border-t bg-muted/20"
+          />
         </Card>
       </div>
 

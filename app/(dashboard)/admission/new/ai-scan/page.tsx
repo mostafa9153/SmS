@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { showToast } from "@/components/ui/toast-banner";
 import {
   Camera,
   Upload,
   Sparkles,
-  ArrowLeft,
   RotateCcw,
   RefreshCw,
   ChevronDown,
@@ -22,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { StudentAddEditForm } from "@/components/students/student-add-edit-form";
 import { AdmitStudentDialog } from "@/components/admission/admit-student-dialog";
 import { AdmissionSuccessDialog } from "@/components/admission/admission-success-dialog";
+import { apiFetch } from "@/lib/api/client";
 
 export function AiScanContent({
   hideBackLink,
@@ -157,17 +157,10 @@ export function AiScanContent({
 
     setIsScanning(true);
     try {
-      const res = await fetch("/api/admission/ai-scan", {
+      const data = await apiFetch<{ extracted?: any }>("/api/admission/ai-scan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: capturedImage }),
+        json: { imageBase64: capturedImage },
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "AI Scan failed");
-      }
 
       const ext = data.extracted || {};
       setExtractedData(ext);
@@ -187,10 +180,9 @@ export function AiScanContent({
 
     try {
       setIsSavingPending(true);
-      const res = await fetch("/api/admission/applications", {
+      const data = await apiFetch<{ application: any }>("/api/admission/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: ({
           studentName: candidateName,
           gender: extractedData.gender || "Male",
           dob: extractedData.dob || extractedData.dateOfBirth,
@@ -216,9 +208,6 @@ export function AiScanContent({
           aiExtractedData: extractedData,
         }),
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save application");
 
       queryClient.invalidateQueries({ queryKey: ["admission-applications"] });
       showToast(`Application ${data.application.applicationNo || ""} saved as Pending!`, "success");
@@ -235,10 +224,9 @@ export function AiScanContent({
 
     try {
       // Create pending application first in staging
-      const res = await fetch("/api/admission/applications", {
+      const data = await apiFetch<{ application: any }>("/api/admission/applications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        json: ({
           studentName: candidateName,
           gender: extractedData.gender || "Male",
           dob: extractedData.dob || extractedData.dateOfBirth,
@@ -265,9 +253,6 @@ export function AiScanContent({
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save application");
-
       setAdmittedAppData(data.application);
       setAdmitModalOpen(true);
     } catch (err: any) {
@@ -279,26 +264,12 @@ export function AiScanContent({
     <div className={cn("space-y-6", !embedded && "p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto")}>
       {/* Top Header */}
       {!embedded ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-          <div className="flex items-center gap-3">
-            {!hideBackLink && (
-              <Link
-                href="/admission/new"
-                className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                title="Back to New Admission Tracker"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-            )}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-                <UserPlus className="h-5 w-5 text-primary" />
-                <span>Add New Student (Manual &amp; AI Scan)</span>
-              </h1>
-            </div>
-          </div>
-
-          {/* Highlighted AI Scan Trigger Button */}
+        <PageHeader
+          title="Add New Student (Manual & AI Scan)"
+          icon={UserPlus}
+          back={hideBackLink ? undefined : "/admission/new"}
+          className="border-b pb-5"
+          actions={
           <button
             type="button"
             onClick={() => setShowScanner((prev) => !prev)}
@@ -344,7 +315,8 @@ export function AiScanContent({
               </p>
             </div>
           </button>
-        </div>
+          }
+        />
       ) : (
         <div className="flex items-center justify-between gap-3 bg-card border p-3.5 rounded-2xl shadow-2xs">
           <span className="text-xs font-semibold text-foreground">AI Admission Form Scanner</span>

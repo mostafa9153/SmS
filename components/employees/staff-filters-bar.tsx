@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Search, X, SlidersHorizontal, UserPlus, FileSpreadsheet, RotateCcw } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { SlidersHorizontal, UserPlus, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { SearchInput } from "@/components/ui/search-input";
 
 export interface StaffFilters {
   query?: string;
@@ -69,24 +70,7 @@ export function StaffFiltersBar({
       {/* Search Bar & Action Buttons */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         {/* Search Bar */}
-        <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-          <Input
-            placeholder="Search by name, ID, mobile..."
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            className="pl-9 pr-9 h-10 rounded-xl bg-card border-border/80 text-sm focus-visible:ring-primary/20 w-full"
-          />
-          {localQuery && (
-            <button
-              onClick={() => setLocalQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full transition-colors cursor-pointer"
-              title="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-        </div>
+        <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search by name, ID, mobile..." className="w-full md:max-w-md" />
 
         {/* Top-Right Action Buttons on Desktop & Mobile */}
         <div className="flex items-center gap-2 w-full md:w-auto">
@@ -116,60 +100,49 @@ export function StaffFiltersBar({
       {/* Filter Dropdowns Grid */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 pt-1 border-t border-border/40">
         {/* Designation Filter */}
-        <select
+        <CustomSelect placeholder="All Designations"
           value={filters.designation ?? ""}
-          onChange={(e) =>
+          onChange={(v: string) =>
             onChange({
               ...filters,
-              designation: e.target.value || undefined,
+              designation: v || undefined,
             })
           }
-          className="h-9 px-2.5 rounded-xl border border-border/80 bg-card text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer truncate w-full sm:w-auto"
-        >
-          <option value="">All Designations</option>
-          {availableDesignations.map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
-          ))}
-        </select>
+          className="w-full sm:w-auto"
+          options={[{ value: "", label: "All Designations" }, ...availableDesignations.map((d) => ({ value: d, label: d }))]}
+        />
 
         {/* Caste Filter */}
-        <select
+        <CustomSelect placeholder="All Castes"
           value={filters.caste ?? ""}
-          onChange={(e) =>
+          onChange={(v: string) =>
             onChange({
               ...filters,
-              caste: e.target.value || undefined,
+              caste: v || undefined,
             })
           }
-          className="h-9 px-2.5 rounded-xl border border-border/80 bg-card text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer truncate w-full sm:w-auto"
-        >
-          <option value="">All Castes</option>
-          {availableCastes.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          className="w-full sm:w-auto"
+          searchable={false}
+          options={[{ value: "", label: "All Castes" }, ...availableCastes.map((c) => ({ value: c, label: c }))]}
+        />
 
         {/* Status Filter */}
-        <select
+        <CustomSelect
           value={filters.status ?? ""}
-          onChange={(e) =>
-            onChange({
+          onChange={(v: string) => onChange({
               ...filters,
-              status: e.target.value || undefined,
-            })
-          }
-          className="h-9 px-2.5 rounded-xl border border-border/80 bg-card text-xs font-medium text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer truncate w-full sm:w-auto"
-        >
-          <option value="">All Statuses</option>
-          <option value="ACTIVE">Active</option>
-          <option value="INACTIVE">Inactive</option>
-          <option value="RETIRED">Retired</option>
-          <option value="SUSPENDED">Suspended</option>
-        </select>
+              status: v || undefined,
+            })}
+          className="w-full sm:w-auto"
+          searchable={false}
+          options={[
+            { value: "", label: "All Statuses" },
+            { value: "ACTIVE", label: "Active" },
+            { value: "INACTIVE", label: "Inactive" },
+            { value: "RETIRED", label: "Retired" },
+            { value: "SUSPENDED", label: "Suspended" },
+          ]}
+        />
 
         {/* Reset Filter Button */}
         {hasActiveFilters && (

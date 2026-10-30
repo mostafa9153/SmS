@@ -13,9 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
-import { Loader2, UserPlus, Briefcase, User, MapPin, GraduationCap, Sparkles, BookOpen } from "lucide-react";
+import { UserPlus, Briefcase, User, MapPin, GraduationCap, Sparkles, BookOpen } from "lucide-react";
 import { ClassMultiSelectDropdown } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffCreateDialogProps {
   open: boolean;
@@ -44,7 +48,7 @@ export function StaffCreateDialog({
     status: "ACTIVE",
     caste: "General",
     basic_pay: "",
-    joining_date: new Date().toISOString().split("T")[0],
+    joining_date: todayIST(),
     appointed_subject: "",
     academic_section: "Secondary",
 
@@ -179,16 +183,7 @@ export function StaffCreateDialog({
         },
       };
 
-      const res = await fetch("/api/employees", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to register employee");
-      }
+      const data = await apiFetch<{ staff: any }>("/api/employees", { method: "POST", json: payload });
 
       showToast({
         type: "success",
@@ -271,21 +266,21 @@ export function StaffCreateDialog({
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Role / Employee Type</Label>
-                  <select
+                  <CustomSelect
                     value={formData.employee_type}
-                    onChange={(e) =>
-                      setFormData({
+                    onChange={(v: string) => setFormData({
                         ...formData,
-                        employee_type: e.target.value,
+                        employee_type: v,
                         designation:
-                          e.target.value === "NON_TEACHING" ? "Clerk" : "Assistant Teacher",
-                      })
-                    }
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="TEACHING">Teaching Staff</option>
-                    <option value="NON_TEACHING">Non-Teaching Staff</option>
-                  </select>
+                          v === "NON_TEACHING" ? "Clerk" : "Assistant Teacher",
+                      })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "TEACHING", label: "Teaching Staff" },
+                      { value: "NON_TEACHING", label: "Non-Teaching Staff" },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1">
@@ -300,31 +295,35 @@ export function StaffCreateDialog({
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Status</Label>
-                  <select
+                  <CustomSelect
                     value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                    <option value="RETIRED">Retired</option>
-                    <option value="SUSPENDED">Suspended</option>
-                  </select>
+                    onChange={(v: string) => setFormData({ ...formData, status: v })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "ACTIVE", label: "Active" },
+                      { value: "INACTIVE", label: "Inactive" },
+                      { value: "RETIRED", label: "Retired" },
+                      { value: "SUSPENDED", label: "Suspended" },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Caste Category</Label>
-                  <select
+                  <CustomSelect
                     value={formData.caste}
-                    onChange={(e) => setFormData({ ...formData, caste: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="General">General</option>
-                    <option value="SC">SC</option>
-                    <option value="ST">ST</option>
-                    <option value="OBC-A">OBC-A</option>
-                    <option value="OBC-B">OBC-B</option>
-                  </select>
+                    onChange={(v: string) => setFormData({ ...formData, caste: v })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "General", label: "General" },
+                      { value: "SC", label: "SC" },
+                      { value: "ST", label: "ST" },
+                      { value: "OBC-A", label: "OBC-A" },
+                      { value: "OBC-B", label: "OBC-B" },
+                    ]}
+                  />
                 </div>
 
                 <div className="space-y-1">
@@ -424,45 +423,51 @@ export function StaffCreateDialog({
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Gender</Label>
-                  <select
+                  <CustomSelect
                     value={formData.gender}
-                    onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                    onChange={(v: string) => setFormData({ ...formData, gender: v })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "Male", label: "Male" },
+                      { value: "Female", label: "Female" },
+                      { value: "Other", label: "Other" },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Marital Status</Label>
-                  <select
+                  <CustomSelect
                     value={formData.marital_status}
-                    onChange={(e) => setFormData({ ...formData, marital_status: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs"
-                  >
-                    <option value="Married">Married</option>
-                    <option value="Unmarried">Unmarried</option>
-                    <option value="Widowed">Widowed</option>
-                    <option value="Divorced">Divorced</option>
-                  </select>
+                    onChange={(v: string) => setFormData({ ...formData, marital_status: v })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "Married", label: "Married" },
+                      { value: "Unmarried", label: "Unmarried" },
+                      { value: "Widowed", label: "Widowed" },
+                      { value: "Divorced", label: "Divorced" },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Blood Group</Label>
-                  <select
+                  <CustomSelect
                     value={formData.blood_group}
-                    onChange={(e) => setFormData({ ...formData, blood_group: e.target.value })}
-                    className="w-full h-9 rounded-xl border border-input bg-background px-3 text-xs font-mono"
-                  >
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                  </select>
+                    onChange={(v: string) => setFormData({ ...formData, blood_group: v })}
+                    className="w-full"
+                    searchable={false}
+                    options={[
+                      { value: "A+", label: "A+" },
+                      { value: "A-", label: "A-" },
+                      { value: "B+", label: "B+" },
+                      { value: "B-", label: "B-" },
+                      { value: "O+", label: "O+" },
+                      { value: "O-", label: "O-" },
+                      { value: "AB+", label: "AB+" },
+                      { value: "AB-", label: "AB-" },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium">Date of Birth (DOB)</Label>
@@ -686,7 +691,7 @@ export function StaffCreateDialog({
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="mr-1.5 h-3.5 w-3.5" />
                   Saving...
                 </>
               ) : (

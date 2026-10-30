@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { pgQuote } from "@/lib/supabase/filters";
+import { requireStaff } from "@/lib/api/guard";
+import { recordUndo, snapshotRows } from "@/lib/undo/journal";
 
 export async function GET(
   req: Request,
@@ -18,7 +21,7 @@ export async function GET(
     const { data: row, error } = await supabase
       .from("admission_applications")
       .select("*")
-      .or(`id.eq.${id},application_no.eq.${id}`)
+      .or(`id.eq.${pgQuote(id)},application_no.eq.${pgQuote(id)}`)
       .single();
 
     if (error || !row) {
@@ -94,103 +97,18 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
-
-    const { id } = await params;
-    const supabase = createAdminClient();
-    const body = await req.json();
-
-    const updateData: Record<string, any> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (body.studentName !== undefined) updateData.student_name = body.studentName;
-    if (body.photoUrl !== undefined) updateData.photo_url = body.photoUrl;
-    if (body.gender !== undefined) updateData.gender = body.gender;
-    if (body.dob !== undefined) updateData.date_of_birth = body.dob;
-    if (body.fatherName !== undefined) updateData.father_name = body.fatherName;
-    if (body.motherName !== undefined) updateData.mother_name = body.motherName;
-    if (body.guardianName !== undefined) updateData.guardian_name = body.guardianName;
-    if (body.studentContact !== undefined) updateData.student_contact = body.studentContact;
-    if (body.altMobile !== undefined) updateData.alt_mobile = body.altMobile;
-    if (body.email !== undefined) updateData.email = body.email;
-
-    if (body.address !== undefined) updateData.address = body.address;
-    if (body.village !== undefined) updateData.village = body.village;
-    if (body.postOffice !== undefined) updateData.post_office = body.postOffice;
-    if (body.policeStation !== undefined) updateData.police_station = body.policeStation;
-    if (body.district !== undefined) updateData.district = body.district;
-    if (body.pincode !== undefined) updateData.pincode = body.pincode;
-
-    if (body.religion !== undefined) updateData.religion = body.religion;
-    if (body.socialCategory !== undefined) updateData.social_category = body.socialCategory;
-    if (body.casteCertificateNo !== undefined) updateData.caste_certificate_no = body.casteCertificateNo;
-    if (body.aadhaar !== undefined) updateData.aadhaar = body.aadhaar;
-    if (body.bloodGroup !== undefined) updateData.blood_group = body.bloodGroup;
-
-    if (body.previousSchool !== undefined) updateData.previous_school = body.previousSchool;
-    if (body.previousClass !== undefined) updateData.previous_class = body.previousClass;
-    if (body.previousRoll !== undefined) updateData.previous_roll = body.previousRoll;
-    if (body.previousMarks !== undefined) updateData.previous_marks = body.previousMarks;
-
-    if (body.status !== undefined) updateData.status = body.status;
-    if (body.targetClass !== undefined) updateData.target_class = body.targetClass;
-    if (body.targetSection !== undefined) updateData.target_section = body.targetSection;
-    if (body.targetRoll !== undefined) updateData.target_roll = body.targetRoll;
-    if (body.stream !== undefined) updateData.stream = body.stream;
-    if (body.schoolId !== undefined) updateData.school_id = body.schoolId;
-
-    if (body.bankAccountNo !== undefined) updateData.bank_account_no = body.bankAccountNo;
-    if (body.bankIfsc !== undefined) updateData.bank_ifsc = body.bankIfsc;
-    if (body.bankName !== undefined) updateData.bank_name = body.bankName;
-    if (body.kanyashreeId !== undefined) updateData.kanyashree_id = body.kanyashreeId;
-    if (body.verifiedDocuments !== undefined) updateData.verified_documents = body.verifiedDocuments;
-    if (body.subjectCombinations !== undefined) updateData.subject_combinations = body.subjectCombinations;
-
-    if (body.feePaid !== undefined) updateData.fee_paid = body.feePaid;
-    if (body.feeAmount !== undefined) updateData.fee_amount = body.feeAmount;
-    if (body.paymentReceiptNo !== undefined) updateData.payment_receipt_no = body.paymentReceiptNo;
-    if (body.paymentMode !== undefined) updateData.payment_mode = body.paymentMode;
-    if (body.remarks !== undefined) updateData.remarks = body.remarks;
-
-    const { data, error } = await supabase
-      .from("admission_applications")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, application: data });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
-}
-
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    const gate = await requireStaff("can_view_admission_applications", "can_handle_new_admission");
+    if (!gate.ok) return gate.response;
 
     const { id } = await params;
     const supabase = createAdminClient();
 
+    const before = await snapshotRows(supabase, "admission_applications", "id", id);
     const { error } = await supabase
       .from("admission_applications")
       .delete()
@@ -200,7 +118,19 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, message: "Application deleted successfully" });
+    const undoId = gate.auth.user?.id
+      ? await recordUndo({
+          actorId: gate.auth.user.id,
+          action: "admission.application.delete",
+          label: `Delete application ${before[0]?.application_no ?? ""}`.trim(),
+          entity: "admission_applications",
+          entityId: id,
+          steps: [{ table: "admission_applications", op: "upsert", rows: before }],
+          ttlHours: 72,
+        })
+      : null;
+
+    return NextResponse.json({ success: true, message: "Application deleted successfully", undoId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

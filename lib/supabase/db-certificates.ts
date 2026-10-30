@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { pgContains } from "@/lib/supabase/filters";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export type CertificateType =
@@ -347,7 +348,7 @@ export async function dbSearchCertificates(params: {
     }
 
     if (params.query && params.query.trim()) {
-      const term = `%${params.query.trim()}%`;
+      const term = pgContains(params.query.trim());
       q = q.or(
         `certificate_no.ilike.${term},student_name.ilike.${term},student_id.ilike.${term},father_name.ilike.${term}`
       );

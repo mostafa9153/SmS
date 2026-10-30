@@ -2,17 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Users, Clock, CheckCircle, Search, Banknote, Eye, FileText, ChevronRight, User } from "lucide-react";
+import { X, Users, Clock, CheckCircle, Banknote, Eye, FileText, ChevronRight, User } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { getAdmissionApplications } from "@/lib/data/admission";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ViewApplicationFormDialog } from "./view-application-form-dialog";
 import { format } from "date-fns";
+import { SearchInput } from "@/components/ui/search-input";
+import { EmptyState } from "@/components/ui/empty-state";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
+  const currentSession = useAcademicYear();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<any[]>([]);
   const [selectedApp, setSelectedApp] = useState<any | null>(null);
@@ -42,7 +47,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
 
   const filteredApps = applications.filter(a => {
     if (yearFilter !== "All") {
-      const yr = a.academicYear || a.academic_year || "2026";
+      const yr = a.academicYear || a.academic_year || String(currentYearIST());
       if (yr !== yearFilter) return false;
     }
     if (sourceFilter !== "All") {
@@ -100,37 +105,17 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
       <div className="flex-1 overflow-auto p-3 sm:p-6 bg-muted/10 space-y-3 sm:space-y-6 pb-28 sm:pb-10">
         {/* Metric Cards: 2x2 on mobile, 4 columns on desktop */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Applications</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-foreground">{stats.total}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Online Pending</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-amber-600">{stats.onlinePending}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Admitted</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-emerald-600">{stats.totalAdmitted}</div>
-          </Card>
-          <Card className="p-3 sm:p-4 shadow-2xs">
-            <div className="text-[11px] sm:text-sm font-medium text-muted-foreground truncate">Total Collected</div>
-            <div className="text-xl sm:text-2xl lg:text-3xl font-black mt-1 text-primary">₹{stats.totalCollected.toLocaleString("en-IN")}</div>
-          </Card>
+          <StatCard label="Total Applications" value={stats.total} />
+          <StatCard label="Online Pending" value={stats.onlinePending} valueClassName="text-amber-600" />
+          <StatCard label="Total Admitted" value={stats.totalAdmitted} valueClassName="text-emerald-600" />
+          <StatCard label="Total Collected" value={`₹${stats.totalCollected.toLocaleString("en-IN")}`} valueClassName="text-primary" />
         </div>
 
         {/* Search & Filter Card */}
         <Card className="flex flex-col flex-1 min-h-[400px] shadow-2xs">
           <CardHeader className="p-3 sm:p-4 pb-3 shrink-0 border-b space-y-2.5">
             {/* Search Input */}
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search name, ID, phone..." 
-                value={search} 
-                onChange={e => setSearch(e.target.value)} 
-                className="pl-9 h-9 text-xs bg-background" 
-              />
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search name, ID, phone..." size="sm" className="w-full" />
 
             {/* 4-Dropdown Grid for seamless alignment */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
@@ -140,9 +125,10 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="All">All Years</SelectItem>
-                  <SelectItem value="2026">2026 (Current)</SelectItem>
-                  <SelectItem value="2027">2027 (Next)</SelectItem>
-                  <SelectItem value="2025">2025 (Prev)</SelectItem>
+                  {([[0, "Current"], [1, "Next"], [-1, "Prev"]] as const).map(([offset, label]) => {
+                    const y = String(Number(currentSession) + offset);
+                    return <SelectItem key={y} value={y}>{y} ({label})</SelectItem>;
+                  })}
                 </SelectContent>
               </Select>
 
@@ -186,10 +172,10 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
               {loading ? (
                 <div className="text-center py-8 text-xs text-muted-foreground">Loading data...</div>
               ) : filteredApps.length === 0 ? (
-                <div className="text-center py-8 text-xs text-muted-foreground">No applications found</div>
+                <EmptyState compact title="No applications found" />
               ) : (
                 filteredApps.map(app => {
-                  const formNum = app.applicationNo || app.formNo || (app.targetClass ? `APP-2026-${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8));
+                  const formNum = app.applicationNo || app.formNo || (app.targetClass ? `APP-${app.academicYear || currentSession}-${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8));
                   const cls = app.admittedClass || app.targetClass || "V";
                   const sec = app.admittedSection ? ` - ${app.admittedSection}` : "";
                   const roll = app.admittedRoll ? ` • Roll #${app.admittedRoll}` : "";
@@ -267,7 +253,7 @@ export function NewAdmissionDashboard({ onClose }: { onClose: () => void }) {
                         title="Click to open filled admission form"
                       >
                         <TableCell className="font-medium text-xs font-mono">
-                          {app.applicationNo || app.formNo || (app.targetClass ? `AP/${app.academicYear || "2026"}/${app.targetClass}/${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8))}
+                          {app.applicationNo || app.formNo || (app.targetClass ? `AP/${app.academicYear || String(currentYearIST())}/${app.targetClass}/${app.id.slice(0, 4).toUpperCase()}` : app.id.slice(0, 8))}
                         </TableCell>
                         <TableCell className="font-semibold text-foreground group-hover:text-primary transition-colors">
                           {app.studentName}

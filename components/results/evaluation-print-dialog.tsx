@@ -21,7 +21,7 @@ import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { EvaluationRegisterPrintable } from "./evaluation-register-printable";
 import { cn } from "@/lib/utils";
 
-export interface EvaluationPrintDialogProps {
+interface EvaluationPrintDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   students: StudentResult[];

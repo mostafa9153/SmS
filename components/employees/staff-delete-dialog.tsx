@@ -12,7 +12,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { showToast } from "@/components/ui/toast-banner";
-import { AlertTriangle, Loader2, Trash2 } from "lucide-react";
+import { toastWithUndo } from "@/lib/undo/client";
+import { AlertTriangle, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffDeleteDialogProps {
   open: boolean;
@@ -36,20 +39,9 @@ export function StaffDeleteDialog({
     try {
       setIsDeleting(true);
 
-      const res = await fetch(`/api/employees/${staffId}`, {
-        method: "DELETE",
-      });
+      const data = await apiFetch<{ undoId?: string | null }>(`/api/employees/${staffId}`, { method: "DELETE" });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to delete staff record");
-      }
-
-      showToast({
-        type: "success",
-        title: "Staff Deleted",
-        description: `${staffName} (${uniqueId}) has been removed from the registry.`,
-      });
+      toastWithUndo(`${staffName} (${uniqueId}) has been removed from the registry.`, data.undoId, () => router.refresh());
 
       onOpenChange(false);
       router.push("/employees");
@@ -103,7 +95,7 @@ export function StaffDeleteDialog({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Spinner className="mr-1.5 h-3.5 w-3.5" />
                 Deleting...
               </>
             ) : (

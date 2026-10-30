@@ -17,16 +17,14 @@ import {
   RoutineSubjectGroup,
   GeneratedRoutine,
   ValidationReport,
+  DiagnosticItem,
   DEFAULT_ROUTINE_SETTINGS,
 } from "@/lib/routine/types";
 import { validateRoutineData, generateRoutine, diagnoseRoutineData } from "@/lib/routine/routineGenerator";
-import {
-  autoBuildRoutineAssignments,
-  autoBuildRoutineAssignmentsWithReport,
-  assignmentsAreCurrent,
-} from "@/lib/routine/routine-auto-assign";
+import { autoBuildRoutineAssignmentsWithReport } from "@/lib/routine/routine-auto-assign";
 import { RoutineGeneratorTab } from "@/components/routine/routine-generator-tab";
-import { RefreshCw } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 
 export default function RoutineGeneratePage() {
   const router = useRouter();
@@ -75,30 +73,37 @@ export default function RoutineGeneratePage() {
     };
   }, []);
 
+  // Always rebuilt from the Teachers tab: a stored row can never put a teacher on a subject they were not given
+  const buildAssignments = () =>
+    autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups);
+
   const handleAutoBuildAssignments = async () => {
-    const built = autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
+    const built = buildAssignments().assignments;
     setAssignments(built);
     return built;
   };
 
-  // Stored assignments are used only while they still match the current data; otherwise rebuild
-  const resolveAssignments = () => {
-    if (assignmentsAreCurrent(assignments, classes, subjects, teachers, groups)) {
-      return { list: assignments, warnings: [] as string[], rebuilt: false };
-    }
-    const built = autoBuildRoutineAssignmentsWithReport(classes, subjects, teachers, settings, rooms, groups);
-    return { list: built.assignments, warnings: built.warnings, rebuilt: true };
-  };
-
   const handleValidate = async (): Promise<ValidationReport> => {
-    const { list, warnings } = resolveAssignments();
+    const { assignments: list, warnings, unstaffed } = buildAssignments();
     const report = validateRoutineData(settings, classes, teachers, subjects, list, rooms, groups);
     // Strict rules that are provably impossible and per-teacher adjustments: warnings, because the engine relaxes them
     const { reasons, adjustments } = await diagnoseRoutineData(settings, classes, teachers, subjects, list, rooms, groups);
+    const unstaffedItems: DiagnosticItem[] = unstaffed.map((u) => ({
+      type: "faculty_shortage",
+      severity: "error",
+      title: `No teacher: ${u.className} ${u.section} - ${u.subjectName}`,
+      description: `${u.periods} periods a week have no teacher, so this subject cannot be placed.`,
+      solution: "Setup Hub → Teachers: tick this subject for a teacher in this section.",
+      className: `${u.className} ${u.section}`,
+      subjectName: u.subjectName,
+    }));
+    const errors = [...unstaffedItems.map((i) => i.title), ...report.errors];
     return {
-      ...report,
+      isValid: errors.length === 0,
+      errors,
       warnings: [...warnings, ...reasons.map((r) => r.title), ...adjustments, ...report.warnings],
       diagnosticItems: [
+        ...unstaffedItems,
         ...(report.diagnosticItems || []),
         ...reasons.map((r) => ({ ...r, severity: "warning" as const })),
       ],
@@ -106,11 +111,15 @@ export default function RoutineGeneratePage() {
   };
 
   const handleGenerate = async (): Promise<GeneratedRoutine> => {
-    const { list: activeAssignments, rebuilt } = resolveAssignments();
-    if (rebuilt) setAssignments(activeAssignments);
-    const result = await generateRoutine(settings, classes, teachers, subjects, activeAssignments, rooms, groups);
+    const { assignments: list, warnings } = buildAssignments();
+    setAssignments(list);
+    const result = await generateRoutine(settings, classes, teachers, subjects, list, rooms, groups);
     if (result.success) {
-      await saveGeneratedRoutineDb(result);
+      // Kept with the run so History can list them later
+      result.metadata = { ...(result.metadata || {}), setupWarnings: warnings };
+      if (!(await saveGeneratedRoutineDb(result))) {
+        toast.error("Routine generated but not saved. The previous routine is still active.");
+      }
     }
     return result;
   };
@@ -118,7 +127,7 @@ export default function RoutineGeneratePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
-        <RefreshCw className="w-4 h-4 animate-spin mr-2" /> Loading generator...
+        <Spinner className="w-4 h-4 mr-2" /> Loading generator...
       </div>
     );
   }

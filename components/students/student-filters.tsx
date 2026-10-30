@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { Search, X, ChevronDown, Check, Users, Loader2, SlidersHorizontal } from "lucide-react";
+import { X, ChevronDown, Check, Users, SlidersHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { getStudentFilterMetadata } from "@/lib/data/students";
 import type { StudentFilters, StudentStatus } from "@/lib/types";
 import { cn, sortClasses, STATUS_STYLES } from "@/lib/utils";
+import { FilterSelect } from "@/components/ui/filter-select";
+import { SearchInput } from "@/components/ui/search-input";
 
 export const ACTIVE_STATUSES: StudentStatus[] = [
   "Continuing",
@@ -170,24 +172,7 @@ export function StudentFiltersBar({
     <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2 sm:py-3 shadow-2xs space-y-2">
       {/* Mobile Top Bar (<sm): Search + Filter Drawer Trigger */}
       <div className="flex sm:hidden items-center gap-2.5">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-          <input
-            type="text"
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            placeholder="Search students..."
-            className="w-full h-11 min-h-[44px] rounded-2xl border border-border/90 bg-card hover:bg-background pl-10 pr-9 text-base font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary transition-all shadow-2xs placeholder:text-muted-foreground/70"
-          />
-          {localQuery && (
-            <button
-              onClick={() => setLocalQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted active:scale-90"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search students..." className="flex-1" />
 
         <button
           type="button"
@@ -443,6 +428,7 @@ export function StudentFiltersBar({
                 value={filters.scheme ?? ""}
                 onChange={(v) => onChange({ ...filters, scheme: (v as any) || undefined })}
                 placeholder="Welfare Scheme"
+                allLabel="All Schemes"
                 options={[
                   { label: "🎀 Kanyashree (All)", value: "kanyashree" },
                   { label: "🎀 Kanyashree K1 (Class 8-11)", value: "kanyashree_k1" },
@@ -466,6 +452,7 @@ export function StudentFiltersBar({
                 value={filters.socialCategory ?? ""}
                 onChange={(v) => onChange({ ...filters, socialCategory: (v as any) || undefined })}
                 placeholder="Category"
+                allLabel="All Categories"
                 options={[
                   { label: "General", value: "General" },
                   { label: "OBC", value: "OBC" },
@@ -481,6 +468,7 @@ export function StudentFiltersBar({
                 value={filters.gender ?? ""}
                 onChange={(v) => onChange({ ...filters, gender: (v as any) || undefined })}
                 placeholder="Gender"
+                allLabel="All Genders"
                 options={[
                   { label: "Female", value: "Female" },
                   { label: "Male", value: "Male" },
@@ -496,6 +484,7 @@ export function StudentFiltersBar({
                   value={filters.status ?? ""}
                   onChange={(v) => onChange({ ...filters, status: (v as StudentStatus) || undefined })}
                   placeholder="Status"
+                  allLabel="All Statuses"
                   options={statusOptions}
                 />
               </div>
@@ -507,6 +496,7 @@ export function StudentFiltersBar({
                 value={filters.admissionYear ? String(filters.admissionYear) : ""}
                 onChange={(v) => onChange({ ...filters, admissionYear: v ? Number(v) : undefined })}
                 placeholder="Adm. Year"
+                allLabel="All Years"
                 options={years.map((y) => ({ label: String(y), value: String(y) }))}
               />
             </div>
@@ -517,6 +507,7 @@ export function StudentFiltersBar({
                 value={filters.hasAadhaar ?? ""}
                 onChange={(v) => onChange({ ...filters, hasAadhaar: (v as "yes" | "no") || undefined })}
                 placeholder="Aadhaar"
+                allLabel="All Students"
                 options={[
                   { label: "Aadhaar: Yes", value: "yes" },
                   { label: "Aadhaar: No", value: "no" },
@@ -530,6 +521,7 @@ export function StudentFiltersBar({
                 value={filters.ageSlab ?? ""}
                 onChange={(v) => onChange({ ...filters, ageSlab: v || undefined })}
                 placeholder="Age Group"
+                allLabel="All Ages"
                 options={[
                   { label: "🎂 Below 10", value: "below_10" },
                   { label: "🎂 10 - 11", value: "10_11" },
@@ -564,16 +556,7 @@ export function StudentFiltersBar({
       {/* Desktop Filter Bar (hidden on mobile, visible sm+) */}
       <div className="hidden sm:flex flex-wrap gap-2 items-center">
         {/* Smart search */}
-        <div className="relative min-w-[170px] flex-1 max-w-xs group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-primary/70 group-focus-within:text-primary transition-colors pointer-events-none" />
-          <input
-            type="text"
-            value={localQuery}
-            onChange={(e) => setLocalQuery(e.target.value)}
-            placeholder="Search name, ID, PEN, Aadhaar…"
-            className="w-full rounded-xl border border-border/90 hover:border-primary/40 bg-card hover:bg-background pl-9 pr-3 py-1.5 text-xs sm:text-sm font-medium text-foreground outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary focus:bg-background transition-all shadow-2xs placeholder:text-muted-foreground/70"
-          />
-        </div>
+        <SearchInput value={localQuery} onChange={setLocalQuery} placeholder="Search name, ID, PEN, Aadhaar…" size="sm" className="min-w-[170px] flex-1 max-w-xs" />
 
         {/* Class filter */}
         <FilterSelect
@@ -589,6 +572,7 @@ export function StudentFiltersBar({
             });
           }}
           placeholder="Class"
+          allLabel="All Classes"
           options={sortedClasses.map((c) => ({ label: `Class ${c}`, value: c }))}
         />
 
@@ -597,6 +581,7 @@ export function StudentFiltersBar({
           value={filters.section ?? ""}
           onChange={(v) => onChange({ ...filters, section: v || undefined })}
           placeholder="Section"
+          allLabel="All Sections"
           options={sections.map((s) => ({ label: `Section ${s}`, value: s }))}
         />
 
@@ -606,6 +591,7 @@ export function StudentFiltersBar({
             value={filters.semester ?? ""}
             onChange={(v) => onChange({ ...filters, semester: (v as any) || undefined })}
             placeholder="Semester"
+            allLabel="All Semesters"
             options={semesterOptions}
           />
         )}
@@ -615,6 +601,7 @@ export function StudentFiltersBar({
           value={filters.scheme ?? ""}
           onChange={(v) => onChange({ ...filters, scheme: (v as any) || undefined })}
           placeholder="Welfare Scheme"
+          allLabel="All Schemes"
           options={[
             { label: "🎀 Kanyashree (All)", value: "kanyashree" },
             { label: "🎀 Kanyashree K1 (Class 8-11)", value: "kanyashree_k1" },
@@ -636,6 +623,7 @@ export function StudentFiltersBar({
           value={filters.socialCategory ?? ""}
           onChange={(v) => onChange({ ...filters, socialCategory: (v as any) || undefined })}
           placeholder="Category"
+          allLabel="All Categories"
           options={[
             { label: "General", value: "General" },
             { label: "OBC", value: "OBC" },
@@ -649,6 +637,7 @@ export function StudentFiltersBar({
           value={filters.gender ?? ""}
           onChange={(v) => onChange({ ...filters, gender: (v as any) || undefined })}
           placeholder="Gender"
+          allLabel="All Genders"
           options={[
             { label: "Female", value: "Female" },
             { label: "Male", value: "Male" },
@@ -664,6 +653,7 @@ export function StudentFiltersBar({
               onChange({ ...filters, status: (v as StudentStatus) || undefined })
             }
             placeholder="Status"
+            allLabel="All Statuses"
             options={statusOptions}
           />
         )}
@@ -678,6 +668,7 @@ export function StudentFiltersBar({
             })
           }
           placeholder="Adm. Year"
+          allLabel="All Years"
           options={years.map((y) => ({ label: String(y), value: String(y) }))}
         />
 
@@ -691,6 +682,7 @@ export function StudentFiltersBar({
             })
           }
           placeholder="Aadhaar"
+          allLabel="All Students"
           options={[
             { label: "Aadhaar: Yes", value: "yes" },
             { label: "Aadhaar: No", value: "no" },
@@ -707,6 +699,7 @@ export function StudentFiltersBar({
             })
           }
           placeholder="Age Group"
+          allLabel="All Ages"
           options={[
             { label: "🎂 Below 10 yrs", value: "below_10" },
             { label: "🎂 10 - 11 yrs", value: "10_11" },
@@ -739,131 +732,3 @@ export function StudentFiltersBar({
   );
 }
 
-function FilterSelect({
-  value,
-  onChange,
-  placeholder,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  options: { label: string; value: string }[];
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const selectedOption = options.find((o) => o.value === value);
-
-  // Close on outside click
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen]);
-
-  const isAgeGroup = placeholder === "Age Group";
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      {/* Trigger button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs sm:text-sm font-medium transition-all duration-200 outline-none select-none cursor-pointer shadow-2xs",
-          value
-            ? "border-primary/60 bg-primary/10 text-primary font-semibold ring-1 ring-primary/30 shadow-xs"
-            : "border-border/90 bg-card hover:bg-background text-foreground/80 hover:text-foreground hover:border-primary/40 hover:shadow-xs",
-          isOpen && "ring-2 ring-primary/25 border-primary shadow-xs"
-        )}
-      >
-        <span className="truncate max-w-[140px]">
-          {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 transition-transform duration-200 shrink-0",
-            isOpen ? "rotate-180 text-primary" : value ? "text-primary" : "text-muted-foreground/80"
-          )}
-        />
-      </button>
-
-      {/* Floating Animated Menu — Solid opaque background to prevent background bleed-through */}
-      {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-[240px] sm:w-[270px] rounded-2xl border border-border/90 bg-popover text-popover-foreground p-2 shadow-2xl z-[100] animate-in fade-in-0 zoom-in-95 duration-150">
-          <div className="px-2.5 py-1.5 mb-1.5 border-b border-border/60 flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/40 rounded-xl">
-            <span className="flex items-center gap-1.5">
-              {isAgeGroup && <span>🎂</span>}
-              <span>{placeholder}</span>
-            </span>
-            {value && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange("");
-                  setIsOpen(false);
-                }}
-                className="text-rose-500 hover:text-rose-600 font-semibold hover:underline capitalize text-[11px] cursor-pointer"
-              >
-                Reset
-              </button>
-            )}
-          </div>
-
-          <div className="max-h-[300px] overflow-y-auto pr-1 space-y-1 [::-webkit-scrollbar]:w-1.5 [::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [::-webkit-scrollbar-thumb]:rounded-full [::-webkit-scrollbar-track]:bg-transparent">
-            {/* All / Default option */}
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
-                !value
-                  ? "bg-primary/15 text-primary font-bold shadow-2xs"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <span>{placeholder === "Class" ? "All Classes" : `All ${placeholder}s`}</span>
-              {!value && <Check className="h-3.5 w-3.5 text-primary" />}
-            </button>
-
-            {options.map((opt) => {
-              const isSelected = opt.value === value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium text-left transition-all duration-150 cursor-pointer",
-                    isSelected
-                      ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                      : "text-foreground hover:bg-primary/10 hover:text-primary"
-                  )}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-primary-foreground flex-shrink-0" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}

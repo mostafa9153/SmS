@@ -23,6 +23,7 @@ import {
   Activity,
   Sliders,
   Cloud,
+  Link2,
   Sparkles,
   ClipboardCheck,
   MapPin,
@@ -46,6 +47,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 interface NavChildSubItem {
   label: string;
@@ -212,6 +214,14 @@ const settingsNavItems = [
     icon: <MapPin className="h-4 w-4" />,
     iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
     activeColor: "from-emerald-500/15 via-emerald-500/8 text-emerald-700 dark:text-emerald-300 border-emerald-600",
+  },
+  {
+    href: "/settings/admission-link",
+    tab: "admission-link",
+    label: "Admission Link",
+    icon: <Link2 className="h-4 w-4" />,
+    iconBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400",
+    activeColor: "from-indigo-500/15 via-indigo-500/8 text-indigo-700 dark:text-indigo-300 border-indigo-600",
   },
   {
     href: "/settings/backup",
@@ -501,6 +511,7 @@ export function Sidebar({
   mobile?: boolean;
   onClose?: () => void;
 }) {
+  const currentSession = useAcademicYear();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -681,7 +692,7 @@ export function Sidebar({
                   {fullName}
                 </p>
                 <p className="text-[10px] text-muted-foreground truncate">
-                  {designation || role} · Session 2026
+                  {designation || role} · Session {currentSession}
                 </p>
               </div>
             </div>
@@ -691,7 +702,7 @@ export function Sidebar({
             <DropdownMenuLabel className="p-2">
               <div className="flex flex-col">
                 <span className="font-bold text-xs text-foreground truncate">{fullName}</span>
-                <span className="text-[10px] text-muted-foreground font-medium truncate">{designation || role || "User"} · Session 2026</span>
+                <span className="text-[10px] text-muted-foreground font-medium truncate">{designation || role || "User"} · Session {currentSession}</span>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />

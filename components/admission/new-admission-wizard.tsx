@@ -12,11 +12,14 @@ import { LayoutDashboard, Check, Calendar } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 
 export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () => void }) {
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState<"online" | "offline" | null>(null);
-  const [academicYear, setAcademicYear] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedAcademicYear, setAcademicYear] = useState<string | null>(null);
+  const academicYear = pickedAcademicYear ?? currentSession;
   const [appData, setAppData] = useState<any>(null);
   const [admissionResult, setAdmissionResult] = useState<any>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -112,15 +115,14 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
                 <SelectValue placeholder="Select Year" />
               </SelectTrigger>
               <SelectContent align="end">
-                <SelectItem value="2026" className="text-xs font-medium cursor-pointer">
-                  2026 (Current)
-                </SelectItem>
-                <SelectItem value="2027" className="text-xs font-medium cursor-pointer">
-                  2027 (Next Year)
-                </SelectItem>
-                <SelectItem value="2025" className="text-xs font-medium cursor-pointer">
-                  2025 (Previous)
-                </SelectItem>
+                {([[0, "Current"], [1, "Next Year"], [-1, "Previous"]] as const).map(([offset, label]) => {
+                  const y = String(Number(currentSession) + offset);
+                  return (
+                    <SelectItem key={y} value={y} className="text-xs font-medium cursor-pointer">
+                      {y} ({label})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

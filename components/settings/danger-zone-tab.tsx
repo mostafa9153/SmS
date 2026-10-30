@@ -2,20 +2,7 @@
 
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  ShieldAlert,
-  Trash2,
-  UserCheck,
-  Building,
-  RefreshCw,
-  AlertTriangle,
-  Receipt,
-  Award,
-  CalendarDays,
-  RotateCcw,
-  Sliders,
-  Filter,
-} from "lucide-react";
+import { ShieldAlert, Trash2, UserCheck, Building, AlertTriangle, Receipt, Award, CalendarDays, RotateCcw, Sliders, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,6 +23,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 const AVAILABLE_CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -85,16 +74,7 @@ export function DangerZoneTab() {
       subScope?: string;
       presetTarget?: string;
     }) => {
-      const res = await fetch("/api/admin/data-wipeout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Data wipeout operation failed");
-      }
-      return res.json();
+      return apiFetch<any>("/api/admin/data-wipeout", { method: "POST", json: payload });
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["students"] });
@@ -548,7 +528,7 @@ export function DangerZoneTab() {
               >
                 {wipeoutMutation.isPending ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2 h-4 w-4" />
                     Executing Wipeout...
                   </>
                 ) : (

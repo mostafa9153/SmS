@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState, useMemo, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Printer, RefreshCw, PackageOpen } from "lucide-react";
+import { Printer, PackageOpen } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
 const DISTRIBUTION_ITEM_PRESETS = [
   { label: "Sabuj Sathi (Bicycle)", value: "Sabuj Sathi (Bicycle)" },
@@ -52,15 +56,7 @@ const GENDER_OPTIONS = [
   { label: "Girls Only", value: "female" },
 ];
 
-const SESSION_OPTIONS = [
-  { label: "2026 Session", value: "2026" },
-  { label: "2025 Session", value: "2025" },
-  { label: "2024 Session", value: "2024" },
-  { label: "2023 Session", value: "2023" },
-];
-
 function WelfareReportContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { profile: schoolProfile } = useSchoolProfile();
 
@@ -68,12 +64,14 @@ function WelfareReportContent() {
   const initialClass = searchParams.get("class") || "all";
   const initialSection = searchParams.get("section") || "all";
   const initialGender = searchParams.get("gender") || "all";
-  const initialSession = searchParams.get("sessionYear") || "2026";
+  const currentSession = useAcademicYear();
+  const urlSession = searchParams.get("sessionYear");
 
   const [selectedClass, setSelectedClass] = useState<string>(initialClass);
   const [selectedSection, setSelectedSection] = useState<string>(initialSection);
   const [selectedGender, setSelectedGender] = useState<string>(initialGender);
-  const [sessionYear, setSessionYear] = useState<string>(initialSession);
+  const [pickedSessionYear, setSessionYear] = useState<string | null>(urlSession);
+  const sessionYear = pickedSessionYear ?? currentSession;
 
   // Distribution item selection
   const [selectedItemKey, setSelectedItemKey] = useState<string>("Sabuj Sathi (Bicycle)");
@@ -186,34 +184,20 @@ function WelfareReportContent() {
 
       {/* Action Bar - Hidden during Print */}
       <div className="flex flex-col gap-4 print:hidden">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.back()}
-              title="Back"
-              className="rounded-lg p-2 min-h-[40px] min-w-[40px] flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors active:scale-95 cursor-pointer"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
-                Students Welfare & Goods Distribution Register
-              </h1>
-              <span className="text-[11px] sm:text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-semibold">
+        <PageHeader
+          back
+          title="Students Welfare & Goods Distribution Register"
+          badge={<span className="text-[11px] sm:text-xs bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded-full font-semibold">
                 Official Register
-              </span>
-            </div>
-          </div>
-
-          {/* Print Button */}
-          <Button
+              </span>}
+          actions={<Button
             onClick={handlePrint}
             className="flex items-center justify-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs h-10 px-4 rounded-xl shadow-xs cursor-pointer active:scale-95 transition-all"
           >
             <Printer className="h-4 w-4 shrink-0" />
             <span>Print (A4)</span>
-          </Button>
-        </div>
+          </Button>}
+        />
 
         {/* Controls Grid */}
         <div className="bg-muted/40 p-4 rounded-2xl border space-y-3">
@@ -290,7 +274,7 @@ function WelfareReportContent() {
               <CustomSelect
                 value={sessionYear}
                 onChange={(val) => setSessionYear(String(val))}
-                options={SESSION_OPTIONS}
+                options={sessionYears(currentSession, 3).map((y) => ({ label: `${y} Session`, value: y }))}
               />
             </div>
 
@@ -315,7 +299,7 @@ function WelfareReportContent() {
       {/* Loading state */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center p-16 bg-card border rounded-2xl">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary mb-3" />
+          <Spinner className="h-8 w-8 text-primary mb-3" />
           <p className="text-sm font-semibold text-muted-foreground">Loading student records...</p>
         </div>
       ) : (
@@ -461,7 +445,7 @@ export default function WelfareReportPage() {
     <Suspense
       fallback={
         <div className="flex flex-col items-center justify-center p-16">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary mb-3" />
+          <Spinner className="h-8 w-8 text-primary mb-3" />
           <p className="text-sm font-semibold text-muted-foreground">Loading Welfare Register...</p>
         </div>
       }

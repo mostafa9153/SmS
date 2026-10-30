@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AdmissionApplicationForm, AdmissionFormData } from "@/components/admission/admission-application-form";
 import { ArrowLeft, Save, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
+import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 
 interface Step3ReviewProps {
   appData: any;
@@ -24,7 +25,10 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
     checkPhoto: false,
   });
 
+  const draftKey = `new-review:${appData?.id ?? appData?.applicationNo ?? "unknown"}`;
+
   const handleFormSubmit = (data: AdmissionFormData) => {
+    clearAdmissionDraft(draftKey);
     onNext({
       ...appData,
       ...data,
@@ -133,6 +137,7 @@ export function Step3Review({ appData, onBack, onNext }: Step3ReviewProps) {
         onSubmit={handleFormSubmit}
         submitButtonText="Save & Proceed to Finalize (Step 4)"
         mode="review"
+        draftKey={draftKey}
         checklist={checklistBlock}
       />
     </div>

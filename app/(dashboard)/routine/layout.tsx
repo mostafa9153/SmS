@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarClock, Sliders, ShieldCheck, Sparkles, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/ui/page-header";
 
 interface RoutineLayoutProps {
   children: React.ReactNode;
@@ -46,20 +47,10 @@ export default function RoutineLayout({ children }: RoutineLayoutProps) {
       pathname === "/routine/viewer" ? "max-w-none" : "max-w-7xl"
     )}>
       {/* Top Header */}
-      <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3.5">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-primary/10 text-primary rounded-lg border border-primary/20">
-            <CalendarClock className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-              Routine Maker
-            </h1>
-          </div>
-        </div>
-
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/70 overflow-x-auto">
+      <PageHeader
+        icon={CalendarClock}
+        title="Routine Maker"
+        actions={<nav className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/70 overflow-x-auto">
           {navLinks.map((link) => {
             const Icon = link.icon;
             return (
@@ -78,8 +69,9 @@ export default function RoutineLayout({ children }: RoutineLayoutProps) {
               </Link>
             );
           })}
-        </nav>
-      </div>
+        </nav>}
+        className="print:hidden border-b border-border pb-3.5"
+      />
 
       {/* Main Content Body */}
       <main className="flex-1 w-full">{children}</main>

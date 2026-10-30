@@ -16,7 +16,7 @@ export type DocumentType =
   | "admission-form"
   | "blank-pad";
 
-export const DOC_CONFIG: Record<
+const DOC_CONFIG: Record<
   DocumentType,
   {
     storagePrefix: string;
@@ -69,7 +69,7 @@ export const DOC_CONFIG: Record<
 /**
  * Gets the storage key for a document type for a specific year
  */
-export function getDocumentStorageKey(docType: DocumentType, year?: number): string {
+function getDocumentStorageKey(docType: DocumentType, year?: number): string {
   const y = year || new Date().getFullYear();
   return `${DOC_CONFIG[docType].storagePrefix}_${y}`;
 }

@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { currentYearIST } from "@/lib/utils/academic-year";
+import { clearAcademicYearCache } from "@/lib/academic/current-year";
 
 export async function GET() {
   try {
+    const gate = await requireRole();
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
@@ -23,7 +28,7 @@ export async function GET() {
           aiProvider: "gemini",
           aiApiKey: "",
           aiModel: "gemini-1.5-flash",
-          currentAcademicYear: "2026",
+          currentAcademicYear: String(currentYearIST()),
           newAdmissionActive: true,
           readmissionActive: true,
         },
@@ -42,7 +47,7 @@ export async function GET() {
         aiApiKey: auth.role === "Admin" ? maskedKey : (rawKey ? "configured" : ""),
         hasApiKey: Boolean(rawKey || process.env.GEMINI_API_KEY),
         aiModel: data.ai_model || "gemini-1.5-flash",
-        currentAcademicYear: data.current_academic_year || "2026",
+        currentAcademicYear: data.current_academic_year || String(currentYearIST()),
         newAdmissionActive: data.new_admission_active ?? true,
         readmissionActive: data.readmission_active ?? true,
         feeStructure: data.fee_structure || {},
@@ -55,6 +60,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const auth = await getAuthenticatedUserRole();
     if (auth.role === "Guest") {
       return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
@@ -87,7 +94,7 @@ export async function POST(req: Request) {
       school_id: "default",
       ai_provider: body.aiProvider || "gemini",
       ai_model: body.aiModel || "gemini-1.5-flash",
-      current_academic_year: body.currentAcademicYear || "2026",
+      current_academic_year: body.currentAcademicYear || String(currentYearIST()),
       new_admission_active: body.newAdmissionActive ?? true,
       readmission_active: body.readmissionActive ?? true,
       fee_structure: body.feeStructure || {},
@@ -109,6 +116,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    clearAcademicYearCache();
     const savedKey = data.ai_api_key || "";
     const maskedSavedKey = savedKey.length > 4 ? `••••••••${savedKey.slice(-4)}` : (savedKey ? "••••" : "");
 

@@ -6,28 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Users,
-  CheckCircle2,
-  Clock,
-  Globe,
-  UserCheck,
-  Search,
-  ArrowLeft,
-  Loader2,
-  TrendingUp,
-  History,
-  RotateCcw,
-  Sparkles,
-  ArrowRight,
-  Filter,
-  Calendar,
-} from "lucide-react";
+import { Users, CheckCircle2, Clock, Globe, UserCheck, Search, ArrowLeft, TrendingUp, History, RotateCcw, Sparkles, ArrowRight, Filter, Calendar } from "lucide-react";
 import { getReAdmissionDashboardStats } from "@/lib/data/admission";
 import { getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { cn, sortClasses } from "@/lib/utils";
 import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionYears } from "@/lib/utils/academic-year";
 
 interface ReAdmissionDashboardProps {
   onClose: () => void;
@@ -38,7 +26,9 @@ export function ReAdmissionDashboard({
   onClose,
   onSelectStudentForAdmission,
 }: ReAdmissionDashboardProps) {
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  const currentSession = useAcademicYear();
+  const [pickedSelectedYear, setSelectedYear] = useState<string | null>(null);
+  const selectedYear = pickedSelectedYear ?? currentSession;
 
   const [selectedClass, setSelectedClass] = useState<string>(() => {
     if (typeof window !== "undefined") {
@@ -167,9 +157,9 @@ export function ReAdmissionDashboard({
               <SelectValue placeholder="Session" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="2026" className="text-xs font-medium">2026</SelectItem>
-              <SelectItem value="2025" className="text-xs font-medium">2025</SelectItem>
-              <SelectItem value="2024" className="text-xs font-medium">2024</SelectItem>
+              {sessionYears(currentSession).map((y) => (
+                <SelectItem key={y} value={y} className="text-xs font-medium">{y}</SelectItem>
+              ))}
               <SelectItem value="2023" className="text-xs font-medium">2023</SelectItem>
             </SelectContent>
           </Select>
@@ -240,7 +230,7 @@ export function ReAdmissionDashboard({
         >
           {loading ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
               <span>Loading...</span>
             </>
           ) : (
@@ -451,9 +441,7 @@ export function ReAdmissionDashboard({
 
             {/* List View */}
             {filteredStudents.length === 0 ? (
-              <div className="p-8 text-center text-xs text-muted-foreground">
-                No students match the selected filter.
-              </div>
+              <EmptyState compact title="No students match the selected filter." />
             ) : (
               <div className="divide-y divide-border/60">
                 {filteredStudents.map((s: any) => {

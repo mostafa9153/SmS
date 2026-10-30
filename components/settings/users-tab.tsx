@@ -2,16 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  UserPlus,
-  Trash2,
-  RefreshCw,
-  AlertCircle,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Shield,
-} from "lucide-react";
+import { UserPlus, Trash2, AlertCircle, KeyRound, Eye, EyeOff, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +12,10 @@ import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { getCurrentUserRole } from "@/lib/data/students";
 import { DataTableSkeleton } from "@/components/ui/skeleton-loaders";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { apiFetch } from "@/lib/api/client";
 
 interface UserProfile {
   id: string;
@@ -31,6 +26,7 @@ interface UserProfile {
 }
 
 export function UsersTab() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
 
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -74,12 +70,7 @@ export function UsersTab() {
   const { data: usersData, isLoading: isLoadingUsers, error: usersError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/users");
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to fetch users");
-      }
-      return res.json() as Promise<{ users: UserProfile[] }>;
+      return apiFetch<{ users: UserProfile[] }>("/api/admin/users");
     },
     staleTime: 2 * 60 * 1000,
   });
@@ -87,16 +78,7 @@ export function UsersTab() {
   // Create User Mutation
   const createUserMutation = useMutation({
     mutationFn: async (payload: any) => {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create user");
-      }
-      return res.json();
+      return apiFetch("/api/admin/users", { method: "POST", json: payload });
     },
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -125,14 +107,7 @@ export function UsersTab() {
   // Delete User Mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/admin/users?id=${id}`, {
-        method: "DELETE",
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to delete user");
-      }
-      return res.json();
+      return apiFetch(`/api/admin/users?id=${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -160,23 +135,7 @@ export function UsersTab() {
       newPassword?: string;
       adminPassword?: string;
     }) => {
-      const res = await fetch("/api/admin/users", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      let errData: any = null;
-      try {
-        errData = await res.json();
-      } catch {
-        // Fallback if response is empty or non-JSON
-      }
-
-      if (!res.ok) {
-        throw new Error(errData?.error || `Failed to update user (${res.status})`);
-      }
-      return errData;
+      return apiFetch("/api/admin/users", { method: "PATCH", json: payload });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -221,8 +180,8 @@ export function UsersTab() {
     });
   };
 
-  const handleDeleteUser = (userId: string, email: string) => {
-    if (window.confirm(`Are you sure you want to delete user account: ${email}? This action is irreversible.`)) {
+  const handleDeleteUser = async (userId: string, email: string) => {
+    if (await confirm({ title: `Are you sure you want to delete user account: ${email}? This action is irreversible.`, destructive: true })) {
       deleteUserMutation.mutate(userId);
     }
   };
@@ -356,7 +315,7 @@ export function UsersTab() {
                 <Button type="submit" disabled={createUserMutation.isPending}>
                   {createUserMutation.isPending ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      <Spinner className="mr-2 h-4 w-4" />
                       Creating...
                     </>
                   ) : (
@@ -462,9 +421,7 @@ export function UsersTab() {
                 );
               })}
               {usersData?.users.length === 0 && (
-                <div className="col-span-full text-center py-8 text-muted-foreground text-sm">
-                  No other system users found.
-                </div>
+                <EmptyState compact title="No other system users found." className="col-span-full" />
               )}
             </div>
           </div>
@@ -638,7 +595,7 @@ export function UsersTab() {
               <Button type="submit" disabled={updateUserMutation.isPending}>
                 {updateUserMutation.isPending ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <Spinner className="mr-2 h-4 w-4" />
                     Saving...
                   </>
                 ) : (

@@ -1,0 +1,1046 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`document numbers > formats 1`] = `
+[
+  "MHS/TC/2026/0007",
+  "MHS/KP/2026/0007",
+  "MHS/AF/26/0007",
+  "0007",
+  "MHS/POC/2026/0007",
+]
+`;
+
+exports[`marks config > defaults 1`] = `
+[
+  {
+    "annualExamTotal": 250,
+    "annualSubTotal": 50,
+    "count": 5,
+    "firstExamTotal": 100,
+    "firstSubTotal": 20,
+    "grandTotal": 500,
+    "secondExamTotal": 150,
+    "secondSubTotal": 30,
+  },
+  {
+    "annualExamTotal": 490,
+    "annualSubTotal": 70,
+    "count": 7,
+    "firstExamTotal": 210,
+    "firstSubTotal": 30,
+    "grandTotal": 1050,
+    "secondExamTotal": 350,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 560,
+    "annualSubTotal": 70,
+    "count": 8,
+    "firstExamTotal": 240,
+    "firstSubTotal": 30,
+    "grandTotal": 1200,
+    "secondExamTotal": 400,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 560,
+    "annualSubTotal": 70,
+    "count": 8,
+    "firstExamTotal": 240,
+    "firstSubTotal": 30,
+    "grandTotal": 1200,
+    "secondExamTotal": 400,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 700,
+    "annualSubTotal": 100,
+    "count": 7,
+    "firstExamTotal": 350,
+    "firstSubTotal": 50,
+    "grandTotal": 1400,
+    "secondExamTotal": 350,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 700,
+    "annualSubTotal": 100,
+    "count": 7,
+    "firstExamTotal": 350,
+    "firstSubTotal": 50,
+    "grandTotal": 1400,
+    "secondExamTotal": 350,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 500,
+    "annualSubTotal": 100,
+    "count": 5,
+    "evenExamTotal": 250,
+    "evenPractical": 10,
+    "evenSemSubTotal": 50,
+    "evenWritten": 40,
+    "firstExamTotal": 250,
+    "firstSubTotal": 50,
+    "grandTotal": 500,
+    "oddExamTotal": 250,
+    "oddPractical": 10,
+    "oddSemSubTotal": 50,
+    "oddWritten": 40,
+    "secondExamTotal": 250,
+    "secondSubTotal": 50,
+  },
+  {
+    "annualExamTotal": 500,
+    "annualSubTotal": 100,
+    "count": 5,
+    "evenExamTotal": 250,
+    "evenPractical": 10,
+    "evenSemSubTotal": 50,
+    "evenWritten": 40,
+    "firstExamTotal": 250,
+    "firstSubTotal": 50,
+    "grandTotal": 500,
+    "oddExamTotal": 250,
+    "oddPractical": 10,
+    "oddSemSubTotal": 50,
+    "oddWritten": 40,
+    "secondExamTotal": 250,
+    "secondSubTotal": 50,
+  },
+]
+`;
+
+exports[`marks config > defaults 2`] = `
+[
+  [
+    "Physics",
+    true,
+    {
+      "practical": 15,
+      "written": 35,
+    },
+  ],
+  [
+    "Chemistry",
+    true,
+    {
+      "practical": 15,
+      "written": 35,
+    },
+  ],
+  [
+    "Biology",
+    true,
+    {
+      "practical": 15,
+      "written": 35,
+    },
+  ],
+  [
+    "Computer Science",
+    true,
+    {
+      "practical": 15,
+      "written": 35,
+    },
+  ],
+  [
+    "English",
+    false,
+    {
+      "practical": 10,
+      "written": 40,
+    },
+  ],
+  [
+    "Bengali",
+    false,
+    {
+      "practical": 10,
+      "written": 40,
+    },
+  ],
+]
+`;
+
+exports[`marks config > defaults 3`] = `
+[
+  "1st",
+  "2nd",
+  "annual",
+  "annual",
+  "annual",
+  "annual",
+]
+`;
+
+exports[`marksheet calc > class schemes and subject lists 1`] = `
+[
+  {
+    "c": "V",
+    "scheme": {
+      "annualPractical": 0,
+      "annualWritten": 50,
+      "classCode": "V",
+      "className": "Class V",
+      "firstSummativePractical": 0,
+      "firstSummativeWritten": 20,
+      "isSemesterSystem": false,
+      "labSubjects": [],
+      "notes": "Primary/Junior: 5 subjects",
+      "secondSummativePractical": 0,
+      "secondSummativeWritten": 30,
+      "subjectCount": 5,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Mathematics",
+        "Our Environment",
+        "Health & Physical Education",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Mathematics",
+      "Our Environment",
+      "Health & Physical Education",
+    ],
+  },
+  {
+    "c": "VI",
+    "scheme": {
+      "annualPractical": 0,
+      "annualWritten": 70,
+      "classCode": "VI",
+      "className": "Class VI",
+      "firstSummativePractical": 0,
+      "firstSummativeWritten": 30,
+      "isSemesterSystem": false,
+      "labSubjects": [
+        "Environment & Science",
+        "Environment & Geography",
+      ],
+      "notes": "Upper Primary: 7 subjects",
+      "secondSummativePractical": 0,
+      "secondSummativeWritten": 50,
+      "subjectCount": 7,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Mathematics",
+        "Environment & Science",
+        "Environment & History",
+        "Environment & Geography",
+        "Health & Physical Education",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Mathematics",
+      "Environment & Science",
+      "Environment & History",
+      "Environment & Geography",
+      "Health & Physical Education",
+    ],
+  },
+  {
+    "c": "VII",
+    "scheme": {
+      "annualPractical": 0,
+      "annualWritten": 70,
+      "classCode": "VII",
+      "className": "Class VII",
+      "firstSummativePractical": 0,
+      "firstSummativeWritten": 30,
+      "isSemesterSystem": false,
+      "labSubjects": [
+        "Environment & Science",
+        "Geography",
+      ],
+      "notes": "Upper Primary: 8 subjects",
+      "secondSummativePractical": 0,
+      "secondSummativeWritten": 50,
+      "subjectCount": 8,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Sanskrit (3rd Language)",
+        "Mathematics",
+        "Environment & Science",
+        "History",
+        "Geography",
+        "Health & Physical Education",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Sanskrit (3rd Language)",
+      "Mathematics",
+      "Environment & Science",
+      "History",
+      "Geography",
+      "Health & Physical Education",
+    ],
+  },
+  {
+    "c": "VIII",
+    "scheme": {
+      "annualPractical": 0,
+      "annualWritten": 70,
+      "classCode": "VIII",
+      "className": "Class VIII",
+      "firstSummativePractical": 0,
+      "firstSummativeWritten": 30,
+      "isSemesterSystem": false,
+      "labSubjects": [
+        "Environment & Science",
+        "Geography",
+      ],
+      "notes": "Upper Primary: 8 subjects",
+      "secondSummativePractical": 0,
+      "secondSummativeWritten": 50,
+      "subjectCount": 8,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Sanskrit (3rd Language)",
+        "Mathematics",
+        "Environment & Science",
+        "History",
+        "Geography",
+        "Health & Physical Education",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Sanskrit (3rd Language)",
+      "Mathematics",
+      "Environment & Science",
+      "History",
+      "Geography",
+      "Health & Physical Education",
+    ],
+  },
+  {
+    "c": "IX",
+    "scheme": {
+      "annualPractical": 10,
+      "annualWritten": 90,
+      "classCode": "IX",
+      "className": "Class IX",
+      "firstSummativePractical": 10,
+      "firstSummativeWritten": 40,
+      "isSemesterSystem": false,
+      "labSubjects": [
+        "Physical Science",
+        "Life Science",
+        "Geography",
+      ],
+      "notes": "Secondary: 7 subjects (40w + 10p = 50 in 1st/2nd; 90w + 10p = 100 in Annual)",
+      "secondSummativePractical": 10,
+      "secondSummativeWritten": 40,
+      "subjectCount": 7,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Mathematics",
+        "Physical Science",
+        "Life Science",
+        "History",
+        "Geography",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Mathematics",
+      "Physical Science",
+      "Life Science",
+      "History",
+      "Geography",
+    ],
+  },
+  {
+    "c": "X",
+    "scheme": {
+      "annualPractical": 10,
+      "annualWritten": 90,
+      "classCode": "IX",
+      "className": "Class IX",
+      "firstSummativePractical": 10,
+      "firstSummativeWritten": 40,
+      "isSemesterSystem": false,
+      "labSubjects": [
+        "Physical Science",
+        "Life Science",
+        "Geography",
+      ],
+      "notes": "Secondary: 7 subjects (40w + 10p = 50 in 1st/2nd; 90w + 10p = 100 in Annual)",
+      "secondSummativePractical": 10,
+      "secondSummativeWritten": 40,
+      "subjectCount": 7,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Mathematics",
+        "Physical Science",
+        "Life Science",
+        "History",
+        "Geography",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Mathematics",
+      "Physical Science",
+      "Life Science",
+      "History",
+      "Geography",
+    ],
+  },
+  {
+    "c": "XI",
+    "scheme": {
+      "annualPractical": 10,
+      "annualWritten": 40,
+      "classCode": "XI",
+      "className": "Class XI",
+      "evenSemesterMarks": 50,
+      "evenSemesterPractical": 10,
+      "evenSemesterWritten": 40,
+      "firstSummativePractical": 10,
+      "firstSummativeWritten": 40,
+      "isSemesterSystem": true,
+      "labSubjects": [
+        "Physics",
+        "Chemistry",
+        "Biological Sciences",
+        "Computer Science",
+        "Geography",
+        "Modern Computer Application",
+        "Statistics",
+        "Nutrition",
+      ],
+      "notes": "Higher Secondary (WBCHSE): Sem 1 (40w + 10p = 50) + Sem 2 (40w + 10p = 50) = 100/sub (500 Marks Total)",
+      "oddSemesterMarks": 50,
+      "oddSemesterPractical": 10,
+      "oddSemesterWritten": 40,
+      "secondSummativePractical": 10,
+      "secondSummativeWritten": 40,
+      "subjectCount": 5,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Physics",
+        "Chemistry",
+        "Mathematics",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Physics",
+      "Chemistry",
+      "Mathematics",
+    ],
+  },
+  {
+    "c": "XII",
+    "scheme": {
+      "annualPractical": 10,
+      "annualWritten": 40,
+      "classCode": "XII",
+      "className": "Class XII",
+      "evenSemesterMarks": 50,
+      "evenSemesterPractical": 10,
+      "evenSemesterWritten": 40,
+      "firstSummativePractical": 10,
+      "firstSummativeWritten": 40,
+      "isSemesterSystem": true,
+      "labSubjects": [
+        "Physics",
+        "Chemistry",
+        "Biological Sciences",
+        "Computer Science",
+        "Geography",
+        "Modern Computer Application",
+        "Statistics",
+        "Nutrition",
+      ],
+      "notes": "HS Final (WBCHSE): Sem 3 (40w + 10p = 50) + Sem 4 (40w + 10p = 50) = 100/sub (500 Marks Total)",
+      "oddSemesterMarks": 50,
+      "oddSemesterPractical": 10,
+      "oddSemesterWritten": 40,
+      "secondSummativePractical": 10,
+      "secondSummativeWritten": 40,
+      "subjectCount": 5,
+      "subjects": [
+        "Bengali (1st Language)",
+        "English (2nd Language)",
+        "Physics",
+        "Chemistry",
+        "Mathematics",
+      ],
+    },
+    "std": [
+      "Bengali (1st Language)",
+      "English (2nd Language)",
+      "Physics",
+      "Chemistry",
+      "Mathematics",
+    ],
+  },
+]
+`;
+
+exports[`marksheet calc > grade scale boundaries 1`] = `
+[
+  [
+    -1,
+    "D",
+  ],
+  [
+    0,
+    "D",
+  ],
+  [
+    24.9,
+    "D",
+  ],
+  [
+    25,
+    "C",
+  ],
+  [
+    34.9,
+    "C",
+  ],
+  [
+    35,
+    "B",
+  ],
+  [
+    45,
+    "B+",
+  ],
+  [
+    60,
+    "A",
+  ],
+  [
+    70,
+    "A",
+  ],
+  [
+    80,
+    "A+",
+  ],
+  [
+    89.9,
+    "A+",
+  ],
+  [
+    90,
+    "AA",
+  ],
+  [
+    100,
+    "AA",
+  ],
+  [
+    101,
+    "AA",
+  ],
+]
+`;
+
+exports[`marksheet calc > subject name normalization 1`] = `
+[
+  [
+    "bengali",
+    "Bengali",
+  ],
+  [
+    "BENGALI (FL)",
+    "Bengali",
+  ],
+  [
+    "English",
+    "English",
+  ],
+  [
+    "maths",
+    "Mathematics",
+  ],
+  [
+    "Mathematics",
+    "Mathematics",
+  ],
+  [
+    "Phy. Sc.",
+    "Phy. Sc.",
+  ],
+  [
+    "life science",
+    "Life Science",
+  ],
+  [
+    "hist",
+    "History",
+  ],
+  [
+    "geo",
+    "Geography",
+  ],
+  [
+    "  Work Edu  ",
+    "Art & Work Education",
+  ],
+]
+`;
+
+exports[`marksheet calc > subject rows and totals 1`] = `
+[
+  {
+    "grade": "A+",
+    "highestMarksInClass": 192,
+    "id": "sub-1",
+    "overallTotal": 176,
+    "percentage": 88,
+    "subjectName": "Bengali (1st Language)",
+    "term1": {
+      "periodic": 34,
+      "preparatory": 9,
+      "total": 43,
+    },
+    "term2": {
+      "periodic": 36,
+      "preparatory": 10,
+      "total": 46,
+    },
+    "term3": {
+      "periodic": 78,
+      "preparatory": 9,
+      "total": 87,
+    },
+  },
+  {
+    "grade": "A+",
+    "highestMarksInClass": 188,
+    "id": "sub-2",
+    "overallTotal": 167,
+    "percentage": 83.5,
+    "subjectName": "English (2nd Language)",
+    "term1": {
+      "periodic": 32,
+      "preparatory": 8,
+      "total": 40,
+    },
+    "term2": {
+      "periodic": 35,
+      "preparatory": 9,
+      "total": 44,
+    },
+    "term3": {
+      "periodic": 74,
+      "preparatory": 9,
+      "total": 83,
+    },
+  },
+  {
+    "grade": "AA",
+    "highestMarksInClass": 198,
+    "id": "sub-3",
+    "overallTotal": 193,
+    "percentage": 96.5,
+    "subjectName": "Mathematics",
+    "term1": {
+      "periodic": 38,
+      "preparatory": 10,
+      "total": 48,
+    },
+    "term2": {
+      "periodic": 39,
+      "preparatory": 10,
+      "total": 49,
+    },
+    "term3": {
+      "periodic": 86,
+      "preparatory": 10,
+      "total": 96,
+    },
+  },
+  {
+    "grade": "AA",
+    "highestMarksInClass": 194,
+    "id": "sub-4",
+    "overallTotal": 180,
+    "percentage": 90,
+    "subjectName": "Physical Science",
+    "term1": {
+      "periodic": 35,
+      "preparatory": 9,
+      "total": 44,
+    },
+    "term2": {
+      "periodic": 37,
+      "preparatory": 9,
+      "total": 46,
+    },
+    "term3": {
+      "periodic": 80,
+      "preparatory": 10,
+      "total": 90,
+    },
+  },
+  {
+    "grade": "AA",
+    "highestMarksInClass": 195,
+    "id": "sub-5",
+    "overallTotal": 186,
+    "percentage": 93,
+    "subjectName": "Life Science",
+    "term1": {
+      "periodic": 36,
+      "preparatory": 10,
+      "total": 46,
+    },
+    "term2": {
+      "periodic": 38,
+      "preparatory": 10,
+      "total": 48,
+    },
+    "term3": {
+      "periodic": 82,
+      "preparatory": 10,
+      "total": 92,
+    },
+  },
+  {
+    "grade": "A+",
+    "highestMarksInClass": 189,
+    "id": "sub-6",
+    "overallTotal": 170,
+    "percentage": 85,
+    "subjectName": "History",
+    "term1": {
+      "periodic": 33,
+      "preparatory": 9,
+      "total": 42,
+    },
+    "term2": {
+      "periodic": 34,
+      "preparatory": 9,
+      "total": 43,
+    },
+    "term3": {
+      "periodic": 76,
+      "preparatory": 9,
+      "total": 85,
+    },
+  },
+  {
+    "grade": "A+",
+    "highestMarksInClass": 191,
+    "id": "sub-7",
+    "overallTotal": 179,
+    "percentage": 89.5,
+    "subjectName": "Geography",
+    "term1": {
+      "periodic": 35,
+      "preparatory": 9,
+      "total": 44,
+    },
+    "term2": {
+      "periodic": 36,
+      "preparatory": 10,
+      "total": 46,
+    },
+    "term3": {
+      "periodic": 79,
+      "preparatory": 10,
+      "total": 89,
+    },
+  },
+]
+`;
+
+exports[`marksheet calc > subject rows and totals 2`] = `
+{
+  "highestTotalInClass": 1347,
+  "maxPossibleMarks": 1400,
+  "overallGrade": "A+",
+  "overallPercentage": 89.4,
+  "resultStatus": "PROMOTED",
+  "totalMarksObtained": 1251,
+}
+`;
+
+exports[`marksheet calc > subject rows and totals 3`] = `
+{
+  "highestTotalInClass": 0,
+  "maxPossibleMarks": 1400,
+  "overallGrade": "",
+  "overallPercentage": 0,
+  "resultStatus": "DETAINED",
+  "totalMarksObtained": 0,
+}
+`;
+
+exports[`routine helpers > keys and section parsing 1`] = `
+[
+  "IX::A",
+  "xi::Science",
+]
+`;
+
+exports[`routine helpers > keys and section parsing 2`] = `"IX::A::Bengali"`;
+
+exports[`routine helpers > keys and section parsing 3`] = `
+[
+  {
+    "section": "A",
+    "stream": "General",
+  },
+  {
+    "section": "A",
+    "stream": "Science",
+  },
+  {
+    "section": "B",
+    "stream": "Arts",
+  },
+  {
+    "section": "A",
+    "stream": "Commerce",
+  },
+  {
+    "section": "A",
+    "stream": "General",
+  },
+  {
+    "section": "XI A Science",
+    "stream": "General",
+  },
+]
+`;
+
+exports[`welfare > religion helpers 1`] = `
+[
+  [
+    true,
+    true,
+  ],
+  [
+    false,
+    false,
+  ],
+  [
+    true,
+    false,
+  ],
+  [
+    false,
+    false,
+  ],
+  [
+    false,
+    false,
+  ],
+]
+`;
+
+exports[`welfare > scholarship eligibility 1`] = `
+[
+  {
+    "assetSchemes": [
+      {
+        "amount": "Free Bi-Cycle",
+        "category": "All",
+        "colorBadge": "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300",
+        "description": "Free bi-cycle for all students studying in Class IX",
+        "id": "sabooj_sathi",
+        "name": "Sarathi (Bicycle)",
+        "shortCode": "Sarathi",
+        "type": "Asset",
+      },
+    ],
+    "conflicts": [],
+    "eligibleSchemes": [
+      {
+        "amount": "₹1,000/yr",
+        "category": "Girls",
+        "colorBadge": "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300",
+        "description": "Annual incentive for unmarried girls aged 13–18 or enrolled in Class VIII–XII",
+        "id": "kanyashree_k1",
+        "name": "Kanyashree Prakalpa (K1)",
+        "shortCode": "K1",
+        "type": "Incentive",
+      },
+      {
+        "amount": "₹1,500 - ₹3,500/yr",
+        "category": "SC/ST",
+        "colorBadge": "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300",
+        "description": "Pre-Matric scholarship for SC, ST & OBC students in Class IX & X (Passing previous exam required)",
+        "id": "oasis_pre",
+        "name": "OASIS Pre-Matric (SC/ST/OBC)",
+        "shortCode": "OASIS Pre",
+        "type": "Academic",
+      },
+      {
+        "amount": "Free Bi-Cycle",
+        "category": "All",
+        "colorBadge": "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300",
+        "description": "Free bi-cycle for all students studying in Class IX",
+        "id": "sabooj_sathi",
+        "name": "Sarathi (Bicycle)",
+        "shortCode": "Sarathi",
+        "type": "Asset",
+      },
+    ],
+    "incentiveSchemes": [
+      {
+        "amount": "₹1,000/yr",
+        "category": "Girls",
+        "colorBadge": "bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-950/40 dark:text-pink-300",
+        "description": "Annual incentive for unmarried girls aged 13–18 or enrolled in Class VIII–XII",
+        "id": "kanyashree_k1",
+        "name": "Kanyashree Prakalpa (K1)",
+        "shortCode": "K1",
+        "type": "Incentive",
+      },
+    ],
+    "primaryAcademicScheme": {
+      "amount": "₹1,500 - ₹3,500/yr",
+      "category": "SC/ST",
+      "colorBadge": "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300",
+      "description": "Pre-Matric scholarship for SC, ST & OBC students in Class IX & X (Passing previous exam required)",
+      "id": "oasis_pre",
+      "name": "OASIS Pre-Matric (SC/ST/OBC)",
+      "shortCode": "OASIS Pre",
+      "type": "Academic",
+    },
+    "specialSchemes": [],
+  },
+  {
+    "assetSchemes": [],
+    "conflicts": [],
+    "eligibleSchemes": [
+      {
+        "amount": "₹25,000 (One-time)",
+        "category": "Girls",
+        "colorBadge": "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+        "description": "One-time grant for unmarried girls aged 18+ continuing education in Class XII/College",
+        "id": "kanyashree_k2",
+        "name": "Kanyashree Prakalpa (K2)",
+        "shortCode": "K2",
+        "type": "Incentive",
+      },
+      {
+        "amount": "₹1,000/mo (₹12,000/yr)",
+        "category": "Minority",
+        "colorBadge": "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300",
+        "description": "Merit scholarship for Muslim students in Class XI & XII with ≥60% marks",
+        "id": "svmcm",
+        "name": "Swami Vivekananda (SVMCM)",
+        "shortCode": "SVMCM",
+        "type": "Academic",
+      },
+    ],
+    "incentiveSchemes": [
+      {
+        "amount": "₹25,000 (One-time)",
+        "category": "Girls",
+        "colorBadge": "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/40 dark:text-fuchsia-300",
+        "description": "One-time grant for unmarried girls aged 18+ continuing education in Class XII/College",
+        "id": "kanyashree_k2",
+        "name": "Kanyashree Prakalpa (K2)",
+        "shortCode": "K2",
+        "type": "Incentive",
+      },
+    ],
+    "primaryAcademicScheme": {
+      "amount": "₹1,000/mo (₹12,000/yr)",
+      "category": "Minority",
+      "colorBadge": "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300",
+      "description": "Merit scholarship for Muslim students in Class XI & XII with ≥60% marks",
+      "id": "svmcm",
+      "name": "Swami Vivekananda (SVMCM)",
+      "shortCode": "SVMCM",
+      "type": "Academic",
+    },
+    "specialSchemes": [],
+  },
+  {
+    "assetSchemes": [],
+    "conflicts": [],
+    "eligibleSchemes": [],
+    "incentiveSchemes": [],
+    "primaryAcademicScheme": null,
+    "specialSchemes": [],
+  },
+  {
+    "assetSchemes": [],
+    "conflicts": [],
+    "eligibleSchemes": [
+      {
+        "amount": "₹2,500 - ₹5,000/yr",
+        "category": "SC/ST",
+        "colorBadge": "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300",
+        "description": "Post-Matric scholarship for SC, ST & OBC students in Class XI & XII (Passing previous exam required)",
+        "id": "oasis_post",
+        "name": "OASIS Post-Matric (SC/ST/OBC)",
+        "shortCode": "OASIS Post",
+        "type": "Academic",
+      },
+      {
+        "amount": "₹1,000 - ₹3,000/yr",
+        "category": "CWSN",
+        "colorBadge": "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300",
+        "description": "Disability support scholarship for students with ≥40% disability certificate",
+        "id": "cwsn_scholarship",
+        "name": "CWSN Divyangjan Scholarship",
+        "shortCode": "CWSN",
+        "type": "Special",
+      },
+    ],
+    "incentiveSchemes": [],
+    "primaryAcademicScheme": {
+      "amount": "₹2,500 - ₹5,000/yr",
+      "category": "SC/ST",
+      "colorBadge": "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300",
+      "description": "Post-Matric scholarship for SC, ST & OBC students in Class XI & XII (Passing previous exam required)",
+      "id": "oasis_post",
+      "name": "OASIS Post-Matric (SC/ST/OBC)",
+      "shortCode": "OASIS Post",
+      "type": "Academic",
+    },
+    "specialSchemes": [
+      {
+        "amount": "₹1,000 - ₹3,000/yr",
+        "category": "CWSN",
+        "colorBadge": "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300",
+        "description": "Disability support scholarship for students with ≥40% disability certificate",
+        "id": "cwsn_scholarship",
+        "name": "CWSN Divyangjan Scholarship",
+        "shortCode": "CWSN",
+        "type": "Special",
+      },
+    ],
+  },
+  {
+    "assetSchemes": [],
+    "conflicts": [],
+    "eligibleSchemes": [],
+    "incentiveSchemes": [],
+    "primaryAcademicScheme": null,
+    "specialSchemes": [],
+  },
+]
+`;

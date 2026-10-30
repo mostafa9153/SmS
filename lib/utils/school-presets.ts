@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export const DEFAULT_SCHOOL_PRESETS: string[] = [
   "Marigachi Free Primary School",
   "Krishnachandrapur F.P. School",
@@ -26,20 +27,6 @@ export function getSavedSchoolPresets(): string[] {
   return DEFAULT_SCHOOL_PRESETS;
 }
 
-export function saveSchoolPresets(items: string[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: items }));
-  } catch (e) {
-    console.error("Failed to save school presets to storage", e);
-  }
-
-  saveSchoolPresetsToDb(items).catch((err) => {
-    console.warn("Background DB sync for school presets failed:", err);
-  });
-}
-
 export async function fetchSchoolPresetsFromDb(): Promise<string[]> {
   try {
     const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
@@ -58,27 +45,8 @@ export async function fetchSchoolPresetsFromDb(): Promise<string[]> {
 }
 
 export async function saveSchoolPresetsToDb(items: string[]): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(SCHOOL_PRESETS_STORAGE_KEY, JSON.stringify(items));
-    window.dispatchEvent(new CustomEvent(SCHOOL_PRESETS_EVENT, { detail: items }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "school_presets",
-        value: items,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post school presets to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("school_presets", items, {
+    label: "School presets saved",
+    mirror: { storageKey: SCHOOL_PRESETS_STORAGE_KEY, event: SCHOOL_PRESETS_EVENT, detail: true },
+  });
 }

@@ -3,32 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  GraduationCap,
-  ArrowLeft,
-  Mail,
-  Phone,
-  Calendar,
-  BookOpen,
-  MapPin,
-  Key,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
-  Award,
-  UserCheck,
-  IndianRupee,
-  Lock,
-  Eye,
-  EyeOff,
-  Pencil,
-  LogOut,
-  CreditCard,
-  Briefcase,
-  User,
-  ShieldCheck,
-} from "lucide-react";
+import { GraduationCap, Mail, Phone, Calendar, BookOpen, MapPin, Key, CheckCircle2, AlertCircle, UserCheck, IndianRupee, Lock, Eye, EyeOff, Pencil, LogOut, CreditCard, Briefcase, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +16,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { createClient } from "@/lib/supabase/client";
 import { calculateDetailedAge, cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch, ApiError } from "@/lib/api/client";
 
 export default function UniversalProfilePage() {
   const router = useRouter();
@@ -59,16 +38,12 @@ export default function UniversalProfilePage() {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/auth/profile");
-      const data = await res.json();
-      if (data.success) {
-        setProfileData(data);
-        setFullNameInput(data.user?.fullName || data.staff?.full_name || "");
-      } else {
-        router.replace("/login");
-      }
+      const data = await apiFetch<any>("/api/auth/profile");
+      setProfileData(data);
+      setFullNameInput(data.user?.fullName || data.staff?.full_name || "");
     } catch (err) {
       console.error("Error loading profile:", err);
+      if (err instanceof ApiError) router.replace("/login");
     } finally {
       setLoading(false);
     }
@@ -105,20 +80,11 @@ export default function UniversalProfilePage() {
 
     setUpdatingPassword(true);
     try {
-      const res = await fetch("/api/auth/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSuccessMsg("Profile and credentials updated successfully!");
-        setNewPassword("");
-        setConfirmPassword("");
-        loadProfile();
-      } else {
-        setErrorMsg(data.error || "Failed to update profile.");
-      }
+      await apiFetch("/api/auth/profile", { method: "PATCH", json: payload });
+      setSuccessMsg("Profile and credentials updated successfully!");
+      setNewPassword("");
+      setConfirmPassword("");
+      loadProfile();
     } catch (err: any) {
       setErrorMsg(err.message || "An error occurred while updating profile.");
     } finally {
@@ -135,7 +101,7 @@ export default function UniversalProfilePage() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center text-foreground">
         <div className="flex flex-col items-center gap-3">
-          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <Spinner className="h-8 w-8 text-primary" />
           <p className="text-xs font-semibold text-muted-foreground">Loading Profile...</p>
         </div>
       </div>
@@ -213,22 +179,11 @@ export default function UniversalProfilePage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto animate-fade-in-up">
       {/* Top Header / Actions Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border/60">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-card hover:bg-muted text-muted-foreground hover:text-foreground border border-border/80 text-xs font-semibold transition-colors shadow-2xs cursor-pointer"
-          >
-            <ArrowLeft className="h-4 w-4 text-primary" />
-            <span>Back</span>
-          </button>
-          <div className="h-4 w-px bg-border/60" />
-          <h1 className="text-base font-bold text-foreground tracking-tight">
-            Faculty / Staff Profile
-          </h1>
-        </div>
-
+      <PageHeader
+        title="Faculty / Staff Profile"
+        back
+        className="pb-2 border-b border-border/60"
+        actions={
         <div className="flex items-center gap-2">
           <Link
             href="/profile/edit"
@@ -251,7 +206,8 @@ export default function UniversalProfilePage() {
             <span className="hidden sm:inline">Sign Out</span>
           </Button>
         </div>
-      </div>
+        }
+      />
 
       {/* Profile Identity Card */}
       <section className="p-6 rounded-3xl bg-card border border-border/80 relative overflow-hidden shadow-xs">
@@ -735,7 +691,7 @@ export default function UniversalProfilePage() {
               disabled={updatingPassword}
               className="h-9 px-5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs cursor-pointer gap-1.5 shadow-xs"
             >
-              {updatingPassword ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Key className="h-3.5 w-3.5" />}
+              {updatingPassword ? <Spinner className="h-3.5 w-3.5" /> : <Key className="h-3.5 w-3.5" />}
               <span>Save & Update Password</span>
             </Button>
           </div>

@@ -14,7 +14,8 @@ import {
   schoolProfileToSchoolInfo,
 } from "@/components/admission-form/types";
 import { getSavedSchoolProfile } from "@/lib/utils/school-profile";
-import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
+import { PrintPreview } from "@/components/print/print-preview";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface ViewApplicationFormDialogProps {
   open: boolean;
@@ -61,7 +62,7 @@ export function ViewApplicationFormDialog({
   // Map application to Form V-IX data
   const formVIxData: AdmissionFormVIxData = {
     formNo: formNumber,
-    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    academicYear: application.academicYear || (application as any).academic_year || String(currentYearIST()),
     admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
       slNo: formNumber,
@@ -126,7 +127,7 @@ export function ViewApplicationFormDialog({
   // Map application to Form XI data
   const formXIData: AdmissionFormXIData = {
     formNo: formNumber,
-    academicYear: application.academicYear || (application as any).academic_year || "2026",
+    academicYear: application.academicYear || (application as any).academic_year || String(currentYearIST()),
     admissionType: application.admissionType || (application as any).admission_type || "new",
     officeUse: {
       doa: application.admissionDate || (application.admittedAt ? application.admittedAt.split("T")[0] : ""),
@@ -189,6 +190,12 @@ export function ViewApplicationFormDialog({
     window.print();
   };
 
+  const printableForm = isClassXIorXII ? (
+    <AdmissionFormXIPrintableView data={formXIData} school={schoolInfo} activePage="all" />
+  ) : (
+    <AdmissionFormVIxPrintableView data={formVIxData} school={schoolInfo} activePage="all" />
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl w-[98vw] max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-3xl">
@@ -217,21 +224,12 @@ export function ViewApplicationFormDialog({
           </div>
         </DialogHeader>
 
-        {/* Form Container with Pinch Zoom */}
-        <div className="p-2 sm:p-4 rounded-2xl overflow-hidden flex justify-center print:bg-white print:p-0">
-          <PinchZoomViewer
-            minScale={0.5}
-            maxScale={2.5}
-            canvasClassName="bg-slate-100 dark:bg-slate-900/50 p-2 sm:p-4 rounded-2xl"
-          >
-            <div className="bg-white shadow-xl rounded-xl overflow-hidden print:shadow-none print:m-0 print:p-0">
-              {isClassXIorXII ? (
-                <AdmissionFormXIPrintableView data={formXIData} school={schoolInfo} activePage="all" />
-              ) : (
-                <AdmissionFormVIxPrintableView data={formVIxData} school={schoolInfo} activePage="all" />
-              )}
-            </div>
-          </PinchZoomViewer>
+        {/* Preview (shared zoom/drag/fit); the hidden copy below is what prints */}
+        <div className="p-2 sm:p-4 print:bg-white print:p-0">
+          <PrintPreview fill resetKey={application.applicationNo} className="h-[70vh]">
+            <div className="bg-white shadow-xl rounded-xl overflow-hidden">{printableForm}</div>
+          </PrintPreview>
+          <div className="hidden print:block bg-white">{printableForm}</div>
         </div>
       </DialogContent>
     </Dialog>

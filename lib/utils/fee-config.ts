@@ -38,7 +38,7 @@ export interface InvoiceData {
 /**
  * Section 1: Class 5 to 8 Default standard fee heads
  */
-export const DEFAULT_FEE_ITEMS_V_VIII: FeeItem[] = [
+const DEFAULT_FEE_ITEMS_V_VIII: FeeItem[] = [
   { id: "fee-dev", name: "School Development Fund", amount: 24 },
   { id: "fee-sports", name: "Games & Sports Fund", amount: 6 },
   { id: "fee-library", name: "Library & Reading Room Fund", amount: 5 },
@@ -52,7 +52,7 @@ export const DEFAULT_FEE_ITEMS_V_VIII: FeeItem[] = [
 /**
  * Section 2: Class 9 to 10 Default standard fee heads
  */
-export const DEFAULT_FEE_ITEMS_IX_X: FeeItem[] = [
+const DEFAULT_FEE_ITEMS_IX_X: FeeItem[] = [
   { id: "fee-dev", name: "School Development Fund", amount: 24 },
   { id: "fee-sports", name: "Games & Sports Fund", amount: 6 },
   { id: "fee-library", name: "Library & Reading Room Fund", amount: 5 },
@@ -66,7 +66,7 @@ export const DEFAULT_FEE_ITEMS_IX_X: FeeItem[] = [
 /**
  * Section 3: Class 11 to 12 Default standard fee heads
  */
-export const DEFAULT_FEE_ITEMS_XI_XII: FeeItem[] = [
+const DEFAULT_FEE_ITEMS_XI_XII: FeeItem[] = [
   { id: "fee-dev", name: "School Development Fund", amount: 50 },
   { id: "fee-sports", name: "Games & Sports Fund", amount: 20 },
   { id: "fee-library", name: "Library & Reading Room Fund", amount: 20 },
@@ -83,7 +83,7 @@ const FEE_STORAGE_KEY = "sms_admission_fee_structure";
 
 export type FeeCategory = "V-VIII" | "IX-X" | "XI-XII";
 
-export interface FeeSectionConfig {
+interface FeeSectionConfig {
   id: FeeCategory;
   label: string;
   shortLabel: string;
@@ -158,7 +158,7 @@ export function getFeeCategoryForClass(className: string): FeeCategory {
 /**
  * Returns default items for a category
  */
-export function getDefaultFeeStructure(category: FeeCategory = "V-VIII"): FeeItem[] {
+function getDefaultFeeStructure(category: FeeCategory = "V-VIII"): FeeItem[] {
   if (category === "IX-X") return DEFAULT_FEE_ITEMS_IX_X;
   if (category === "XI-XII") return DEFAULT_FEE_ITEMS_XI_XII;
   return DEFAULT_FEE_ITEMS_V_VIII;

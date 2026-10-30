@@ -7,23 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import {
-  ArrowLeft,
-  Camera,
-  Upload,
-  User,
-  Receipt,
-  CheckCircle2,
-  Loader2,
-  Sparkles,
-  Layers,
-  GraduationCap,
-} from "lucide-react";
+import { ArrowLeft, Camera, Upload, User, Receipt, CheckCircle2, Sparkles, Layers, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { normalizeClass } from "@/lib/academic/class-ladder";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
 
 interface Step4FinalizeProps {
   onBack: () => void;
@@ -64,8 +55,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
   // Active session year from admission settings
   useEffect(() => {
     let active = true;
-    fetch("/api/admission/settings")
-      .then((r) => (r.ok ? r.json() : null))
+    apiFetch<{ settings?: { currentAcademicYear?: number | string } }>("/api/admission/settings")
       .then((d) => {
         const y = Number(d?.settings?.currentAcademicYear);
         if (active && y > 0) setCurrentYear(y);
@@ -109,9 +99,8 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
     const fetchInvoiceSeq = async () => {
       setIsFetchingInvoice(true);
       try {
-        const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
-        const data = await res.json();
-        if (active && res.ok && typeof data.nextSequence === "number") {
+        const data = await apiFetch<{ nextSequence?: number }>(`/api/invoices/next-sequence?year=${currentYear}`);
+        if (active && typeof data.nextSequence === "number") {
           setInvoiceNo(generateInvoiceNumber(data.nextSequence, currentYear));
         } else if (active) {
           setInvoiceNo(generateInvoiceNumber(1, currentYear));
@@ -197,7 +186,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
         >
           {isSubmitting ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
               <span>Processing...</span>
             </>
           ) : (
@@ -250,7 +239,7 @@ export function Step4Finalize({ onBack, onAdmit, studentData }: Step4FinalizePro
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-muted-foreground">New Roll No</label>
-                    {isAutoCalculatingRoll && <Loader2 className="w-2.5 h-2.5 animate-spin text-primary" />}
+                    {isAutoCalculatingRoll && <Spinner className="w-2.5 h-2.5 text-primary" />}
                   </div>
                   <Input
                     type="number"

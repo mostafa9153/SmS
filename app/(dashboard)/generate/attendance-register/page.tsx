@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, Suspense } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { useSchoolProfile } from "@/lib/utils/school-profile";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets } from "@/lib/utils/marks-config";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { usePrintPortal } from "@/lib/hooks/use-print-portal";
 import {
   Select,
   SelectContent,
@@ -15,29 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import {
   AttendanceRegisterPrintable,
   ACTIVE_STATUSES,
 } from "@/components/students/attendance-register-printable";
 import type { Student } from "@/lib/types";
-import {
-  ArrowLeft,
-  Printer,
-  ChevronDown,
-  Users,
-  Loader2,
-  Save,
-} from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { ZoomPanViewport } from "@/components/generate/zoom-pan-viewport";
+import { Printer, Users } from "lucide-react";
+import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
+import { usePaperSettings } from "@/components/print/use-paper-settings";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
 
-type PaperSize = "A5" | "A4" | "A3";
-type PaperOrientation = "portrait" | "landscape";
-interface PrintMargins { top: number; right: number; bottom: number; left: number; }
-const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 }, A4: { w: 210, h: 297 }, A3: { w: 297, h: 420 },
-};
 
 function AttendanceRegisterContent() {
   const searchParams = useSearchParams();
@@ -49,33 +38,13 @@ function AttendanceRegisterContent() {
   const [selectedSection, setSelectedSection] = useState(
     searchParams.get("section") || "A"
   );
-  const [paper, setPaper] = useState<PaperSize>("A4");
-  const [orientation, setOrientation] = useState<PaperOrientation>("landscape");
-  const [margins, setMargins] = useState<PrintMargins>({ top: 5, right: 5, bottom: 5, left: 5 });
-  const [paperOpen, setPaperOpen] = useState(false);
+  const paperSettings = usePaperSettings("attendance-paper-settings", {
+    paper: "A4",
+    orientation: "landscape",
+    margins: { top: 5, right: 5, bottom: 5, left: 5 },
+  });
+  const { paper, orientation, margins, pageW, pageH } = paperSettings;
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("attendance-paper-settings");
-      if (saved) {
-        const s = JSON.parse(saved);
-        if (s.paper) setPaper(s.paper as PaperSize);
-        if (s.orientation) setOrientation(s.orientation as PaperOrientation);
-        if (s.margins) setMargins(s.margins);
-      }
-    } catch {}
-  }, []);
-  const savePaperSettings = () => {
-    try {
-      localStorage.setItem("attendance-paper-settings", JSON.stringify({ paper, orientation, margins }));
-    } catch {}
-  };
-  const updateMargin = (side: keyof PrintMargins, raw: string) => {
-    const value = Math.max(0, Number(raw) || 0);
-    setMargins((prev) => ({ ...prev, [side]: value }));
-  };
-  const pageW = orientation === "landscape" ? PAPER_MM[paper].h : PAPER_MM[paper].w;
-  const pageH = orientation === "landscape" ? PAPER_MM[paper].w : PAPER_MM[paper].h;
 
   const { profile: schoolProfile } = useSchoolProfile();
 
@@ -108,44 +77,13 @@ function AttendanceRegisterContent() {
 
   const isEmpty = !isLoading && students.length === 0;
 
-  const portalRef = useRef<HTMLDivElement | null>(null);
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => {
-    let el = document.getElementById("attendance-register-print-portal") as HTMLDivElement | null;
-    if (!el) {
-      el = document.createElement("div");
-      el.id = "attendance-register-print-portal";
-      document.body.appendChild(el);
-    }
-    portalRef.current = el;
-    setPortalReady(true);
-    return () => {
-      if (el && el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-      portalRef.current = null;
-    };
-  }, []);
+  const portalEl = usePrintPortal("attendance-register-print-portal");
 
   return (
     <div className="p-3 sm:p-5 max-w-[1700px] mx-auto grid grid-cols-1 lg:grid-cols-[250px_1fr] gap-4 items-start print:block print:p-0 print:m-0 print:max-w-none">
       {/* Sidebar */}
       <aside className="order-2 lg:order-1 print:hidden lg:sticky lg:top-4 space-y-3 bg-card border rounded-2xl p-3 shadow-2xs">
-        <div className="flex items-center gap-2">
-          <Link
-            href="/generate"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              "h-8 w-8 rounded-xl shrink-0"
-            )}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <h1 className="text-base font-bold tracking-tight">
-            Attendance Register
-          </h1>
-        </div>
+        <PageHeader back="/generate" title="Attendance Register" />
 
         <div className="space-y-2 border-t pt-3">
           <p className="px-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -196,7 +134,7 @@ function AttendanceRegisterContent() {
         <div className="flex items-center gap-2 px-1 text-xs text-muted-foreground">
           <Users className="h-3.5 w-3.5" />
           {isLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Spinner className="h-3.5 w-3.5" />
           ) : (
             <span className="font-semibold">
               {students.length} active student{students.length !== 1 ? "s" : ""}
@@ -206,58 +144,7 @@ function AttendanceRegisterContent() {
 
         {/* Paper & Margin + Print */}
         <div className="border-t pt-2 space-y-2">
-          <button
-            type="button"
-            onClick={() => setPaperOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-1 py-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <span>Paper &amp; Margin</span>
-            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", paperOpen && "rotate-180")} />
-          </button>
-          {paperOpen && (
-            <div className="space-y-2 pt-1">
-              <Select value={paper} onValueChange={(v) => v && setPaper(v as PaperSize)}>
-                <SelectTrigger className="w-full h-8 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A5">A5</SelectItem>
-                  <SelectItem value="A4">A4</SelectItem>
-                  <SelectItem value="A3">A3</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={orientation} onValueChange={(v) => v && setOrientation(v as PaperOrientation)}>
-                <SelectTrigger className="w-full h-8 text-xs capitalize"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="portrait">Portrait</SelectItem>
-                  <SelectItem value="landscape">Landscape</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="px-1 text-[10px] font-semibold text-muted-foreground">Margin (mm)</p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {(["top", "right", "bottom", "left"] as const).map((side) => (
-                  <label key={side} className="space-y-0.5">
-                    <span className="px-1 text-[10px] capitalize text-muted-foreground">{side}</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step={1}
-                      value={margins[side]}
-                      onChange={(e) => updateMargin(side, e.target.value)}
-                      className="h-8 text-xs"
-                    />
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={savePaperSettings}
-                className="w-full mt-1 h-8 flex items-center justify-center gap-1.5 text-xs font-semibold border rounded-lg hover:bg-accent transition-colors"
-              >
-                <Save className="h-3.5 w-3.5" />
-                Save Settings
-              </button>
-            </div>
-          )}
+          <PaperSettingsPanel settings={paperSettings} orientations variant="bare" />
           <Button
             onClick={() => window.print()}
             disabled={isEmpty || isLoading}
@@ -272,7 +159,7 @@ function AttendanceRegisterContent() {
       {isLoading ? (
         <div className="min-w-0 w-full flex justify-center items-center h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 bg-muted/15 border rounded-2xl print:hidden">
           <div className="text-center text-xs text-muted-foreground flex flex-col items-center gap-2">
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Spinner className="h-5 w-5" />
             Loading students...
           </div>
         </div>
@@ -285,7 +172,7 @@ function AttendanceRegisterContent() {
           No active students in Class {selectedClass}-{selectedSection}.
         </div>
       ) : (
-        <ZoomPanViewport
+        <PrintPreview
           fitMode="width"
           resetKey={`${selectedClass}-${selectedSection}-${paper}-${orientation}`}
           className="min-w-0 w-full h-[46dvh] sm:h-[52dvh] lg:h-[calc(100dvh-2rem)] sticky top-2 lg:top-4 z-20 order-1 lg:order-2 print:hidden"
@@ -296,20 +183,20 @@ function AttendanceRegisterContent() {
             section={selectedSection}
             schoolLogoUrl={schoolProfile?.schoolLogoUrl || "/school-logo.png"}
           />
-        </ZoomPanViewport>
+        </PrintPreview>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: `@media print { @page { size: ${pageW}mm ${pageH}mm; margin: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm; } }` }} />
+      <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
 
       {/* Print portal: rendered at body level so print CSS can isolate it */}
-      {portalReady && portalRef.current && !isEmpty && !isLoading && createPortal(
+      {portalEl && !isEmpty && !isLoading && createPortal(
         <AttendanceRegisterPrintable
           students={students}
           className={selectedClass}
           section={selectedSection}
           schoolLogoUrl={schoolProfile?.schoolLogoUrl || "/school-logo.png"}
         />,
-        portalRef.current
+        portalEl
       )}
     </div>
   );
@@ -320,7 +207,7 @@ export default function AttendanceRegisterPage() {
     <Suspense
       fallback={
         <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <Spinner className="h-6 w-6 text-muted-foreground" />
         </div>
       }
     >

@@ -17,7 +17,10 @@ import { issueTransferCertificate } from "@/lib/data/students";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, FileText, Printer, AlertTriangle } from "lucide-react";
+import { FileText, Printer, AlertTriangle } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
+import { toastWithUndo } from "@/lib/undo/client";
 
 const TC_REASONS = [
   { label: "Transfer / Parent Relocation", value: "Transfer / Parent Relocation" },
@@ -42,7 +45,7 @@ export function IssueTcDialog({
 }: IssueTcDialogProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = todayIST();
 
   const [tcDate, setTcDate] = useState<string>(todayStr);
   const [tcReason, setTcReason] = useState<string>("Transfer / Parent Relocation");
@@ -63,17 +66,20 @@ export function IssueTcDialog({
     if (!student) return;
     setIsSubmitting(true);
     try {
-      await issueTransferCertificate(student.id, {
+      const res = await issueTransferCertificate(student.id, {
         tcDate,
         tcReason,
         tcNo: tcNo.trim() || undefined,
       });
 
-      toast.success(`Transfer Certificate issued for ${student.name}. Moved to Old Register.`);
-      queryClient.invalidateQueries({ queryKey: ["students"] });
-      queryClient.invalidateQueries({ queryKey: ["pending-students"] });
-      queryClient.invalidateQueries({ queryKey: ["old-students"] });
-      queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+      const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ["students"] });
+        queryClient.invalidateQueries({ queryKey: ["pending-students"] });
+        queryClient.invalidateQueries({ queryKey: ["old-students"] });
+        queryClient.invalidateQueries({ queryKey: ["students-infinite"] });
+      };
+      toastWithUndo(`Transfer Certificate issued for ${student.name}. Moved to Old Register.`, res.undoId, refresh);
+      refresh();
 
       onOpenChange(false);
       onSuccess?.();
@@ -172,7 +178,7 @@ export function IssueTcDialog({
             disabled={isSubmitting}
             className="text-xs h-8 gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
           >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+            {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <Printer className="h-3.5 w-3.5" />}
             Issue &amp; Print TC
           </Button>
 
@@ -183,7 +189,7 @@ export function IssueTcDialog({
             disabled={isSubmitting}
             className="text-xs h-8 gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
           >
-            {isSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            {isSubmitting ? <Spinner className="h-3.5 w-3.5" /> : <FileText className="h-3.5 w-3.5" />}
             Confirm TC Out
           </Button>
         </DialogFooter>

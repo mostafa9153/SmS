@@ -5,6 +5,7 @@ import {
   SchoolInfo,
   DEFAULT_SCHOOL_INFO,
 } from "./types";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 interface AdmissionFormVIxPrintableViewProps {
   data: AdmissionFormVIxData;
@@ -125,7 +126,7 @@ export function AdmissionFormVIxPrintableView({
               {/* Center Title */}
               <div className="flex-1 flex flex-col items-center justify-center text-center px-2">
                 <h2 className="text-[20px] font-black text-black tracking-tight">
-                  Academic Year: {data.academicYear || "2026"}
+                  Academic Year: {data.academicYear || String(currentYearIST())}
                 </h2>
                 <h3 className="text-[18px] font-black uppercase tracking-wider text-black mt-2 underline decoration-2 underline-offset-4">
                   {data.customHeaderTitle

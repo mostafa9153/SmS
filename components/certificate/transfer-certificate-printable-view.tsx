@@ -10,6 +10,7 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface TransferCertificateData {
   certificateNo: string;
@@ -314,7 +315,7 @@ export function TransferCertificatePrintableView({
           <p>
             {pronounSubject} was studying in Class{" "}
             <span className="font-bold text-[#1e3a8a] border-b border-dotted border-slate-700 px-1">{data.readingClass || "IX"}</span> during the academic session{" "}
-            <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">{data.academicSession || "2026"}</span>, and{" "}
+            <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">{data.academicSession || String(currentYearIST())}</span>, and{" "}
             {data.isCourseCompleted ? (
               <span className="font-semibold text-slate-950">has successfully completed the school course of studies</span>
             ) : data.hasPassedAnnualExam ? (

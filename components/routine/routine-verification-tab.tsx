@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export interface AuditIssue {
+interface AuditIssue {
   id: string;
   type: "error" | "warning" | "info";
   category:
@@ -65,7 +65,6 @@ interface RoutineVerificationTabProps {
   classes: RoutineClass[];
   subjects: RoutineSubject[];
   teachers: RoutineTeacher[];
-  assignments: RoutineAssignment[];
   rooms: RoutineRoom[];
   groups?: RoutineSubjectGroup[];
   onSaveAssignments?: (assignments: RoutineAssignment[]) => Promise<void>;
@@ -76,7 +75,6 @@ export function RoutineVerificationTab({
   classes = [],
   subjects = [],
   teachers = [],
-  assignments = [],
   rooms = [],
   groups = [],
   onSaveAssignments,
@@ -101,11 +99,11 @@ export function RoutineVerificationTab({
     return total;
   }, [settings]);
 
-  // Compute active / effective assignments
-  const activeAssignments = useMemo(() => {
-    if (assignments.length > 0) return assignments;
-    return autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups);
-  }, [assignments, classes, subjects, teachers, settings, rooms, groups]);
+  // Always derived from the Teachers tab; saved rows can be older than the current setup
+  const activeAssignments = useMemo(
+    () => autoBuildRoutineAssignments(classes, subjects, teachers, settings, rooms, groups),
+    [classes, subjects, teachers, settings, rooms, groups]
+  );
 
   // Teacher Load Map
   const teacherLoadMap = useMemo(() => {
@@ -138,7 +136,6 @@ export function RoutineVerificationTab({
       teachers,
       classes,
       subjects,
-      activeAssignments,
       groups
     );
 

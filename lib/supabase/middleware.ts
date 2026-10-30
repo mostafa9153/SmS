@@ -52,13 +52,20 @@ export async function updateSession(request: NextRequest) {
     pathname.endsWith(".woff2") ||
     pathname.endsWith(".woff");
 
-  // For API routes and static assets, bypass authentication redirects
-  if (isApiRoute || isStaticAsset) {
+  // Public admission form (/apply/<token>) needs no session; its API checks the token.
+  const isPublicPage = pathname.startsWith("/apply/");
+
+  // For API routes, public pages and static assets, bypass authentication redirects
+  if (isApiRoute || isPublicPage || isStaticAsset) {
     return supabaseResponse;
   }
 
   // Refresh user token - essential for UI page auth checks and redirects
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims() verifies the JWT locally when the project uses asymmetric signing keys
+  // (no Auth server round trip on every navigation) and falls back to getUser() otherwise.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  const user = userId ? { id: userId } : null;
 
   // Helper to get cached user role
   async function resolveUserRole(uid: string): Promise<string | null> {

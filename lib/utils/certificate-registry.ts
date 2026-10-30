@@ -2,11 +2,9 @@ import type {
   DBCertificateInsert,
   DBCertificateRow,
   CertificateStats,
-  CertificateType,
 } from "@/lib/supabase/db-certificates";
 import type { CharacterCertificateData } from "@/components/certificate/certificate-printable-view";
 import type { PassCertificateData } from "@/components/certificate/pass-certificate-printable-view";
-import type { TransferCertificateData } from "@/components/certificate/transfer-certificate-printable-view";
 import type { KanyashreeCertificateData } from "@/components/certificate/kanyashree-certificate-printable-view";
 import type { BonafideCertificateData } from "@/components/certificate/bonafide-certificate-printable-view";
 
@@ -31,7 +29,7 @@ export function getLocalCachedCertificates(): DBCertificateRow[] {
 /**
  * Save certificate(s) to localStorage cache
  */
-export function saveLocalCachedCertificates(certs: DBCertificateInsert[]) {
+function saveLocalCachedCertificates(certs: DBCertificateInsert[]) {
   if (typeof window === "undefined" || !certs.length) return;
   try {
     const current = getLocalCachedCertificates();
@@ -192,50 +190,6 @@ export function buildPassCertInsert(
       district: data.district,
       pincode: data.pincode,
       remarks: data.remarks,
-    },
-  };
-}
-
-/**
- * Adapter: Transfer Certificate (TC)
- */
-export function buildTransferCertInsert(
-  data: TransferCertificateData,
-  academicSession: string
-): DBCertificateInsert {
-  return {
-    certificate_no: data.certificateNo,
-    certificate_type: "transfer-certificate",
-    academic_session: academicSession,
-    issue_date: data.issueDate,
-    student_id: data.studentId || null,
-    student_name: data.studentName || "Unnamed Student",
-    gender: data.gender || null,
-    father_name: data.fatherName || null,
-    student_class: data.readingClass || "General",
-    section: null,
-    roll_no: null,
-    date_of_birth: data.dateOfBirth || null,
-    copy_type: data.copyType || "Original",
-    status: "Valid",
-    metadata: {
-      readingClass: data.readingClass,
-      dateOfLeaving: data.dateOfLeaving,
-      hasPassedAnnualExam: data.hasPassedAnnualExam,
-      promotedClass: data.promotedClass,
-      isCourseCompleted: data.isCourseCompleted,
-      feesClearedUpToDate: data.feesClearedUpToDate,
-      conduct: data.conduct,
-      selectedReasonIndex: data.selectedReasonIndex,
-      customReason: data.customReason,
-      dateOfBirthDayWords: data.dateOfBirthDayWords,
-      dateOfBirthMonthWords: data.dateOfBirthMonthWords,
-      dateOfBirthYearWords: data.dateOfBirthYearWords,
-      village: data.village,
-      postOffice: data.postOffice,
-      policeStation: data.policeStation,
-      district: data.district,
-      pincode: data.pincode,
     },
   };
 }

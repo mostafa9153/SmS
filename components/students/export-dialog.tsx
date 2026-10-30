@@ -1,18 +1,9 @@
 "use client";
 
+import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Download,
-  FileSpreadsheet,
-  CheckSquare,
-  Square,
-  Sparkles,
-  Loader2,
-  Check,
-  ExternalLink,
-  RotateCcw,
-} from "lucide-react";
+import { Download, FileSpreadsheet, CheckSquare, Square, Sparkles, Check, ExternalLink, RotateCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +18,8 @@ import { getKanyashreeCategory } from "@/lib/utils";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
 import type { Student, StudentFilters } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { todayIST } from "@/lib/utils/date";
 
 interface ExportColumn {
   id: string;
@@ -232,7 +225,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
       const filtered = res.data || [];
 
       if (filtered.length === 0) {
-        alert("No students found matching the applied filters.");
+        toast.error("No students found matching the applied filters.");
         return;
       }
 
@@ -250,7 +243,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
 
-      const timestamp = new Date().toISOString().split("T")[0];
+      const timestamp = todayIST();
       const filterTag = activeFilters.class ? `_Class_${activeFilters.class}` : "";
       const filename = `Students_Report${filterTag}_${timestamp}.${fileFormat}`;
 
@@ -262,7 +255,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
 
       onOpenChange(false);
     } catch (err: any) {
-      alert(`Export failed: ${err.message}`);
+      toast.error(`Export failed: ${err.message}`);
     } finally {
       setIsExporting(false);
     }
@@ -490,7 +483,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
             >
               {isExporting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner className="h-4 w-4" />
                   Generating...
                 </>
               ) : (

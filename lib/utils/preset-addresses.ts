@@ -1,3 +1,4 @@
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 export interface PostOfficeOption {
   name: string;
   pincode: string;
@@ -12,7 +13,7 @@ export interface AddressPresetsConfig {
   districts: string[];
 }
 
-export const DEFAULT_VILLAGES: string[] = [
+const DEFAULT_VILLAGES: string[] = [
   "Marigachi",
   "Krishnachandrapur",
   "Khakurdaha",
@@ -20,7 +21,7 @@ export const DEFAULT_VILLAGES: string[] = [
   "Radhakantapur",
 ];
 
-export const DEFAULT_GRAM_PANCHAYATS: string[] = [
+const DEFAULT_GRAM_PANCHAYATS: string[] = [
   "Khakurdaha",
   "Mathurapur",
   "Raidighi",
@@ -30,7 +31,7 @@ export const DEFAULT_GRAM_PANCHAYATS: string[] = [
   "Radhakantapur",
 ];
 
-export const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
+const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
   { name: "Marigachi", pincode: "743349" },
   { name: "Mathurapur", pincode: "743354" },
   { name: "Khakurdaha", pincode: "743349" },
@@ -38,7 +39,7 @@ export const DEFAULT_POST_OFFICES: PostOfficeOption[] = [
   { name: "Radhakantapur", pincode: "743349" },
 ];
 
-export const DEFAULT_BLOCKS: string[] = [
+const DEFAULT_BLOCKS: string[] = [
   "Mathurapur-I",
   "Mathurapur-II",
   "Mandirbazar",
@@ -50,7 +51,7 @@ export const DEFAULT_BLOCKS: string[] = [
   "Kakdwip",
 ];
 
-export const DEFAULT_POLICE_STATIONS: string[] = [
+const DEFAULT_POLICE_STATIONS: string[] = [
   "Mathurapur",
   "Mandirbazar",
   "Kulpi",
@@ -60,7 +61,7 @@ export const DEFAULT_POLICE_STATIONS: string[] = [
   "Jaynagar",
 ];
 
-export const DEFAULT_DISTRICTS: string[] = [
+const DEFAULT_DISTRICTS: string[] = [
   "South 24 Parganas",
   "North 24 Parganas",
   "Kolkata",
@@ -190,20 +191,6 @@ export function getSavedAddressPresetsConfig(): AddressPresetsConfig {
   return DEFAULT_ADDRESS_PRESETS_CONFIG;
 }
 
-export function saveAddressPresetsConfig(config: AddressPresetsConfig): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: config }));
-  } catch (e) {
-    console.error("Failed to save address presets config to storage", e);
-  }
-
-  saveAddressPresetsConfigToDb(config).catch((err) => {
-    console.warn("Background DB sync for address presets config failed:", err);
-  });
-}
-
 export async function fetchAddressPresetsConfigFromDb(): Promise<AddressPresetsConfig> {
   try {
     const { getSchoolConfigKey } = await import("@/lib/utils/school-config-client");
@@ -230,27 +217,8 @@ export async function fetchAddressPresetsConfigFromDb(): Promise<AddressPresetsC
 }
 
 export async function saveAddressPresetsConfigToDb(config: AddressPresetsConfig): Promise<boolean> {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(ADDRESS_CONFIG_STORAGE_KEY, JSON.stringify(config));
-    window.dispatchEvent(new CustomEvent(ADDRESS_CONFIG_EVENT, { detail: config }));
-  }
-
-  try {
-    const res = await fetch("/api/school-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        key: "address_presets_config",
-        value: config,
-      }),
-    });
-    if (res.ok) {
-      const { invalidateSchoolConfigClientCache } = await import("@/lib/utils/school-config-client");
-      invalidateSchoolConfigClientCache();
-    }
-    return res.ok;
-  } catch (err) {
-    console.error("Failed to post address presets config to DB:", err);
-    return false;
-  }
+  return saveSchoolConfig("address_presets_config", config, {
+    label: "Address presets saved",
+    mirror: { storageKey: ADDRESS_CONFIG_STORAGE_KEY, event: ADDRESS_CONFIG_EVENT, detail: true },
+  });
 }

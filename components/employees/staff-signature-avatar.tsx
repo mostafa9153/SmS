@@ -5,6 +5,8 @@ import { PenTool, Trash2, FileSignature, CheckCircle2 } from "lucide-react";
 import { StaffSignatureModal } from "./staff-signature-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { apiFetch } from "@/lib/api/client";
 
 interface StaffSignatureAvatarProps {
   staffId: string;
@@ -21,6 +23,7 @@ export function StaffSignatureAvatar({
   onSignatureUpdated,
   className,
 }: StaffSignatureAvatarProps) {
+  const confirm = useConfirm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState<string | undefined>(signatureUrl || undefined);
   const [imageError, setImageError] = useState(false);
@@ -46,17 +49,11 @@ export function StaffSignatureAvatar({
 
   const handleQuickDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm(`Are you sure you want to remove the signature for ${staffName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the signature for ${staffName}?`, destructive: true })) {
       return;
     }
     try {
-      const res = await fetch(`/api/employees/${staffId}/signature`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to remove signature");
-      }
+      await apiFetch(`/api/employees/${staffId}/signature`, { method: "DELETE" });
       showToast({
         type: "success",
         title: "Signature Removed",

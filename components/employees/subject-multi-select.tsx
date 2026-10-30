@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { STANDARD_SCHOOL_SUBJECTS } from "@/components/employees/class-multi-select-dropdown";
+import { CustomSelect } from "@/components/ui/custom-select";
 
 interface SubjectMultiSelectProps {
   subjects: string[];
@@ -119,28 +120,23 @@ export function SubjectMultiSelect({
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
         {!isCustomMode ? (
           <div className="flex-1 flex gap-2">
-            <select
+            <CustomSelect placeholder="Select subject to add..."
               value={selectedSubject}
-              onChange={(e) => {
-                if (e.target.value === "CUSTOM") {
+              onChange={(v: string) => {
+                if (v === "CUSTOM") {
                   setIsCustomMode(true);
                   setSelectedSubject("");
                 } else {
-                  setSelectedSubject(e.target.value);
+                  setSelectedSubject(v);
                 }
               }}
-              className="flex-1 h-9 rounded-xl border border-input bg-background px-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
-            >
-              <option value="">Select subject to add...</option>
-              {availableSubjects
-                .filter((sub) => !subjects.includes(sub))
-                .map((sub) => (
-                  <option key={sub} value={sub}>
-                    {sub}
-                  </option>
-                ))}
-              <option value="CUSTOM">+ Other Subject (Type custom)</option>
-            </select>
+              className="flex-1"
+              options={[
+                { value: "", label: "Select subject to add..." },
+                ...availableSubjects.filter((sub) => !subjects.includes(sub)).map((sub) => ({ value: sub, label: sub })),
+                { value: "CUSTOM", label: "+ Other Subject (Type custom)" },
+              ]}
+            />
           </div>
         ) : (
           <div className="flex-1 flex items-center gap-2">

@@ -3,35 +3,16 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Inbox,
-  Loader2,
-  ChevronRight,
-  Phone,
-  Calendar,
-  Briefcase,
-  ShieldCheck,
-  Check,
-  Copy,
-} from "lucide-react";
+import { Inbox, ChevronRight, Phone, Calendar, Briefcase, ShieldCheck, Check, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
 import { cn, calculateDetailedAge } from "@/lib/utils";
 import { StaffRoundAvatar } from "@/components/employees/staff-round-avatar";
 import { StaffPhotoPreviewDialog } from "@/components/employees/staff-photo-preview-dialog";
+import type { StaffProfile } from "@/components/employees/staff-types";
+import { Spinner } from "@/components/ui/spinner";
 
-export interface StaffProfile {
-  id: string;
-  unique_id: string;
-  full_name: string;
-  employee_type: "TEACHING" | "NON_TEACHING";
-  designation: string;
-  caste?: string;
-  mobile?: string;
-  dob?: string;
-  profile_picture_url?: string | null;
-  status: "ACTIVE" | "INACTIVE" | "RETIRED" | "SUSPENDED";
-}
+export type { StaffProfile };
 
 interface StaffTableProps {
   data: StaffProfile[];
@@ -384,7 +365,7 @@ export function StaffTable({ data, isLoading = false }: StaffTableProps) {
                   <td className="px-4 py-3.5 align-middle text-right pr-6">
                     {isNavigating ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary text-xs font-semibold animate-pulse">
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Spinner className="h-3.5 w-3.5" />
                         <span>Opening...</span>
                       </span>
                     ) : (

@@ -74,21 +74,22 @@ export async function GET(req: Request) {
 }
 
 import { studentCreateSchema } from "@/lib/validations/student-schema";
+import { requireStaff } from "@/lib/api/guard";
+import { softWrite } from "@/lib/supabase/write";
 
 // POST /api/students - Create a student
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
+    const gate = await requireStaff("can_add_student_manual");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
     const role = auth.role;
-    if (role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     // Staff and Admin are both authorized to register students
     const body = await req.json();
     const parseResult = studentCreateSchema.safeParse(body);
     if (!parseResult.success) {
-      const firstError = parseResult.error.errors[0]?.message || "Invalid student data";
+      const firstError = parseResult.error.issues[0]?.message || "Invalid student data";
       return NextResponse.json(
         { error: `Validation failed: ${firstError}`, details: parseResult.error.flatten() },
         { status: 400 }
@@ -100,13 +101,13 @@ export async function POST(req: Request) {
     // Create audit log for student creation using existing user object
     const supabase = await createClient();
     if (auth.user) {
-      await supabase.from("audit_log").insert({
+      await softWrite(supabase.from("audit_log").insert({
         performed_by: auth.user.id,
         action: "CREATE",
         table_name: "students",
         record_id: student.id,
         new_values: student,
-      });
+      }), "audit_log insert");
     }
 
     return NextResponse.json({ success: true, student });

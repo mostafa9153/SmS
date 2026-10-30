@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { dbSaveSubjectBatchMarks, SaveSubjectBatchParams } from "@/lib/supabase/db-results";
+import { requireStaff } from "@/lib/api/guard";
+import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
+import { getAcademicYear } from "@/lib/academic/current-year";
+import { recordResultsUndo, snapshotClassResults } from "@/lib/academic/results-undo";
 
 // POST /api/results/subject-batch
 export async function POST(req: Request) {
+  const gate = await requireStaff("can_enter_results");
+  if (!gate.ok) return gate.response;
+
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = gate.auth;
 
     const body = (await req.json()) as SaveSubjectBatchParams;
     const { academicYear, class: className, examName, subjectName, scores } = body;
@@ -20,10 +22,15 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    const outside = await denyStudentsOutsideClasses(gate.auth, className, scores.map((s) => s.studentId));
+    if (outside) return outside;
 
+    const year = academicYear || (await getAcademicYear());
+    const savedIds = scores.map((s) => s.studentId);
+    const classBefore = await snapshotClassResults(year, className, examName, savedIds);
     const result = await dbSaveSubjectBatchMarks(
       {
-        academicYear: academicYear || new Date().getFullYear(),
+        academicYear: year,
         class: className,
         section: body.section,
         examName,
@@ -33,7 +40,17 @@ export async function POST(req: Request) {
       user.id
     );
 
-    return NextResponse.json({ success: true, count: result.count });
+    const undoId = await recordResultsUndo({
+      actorId: user.id,
+      action: "results.subject-batch",
+      label: `Save ${subjectName} marks`,
+      academicYear: year,
+      className,
+      examName,
+      studentIds: savedIds,
+      before: classBefore,
+    });
+    return NextResponse.json({ success: true, count: result.count, undoId });
   } catch (error: any) {
     console.error("Subject batch save API error:", error);
     return NextResponse.json({ error: error.message || "Failed to save subject batch marks" }, { status: 500 });

@@ -1,4 +1,5 @@
 import { SchoolProfileData } from "@/lib/utils/school-profile";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface SchoolInfo {
   name: string;
@@ -165,7 +166,7 @@ export function formatFormNumber(prefix: string, serial: number, padding: number
 
 export const BLANK_FORM_V_IX: AdmissionFormVIxData = {
   formNo: "MHS/AF/26/0001",
-  academicYear: "2026",
+  academicYear: String(currentYearIST()),
   officeUse: {
     slNo: "",
     class: "",
@@ -251,7 +252,7 @@ export const BLANK_FORM_V_IX: AdmissionFormVIxData = {
 
 export const BLANK_FORM_XI: AdmissionFormXIData = {
   formNo: "MHS/AF/26/0001",
-  academicYear: "2026",
+  academicYear: String(currentYearIST()),
   officeUse: {
     doa: "",
     slNo: "",

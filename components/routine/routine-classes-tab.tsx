@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { RoutineClass, RoutineSettings } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,20 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Trash2,
-  Check,
-  X,
-  School,
-  Sparkles,
-  Layers,
-  CheckCheck,
-  CheckCircle2,
-  CloudUpload,
-  RefreshCw,
-  Save,
-} from "lucide-react";
+import { Plus, Trash2, Check, X, School, Sparkles, Layers, CheckCheck, CheckCircle2, CloudUpload, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
@@ -44,6 +32,7 @@ import {
 } from "@/lib/routine/routine-helpers";
 import { getClassStreamList } from "@/lib/utils/school-profile";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineClassesTabProps {
   classes: RoutineClass[];
@@ -594,7 +583,7 @@ export function RoutineClassesTab({
             >
               {isSubmitting ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <Spinner className="w-3.5 h-3.5" />
                   <span>Saving...</span>
                 </>
               ) : isSavedRecently ? (
@@ -654,9 +643,8 @@ export function RoutineClassesTab({
             <tbody className="divide-y divide-border">
               {classes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    <School className="w-6 h-6 mx-auto mb-1 opacity-40" />
-                    <span>No classes configured yet. Click &quot;Sync from Presets&quot; above.</span>
+                  <td colSpan={6}>
+                    <EmptyState compact icon={School} title={<>No classes yet. Use &quot;Sync from Presets&quot; above.</>} />
                   </td>
                 </tr>
               ) : (
@@ -807,7 +795,7 @@ export function RoutineClassesTab({
               >
                 {isSubmitting ? (
                   <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <Spinner className="w-3.5 h-3.5" />
                     <span>Adding...</span>
                   </>
                 ) : (

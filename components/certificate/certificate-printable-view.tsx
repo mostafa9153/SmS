@@ -10,6 +10,7 @@ import {
   formatSchoolNameParts,
 } from "@/lib/utils/school-profile";
 import { StudentPhotoBox } from "@/components/certificate/student-photo-box";
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export interface CharacterCertificateData {
   certificateNo: string;
@@ -76,7 +77,7 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
   const displayDist = cleanAddressPart(data.district, "dist") || profile.district || "South 24 Parganas";
   const displayPin = (data.pincode || "").replace(/\D/g, "") || profile.pincode || "743349";
 
-  const qrPayload = `MHS-CC:${data.certificateNo || "CC-2026"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|YEAR:${data.passingYear || "2026"}`;
+  const qrPayload = `MHS-CC:${data.certificateNo || "CC-2026"}|ID:${data.studentId || "N/A"}|NAME:${data.studentName || ""}|YEAR:${data.passingYear || String(currentYearIST())}`;
 
   return (
     <div
@@ -208,7 +209,7 @@ export function CertificatePrintableView({ data, schoolProfile }: CertificatePri
             <span className="font-bold text-[#14206b]">{examTitle}</span> conducted by the{" "}
             <span className="font-semibold text-slate-900">{examBoard}</span> in{" "}
             <span className="font-mono font-bold text-slate-900 border-b border-dotted border-slate-700 px-1">
-              {data.passingYear || "2026"}
+              {data.passingYear || String(currentYearIST())}
             </span>
             .
           </p>

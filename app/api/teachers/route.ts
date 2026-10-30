@@ -1,12 +1,18 @@
 import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/api/guard";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 import { DEFAULT_TEACHER_PERMISSIONS } from "@/lib/types/teacher";
+import { mustWrite } from "@/lib/supabase/write";
+import { recordUndo, snapshotRows, type RestoreStep } from "@/lib/undo/journal";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 // GET /api/teachers - List all teaching staff with their account, permissions, active grants, and assigned classes
 export async function GET() {
   try {
+    const gate = await requireRole(["Admin", "Staff"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -36,7 +42,7 @@ export async function GET() {
     }
 
     // 3. Fetch all active class assignments
-    const currentYear = new Date().getFullYear();
+    const currentYear = await getAcademicYear();
     const { data: classAssignments } = await adminClient
       .from("teacher_class_assignments")
       .select("*")
@@ -87,6 +93,8 @@ export async function GET() {
 // POST /api/teachers - Create or link login credentials for a teaching staff member
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -196,10 +204,10 @@ export async function POST(req: Request) {
     }
 
     // 3. Update staff_profiles with the official email
-    await adminClient
+    await mustWrite(adminClient
       .from("staff_profiles")
       .update({ email: cleanEmail })
-      .eq("id", staffId);
+      .eq("id", staffId), "staff_profiles update");
 
     clearUserRoleCache(targetAuthUserId);
 
@@ -219,8 +227,11 @@ export async function POST(req: Request) {
 }
 
 // PATCH /api/teachers - Update permissions, temporary grants, or reset teacher password
+// undo: permissions, appointed subject and temporary grants are journaled; a password reset cannot be replayed
 export async function PATCH(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user }, error: authUserError } = await supabase.auth.getUser();
     if (authUserError || !user) {
@@ -277,6 +288,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Target userId or staffId is required." }, { status: 400 });
     }
 
+    // Before-images for undo (the password reset is not journaled: it cannot be replayed).
+    const rolesBefore = targetUserId ? await snapshotRows(adminClient, "user_roles", "user_id", targetUserId) : [];
+    const staffBefore = targetStaffId ? await snapshotRows(adminClient, "staff_profiles", "id", targetStaffId) : [];
+    let createdGrantId: string | null = null;
+
     // 1. If appointedSubject updated for teacher
     if (appointedSubject !== undefined && targetStaffId) {
       const { data: currentStaff } = await adminClient
@@ -328,7 +344,7 @@ export async function PATCH(req: Request) {
     if (temporaryGrant && targetUserId) {
       const { permissionKey, expiresAt, taskId } = temporaryGrant;
       if (permissionKey && expiresAt) {
-        await adminClient.from("teacher_permission_grants").insert({
+        const grantInsert = await mustWrite(adminClient.from("teacher_permission_grants").insert({
           user_id: targetUserId,
           teacher_id: targetStaffId || null,
           permission_key: permissionKey,
@@ -336,7 +352,8 @@ export async function PATCH(req: Request) {
           granted_by: user.id,
           expires_at: expiresAt,
           is_active: true,
-        });
+        }).select("id").single(), "teacher_permission_grants insert");
+        createdGrantId = grantInsert.data?.id ?? null;
 
         // Temporarily activate in user_roles.permissions
         const { data: uRole } = await adminClient
@@ -350,16 +367,33 @@ export async function PATCH(req: Request) {
           [permissionKey]: true,
         };
 
-        await adminClient
+        await mustWrite(adminClient
           .from("user_roles")
           .update({ permissions: updatedPerms })
-          .eq("user_id", targetUserId);
+          .eq("user_id", targetUserId), "user_roles update");
 
         clearUserRoleCache(targetUserId);
       }
     }
 
-    return NextResponse.json({ success: true, message: "Teacher account updated successfully" });
+    const steps: RestoreStep[] = [
+      { table: "staff_profiles", op: "upsert", rows: staffBefore },
+      { table: "user_roles", op: "upsert", rows: rolesBefore },
+    ];
+    if (createdGrantId) steps.push({ table: "teacher_permission_grants", op: "delete", column: "id", values: [createdGrantId] });
+    const undoId = permissions || appointedSubject !== undefined || temporaryGrant
+      ? await recordUndo({
+          actorId: user.id,
+          action: "teacher.update",
+          label: "Update teacher access",
+          entity: "user_roles",
+          entityId: targetUserId ?? targetStaffId,
+          steps,
+          ttlHours: 1,
+        })
+      : null;
+
+    return NextResponse.json({ success: true, message: "Teacher account updated successfully", undoId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

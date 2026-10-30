@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { clearUserRoleCache } from "@/lib/supabase/auth-helper";
 
 // GET /api/admin/users - List all users with their roles
+// guard: custom — Admin check per handler, plus a first-admin bootstrap only when user_roles is provably empty (fails closed, audit 2 A-SEC-2).
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -25,8 +26,9 @@ export async function GET() {
     // Check if role is admin or if no roles exist yet (first admin setup)
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }
@@ -84,8 +86,9 @@ export async function POST(req: Request) {
 
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }
@@ -141,7 +144,8 @@ export async function POST(req: Request) {
   }
 }
 
-// Shared update handler for PATCH and PUT
+// undo: n/a — auth account changes (password, role) cannot be replayed from a snapshot; role change requires the admin password.
+// Shared update handler for PATCH
 async function handleUpdate(req: Request) {
   try {
     const supabase = await createClient();
@@ -273,11 +277,6 @@ export async function PATCH(req: Request) {
   return handleUpdate(req);
 }
 
-// PUT /api/admin/users - Support PUT as well
-export async function PUT(req: Request) {
-  return handleUpdate(req);
-}
-
 // DELETE /api/admin/users - Delete a user
 export async function DELETE(req: Request) {
   try {
@@ -298,8 +297,9 @@ export async function DELETE(req: Request) {
 
     const isAdmin = roleData?.role === "Admin";
     if (!isAdmin) {
-      const { count } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
-      if (count && count > 0) {
+      const { count, error: countError } = await adminClient.from("user_roles").select("*", { count: "exact", head: true });
+      // Bootstrap only when the table is provably empty; a failed count denies (fail closed)
+      if (countError || count !== 0) {
         return NextResponse.json({ error: "Forbidden: Admins only" }, { status: 403 });
       }
     }

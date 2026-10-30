@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { getBackupConfig, uploadSnapshotToDrive } from "@/lib/backup/google-drive";
 import { generateBackupSnapshot } from "@/lib/backup/backup-engine";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
+import { notifyCronRefused } from "@/lib/api/cron";
 
+// guard: custom — Vercel cron, authorised by the CRON_SECRET bearer below
+// undo: n/a — scheduled backup upload to Drive, no app data changed
 export async function GET(req: Request) {
   try {
     // 1. Strictly verify Cron Secret
@@ -10,9 +14,11 @@ export async function GET(req: Request) {
 
     if (cronSecret) {
       if (authHeader !== `Bearer ${cronSecret}`) {
+        await notifyCronRefused(req, "cron.refused.backup", "Scheduled backup");
         return NextResponse.json({ error: "Unauthorized: Invalid cron authorization token" }, { status: 401 });
       }
     } else if (process.env.NODE_ENV === "production") {
+      await notifyCronRefused(req, "cron.refused.backup", "Scheduled backup");
       return NextResponse.json({ error: "CRON_SECRET environment variable is missing in production" }, { status: 500 });
     }
 
@@ -20,6 +26,9 @@ export async function GET(req: Request) {
     const config = await getBackupConfig();
 
     if (!config.refreshToken) {
+      if (config.frequency !== "off") {
+        await notify({ roles: ["Admin"], severity: "warning", title: "Scheduled backup skipped", message: "No Google Drive account is connected.", link: "/settings/backup", source: "backup.cron" });
+      }
       return NextResponse.json({
         skipped: true,
         reason: "No Google Drive account is connected.",
@@ -40,6 +49,7 @@ export async function GET(req: Request) {
     });
 
     const file = await uploadSnapshotToDrive(payload);
+    await notify({ roles: ["Admin"], severity: "success", title: "Scheduled backup completed", message: `${config.frequency} backup uploaded to Google Drive.`, link: "/settings/backup", source: "backup.cron" });
 
     return NextResponse.json({
       success: true,
@@ -48,6 +58,7 @@ export async function GET(req: Request) {
     });
   } catch (err: any) {
     console.error("Cron backup error:", err);
+    await notifyAdminsOfError("backup.cron", "Scheduled backup failed", err, "/settings/backup");
     return NextResponse.json({ error: err.message || "Failed to execute cron backup" }, { status: 500 });
   }
 }

@@ -231,7 +231,7 @@ export function calculateExactAge(dobIso?: string | null): number | null {
   return age;
 }
 
-export interface DetailedAge {
+interface DetailedAge {
   years: number;
   months: number;
   days: number;

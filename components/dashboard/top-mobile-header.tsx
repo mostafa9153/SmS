@@ -6,8 +6,11 @@ import { Sparkles, Calendar, GraduationCap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NotificationPanel } from "@/components/layout/notification-panel";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { sessionLabel } from "@/lib/utils/academic-year";
 
 export function TopMobileHeader() {
+  const currentSession = useAcademicYear();
   const [greeting, setGreeting] = useState("Welcome");
   const [userName, setUserName] = useState("Administrator");
   const [today, setToday] = useState("");
@@ -55,7 +58,7 @@ export function TopMobileHeader() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="badge-gold inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold">
               <span className="h-1.5 w-1.5 rounded-full bg-amber-600 dark:bg-[#FACC15] animate-pulse" />
-              Session 2026-27 Active
+              Session {sessionLabel(currentSession)} Active
             </span>
 
             {today && (

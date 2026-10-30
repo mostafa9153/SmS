@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/api/client";
+import { toastWithUndo } from "@/lib/undo/client";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { SportsEvent, SportsCategory, SportsGender, ScoringType } from "@/lib/sports/types";
 import { SPORTS_CLASS_OPTIONS } from "@/lib/sports/use-sports-events";
 import { Button } from "@/components/ui/button";
@@ -46,7 +49,9 @@ function SportsEventForm({ onOpenChange, event, onSaved }: SportsEventFormDialog
   );
   const [scoringType, setScoringType] = useState<ScoringType>(event?.scoringType || "Metric");
   const [measurementUnit, setMeasurementUnit] = useState<string>(event?.measurementUnit || "Time (s)");
+  const [maxParticipants, setMaxParticipants] = useState(event?.maxParticipants ? String(event.maxParticipants) : "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const academicYear = useAcademicYear();
 
   const handleCategoryChange = (next: SportsCategory) => {
     setCategory(next);
@@ -73,25 +78,25 @@ function SportsEventForm({ onOpenChange, event, onSaved }: SportsEventFormDialog
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/sports/events", {
+      const saved = await apiFetch<{ undoId?: string }>(`/api/sports/events`, {
         method: isEdit ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...(isEdit ? { id: event!.id } : {}),
+        json: {
+          ...(isEdit ? { id: event!.id } : { academicYear }),
           name: name.trim(),
           category,
           gender,
           eligibleClasses,
           scoringType,
           measurementUnit,
-        }),
+          maxParticipants: parseInt(maxParticipants, 10) || null,
+        },
       });
-      if (!res.ok) throw new Error(isEdit ? "Failed to update event" : "Failed to create event");
-      toast.success(isEdit ? "Event updated" : "Event created");
+      if (isEdit) toastWithUndo("Event updated", saved?.undoId, onSaved);
+      else toast.success("Event created");
       onOpenChange(false);
       onSaved();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save event");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save event");
     } finally {
       setIsSubmitting(false);
     }
@@ -104,16 +109,31 @@ function SportsEventForm({ onOpenChange, event, onSaved }: SportsEventFormDialog
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
-          <div className="space-y-1">
-            <Label htmlFor="event-name">Name</Label>
-            <Input
-              id="event-name"
-              placeholder="e.g. 100m Sprint"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-xl"
-              autoFocus
-            />
+          <div className="grid grid-cols-[1fr_7rem] gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="event-name">Name</Label>
+              <Input
+                id="event-name"
+                placeholder="e.g. 100m Sprint"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="rounded-xl"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="event-max">Max entries</Label>
+              <Input
+                id="event-max"
+                type="number"
+                min={1}
+                inputMode="numeric"
+                placeholder="No limit"
+                value={maxParticipants}
+                onChange={(e) => setMaxParticipants(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -1,41 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import {
-  Sparkles,
-  Award,
-  Trophy,
-  FileCheck2,
-  Printer,
-  Search,
-  ShieldCheck,
-  ArrowRight,
-  CheckCircle2,
-  GraduationCap,
-  Receipt,
-  Layers,
-  Clock,
-  ExternalLink,
-  BookOpen,
-  ClipboardList,
-  Check,
-  AlertCircle,
-  Hash,
-  RefreshCw,
-  QrCode,
-  School,
-  FileBadge2,
-  Info,
-  SlidersHorizontal,
-  Contact,
-  Loader2,
-  FileText,
-  FileCheck,
-  Users,
-} from "lucide-react";
+import { Sparkles, Award, Trophy, FileCheck2, Printer, Search, ShieldCheck, ArrowRight, CheckCircle2, GraduationCap, Receipt, Layers, Clock, ExternalLink, BookOpen, ClipboardList, Check, AlertCircle, Hash, QrCode, School, FileBadge2, Info, SlidersHorizontal, Contact, FileText, FileCheck, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,20 +15,22 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { QRScannerModal } from "@/components/certificate/qr-scanner-modal";
+const QRScannerModal = dynamic(() => import("@/components/certificate/qr-scanner-modal").then((m) => m.QRScannerModal), { ssr: false });
 import type { DBCertificateRow, CertificateStats } from "@/lib/supabase/db-certificates";
 import {
   getLocalCachedCertificates,
   getLocalCertificateStats,
 } from "@/lib/utils/certificate-registry";
+import { Spinner } from "@/components/ui/spinner";
+import { SearchInput } from "@/components/ui/search-input";
 
-type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker";
-const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker"];
+type CategoryFilter = "all" | "certificates" | "exams" | "admissions" | "identity" | "finance" | "tracker" | "others";
+const VALID_GENERATE_CATEGORIES: CategoryFilter[] = ["all", "certificates", "exams", "admissions", "identity", "finance", "tracker", "others"];
 
 interface GeneratorModule {
   id: string;
   title: string;
-  category: "certificates" | "exams" | "admissions" | "tracker";
+  category: "certificates" | "exams" | "admissions" | "tracker" | "others";
   categoryLabel: string;
   formatBadge: string;
   formatVariant?: "default" | "emerald" | "amber" | "sky" | "purple" | "outline";
@@ -110,8 +83,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "student-id-cards",
     title: "Student ID Card Studio",
-    category: "certificates",
-    categoryLabel: "Certificates & IDs",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "CR80 PVC Single",
     formatVariant: "sky",
     description:
@@ -177,8 +150,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "blank-pad",
     title: "Official Blank Pad",
-    category: "certificates",
-    categoryLabel: "Certificates & Stationery",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "A4 / A5 Portrait",
     formatVariant: "amber",
     description:
@@ -210,8 +183,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
     {
     id: "sports-meet-studio",
     title: "Sports Meet & Certificates",
-    category: "certificates",
-    categoryLabel: "Sports & Events",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "Bibs & Certs",
     formatVariant: "emerald",
     description:
@@ -322,8 +295,8 @@ const GENERATOR_MODULES: GeneratorModule[] = [
   {
     id: "class-teacher-list",
     title: "Class Teacher List",
-    category: "admissions",
-    categoryLabel: "Records & Lists",
+    category: "others",
+    categoryLabel: "Others",
     formatBadge: "A4 / A5 / A3",
     formatVariant: "purple",
     description:
@@ -578,14 +551,10 @@ function GenerateHubPageContent() {
       <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-600/10 via-indigo-600/10 to-blue-600/10 border border-purple-500/20 p-3.5 sm:p-5 shadow-xs relative overflow-hidden">
         <div className="absolute right-0 top-0 -mt-10 -mr-10 h-48 w-48 rounded-full bg-gradient-to-br from-purple-500/15 to-transparent blur-3xl pointer-events-none" />
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 relative z-10">
-          <div className="space-y-0.5">
-            <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight text-foreground">
-              Document & Certificate Generator
-            </h1>
-          </div>
-
-          {/* Clean Action Buttons (Full width 2-column grid on mobile phones) */}
+        <PageHeader
+          title="Document & Certificate Generator"
+          className="relative z-10"
+          actions={
           <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
             <Link
               href="/generate/certificate-tracker"
@@ -602,7 +571,8 @@ function GenerateHubPageContent() {
               <span className="truncate">Admission Portal</span>
             </Link>
           </div>
-        </div>
+          }
+        />
       </div>
 
       {/* 2. Compact Tracker & Quick Verification Strip */}
@@ -718,7 +688,7 @@ function GenerateHubPageContent() {
                 className="h-9 px-3 sm:px-3.5 rounded-xl text-xs font-semibold gap-1 shrink-0 active:scale-95"
               >
                 {isVerifying ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                 ) : (
                   <Search className="h-3.5 w-3.5" />
                 )}
@@ -824,27 +794,22 @@ function GenerateHubPageContent() {
           >
             Tracker (1)
           </button>
+          <button
+            type="button"
+            onClick={() => setSelectedCategory("others")}
+            className={cn(
+              "px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer active:scale-95 whitespace-nowrap",
+              selectedCategory === "others"
+                ? "bg-slate-600 text-white shadow-xs"
+                : "bg-muted/60 text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            Others ({GENERATOR_MODULES.filter((m) => m.category === "others").length})
+          </button>
         </div>
 
         {/* Live Filter Input */}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search tools..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 text-xs h-9 rounded-xl bg-card w-full"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-1"
-            >
-              ×
-            </button>
-          )}
-        </div>
+        <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search tools..." size="sm" className="w-full sm:w-64" />
       </div>
 
       {/* 4. Ultra-Clean Box-by-Box Grid */}
@@ -983,7 +948,7 @@ export default function GenerateHubPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Certificate & Document Hub...</span>
         </div>
       }

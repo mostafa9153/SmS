@@ -1,5 +1,6 @@
 "use client";
 
+import { toast } from "sonner";
 import React, { useState } from "react";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
 import { EmsRoom } from "@/lib/ems/types";
 import { calculateRoomCapacity } from "@/lib/ems/room-storage";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface RoomsManagerDialogProps {
   isOpen: boolean;
@@ -43,16 +45,17 @@ export function RoomsManagerDialog({
   onDeleteRoom,
   onReorderRooms,
 }: RoomsManagerDialogProps) {
+  const confirm = useConfirm();
   if (!isOpen) return null;
 
   const safeRooms = Array.isArray(rooms) ? rooms : [];
 
-  const handleDelete = (roomId: string) => {
+  const handleDelete = async (roomId: string) => {
     if (safeRooms.length <= 1) {
-      alert("At least one classroom must remain in the system.");
+      toast.error("At least one classroom must remain in the system.");
       return;
     }
-    if (confirm("Are you sure you want to delete this room layout?")) {
+    if (await confirm({ title: "Are you sure you want to delete this room layout?", destructive: true })) {
       onDeleteRoom(roomId);
     }
   };

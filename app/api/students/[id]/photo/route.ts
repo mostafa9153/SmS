@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
+import { mustWrite } from "@/lib/supabase/write";
 
 const BUCKET_NAME = "student-photos";
 
@@ -25,16 +26,15 @@ async function ensureBucketExists(admin: ReturnType<typeof createAdminClient>) {
 }
 
 // POST /api/students/[id]/photo - Upload / Replace student passport photo
+// undo: n/a — the old photo file is replaced in Storage and cannot be restored
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Access denied" }, { status: 401 });
-    }
+    const gate = await requireStaff("can_edit_student_profile", "can_add_student_manual");
+    if (!gate.ok) return gate.response;
 
     const admin = createAdminClient();
     await ensureBucketExists(admin);
@@ -95,13 +95,13 @@ export async function POST(
 
     // Gracefully attempt to update photo_url column in PostgreSQL
     try {
-      await admin
+      await mustWrite(admin
         .from("students")
         .update({
           photo_url: publicUrl,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", id);
+        .eq("id", id), "students update");
     } catch (dbErr: any) {
       console.warn("Notice: photo_url column might not exist in students table yet. Using storage URL directly.", dbErr?.message);
     }
@@ -124,10 +124,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Access denied" }, { status: 401 });
-    }
+    const gate = await requireStaff("can_edit_student_profile", "can_add_student_manual");
+    if (!gate.ok) return gate.response;
 
     const admin = createAdminClient();
     const fileName = `${id}.webp`;
@@ -137,13 +135,13 @@ export async function DELETE(
 
     // Update database
     try {
-      await admin
+      await mustWrite(admin
         .from("students")
         .update({
           photo_url: null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", id);
+        .eq("id", id), "students update");
     } catch (dbErr: any) {
       console.warn("Notice: photo_url column reset notice:", dbErr?.message);
     }

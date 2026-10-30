@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
+import { ChartTooltip } from "@/components/dashboard/chart-tooltip";
 import {
   PieChart,
   Pie,
@@ -16,20 +17,6 @@ import { STATUS_STYLES } from "@/lib/utils";
 import type { StudentStatus } from "@/lib/types";
 import Link from "next/link";
 import { PieChart as PieChartIcon, ArrowUpRight } from "lucide-react";
-
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-xl border border-border/80 bg-background/95 backdrop-blur-md p-3 shadow-md text-xs">
-        <p className="font-bold text-foreground">{payload[0].name}</p>
-        <p className="text-muted-foreground mt-0.5">
-          Students: <span className="font-bold text-primary">{payload[0].value}</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 
 export function StatusChart() {
   const { data: stats, isLoading } = useQuery({
@@ -92,7 +79,7 @@ export function StatusChart() {
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ChartTooltip />} />
             <Legend
               iconType="circle"
               iconSize={8}

@@ -26,6 +26,7 @@ import {
   FileCode,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,8 +42,14 @@ import {
 import { showToast } from "@/components/ui/toast-banner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BackupFrequency, DriveBackupFile, GoogleAccountInfo, RestorePreview } from "@/lib/backup/types";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
+import { apiFetch } from "@/lib/api/client";
+
+type RestoreResult = { summary?: { restoredStudents?: number; restoredResults?: number } };
 
 export function BackupRestoreTab() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -63,17 +70,12 @@ export function BackupRestoreTab() {
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["admin", "backup-status"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/backup/drive");
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to fetch backup status");
-      }
-      return res.json() as Promise<{
+      return apiFetch<{
         status: GoogleAccountInfo;
         backups: DriveBackupFile[];
         driveError: string | null;
         dbSummary: { totalStudents: number; totalResults: number };
-      }>;
+      }>("/api/admin/backup/drive");
     },
     staleTime: 60 * 1000,
   });
@@ -91,12 +93,7 @@ export function BackupRestoreTab() {
   // 2. Connect Google Drive Mutation (Initiates OAuth redirect)
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/auth");
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to initiate Google authorization");
-      }
-      return res.json() as Promise<{ authUrl: string }>;
+      return apiFetch<{ authUrl: string }>("/api/admin/backup/auth");
     },
     onSuccess: (data) => {
       if (data.authUrl) {
@@ -115,12 +112,7 @@ export function BackupRestoreTab() {
   // 3. Backup to Drive Now Mutation
   const backupNowMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/drive", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Backup upload failed");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "POST" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -142,16 +134,7 @@ export function BackupRestoreTab() {
   // 4. Update Frequency Mutation
   const updateFrequencyMutation = useMutation({
     mutationFn: async (frequency: BackupFrequency) => {
-      const res = await fetch("/api/admin/backup/drive", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ frequency }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to update schedule");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "PATCH", json: { frequency } });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -173,12 +156,7 @@ export function BackupRestoreTab() {
   // 5. Disconnect Google Drive Mutation
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch("/api/admin/backup/drive", { method: "DELETE" });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to disconnect");
-      }
-      return res.json();
+      return apiFetch("/api/admin/backup/drive", { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "backup-status"] });
@@ -202,37 +180,25 @@ export function BackupRestoreTab() {
     mutationFn: async () => {
       if (restoreSource === "drive") {
         if (!selectedDriveFile) throw new Error("No cloud backup selected.");
-        const res = await fetch("/api/admin/backup/drive/restore", {
+        return apiFetch<RestoreResult>("/api/admin/backup/drive/restore", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             fileId: selectedDriveFile.id,
             adminPassword,
             mode: restoreMode,
-          }),
+          },
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Cloud restoration failed");
-        }
-        return res.json();
       } else {
         if (!uploadedPayload) throw new Error("No local file loaded.");
-        const res = await fetch("/api/admin/backup/restore", {
+        return apiFetch<RestoreResult>("/api/admin/backup/restore", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             action: "execute",
             payload: uploadedPayload,
             adminPassword,
             mode: restoreMode,
-          }),
+          },
         });
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Local restoration failed");
-        }
-        return res.json();
       }
     },
     onSuccess: (data) => {
@@ -361,43 +327,15 @@ export function BackupRestoreTab() {
     <div className="space-y-6">
       {/* 1. Quick Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Active Students</span>
-              <p className="text-2xl font-bold text-foreground">{dbSummary?.totalStudents ?? 0}</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-              <Layers className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Exam Records</span>
-              <p className="text-2xl font-bold text-foreground">{dbSummary?.totalResults ?? 0}</p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-600 dark:text-violet-400">
-              <FileCode className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border bg-card/90 shadow-2xs">
-          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
-            <div className="space-y-1">
-              <span className="text-xs text-muted-foreground font-medium">Last Cloud Backup</span>
-              <p className="text-sm font-bold text-foreground truncate max-w-[170px]">
-                {formatDate(status?.lastBackupAt)}
-              </p>
-            </div>
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <CloudCheck className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard label="Active Students" value={dbSummary?.totalStudents ?? 0} icon={Layers} />
+        <StatCard label="Exam Records" value={dbSummary?.totalResults ?? 0} icon={FileCode} iconClassName="text-violet-600 dark:text-violet-400" />
+        <StatCard
+          label="Last Cloud Backup"
+          value={formatDate(status?.lastBackupAt)}
+          icon={CloudCheck}
+          iconClassName="text-emerald-600 dark:text-emerald-400"
+          valueClassName="text-sm sm:text-sm truncate"
+        />
       </div>
 
       {/* 2. Main Google Drive WhatsApp-Style Integration Card */}
@@ -524,8 +462,8 @@ export function BackupRestoreTab() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to disconnect Google Drive? Your existing files in Drive will not be deleted.")) {
+                      onClick={async () => {
+                        if (await confirm({ title: "Are you sure you want to disconnect Google Drive? Your existing files in Drive will not be deleted.", destructive: true })) {
                           disconnectMutation.mutate();
                         }
                       }}
@@ -833,7 +771,7 @@ export function BackupRestoreTab() {
             >
               {restoreMutation.isPending ? (
                 <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="h-3.5 w-3.5" />
                   Restoring Database...
                 </>
               ) : (

@@ -2,8 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Loader2, Trash2, Image as ImageIcon } from "lucide-react";
+import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Trash2, Image as ImageIcon } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 interface PhotoStudioModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export function PhotoStudioModal({
   onPhotoRemoved,
   uploadEndpoint,
 }: PhotoStudioModalProps) {
+  const confirm = useConfirm();
   // Navigation tabs: 'upload' | 'camera' | 'crop'
   const [activeTab, setActiveTab] = useState<"upload" | "camera">("upload");
   const [imageSource, setImageSource] = useState<string | null>(null);
@@ -388,7 +391,7 @@ export function PhotoStudioModal({
 
   // Remove photo handler
   const handleRemovePhoto = async () => {
-    if (!window.confirm(`Are you sure you want to remove the photo for ${studentName}?`)) {
+    if (!await confirm({ title: `Are you sure you want to remove the photo for ${studentName}?`, destructive: true })) {
       return;
     }
     setIsDeleting(true);
@@ -690,7 +693,7 @@ export function PhotoStudioModal({
               >
                 {isDeleting ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Spinner className="h-3.5 w-3.5" />
                     <span>Removing...</span>
                   </>
                 ) : (
@@ -722,7 +725,7 @@ export function PhotoStudioModal({
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner className="h-4 w-4" />
                     Uploading (20–40KB)...
                   </>
                 ) : (

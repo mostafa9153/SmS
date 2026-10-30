@@ -82,8 +82,6 @@ export interface RoutineTeacher {
   classTeacherFirstPeriods?: number | null; // e.g. target number of 1st periods / week in their CT class (default 3)
 }
 
-export type TeacherAvailability = RoutineTeacher;
-
 export interface RoutineAssignment {
   id: string;
   classId: string;
@@ -138,10 +136,7 @@ export interface RoutineCellData {
   opts?: RoutineGroupCellOption[];     // parallel options when gid is set
 }
 
-export type SlotPlacement = RoutineCellData;
-
 export type RoutineGrid = Record<string, (RoutineCellData | null)[][]>;
-export type GeneratedRoutineGrid = RoutineGrid;
 
 export interface DiagnosticItem {
   id?: string;
@@ -187,14 +182,9 @@ export interface GeneratedRoutine {
   diagnosticItems?: DiagnosticItem[];
 }
 
-export type SolverResult = GeneratedRoutine;
-
 export interface ValidationReport {
   isValid: boolean;
   errors: string[];
   warnings: string[];
   diagnosticItems?: DiagnosticItem[];
 }
-
-export type SolverValidationResult = ValidationReport;
-

@@ -6,7 +6,7 @@ import type { StudentResult } from "@/lib/types";
 import { normalizeSubjectName } from "@/lib/utils/marksheet-calc";
 import { getSubjectFullMarks } from "@/lib/utils/marks-config";
 
-export interface EvaluationRegisterPrintableProps {
+interface EvaluationRegisterPrintableProps {
   students: StudentResult[];
   academicYear: number | string;
   selectedClass: string;

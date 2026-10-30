@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, Suspense, useMemo } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   calculateTotalSchoolSectionDemand,
@@ -47,24 +46,13 @@ import { RoutineSubjectsTab } from "@/components/routine/routine-subjects-tab";
 import { RoutineGroupsTab } from "@/components/routine/routine-groups-tab";
 import { RoutineDemandAllotmentTab } from "@/components/routine/routine-demand-allotment-tab";
 import { RoutineAllotmentOverviewTab } from "@/components/routine/routine-allotment-overview-tab";
-import {
-  Sliders,
-  Building2,
-  School,
-  Users,
-  BookOpen,
-  RefreshCw,
-  ArrowRight,
-  CheckCircle2,
-  BarChart3,
-  LayoutGrid,
-  Layers,
-} from "lucide-react";
+import { Sliders, Building2, School, Users, BookOpen, ArrowRight, CheckCircle2, BarChart3, LayoutGrid, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
 import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { Spinner } from "@/components/ui/spinner";
 
 type SetupTab = "settings" | "classes" | "groups" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
 
@@ -385,7 +373,9 @@ function RoutineSetupPageContent() {
 
   // Handlers for Teachers
   const handleSaveTeacher = async (teacherData: RoutineTeacher) => {
-    await upsertTeacherAvailabilityDb(teacherData);
+    if (!(await upsertTeacherAvailabilityDb(teacherData))) {
+      showToast({ type: "error", title: "Teacher not saved", description: "The database rejected the update. Reload before editing again." });
+    }
     setTeachers((prev) => {
       const idx = prev.findIndex((t) => t.id === teacherData.id);
       if (idx > -1) {
@@ -462,8 +452,8 @@ function RoutineSetupPageContent() {
   const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
 
   const { totalWorkload: totalTeacherWorkload, assignedTeacherCount } = useMemo(() => {
-    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, assignments, groups);
-  }, [teachers, classes, subjects, assignments, groups]);
+    return calculateTotalTeacherAllottedWorkload(teachers, classes, subjects, groups);
+  }, [teachers, classes, subjects, groups]);
 
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
@@ -559,7 +549,7 @@ function RoutineSetupPageContent() {
       <div className="pt-1">
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+            <Spinner className="h-5 w-5 text-primary" />
             <span>Loading Routine Configuration...</span>
           </div>
         ) : (
@@ -612,7 +602,6 @@ function RoutineSetupPageContent() {
             {activeTab === "teachers" && (
               <RoutineTeachersTab
                 teachers={teachers}
-                assignments={assignments}
                 settings={settings}
                 classes={classes}
                 subjects={subjects}
@@ -664,7 +653,7 @@ export default function RoutineSetupPage() {
     <Suspense
       fallback={
         <div className="py-16 flex flex-col items-center justify-center gap-2 text-muted-foreground text-xs">
-          <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+          <Spinner className="h-5 w-5 text-primary" />
           <span>Loading Routine Setup...</span>
         </div>
       }

@@ -8,14 +8,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, X, Users, UserCheck, UserX, RotateCcw, CheckSquare, Square } from "lucide-react";
+import { X, Users, UserCheck, UserX, RotateCcw, CheckSquare, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/ui/search-input";
 
-export interface StudentRosterDialogProps {
+interface StudentRosterDialogProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
@@ -198,24 +198,7 @@ export function StudentRosterDialog({
         {/* Toolbar: Search & Statistics */}
         <div className="p-3.5 sm:px-6 bg-muted/15 border-b border-border/60 space-y-2.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name, roll, reg no, or student ID..."
-                className="pl-9 h-8.5 text-xs rounded-xl bg-background border-border/70 shadow-2xs"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              )}
-            </div>
+            <SearchInput value={search} onChange={setSearch} placeholder="Search by name, roll, reg no, or student ID..." size="sm" className="flex-1" />
 
             <div className="flex items-center gap-1.5 shrink-0">
               <Button

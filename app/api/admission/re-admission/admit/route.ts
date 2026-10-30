@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
+import { receiptConflict } from "@/lib/admission/receipt-guard";
+import { rollConflict } from "@/lib/admission/roll-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthenticatedUserRole } from "@/lib/supabase/auth-helper";
+import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
 import { isLegalClassTransition, normalizeClass } from "@/lib/academic/class-ladder";
+import { nowTimeIST, todayIST } from "@/lib/utils/date";
+import { mustWrite } from "@/lib/supabase/write";
+import { notifyAdminsOfError } from "@/lib/notifications/notify";
+import { getAcademicYear } from "@/lib/academic/current-year";
 
 export async function POST(req: Request) {
   try {
-    const auth = await getAuthenticatedUserRole();
-    if (auth.role === "Guest") {
-      return NextResponse.json({ error: "Unauthorized: Please log in." }, { status: 401 });
-    }
+    // Covers every action here (admit, cancel, reset); the class scope is checked below
+    const gate = await requireStaff("can_handle_readmission");
+    if (!gate.ok) return gate.response;
+    const auth = gate.auth;
 
     const body = await req.json();
     const {
@@ -79,13 +85,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Student not found in active directory" }, { status: 404 });
     }
 
-    const { data: settingsRow } = await supabase
-      .from("admission_settings")
-      .select("current_academic_year")
-      .eq("school_id", "default")
-      .maybeSingle();
-    const settingsYear = Number(settingsRow?.current_academic_year);
-    const currentYear = settingsYear > 0 ? settingsYear : new Date().getFullYear();
+    const currentYear = await getAcademicYear();
 
     if (action === "not_admitted") {
       const { data: updated, error } = await supabase
@@ -156,7 +156,7 @@ export async function POST(req: Request) {
     }
     const targetSection = newSection || student.present_section;
     const targetRoll = newRoll ? parseInt(String(newRoll)) : (student.present_roll || 1);
-    const todayDateStr = new Date().toISOString().split("T")[0];
+    const todayDateStr = todayIST();
 
     // Check teacher permissions
     if (auth.role === "Teacher") {
@@ -174,6 +174,21 @@ export async function POST(req: Request) {
         );
       }
     }
+
+    // Checked before any write so a used receipt number never half-admits the student
+    if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
+      const conflict = await receiptConflict(supabase, paymentReceiptNo.trim(), [student.school_id, student.id]);
+      if (conflict) return NextResponse.json({ error: conflict }, { status: 409 });
+    }
+
+    const rollTaken = await rollConflict(supabase, {
+      className: targetClass,
+      section: targetSection,
+      roll: targetRoll,
+      academicYear: currentYear,
+      excludeStudentId: student.id,
+    });
+    if (rollTaken) return NextResponse.json({ error: rollTaken }, { status: 409 });
 
     const updatePayload: Record<string, any> = {
       present_class: targetClass,
@@ -355,14 +370,14 @@ export async function POST(req: Request) {
             .maybeSingle();
 
           if (!prevRecord) {
-            await supabase.from("academic_history").insert({
+            await mustWrite(supabase.from("academic_history").insert({
               student_id: student.id,
               year: currentYear - 1,
               class: student.present_class,
               section: student.present_section,
               roll: student.present_roll,
               status: "Continuing",
-            });
+            }), "academic_history insert");
           }
         }
 
@@ -374,7 +389,7 @@ export async function POST(req: Request) {
           .maybeSingle();
 
         if (currRecord) {
-          await supabase
+          await mustWrite(supabase
             .from("academic_history")
             .update({
               class: targetClass,
@@ -382,19 +397,19 @@ export async function POST(req: Request) {
               roll: targetRoll,
               status: "Continuing",
             })
-            .eq("id", currRecord.id);
+            .eq("id", currRecord.id), "academic_history update");
         } else {
-          await supabase.from("academic_history").insert({
+          await mustWrite(supabase.from("academic_history").insert({
             student_id: student.id,
             year: currentYear,
             class: targetClass,
             section: targetSection,
             roll: targetRoll,
             status: "Continuing",
-          });
+          }), "academic_history insert");
         }
       } catch (histErr) {
-        console.warn("Could not record academic_history:", histErr);
+        await notifyAdminsOfError("admission.readmit", "Could not record academic_history", histErr, "/admission");
       }
     })();
     dbPromises.push(historyPromise);
@@ -404,12 +419,12 @@ export async function POST(req: Request) {
     const invPromise = (async () => {
       try {
         if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
-          await supabase.from("admission_invoices").upsert(
+          await mustWrite(supabase.from("admission_invoices").upsert(
             {
               invoice_number: paymentReceiptNo.trim(),
               academic_session: `${currentYear} – ${currentYear + 1}`,
-              issue_date: new Date().toISOString().split("T")[0],
-              issue_time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }),
+              issue_date: todayIST(),
+              issue_time: nowTimeIST(),
               student_id: updatePayload.school_id || student.school_id || student.id,
               student_name: updatePayload.name || student.name,
               student_class: targetClass,
@@ -431,9 +446,9 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             },
             { onConflict: "invoice_number" }
-          );
+          ), "admission_invoices upsert");
 
-          await supabase.from("teacher_activity_logs").insert({
+          await mustWrite(supabase.from("teacher_activity_logs").insert({
             user_id: auth.user?.id || null,
             teacher_id: auth.staffId || null,
             teacher_name: auth.fullName || "Staff",
@@ -447,9 +462,9 @@ export async function POST(req: Request) {
               receipt_no: paymentReceiptNo.trim(),
               payment_status: feePaid ? "Paid" : "Due",
             },
-          });
+          }), "teacher_activity_logs insert");
         } else {
-          await supabase.from("teacher_activity_logs").insert({
+          await mustWrite(supabase.from("teacher_activity_logs").insert({
             user_id: auth.user?.id || null,
             teacher_id: auth.staffId || null,
             teacher_name: auth.fullName || "Staff",
@@ -460,10 +475,10 @@ export async function POST(req: Request) {
             section: targetSection,
             amount_collected: 0,
             metadata: { fee_paid: feePaid },
-          });
+          }), "teacher_activity_logs insert");
         }
       } catch (invErr) {
-        console.warn("Could not log invoice / teacher activity:", invErr);
+        await notifyAdminsOfError("admission.readmit", "Could not log invoice / teacher activity", invErr, "/admission");
       }
     })();
     dbPromises.push(invPromise);

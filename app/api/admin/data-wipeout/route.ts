@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_ADDRESS_PRESETS_CONFIG } from "@/lib/utils/preset-addresses";
 import { DEFAULT_MARKS_SCHEMES } from "@/lib/utils/marks-config";
 import { DEFAULT_STUDENT_ENTRY_PRESETS } from "@/lib/utils/student-entry-presets";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
+import { mustWrite, softWrite } from "@/lib/supabase/write";
+import { requireRole } from "@/lib/api/guard";
 
 function getClassVariations(cls: string): string[] {
   const clean = cls.trim().replace(/^Class\s+/i, "");
@@ -27,8 +30,48 @@ function getClassVariations(cls: string): string[] {
   return Array.from(set);
 }
 
+const ID_CHUNK = 200;
+type Admin = ReturnType<typeof createAdminClient>;
+
+/**
+ * Delete students and their child rows, children first. Every delete is checked and the run
+ * stops at the first failure with what was already removed, so a partial wipe is never reported
+ * as complete. Ids go in chunks: one `.in()` with thousands of ids overflows the request URL.
+ */
+async function wipeStudents(admin: Admin, ids: string[] | "ALL") {
+  const counts = { deletedStudentsCount: 0, deletedResultsCount: 0, deletedHistoryCount: 0 };
+  const steps: [table: string, column: string, key?: keyof typeof counts][] = [
+    ["student_results", "student_id", "deletedResultsCount"],
+    ["student_marks", "student_id"],
+    ["student_attendance", "student_id"],
+    ["academic_history", "student_id", "deletedHistoryCount"],
+    ["students", "id", "deletedStudentsCount"],
+  ];
+  const chunks: (string[] | null)[] = ids === "ALL" ? [null] : [];
+  if (ids !== "ALL") for (let i = 0; i < ids.length; i += ID_CHUNK) chunks.push(ids.slice(i, i + ID_CHUNK));
+
+  for (const [table, column, key] of steps) {
+    for (const chunk of chunks) {
+      const base = admin.from(table).delete({ count: "exact" });
+      const { count, error } = await (chunk ? base.in(column, chunk) : base.not("id", "is", null));
+      // A table from a migration that is not applied yet has nothing to delete.
+      if (error?.code === "42P01" && table !== "students") break;
+      if (error) {
+        throw new Error(
+          `Wipeout stopped at ${table}: ${error.message}. Already removed: ${counts.deletedResultsCount} results, ${counts.deletedHistoryCount} history rows, ${counts.deletedStudentsCount} students.`,
+        );
+      }
+      if (key) counts[key] += count || 0;
+    }
+  }
+  return counts;
+}
+
+// undo: n/a — irreversible by design; guarded by the admin password and a typed confirmation phrase
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
 
     // 1. Get logged in user
@@ -97,120 +140,33 @@ export async function POST(req: Request) {
     // DOMAIN 1: STUDENT & ACADEMIC DATA WIPEOUT
     // ==========================================
     if (wipeoutScope === "ALL_DATA") {
-      const { count: resultsCount } = await adminClient
-        .from("student_results")
-        .delete({ count: "exact" })
-        .not("id", "is", null);
-      deletedResultsCount = resultsCount || 0;
-
-      await adminClient.from("student_marks").delete().not("id", "is", null);
-      await adminClient.from("student_attendance").delete().not("id", "is", null);
-
-      const { count: historyCount } = await adminClient
-        .from("academic_history")
-        .delete({ count: "exact" })
-        .not("id", "is", null);
-      deletedHistoryCount = historyCount || 0;
-
-      const { count: studentsCount } = await adminClient
-        .from("students")
-        .delete({ count: "exact" })
-        .not("id", "is", null);
-      deletedStudentsCount = studentsCount || 0;
-
+      const counts = await wipeStudents(adminClient, "ALL");
+      ({ deletedStudentsCount, deletedResultsCount, deletedHistoryCount } = counts);
       operationSummaryMessage = `Master reset completed: Removed ${deletedStudentsCount} students and ${deletedResultsCount} results.`;
 
-    } else if (wipeoutScope === "CURRENT_STUDENTS_ONLY") {
-      const { data: currentStudents } = await adminClient
-        .from("students")
-        .select("id")
-        .eq("current_status", "Continuing");
-
-      const currentIds = (currentStudents || []).map((s) => s.id);
-
-      if (currentIds.length > 0) {
-        const { count: resCount } = await adminClient.from("student_results").delete({ count: "exact" }).in("student_id", currentIds);
-        deletedResultsCount = resCount || 0;
-
-        await adminClient.from("student_marks").delete().in("student_id", currentIds);
-        await adminClient.from("student_attendance").delete().in("student_id", currentIds);
-
-        const { count: histCount } = await adminClient.from("academic_history").delete({ count: "exact" }).in("student_id", currentIds);
-        deletedHistoryCount = histCount || 0;
-
-        const { count: studentsCount } = await adminClient
-          .from("students")
-          .delete({ count: "exact" })
-          .in("id", currentIds);
-        deletedStudentsCount = studentsCount || 0;
-      }
-      operationSummaryMessage = `Purged ${deletedStudentsCount} active continuing students.`;
-
-    } else if (wipeoutScope === "OLD_STUDENTS_ONLY") {
-      const { data: oldStudents } = await adminClient
-        .from("students")
-        .select("id")
-        .neq("current_status", "Continuing");
-
-      const oldIds = (oldStudents || []).map((s) => s.id);
-
-      if (oldIds.length > 0) {
-        const { count: resCount } = await adminClient.from("student_results").delete({ count: "exact" }).in("student_id", oldIds);
-        deletedResultsCount = resCount || 0;
-
-        await adminClient.from("student_marks").delete().in("student_id", oldIds);
-        await adminClient.from("student_attendance").delete().in("student_id", oldIds);
-
-        const { count: histCount } = await adminClient.from("academic_history").delete({ count: "exact" }).in("student_id", oldIds);
-        deletedHistoryCount = histCount || 0;
-
-        const { count: studentsCount } = await adminClient
-          .from("students")
-          .delete({ count: "exact" })
-          .in("id", oldIds);
-        deletedStudentsCount = studentsCount || 0;
-      }
-      operationSummaryMessage = `Purged ${deletedStudentsCount} archived/alumni students.`;
-
-    } else if (wipeoutScope === "CLASS_SPECIFIC") {
-      if (!targetClass) {
+    } else if (wipeoutScope === "CURRENT_STUDENTS_ONLY" || wipeoutScope === "OLD_STUDENTS_ONLY" || wipeoutScope === "CLASS_SPECIFIC") {
+      if (wipeoutScope === "CLASS_SPECIFIC" && !targetClass) {
         return NextResponse.json({ error: "Target class is required for class-specific wipeout." }, { status: 400 });
       }
 
-      const classVariants = getClassVariations(targetClass);
-
-      const { data: classStudents } = await adminClient
-        .from("students")
-        .select("id")
-        .in("present_class", classVariants)
-        .eq("current_status", "Continuing");
-
-      const classStudentIds = (classStudents || []).map((s) => s.id);
-
-      if (classStudentIds.length > 0) {
-        const { count: resCount } = await adminClient
-          .from("student_results")
-          .delete({ count: "exact" })
-          .in("student_id", classStudentIds);
-        deletedResultsCount = resCount || 0;
-
-        await adminClient.from("student_marks").delete().in("student_id", classStudentIds);
-        await adminClient.from("student_attendance").delete().in("student_id", classStudentIds);
-
-        const { count: histCount } = await adminClient
-          .from("academic_history")
-          .delete({ count: "exact" })
-          .in("student_id", classStudentIds);
-        deletedHistoryCount = histCount || 0;
-
-        const { count: studentsCount } = await adminClient
-          .from("students")
-          .delete({ count: "exact" })
-          .in("id", classStudentIds);
-        deletedStudentsCount = studentsCount || 0;
+      let idQuery = adminClient.from("students").select("id");
+      if (wipeoutScope === "OLD_STUDENTS_ONLY") {
+        idQuery = idQuery.neq("current_status", "Continuing");
+      } else {
+        idQuery = idQuery.eq("current_status", "Continuing");
+        if (wipeoutScope === "CLASS_SPECIFIC") idQuery = idQuery.in("present_class", getClassVariations(targetClass));
       }
-      operationSummaryMessage = `Purged ${deletedStudentsCount} active students in Class ${targetClass}.`;
+      const { data: targetStudents, error: idError } = await idQuery;
+      if (idError) throw new Error(`Could not list students to wipe: ${idError.message}`);
 
+      const counts = await wipeStudents(adminClient, (targetStudents || []).map((s) => s.id));
+      ({ deletedStudentsCount, deletedResultsCount, deletedHistoryCount } = counts);
+      operationSummaryMessage =
+        wipeoutScope === "CURRENT_STUDENTS_ONLY"
+          ? `Purged ${deletedStudentsCount} active continuing students.`
+          : wipeoutScope === "OLD_STUDENTS_ONLY"
+            ? `Purged ${deletedStudentsCount} archived/alumni students.`
+            : `Purged ${deletedStudentsCount} active students in Class ${targetClass}.`;
     // ==========================================
     // DOMAIN 2: GENERATED REGISTRY WIPEOUT
     // ==========================================
@@ -241,15 +197,15 @@ export async function POST(req: Request) {
       operationSummaryMessage = `Purged ${deletedCertificatesCount} certificate records from registry.`;
 
     } else if (wipeoutScope === "ROUTINE_AND_EMS_CACHE") {
-      const { count: cacheCount } = await adminClient
-        .from("routine_generated_cache")
-        .delete({ count: "exact" })
-        .not("id", "is", null);
-      const { count: assignCount } = await adminClient
-        .from("routine_assignments")
-        .delete({ count: "exact" })
-        .not("id", "is", null);
-      await adminClient.from("system_config").delete().eq("key", "ems_allocations");
+      const { count: cacheCount } = await mustWrite(
+        adminClient.from("routine_generated_cache").delete({ count: "exact" }).not("id", "is", null),
+        "routine_generated_cache delete",
+      );
+      const { count: assignCount } = await mustWrite(
+        adminClient.from("routine_assignments").delete({ count: "exact" }).not("id", "is", null),
+        "routine_assignments delete",
+      );
+      await mustWrite(adminClient.from("system_config").delete().eq("key", "ems_allocations"), "system_config delete");
 
       clearedRoutineCount = (cacheCount || 0) + (assignCount || 0);
       operationSummaryMessage = `Cleared routine timetable allocations and EMS exam seat arrangements.`;
@@ -261,31 +217,31 @@ export async function POST(req: Request) {
       const nowIso = new Date().toISOString();
 
       if (presetTarget === "FEE_PRESETS" || presetTarget === "ALL_PRESETS") {
-        await adminClient.from("system_config").delete().eq("key", "sms_admission_fee_structure");
+        await mustWrite(adminClient.from("system_config").delete().eq("key", "sms_admission_fee_structure"), "system_config delete");
         presetsResetCount++;
       }
       if (presetTarget === "ADDRESS_PRESETS" || presetTarget === "ALL_PRESETS") {
-        await adminClient.from("system_config").upsert({
+        await mustWrite(adminClient.from("system_config").upsert({
           key: "address_presets_config",
           value: DEFAULT_ADDRESS_PRESETS_CONFIG,
           updated_at: nowIso,
-        });
+        }), "system_config upsert");
         presetsResetCount++;
       }
       if (presetTarget === "MARKS_SCHEMES" || presetTarget === "ALL_PRESETS") {
-        await adminClient.from("system_config").upsert({
+        await mustWrite(adminClient.from("system_config").upsert({
           key: "marks_schemes",
           value: DEFAULT_MARKS_SCHEMES,
           updated_at: nowIso,
-        });
+        }), "system_config upsert");
         presetsResetCount++;
       }
       if (presetTarget === "STUDENT_ENTRY_DEFAULTS" || presetTarget === "ALL_PRESETS") {
-        await adminClient.from("system_config").upsert({
+        await mustWrite(adminClient.from("system_config").upsert({
           key: "student_entry_presets",
           value: DEFAULT_STUDENT_ENTRY_PRESETS,
           updated_at: nowIso,
-        });
+        }), "system_config upsert");
         presetsResetCount++;
       }
       operationSummaryMessage = `System presets successfully restored to factory defaults.`;
@@ -295,7 +251,7 @@ export async function POST(req: Request) {
     }
 
     // 5. Insert security audit log for the wipeout
-    await adminClient.from("audit_log").insert({
+    await softWrite(adminClient.from("audit_log").insert({
       performed_by: user.id,
       action: "SYSTEM_DATA_WIPEOUT",
       table_name: wipeoutScope,
@@ -314,7 +270,9 @@ export async function POST(req: Request) {
         admin_email: user.email,
         timestamp: new Date().toISOString(),
       },
-    });
+    }), "audit_log insert");
+
+    await notify({ roles: ["Admin"], severity: "warning", title: "Data wipeout executed", message: operationSummaryMessage, link: "/admin-hub", source: "admin.wipeout", push: true });
 
     return NextResponse.json({
       success: true,
@@ -333,6 +291,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("Data wipeout error:", error);
+    await notifyAdminsOfError("admin.wipeout", "Data wipeout failed", error, "/admin-hub");
     return NextResponse.json({ error: error.message || "Failed to execute data wipeout" }, { status: 500 });
   }
 }

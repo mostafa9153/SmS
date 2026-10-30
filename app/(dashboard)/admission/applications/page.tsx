@@ -7,25 +7,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAdmissionApplications, admitNewStudentApplication } from "@/lib/data/admission";
 import type { AdmissionApplication } from "@/lib/types";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
-import {
-  FileCheck2,
-  Search,
-  CheckCircle2,
-  Clock,
-  Printer,
-  ArrowLeft,
-  UserCheck,
-  User,
-  ShieldCheck,
-  ExternalLink,
-  Filter,
-  RefreshCw,
-  Loader2,
-} from "lucide-react";
+import { FileCheck2, Search, CheckCircle2, Clock, Printer, UserCheck, User, ShieldCheck, ExternalLink, Filter, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getSavedFeeStructure,
@@ -34,6 +21,9 @@ import {
   getFeeCategoryForClass,
   FEE_SECTIONS,
 } from "@/lib/utils/fee-config";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
+import { apiFetch } from "@/lib/api/client";
 
 const VALID_APP_STATUSES = ["pending", "admitted", "rejected", "all"] as const;
 
@@ -98,9 +88,8 @@ function ApplicationsDeskPageContent() {
   const fetchNextInvoiceNumber = async () => {
     try {
       setIsFetchingInvoiceNo(true);
-      const res = await fetch(`/api/invoices/next-sequence?year=${currentYear}`);
-      const data = await res.json();
-      if (res.ok && typeof data.nextSequence === "number") {
+      const data = await apiFetch<{ nextSequence?: number }>(`/api/invoices/next-sequence?year=${currentYear}`);
+      if (typeof data.nextSequence === "number") {
         return generateInvoiceNumber(data.nextSequence, currentYear);
       }
     } catch (e) {
@@ -177,32 +166,20 @@ function ApplicationsDeskPageContent() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admission/new"
-            className="p-2 rounded-xl border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Back to New Admission Tracker"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <FileCheck2 className="h-5 w-5 text-blue-600" />
-              <span>Applications &amp; Verification Desk</span>
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        back="/admission/new"
+        icon={FileCheck2}
+        title="Applications & Verification Desk"
+        actions={<div className="flex items-center gap-2">
           <Link
             href="/admission/new"
             className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-primary text-primary-foreground text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
           >
             <span>+ New Application</span>
           </Link>
-        </div>
-      </div>
+        </div>}
+        className="border-b pb-5"
+      />
 
       {/* Filter Bar */}
       <div className="bg-card border rounded-2xl p-4 shadow-xs space-y-3">
@@ -276,13 +253,7 @@ function ApplicationsDeskPageContent() {
             Loading applications...
           </div>
         ) : filteredApps.length === 0 ? (
-          <div className="p-12 text-center space-y-2">
-            <Clock className="h-10 w-10 text-muted-foreground/50 mx-auto" />
-            <p className="text-sm font-semibold text-foreground">No applications found</p>
-            <p className="text-xs text-muted-foreground">
-              Submit a new application or adjust search filters.
-            </p>
-          </div>
+          <EmptyState icon={Clock} title="No applications found" />
         ) : (
           <div>
             {/* Mobile Card List (Visible on mobile, hidden on md+) */}
@@ -609,7 +580,7 @@ export default function ApplicationsDeskPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Spinner className="h-4 w-4 text-primary" />
           <span>Loading Applications Desk...</span>
         </div>
       }

@@ -5,11 +5,12 @@ import { RoutineSettings, DAY_NAMES } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Save, RefreshCw, Check, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
+import { Save, Check, Sliders, CalendarDays, Coffee, UserCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import { showToast } from "@/components/ui/toast-banner";
+import { Spinner } from "@/components/ui/spinner";
 
 interface RoutineSettingsTabProps {
   settings: RoutineSettings;
@@ -336,7 +337,7 @@ export function RoutineSettingsTab({
         >
           {isSaving ? (
             <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <Spinner className="h-3.5 w-3.5" />
               <span>Saving...</span>
             </>
           ) : isSavedRecently ? (

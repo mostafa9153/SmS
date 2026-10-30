@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { dbGetResultsByClass, dbSaveOrUpdateResult } from "@/lib/supabase/db-results";
 import type { Semester } from "@/lib/types";
+import { denyOutsideClasses, requireRole, requireStaff } from "@/lib/api/guard";
+import { denyStudentsOutsideClasses } from "@/lib/api/class-scope";
+import { getAcademicYear } from "@/lib/academic/current-year";
+import { recordResultsUndo, snapshotClassResults } from "@/lib/academic/results-undo";
 
 // GET /api/results?year=2026&class=V&section=A&exam=Annual%20Examination&semester=Sem%201
 export async function GET(req: Request) {
-  try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  const gate = await requireRole();
+  if (!gate.ok) return gate.response;
 
+  try {
     const { searchParams } = new URL(req.url);
-    const academicYear = parseInt(searchParams.get("year") || String(new Date().getFullYear()), 10);
+    const academicYear = parseInt(searchParams.get("year") || String((await getAcademicYear())), 10);
     const className = searchParams.get("class") || "V";
     const section = searchParams.get("section") || undefined;
     const examName = searchParams.get("exam") || "Annual Examination";
     const semester = (searchParams.get("semester") as Semester) || undefined;
+    const outside = denyOutsideClasses(gate.auth, className);
+    if (outside) return outside;
 
     const summary = await dbGetResultsByClass(academicYear, className, section, examName, semester);
     return NextResponse.json(summary);
@@ -29,12 +31,11 @@ export async function GET(req: Request) {
 
 // POST /api/results - Save or update student marks
 export async function POST(req: Request) {
+  const gate = await requireStaff("can_enter_results");
+  if (!gate.ok) return gate.response;
+
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user } = gate.auth;
 
     const body = await req.json();
     const { studentId, academicYear, class: className, section, roll, semester, examName, fullMarks, marksObtained, subjectMarks, remarks } = body;
@@ -42,11 +43,15 @@ export async function POST(req: Request) {
     if (!studentId || !className || marksObtained === undefined) {
       return NextResponse.json({ error: "Missing required fields (studentId, class, marksObtained)" }, { status: 400 });
     }
+    const outside = await denyStudentsOutsideClasses(gate.auth, className, [studentId]);
+    if (outside) return outside;
 
+    const year = academicYear || (await getAcademicYear());
+    const classBefore = await snapshotClassResults(year, className, examName || "Annual Examination", [studentId]);
     const savedResult = await dbSaveOrUpdateResult(
       {
         studentId,
-        academicYear: academicYear || new Date().getFullYear(),
+        academicYear: year,
         class: className,
         section: section || "A",
         roll: roll || 1,
@@ -60,7 +65,17 @@ export async function POST(req: Request) {
       user.id
     );
 
-    return NextResponse.json({ success: true, result: savedResult });
+    const undoId = await recordResultsUndo({
+      actorId: user.id,
+      action: "results.save",
+      label: "Save student marks",
+      academicYear: year,
+      className,
+      examName: examName || "Annual Examination",
+      studentIds: [studentId],
+      before: classBefore,
+    });
+    return NextResponse.json({ success: true, result: savedResult, undoId });
   } catch (error: any) {
     console.error("Results API POST error:", error);
     return NextResponse.json({ error: error.message || "Failed to save student result" }, { status: 400 });

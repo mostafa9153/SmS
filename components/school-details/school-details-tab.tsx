@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { cn } from "@/lib/utils";
+import { saveSchoolConfig } from "@/lib/utils/school-config-client";
 import {
   type SchoolProfileData,
   DEFAULT_SCHOOL_PROFILE,
@@ -39,7 +40,7 @@ import {
  * Helper to identify Higher Secondary classes (Classes XI and XII / 11 and 12).
  * Stream is ONLY applicable to Classes XI and XII.
  */
-export function isHigherSecondaryClass(code?: string, name?: string): boolean {
+function isHigherSecondaryClass(code?: string, name?: string): boolean {
   const normCode = (code || "").trim().toUpperCase();
   const normName = (name || "").trim().toUpperCase();
   return (
@@ -268,27 +269,26 @@ export function SchoolDetailsTab() {
           });
           localStorage.setItem("sms_class_management", JSON.stringify(updatedClasses));
           window.dispatchEvent(new Event("sms_class_management_updated"));
-          fetch("/api/school-config", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key: "class_management", value: updatedClasses }),
-          }).catch((err) => console.warn("Background DB sync for classes failed:", err));
+          void saveSchoolConfig("class_management", updatedClasses, {
+            label: "Class streams updated",
+            mirror: { storageKey: "sms_class_management", event: "sms_class_management_updated" },
+            localFirst: true,
+          });
         }
       } catch (e) {
         console.warn("Class stream sync skipped:", e);
       }
 
-      localStorage.setItem("sms_school_profile", JSON.stringify(profileToSave));
       const success = await saveSchoolProfileToDb(profileToSave);
       setIsSavingProfile(false);
       setIsCloudSynced(success);
-      showToast({
-        type: success ? "success" : "info",
-        title: success ? "Saved to Cloud Database" : "Saved Locally",
-        description: success
-          ? "Institutional metadata & HS stream settings synchronized across all devices."
-          : "Saved in browser storage.",
-      });
+      if (success) {
+        showToast({
+          type: "success",
+          title: "Saved to Cloud Database",
+          description: "Institutional metadata & HS stream settings synchronized across all devices.",
+        });
+      }
     } catch (e) {
       setIsSavingProfile(false);
       showToast({

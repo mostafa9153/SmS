@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { pgContains } from "@/lib/supabase/filters";
 import { type FeeItem, generateInvoiceNumber } from "@/lib/utils/fee-config";
 
 export interface DBInvoiceRow {
@@ -392,7 +393,7 @@ export async function dbSearchInvoices(params: {
     }
 
     if (params.query && params.query.trim()) {
-      const term = `%${params.query.trim()}%`;
+      const term = pgContains(params.query.trim());
       q = q.or(
         `invoice_number.ilike.${term},student_name.ilike.${term},student_id.ilike.${term},guardian_name.ilike.${term},assigned_to.ilike.${term}`
       );
@@ -682,7 +683,7 @@ export async function dbGetNextInvoiceSequence(year?: number): Promise<{
 // ─────────────────────────────────────────────────────────────
 // Get Printed Invoice Batches from Database
 // ─────────────────────────────────────────────────────────────
-export interface DBInvoiceBatch {
+interface DBInvoiceBatch {
   batchId: string;
   count: number;
   startSerial: number;

@@ -1,0 +1,86 @@
+
+
+
+export const WB_DISTRICTS = [
+  "Alipurduar",
+  "Bankura",
+  "Birbhum",
+  "Cooch Behar",
+  "Dakshin Dinajpur",
+  "Darjeeling",
+  "Hooghly",
+  "Howrah",
+  "Jalpaiguri",
+  "Jhargram",
+  "Kalimpong",
+  "Kolkata",
+  "Malda",
+  "Murshidabad",
+  "Nadia",
+  "North 24 Parganas",
+  "Paschim Bardhaman",
+  "Paschim Medinipur",
+  "Purba Bardhaman",
+  "Purba Medinipur",
+  "Purulia",
+  "South 24 Parganas",
+  "Uttar Dinajpur",
+];
+
+export const CLASSES = ["V", "VI", "VII", "VIII", "IX", "XI"];
+
+export const OCCUPATIONS = [
+  "Farmer / কৃষি কাজ",
+  "Business / ব্যবসা",
+  "Daily Wage Labour / দিনমজুর",
+  "Service / চাকরি",
+  "Teacher / শিক্ষকতা",
+  "Driver / চালক",
+  "Tailor / দর্জি",
+  "Carpenter / ছুতার",
+  "Mason / রাজমিস্ত্রি",
+  "Electrician / ইলেকট্রিশিয়ান",
+  "Homemaker / গৃহিণী",
+  "Retired / অবসরপ্রাপ্ত",
+  "Other / অন্যান্য",
+];
+
+export const QUALIFICATIONS = [
+  "Illiterate / নিরক্ষর",
+  "Primary / প্রাথমিক (Class I-IV)",
+  "Upper Primary / উচ্চ প্রাথমিক (Class V-VIII)",
+  "Secondary / মাধ্যমিক (Class IX-X)",
+  "Higher Secondary / উচ্চ মাধ্যমিক (Class XI-XII)",
+  "Graduate / স্নাতক (BA/BSc/BCom)",
+  "Post Graduate / স্নাতকোত্তর (MA/MSc/MCom)",
+  "Doctorate / Professional / পিএইচডি বা পেশাদার",
+  "Other / অন্যান্য",
+];
+
+export const DEFAULT_HS_SUBJECTS = [
+  "Bengali (1st Language)",
+  "English (2nd Language)",
+  "History",
+  "Geography",
+  "Political Science",
+  "Philosophy",
+  "Education",
+  "Sanskrit",
+  "Arabic",
+  "Sociology",
+  "Economics",
+  "Physics",
+  "Chemistry",
+  "Mathematics",
+  "Biological Sciences",
+  "Computer Science",
+  "Modern Computer Application (COMA)",
+  "Nutrition",
+  "Physical Education",
+  "Music",
+  "Visual Arts",
+  "Accountancy",
+  "Business Studies",
+  "Commercial Law & Auditing (CLPA)",
+  "Costing & Taxation",
+];

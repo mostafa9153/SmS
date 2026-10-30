@@ -3,24 +3,7 @@ import type {
   AdmissionSettings,
   Student,
 } from "@/lib/types";
-
-export interface InvoiceQueueGroup {
-  class: string;
-  section: string;
-  totalCount: number;
-  students: Array<{
-    id: string;
-    name: string;
-    schoolId?: string;
-    class: string;
-    section: string;
-    roll: number;
-    guardianName?: string;
-    contactNumber?: string;
-    source: "new_admission" | "re_admission";
-    admittedAt?: string;
-  }>;
-}
+import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function getAdmissionApplications(filters?: {
   status?: string;
@@ -74,23 +57,6 @@ export async function createAdmissionApplication(
   return result.application;
 }
 
-export async function editAdmissionApplication(
-  id: string,
-  data: Partial<AdmissionApplication>
-): Promise<AdmissionApplication> {
-  const res = await fetch(`/api/admission/applications/${id}/edit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update admission application");
-  }
-  const result = await res.json();
-  return result.application;
-}
-
 export async function admitNewStudentApplication(
   applicationId: string,
   assignment: {
@@ -128,56 +94,6 @@ export async function admitNewStudentApplication(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || "Failed to confirm student admission");
-  }
-  return res.json();
-}
-
-export async function revertAdmissionApplication(
-  applicationId: string
-): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`/api/admission/applications/${applicationId}/revert`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to revert admission");
-  }
-  return res.json();
-}
-
-export async function deleteAdmissionApplication(
-  applicationId: string
-): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`/api/admission/applications/${applicationId}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to delete application");
-  }
-  return res.json();
-}
-
-export async function transferApplicationsToActive(payload: {
-  applicationIds?: string[];
-  className?: string;
-  academicYear?: string;
-}): Promise<{
-  success: boolean;
-  transferredCount: number;
-  transferredStudents: Array<{ id: string; name: string; schoolId: string; class: string; roll: number }>;
-  skippedCount: number;
-  skippedWarnings: Array<{ id: string; name: string; reason: string }>;
-  message: string;
-}> {
-  const res = await fetch("/api/admission/applications/transfer-to-active", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to transfer admitted students to active directory");
   }
   return res.json();
 }
@@ -317,7 +233,7 @@ export async function getAdmissionSettings(): Promise<AdmissionSettings> {
       schoolId: "default",
       aiProvider: "gemini",
       aiModel: "gemini-1.5-flash",
-      currentAcademicYear: "2026",
+      currentAcademicYear: String(currentYearIST()),
       newAdmissionActive: true,
       readmissionActive: true,
     };

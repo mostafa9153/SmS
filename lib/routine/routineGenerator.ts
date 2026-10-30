@@ -48,7 +48,7 @@ interface Unit {
   slot: { dPos: number; pPos: number } | null;
 }
 
-export class RoutineSolver {
+class RoutineSolver {
   private settings: RoutineSettings;
   private classes: RoutineClass[];
   private teachers: Map<string, RoutineTeacher>;

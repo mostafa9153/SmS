@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dbExecuteSessionTransition } from "@/lib/supabase/db-academic-session";
+import { notify, notifyAdminsOfError } from "@/lib/notifications/notify";
 
 // POST /api/academic-session/transition
 export async function POST(req: Request) {
@@ -48,8 +49,10 @@ export async function POST(req: Request) {
       result = await dbExecuteSessionTransition(params, user.id);
     }
 
+    await notify({ roles: ["Admin", "Staff"], severity: "success", title: "Academic session transition completed", message: `Section: ${section === "higher_secondary" ? "Higher Secondary" : "Secondary"}`, link: "/settings/academic-session", source: "session.transition", createdBy: user.id });
     return NextResponse.json({ success: true, result });
   } catch (error: any) {
+    await notifyAdminsOfError("session.transition", "Academic session transition failed", error, "/settings/academic-session");
     return NextResponse.json({ error: error.message || "Session transition failed" }, { status: 500 });
   }
 }

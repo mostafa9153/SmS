@@ -3,14 +3,10 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-export type PaperSize = "A5" | "A4" | "A3";
-export type PaperOrientation = "portrait" | "landscape";
-export interface PrintMargins {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
+import { PAPER_MM, type PaperOrientation, type PaperSize, type PrintMargins } from "@/lib/print/paper";
+
+export { PAPER_MM };
+export type { PaperOrientation, PaperSize, PrintMargins };
 
 export interface ClassTeacherRow {
   className: string;
@@ -32,19 +28,13 @@ interface ClassTeacherListPrintableProps {
   preview?: boolean;
 }
 
-export const PAPER_MM: Record<PaperSize, { w: number; h: number }> = {
-  A5: { w: 148, h: 210 },
-  A4: { w: 210, h: 297 },
-  A3: { w: 297, h: 420 },
-};
-
 // Reference content area: A4 with 10mm margins. Font and spacing scale against this.
 const REF_AREA_MM2 = 190 * 277;
 const MIN_ROW_MM = 6;
 const MAX_ROW_MM = 14;
 export const MIN_USABLE_MM = 60;
 
-export function getPageBox(paper: PaperSize, orientation: PaperOrientation, margins: PrintMargins) {
+function getPageBox(paper: PaperSize, orientation: PaperOrientation, margins: PrintMargins) {
   const base = PAPER_MM[paper];
   const pageW = orientation === "landscape" ? base.h : base.w;
   const pageH = orientation === "landscape" ? base.w : base.h;
@@ -66,7 +56,7 @@ export function getPageCount(
   return Math.max(1, Math.ceil(rowCount / m.rowsPerPage));
 }
 
-export function getFitMetrics(box: { usableW: number; usableH: number }) {
+function getFitMetrics(box: { usableW: number; usableH: number }) {
   const k = Math.sqrt((box.usableW * box.usableH) / REF_AREA_MM2);
   const headerMm = 30 * k;
   const theadMm = 8 * k;

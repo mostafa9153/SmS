@@ -21,7 +21,7 @@ export function cleanColumnLabel(label?: string, columnIndex?: number): string {
 }
 
 // Default pre-configured classrooms for immediate use
-export const DEFAULT_ROOMS: EmsRoom[] = [
+const DEFAULT_ROOMS: EmsRoom[] = [
   {
     id: "room-101",
     roomNumber: "Room 101",
@@ -192,12 +192,6 @@ export function saveRooms(rooms: EmsRoom[]): Promise<boolean> {
   return syncKeyToDb("ems_rooms", rooms);
 }
 
-// Get single room by ID
-export function getRoomById(id: string): EmsRoom | undefined {
-  const rooms = getSavedRooms();
-  return rooms.find((r) => r.id === id);
-}
-
 // Save or update a single room
 export function saveRoom(room: EmsRoom): void {
   const rooms = getSavedRooms();
@@ -259,8 +253,8 @@ export async function fetchAllocationsFromDb(): Promise<ExamAllocation[]> {
     const res = await fetch("/api/school-config?key=ems_allocations");
     if (res.ok) {
       const data = await res.json();
-      if (data && Array.isArray(data.value) && data.value.length > 0) {
-        const dbAllocations: ExamAllocation[] = data.value.slice(0, MAX_SAVED_ALLOCATIONS);
+      if (data && Array.isArray(data.data) && data.data.length > 0) {
+        const dbAllocations: ExamAllocation[] = data.data.slice(0, MAX_SAVED_ALLOCATIONS);
         safePersistAllocations(dbAllocations);
         return dbAllocations;
       }
@@ -269,31 +263,7 @@ export async function fetchAllocationsFromDb(): Promise<ExamAllocation[]> {
     console.warn("[EMS Storage] Could not fetch allocations from DB:", err);
   }
   return getSavedAllocations();
-}
-
-/**
- * Fetch saved rooms directly from Supabase / API Database and sync locally
- */
-export async function fetchRoomsFromDb(): Promise<EmsRoom[]> {
-  if (typeof window === "undefined") return DEFAULT_ROOMS;
-  try {
-    const res = await fetch("/api/school-config?key=ems_rooms");
-    if (res.ok) {
-      const data = await res.json();
-      if (data && Array.isArray(data.value) && data.value.length > 0) {
-        const sanitized = sanitizeRoomColumns(data.value);
-        memoryRooms = sanitized;
-        safeWriteItem(ROOMS_STORAGE_KEY, sanitized);
-        return sanitized;
-      }
-    }
-  } catch (err) {
-    console.warn("[EMS Storage] Could not fetch rooms from DB:", err);
-  }
-  return getSavedRooms();
-}
-
-/**
+}/**
  * Quota-safe writer for allocations.
  * Progressively prunes older allocations when localStorage quota is exceeded.
  */
@@ -424,7 +394,7 @@ export function saveActiveAllocation(allocation: ExamAllocation): void {
   safeWriteItem(ACTIVE_ALLOCATION_STORAGE_KEY, allocation);
 }
 
-export function clearActiveAllocation(): void {
+function clearActiveAllocation(): void {
   if (typeof window === "undefined") return;
   memoryActiveAllocation = null;
   try {
@@ -436,7 +406,7 @@ export function clearActiveAllocation(): void {
 }
 
 // Get allocation by ID
-export function getAllocationById(id: string): ExamAllocation | undefined {
+function getAllocationById(id: string): ExamAllocation | undefined {
   const allocations = getSavedAllocations();
   const found = allocations.find((a) => a.id === id);
   if (found) return found;

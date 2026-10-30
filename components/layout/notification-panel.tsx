@@ -1,16 +1,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Check, Trash2, AlertCircle, Activity, Info, X, ShieldAlert, Sparkles } from "lucide-react";
-import { useNotifications, AppNotification } from "@/lib/stores/notification-store";
+import { Bell, BellOff, BellRing, Check, Trash2, AlertCircle, AlertTriangle, CheckCircle2, Activity, Info, X, ShieldAlert, Sparkles } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useNotifications, type AppNotification } from "@/lib/stores/notification-store";
+import type { NotificationSeverity } from "@/lib/notifications/types";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { disablePush, enablePush, getPushState, type PushState } from "@/lib/push/client";
 
 export function NotificationPanel() {
   const { notifications, markAsRead, markAllAsRead, clearAll, unreadCount } = useNotifications();
   const [activeTab, setActiveTab] = useState<"activity" | "system">("activity");
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const filteredNotifications = notifications.filter((n) => n.type === activeTab);
   const hasUnread = unreadCount > 0;
@@ -50,7 +55,11 @@ export function NotificationPanel() {
       {/* Bell Trigger Button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          // Open on the tab that needs attention: unread system alerts win.
+          if (!isOpen) setActiveTab(notifications.some((n) => n.type === "system" && !n.isRead) ? "system" : "activity");
+          setIsOpen(!isOpen);
+        }}
         title="System & Activity Notifications"
         aria-label="System notifications"
         className={cn(
@@ -91,6 +100,7 @@ export function NotificationPanel() {
             </div>
 
             <div className="flex items-center gap-1">
+              <PushToggle />
               {notifications.length > 0 && (
                 <>
                   <button
@@ -173,18 +183,19 @@ export function NotificationPanel() {
                 <p className="text-xs font-bold text-foreground">
                   No {activeTab === "activity" ? "Recent Activity" : "System Alerts"}
                 </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  {activeTab === "activity"
-                    ? "Your actions and uploads will appear here."
-                    : "No errors or mismatch issues detected."}
-                </p>
               </div>
             ) : (
               filteredNotifications.map((notif) => (
                 <NotificationItem
                   key={notif.id}
                   notification={notif}
-                  onRead={() => markAsRead(notif.id)}
+                  onRead={() => {
+                    markAsRead(notif.id);
+                    if (notif.link) {
+                      setIsOpen(false);
+                      router.push(notif.link);
+                    }
+                  }}
                 />
               ))
             )}
@@ -203,6 +214,13 @@ export function NotificationPanel() {
   );
 }
 
+const SEVERITY_STYLE: Record<NotificationSeverity, { unread: string; bar: string; icon: string; Icon: typeof Info }> = {
+  info: { unread: "bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10", bar: "bg-blue-500", icon: "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-500/20", Icon: Info },
+  success: { unread: "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10", bar: "bg-emerald-500", icon: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20", Icon: CheckCircle2 },
+  warning: { unread: "bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10", bar: "bg-amber-500", icon: "bg-amber-500/10 text-amber-600 dark:text-amber-400 ring-amber-500/20", Icon: AlertTriangle },
+  error: { unread: "bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/10", bar: "bg-rose-500", icon: "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-rose-500/20", Icon: AlertCircle },
+};
+
 function NotificationItem({
   notification,
   onRead,
@@ -210,38 +228,23 @@ function NotificationItem({
   notification: AppNotification;
   onRead: () => void;
 }) {
-  const isActivity = notification.type === "activity";
+  const style = SEVERITY_STYLE[notification.severity] ?? SEVERITY_STYLE.info;
+  const Icon = style.Icon;
 
   return (
     <div
       onClick={onRead}
       className={cn(
         "relative flex gap-3 p-2.5 rounded-xl cursor-pointer transition-all duration-150 group border",
-        !notification.isRead
-          ? isActivity
-            ? "bg-blue-500/5 border-blue-500/20 hover:bg-blue-500/10"
-            : "bg-rose-500/5 border-rose-500/20 hover:bg-rose-500/10"
-          : "bg-card/60 border-border/40 opacity-75 hover:opacity-100 hover:bg-accent/40"
+        !notification.isRead ? style.unread : "bg-card/60 border-border/40 opacity-75 hover:opacity-100 hover:bg-accent/40"
       )}
     >
       {!notification.isRead && (
-        <span
-          className={cn(
-            "absolute left-1 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full",
-            isActivity ? "bg-blue-500" : "bg-rose-500"
-          )}
-        />
+        <span className={cn("absolute left-1 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full", style.bar)} />
       )}
 
-      <div
-        className={cn(
-          "shrink-0 flex items-center justify-center h-7 w-7 rounded-lg shadow-2xs mt-0.5 ml-1",
-          isActivity
-            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20"
-            : "bg-rose-500/10 text-rose-600 dark:text-rose-400 ring-1 ring-rose-500/20"
-        )}
-      >
-        {isActivity ? <Info className="h-3.5 w-3.5" /> : <AlertCircle className="h-3.5 w-3.5" />}
+      <div className={cn("shrink-0 flex items-center justify-center h-7 w-7 rounded-lg shadow-2xs mt-0.5 ml-1 ring-1", style.icon)}>
+        <Icon className="h-3.5 w-3.5" />
       </div>
 
       <div className="flex flex-col flex-1 min-w-0">
@@ -263,5 +266,58 @@ function NotificationItem({
         </p>
       </div>
     </div>
+  );
+}
+
+const PUSH_TITLE: Record<PushState, string> = {
+  on: "Device notifications on",
+  off: "Turn on device notifications",
+  denied: "Notifications are blocked in browser settings",
+  unsupported: "",
+  unconfigured: "",
+};
+
+/** Subscribes this browser to web push so alerts reach the phone/desktop even when the app is closed. */
+function PushToggle() {
+  const [state, setState] = useState<PushState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getPushState().then(setState, () => setState("unsupported"));
+  }, []);
+
+  if (!state || state === "unsupported" || state === "unconfigured") return null;
+
+  async function toggle() {
+    if (busy || state === "denied") return;
+    setBusy(true);
+    try {
+      const next = state === "on" ? await disablePush() : await enablePush();
+      setState(next);
+      if (next === "on") toast.success("Device notifications on");
+      else if (next === "denied") toast.error("Notifications are blocked in browser settings");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not change device notifications");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const Icon = state === "on" ? BellRing : BellOff;
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy || state === "denied"}
+      title={PUSH_TITLE[state]}
+      aria-label={PUSH_TITLE[state]}
+      aria-pressed={state === "on"}
+      className={cn(
+        "p-1 rounded-md transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
+        state === "on" ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:text-primary hover:bg-primary/10"
+      )}
+    >
+      <Icon className={cn("h-3.5 w-3.5", busy && "animate-pulse")} />
+    </button>
   );
 }
