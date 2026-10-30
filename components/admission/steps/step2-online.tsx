@@ -81,11 +81,11 @@ export function Step2Online({ onNext, academicYear }: Step2OnlineProps) {
         </div>
 
         <Dialog>
-          <DialogTrigger>
-            <Button variant="outline" size="sm" className="gap-1.5 rounded-full px-3 sm:px-4 h-8 text-xs border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-semibold shrink-0 cursor-pointer">
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Share Portal</span>
-            </Button>
+          <DialogTrigger
+            render={<Button variant="outline" size="sm" className="gap-1.5 rounded-full px-3 sm:px-4 h-8 text-xs border-primary/20 bg-primary/5 hover:bg-primary/10 text-primary font-semibold shrink-0 cursor-pointer" />}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share Portal</span>
           </DialogTrigger>
           <DialogContent className="max-w-sm sm:max-w-md w-[92vw] p-5 sm:p-6 rounded-2xl">
             <DialogHeader>

@@ -106,11 +106,11 @@ export function Step2Online({ onNext }: Step2OnlineProps) {
           </div>
 
           <Dialog>
-            <DialogTrigger>
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs font-semibold gap-1.5 border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5 hover:bg-blue-500/10">
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share Portal</span>
-              </Button>
+            <DialogTrigger
+              render={<Button variant="outline" size="sm" className="h-8 px-3 text-xs font-semibold gap-1.5 border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/5 hover:bg-blue-500/10" />}
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Share Portal</span>
             </DialogTrigger>
             <DialogContent className="max-w-sm w-[92vw] p-5 rounded-2xl">
               <DialogHeader>
