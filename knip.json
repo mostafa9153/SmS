@@ -1,4 +1,4 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "ignore": [".claude/**", "scratch/**", "patch_*.js", "public/sw.js"]
+  "ignore": [".claude/**", "scratch/**", "public/sw.js"]
 }

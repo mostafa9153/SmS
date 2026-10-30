@@ -43,4 +43,4 @@ School Management System: Next.js 16 (App Router, Turbopack) + React 19, Supabas
 - **Health**: `npm run health` for the scorecard; plan and reports in `docs/codebase-health/`.
 
 ## Ignore
-Root `patch_*.js`, `current_diff.patch`, `routine-forge-pro.html`, `scratch/` are one-off artifacts, not app code.
+`scratch/` is a local, git-ignored folder of one-off scripts, not app code.
