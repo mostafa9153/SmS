@@ -14,6 +14,14 @@ import { StatusBadge } from "@/components/students/status-badge";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 
+const CLASS_ORDER = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+// Re-admission lists students by their promoted (target) class, shown as "from → to".
+function promotionLabel(cls: string) {
+  const i = CLASS_ORDER.indexOf(cls);
+  return i > 0 ? `Class ${CLASS_ORDER[i - 1]} → ${cls}` : `Class ${cls}`;
+}
+
 interface Step2OfflineProps {
   onNext: (studentData: Student) => void;
   onQuickAdmit?: (studentData: Student) => void;
@@ -30,11 +38,12 @@ export function Step2Offline({
   initialSection,
 }: Step2OfflineProps) {
   const [selectedClass, setSelectedClass] = useState<string>(() => {
-    if (initialClass) return initialClass;
+    if (initialClass && initialClass !== "V") return initialClass;
     if (typeof window !== "undefined") {
-      return localStorage.getItem("sms_readmission_class") || "V";
+      const saved = localStorage.getItem("sms_readmission_class");
+      return saved && saved !== "V" ? saved : "VI";
     }
-    return "V";
+    return "VI";
   });
 
   const [selectedSection, setSelectedSection] = useState<string>(() => {
@@ -133,14 +142,16 @@ export function Step2Offline({
           <div className="flex items-center gap-1 flex-1 sm:flex-initial">
             <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground">Class:</span>
             <Select value={selectedClass} onValueChange={(v) => v && setSelectedClass(v)}>
-              <SelectTrigger className="h-8 flex-1 sm:w-28 text-xs font-semibold">
-                <SelectValue placeholder="Class" />
+              <SelectTrigger className="h-8 flex-1 sm:w-36 text-xs font-semibold">
+                <SelectValue placeholder="Class">
+                  {selectedClass === "all" ? "All Classes" : promotionLabel(selectedClass)}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs font-semibold">All Classes</SelectItem>
-                {availableClasses.map((cls) => (
+                {availableClasses.filter((cls) => cls !== "V").map((cls) => (
                   <SelectItem key={cls} value={cls} className="text-xs">
-                    Class {cls}
+                    {promotionLabel(cls)}
                   </SelectItem>
                 ))}
               </SelectContent>
