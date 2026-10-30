@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Camera, Upload, RotateCw, ZoomIn, ZoomOut, Check, X, RefreshCw, AlertCircle, Sparkles, Trash2, Image as ImageIcon } from "lucide-react";
 import { showToast } from "@/components/ui/toast-banner";
 import { useConfirm } from "@/components/ui/confirm-dialog";

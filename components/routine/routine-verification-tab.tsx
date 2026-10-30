@@ -25,20 +25,7 @@ import {
 } from "@/lib/routine/routine-helpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  ShieldCheck,
-  AlertTriangle,
-  AlertCircle,
-  CheckCircle2,
-  Sparkles,
-  ArrowRight,
-  RefreshCw,
-  School,
-  Users,
-  BookOpen,
-  CalendarCheck2,
-  Filter,
-} from "lucide-react";
+import { ShieldCheck, AlertTriangle, AlertCircle, CheckCircle2, Sparkles, ArrowRight, RefreshCw, School, Users, BookOpen, CalendarCheck2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AuditIssue {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { getStudentById } from "@/lib/data/students";
 import { Student } from "@/lib/types";
@@ -12,7 +12,6 @@ import { StudentPicker, StudentPickerMode } from "@/components/certificate/stude
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Switch } from "@/components/ui/switch";
 import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";

@@ -1,6 +1,5 @@
 "use client";
 
-import { apiFetch } from "@/lib/api/client";
 import React, { useState, useEffect } from "react";
 import { showToast } from "@/components/ui/toast-banner";
 import { createClient } from "@/lib/supabase/client";

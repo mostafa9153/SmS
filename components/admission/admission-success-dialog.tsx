@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Printer, Check, FileText, ArrowRight, X } from "lucide-react";
+import { CheckCircle2, Printer, X } from "lucide-react";
 import { InvoicePrintableView } from "@/components/invoice/invoice-printable-view";
 import { type InvoiceData } from "@/lib/utils/fee-config";
 import { todayIST } from "@/lib/utils/date";

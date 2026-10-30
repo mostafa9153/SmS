@@ -2,18 +2,7 @@
 
 import { toast } from "sonner";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Camera,
-  Upload,
-  RefreshCw,
-  X,
-  QrCode,
-  CheckCircle2,
-  AlertCircle,
-  FlipHorizontal,
-  FileImage,
-  Sparkles,
-} from "lucide-react";
+import { Camera, Upload, RefreshCw, QrCode, CheckCircle2, AlertCircle, FlipHorizontal, FileImage } from "lucide-react";
 import {
   Dialog,
   DialogContent,

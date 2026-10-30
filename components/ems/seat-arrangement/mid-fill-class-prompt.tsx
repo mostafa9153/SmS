@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrangementPromptState } from "@/lib/ems/seat-arrangement-types";
-import { AlertCircle, ArrowRight, CheckCircle2, Footprints, GraduationCap, Users } from "lucide-react";
+import { ArrowRight, Footprints } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface MidFillClassPromptProps {

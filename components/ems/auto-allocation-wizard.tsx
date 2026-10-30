@@ -1,20 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Student } from "@/lib/types";
-import { AutoAllocationClassInput, ExamType } from "@/lib/ems/types";
-import {
-  normalizeClassCode,
-  normalizeSectionCode,
-  isHigherSecondaryClass,
-  toShortStream,
-  checkMissingHsRegistrationNos,
-  MissingHsStudentInfo,
-} from "@/lib/ems/seat-arrangement-algorithm";
-import { CustomSelect } from "@/components/ui/custom-select";
+import { normalizeClassCode, toShortStream, MissingHsStudentInfo } from "@/lib/ems/seat-arrangement-algorithm";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -23,18 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Users,
-  AlertTriangle,
-  RotateCcw,
-  Plus,
-  Trash2,
-  X,
-  AlertCircle,
-  GraduationCap,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { getClassColorStyle } from "./seat-card";
+import { AlertTriangle } from "lucide-react";
 
 interface HsStudentStats {
   count: number;

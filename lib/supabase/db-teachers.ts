@@ -1,11 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  TeacherActionType,
-  TeacherPermissions,
-  DEFAULT_TEACHER_PERMISSIONS,
-  TeacherPortalStats,
-} from "@/lib/types/teacher";
+import { TeacherActionType, TeacherPortalStats } from "@/lib/types/teacher";
 
 /**
  * Robustly log a teacher's activity (re-admission, invoice, marksheet, etc.)

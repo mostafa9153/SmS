@@ -11,7 +11,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { STATUS_STYLES } from "@/lib/utils";
 import type { StudentStatus } from "@/lib/types";

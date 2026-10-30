@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAdmissionApplicationById } from "@/lib/data/admission";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
-import { Printer, CheckCircle2, ShieldCheck, QrCode } from "lucide-react";
+import { Printer, CheckCircle2, ShieldCheck } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { currentYearIST } from "@/lib/utils/academic-year";
 

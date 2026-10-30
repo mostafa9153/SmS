@@ -1,6 +1,5 @@
 import { Metadata } from "next";
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import EmployeesClient from "./employees-client";
 import { Skeleton } from "@/components/ui/skeleton";

@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CopyButton } from "@/components/ui/copy-button";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";
-import { cn, calculateExactAge, calculateDetailedAge } from "@/lib/utils";
+import { cn, calculateDetailedAge } from "@/lib/utils";
 import { StudentRoundAvatar } from "@/components/students/student-round-avatar";
 import { StudentPhotoPreviewDialog } from "@/components/students/student-photo-preview-dialog";
 import { Spinner } from "@/components/ui/spinner";

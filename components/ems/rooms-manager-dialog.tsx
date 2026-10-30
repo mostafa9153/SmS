@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import React, { useState } from "react";
+import React from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import { EmsRoom } from "@/lib/ems/types";
 import { calculateRoomCapacity } from "@/lib/ems/room-storage";
-import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 
 interface RoomsManagerDialogProps {

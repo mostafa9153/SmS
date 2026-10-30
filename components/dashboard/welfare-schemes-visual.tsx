@@ -2,20 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
-import {
-  HeartHandshake,
-  GraduationCap,
-  Sparkles,
-  Award,
-  Accessibility,
-  ArrowUpRight,
-  Bike,
-  BookOpen,
-  Landmark,
-} from "lucide-react";
+import { HeartHandshake, GraduationCap, Sparkles, Award, Accessibility, ArrowUpRight, Bike, Landmark } from "lucide-react";
 
 export function WelfareSchemesVisual() {
   const { data: stats, isLoading } = useQuery({

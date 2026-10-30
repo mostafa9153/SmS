@@ -12,15 +12,9 @@ import { Button } from "@/components/ui/button";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { showToast } from "@/components/ui/toast-banner";
-import { FileCheck2, Search, CheckCircle2, Clock, Printer, UserCheck, User, ShieldCheck, ExternalLink, Filter, RefreshCw } from "lucide-react";
+import { FileCheck2, Search, CheckCircle2, Clock, Printer, UserCheck, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  getSavedFeeStructure,
-  calculateFeeTotal,
-  generateInvoiceNumber,
-  getFeeCategoryForClass,
-  FEE_SECTIONS,
-} from "@/lib/utils/fee-config";
+import { getSavedFeeStructure, calculateFeeTotal, generateInvoiceNumber, getFeeCategoryForClass } from "@/lib/utils/fee-config";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 import { apiFetch } from "@/lib/api/client";

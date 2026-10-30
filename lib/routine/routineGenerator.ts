@@ -4,20 +4,7 @@
  * /api/routine/generate (solve) or /api/routine/diagnose (diagnose).
  */
 
-import {
-  RoutineSettings,
-  RoutineClass,
-  RoutineSubject,
-  RoutineTeacher,
-  RoutineAssignment,
-  RoutineRoom,
-  RoutineSubjectGroup,
-  RoutineGrid,
-  GeneratedRoutine,
-  ValidationReport,
-  DiagnosticItem,
-  DEFAULT_ROUTINE_SETTINGS,
-} from './types';
+import { RoutineSettings, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineRoom, RoutineSubjectGroup, GeneratedRoutine, ValidationReport, DiagnosticItem, DEFAULT_ROUTINE_SETTINGS } from './types';
 import {
   buildSolverGroups,
   getGroupsForClass,

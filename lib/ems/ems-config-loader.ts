@@ -1,6 +1,5 @@
 import { getSavedSchoolProfile, SchoolProfileData } from "@/lib/utils/school-profile";
 import { getSavedMarksSchemes, ClassMarksScheme, DEFAULT_MARKS_SCHEMES } from "@/lib/utils/marks-config";
-import { getStandardSubjectsForClass } from "@/lib/utils/marksheet-calc";
 
 export interface DynamicClassItem {
   id?: string;

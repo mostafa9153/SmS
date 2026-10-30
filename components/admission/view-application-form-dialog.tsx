@@ -3,16 +3,11 @@
 import React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Download, X, FileText, CheckCircle2 } from "lucide-react";
+import { Printer, FileText } from "lucide-react";
 import type { AdmissionApplication } from "@/lib/types";
 import { AdmissionFormVIxPrintableView } from "@/components/admission-form/admission-form-v-ix-printable";
 import { AdmissionFormXIPrintableView } from "@/components/admission-form/admission-form-xi-printable";
-import {
-  AdmissionFormVIxData,
-  AdmissionFormXIData,
-  DEFAULT_SCHOOL_INFO,
-  schoolProfileToSchoolInfo,
-} from "@/components/admission-form/types";
+import { AdmissionFormVIxData, AdmissionFormXIData, schoolProfileToSchoolInfo } from "@/components/admission-form/types";
 import { getSavedSchoolProfile } from "@/lib/utils/school-profile";
 import { PrintPreview } from "@/components/print/print-preview";
 import { currentYearIST } from "@/lib/utils/academic-year";

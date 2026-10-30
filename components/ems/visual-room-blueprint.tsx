@@ -7,7 +7,7 @@ import { SeatCard, getClassColorStyle } from "./seat-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, ArrowLeftRight, X, DoorOpen, Edit3 } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, X, DoorOpen } from "lucide-react";
 import { PinchZoomViewer } from "@/components/ui/pinch-zoom-viewer";
 import { SearchInput } from "@/components/ui/search-input";
 

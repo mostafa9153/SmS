@@ -14,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Armchair, Columns, Sparkles } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { EmsRoom, RoomColumnConfig } from "@/lib/ems/types";
 import { calculateRoomCapacity } from "@/lib/ems/room-storage";
 

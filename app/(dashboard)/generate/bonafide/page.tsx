@@ -23,13 +23,6 @@ import {
   User,
   MapPin,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
 import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
 import { usePaperSettings } from "@/components/print/use-paper-settings";

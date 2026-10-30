@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AdmissionApplicationForm, AdmissionFormData } from "@/components/admission/admission-application-form";
-import { ArrowLeft, Save, CheckCircle2 } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowLeft } from "lucide-react";
 import { clearAdmissionDraft } from "@/lib/admission/form-draft";
 
 interface Step3ReviewProps {

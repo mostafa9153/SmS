@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Student, ImportBatchSummary, BulkResultRow } from "@/lib/types";
+import type { ImportBatchSummary, BulkResultRow } from "@/lib/types";
 import { getClassFullMarks, calculateGrade, dbCalculateAndAssignRanks } from "@/lib/supabase/db-results";
 import { softWrite } from "@/lib/supabase/write";
 import { getAcademicYear } from "@/lib/academic/current-year";

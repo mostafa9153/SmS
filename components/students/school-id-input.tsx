@@ -2,13 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { 
-  parseSchoolId, 
-  buildSchoolId,
-  getSchoolPrefix,
-  normalizeClassForId,
-  DEFAULT_SCHOOL_PREFIX,
-} from "@/lib/utils/school-id";
+import { buildSchoolId, getSchoolPrefix, normalizeClassForId, DEFAULT_SCHOOL_PREFIX } from "@/lib/utils/school-id";
 import { Lock, Unlock, RefreshCw, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

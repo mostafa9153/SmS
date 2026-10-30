@@ -2,12 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Users, Sparkles, UserPlus } from "lucide-react";
 import { StaffFiltersBar, StaffFilters } from "@/components/employees/staff-filters-bar";
 import { StaffStatsCards } from "@/components/employees/staff-stats-cards";
 import { StaffTable, StaffProfile } from "@/components/employees/staff-table";
 import { StaffCreateDialog } from "@/components/employees/staff-create-dialog";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
 import { todayIST } from "@/lib/utils/date";

@@ -1,5 +1,4 @@
 import { calculateSubjectRow, getStandardSubjectsForClass } from "@/lib/utils/marksheet/grading";
-import { DEFAULT_CLASS_IX_SUBJECTS } from "@/lib/utils/marksheet/default-subjects";
 import { SubjectMarksheetRow } from "@/lib/utils/marksheet/types";
 
 /**

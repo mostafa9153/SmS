@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, X, BookOpen, Star, Sparkles } from "lucide-react";
+import { Plus, X, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { STANDARD_SCHOOL_SUBJECTS } from "@/components/employees/class-multi-select-dropdown";

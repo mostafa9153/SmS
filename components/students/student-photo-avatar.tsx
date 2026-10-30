@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Camera, User, RefreshCw, Sparkles, ImagePlus, Trash2 } from "lucide-react";
+import { Camera, Trash2 } from "lucide-react";
 import { PhotoStudioModal } from "./photo-studio-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";

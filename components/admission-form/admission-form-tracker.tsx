@@ -3,29 +3,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
-import {
-  FileText,
-  Filter,
-  RefreshCw,
-  Calendar,
-  GraduationCap,
-  Users,
-  Download,
-  Search,
-  CheckCircle2,
-  Clock,
-  Archive,
-  Printer,
-  TrendingUp,
-  LayoutDashboard,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileText, RefreshCw, Calendar, GraduationCap, Users, Search, CheckCircle2, Clock, Printer, TrendingUp, ArrowRight } from "lucide-react";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,

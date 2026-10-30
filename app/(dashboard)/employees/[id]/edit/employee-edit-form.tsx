@@ -3,16 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, Briefcase, User, MapPin, GraduationCap, Building2, BookOpen, CheckCircle2, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Briefcase, User, MapPin, Building2, Sparkles } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { showToast } from "@/components/ui/toast-banner";
 import { toastWithUndo } from "@/lib/undo/client";
 import { cn } from "@/lib/utils";
-import {
-  ClassMultiSelectDropdown,
-  STANDARD_SCHOOL_SUBJECTS,
-} from "@/components/employees/class-multi-select-dropdown";
+import { ClassMultiSelectDropdown } from "@/components/employees/class-multi-select-dropdown";
 import { SubjectMultiSelect } from "@/components/employees/subject-multi-select";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";
 import { StaffSignatureAvatar } from "@/components/employees/staff-signature-avatar";

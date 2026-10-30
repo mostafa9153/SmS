@@ -2,25 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  ShieldAlert,
-  ShieldCheck,
-  GraduationCap,
-  Users,
-  Activity,
-  School,
-  CalendarClock,
-  MapPin,
-  ArrowRight,
-  Settings,
-  Lock,
-  ChevronRight,
-  UserCheck,
-  Award,
-  CheckCircle2,
-  Sliders,
-  Database,
-} from "lucide-react";
+import { ShieldAlert, ShieldCheck, GraduationCap, Users, Activity, School, CalendarClock, MapPin, ArrowRight, Settings, Award } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";

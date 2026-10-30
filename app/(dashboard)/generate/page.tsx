@@ -1,10 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import React, { useState, useEffect, useMemo, useRef, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, Award, Trophy, FileCheck2, Printer, Search, ShieldCheck, ArrowRight, CheckCircle2, GraduationCap, Receipt, Layers, Clock, ExternalLink, BookOpen, ClipboardList, Check, AlertCircle, Hash, QrCode, School, FileBadge2, Info, SlidersHorizontal, Contact, FileText, FileCheck, Users } from "lucide-react";
+import { Award, Trophy, FileCheck2, Printer, Search, ShieldCheck, ArrowRight, CheckCircle2, GraduationCap, Receipt, Layers, BookOpen, ClipboardList, Check, AlertCircle, Hash, QrCode, School, FileBadge2, Info, Contact, FileText, FileCheck, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";

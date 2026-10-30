@@ -3,16 +3,8 @@
 import { toast } from "sonner";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileSpreadsheet, CheckSquare, Square, Sparkles, Check, ExternalLink, RotateCcw } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
+import { Download, FileSpreadsheet, Sparkles, Check, ExternalLink, RotateCcw } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { searchStudents } from "@/lib/data/students";
 import { getKanyashreeCategory } from "@/lib/utils";
 import { evaluateStudentScholarships } from "@/lib/utils/welfare-logic";

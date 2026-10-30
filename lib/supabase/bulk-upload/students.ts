@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateBatchSchoolIds } from "@/lib/supabase/school-id-generator";
-import type { Student, ImportBatchSummary, StudentStatus, Gender } from "@/lib/types";
+import type { Student, ImportBatchSummary, StudentStatus } from "@/lib/types";
 import { type DBStudent } from "@/lib/supabase/db-students";
 import { normalizeGender, normalizeSocialCategory } from "@/lib/utils/excel-parser";
 import { applyStudentEntryDefaults } from "@/lib/utils/student-entry-presets";

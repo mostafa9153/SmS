@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Check, ChevronDown, X, BookOpen, Layers } from "lucide-react";
+import { Check, ChevronDown, X, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_SCHOOL_CLASSES = [

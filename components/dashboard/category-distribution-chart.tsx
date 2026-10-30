@@ -10,7 +10,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { ArrowUpRight, Users2 } from "lucide-react";

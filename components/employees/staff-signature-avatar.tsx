@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PenTool, Trash2, FileSignature, CheckCircle2 } from "lucide-react";
+import { PenTool, Trash2 } from "lucide-react";
 import { StaffSignatureModal } from "./staff-signature-modal";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";

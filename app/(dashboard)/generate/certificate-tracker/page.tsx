@@ -2,29 +2,10 @@
 
 import React, { useState, useEffect, useMemo, useTransition } from "react";
 import Link from "next/link";
-import {
-  ShieldCheck,
-  Search,
-  CheckCircle2,
-  XCircle,
-  Award,
-  RefreshCw,
-  Download,
-  Eye,
-  Copy,
-  Check,
-  FileCheck,
-  GraduationCap,
-  Sparkles,
-  Layers,
-  ArrowRight,
-  X,
-  User,
-} from "lucide-react";
+import { ShieldCheck, Search, CheckCircle2, XCircle, Award, RefreshCw, Download, Eye, Copy, Check, FileCheck, GraduationCap, Sparkles, Layers, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { CustomSelect } from "@/components/ui/custom-select";
 import {
   Dialog,

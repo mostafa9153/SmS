@@ -15,15 +15,7 @@ import {
   TooltipContent,
   TooltipProvider,
 } from "@/components/ui/tooltip";
-import {
-  ArrowLeftRight,
-  Columns,
-  Sparkles,
-  Copy,
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-} from "lucide-react";
+import { ArrowLeftRight, Columns, Sparkles, ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { getClassColorStyle } from "../seat-card";
 import { cn } from "@/lib/utils";
 

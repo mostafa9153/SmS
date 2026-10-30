@@ -4,37 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import {
-  LayoutDashboard,
-  Users,
-  UserPlus,
-  Upload,
-  ArrowUpDown,
-  Settings,
-  ChevronDown,
-  School,
-  X,
-  Award,
-  CalendarClock,
-  LogOut,
-  ArrowLeft,
-  PanelLeftClose,
-  ShieldAlert,
-  Activity,
-  Sliders,
-  Cloud,
-  Link2,
-  Sparkles,
-  ClipboardCheck,
-  MapPin,
-  GraduationCap,
-  FileCheck,
-  ReceiptText,
-  FileText,
-  User,
-  Briefcase,
-  Trophy,
-} from "lucide-react";
+import { LayoutDashboard, Users, UserPlus, Upload, ArrowUpDown, Settings, ChevronDown, School, X, Award, CalendarClock, LogOut, ArrowLeft, PanelLeftClose, ShieldAlert, Activity, Cloud, Link2, Sparkles, ClipboardCheck, MapPin, GraduationCap, User, Briefcase, Trophy } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { searchStudents, markStudentsDropOut, archiveStalePendingStudents } from "@/lib/data/students";
@@ -31,7 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Clock, Search, FileText, UserX, UserCheck, MoreHorizontal, RotateCcw, Archive, Users, Filter, Eye, CheckSquare, Square, AlertTriangle } from "lucide-react";
+import { Clock, Search, FileText, UserX, UserCheck, MoreHorizontal, Archive, Users, Eye, CheckSquare, Square } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { PageHeader } from "@/components/ui/page-header";
 import { toastWithUndo } from "@/lib/undo/client";

@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, Suspense } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets } from "@/lib/utils/marks-config";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { usePrintPortal } from "@/lib/hooks/use-print-portal";
 import {
   Select,

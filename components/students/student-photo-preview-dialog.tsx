@@ -2,25 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  User,
-  Camera,
-  ExternalLink,
-  Phone,
-  Calendar,
-  GraduationCap,
-  Sparkles,
-  IdCard,
-} from "lucide-react";
+import { Camera, ExternalLink } from "lucide-react";
 import type { Student } from "@/lib/types";
 import { PhotoStudioModal } from "./photo-studio-modal";
 import { CopyButton } from "@/components/ui/copy-button";

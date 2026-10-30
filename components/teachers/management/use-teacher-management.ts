@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { ApiError, apiFetch } from "@/lib/api/client";
-import { showToast } from "@/components/ui/toast-banner";
 import { toastWithUndo } from "@/lib/undo/client";
 import { TeacherPermissions } from "@/lib/types/teacher";
 import { useConfirm } from "@/components/ui/confirm-dialog";

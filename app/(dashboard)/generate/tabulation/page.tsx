@@ -1,12 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, Suspense } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
-import {
-  SchoolProfileData,
-} from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import {
   getDynamicClassCodes,

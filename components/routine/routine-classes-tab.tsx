@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Check, X, School, Sparkles, Layers, CheckCheck, CheckCircle2, CloudUpload, Save } from "lucide-react";
+import { Plus, Trash2, Check, X, School, Sparkles, Layers, CheckCheck, CheckCircle2, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";

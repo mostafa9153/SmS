@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getDashboardStats } from "@/lib/data/students";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, TrendingDown, TrendingUp, ShieldCheck, Scale } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 export function StatCards() {
   const { data: stats, isLoading } = useQuery({

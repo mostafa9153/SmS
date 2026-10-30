@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState, useMemo, Suspense } from "react";
+import React, { useMemo, Suspense } from "react";
 import { createPortal } from "react-dom";
 import { getEffectiveHeadTitle } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { getSavedClassPresets, type ClassPresetItem } from "@/lib/utils/marks-config";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { usePrintPortal } from "@/lib/hooks/use-print-portal";
 import { cn } from "@/lib/utils";
 import { PrintPreview } from "@/components/print/print-preview";

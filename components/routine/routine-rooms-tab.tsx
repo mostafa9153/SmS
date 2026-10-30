@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, CloudUpload, Save } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, X, Building2, FlaskConical, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";

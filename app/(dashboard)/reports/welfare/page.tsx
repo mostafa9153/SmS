@@ -3,7 +3,7 @@
 import React, { useState, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Printer, PackageOpen } from "lucide-react";
+import { Printer } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";

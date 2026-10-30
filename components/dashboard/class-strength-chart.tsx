@@ -13,7 +13,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sortClasses } from "@/lib/utils";
 import Link from "next/link";

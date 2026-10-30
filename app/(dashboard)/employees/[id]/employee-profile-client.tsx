@@ -3,28 +3,11 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import {
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  Briefcase,
-  Building2,
-  CreditCard,
-  GraduationCap,
-  Calendar,
-  ShieldCheck,
-  Printer,
-  Pencil,
-  Trash2,
-  FileSignature,
-  BookOpen,
-  Layers,
-} from "lucide-react";
+import { User, Phone, Mail, MapPin, Briefcase, Building2, CreditCard, GraduationCap, Calendar, Printer, Pencil, Trash2, BookOpen, Layers } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CopyButton } from "@/components/ui/copy-button";
 import { StudentPhotoAvatar } from "@/components/students/student-photo-avatar";

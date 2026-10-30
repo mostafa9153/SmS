@@ -2,24 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  User,
-  ExternalLink,
-  Phone,
-  Calendar,
-  Briefcase,
-  ShieldCheck,
-  Award,
-} from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { StaffProfile } from "@/components/employees/staff-types";
 import { CopyButton } from "@/components/ui/copy-button";
 import { calculateDetailedAge } from "@/lib/utils";

@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Camera, Upload, CheckCircle, Calculator, Info, User, FileText, Receipt, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Camera, Upload, CheckCircle, Calculator, Info, User, Receipt } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";

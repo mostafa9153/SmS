@@ -1,17 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  UserPlus,
-  Receipt,
-  CalendarCheck,
-  CreditCard,
-  Sparkles,
-  ClipboardCheck,
-  Award,
-  Trophy,
-  Upload,
-} from "lucide-react";
+import { UserPlus, Receipt, CalendarCheck, Sparkles, ClipboardCheck, Award, Trophy, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuickAction {

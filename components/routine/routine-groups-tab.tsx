@@ -1,16 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback } from "react";
-import {
-  RoutineClass,
-  RoutineSubject,
-  RoutineSubjectGroup,
-  RoutineGroupOption,
-  RoutineTeacher,
-  RoutineRoom,
-  RoutineAssignment,
-  RoutineSettings,
-} from "@/lib/routine/types";
+import { RoutineClass, RoutineSubject, RoutineSubjectGroup, RoutineTeacher, RoutineRoom, RoutineAssignment, RoutineSettings } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -25,16 +16,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Plus,
-  Edit2,
-  Trash2,
-  Layers,
-  BookOpen,
-  X,
-  AlertTriangle,
-  Check,
-} from "lucide-react";
+import { Plus, Edit2, Trash2, Layers, X, AlertTriangle, Check } from "lucide-react";
 import {
   validateGroups,
 } from "@/lib/routine/routine-groups";

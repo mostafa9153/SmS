@@ -1,15 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, CheckCircle2, UserPlus, Receipt, ArrowRight } from "lucide-react";
+import { Check, Copy, CheckCircle2, UserPlus, Receipt } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 

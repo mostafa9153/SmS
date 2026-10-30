@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X, Users, Clock, CheckCircle, Banknote, Eye, FileText, ChevronRight, User } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { X, Users, Eye, ChevronRight } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getAdmissionApplications } from "@/lib/data/admission";

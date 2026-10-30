@@ -11,21 +11,7 @@ import {
 import { GeneratedRoutine } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  History,
-  Clock,
-  Sparkles,
-  ArrowRight,
-  Trash2,
-  RefreshCw,
-  CheckCircle2,
-  Calendar,
-  Layers,
-  Cpu,
-  ChevronRight,
-  ExternalLink,
-  AlertTriangle,
-} from "lucide-react";
+import { History, Clock, Trash2, RefreshCw, Calendar, Layers, Cpu, ExternalLink, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RoutineRunIssues, countRunIssues } from "@/components/routine/routine-run-issues";
 import { useConfirm } from "@/components/ui/confirm-dialog";

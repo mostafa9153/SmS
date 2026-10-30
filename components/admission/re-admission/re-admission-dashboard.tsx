@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, CheckCircle2, Clock, Globe, UserCheck, Search, ArrowLeft, TrendingUp, History, RotateCcw, Sparkles, ArrowRight, Filter, Calendar } from "lucide-react";
+import { Users, CheckCircle2, Clock, Globe, UserCheck, Search, ArrowLeft, History, ArrowRight, Filter, Calendar } from "lucide-react";
 import { getReAdmissionDashboardStats } from "@/lib/data/admission";
 import { getDistinctClasses, getDistinctSections } from "@/lib/data/students";
 import { cn, sortClasses } from "@/lib/utils";

@@ -5,7 +5,7 @@ import { AdmissionApplicationForm, AdmissionFormData } from "@/components/admiss
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { School, CheckCircle2, Printer, Download, Sparkles, RefreshCw, Phone, MapPin, Calendar, User, FileText } from "lucide-react";
+import { School, CheckCircle2, Printer, Download, Sparkles, RefreshCw, MapPin, FileText } from "lucide-react";
 import QRCode from "react-qr-code";
 import confetti from "canvas-confetti";
 import { toast } from "sonner";

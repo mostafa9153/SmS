@@ -9,7 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, UserPlus, Copy, Check, Sparkles, Receipt, ArrowRight } from "lucide-react";
+import { Printer, UserPlus, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 

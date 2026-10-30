@@ -3,28 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Cloud,
-  CloudCheck,
-  CloudUpload,
-  CloudOff,
-  Download,
-  Upload,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle2,
-  Lock,
-  HardDrive,
-  Calendar,
-  Layers,
-  ArrowRight,
-  Trash2,
-  RotateCcw,
-  Sparkles,
-  ExternalLink,
-  ShieldCheck,
-  FileCode,
-} from "lucide-react";
+import { Cloud, CloudCheck, CloudUpload, CloudOff, Download, Upload, RefreshCw, AlertTriangle, Lock, HardDrive, Layers, RotateCcw, ShieldCheck, FileCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/ui/stat-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

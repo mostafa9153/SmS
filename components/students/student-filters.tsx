@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { X, ChevronDown, Check, Users, SlidersHorizontal } from "lucide-react";
+import { X, SlidersHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useQuery } from "@tanstack/react-query";
 import { getStudentFilterMetadata } from "@/lib/data/students";
