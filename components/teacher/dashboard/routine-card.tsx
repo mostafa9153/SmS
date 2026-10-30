@@ -4,11 +4,12 @@ import Link from "next/link";
 import { UserCheck, Calendar, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CustomSelect } from "@/components/ui/custom-select";
 import { DAYS_OF_WEEK } from "@/components/teacher/dashboard/constants";
 import type { TeacherDashboardState } from "./use-teacher-dashboard";
 
 export function RoutineCard({ gen }: { gen: TeacherDashboardState }) {
-  const { handleOpenFullRoutine, handleOpenMyWeekRoutine, loadingRoutine, routinePeriodsByDay, selectedDay, setSelectedDay } = gen;
+  const { handleOpenFullRoutine, handleOpenMyWeekRoutine, loadingRoutine, routinePeriodsByDay, routineTeacherId, routineTeachers, selectedDay, setRoutineTeacherId, setSelectedDay } = gen;
   return (
     <section className="p-4 sm:p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -21,6 +22,13 @@ export function RoutineCard({ gen }: { gen: TeacherDashboardState }) {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          {routineTeachers.length > 0 && (
+            <CustomSelect
+              value={routineTeacherId}
+              onChange={setRoutineTeacherId}
+              options={[{ label: "Select teacher", value: "" }, ...routineTeachers.map((t) => ({ label: t.name, value: t.id }))]}
+            />
+          )}
           <Button
             type="button"
             variant="outline"
@@ -88,7 +96,7 @@ export function RoutineCard({ gen }: { gen: TeacherDashboardState }) {
         </div>
       ) : (routinePeriodsByDay[selectedDay] || []).length === 0 ? (
         <div className="p-8 text-center rounded-xl bg-muted/20 border border-dashed border-border/70 text-xs text-muted-foreground">
-          No classes scheduled for {selectedDay}.
+          {routineTeachers.length > 0 && !routineTeacherId ? "Select a teacher to see the routine." : `No classes scheduled for ${selectedDay}.`}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">

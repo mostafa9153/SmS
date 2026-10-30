@@ -8,7 +8,6 @@ import { MetricsBar } from "@/components/teacher/dashboard/metrics-bar";
 import { AbsenceTracker } from "@/components/teacher/dashboard/absence-tracker";
 import { QuickActionHub } from "@/components/teacher/dashboard/quick-action-hub";
 import { RoutineCard } from "@/components/teacher/dashboard/routine-card";
-import { AssignedDuties } from "@/components/teacher/dashboard/assigned-duties";
 import { ActiveTasks } from "@/components/teacher/dashboard/active-tasks";
 import { RecentActivity } from "@/components/teacher/dashboard/recent-activity";
 import { MarkAbsenceDialog } from "@/components/teacher/dashboard/mark-absence-dialog";
@@ -45,8 +44,6 @@ export default function TeacherDashboardPage() {
       <QuickActionHub gen={gen} />
 
       <RoutineCard gen={gen} />
-
-      <AssignedDuties gen={gen} />
 
       <ActiveTasks gen={gen} />
 

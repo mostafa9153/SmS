@@ -27,7 +27,6 @@ export function useTeacherDashboard() {
   });
 
   const [tasks, setTasks] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [isActivityFeedOpen, setIsActivityFeedOpen] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -71,10 +70,13 @@ export function useTeacherDashboard() {
   const [routinePeriodsByDay, setRoutinePeriodsByDay] = useState<Record<string, any[]>>({});
   const [loadingRoutine, setLoadingRoutine] = useState<boolean>(true);
   const [activeRoutineTitle, setActiveRoutineTitle] = useState<string | null>(null);
+  // Admins have no staff link, so they pick whose routine to show
+  const [routineTeachers, setRoutineTeachers] = useState<{ id: string; name: string }[]>([]);
+  const [routineTeacherId, setRoutineTeacherId] = useState<string>("");
 
   // Full Routine & My Weekly Routine Navigation
   const handleOpenMyWeekRoutine = () => {
-    const tId = profile?.staff_id || staff?.id || "";
+    const tId = routineTeacherId || profile?.staff_id || staff?.id || "";
     router.push(`/routine/viewer?view=teacher&teacherId=${encodeURIComponent(tId)}&from=teacher`);
   };
 
@@ -196,20 +198,22 @@ export function useTeacherDashboard() {
   const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await apiFetch<any>("/api/teachers/workspace-init");
+      const data = await apiFetch<any>(
+        routineTeacherId ? `/api/teachers/workspace-init?teacherId=${encodeURIComponent(routineTeacherId)}` : "/api/teachers/workspace-init"
+      );
       if (data.success) {
         if (data.user) setUser(data.user);
         if (data.profile) setProfile(data.profile);
         if (data.staff) setStaff(data.staff);
         if (data.stats) setStats(data.stats);
         if (data.tasks) setTasks(data.tasks);
-        if (data.classes) setClasses(data.classes);
         if (data.activities) setActivities(data.activities);
         if (data.notifications) {
           setNotifications(data.notifications);
           setUnreadNotifsCount(data.unreadNotifsCount ?? 0);
         }
         if (data.absences) setAbsences(data.absences);
+        if (data.routineTeachers) setRoutineTeachers(data.routineTeachers);
         if (data.routine) {
           setRoutinePeriodsByDay(data.routine.periodsByDay || {});
           if (data.routine.activeRoutine?.title) {
@@ -227,7 +231,7 @@ export function useTeacherDashboard() {
       setLoading(false);
       setLoadingRoutine(false);
     }
-  }, [router]);
+  }, [router, routineTeacherId]);
 
   useEffect(() => {
     loadDashboardData();
@@ -500,7 +504,6 @@ export function useTeacherDashboard() {
     canMarksEntry,
     canNewAdmission,
     canReAdmission,
-    classes,
     customAbsenceReason,
     formatAttachmentSize,
     formatYMD,
@@ -526,6 +529,9 @@ export function useTeacherDashboard() {
     loading,
     loadingAttendance,
     loadingRoutine,
+    routineTeacherId,
+    routineTeachers,
+    setRoutineTeacherId,
     notifications,
     previewAttachment,
     profile,

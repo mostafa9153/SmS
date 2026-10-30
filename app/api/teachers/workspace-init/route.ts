@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchTeacherPortalStats } from "@/lib/supabase/db-teachers";
 import { fetchTeacherRoutineData } from "@/lib/supabase/teacher-routine";
 import { todayIST } from "@/lib/utils/date";
-import { getAcademicYear } from "@/lib/academic/current-year";
 
 // guard: custom — supabase.auth.getUser(); data scoped to the caller's own staff_id
 export async function GET(req: Request) {
@@ -34,17 +33,18 @@ export async function GET(req: Request) {
       roleLower === "super admin" ||
       roleLower === "super_admin";
 
+    // Admins have no staff link: they pick a teacher to see that teacher's routine
+    const asTeacher = isAdmin ? new URL(req.url).searchParams.get("teacherId") : null;
     const effectiveStaffId = roleRow?.staff_id;
+    const routineStaffId = asTeacher || effectiveStaffId;
 
-    const currentYear = await getAcademicYear();
     const todayStr = todayIST();
 
-    // 2. Fetch staff profile, stats, tasks, classes, activities, notifications, absences, routine concurrently
+    // 2. Fetch staff profile, stats, tasks, activities, notifications, absences, routine concurrently
     const [
       staffRes,
       statsRes,
       tasksRes,
-      classesRes,
       activitiesRes,
       notificationsRes,
       absencesRes,
@@ -146,40 +146,6 @@ export async function GET(req: Request) {
         }
       })(),
 
-      // Classes
-      (async () => {
-        let query = adminClient
-          .from("teacher_class_assignments")
-          .select(`
-            *,
-            staff_profiles!inner (
-              id,
-              full_name,
-              designation
-            )
-          `)
-          .eq("academic_year", currentYear);
-
-        if (!isAdmin && effectiveStaffId) {
-          query = query.eq("teacher_id", effectiveStaffId);
-        }
-
-        const { data: assignments } = await query.order("class_name");
-
-        return (assignments || []).map((a: any) => ({
-          id: a.id,
-          teacherId: a.teacher_id,
-          teacherName: a.staff_profiles?.full_name || "Unknown Teacher",
-          designation: a.staff_profiles?.designation,
-          academicYear: a.academic_year,
-          className: a.class_name,
-          section: a.section,
-          roleType: a.role_type,
-          subject: a.subject,
-          createdAt: a.created_at,
-        }));
-      })(),
-
       // Activities
       (async () => {
         let query = adminClient
@@ -228,8 +194,8 @@ export async function GET(req: Request) {
       })(),
 
       // Routine Data
-      effectiveStaffId
-        ? fetchTeacherRoutineData(adminClient, effectiveStaffId, roleRow?.full_name)
+      routineStaffId
+        ? fetchTeacherRoutineData(adminClient, routineStaffId, roleRow?.full_name)
         : Promise.resolve(null),
     ]);
 
@@ -250,25 +216,20 @@ export async function GET(req: Request) {
           };
 
     const tasks = tasksRes.status === "fulfilled" ? tasksRes.value : [];
-    const classes = classesRes.status === "fulfilled" ? classesRes.value : [];
     const activities = activitiesRes.status === "fulfilled" ? activitiesRes.value : [];
     const notifications = notificationsRes.status === "fulfilled" ? notificationsRes.value : [];
     const absences = absencesRes.status === "fulfilled" ? absencesRes.value : [];
     const routine = routineRes.status === "fulfilled" ? routineRes.value : null;
 
-    // Merge routine duties with class assignments if available
-    if (routine?.assignedDuties && routine.assignedDuties.length > 0) {
-      const existingKeys = new Set(
-        classes.map((c: any) => `${c.className}__${c.section}__${c.subject || c.roleType}`)
-      );
-      routine.assignedDuties.forEach((d: any) => {
-        const key = `${d.className}__${d.section}__${d.subject || d.roleType}`;
-        if (!existingKeys.has(key)) {
-          existingKeys.add(key);
-          classes.push(d);
-        }
-      });
-    }
+    const routineTeachers = isAdmin
+      ? ((
+          await adminClient
+            .from("routine_teacher_availability")
+            .select("teacher_id, teacher_name")
+            .not("teacher_id", "is", null)
+            .order("teacher_name")
+        ).data || []).map((t: any) => ({ id: t.teacher_id as string, name: t.teacher_name as string }))
+      : [];
 
     return NextResponse.json({
       success: true,
@@ -280,11 +241,11 @@ export async function GET(req: Request) {
       staff,
       stats,
       tasks,
-      classes,
       activities,
       notifications,
       unreadNotifsCount: notifications.filter((n: any) => !n.is_read).length,
       absences,
+      routineTeachers,
       routine: routine || {
         activeRoutine: null,
         periodsByDay: {},

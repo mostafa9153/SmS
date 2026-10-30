@@ -68,7 +68,7 @@ export async function fetchTeacherRoutineData(
     adminClient.from("routine_rooms").select("id, name"),
     adminClient
       .from("routine_teacher_availability")
-      .select("id, teacher_id, teacher_name, short_name, class_teacher_of, available_slots, primary_subject"),
+      .select("id, teacher_id, teacher_name, short_name, available_slots"),
     adminClient
       .from("staff_profiles")
       .select("id, full_name, designation")
@@ -117,7 +117,6 @@ export async function fetchTeacherRoutineData(
 
   const rawSlots = teacherAvail?.available_slots || {};
   const classTeacherOf =
-    teacherAvail?.class_teacher_of ||
     rawSlots._classTeacherOf ||
     rawSlots.classTeacherOf ||
     null;
