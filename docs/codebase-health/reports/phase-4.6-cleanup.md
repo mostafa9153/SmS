@@ -18,3 +18,12 @@ Dead exports 253 → 97, circular imports 1 → 0, advisories 7 → 5, no file o
 
 ## Not verified
 Signed-in browser flows, live Supabase writes and undo round trips, the solver on real data.
+
+## Final pass (2026-10-30)
+- DB: `20261031_function_search_path_and_trgm_schema.sql` applied (6 functions pinned, `pg_trgm` moved to `extensions`). Left on purpose: `get_my_role`, `is_admin`, `is_staff_or_admin` (used by RLS), `verify_*_public` (public verify pages), the three RPCs (called from signed-in routes); the 3 "RLS, no policy" tables are service-role only. Leaked-password protection is a dashboard switch.
+- Unused symbols: the rest are used inside their own file or are shadcn parts; nothing left worth deleting.
+- Not done, with reasons:
+  - topbar/sidebar/certificates/`lib/data/*` -> `apiFetch`: they return silent fallbacks (`res.ok` checks, top-level payload keys such as `data.student`, a paginated body that has its own `data`). `apiFetch` unwraps `payload.data` and notifies the bell on failure, so a blind swap breaks paging and adds false error notifications.
+  - Student form merge: needs a shared form-state type first; saved data could change and the signed-in flow is unverified.
+  - `xlsx` -> `exceljs`: drops `.xls` reading in bulk upload.
+  - `DataTable`: no two tables share markup.
