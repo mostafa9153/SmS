@@ -1,5 +1,5 @@
 import { getSavedMarksSchemes, DEFAULT_MARKS_SCHEMES, ClassMarksScheme } from "@/lib/utils/marks-config";
-import { DEFAULT_CLASS_IX_SUBJECTS } from "@/lib/utils/marksheet/sample";
+import { DEFAULT_CLASS_IX_SUBJECTS } from "@/lib/utils/marksheet/default-subjects";
 import { GradeScaleEntry, SubjectMarksheetRow } from "@/lib/utils/marksheet/types";
 
 /**

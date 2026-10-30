@@ -5,6 +5,7 @@
 
 export * from "./marksheet/types";
 export * from "./marksheet/grading";
+export * from "./marksheet/default-subjects";
 export * from "./marksheet/sample";
 export * from "./marksheet/build";
 export * from "./marksheet/promotion";
