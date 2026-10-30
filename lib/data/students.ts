@@ -6,7 +6,11 @@ import type {
   Semester,
   SubjectMarksMap,
 } from "@/lib/types";
-import { apiFetch } from "@/lib/api/client";
+import { apiFetch, ApiError } from "@/lib/api/client";
+
+// Untyped JSON body passed through from routes whose shape callers narrow themselves.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Json = any;
 
 /**
  * Returns all students (unfiltered, unpaginated).
@@ -27,27 +31,21 @@ export async function getStudents(
     url += `&section=${encodeURIComponent(section)}`;
   }
 
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch students");
-  }
-  const data = await res.json();
-  return data.data || [];
+  const body = await apiFetch<{ data?: Student[] }>(url, { raw: true });
+  return body.data || [];
 }
 
 /**
  * Returns a single student by ID, or null if not found.
  */
 export async function getStudentById(id: string): Promise<Student | null> {
-  const res = await fetch(`/api/students/${id}`);
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch student profile");
+  try {
+    const body = await apiFetch<{ student?: Student }>(`/api/students/${id}`, { raw: true });
+    return body.student || null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
-  const data = await res.json();
-  return data.student || null;
 }
 
 /**
@@ -76,12 +74,7 @@ export async function searchStudents(
   params.append("pageSize", String(pageSize));
   params.append("projection", projection);
 
-  const res = await fetch(`/api/students?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Search query failed");
-  }
-  return res.json() as Promise<PaginatedStudents>;
+  return apiFetch<PaginatedStudents>(`/api/students?${params.toString()}`, { raw: true });
 }
 
 /**
@@ -90,17 +83,8 @@ export async function searchStudents(
 export async function createStudent(
   input: Omit<Student, "id">
 ): Promise<Student> {
-  const res = await fetch("/api/students", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to register student");
-  }
-  const data = await res.json();
-  return data.student;
+  const body = await apiFetch<{ student: Student }>("/api/students", { method: "POST", json: input, raw: true });
+  return body.student;
 }
 
 /**
@@ -110,32 +94,20 @@ export async function updateStudent(
   id: string,
   updates: Partial<Omit<Student, "id">>
 ): Promise<{ student: Student | null; undoId: string | null }> {
-  const res = await fetch(`/api/students/${id}`, {
+  const body = await apiFetch<{ student?: Student; undoId?: string }>(`/api/students/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updates),
+    json: updates,
+    raw: true,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update student profile");
-  }
-  const data = await res.json();
-  return { student: data.student ?? null, undoId: data.undoId ?? null };
+  return { student: body.student ?? null, undoId: body.undoId ?? null };
 }
 
 /**
  * Deletes a student by ID.
  */
 export async function deleteStudent(id: string): Promise<{ undoId: string | null }> {
-  const res = await fetch(`/api/students/${id}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to delete student");
-  }
-  const data = await res.json();
-  return { undoId: data.undoId ?? null };
+  const body = await apiFetch<{ undoId?: string }>(`/api/students/${id}`, { method: "DELETE", raw: true });
+  return { undoId: body.undoId ?? null };
 }
 
 // ── Utility / derived data helpers ──────────────────────────
@@ -146,12 +118,7 @@ export async function getStudentFilterMetadata(): Promise<{
   sections: string[];
   admissionYears: number[];
 }> {
-  const res = await fetch("/api/students/metadata");
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch filter metadata");
-  }
-  return res.json();
+  return apiFetch("/api/students/metadata", { raw: true });
 }
 
 /** Returns unique sorted list of classes present in the database */
@@ -168,12 +135,7 @@ export async function getDistinctSections(): Promise<string[]> {
 
 /** Returns aggregate dashboard stats derived from the full dataset */
 export async function getDashboardStats() {
-  const res = await fetch("/api/dashboard/stats");
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch dashboard stats");
-  }
-  return res.json();
+  return apiFetch<Json>("/api/dashboard/stats", { raw: true });
 }
 
 // ── Bulk Upload & Rollback APIs ──────────────────────────
@@ -185,18 +147,7 @@ export async function executeBulkUpload(
   rows: Array<Partial<Student>>,
   uploadType: "current_students" | "old_students" = "current_students"
 ) {
-  const res = await fetch("/api/students/bulk-upload", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rows, uploadType }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Bulk upload processing failed");
-  }
-
-  return res.json();
+  return apiFetch<Json>("/api/students/bulk-upload", { method: "POST", json: { rows, uploadType }, raw: true });
 }
 
 /**
@@ -207,49 +158,26 @@ export async function executeResultsBulkUpload(
   targetSessionYear?: number,
   targetExamName?: string
 ) {
-  const res = await fetch("/api/results/bulk-upload", {
+  return apiFetch<Json>("/api/results/bulk-upload", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rows, targetSessionYear, targetExamName }),
+    json: { rows, targetSessionYear, targetExamName },
+    raw: true,
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Results bulk upload processing failed");
-  }
-
-  return res.json();
 }
 
 /**
  * Rollback / Delete an entire import batch (Students or Exam Results).
  */
 export async function rollbackBulkUpload(batchId: string) {
-  const res = await fetch("/api/students/bulk-upload/rollback", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ batchId }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Rollback failed");
-  }
-
-  return res.json();
+  return apiFetch<Json>("/api/students/bulk-upload/rollback", { method: "POST", json: { batchId }, raw: true });
 }
 
 /**
  * Fetch past import batches list.
  */
 export async function getImportBatches() {
-  const res = await fetch("/api/students/bulk-upload");
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch import batches");
-  }
-  const data = await res.json();
-  return data.batches || [];
+  const body = await apiFetch<{ batches?: Json[] }>("/api/students/bulk-upload", { raw: true });
+  return body.batches || [];
 }
 
 // ── Results & Marks Management APIs ──────────────────────────
@@ -271,12 +199,7 @@ export async function getClassResults(
   params.set("exam", examName);
   if (semester) params.set("semester", semester);
 
-  const res = await fetch(`/api/results?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch class results");
-  }
-  return res.json();
+  return apiFetch<Json>(`/api/results?${params.toString()}`, { raw: true });
 }
 
 /**
@@ -337,13 +260,8 @@ export async function recalculateClassRanks(
  * Fetch multi-year results history for a single student profile.
  */
 export async function getStudentResultHistory(studentId: string) {
-  const res = await fetch(`/api/results/student/${studentId}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch student results history");
-  }
-  const data = await res.json();
-  return data.results || [];
+  const body = await apiFetch<{ results?: Json[] }>(`/api/results/student/${studentId}`, { raw: true });
+  return body.results || [];
 }
 
 /**
@@ -452,18 +370,7 @@ export async function undoCohortPromotion(params: {
   studentIds?: string[];
   resetToContinuing?: boolean;
 }) {
-  const res = await fetch("/api/students/promotion/undo", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to rollback promotion");
-  }
-
-  return res.json();
+  return apiFetch<Json>("/api/students/promotion/undo", { method: "POST", json: params, raw: true });
 }
 
 interface StatusActionPayload {

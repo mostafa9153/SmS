@@ -3,6 +3,7 @@ import type {
   AdmissionSettings,
   Student,
 } from "@/lib/types";
+import { apiFetch, ApiError } from "@/lib/api/client";
 import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function getAdmissionApplications(filters?: {
@@ -21,40 +22,29 @@ export async function getAdmissionApplications(filters?: {
   if (filters?.academicYear) params.append("academicYear", filters.academicYear);
   if (filters?.isTransferredToActive) params.append("isTransferredToActive", filters.isTransferredToActive);
 
-  const res = await fetch(`/api/admission/applications?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch admission applications");
-  }
-  const data = await res.json();
-  return data.applications || [];
+  const body = await apiFetch<{ applications?: AdmissionApplication[] }>(`/api/admission/applications?${params.toString()}`, { raw: true });
+  return body.applications || [];
 }
 
 export async function getAdmissionApplicationById(id: string): Promise<AdmissionApplication | null> {
-  const res = await fetch(`/api/admission/applications/${id}`);
-  if (res.status === 404) return null;
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch application");
+  try {
+    const body = await apiFetch<{ application?: AdmissionApplication }>(`/api/admission/applications/${id}`, { raw: true });
+    return body.application || null;
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
   }
-  const data = await res.json();
-  return data.application || null;
 }
 
 export async function createAdmissionApplication(
   data: Partial<AdmissionApplication>
 ): Promise<AdmissionApplication> {
-  const res = await fetch("/api/admission/applications", {
+  const body = await apiFetch<{ application: AdmissionApplication }>("/api/admission/applications", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    json: data,
+    raw: true,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to submit admission application");
-  }
-  const result = await res.json();
-  return result.application;
+  return body.application;
 }
 
 export async function admitNewStudentApplication(
@@ -86,16 +76,7 @@ export async function admitNewStudentApplication(
   targetRoll: number;
   message?: string;
 }> {
-  const res = await fetch(`/api/admission/applications/${applicationId}/admit`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(assignment),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to confirm student admission");
-  }
-  return res.json();
+  return apiFetch(`/api/admission/applications/${applicationId}/admit`, { method: "POST", json: assignment, raw: true });
 }
 
 export async function getNextAvailableRoll(
@@ -170,12 +151,7 @@ export async function getReAdmissionDashboardStats(params: {
   if (params.section && params.section !== "all") q.append("section", params.section);
   if (params.year) q.append("year", params.year);
 
-  const res = await fetch(`/api/admission/re-admission/stats?${q.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch re-admission dashboard stats");
-  }
-  return res.json();
+  return apiFetch(`/api/admission/re-admission/stats?${q.toString()}`, { raw: true });
 }
 
 export async function getReAdmissionCandidates(filters: {
@@ -190,13 +166,8 @@ export async function getReAdmissionCandidates(filters: {
   if (filters.search) params.append("search", filters.search);
   if (filters.status) params.append("status", filters.status);
 
-  const res = await fetch(`/api/admission/re-admission/candidates?${params.toString()}`);
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to fetch re-admission candidates");
-  }
-  const data = await res.json();
-  return data.candidates || [];
+  const body = await apiFetch<{ candidates?: Student[] }>(`/api/admission/re-admission/candidates?${params.toString()}`, { raw: true });
+  return body.candidates || [];
 }
 
 export async function updateReAdmissionStatus(
@@ -214,16 +185,7 @@ export async function updateReAdmissionStatus(
     applicationId?: string;
   }
 ): Promise<{ success: boolean; student: Student; message?: string; targetClass?: string; targetSection?: string; targetRoll?: number; schoolId?: string; receiptNo?: string }> {
-  const res = await fetch("/api/admission/re-admission/admit", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ studentId, ...payload }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to update re-admission status");
-  }
-  return res.json();
+  return apiFetch("/api/admission/re-admission/admit", { method: "POST", json: { studentId, ...payload }, raw: true });
 }
 
 export async function getAdmissionSettings(): Promise<AdmissionSettings> {
@@ -245,15 +207,10 @@ export async function getAdmissionSettings(): Promise<AdmissionSettings> {
 export async function saveAdmissionSettings(
   settings: Partial<AdmissionSettings>
 ): Promise<AdmissionSettings> {
-  const res = await fetch("/api/admission/settings", {
+  const body = await apiFetch<{ settings: AdmissionSettings }>("/api/admission/settings", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(settings),
+    json: settings,
+    raw: true,
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || "Failed to save admission settings");
-  }
-  const data = await res.json();
-  return data.settings;
+  return body.settings;
 }
