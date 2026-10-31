@@ -3,7 +3,7 @@
 import { apiFetch } from "@/lib/api/client";
 import { useState, useMemo, useEffect } from "react";
 import { PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { RoutineSubjectGroup } from "@/lib/routine/types";
+import { RoutineSubjectGroup, DEFAULT_ROUTINE_SETTINGS } from "@/lib/routine/types";
 import { getSavedMarksSchemes } from "@/lib/utils/marks-config";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank } from "@/lib/ems/ems-config-loader";
 import { isHsClass, getConfiguredStreamsForClass } from "@/lib/routine/routine-helpers";
@@ -12,7 +12,7 @@ import type { RoutineSubjectsTabProps } from "./props";
 
 export function useSubjectsCore({
   subjects,
-  settings,
+  settings = DEFAULT_ROUTINE_SETTINGS,
   classes = [],
   groups = [],
   onSaveGroup,
