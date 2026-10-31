@@ -1,4 +1,4 @@
-import type { RoutineSettings } from "./types";
+import type { RoutineClass, RoutineSettings } from "./types";
 
 /** dayIndex -> periods (1-indexed). A day missing from the map is unrestricted. */
 export type SlotMap = Record<string, number[]>;
@@ -9,6 +9,25 @@ export function dayPeriodCap(settings: RoutineSettings, day: number): number {
   return settings.halfDays?.includes(day)
     ? Math.min(settings.halfDayPeriods || 4, settings.periodsPerDay)
     : settings.periodsPerDay;
+}
+
+/**
+ * Settings seen through one class's daily period limit, so its subjects only offer periods the class has.
+ * Sections of a class can differ; the longest section wins (the solver still caps each section).
+ */
+export function settingsForClass(settings: RoutineSettings, classes: RoutineClass[], className: string): RoutineSettings {
+  const caps = classes
+    .filter((c) => c.className === className)
+    .map((c) => c.dailyPeriods || settings.periodsPerDay);
+  const cap = caps.length ? Math.min(settings.periodsPerDay, Math.max(...caps)) : settings.periodsPerDay;
+  if (cap >= settings.periodsPerDay) return settings;
+  return {
+    ...settings,
+    periodsPerDay: cap,
+    halfDayPeriods: Math.min(settings.halfDayPeriods || 4, cap),
+    // Keep the school's tiffin position even when the class day is short
+    breaks: settings.breaks?.length ? settings.breaks : [Math.floor(settings.periodsPerDay / 2)],
+  };
 }
 
 /** Last period before tiffin, same rule as the solver. */

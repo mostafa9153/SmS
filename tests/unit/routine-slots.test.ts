@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROUTINE_SETTINGS } from "@/lib/routine/types";
-import { detectWindow, normalizeSlots, slotStats, slotsFromWindow } from "@/lib/routine/slots";
+import { detectWindow, normalizeSlots, settingsForClass, slotStats, slotsFromWindow } from "@/lib/routine/slots";
 
 // Mon–Sat, 8 periods, Saturday half day (4), tiffin after P4
 const S = DEFAULT_ROUTINE_SETTINGS;
@@ -32,6 +32,21 @@ describe("routine subject slots", () => {
     expect(detectWindow(slotsFromWindow("morning", S), S)).toBe("morning");
     expect(detectWindow({ "0": [1] }, S)).toBe("custom");
     expect(detectWindow(null, S)).toBe("any");
+  });
+
+  it("limits the matrix to the class's daily periods", () => {
+    const classes = [
+      { id: "a", className: "Class V", section: "A", dailyPeriods: 5 },
+      { id: "b", className: "Class V", section: "B", dailyPeriods: 5 },
+      { id: "c", className: "Class VII", section: "A", dailyPeriods: null },
+    ];
+    const v = settingsForClass(S, classes, "Class V");
+    expect(v.periodsPerDay).toBe(5);
+    expect(v.halfDayPeriods).toBe(4);
+    expect(slotsFromWindow("afternoon", v)["0"]).toEqual([5]);
+    expect(normalizeSlots(slotsFromWindow("any", v), v)).toBeNull();
+    expect(settingsForClass(S, classes, "Class VII")).toBe(S);
+    expect(settingsForClass(S, classes, "Class IX")).toBe(S);
   });
 
   it("caps weekly capacity by max per day", () => {

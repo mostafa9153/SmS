@@ -6,6 +6,7 @@ import {
   type SlotWindow,
   detectWindow,
   normalizeSlots,
+  settingsForClass,
   slotStats,
   slotsFromWindow,
 } from "@/lib/routine/slots";
@@ -18,7 +19,12 @@ const MAX_PER_DAY_CHOICES = [1, 2, 3, 4] as const;
  * Presets (Anytime / Morning / Afternoon) stay a soft time preference; editing the matrix makes it a hard rule.
  */
 export function useSubjectSchedule(ctx: SubjectsCoreState) {
-  const { settings, dlgPeriodsPerWeek, dlgMaxPerDay } = ctx;
+  const { settings: schoolSettings, classes, targetClassForForm, dlgPeriodsPerWeek, dlgMaxPerDay } = ctx;
+  // Only the periods this class actually runs (Classes tab daily limit)
+  const settings = useMemo(
+    () => settingsForClass(schoolSettings, classes, targetClassForForm),
+    [schoolSettings, classes, targetClassForForm]
+  );
   const [dlgWindow, setDlgWindow] = useState<SlotWindow>("any");
   const [dlgSlots, setDlgSlots] = useState<SlotMap>(() => slotsFromWindow("any", settings));
 
@@ -77,6 +83,7 @@ export function useSubjectSchedule(ctx: SubjectsCoreState) {
   }, [dlgPeriodsPerWeek, dlgMaxPerDay, dlgSlots, dlgWindow, settings]);
 
   return {
+    slotSettings: settings,
     dlgWindow,
     dlgSlots,
     loadSchedule,

@@ -15,7 +15,7 @@ const WINDOWS = [
 ] as const;
 
 export function SubjectScheduleSection({ tab }: { tab: RoutineSubjectsState }) {
-  const { settings, dlgWindow, dlgSlots, selectDlgWindow, selectDlgCustom, changeDlgSlots, schedule, maxPerDayChoices, setDlgMaxPerDay, dlgPeriodsPerWeek } = tab;
+  const { slotSettings, dlgWindow, dlgSlots, selectDlgWindow, selectDlgCustom, changeDlgSlots, schedule, maxPerDayChoices, setDlgMaxPerDay, dlgPeriodsPerWeek } = tab;
   const { stats, minPerDay, maxPerDay, blocked, shortBy } = schedule;
 
   return (
@@ -37,7 +37,7 @@ export function SubjectScheduleSection({ tab }: { tab: RoutineSubjectsState }) {
         />
       </div>
 
-      <PeriodSlotMatrix settings={settings} value={dlgSlots} onChange={changeDlgSlots} />
+      <PeriodSlotMatrix settings={slotSettings} value={dlgSlots} onChange={changeDlgSlots} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
