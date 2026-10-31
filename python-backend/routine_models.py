@@ -25,6 +25,16 @@ class RoutineSettings(BaseModel):
     tchMinBefore: int = 0
     tchMinAfter: int = 0
 
+def effective_settings(settings):
+    """0 means a teacher workload rule is switched off: an off daily/consecutive cap becomes the whole day."""
+    P = settings.periodsPerDay
+    return settings.model_copy(update={
+        "tchDailyMax": settings.tchDailyMax if settings.tchDailyMax > 0 else P,
+        "tchConsecMax": settings.tchConsecMax if settings.tchConsecMax > 0 else P,
+        "tchMinBefore": max(0, settings.tchMinBefore),
+        "tchMinAfter": max(0, settings.tchMinAfter),
+    })
+
 class RoutineRoom(BaseModel):
     id: str
     name: str

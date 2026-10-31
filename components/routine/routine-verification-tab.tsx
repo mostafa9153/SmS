@@ -114,7 +114,7 @@ export function RoutineVerificationTab({
     const regP = settings.periodsPerDay || 8;
     const fullDaysCount = workingDays.filter((d) => !halfDays.includes(d)).length;
     const halfDaysCount = workingDays.filter((d) => halfDays.includes(d)).length;
-    const tchDailyMax = settings.tchDailyMax || 5;
+    const tchDailyMax = settings.tchDailyMax > 0 ? settings.tchDailyMax : regP;
     const breakP = settings.breaks?.length ? Math.min(...settings.breaks) : Math.floor(regP / 2);
 
     // 1. Check Total School Faculty Capacity vs Demand

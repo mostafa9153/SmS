@@ -4,7 +4,7 @@
  * /api/routine/generate (solve) or /api/routine/diagnose (diagnose).
  */
 
-import { RoutineSettings, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineRoom, RoutineSubjectGroup, GeneratedRoutine, ValidationReport, DiagnosticItem, DEFAULT_ROUTINE_SETTINGS } from './types';
+import { RoutineSettings, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineRoom, RoutineSubjectGroup, GeneratedRoutine, ValidationReport, DiagnosticItem, DEFAULT_ROUTINE_SETTINGS, dailyCapOf } from './types';
 import {
   buildSolverGroups,
   getGroupsForClass,
@@ -59,8 +59,8 @@ class RoutineSolver {
       halfDays: settings?.halfDays || DEFAULT_ROUTINE_SETTINGS.halfDays,
       halfDayPeriods: settings?.halfDayPeriods || DEFAULT_ROUTINE_SETTINGS.halfDayPeriods,
       breaks: settings?.breaks || DEFAULT_ROUTINE_SETTINGS.breaks,
-      tchDailyMax: settings?.tchDailyMax || DEFAULT_ROUTINE_SETTINGS.tchDailyMax,
-      tchConsecMax: settings?.tchConsecMax || DEFAULT_ROUTINE_SETTINGS.tchConsecMax,
+      tchDailyMax: settings?.tchDailyMax ?? DEFAULT_ROUTINE_SETTINGS.tchDailyMax,
+      tchConsecMax: settings?.tchConsecMax ?? DEFAULT_ROUTINE_SETTINGS.tchConsecMax,
       tchMinBefore: settings?.tchMinBefore ?? 0,
       tchMinAfter: settings?.tchMinAfter ?? 0,
     };
@@ -295,20 +295,21 @@ class RoutineSolver {
         });
       }
 
-      // Check teacher maximum physical capacity under tchDailyMax
+      // Check teacher maximum physical capacity under tchDailyMax (0 = off = whole day)
+      const dailyCap = dailyCapOf(this.settings);
       const maxPhysicalDailyCapacity =
-        fullDaysCount * this.settings.tchDailyMax +
-        halfDaysCount * Math.min(this.settings.tchDailyMax, this.settings.halfDayPeriods);
+        fullDaysCount * dailyCap +
+        halfDaysCount * Math.min(dailyCap, this.settings.halfDayPeriods);
 
       if (load > maxPhysicalDailyCapacity) {
-        const warn = `Teacher ${teacher.name}: Workload (${load} p/wk) exceeds strict daily limit capacity (${maxPhysicalDailyCapacity} p/wk based on max ${this.settings.tchDailyMax}/day). Solver will dynamically adapt daily caps.`;
+        const warn = `Teacher ${teacher.name}: Workload (${load} p/wk) exceeds strict daily limit capacity (${maxPhysicalDailyCapacity} p/wk based on max ${dailyCap}/day). Solver will dynamically adapt daily caps.`;
         warnings.push(warn);
         diagnosticItems.push({
           type: 'teacher_daily_max',
           severity: 'warning',
           teacherName: teacher.name,
           title: `High Daily Density: ${teacher.name} (${load} p/wk)`,
-          description: `With ${this.settings.tchDailyMax} periods/day cap, maximum capacity is ${maxPhysicalDailyCapacity} periods. Requires relaxing daily limit to ~${Math.ceil(load / daysCount)} periods/day.`,
+          description: `With ${dailyCap} periods/day cap, maximum capacity is ${maxPhysicalDailyCapacity} periods. Requires relaxing daily limit to ~${Math.ceil(load / daysCount)} periods/day.`,
           solution: `Increase Teacher Daily Max in Settings to ${Math.ceil(load / daysCount)} or higher.`,
         });
       }

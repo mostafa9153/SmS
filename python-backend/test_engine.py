@@ -187,6 +187,20 @@ def test_custom_slots_split_teachers_are_not_intersected():
     assert not any(i["type"] == "subject_slot_restriction" for i in d["reasons"]), d
 
 
+def test_workload_rules_switched_off():
+    # 0 = rule off: 6 periods a day with 6 in a row is fine when both caps are off
+    req = make_request(n_classes=1, load_per_class=6, settings={"tchDailyMax": 0, "tchConsecMax": 0})
+    req.subjects[0].allowedSlots = {"0": [1, 2, 3, 5, 6, 7], "1": [], "2": [], "3": [], "4": [], "5": []}
+    req.subjects[0].allowMultiplePerDay = True
+    req.subjects[0].maxPerDay = 6
+    r = generate_schedule(req)
+    assert r["success"] and r["metadata"]["phase"] == 1, r.get("metadata", r)
+    # same request with the caps on has to relax the fatigue rule
+    req.settings.tchDailyMax, req.settings.tchConsecMax = 5, 2
+    r2 = generate_schedule(req)
+    assert not r2["success"] or r2["metadata"]["phase"] > 1, r2.get("metadata", r2)
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

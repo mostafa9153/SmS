@@ -146,7 +146,7 @@ export function useViewerEditing(ctx: ViewerCoreState) {
         });
       }
       const name = teacherMap.get(tid)?.shortName || teacherMap.get(tid)?.name || "Teacher";
-      if (periods.size > settings.tchDailyMax) {
+      if (settings.tchDailyMax > 0 && periods.size > settings.tchDailyMax) {
         ruleIssues.push(`${name} has ${periods.size} periods that day (max ${settings.tchDailyMax})`);
       }
       let run = 0;
@@ -156,7 +156,7 @@ export function useViewerEditing(ctx: ViewerCoreState) {
         run = periods.has(q) ? run + 1 : 0;
         best = Math.max(best, run);
       }
-      if (best > settings.tchConsecMax) {
+      if (settings.tchConsecMax > 0 && best > settings.tchConsecMax) {
         ruleIssues.push(`${name} teaches ${best} in a row (max ${settings.tchConsecMax})`);
       }
     }

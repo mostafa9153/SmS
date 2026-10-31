@@ -33,6 +33,9 @@ export const DEFAULT_ROUTINE_SETTINGS: RoutineSettings = {
   tchMinAfter: 0,
 };
 
+/** 0 switches the teacher daily cap off; this gives the cap actually in force. */
+export const dailyCapOf = (s: RoutineSettings) => (s.tchDailyMax > 0 ? s.tchDailyMax : s.periodsPerDay);
+
 export interface RoutineRoom {
   id: string;
   name: string;

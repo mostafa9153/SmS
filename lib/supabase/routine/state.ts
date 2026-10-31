@@ -58,7 +58,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
         halfDays: setRow.half_days || [5],
         halfDayPeriods: setRow.half_day_periods ?? 4,
         breaks: setRow.breaks || [4],
-        tchDailyMax: setRow.tch_daily_max || 5,
+        tchDailyMax: setRow.tch_daily_max ?? 5,
         tchConsecMax: setRow.tch_consec_max ?? 3,
         tchMinBefore: setRow.tch_min_before ?? 0,
         tchMinAfter: setRow.tch_min_after ?? 0,

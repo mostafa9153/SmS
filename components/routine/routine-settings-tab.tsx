@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 
 import { showToast } from "@/components/ui/toast-banner";
 import { Spinner } from "@/components/ui/spinner";
+import { WorkloadRuleField } from "./workload-rule-field";
 
 interface RoutineSettingsTabProps {
   settings: RoutineSettings;
@@ -159,73 +160,34 @@ export function RoutineSettingsTab({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Max Daily Periods / Teacher</Label>
-              <Input
-                type="number"
-                min={1}
-                max={10}
-                value={settings.tchDailyMax}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    tchDailyMax: clampInt(e.target.value, 1, 10, settings.tchDailyMax),
-                  })
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Max Consecutive Periods</Label>
-              <Input
-                type="number"
-                min={1}
-                max={8}
-                value={settings.tchConsecMax}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    tchConsecMax: clampInt(e.target.value, 1, 8, settings.tchConsecMax),
-                  })
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Min Periods Before Tiffin</Label>
-              <Input
-                type="number"
-                min={0}
-                max={8}
-                value={settings.tchMinBefore ?? 0}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    tchMinBefore: clampInt(e.target.value, 0, 8, settings.tchMinBefore ?? 0),
-                  })
-                }
-                className="h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Min Periods After Tiffin</Label>
-              <Input
-                type="number"
-                min={0}
-                max={8}
-                value={settings.tchMinAfter ?? 0}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    tchMinAfter: clampInt(e.target.value, 0, 8, settings.tchMinAfter ?? 0),
-                  })
-                }
-                className="h-9 text-xs"
-              />
-            </div>
+            <WorkloadRuleField
+              label="Max Daily Periods / Teacher"
+              value={settings.tchDailyMax}
+              max={10}
+              defaultOn={5}
+              onChange={(v) => setSettings({ ...settings, tchDailyMax: v })}
+            />
+            <WorkloadRuleField
+              label="Max Consecutive Periods"
+              value={settings.tchConsecMax}
+              max={8}
+              defaultOn={3}
+              onChange={(v) => setSettings({ ...settings, tchConsecMax: v })}
+            />
+            <WorkloadRuleField
+              label="Min Periods Before Tiffin"
+              value={settings.tchMinBefore ?? 0}
+              max={8}
+              defaultOn={1}
+              onChange={(v) => setSettings({ ...settings, tchMinBefore: v })}
+            />
+            <WorkloadRuleField
+              label="Min Periods After Tiffin"
+              value={settings.tchMinAfter ?? 0}
+              max={8}
+              defaultOn={1}
+              onChange={(v) => setSettings({ ...settings, tchMinAfter: v })}
+            />
           </div>
         </div>
       </div>

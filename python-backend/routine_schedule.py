@@ -1,13 +1,13 @@
 import time
 import math
 from routine_diagnostics import audit_relaxations, ct_matches, explain_strict_failures
-from routine_models import GenerateRoutineRequest, allowed_periods
+from routine_models import GenerateRoutineRequest, allowed_periods, effective_settings
 from routine_phase import run_solver_phase
 from routine_plan import PHASES, PHASE_TIME_LIMIT, RELAX_LABELS, build_tiffin_plan, coverage_violations, describe_adjustments
 
 def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = False):
     # Generate schedule
-
+    request = request.model_copy(update={"settings": effective_settings(request.settings)})
     settings = request.settings
     working_days = sorted(settings.workingDays)
     P = settings.periodsPerDay
