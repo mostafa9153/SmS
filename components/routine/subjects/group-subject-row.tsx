@@ -5,8 +5,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { RoutineSubject, RoutineSubjectGroup } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, FlaskConical, Clock, GripVertical } from "lucide-react";
+import { Edit2, Trash2, FlaskConical, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { TimeWindowLabel } from "./time-window-label";
 import { cn } from "@/lib/utils";
 import { groupTeacherLoad } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -91,16 +92,7 @@ export const GroupSubjectRow = React.memo(function GroupSubjectRow({
         )}
       </td>
       <td className="py-2.5 px-4 capitalize text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3 opacity-60" />
-          <span>
-            {first.timePref === "morning"
-              ? "Morning Preference"
-              : first.timePref === "afternoon"
-              ? "Afternoon Preference"
-              : "Flexible"}
-          </span>
-        </div>
+        <TimeWindowLabel timePref={group.timePref} allowedSlots={group.allowedSlots} />
       </td>
       <td className="py-2.5 px-4 text-muted-foreground">
         {first.allowMultiplePerDay ? (

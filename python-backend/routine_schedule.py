@@ -1,7 +1,7 @@
 import time
 import math
 from routine_diagnostics import audit_relaxations, ct_matches, explain_strict_failures
-from routine_models import GenerateRoutineRequest
+from routine_models import GenerateRoutineRequest, allowed_periods
 from routine_phase import run_solver_phase
 from routine_plan import PHASES, PHASE_TIME_LIMIT, RELAX_LABELS, build_tiffin_plan, coverage_violations, describe_adjustments
 
@@ -23,10 +23,15 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
     teachers_map = {t.id: t for t in request.teachers}
     classes_map = {c.id: c for c in request.classes}
 
+    def open_days(allowed):
+        def cap(d):
+            return min(settings.halfDayPeriods, P) if d in half_days else P
+        return max(1, len([d for d in working_days if any(p <= cap(d) for p in allowed_periods(allowed, d, P))]))
+
     unit_counter = [0]  # list to mutate inside helper closure
 
     def _append_unit(units_list, *, cids, tids, rids, sid, sz, hard, multi, max_daily,
-                     time_pref, is_ct, target_first_periods, gid=None, opts=None):
+                     time_pref, is_ct, target_first_periods, gid=None, opts=None, allowed=None):
         unit = {
             "uid": unit_counter[0],
             "cids": cids,
@@ -40,6 +45,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
             "timePref": time_pref,
             "isClassTeacherUnit": is_ct,
             "targetFirstPeriods": target_first_periods,
+            "allowedSlots": allowed,
         }
         if gid is not None:
             unit["gid"] = gid
@@ -77,7 +83,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
                 if ass.classId == a.classId and ass.subjectId == a.subjectId
             )
 
-            auto_max_daily = math.ceil(class_subj_total / max(1, D))
+            auto_max_daily = math.ceil(class_subj_total / open_days(subj.allowedSlots))
             if len(half_days) > 0 and class_subj_total > full_days_count:
                 auto_max_daily = max(2, auto_max_daily)
 
@@ -98,6 +104,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
                 time_pref=subj.timePref,
                 is_ct=is_ct,
                 target_first_periods=target_first_periods,
+                allowed=subj.allowedSlots,
             )
 
             rem = a.periodsPerWeek
@@ -123,7 +130,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
             rids = list(dict.fromkeys(o.roomId for o in g.options if o.roomId))
 
             # Group's effective maxPerDay (fallback: use periods_per_week spread)
-            auto_max_daily = math.ceil(g.periodsPerWeek / max(1, D))
+            auto_max_daily = math.ceil(g.periodsPerWeek / open_days(g.allowedSlots))
             max_daily = max(auto_max_daily, g.maxPerDay or 1)
 
             opts = [
@@ -147,6 +154,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
                 target_first_periods=0,
                 gid=g.gid,
                 opts=opts,
+                allowed=g.allowedSlots,
             )
 
             rem = g.periodsPerWeek
@@ -192,6 +200,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
                 day_set = set.intersection(*avail_sets)
             else:
                 day_set = set(range(1, P + 1))
+            day_set &= allowed_periods(g.allowedSlots, day_val, P)
             for p_num in day_set:
                 if p_num > day_max_p:
                     continue

@@ -143,6 +143,50 @@ def test_class_teacher_first_period_is_hard():
     assert firsts >= 3, firsts
 
 
+def test_custom_subject_slots_are_hard():
+    # Math may use only Mon/Wed/Fri periods 1-3; 6 periods fit exactly at 2 per day
+    allowed = {"0": [1, 2, 3], "2": [1, 2, 3], "4": [1, 2, 3], "1": [], "3": [], "5": []}
+    req = make_request(n_classes=1, load_per_class=6)
+    req.subjects[0].allowedSlots = allowed
+    r = generate_schedule(req)
+    assert r["success"], r
+    for d, day in enumerate(r["grid"]["c0"]):
+        for p, cell in enumerate(day):
+            if cell:
+                assert (p + 1) in allowed[str(d)], (d, p)
+
+
+def test_custom_subject_slots_too_small_is_explained():
+    req = make_request(n_classes=1, load_per_class=6)
+    req.subjects[0].allowedSlots = {"0": [1], "1": [1], "2": [], "3": [], "4": [], "5": []}
+    d = generate_schedule(req, diagnose_only=True)
+    assert any(i["type"] == "subject_slot_restriction" for i in d["reasons"]), d
+
+
+def test_custom_slots_shared_by_two_sections_of_one_teacher():
+    # each section fits on its own, but one teacher cannot teach both in the same 4 slots
+    req = make_request(n_classes=2, load_per_class=3)
+    req.subjects[0].allowedSlots = {"0": [1, 2], "1": [1, 2], "2": [], "3": [], "4": [], "5": []}
+    d = generate_schedule(req, diagnose_only=True)
+    assert any(i["type"] == "subject_slot_restriction" and i.get("teacherName") for i in d["reasons"]), d
+
+
+def test_custom_slots_split_teachers_are_not_intersected():
+    # Two teachers share one subject in one class on different days: no false impossibility
+    days = lambda ds: {str(d): (list(range(1, 8)) if d in ds else []) for d in range(6)}
+    teachers = [
+        {"id": "t1", "name": "Teacher One", "shortName": "T1", "maxPeriods": 40, "availableSlots": days({0, 1})},
+        {"id": "t2", "name": "Teacher Two", "shortName": "T2", "maxPeriods": 40, "availableSlots": days({2, 3})},
+    ]
+    req = make_request(n_classes=1, load_per_class=3, teachers=teachers)
+    req.assignments.append(req.assignments[0].model_copy(update={"id": "a1", "teacherId": "t2"}))
+    req.subjects[0].allowedSlots = {str(d): [1, 2, 3] for d in range(4)}
+    req.subjects[0].allowMultiplePerDay = True
+    req.subjects[0].maxPerDay = 2
+    d = generate_schedule(req, diagnose_only=True)
+    assert not any(i["type"] == "subject_slot_restriction" for i in d["reasons"]), d
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:

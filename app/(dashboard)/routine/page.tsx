@@ -254,6 +254,7 @@ function RoutineSetupPageContent() {
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
     sortOrder?: number | null;
+    allowedSlots?: Record<string, number[]> | null;
   }) => {
     const id = await upsertSubjectDb(subjData);
     setSubjects((prev) => {
@@ -280,6 +281,8 @@ function RoutineSetupPageContent() {
             ? Number(subjData.periodsPerWeek)
             : 5,
         sortOrder: subjData.sortOrder !== undefined ? subjData.sortOrder : null,
+        allowedSlots:
+          subjData.allowedSlots !== undefined ? subjData.allowedSlots : idx > -1 ? prev[idx].allowedSlots ?? null : null,
       };
       if (idx > -1) {
         const next = [...prev];
@@ -353,6 +356,7 @@ function RoutineSetupPageContent() {
       maxPerDay?: number | null;
       periodsPerWeek?: number | null;
       sortOrder?: number | null;
+      allowedSlots?: Record<string, number[]> | null;
     }[]
   ) => {
     const saved = await batchUpsertSubjectsDb(subjectsList);
@@ -412,6 +416,7 @@ function RoutineSetupPageContent() {
       periodSize: g.periodSize,
       timePref: g.timePref,
       maxPerDay: g.maxPerDay ?? null,
+      allowedSlots: g.allowedSlots ?? null,
       sortOrder: g.sortOrder,
       sectionIds: g.sectionIds,
       options: g.options.map((o) => ({
@@ -588,6 +593,7 @@ function RoutineSetupPageContent() {
             {activeTab === "subjects" && (
               <RoutineSubjectsTab
                 subjects={subjects}
+                settings={settings}
                 classes={classes}
                 groups={groups}
                 onSaveGroup={handleSaveGroup}

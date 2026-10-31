@@ -12,6 +12,7 @@ import type { RoutineSubjectsTabProps } from "./props";
 
 export function useSubjectsCore({
   subjects,
+  settings,
   classes = [],
   groups = [],
   onSaveGroup,
@@ -147,9 +148,7 @@ export function useSubjectsCore({
   const [dlgLabSessions, setDlgLabSessions] = useState<number>(1);
   const [dlgPeriodsPerWeek, setDlgPeriodsPerWeek] = useState<number>(5);
   const [dlgIsLab, setDlgIsLab] = useState(false);
-  const [dlgTimePref, setDlgTimePref] = useState<"any" | "morning" | "afternoon">("any");
-  const [dlgAllowMulti, setDlgAllowMulti] = useState(false);
-  const [dlgMaxPerDay, setDlgMaxPerDay] = useState<number>(2);
+  const [dlgMaxPerDay, setDlgMaxPerDay] = useState<number>(1);
   const [dlgFormStream, setDlgFormStream] = useState("General");
   const [dlgIsCommon, setDlgIsCommon] = useState(false);
   const [isDlgSubmitting, setIsDlgSubmitting] = useState(false);
@@ -225,7 +224,6 @@ export function useSubjectsCore({
     classes,
     configuredStreamsForActive,
     dialogMode,
-    dlgAllowMulti,
     dlgFormStream,
     dlgIsCommon,
     dlgIsLab,
@@ -235,7 +233,6 @@ export function useSubjectsCore({
     dlgPeriodFormat,
     dlgPeriodsPerWeek,
     dlgTheoryPeriods,
-    dlgTimePref,
     editDialogOpen,
     editGroup,
     editId,
@@ -262,10 +259,10 @@ export function useSubjectsCore({
     periodsPerWeek,
     selectedStream,
     sensors,
+    settings,
     setActiveClass,
     setAllowMulti,
     setDialogMode,
-    setDlgAllowMulti,
     setDlgFormStream,
     setDlgIsCommon,
     setDlgIsLab,
@@ -275,7 +272,6 @@ export function useSubjectsCore({
     setDlgPeriodFormat,
     setDlgPeriodsPerWeek,
     setDlgTheoryPeriods,
-    setDlgTimePref,
     setEditDialogOpen,
     setEditGroup,
     setEditId,

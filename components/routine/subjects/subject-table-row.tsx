@@ -5,8 +5,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { RoutineSubject } from "@/lib/routine/types";
 import { Button } from "@/components/ui/button";
-import { Edit2, Trash2, FlaskConical, Clock, Share2, Atom, Briefcase, Palette, GripVertical } from "lucide-react";
+import { Edit2, Trash2, FlaskConical, Share2, Atom, Briefcase, Palette, GripVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { TimeWindowLabel } from "./time-window-label";
 import { cn } from "@/lib/utils";
 import { detectSubjectStream, isHsClass } from "@/lib/routine/routine-helpers";
 
@@ -156,16 +157,7 @@ export const SubjectTableRow = React.memo(function SubjectTableRow({
         )}
       </td>
       <td className="py-2.5 px-4 capitalize text-muted-foreground">
-        <div className="flex items-center gap-1">
-          <Clock className="w-3 h-3 opacity-60" />
-          <span>
-            {s.timePref === "morning"
-              ? "Morning Preference"
-              : s.timePref === "afternoon"
-              ? "Afternoon Preference"
-              : "Flexible"}
-          </span>
-        </div>
+        <TimeWindowLabel timePref={s.timePref} allowedSlots={s.allowedSlots} />
       </td>
       <td className="py-2.5 px-4 text-muted-foreground">
         {s.allowMultiplePerDay ? (

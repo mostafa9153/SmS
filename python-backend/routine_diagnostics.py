@@ -1,7 +1,7 @@
 import re
 import time
 from typing import Any
-from routine_models import _day_name
+from routine_models import _day_name, allowed_periods
 from routine_plan import RELAX_LABELS, ct_first_violations, effective_tiffin_mins, teacher_day_caps
 
 def _sec_norm(s):
@@ -148,6 +148,111 @@ def explain_strict_failures(request, units):
                     "teacherName": t.name,
                 })
 
+    items.extend(slot_restriction_failures(request, units))
+    return items
+
+
+def slot_restriction_failures(request, units):
+    """Counting proofs for custom subject slots (a hard rule). Pair adjacency is ignored, so capacity
+    is only over-counted and every item is still a certain impossibility."""
+    settings = request.settings
+    working_days = sorted(settings.workingDays)
+    P = settings.periodsPerDay
+    teachers = {t.id: t for t in request.teachers}
+    classes = {c.id: c for c in request.classes}
+    subjects = {s.id: s for s in request.subjects}
+    group_names = {g.gid: (g.name or g.gid) for g in (request.groups or [])}
+    items = []
+
+    def day_cap_for(day_val):
+        return min(settings.halfDayPeriods, P) if day_val in settings.halfDays else P
+
+    def label(u):
+        if u.get("gid"):
+            return group_names.get(u["gid"], u["gid"])
+        return subjects[u["sid"]].name if u["sid"] in subjects else u["sid"]
+
+    def class_label(cids):
+        return ", ".join(f"{classes[c].className} {classes[c].section}" for c in cids if c in classes)
+
+    def t_avail(tid, d):
+        t = teachers.get(tid)
+        return set(t.availableSlots.get(str(d), list(range(1, P + 1)))) if t else set(range(1, P + 1))
+
+    restricted = {}
+    for u in units:
+        if u.get("allowedSlots"):
+            restricted.setdefault((tuple(u["cids"]), u["sid"]), []).append(u)
+
+    class_need, class_open = {}, {}
+    teacher_need, teacher_open = {}, {}
+    for (cids, sid), us in restricted.items():
+        need = sum(u["sz"] for u in us)
+        per_day = max((max(2, u["maxPerDay"]) if u["sz"] == 2 else u["maxPerDay"]) for u in us)
+        cls_cap = min([classes[c].dailyPeriods or P for c in cids if c in classes] or [P])
+        tids = sorted({tid for u in us for tid in u["tids"]})
+        own = with_t = 0
+        for d in working_days:
+            top = min(day_cap_for(d), cls_cap)
+            slots = {p for p in allowed_periods(us[0]["allowedSlots"], d, P) if p <= top}
+            own += min(len(slots), per_day)
+            for c in cids:
+                class_open.setdefault(c, set()).update((d, p) for p in slots)
+            for tid in tids:
+                teacher_open.setdefault(tid, set()).update((d, p) for p in slots & t_avail(tid, d))
+            if us[0].get("gid"):
+                # Group options run in parallel, so every option teacher must be free
+                usable = set(slots)
+                for tid in tids:
+                    usable &= t_avail(tid, d)
+            else:
+                # Split assignments are taught separately: any one teacher being free is enough
+                usable = {p for p in slots if any(p in t_avail(tid, d) for tid in tids)}
+            with_t += min(len(usable), per_day)
+        for c in cids:
+            class_need[c] = class_need.get(c, 0) + need
+        for tid in tids:
+            teacher_need[tid] = teacher_need.get(tid, 0) + need
+
+        name, where = label(us[0]), class_label(cids)
+        if need > own:
+            items.append({
+                "type": "subject_slot_restriction", "severity": "error",
+                "title": f"{where}: {name} needs {need} periods but its custom slots hold only {own}",
+                "description": "The subject's slot matrix (with its max per day) is smaller than its weekly load.",
+                "solution": f"Open more slots for {name}, raise its max periods per day, or lower its weekly periods.",
+                "className": where, "subjectName": name,
+            })
+        elif need > with_t:
+            items.append({
+                "type": "subject_slot_restriction", "severity": "error",
+                "title": f"{where}: {name} fits only {with_t} of {need} periods inside its teacher's availability",
+                "description": "The subject's custom slots and its teacher's available periods overlap too little.",
+                "solution": f"Open more slots for {name}, or free up the teacher in those periods.",
+                "className": where, "subjectName": name,
+            })
+
+    for c, need in class_need.items():
+        room = len(class_open.get(c, set()))
+        if need > room:
+            where = class_label([c])
+            items.append({
+                "type": "subject_slot_restriction", "severity": "error",
+                "title": f"{where}: subjects with custom slots need {need} periods but share only {room} slots",
+                "description": "Several subjects of this class are limited to the same few periods.",
+                "solution": "Spread their slot matrices over more periods or days.",
+                "className": where,
+            })
+    for tid, need in teacher_need.items():
+        room = len(teacher_open.get(tid, set()))
+        if need > room and tid in teachers:
+            items.append({
+                "type": "subject_slot_restriction", "severity": "error",
+                "title": f"{teachers[tid].name}: {need} custom-slot periods but only {room} usable slots",
+                "description": "This teacher's subjects with custom slots overlap in too few available periods.",
+                "solution": "Spread those subjects' slot matrices, or move some sections to another teacher.",
+                "teacherName": teachers[tid].name,
+            })
     return items
 
 

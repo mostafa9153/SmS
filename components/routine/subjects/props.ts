@@ -1,8 +1,9 @@
-import { RoutineSubject, RoutineClass, RoutineSubjectGroup } from "@/lib/routine/types";
+import { RoutineSubject, RoutineClass, RoutineSubjectGroup, RoutineSettings } from "@/lib/routine/types";
 
 
 export interface RoutineSubjectsTabProps {
   subjects: RoutineSubject[];
+  settings: RoutineSettings;
   classes?: RoutineClass[];
   groups?: RoutineSubjectGroup[];
   onSaveGroup?: (group: RoutineSubjectGroup) => Promise<void>;
@@ -23,6 +24,7 @@ export interface RoutineSubjectsTabProps {
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
     sortOrder?: number | null;
+    allowedSlots?: Record<string, number[]> | null;
   }) => Promise<void>;
   onBatchSaveSubjects?: (subjects: {
     id?: string;

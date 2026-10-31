@@ -309,6 +309,7 @@ interface SolverGroupPayload {
   periodSize: 1 | 2;
   timePref: "any" | "morning" | "afternoon";
   maxPerDay?: number | null;
+  allowedSlots?: Record<string, number[]> | null;
   options: Array<{ subjectId: string; teacherId: string; roomId?: string | null }>;
 }
 
@@ -331,6 +332,7 @@ export function buildSolverGroups(groups: RoutineSubjectGroup[]): SolverGroupPay
         periodSize: g.periodSize,
         timePref: g.timePref,
         maxPerDay: g.maxPerDay ?? null,
+        allowedSlots: g.allowedSlots ?? null,
         options: opts,
       });
     } else {
@@ -346,6 +348,7 @@ export function buildSolverGroups(groups: RoutineSubjectGroup[]): SolverGroupPay
           periodSize: g.periodSize,
           timePref: g.timePref,
           maxPerDay: g.maxPerDay ?? null,
+          allowedSlots: g.allowedSlots ?? null,
           options: opts,
         });
       }

@@ -62,6 +62,7 @@ export interface RoutineSubject {
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
   sortOrder?: number | null;
+  allowedSlots?: Record<string, number[]> | null; // hard: dayIndex -> periods this subject may use (null = anywhere)
 }
 
 export interface RoutineTeacher {
@@ -112,6 +113,7 @@ export interface RoutineSubjectGroup {
   periodSize: 1 | 2;         // single or double period
   timePref: "any" | "morning" | "afternoon";
   maxPerDay?: number | null;
+  allowedSlots?: Record<string, number[]> | null;
   sortOrder?: number;
   // Resolved at load time (scope='class') OR explicit (scope='section'):
   sectionIds: string[];
@@ -149,6 +151,7 @@ export interface DiagnosticItem {
     | "faculty_shortage"
     | "capacity_overflow"
     | "room_capacity"
+    | "subject_slot_restriction"
     | "general";
   severity: "error" | "warning" | "info";
   title: string;

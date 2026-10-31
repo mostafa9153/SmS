@@ -3,6 +3,7 @@ import { RoutineClass, RoutineSubjectGroup, RoutineGroupOption } from "@/lib/rou
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { mustWrite } from "@/lib/supabase/write";
 import { getLocalRoutineState, setLocalRoutineState } from "@/lib/supabase/routine/local-state";
+import { SLOTS_NOT_SAVED } from "@/lib/supabase/routine/structure";
 
 // ============================================================
 // Subject Groups (parallel elective blocks)
@@ -113,6 +114,7 @@ export async function fetchSubjectGroupsDb(
         periodSize: (h.period_size === 2 ? 2 : 1) as 1 | 2,
         timePref: h.time_pref || "any",
         maxPerDay: h.max_per_day,
+        allowedSlots: h.allowed_slots ?? null,
         sortOrder: h.sort_order ?? 0,
         sectionIds: resolved,
         options: optionsByGroup.get(h.id) || [],
@@ -139,6 +141,7 @@ export async function upsertSubjectGroupDb(group: {
   periodSize: 1 | 2;
   timePref: "any" | "morning" | "afternoon";
   maxPerDay?: number | null;
+  allowedSlots?: Record<string, number[]> | null;
   sortOrder?: number;
   sectionIds: string[];     // required when scope='section'
   options: Array<{
@@ -151,6 +154,7 @@ export async function upsertSubjectGroupDb(group: {
 }): Promise<string> {
   const id = isUuidStr(group.id) ? group.id! : crypto.randomUUID();
   const supabase = createClient();
+  let slotsDropped = false;
 
   // Local optimistic write
   const local = getLocalRoutineState() || {};
@@ -167,6 +171,7 @@ export async function upsertSubjectGroupDb(group: {
     periodSize: group.periodSize,
     timePref: group.timePref,
     maxPerDay: group.maxPerDay ?? null,
+    allowedSlots: group.allowedSlots ?? null,
     sortOrder: group.sortOrder ?? 0,
     sectionIds: group.scope === "section"
       ? group.sectionIds
@@ -201,11 +206,18 @@ export async function upsertSubjectGroupDb(group: {
       period_size: group.periodSize,
       time_pref: group.timePref,
       max_per_day: group.maxPerDay ?? null,
+      allowed_slots: group.allowedSlots ?? null,
       sort_order: group.sortOrder ?? 0,
       updated_at: new Date().toISOString(),
     };
     const { error: hErr } = await supabase.from("routine_subject_groups").upsert(headerRow);
-    if (hErr) console.warn("upsertSubjectGroupDb header:", hErr);
+    if (hErr) {
+      console.warn("upsertSubjectGroupDb header:", hErr);
+      // Older schema without allowed_slots: keep the header write, report the lost matrix
+      const { allowed_slots: _slots, ...baseHeader } = headerRow;
+      const { error: bErr } = await supabase.from("routine_subject_groups").upsert(baseHeader);
+      if (!bErr && group.allowedSlots) slotsDropped = true;
+    }
 
     // 2. replace section memberships (scope='section')
     await mustWrite(supabase.from("routine_subject_group_sections").delete().eq("group_id", id), "routine_subject_group_sections delete");
@@ -240,6 +252,7 @@ export async function upsertSubjectGroupDb(group: {
     console.warn("upsertSubjectGroupDb:", err);
   }
 
+  if (slotsDropped) throw new Error(SLOTS_NOT_SAVED);
   return id;
 }
 

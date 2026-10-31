@@ -4,6 +4,9 @@ import { normalizeSubjectName } from "@/lib/routine/routine-helpers";
 import { mustWrite } from "@/lib/supabase/write";
 import { getLocalRoutineState, setLocalRoutineState } from "@/lib/supabase/routine/local-state";
 
+export const SLOTS_NOT_SAVED =
+  "Custom slots were not saved: the allowed_slots column is missing. Apply migration 20261031_routine_subject_allowed_slots.sql.";
+
 /**
  * Saves Routine Settings to Supabase & Local Cache.
  */
@@ -277,6 +280,7 @@ export async function upsertSubjectDb(subj: {
   maxPerDay?: number | null;
   periodsPerWeek?: number | null;
   sortOrder?: number | null;
+  allowedSlots?: Record<string, number[]> | null;
 }): Promise<string> {
   const local = getLocalRoutineState() || {};
   const currentSubjects: RoutineSubject[] = local.subjects || [];
@@ -332,6 +336,10 @@ export async function upsertSubjectDb(subj: {
         : 1,
     periodsPerWeek: totalP,
     sortOrder: subj.sortOrder !== undefined ? subj.sortOrder : null,
+    // undefined = keep what is stored; null clears the restriction
+    allowedSlots: subj.allowedSlots !== undefined
+      ? subj.allowedSlots
+      : existingIdx > -1 ? currentSubjects[existingIdx].allowedSlots ?? null : null,
   };
 
   let nextSubjects: RoutineSubject[];
@@ -345,6 +353,7 @@ export async function upsertSubjectDb(subj: {
 
   // 2. Persist to Supabase
   const supabase = createClient();
+  let slotsDropped = false;
   try {
     const payload: Record<string, any> = {
       id,
@@ -362,9 +371,11 @@ export async function upsertSubjectDb(subj: {
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
     if (subj.theoryPeriods !== undefined) payload.theory_periods = subj.theoryPeriods;
     if (subj.labPeriods !== undefined) payload.lab_periods = subj.labPeriods;
+    if (subj.allowedSlots !== undefined) payload.allowed_slots = subj.allowedSlots;
 
     const { error } = await supabase.from("routine_subjects").upsert(payload);
     if (error) {
+      slotsDropped = Boolean(subj.allowedSlots);
       console.warn("upsertSubjectDb primary payload error, trying base fallback:", error);
       await mustWrite(supabase.from("routine_subjects").upsert({
         id,
@@ -386,6 +397,8 @@ export async function upsertSubjectDb(subj: {
   } catch (err) {
     console.warn("upsertSubjectDb catch:", err);
   }
+  // The base fallback has no allowed_slots column: say so instead of losing the matrix silently
+  if (slotsDropped) throw new Error(SLOTS_NOT_SAVED);
   return id;
 }
 
@@ -409,6 +422,7 @@ export async function batchUpsertSubjectsDb(
     maxPerDay?: number | null;
     periodsPerWeek?: number | null;
     sortOrder?: number | null;
+    allowedSlots?: Record<string, number[]> | null;
   }[]
 ): Promise<RoutineSubject[]> {
   const local = getLocalRoutineState() || {};
@@ -464,6 +478,7 @@ export async function batchUpsertSubjectsDb(
           : 1,
       periodsPerWeek: totalP,
       sortOrder: s.sortOrder !== undefined ? s.sortOrder : null,
+      allowedSlots: s.allowedSlots !== undefined ? s.allowedSlots : existingMatch?.allowedSlots ?? null,
     };
   });
 
@@ -484,6 +499,7 @@ export async function batchUpsertSubjectsDb(
   setLocalRoutineState({ subjects: currentSubjects });
 
   const supabase = createClient();
+  const anyRestricted = processedList.some((s) => s.allowedSlots);
   const rows = processedList.map((s) => ({
     id: s.id,
     name: s.name,
@@ -499,6 +515,7 @@ export async function batchUpsertSubjectsDb(
     periods_per_week: s.periodsPerWeek,
     theory_periods: s.theoryPeriods,
     lab_periods: s.labPeriods,
+    ...(anyRestricted ? { allowed_slots: s.allowedSlots ?? null } : {}),
   }));
 
   try {

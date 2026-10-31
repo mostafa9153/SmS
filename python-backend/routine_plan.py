@@ -1,6 +1,6 @@
 import os
 import math
-from routine_models import _day_name
+from routine_models import _day_name, allowed_periods
 
 def effective_tiffin_mins(settings, teacher, day_val, load, break_p, P, min_b=None, min_a=None):
     """Min periods before/after tiffin for a teacher on a teaching day, capped by
@@ -70,9 +70,11 @@ def coverage_targets(request, units):
     P = s.periodsPerDay
     teachers = {t.id: t for t in request.teachers}
     load = {}
+    t_units = {}
     for u in units:
         for tid in u["tids"]:
             load[tid] = load.get(tid, 0) + u["sz"]
+            t_units.setdefault(tid, []).append(u)
     out = {}
     for tid, ld in load.items():
         t = teachers.get(tid)
@@ -86,6 +88,9 @@ def coverage_targets(request, units):
                 continue
             day_cap = min(s.halfDayPeriods, P) if day_val in s.halfDays else P
             avail = [q for q in t.availableSlots.get(str(day_val), list(range(1, P + 1))) if q <= day_cap]
+            # A day none of this teacher's subjects may use is not a coverage day
+            subj_open = set().union(*(allowed_periods(u.get("allowedSlots"), day_val, P) for u in t_units[tid]))
+            avail = [q for q in avail if q in subj_open]
             if not avail:
                 continue
             per_day[d_idx] = min(base, len(avail), caps[day_val])

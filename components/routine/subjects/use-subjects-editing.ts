@@ -9,9 +9,11 @@ import { isSubjectLab, isDefaultLabSubject } from "@/lib/utils/marks-config";
 import { detectSubjectStream } from "@/lib/routine/routine-helpers";
 import type { SubjectsCoreState } from "./use-subjects-core";
 import type { SubjectsDerivedState } from "./use-subjects-derived";
+import type { SubjectScheduleState } from "./use-subject-schedule";
+import { toast } from "sonner";
 
-export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState) {
-  const { activeClass, allowMulti, classGroups, currentClassSubjects, dialogMode, displayRows, dlgAllowMulti, dlgFormStream, dlgIsCommon, dlgLabSessions, dlgMaxPerDay, dlgName, dlgPeriodFormat, dlgTheoryPeriods, dlgTimePref, editGroup, editId, formStream, isCommonSubject, isCurrentClassHs, isLab, marksSchemes, maxPerDay, name, onSaveGroup, onSaveSubject, periodsPerWeek, selectedStream, setAllowMulti, setDialogMode, setDlgAllowMulti, setDlgFormStream, setDlgIsCommon, setDlgIsLab, setDlgLabSessions, setDlgMaxPerDay, setDlgName, setDlgPeriodFormat, setDlgPeriodsPerWeek, setDlgTheoryPeriods, setDlgTimePref, setEditDialogOpen, setEditGroup, setEditId, setFormStream, setIsCommonSubject, setIsDlgSubmitting, setIsLab, setIsSubmitting, setLocalOrder, setMaxPerDay, setName, setPeriodsPerWeek, setTimePref, subjects, targetClassForForm, timePref } = ctx;
+export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState & SubjectScheduleState) {
+  const { activeClass, allowMulti, classGroups, currentClassSubjects, dialogMode, displayRows, dlgFormStream, dlgIsCommon, dlgLabSessions, dlgMaxPerDay, dlgName, dlgPeriodFormat, dlgTheoryPeriods, editGroup, editId, formStream, isCommonSubject, isCurrentClassHs, isLab, marksSchemes, maxPerDay, name, onSaveGroup, onSaveSubject, periodsPerWeek, selectedStream, setAllowMulti, setDialogMode, setDlgFormStream, setDlgIsCommon, setDlgIsLab, setDlgLabSessions, setDlgMaxPerDay, setDlgName, setDlgPeriodFormat, setDlgPeriodsPerWeek, setDlgTheoryPeriods, setEditDialogOpen, setEditGroup, setEditId, setFormStream, setIsCommonSubject, setIsDlgSubmitting, setIsLab, setIsSubmitting, setLocalOrder, setMaxPerDay, setName, setPeriodsPerWeek, setTimePref, subjects, targetClassForForm, timePref, loadSchedule, schedule } = ctx;
   // Handle drag-end: reorder within the current class/stream key
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
@@ -67,22 +69,23 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
     setDlgLabSessions(labSessions);
     setDlgPeriodsPerWeek(format === "single" ? theoryP : format === "lab" ? (labSessions * 2) : (theoryP + (labSessions * 2)));
     setDlgIsLab(isLab);
-    setDlgTimePref(s.timePref || "any");
-    setDlgAllowMulti(Boolean(s.allowMultiplePerDay));
-    setDlgMaxPerDay(s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2);
+    loadSchedule(s.timePref, s.allowedSlots);
+    setDlgMaxPerDay(s.allowMultiplePerDay ? (s.maxPerDay && s.maxPerDay >= 2 ? s.maxPerDay : 2) : 1);
     setDlgFormStream(stream);
     setDlgIsCommon(Boolean(s.isCommon || stream === "Common"));
     setDialogMode("edit");
     setEditDialogOpen(true);
-  }, []);
+  }, [loadSchedule]);
 
   const handleEditGroup = React.useCallback(
     (group: RoutineSubjectGroup, members: RoutineSubject[]) => {
       handleEdit(members[0]);
       setDlgName(group.name);
       setEditGroup(group);
+      // The group is the solver unit, so its own window/slots win over the first member's
+      loadSchedule(group.timePref, group.allowedSlots);
     },
-    [handleEdit]
+    [handleEdit, loadSchedule]
   );
 
   const handleOpenAddDialog = React.useCallback(() => {
@@ -94,14 +97,13 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
     setDlgLabSessions(1);
     setDlgPeriodsPerWeek(5);
     setDlgIsLab(false);
-    setDlgTimePref("any");
-    setDlgAllowMulti(false);
-    setDlgMaxPerDay(2);
+    loadSchedule("any", null);
+    setDlgMaxPerDay(1);
     setDlgFormStream("General");
     setDlgIsCommon(false);
     setDialogMode("add");
     setEditDialogOpen(true);
-  }, []);
+  }, [loadSchedule]);
 
   // Handle choosing a preset subject chip
   const handleSelectPresetChip = React.useCallback((subName: string) => {
@@ -225,7 +227,7 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
 
   const handleDlgSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!dlgName.trim()) return;
+    if (!dlgName.trim() || schedule.blocked) return;
     setIsDlgSubmitting(true);
     try {
       const finalStream = isCurrentClassHs
@@ -240,12 +242,22 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
       const effectiveTheory = dlgPeriodFormat === "lab" ? 0 : Number(dlgTheoryPeriods) || 0;
       const effectiveLabSlots = dlgPeriodFormat === "single" ? 0 : (Number(dlgLabSessions) || 1) * 2;
       const effectiveTotal = effectiveTheory + effectiveLabSlots;
+      const { timePref: dlgTimePref, allowedSlots, maxPerDay } = schedule;
+      const allowMultiplePerDay = maxPerDay > 1;
 
       if (editGroup) {
         const members = classGroups.find((x) => x.group.id === editGroup.id)?.members || [];
-        const maxPerDay = dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1);
+        // Write every member and the header even if one write fails, then report the first error
+        let firstError: unknown = null;
+        const attempt = async (write: () => Promise<void>) => {
+          try {
+            await write();
+          } catch (err) {
+            firstError ??= err;
+          }
+        };
         for (const m of members) {
-          await onSaveSubject({
+          await attempt(() => onSaveSubject({
             id: m.id,
             name: m.name,
             className: m.className,
@@ -257,15 +269,17 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
             theoryPeriods: effectiveTheory,
             labPeriods: effectiveLabSlots,
             timePref: dlgTimePref,
-            allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
+            allowedSlots,
+            allowMultiplePerDay,
             maxPerDay,
             periodsPerWeek: effectiveTotal,
             sortOrder: m.sortOrder,
-          });
+          }));
         }
         if (onSaveGroup) {
-          await onSaveGroup({ ...editGroup, periodsPerWeek: effectiveTotal, timePref: dlgTimePref });
+          await attempt(() => onSaveGroup({ ...editGroup, periodsPerWeek: effectiveTotal, timePref: dlgTimePref, allowedSlots }));
         }
+        if (firstError) throw firstError;
       } else if (dialogMode === "edit" && editId) {
         const subjectBeingEdited = subjects.find((s) => s.id === editId);
         await onSaveSubject({
@@ -279,8 +293,9 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
           theoryPeriods: effectiveTheory,
           labPeriods: effectiveLabSlots,
           timePref: dlgTimePref,
-          allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
-          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
+          allowedSlots,
+          allowMultiplePerDay,
+          maxPerDay,
           periodsPerWeek: effectiveTotal,
         });
       } else {
@@ -302,14 +317,17 @@ export function useSubjectsEditing(ctx: SubjectsCoreState & SubjectsDerivedState
           theoryPeriods: effectiveTheory,
           labPeriods: effectiveLabSlots,
           timePref: dlgTimePref,
-          allowMultiplePerDay: dlgAllowMulti || effectiveTotal >= 6,
-          maxPerDay: dlgAllowMulti ? Number(dlgMaxPerDay) || 2 : (effectiveTotal >= 6 ? 2 : 1),
+          allowedSlots,
+          allowMultiplePerDay,
+          maxPerDay,
           periodsPerWeek: effectiveTotal,
         });
       }
       setEditDialogOpen(false);
       setEditId(null);
       setEditGroup(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Subject not saved");
     } finally {
       setIsDlgSubmitting(false);
     }

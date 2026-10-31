@@ -6,6 +6,13 @@ DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 def _day_name(day_val):
     return DAY_LABELS[day_val] if 0 <= day_val < len(DAY_LABELS) else str(day_val)
 
+def allowed_periods(allowed, day_val, P):
+    """Periods a subject may use on a day. No map, or no entry for the day, means every period."""
+    if not allowed:
+        return set(range(1, P + 1))
+    got = allowed.get(str(day_val))
+    return set(range(1, P + 1)) if got is None else set(got)
+
 class RoutineSettings(BaseModel):
     id: Optional[str] = None
     workingDays: List[int]
@@ -45,6 +52,7 @@ class RoutineSubject(BaseModel):
     maxPerDay: Optional[int] = None
     periodsPerWeek: Optional[int] = None
     sortOrder: Optional[int] = None
+    allowedSlots: Optional[Dict[str, List[int]]] = None  # hard: dayIndex -> periods this subject may use
 
 class RoutineTeacher(BaseModel):
     id: str
@@ -85,6 +93,7 @@ class SubjectGroup(BaseModel):
     periodSize: Literal[1, 2] = 1
     timePref: Literal["any", "morning", "afternoon"] = "any"
     maxPerDay: Optional[int] = None
+    allowedSlots: Optional[Dict[str, List[int]]] = None
     options: List[SubjectGroupOption]
 
 class GenerateRoutineRequest(BaseModel):

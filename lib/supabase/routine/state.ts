@@ -167,6 +167,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
                 ? 2
                 : 1,
             periodsPerWeek: totalP,
+            allowedSlots: s.allowed_slots ?? null,
           };
         });
 

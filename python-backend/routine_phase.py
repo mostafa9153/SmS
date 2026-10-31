@@ -1,5 +1,5 @@
 from ortools.sat.python import cp_model
-from routine_models import GenerateRoutineRequest
+from routine_models import GenerateRoutineRequest, allowed_periods
 from routine_plan import COVERAGE_WEIGHT, PHASE_TIME_LIMIT, SOLVER_SEED, SOLVER_WORKERS, class_teacher_groups, coverage_targets, effective_tiffin_mins, teacher_day_caps
 
 def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), tiffin_plan=None):
@@ -63,6 +63,7 @@ def run_solver_phase(request: GenerateRoutineRequest, units, relax=frozenset(), 
                 t_avail_set = set.intersection(*avail_sets) if avail_sets else set()
             else:
                 t_avail_set = set(range(1, P + 1))
+            t_avail_set &= allowed_periods(u.get("allowedSlots"), day_val, P)
 
             for p_idx in range(P):
                 p_num = p_idx + 1
