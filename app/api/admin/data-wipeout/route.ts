@@ -109,7 +109,7 @@ export async function POST(req: Request) {
 
     if (passwordVerifyError) {
       return NextResponse.json({
-        error: "Invalid admin password. Authorization failed.",
+        error: `Wrong password for ${user.email} (the account signed in on this tab).`,
       }, { status: 401 });
     }
 

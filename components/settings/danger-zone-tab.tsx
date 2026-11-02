@@ -2,7 +2,8 @@
 
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ShieldAlert, Trash2, UserCheck, Building, AlertTriangle, Receipt, Award, CalendarDays, RotateCcw, Sliders, Filter } from "lucide-react";
+import { ShieldAlert, Trash2, UserCheck, Building, AlertTriangle, Receipt, Award, CalendarDays, RotateCcw, Sliders, Filter, Eye, EyeOff } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,9 @@ export function DangerZoneTab() {
   const [presetTarget, setPresetTarget] = useState<string>("ALL_PRESETS");
 
   const [adminPasswordInput, setAdminPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  // The password is checked against the account signed in on this tab, so name it
+  const [signedInEmail, setSignedInEmail] = useState("");
   const [confirmationPhraseInput, setConfirmationPhraseInput] = useState("");
   const [wipeoutError, setWipeoutError] = useState("");
 
@@ -60,9 +64,11 @@ export function DangerZoneTab() {
     if (params.preset) setPresetTarget(params.preset);
 
     setAdminPasswordInput("");
+    setShowPassword(false);
     setConfirmationPhraseInput("");
     setWipeoutError("");
     setIsWipeoutModalOpen(true);
+    createClient().auth.getSession().then(({ data }) => setSignedInEmail(data.session?.user.email ?? ""));
   };
 
   const wipeoutMutation = useMutation({
@@ -481,16 +487,34 @@ export function DangerZoneTab() {
             )}
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Admin Password</Label>
-              <Input
-                type="password"
-                placeholder="Enter current login password"
-                value={adminPasswordInput}
-                onChange={(e) => setAdminPasswordInput(e.target.value)}
-                required
-                disabled={wipeoutMutation.isPending}
-                className="h-10 sm:h-9 text-base sm:text-xs"
-              />
+              <Label htmlFor="wipeoutPassword" className="text-xs font-semibold">
+                Password{signedInEmail && <> of <span className="font-mono">{signedInEmail}</span></>}
+              </Label>
+              <div className="relative">
+                {/* new-password keeps the browser from filling in a saved password of another account */}
+                <Input
+                  id="wipeoutPassword"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter current login password"
+                  autoComplete="new-password"
+                  value={adminPasswordInput}
+                  onChange={(e) => {
+                    setAdminPasswordInput(e.target.value);
+                    setWipeoutError("");
+                  }}
+                  required
+                  disabled={wipeoutMutation.isPending}
+                  className="pr-10 h-10 sm:h-9 text-base sm:text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-1.5">
