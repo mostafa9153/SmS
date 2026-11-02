@@ -63,26 +63,46 @@ export function parseClassSectionLabel(label?: string | null): { className: stri
 }
 
 /**
+ * Every key the class preset may store a section's class teacher under. An HS stream section
+ * ("A (Science)") has its own keys and never the bare letter, so one stream never inherits another's teacher.
+ */
+export function sectionTeacherKeys(section: string): string[] {
+  const clean = section.trim().replace(/^Section\s+/i, "");
+  const m = clean.match(/^(.+?)\s*\((.+)\)$/);
+  if (!m) return [clean, `Section ${clean}`];
+  const [, sec, st] = m;
+  return [`${sec} (${st})`, `${st} - ${sec}`, `${st} - Section ${sec}`, `Sec ${sec} (${st})`, `${st}::${sec}`];
+}
+
+/**
  * Sync from Classes tab (School Details) to Routine Teachers tab & Database
  */
 export async function syncClassTeachersToRoutine(
   className: string,
   sectionTeachers: Record<string, string>,
-  allSections: string[]
+  allSections: string[],
+  streamSections?: Record<string, string[]>
 ): Promise<void> {
   const local = getLocalRoutineState() || {};
   const teachers: RoutineTeacher[] = local && local.teachers ? [...local.teachers] : [];
+  const clean = (s: string) => s.trim().replace(/^Section\s+/i, "");
+  const lookup = (section: string) =>
+    (sectionTeacherKeys(section).map((k) => sectionTeachers[k]).find(Boolean) || "").trim();
 
-  for (const sec of allSections) {
-    const cleanSec = sec.trim().replace(/^Section\s+/i, "");
-    const targetLabel = formatClassSectionLabel(className, cleanSec);
-    const assignedTeacherName = (sectionTeachers[sec] || sectionTeachers[cleanSec] || sectionTeachers[`Section ${cleanSec}`] || "").trim();
+  // HS classes get one class teacher per stream section ("A (Science)"), others one per section
+  const targets = streamSections && Object.keys(streamSections).length > 0
+    ? Object.entries(streamSections).flatMap(([st, secs]) => secs.map((sec) => `${clean(sec)} (${st})`))
+    : allSections.map(clean);
+
+  for (const section of targets) {
+    const targetLabel = formatClassSectionLabel(className, section);
+    const assignedTeacherName = lookup(section);
 
     // 1. Clear any teacher previously holding this label who is no longer assigned
     for (const t of teachers) {
       if (t.classTeacherOf && (
         t.classTeacherOf.toLowerCase() === targetLabel.toLowerCase() ||
-        t.classTeacherOf.toLowerCase() === `${className} - ${cleanSec}`.toLowerCase()
+        t.classTeacherOf.toLowerCase() === `${className} - ${section}`.toLowerCase()
       )) {
         if (!assignedTeacherName || t.name.toLowerCase() !== assignedTeacherName.toLowerCase()) {
           t.classTeacherOf = null;
@@ -102,6 +122,18 @@ export async function syncClassTeachersToRoutine(
           targetTeacher.classTeacherFirstPeriods = 3;
         }
         await upsertTeacherAvailabilityDb(targetTeacher);
+      }
+    }
+  }
+
+  // A stream-less HS label ("Class XI - Section A") left from before streams counted is dropped
+  // unless its holder was just given a stream section above.
+  if (streamSections && Object.keys(streamSections).length > 0) {
+    for (const t of teachers) {
+      const parsed = parseClassSectionLabel(t.classTeacherOf);
+      if (parsed && parsed.className.toLowerCase() === className.toLowerCase() && !parsed.section.includes("(")) {
+        t.classTeacherOf = null;
+        await upsertTeacherAvailabilityDb(t);
       }
     }
   }
@@ -140,12 +172,9 @@ export async function syncRoutineTeacherToClasses(
         classes = classes.map((c) => {
           if (c.name.toLowerCase() === parsedPrev.className.toLowerCase()) {
             const nextSecTeachers = { ...(c.sectionTeachers || {}) };
-            if (
-              nextSecTeachers[parsedPrev.section]?.toLowerCase() === teacherName.toLowerCase() ||
-              nextSecTeachers[`Section ${parsedPrev.section}`]?.toLowerCase() === teacherName.toLowerCase()
-            ) {
-              delete nextSecTeachers[parsedPrev.section];
-              delete nextSecTeachers[`Section ${parsedPrev.section}`];
+            const keys = sectionTeacherKeys(parsedPrev.section);
+            if (keys.some((k) => nextSecTeachers[k]?.toLowerCase() === teacherName.toLowerCase())) {
+              keys.forEach((k) => delete nextSecTeachers[k]);
               hasChanged = true;
               return {
                 ...c,
@@ -166,8 +195,7 @@ export async function syncRoutineTeacherToClasses(
         classes = classes.map((c) => {
           if (c.name.toLowerCase() === parsedNew.className.toLowerCase()) {
             const nextSecTeachers = { ...(c.sectionTeachers || {}) };
-            nextSecTeachers[parsedNew.section] = teacherName;
-            nextSecTeachers[`Section ${parsedNew.section}`] = teacherName;
+            sectionTeacherKeys(parsedNew.section).forEach((k) => (nextSecTeachers[k] = teacherName));
             hasChanged = true;
             return {
               ...c,

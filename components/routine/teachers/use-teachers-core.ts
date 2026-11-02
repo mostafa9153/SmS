@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { getDynamicClassList, FALLBACK_CLASSES, getClassNumericRank, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
-import { isHsClass, parseSectionAndStream, detectSubjectStream, getConfiguredStreamsForClass, calculateTotalSchoolSectionDemand, calculateTeacherConfiguredLoads } from "@/lib/routine/routine-helpers";
+import { isHsClass, parseSectionAndStream, presetSectionItems, detectSubjectStream, getConfiguredStreamsForClass, calculateTotalSchoolSectionDemand, calculateTeacherConfiguredLoads } from "@/lib/routine/routine-helpers";
 import { createClient } from "@/lib/supabase/client";
 import { formatClassSectionLabel } from "@/lib/routine/routine-sync";
 
 import type { RoutineTeachersTabProps } from "./props";
+
+const STREAM_ORDER = ["Common", "Science", "Commerce", "Arts", "General"];
 
 export function useTeachersCore({
   teachers,
@@ -125,6 +127,45 @@ export function useTeachersCore({
     return map;
   }, [presetClasses, subjects, groupMemberIdsByClass, groupMemberNamesByClass]);
 
+  // Stream of a subject as the editor lists it ("Chemistry (Theory)" -> Science)
+  const subjectStreamOf = useCallback(
+    (clsName: string, sub: string) => {
+      const clsLower = clsName.trim().toLowerCase();
+      const full = sub.trim().toLowerCase();
+      const base = full.replace(/\s*\((theory|lab|practical)\)/i, "").trim();
+      const s = subjects.find(
+        (x) =>
+          (!x.className || x.className.trim().toLowerCase() === clsLower) &&
+          [base, full].includes(x.name.trim().toLowerCase())
+      );
+      return s?.isCommon ? "Common" : detectSubjectStream(s?.name || base, s?.stream);
+    },
+    [subjects]
+  );
+
+  // An XI / XII stream section takes its own stream's subjects plus Common ones; other sections take all
+  const sectionAcceptsSubject = useCallback(
+    (clsName: string, sec: string, sub: string) => {
+      if (sec === "ALL" || !isHsClass(clsName)) return true;
+      const { stream } = parseSectionAndStream(sec);
+      if (!stream || stream.toLowerCase() === "general") return true;
+      const subStream = subjectStreamOf(clsName, sub);
+      return subStream === "Common" || subStream === "General" || subStream.toLowerCase() === stream.toLowerCase();
+    },
+    [subjectStreamOf]
+  );
+
+  // Subjects offered in a section, Common first and then stream by stream
+  const getSectionSubjectOptions = useCallback(
+    (clsName: string, sec: string) => {
+      const rank = (sub: string) => STREAM_ORDER.indexOf(subjectStreamOf(clsName, sub));
+      return (classSubjectsDictionary[clsName] || [])
+        .filter((sub) => sectionAcceptsSubject(clsName, sec, sub))
+        .sort((a, b) => rank(a) - rank(b));
+    },
+    [classSubjectsDictionary, sectionAcceptsSubject, subjectStreamOf]
+  );
+
   // Aggregated unique subjects list across configured routine subjects
   const availableSubjectOptions = useMemo(() => {
     const set = new Set<string>();
@@ -139,26 +180,14 @@ export function useTeachersCore({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [subjects, classSubjectsDictionary]);
 
-  // Section-wise class options for Class Teacher assignment
+  // Section-wise class options for Class Teacher assignment, straight from the class preset:
+  // XI / XII list each stream section ("Class XI - Section A (Science)") on its own
   const availableClassOptions = useMemo(() => {
-    const options: { id: string; label: string; className: string; section: string }[] = [];
     const sourceClasses = presetClasses.length > 0 ? presetClasses : FALLBACK_CLASSES;
-
-    sourceClasses.forEach((c) => {
-      const secs = c.sections && c.sections.length > 0 ? c.sections : ["A", "B"];
-      secs.forEach((sec) => {
-        const cleanSec = sec.trim().replace(/^Section\s+/i, "");
-        const label = formatClassSectionLabel(c.name, cleanSec);
-        options.push({
-          id: `${c.name}-${cleanSec}`,
-          label,
-          className: c.name,
-          section: cleanSec,
-        });
-      });
+    return presetSectionItems(sourceClasses).map(({ className, section, stream }) => {
+      const sec = stream === "General" ? section : `${section} (${stream})`;
+      return { id: `${className}-${sec}`, label: formatClassSectionLabel(className, sec), className, section: sec };
     });
-
-    return options;
   }, [presetClasses]);
 
   // Form State for Add / Edit
@@ -383,6 +412,7 @@ export function useTeachersCore({
     distinctCurriculumSubjects,
     editingTeacherId,
     getClassSections,
+    getSectionSubjectOptions,
     getSubjectDefaultPeriod,
     groupMemberIdsByClass,
     groupMemberNamesByClass,
@@ -398,6 +428,7 @@ export function useTeachersCore({
     originalClassTeacherOf,
     presetClasses,
     primarySubject,
+    sectionAcceptsSubject,
     sectionPeriodsMap,
     sectionSubjectsMap,
     selectableStaffList,
@@ -431,6 +462,7 @@ export function useTeachersCore({
     shortName,
     staffList,
     subjectPeriodsMap,
+    subjectStreamOf,
     subjects,
     teacherLoadMap,
     teacherName,

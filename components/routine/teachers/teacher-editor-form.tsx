@@ -73,6 +73,8 @@ interface TeacherEditorFormProps {
   onSetPreset: (dayIdx: number, type: "all" | "morning" | "afternoon" | "none") => void;
   getClassSections: (clsName: string) => string[];
   getSectionSubjects: (clsName: string, sec: string) => string[];
+  getSectionSubjectOptions: (clsName: string, sec: string) => string[];
+  subjectStreamOf: (clsName: string, sub: string) => string;
   getSubjectPeriod: (clsName: string, sec: string, subName: string) => number;
   getSubjectAllocationStats: (clsName: string, sec: string, subName: string) => {
     totalDemand: number;
@@ -146,6 +148,8 @@ export function TeacherEditorForm({
   onSetPreset,
   getClassSections,
   getSectionSubjects,
+  getSectionSubjectOptions,
+  subjectStreamOf,
   getSubjectPeriod,
   getSubjectAllocationStats,
   calculateSectionTotalPeriods,
@@ -480,6 +484,21 @@ export function TeacherEditorForm({
                   allSecs.length > 0 && selectedSecs.length === allSecs.length;
                 const currentActiveSec =
                   activeSectionTab[c.name] || allSecs[0] || "A";
+                // A stream section lists its stream + Common subjects; anything ticked earlier stays so it can be cleared
+                const offeredSubs = getSectionSubjectOptions(c.name, currentActiveSec);
+                const activeSecSubs = getSectionSubjects(c.name, currentActiveSec);
+                const sectionSubs = [
+                  ...offeredSubs,
+                  ...activeSecSubs.filter((sub) => !offeredSubs.includes(sub) && availableSubs.includes(sub)),
+                ];
+                const byStream =
+                  currentActiveSec === "ALL" && allSecs.some((sec) => /\(.+\)$/.test(sec));
+                const subjectBuckets = byStream
+                  ? Array.from(new Set(sectionSubs.map((sub) => subjectStreamOf(c.name, sub)))).map((stream) => ({
+                      stream,
+                      subs: sectionSubs.filter((sub) => subjectStreamOf(c.name, sub) === stream),
+                    }))
+                  : [{ stream: null as string | null, subs: sectionSubs }];
 
                 const classTotalPeriods =
                   selectedSecs.reduce(
@@ -668,8 +687,7 @@ export function TeacherEditorForm({
                               onClick={() => onToggleAllSubjectsForSection(c.name, currentActiveSec)}
                               className="h-5 text-[10px] px-1.5 text-primary hover:bg-primary/10"
                             >
-                              {getSectionSubjects(c.name, currentActiveSec).length === availableSubs.length &&
-                              availableSubs.length > 0
+                              {offeredSubs.length > 0 && offeredSubs.every((sub) => activeSecSubs.includes(sub))
                                 ? "Deselect All"
                                 : "Select All"}
                             </Button>
@@ -720,14 +738,20 @@ export function TeacherEditorForm({
 
                         {/* Subject Pills with live quota breakdown and inline editable p/wk */}
                         <div className="flex flex-wrap gap-2 pt-0.5">
-                          {availableSubs.length === 0 && groupRows.length === 0 ? (
+                          {sectionSubs.length === 0 && groupRows.length === 0 ? (
                             <span className="text-xs text-muted-foreground italic">
                               No subjects configured for this class in School Settings.
                             </span>
                           ) : (
-                            availableSubs.map((sub) => {
-                              const secSubs = getSectionSubjects(c.name, currentActiveSec);
-                              const isSubActive = secSubs.includes(sub);
+                            subjectBuckets.map((bucket) => (
+                              <React.Fragment key={bucket.stream ?? "all"}>
+                                {bucket.stream && (
+                                  <div className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0">
+                                    {bucket.stream}
+                                  </div>
+                                )}
+                            {bucket.subs.map((sub) => {
+                              const isSubActive = activeSecSubs.includes(sub);
                               const subPeriod = getSubjectPeriod(c.name, currentActiveSec, sub);
                               const stats = getSubjectAllocationStats(c.name, currentActiveSec, sub);
                               const isOverflow = isSubActive && subPeriod > stats.remaining;
@@ -830,7 +854,9 @@ export function TeacherEditorForm({
                                   )}
                                 </div>
                               );
-                            })
+                            })}
+                              </React.Fragment>
+                            ))
                           )}
                         </div>
                       </div>

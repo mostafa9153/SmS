@@ -29,6 +29,24 @@ describe("combined Common subjects", () => {
     expect(buildSolverGroups(out)).toHaveLength(1);
   });
 
+  it("ticked in one stream section only: still covers all three", () => {
+    const out = deriveCombinedCommonGroups(classes, subjects, [teacher("t1", ["A (Arts)"])]);
+    expect(out).toHaveLength(1);
+    expect(out[0].sectionIds.sort()).toEqual(["a", "c", "s"]);
+    expect(out[0].periodsPerWeek).toBe(6);
+  });
+
+  it("teachers sharing it: one block each, sized by their own periods", () => {
+    const share = (id: string, p: number) =>
+      ({ ...teacher(id, ["A (Arts)"]), subjectPeriods: { "Class XI::A (Arts)::Bengali (1st Language)": p } }) as RoutineTeacher;
+    const out = deriveCombinedCommonGroups(classes, subjects, [share("dk", 2), share("td", 4)]);
+    expect(out.map((g) => [g.options[0].teacherId, g.periodsPerWeek, g.sectionIds.length])).toEqual([
+      ["dk", 2, 3],
+      ["td", 4, 3],
+    ]);
+    expect(new Set(out.map((g) => g.id)).size).toBe(2);
+  });
+
   it("different teachers per section: stays separate", () => {
     const out = deriveCombinedCommonGroups(classes, subjects, [
       teacher("t1", ["A (Science)", "A (Arts)"]),

@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { RoutineClass } from "@/lib/routine/types";
 import { groupSlotCost } from "@/lib/routine/routine-groups";
-import { generateInitials } from "@/lib/routine/routine-helpers";
+import { generateInitials, isHsClass, parseSectionAndStream } from "@/lib/routine/routine-helpers";
 import type { TeachersCoreState } from "./use-teachers-core";
 
 export function useTeachersAllocation(ctx: TeachersCoreState) {
-  const { classSectionsMap, classSubjectsMap, classes, editingTeacherId, getClassSections, getSubjectDefaultPeriod, groupMemberNamesByClass, groupPicks, groups, groupsForClass, isEditorOpen, onSaveGroup, sectionSubjectsMap, setGroupPicks, shortName, subjectPeriodsMap, subjects, teacherName, teachers } = ctx;
+  const { classSectionsMap, classSubjectsMap, classes, editingTeacherId, getClassSections, getSubjectDefaultPeriod, groupMemberNamesByClass, groupPicks, groups, groupsForClass, isEditorOpen, onSaveGroup, sectionAcceptsSubject, sectionSubjectsMap, setGroupPicks, shortName, subjectPeriodsMap, subjectStreamOf, subjects, teacherName, teachers } = ctx;
   // Helper to get active subjects for a specific section (or ALL)
   const getRawSectionSubjects = useCallback(
     (clsName: string, sec: string): string[] => {
@@ -144,9 +144,18 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
         }
       }
 
-      // 2. Sections to check (if sec === "ALL", inspect all configured sections)
+      // 2. Sections to check (if sec === "ALL", inspect the configured sections that offer the subject)
       const allSecs = getClassSections(clsName);
-      const targetSecs = sec === "ALL" ? (classSectionsMap[clsName] ?? [allSecs[0] || "A"]) : [sec];
+      const targetSecs = (sec === "ALL" ? (classSectionsMap[clsName] ?? [allSecs[0] || "A"]) : [sec]).filter((s) =>
+        sectionAcceptsSubject(clsName, s, subName)
+      );
+      // A Common XI / XII subject is taught to all stream sections of a letter at once, so a teacher
+      // given it in any of them covers the whole letter
+      const isCommonHs = isHsClass(clsName) && subjectStreamOf(clsName, subName) === "Common";
+      const letterOf = (s: string) => parseSectionAndStream(s).section.toLowerCase();
+      const units: string[][] = isCommonHs
+        ? Array.from(new Set(targetSecs.map(letterOf))).map((l) => allSecs.filter((s) => letterOf(s) === l))
+        : targetSecs.map((s) => [s]);
 
       // 3. Find other teachers who have this subject assigned in these sections
       const otherTeacherLoads: { teacherName: string; shortName: string; periods: number }[] = [];
@@ -159,15 +168,14 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
             t.name.trim().toLowerCase() !== teacherName.trim().toLowerCase()
         )
         .forEach((t) => {
-          let tPeriodsForSec = 0;
-          targetSecs.forEach((s) => {
+          const periodsIn = (s: string): number => {
             const allowedSecs = t.classSections?.[clsName];
             if (allowedSecs !== undefined && Array.isArray(allowedSecs)) {
               const isAllowed = allowedSecs.some(
                 (sec) => sec.trim().toLowerCase() === "all" || sec.trim().toLowerCase() === s.toLowerCase()
               );
               if (!isAllowed) {
-                return;
+                return 0;
               }
             }
 
@@ -205,12 +213,13 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
                 t.subjectPeriods?.[`${clsName}-${subName}`] ??
                 t.subjectPeriods?.[`${clsName}_${subName}`] ??
                 getSubjectDefaultPeriod(clsName, subName);
-              tPeriodsForSec += Number(specificPeriod) || getSubjectDefaultPeriod(clsName, subName);
+              return Number(specificPeriod) || getSubjectDefaultPeriod(clsName, subName);
             }
-          });
+            return 0;
+          };
 
-          const avgPeriods =
-            targetSecs.length > 0 ? Math.round(tPeriodsForSec / targetSecs.length) : tPeriodsForSec;
+          const tPeriodsForSec = units.reduce((sum, u) => sum + Math.max(0, ...u.map(periodsIn)), 0);
+          const avgPeriods = units.length > 0 ? Math.round(tPeriodsForSec / units.length) : tPeriodsForSec;
 
           if (avgPeriods > 0) {
             totalOtherAssigned += avgPeriods;
@@ -241,6 +250,8 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
       editingTeacherId,
       teacherName,
       getSubjectDefaultPeriod,
+      sectionAcceptsSubject,
+      subjectStreamOf,
     ]
   );
 

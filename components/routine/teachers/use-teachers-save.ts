@@ -10,7 +10,7 @@ import type { TeachersCoreState } from "./use-teachers-core";
 import type { TeachersAllocationState } from "./use-teachers-allocation";
 
 export function useTeachersSave(ctx: TeachersCoreState & TeachersAllocationState) {
-  const { applyGroupPicks, availSlots, classPeriodsMap, classSectionsMap, classSubjectsDictionary, classSubjectsMap, classTeacherFirstPeriods, classTeacherOf, customPrimarySubject, editingTeacherId, getClassSections, getSectionSubjects, getSubjectAllocationStats, groupPicks, groupsForClass, maxPeriods, onDeleteTeacher, onSaveTeacher, originalClassTeacherOf, primarySubject, sectionPeriodsMap, sectionSubjectsMap, selectedClasses, selectedStaffId, setAvailSlots, setClassSubjectsMap, setEditingTeacherId, setIsEditorOpen, setIsSubmitting, setOriginalClassTeacherOf, setSectionSubjectsMap, setSubjectPeriodsMap, settings, shortName, staffList, subjectPeriodsMap, teacherName, teachers } = ctx;
+  const { applyGroupPicks, availSlots, classPeriodsMap, classSectionsMap, classSubjectsDictionary, classSubjectsMap, classTeacherFirstPeriods, classTeacherOf, customPrimarySubject, editingTeacherId, getClassSections, getSectionSubjectOptions, getSectionSubjects, getSubjectAllocationStats, groupPicks, groupsForClass, maxPeriods, onDeleteTeacher, onSaveTeacher, originalClassTeacherOf, primarySubject, sectionAcceptsSubject, sectionPeriodsMap, sectionSubjectsMap, selectedClasses, selectedStaffId, setAvailSlots, setClassSubjectsMap, setEditingTeacherId, setIsEditorOpen, setIsSubmitting, setOriginalClassTeacherOf, setSectionSubjectsMap, setSubjectPeriodsMap, settings, shortName, staffList, subjectPeriodsMap, teacherName, teachers } = ctx;
   // Handle subject period count change (for single sec or ALL)
   const handleSubjectPeriodChange = (clsName: string, sec: string, subName: string, val: string) => {
     const num = val.trim() === "" ? 0 : parseInt(val, 10);
@@ -54,10 +54,12 @@ export function useTeachersSave(ctx: TeachersCoreState & TeachersAllocationState
     if (sec === "ALL") {
       const currentUnion = getSectionSubjects(clsName, "ALL");
       const exists = currentUnion.includes(subName);
+      // A stream subject goes only to that stream's sections
+      const targetSecs = exists ? selectedSecs : selectedSecs.filter((s) => sectionAcceptsSubject(clsName, s, subName));
 
       setSectionSubjectsMap((prev) => {
         const next = { ...prev };
-        selectedSecs.forEach((s) => {
+        targetSecs.forEach((s) => {
           const current = next[`${clsName}::${s}`] || [];
           next[`${clsName}::${s}`] = exists
             ? current.filter((sub) => sub !== subName)
@@ -143,23 +145,28 @@ export function useTeachersSave(ctx: TeachersCoreState & TeachersAllocationState
     const allSubs = classSubjectsDictionary[clsName] || [];
     const allSecs = getClassSections(clsName);
     const selectedSecs = classSectionsMap[clsName] ?? [allSecs[0] || "A"];
+    // Each section gets only the subjects it offers (its stream + Common)
+    const hasAll = (s: string) => {
+      const opts = getSectionSubjectOptions(clsName, s);
+      const cur = getSectionSubjects(clsName, s);
+      return opts.length > 0 && opts.every((sub) => cur.includes(sub));
+    };
 
     if (sec === "ALL") {
-      const currentUnion = getSectionSubjects(clsName, "ALL");
-      const allSelected = allSubs.length > 0 && currentUnion.length === allSubs.length;
-      const nextSubs = allSelected ? [] : [...allSubs];
+      const allSelected = selectedSecs.length > 0 && selectedSecs.every(hasAll);
+      const nextFor = (s: string) => (allSelected ? [] : getSectionSubjectOptions(clsName, s));
 
       setSectionSubjectsMap((prev) => {
         const next = { ...prev };
         selectedSecs.forEach((s) => {
-          next[`${clsName}::${s}`] = [...nextSubs];
+          next[`${clsName}::${s}`] = nextFor(s);
         });
         return next;
       });
 
       setClassSubjectsMap((prev) => ({
         ...prev,
-        [clsName]: [...nextSubs],
+        [clsName]: Array.from(new Set(selectedSecs.flatMap(nextFor))),
       }));
 
       if (allSelected) {
@@ -185,9 +192,8 @@ export function useTeachersSave(ctx: TeachersCoreState & TeachersAllocationState
       return;
     }
 
-    const current = getSectionSubjects(clsName, sec);
-    const allSelected = allSubs.length > 0 && current.length === allSubs.length;
-    const next = allSelected ? [] : [...allSubs];
+    const allSelected = hasAll(sec);
+    const next = allSelected ? [] : getSectionSubjectOptions(clsName, sec);
 
     const secKey = `${clsName}::${sec}`;
     setSectionSubjectsMap((prev) => ({

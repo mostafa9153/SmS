@@ -66,7 +66,30 @@ export function useRoutineDemandAllotment({
       const allots = getClassGroupAllotments(cls.id, groups, subjects, teachers).filter(
         (a) => !a.group.stream || !stream || a.group.stream.toLowerCase() === stream.toLowerCase()
       );
-      const items: ClassAllotmentRow["subjectList"] = allots.map((a) => ({
+      // A Common subject taught to all stream sections together: one row, its teachers' shares side by side
+      const combinedRows = new Map<string, ClassAllotmentRow["subjectList"][number]>();
+      for (const a of allots) {
+        if (!a.group.combined) continue;
+        const opt = a.options[0];
+        const subject = subjects.find((s) => s.id === opt.subjectId);
+        const row = combinedRows.get(opt.subjectId) ?? {
+          id: `combined:${opt.subjectId}`,
+          name: opt.subjectName,
+          stream: "Common",
+          isCommon: true,
+          periods: subject?.periodsPerWeek && subject.periodsPerWeek > 0 ? subject.periodsPerWeek : a.periods,
+          assignedTeacher: "",
+          assignedTeachers: [],
+          assignedPeriods: 0,
+        };
+        if (opt.teacher) {
+          row.assignedTeachers!.push({ teacherId: opt.teacher.id, name: opt.teacher.name, shortName: opt.teacher.shortName, periods: a.periods });
+          row.assignedTeacher = row.assignedTeachers!.map((t) => t.shortName || t.name).join(", ");
+          row.assignedPeriods += a.periods;
+        }
+        combinedRows.set(opt.subjectId, row);
+      }
+      const items: ClassAllotmentRow["subjectList"] = allots.filter((a) => !a.group.combined).map((a) => ({
         id: `group:${a.group.id}`,
         name: `${a.group.name} (${a.options.map((o) => o.subjectName.replace(/\s*\([^)]*\)/g, "")).join(" / ")})`,
         stream: null,
@@ -85,7 +108,13 @@ export function useRoutineDemandAllotment({
           })),
         assignedPeriods: a.complete ? a.periods : 0,
       }));
-      return { items, cost: allots.reduce((n, a) => n + a.periods, 0) };
+      const combined = [...combinedRows.values()];
+      return {
+        items: [...combined, ...items],
+        cost:
+          allots.filter((a) => !a.group.combined).reduce((n, a) => n + a.periods, 0) +
+          combined.reduce((n, r) => n + r.periods, 0),
+      };
     };
 
     sortedClasses.forEach((cls) => {

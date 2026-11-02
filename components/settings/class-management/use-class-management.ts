@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { showToast } from "@/components/ui/toast-banner";
 import { createClient } from "@/lib/supabase/client";
-import { syncClassTeachersToRoutine, syncConfiguredClassesToRoutine, parseClassSectionLabel } from "@/lib/routine/routine-sync";
+import { syncClassTeachersToRoutine, syncConfiguredClassesToRoutine, parseClassSectionLabel, sectionTeacherKeys } from "@/lib/routine/routine-sync";
 import { getClassStreamList } from "@/lib/utils/school-profile";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { ClassItem } from "@/components/settings/class-management/types";
@@ -157,10 +157,9 @@ export function useClassManagement() {
                 assignments.forEach(({ teacherName, label }) => {
                   const parsed = parseClassSectionLabel(label);
                   if (parsed && parsed.className.toLowerCase() === cls.name.toLowerCase()) {
-                    const cleanSec = parsed.section.replace(/^Section\s+/i, "");
-                    if (!sTeachers[cleanSec] && !sTeachers[`Section ${cleanSec}`]) {
-                      sTeachers[cleanSec] = teacherName;
-                      sTeachers[`Section ${cleanSec}`] = teacherName;
+                    const keys = sectionTeacherKeys(parsed.section);
+                    if (!keys.some((k) => sTeachers[k])) {
+                      keys.forEach((k) => (sTeachers[k] = teacherName));
                       clsChanged = true;
                     }
                   }
@@ -232,8 +231,8 @@ export function useClassManagement() {
             newSectionTeachers[`${st}::${sec}`] ||
             newSectionTeachers[`${sec} (${st})`] ||
             newSectionTeachers[`Sec ${sec} (${st})`] ||
-            newSectionTeachers[sec] ||
-            newSectionTeachers[`Section ${sec}`] ||
+            // The bare letter only counts for a class saved before streams had their own teachers
+            (!Object.keys(newSectionTeachers).some((k) => k.includes("(")) ? newSectionTeachers[sec] || newSectionTeachers[`Section ${sec}`] : "") ||
             (idx === 0 && st === activeStreamsList[0] ? newTeacher : "");
           if (t && t.trim()) {
             const val = t.trim();
@@ -242,9 +241,6 @@ export function useClassManagement() {
             finalSectionTeachers[`${sec} (${st})`] = val;
             finalSectionTeachers[`Sec ${sec} (${st})`] = val;
             finalSectionTeachers[`${st}::${sec}`] = val;
-            if (!finalSectionTeachers[sec]) {
-              finalSectionTeachers[sec] = val;
-            }
           }
         });
       });
@@ -283,7 +279,7 @@ export function useClassManagement() {
 
     const updated = [...classes, newClassItem];
     updateAndSyncClasses(updated);
-    syncClassTeachersToRoutine(newClassName.trim(), finalSectionTeachers, finalSections);
+    syncClassTeachersToRoutine(newClassName.trim(), finalSectionTeachers, finalSections, finalStreamSections);
 
     showToast({
       type: "success",
@@ -650,8 +646,8 @@ export function useClassManagement() {
             editSectionTeachers[`${st}::${sec}`] ||
             editSectionTeachers[`${sec} (${st})`] ||
             editSectionTeachers[`Sec ${sec} (${st})`] ||
-            editSectionTeachers[sec] ||
-            editSectionTeachers[`Section ${sec}`] ||
+            // The bare letter only counts for a class saved before streams had their own teachers
+            (!Object.keys(editSectionTeachers).some((k) => k.includes("(")) ? editSectionTeachers[sec] || editSectionTeachers[`Section ${sec}`] : "") ||
             "";
           if (t && t.trim()) {
             const val = t.trim();
@@ -660,9 +656,6 @@ export function useClassManagement() {
             finalSectionTeachers[`${sec} (${st})`] = val;
             finalSectionTeachers[`Sec ${sec} (${st})`] = val;
             finalSectionTeachers[`${st}::${sec}`] = val;
-            if (!finalSectionTeachers[sec]) {
-              finalSectionTeachers[sec] = val;
-            }
           }
         });
       });
@@ -698,7 +691,7 @@ export function useClassManagement() {
     });
 
     updateAndSyncClasses(updated);
-    syncClassTeachersToRoutine(editClassName, finalSectionTeachers, finalSections);
+    syncClassTeachersToRoutine(editClassName, finalSectionTeachers, finalSections, finalStreamSections);
 
     showToast({
       type: "success",

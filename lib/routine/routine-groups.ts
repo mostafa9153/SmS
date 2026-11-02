@@ -8,6 +8,7 @@ import {
 } from "./types";
 import {
   detectSubjectStream,
+  getTeacherSubjectPeriod,
   isHsClass,
   isTeacherAssignedToSubject,
   normalizeSubjectName,
@@ -93,9 +94,10 @@ export function withDerivedGroupSettings(
  * together: XI-A (Science), XI-A (Arts) and XI-A (Commerce) sit in one slot with one teacher.
  * A school that teaches a subject separately puts it under each stream instead of Common.
  *
- * Built from the Teachers tab, never saved: a combined block forms only when one teacher was given the
- * subject in every one of those sections. Otherwise each section keeps its own ordinary assignment.
- * Split theory + lab subjects and subjects already in a user group stay as they are.
+ * Built from the Teachers tab, never saved. Ticking the subject in any one of those sections is enough:
+ * the block covers all of them. Several teachers sharing it (Bengali: 2p + 4p) get one block each, sized
+ * by their own periods. Sections given different teachers are taught separately and stay as they are,
+ * as do split theory + lab subjects and subjects already in a user group.
  */
 export function deriveCombinedCommonGroups(
   classes: RoutineClass[],
@@ -129,27 +131,45 @@ export function deriveCombinedCommonGroups(
       if (inUserGroup.has(s.id) || seen.has(normalizeSubjectName(s.name))) continue;
       seen.add(normalizeSubjectName(s.name));
 
-      const teacher = teachers.find((t) => sections.every((c) => isTeacherAssignedToSubject(t, c.className, c.section, s.name)));
-      if (!teacher) continue;
+      // Teachers per section; every section that has any must have the same set
+      const perSection = sections.map((c) =>
+        teachers.filter((t) => isTeacherAssignedToSubject(t, c.className, c.section, s.name))
+      );
+      const staffed = perSection.filter((ts) => ts.length > 0);
+      if (staffed.length === 0) continue;
+      const setKey = (ts: RoutineTeacher[]) => ts.map((t) => t.id).sort().join("|");
+      if (staffed.some((ts) => setKey(ts) !== setKey(staffed[0]))) continue;
+
+      const demand = s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : 5;
+      const share = (t: RoutineTeacher) =>
+        Math.max(
+          ...sections
+            .filter((c) => isTeacherAssignedToSubject(t, c.className, c.section, s.name))
+            .map((c) => getTeacherSubjectPeriod(t, c.className, c.section, s.name, demand))
+        );
 
       const { section: letter } = parseSectionAndStream(sections[0].section || "");
-      const id = `combined:${clsLower}:${letter.toLowerCase()}:${s.id}`;
-      out.push({
-        id,
-        name: `${s.name} (Combined)`,
-        scope: "section",
-        className,
-        stream: null,
-        pooled: true,
-        periodsPerWeek: s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : 5,
-        periodSize: 1,
-        timePref: s.timePref || "any",
-        maxPerDay: s.maxPerDay ?? null,
-        allowedSlots: s.allowedSlots ?? null,
-        sectionIds,
-        options: [{ id: `${id}:opt`, groupId: id, subjectId: s.id, teacherId: teacher.id, roomId: null, sortOrder: 0 }],
-        combined: true,
-      });
+      const baseId = `combined:${clsLower}:${letter.toLowerCase()}:${s.id}`;
+      const single = staffed[0].length === 1;
+      for (const t of staffed[0]) {
+        const id = single ? baseId : `${baseId}:${t.id}`;
+        out.push({
+          id,
+          name: single ? `${s.name} (Combined)` : `${s.name} (Combined · ${t.shortName || t.name})`,
+          scope: "section",
+          className,
+          stream: null,
+          pooled: true,
+          periodsPerWeek: single ? demand : share(t),
+          periodSize: 1,
+          timePref: s.timePref || "any",
+          maxPerDay: s.maxPerDay ?? null,
+          allowedSlots: s.allowedSlots ?? null,
+          sectionIds,
+          options: [{ id: `${id}:opt`, groupId: id, subjectId: s.id, teacherId: t.id, roomId: null, sortOrder: 0 }],
+          combined: true,
+        });
+      }
     }
   }
   return out;

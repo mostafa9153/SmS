@@ -4,22 +4,29 @@ from typing import Any
 from routine_models import _day_name, allowed_periods
 from routine_plan import RELAX_LABELS, ct_first_violations, effective_tiffin_mins, teacher_day_caps
 
-def _sec_norm(s):
+def _sec_norm(s, keep_stream=False):
     s = (s or "").lower().replace("section", "").strip()
+    if keep_stream and "(" in s:
+        letter, stream = s.split("(", 1)
+        return f"{letter.strip()} ({stream.strip().rstrip(')').strip()})"
     return s.split("(")[0].strip()
 
 
 def ct_matches(label, cls):
-    """True when the teacher's class-teacher label (e.g. 'Class VII - Section A') names this exact class and section."""
+    """True when the teacher's class-teacher label (e.g. 'Class VII - Section A', 'Class XI - Section A (Science)') names this class and section."""
     low = (label or "").strip().lower()
     if not low:
         return False
     m = re.match(r"^(.*?)\s*[-–]\s*(.+)$", low)
     cname = (m.group(1) if m else low).strip()
-    sec = _sec_norm(m.group(2)) if m else None
     if cname != (cls.className or "").strip().lower():
         return False
-    return sec is None or sec == _sec_norm(cls.section)
+    if not m:
+        return True
+    # A stream label ("A (Science)") names one HS stream section; a bare letter keeps matching every stream
+    if "(" in m.group(2):
+        return _sec_norm(m.group(2), True) == _sec_norm(cls.section, True)
+    return _sec_norm(m.group(2)) == _sec_norm(cls.section)
 
 
 def max_day_with_consec(avail, day_cap, c, breaks):
