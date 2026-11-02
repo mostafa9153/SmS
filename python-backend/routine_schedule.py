@@ -123,7 +123,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
 
         # ---- Subject groups (parallel options in one slot) -----------------
         for g in (request.groups or []):
-            if not g.classIds or len(g.options) < 2:
+            if not g.classIds or not g.options:
                 continue
             cids = list(dict.fromkeys(g.classIds))        # dedupe, preserve order
             tids = list(dict.fromkeys(o.teacherId for o in g.options))
@@ -178,7 +178,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
     # explanation, so detect it here and emit a structured diagnostic.
     group_preflight_diag = []
     for g in (request.groups or []):
-        if not g.classIds or len(g.options) < 2:
+        if not g.classIds or not g.options:
             continue
         tids = list(dict.fromkeys(o.teacherId for o in g.options))
         t_objs = [teachers_map[tid] for tid in tids if tid in teachers_map]

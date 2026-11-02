@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { RoutineSettings, RoutineRoom, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineSubjectGroup, GeneratedRoutine, DEFAULT_ROUTINE_SETTINGS } from "@/lib/routine/types";
 import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
-import { withDerivedGroupSettings } from "@/lib/routine/routine-groups";
+import { withCombinedCommonGroups, withDerivedGroupSettings } from "@/lib/routine/routine-groups";
 import { fetchSubjectGroupsDb } from "@/lib/supabase/routine/groups";
 import { RoutineFullState, getLocalRoutineState, setLocalRoutineState } from "@/lib/supabase/routine/local-state";
 
@@ -398,9 +398,9 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
     console.warn("fetchRoutineFullState fallback to local state:", err);
   }
 
-  groups = withDerivedGroupSettings(groups, subjects);
+  groups = withDerivedGroupSettings(groups.filter((g) => !g.combined), subjects);
 
-  // Persist updated complete state to localStorage
+  // Persist updated complete state to localStorage (saved groups only; combined blocks are derived below)
   setLocalRoutineState({
     settings,
     rooms,
@@ -419,7 +419,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
     subjects,
     teachers,
     assignments,
-    groups,
+    groups: withCombinedCommonGroups(groups, classes, subjects, teachers),
     routine,
   };
 }

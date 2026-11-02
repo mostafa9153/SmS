@@ -18,6 +18,9 @@ export function useTeachersCore({
   onSaveTeacher,
   onDeleteTeacher,
 }: RoutineTeachersTabProps) {
+  // Combined Common blocks are built from the section subjects ticked here, so the editor never edits
+  // them as groups; they only count in loads and demand (taught once for all stream sections)
+  const editableGroups = useMemo(() => groups.filter((g) => !g.combined), [groups]);
   // Preset Classes & Staff List
   const [presetClasses, setPresetClasses] = useState<ReturnType<typeof getDynamicClassList>>([]);
   const [staffList, setStaffList] = useState<{ id: string; full_name: string; designation?: string }[]>([]);
@@ -48,13 +51,13 @@ export function useTeachersCore({
     (clsName: string) => {
       const clsLower = clsName.trim().toLowerCase();
       const sectionClass = new Map(classes.map((c) => [c.id, c.className.trim().toLowerCase()]));
-      return groups.filter((g) =>
+      return editableGroups.filter((g) =>
         g.scope === "class"
           ? (g.className || "").trim().toLowerCase() === clsLower
           : g.sectionIds.some((id) => sectionClass.get(id) === clsLower)
       );
     },
-    [groups, classes]
+    [editableGroups, classes]
   );
 
   // Group member subjects are allotted through the group, never as plain section subjects
@@ -384,7 +387,7 @@ export function useTeachersCore({
     groupMemberIdsByClass,
     groupMemberNamesByClass,
     groupPicks,
-    groups,
+    groups: editableGroups,
     groupsForClass,
     isEditorOpen,
     isSubmitting,

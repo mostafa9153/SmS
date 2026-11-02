@@ -121,6 +121,8 @@ export interface RoutineSubjectGroup {
   // Resolved at load time (scope='class') OR explicit (scope='section'):
   sectionIds: string[];
   options: RoutineGroupOption[];
+  /** Derived, never saved: a Common HS subject taught to all stream sections together (one teacher, one slot). */
+  combined?: boolean;
 }
 
 export interface RoutineGroupCellOption {

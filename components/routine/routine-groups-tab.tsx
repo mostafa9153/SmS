@@ -179,7 +179,11 @@ const GroupRow = React.memo(function GroupRow({
         <div className="flex items-center gap-1.5">
           <Layers className="h-3.5 w-3.5 text-primary/70" />
           {group.name}
-          {group.pooled && (
+          {group.combined ? (
+            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
+              COMMON
+            </Badge>
+          ) : group.pooled && (
             <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
               POOL
             </Badge>
@@ -214,6 +218,8 @@ const GroupRow = React.memo(function GroupRow({
         </div>
       </td>
       <td className="py-2 px-3 text-right space-x-1">
+        {/* Combined Common blocks follow the curriculum and Teachers tab; there is nothing to edit here */}
+        {!group.combined && (<>
         <Button
           variant="ghost"
           size="sm"
@@ -232,6 +238,7 @@ const GroupRow = React.memo(function GroupRow({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
+        </>)}
       </td>
     </tr>
   );

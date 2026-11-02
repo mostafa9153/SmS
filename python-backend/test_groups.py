@@ -220,7 +220,58 @@ def test_group_no_common_free_slot_fails_cleanly():
     print("test_group_no_common_free_slot_fails_cleanly: OK")
 
 
+def test_combined_common_single_option():
+    # Common Bengali of XI taught to the Science, Arts and Commerce sections together:
+    # one option, three sections, one teacher -> same slots everywhere, teacher taught once per slot
+    payload = {
+        "settings": _base_settings(),
+        "classes": [
+            {"id": "c_S", "className": "Class XI", "section": "A (Science)", "dailyPeriods": 8},
+            {"id": "c_A", "className": "Class XI", "section": "A (Arts)", "dailyPeriods": 8},
+            {"id": "c_C", "className": "Class XI", "section": "A (Commerce)", "dailyPeriods": 8},
+        ],
+        "teachers": [_teacher("t_ben", "Bengali Sir", "BN"), _teacher("t_phy", "Physics Sir", "PH")],
+        "subjects": [
+            {"id": "s_ben", "name": "Bengali", "isHard": False, "isLab": False, "timePref": "any", "allowMultiplePerDay": False},
+            {"id": "s_phy", "name": "Physics", "isHard": False, "isLab": False, "timePref": "any", "allowMultiplePerDay": False},
+        ],
+        "assignments": [
+            {"id": "a1", "classId": "c_S", "subjectId": "s_phy", "teacherId": "t_phy", "periodsPerWeek": 3},
+        ],
+        "rooms": [],
+        "groups": [
+            {
+                "gid": "combined:class xi:a:s_ben",
+                "name": "Bengali (Combined)",
+                "classIds": ["c_S", "c_A", "c_C"],
+                "periodsPerWeek": 5,
+                "periodSize": 1,
+                "timePref": "any",
+                "maxPerDay": 1,
+                "options": [{"subjectId": "s_ben", "teacherId": "t_ben"}],
+            }
+        ],
+    }
+    res = _run(payload)
+    assert res.get("success"), f"solver failed: {res.get('diagnostics')}"
+    grid = res["grid"]
+
+    def slots(cid):
+        return sorted(
+            (d, p) for d, row in enumerate(grid[cid]) for p, cell in enumerate(row)
+            if cell and cell.get("gid") == "combined:class xi:a:s_ben"
+        )
+
+    s, a, c = slots("c_S"), slots("c_A"), slots("c_C")
+    assert len(s) == 5, f"expected 5 combined periods, got {s}"
+    assert s == a == c, f"combined slots differ: S={s} A={a} C={c}"
+    cell = grid["c_S"][s[0][0]][s[0][1]]
+    assert [o["tid"] for o in cell["opts"]] == ["t_ben"], cell
+    print("test_combined_common_single_option: OK")
+
+
 def main():
+    test_combined_common_single_option()
     test_pooled_group_single_period()
     test_group_double_period_consecutive()
     test_group_no_common_free_slot_fails_cleanly()

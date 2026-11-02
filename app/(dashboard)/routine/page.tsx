@@ -9,7 +9,7 @@ import {
   calculateTotalSchoolClassCapacity,
 } from "@/lib/routine/routine-helpers";
 import { formatDemandBreakdown, isPooledGroup } from "@/lib/routine/routine-domain";
-import { withDerivedGroupSettings } from "@/lib/routine/routine-groups";
+import { withCombinedCommonGroups, withDerivedGroupSettings } from "@/lib/routine/routine-groups";
 import {
   fetchRoutineFullState,
   saveRoutineSettingsDb,
@@ -133,8 +133,14 @@ function RoutineSetupPageContent() {
   const [subjects, setSubjects] = useState<RoutineSubject[]>([]);
   const [assignments, setAssignments] = useState<RoutineAssignment[]>([]);
   const [rawGroups, setGroups] = useState<RoutineSubjectGroup[]>([]);
-  // Group periods / time preference always follow the member subjects, so they can never go stale
-  const groups = useMemo(() => withDerivedGroupSettings(rawGroups, subjects), [rawGroups, subjects]);
+  // Group periods / time preference always follow the member subjects, so they can never go stale.
+  // Combined Common blocks are rebuilt from the live teacher/subject state, never stored.
+  const groups = useMemo(
+    () => withCombinedCommonGroups(withDerivedGroupSettings(rawGroups.filter((g) => !g.combined), subjects), classes, subjects, teachers),
+    [rawGroups, subjects, classes, teachers]
+  );
+  // Tabs that edit groups or tick section subjects work on saved groups only
+  const savedGroups = useMemo(() => groups.filter((g) => !g.combined), [groups]);
 
   const loadData = React.useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -597,7 +603,7 @@ function RoutineSetupPageContent() {
                 subjects={subjects}
                 settings={settings}
                 classes={classes}
-                groups={groups}
+                groups={savedGroups}
                 onSaveGroup={handleSaveGroup}
                 onDeleteGroup={handleDeleteGroup}
                 onSaveSubject={handleSaveSubject}

@@ -6,6 +6,13 @@ import {
   RoutineSubjectGroup,
   RoutineTeacher,
 } from "./types";
+import {
+  detectSubjectStream,
+  isHsClass,
+  isTeacherAssignedToSubject,
+  normalizeSubjectName,
+  parseSectionAndStream,
+} from "./routine-helpers";
 
 // ============================================================
 // Subject Group helpers — single source of truth.
@@ -79,6 +86,84 @@ export function withDerivedGroupSettings(
     if (periodsPerWeek === g.periodsPerWeek && timePref === g.timePref && pooled === g.pooled) return g;
     return { ...g, periodsPerWeek, timePref, pooled };
   });
+}
+
+/**
+ * Common subjects of an HS class are taught to every stream section of the same section letter
+ * together: XI-A (Science), XI-A (Arts) and XI-A (Commerce) sit in one slot with one teacher.
+ * A school that teaches a subject separately puts it under each stream instead of Common.
+ *
+ * Built from the Teachers tab, never saved: a combined block forms only when one teacher was given the
+ * subject in every one of those sections. Otherwise each section keeps its own ordinary assignment.
+ * Split theory + lab subjects and subjects already in a user group stay as they are.
+ */
+export function deriveCombinedCommonGroups(
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  teachers: RoutineTeacher[],
+  userGroups: RoutineSubjectGroup[] = []
+): RoutineSubjectGroup[] {
+  const clusters = new Map<string, RoutineClass[]>();
+  for (const c of classes) {
+    if (!isHsClass(c.className)) continue;
+    const { section, stream } = parseSectionAndStream(c.section || "");
+    if (!stream || stream.toLowerCase() === "general") continue;
+    const key = `${c.className.trim().toLowerCase()}::${section.trim().toLowerCase()}`;
+    clusters.set(key, [...(clusters.get(key) || []), c]);
+  }
+
+  const out: RoutineSubjectGroup[] = [];
+  for (const sections of clusters.values()) {
+    if (sections.length < 2) continue;
+    const className = sections[0].className;
+    const clsLower = className.trim().toLowerCase();
+    const sectionIds = sections.map((c) => c.id);
+    const inUserGroup = new Set(
+      userGroups.filter((g) => g.sectionIds.some((id) => sectionIds.includes(id))).flatMap((g) => g.options.map((o) => o.subjectId))
+    );
+    const seen = new Set<string>();
+    for (const s of subjects) {
+      if ((s.className || "").trim().toLowerCase() !== clsLower) continue;
+      if (!(s.isCommon || detectSubjectStream(s.name, s.stream) === "Common")) continue;
+      if (s.isLab && (s.labPeriods ?? 0) > 0) continue;
+      if (inUserGroup.has(s.id) || seen.has(normalizeSubjectName(s.name))) continue;
+      seen.add(normalizeSubjectName(s.name));
+
+      const teacher = teachers.find((t) => sections.every((c) => isTeacherAssignedToSubject(t, c.className, c.section, s.name)));
+      if (!teacher) continue;
+
+      const { section: letter } = parseSectionAndStream(sections[0].section || "");
+      const id = `combined:${clsLower}:${letter.toLowerCase()}:${s.id}`;
+      out.push({
+        id,
+        name: `${s.name} (Combined)`,
+        scope: "section",
+        className,
+        stream: null,
+        pooled: true,
+        periodsPerWeek: s.periodsPerWeek && s.periodsPerWeek > 0 ? s.periodsPerWeek : 5,
+        periodSize: 1,
+        timePref: s.timePref || "any",
+        maxPerDay: s.maxPerDay ?? null,
+        allowedSlots: s.allowedSlots ?? null,
+        sectionIds,
+        options: [{ id: `${id}:opt`, groupId: id, subjectId: s.id, teacherId: teacher.id, roomId: null, sortOrder: 0 }],
+        combined: true,
+      });
+    }
+  }
+  return out;
+}
+
+/** Saved groups plus the derived combined Common blocks (any stale derived ones dropped first). */
+export function withCombinedCommonGroups(
+  groups: RoutineSubjectGroup[],
+  classes: RoutineClass[],
+  subjects: RoutineSubject[],
+  teachers: RoutineTeacher[]
+): RoutineSubjectGroup[] {
+  const saved = (groups || []).filter((g) => !g.combined);
+  return [...saved, ...deriveCombinedCommonGroups(classes, subjects, teachers, saved)];
 }
 
 interface ClassGroupAllotment {
@@ -202,7 +287,7 @@ export function validateGroups(args: {
   const classIds = new Set(classes.map((c) => c.id));
 
   for (const g of groups) {
-    if (g.options.length < 2) {
+    if (g.options.length < 2 && !g.combined) {
       issues.push({
         groupId: g.id,
         groupName: g.name,
@@ -316,7 +401,8 @@ interface SolverGroupPayload {
 export function buildSolverGroups(groups: RoutineSubjectGroup[]): SolverGroupPayload[] {
   const out: SolverGroupPayload[] = [];
   for (const g of groups) {
-    if (g.sectionIds.length === 0 || g.options.length < 2 || !isGroupStaffed(g)) continue;
+    // A combined Common block has one option shared by several sections
+    if (g.sectionIds.length === 0 || g.options.length < (g.combined ? 1 : 2) || !isGroupStaffed(g)) continue;
     const opts = g.options.map((o) => ({
       subjectId: o.subjectId,
       teacherId: o.teacherId,
