@@ -10,14 +10,9 @@ export function MappingStep({ bulk, parsedData }: { bulk: BulkUploadState; parse
   return (
     <div className="rounded-xl border bg-card p-6 space-y-5 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-        <div>
-          <p className="text-sm font-semibold">
-            2. Map Excel Headers to {isResultsMode ? "Evaluation & Marks Fields" : "Student Profile Fields"}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Ensure each column from your file is matched correctly. Unmapped columns can be ignored.
-          </p>
-        </div>
+        <p className="text-sm font-semibold">
+          2. Map Excel Headers to {isResultsMode ? "Evaluation & Marks Fields" : "Student Profile Fields"}
+        </p>
         <button
           onClick={() => {
             if (isResultsMode) {
@@ -69,9 +64,9 @@ export function MappingStep({ bulk, parsedData }: { bulk: BulkUploadState; parse
 
       {/* Mapping Table */}
       <div className="rounded-lg border overflow-hidden">
-        <div className="max-h-[420px] overflow-y-auto overflow-x-auto">
+        <div className="max-h-[max(420px,calc(100dvh-340px))] overflow-y-auto overflow-x-auto">
           <table className="w-full min-w-[620px] text-sm">
-            <thead className="bg-muted/70 sticky top-0 border-b">
+            <thead className="bg-muted sticky top-0 z-10 border-b">
               <tr>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Excel Column</th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground">Sample Value (Row 1)</th>

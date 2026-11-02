@@ -44,37 +44,48 @@ function BulkUploadPageContent() {
       {/* Stepper Progress */}
       <div className="rounded-xl border bg-card p-4 shadow-xs">
         <div className="flex items-center gap-0">
-          {STEPS.map((s, idx) => (
-            <div key={s.id} className="flex items-center flex-1 last:flex-none">
-              <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold border-2 transition-colors",
-                    step > s.id
-                      ? "bg-primary border-primary text-primary-foreground"
-                      : step === s.id
-                      ? "border-primary text-primary bg-primary/10"
-                      : "border-muted-foreground/30 text-muted-foreground/50"
-                  )}
-                >
-                  {step > s.id ? <CheckCircle2 className="h-4 w-4" /> : s.id}
+          {STEPS.map((s, idx) => {
+            // The last step counts as done once the import has a result
+            const done = step > s.id || (s.id === STEPS.length && step === s.id && !!importResult);
+            const active = step === s.id && !done;
+            return (
+              <div key={s.id} className="flex items-center flex-1 last:flex-none">
+                <div className="flex items-center gap-2">
+                  <div
+                    // Remount on completion so the pop plays once per step
+                    key={done ? "done" : "open"}
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold border-2 transition-colors duration-500",
+                      done
+                        ? "bg-primary border-primary text-primary-foreground animate-step-pop"
+                        : active
+                        ? "border-primary text-primary bg-primary/10 animate-step-pulse"
+                        : "border-muted-foreground/30 text-muted-foreground/50"
+                    )}
+                    style={done ? { animationDelay: `${idx * 120}ms` } : undefined}
+                  >
+                    {done ? <CheckCircle2 className="h-4 w-4" /> : s.id}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-medium hidden sm:block transition-colors duration-500",
+                      active || (done && s.id === STEPS.length) ? "text-foreground font-semibold" : "text-muted-foreground"
+                    )}
+                  >
+                    {s.label}
+                  </span>
                 </div>
-                <span
-                  className={cn(
-                    "text-xs font-medium hidden sm:block",
-                    step === s.id ? "text-foreground font-semibold" : "text-muted-foreground"
-                  )}
-                >
-                  {s.label}
-                </span>
+                {idx < STEPS.length - 1 && (
+                  <div className="relative flex-1 h-0.5 mx-3 rounded-full bg-border overflow-hidden">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-primary/70 to-primary transition-[width] duration-700 ease-out"
+                      style={{ width: step > s.id ? "100%" : "0%", transitionDelay: step > s.id ? `${idx * 120}ms` : "0ms" }}
+                    />
+                  </div>
+                )}
               </div>
-              {idx < STEPS.length - 1 && (
-                <div
-                  className={cn("flex-1 h-px mx-3", step > s.id ? "bg-primary" : "bg-border")}
-                />
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

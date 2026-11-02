@@ -1,31 +1,34 @@
 "use client";
 
-import { CheckCircle2, AlertCircle, ArrowRight, RotateCcw, Download } from "lucide-react";
+import { AlertCircle, ArrowRight, RotateCcw, Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/ui/stat-card";
 import { cn } from "@/lib/utils";
 import type { BulkUploadState } from "./use-bulk-upload";
+import { CountUp, SuccessHero } from "./success-hero";
 
 export function SummaryStep({ bulk }: { bulk: BulkUploadState }) {
   const { exportSkippedAndErrorsExcel, importResult, isResultsMode, issueFilter, setFile, setImportResult, setIssueFilter, setParsedData, setRollbackConfirmBatchId, setStep } = bulk;
+  const { createdCount, updatedCount, skippedCount, errorCount } = importResult.summary;
+  const hasIssues = errorCount > 0;
   return (
-    <div className="rounded-xl border bg-card p-6 space-y-6 shadow-xs">
-      <div className="text-center py-4 space-y-2">
-        <div className="rounded-full bg-emerald-100 p-3 w-14 h-14 mx-auto flex items-center justify-center text-emerald-600">
-          <CheckCircle2 className="h-8 w-8" />
-        </div>
-        <h2 className="text-xl font-bold text-foreground">Bulk Import Completed Successfully!</h2>
-        <p className="text-xs text-muted-foreground max-w-md mx-auto">
+    <div className="rounded-xl border bg-card p-6 space-y-6 shadow-xs animate-scale-in">
+      <div className="text-center py-4 space-y-3">
+        <SuccessHero celebrate={!hasIssues && createdCount + updatedCount > 0} warn={hasIssues} />
+        <h2 className="text-xl font-bold text-foreground animate-rise" style={{ animationDelay: "0.5s" }}>
+          {hasIssues ? "Bulk Import Completed with Errors" : "Bulk Import Completed Successfully!"}
+        </h2>
+        <p className="text-xs text-muted-foreground max-w-md mx-auto animate-rise" style={{ animationDelay: "0.6s" }}>
           Batch ID: <code className="bg-muted px-1.5 py-0.5 rounded font-mono text-[11px]">{importResult.batchId}</code>
         </p>
       </div>
 
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Records Created" value={importResult.summary.createdCount} className="bg-emerald-50/60 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30" valueClassName="text-emerald-700 dark:text-emerald-400" />
-        <StatCard label="Records Updated" value={importResult.summary.updatedCount} className="bg-sky-50/60 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30" valueClassName="text-sky-700 dark:text-sky-400" />
-        <StatCard label="Skipped" value={importResult.summary.skippedCount} className="bg-muted/60" valueClassName="text-muted-foreground" />
-        <StatCard label="Failed / Errors" value={importResult.summary.errorCount} className="bg-rose-50/60 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" valueClassName="text-rose-700 dark:text-rose-400" />
+        <StatCard label="Records Created" value={<CountUp value={createdCount} delay={700} />} className="animate-rise [animation-delay:650ms] bg-emerald-50/60 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30" valueClassName="text-emerald-700 dark:text-emerald-400" />
+        <StatCard label="Records Updated" value={<CountUp value={updatedCount} delay={780} />} className="animate-rise [animation-delay:730ms] bg-sky-50/60 border-sky-200 dark:bg-sky-500/10 dark:border-sky-500/30" valueClassName="text-sky-700 dark:text-sky-400" />
+        <StatCard label="Skipped" value={<CountUp value={skippedCount} delay={860} />} className="animate-rise [animation-delay:810ms] bg-muted/60" valueClassName="text-muted-foreground" />
+        <StatCard label="Failed / Errors" value={<CountUp value={errorCount} delay={940} />} className="animate-rise [animation-delay:890ms] bg-rose-50/60 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30" valueClassName="text-rose-700 dark:text-rose-400" />
       </div>
 
       {/* Detailed Skipped / Failed Table if any */}
