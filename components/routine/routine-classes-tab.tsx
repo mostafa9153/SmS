@@ -29,7 +29,10 @@ import {
   parseSectionAndStream,
   formatSectionAndStream,
   getConfiguredStreamsForClass,
+  presetSectionItems,
 } from "@/lib/routine/routine-helpers";
+import { presetOrphanSections } from "@/lib/routine/routine-sync";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { getClassStreamList } from "@/lib/utils/school-profile";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
@@ -55,6 +58,7 @@ export function RoutineClassesTab({
   onBatchSaveClasses,
   onDeleteClass,
 }: RoutineClassesTabProps) {
+  const confirm = useConfirm();
   // Dynamic School Presets State
   const [presetClassesList, setPresetClassesList] = useState<ReturnType<typeof getDynamicClassList>>([]);
 
@@ -72,48 +76,23 @@ export function RoutineClassesTab({
     };
   }, []);
 
-  // Auto-prune any orphaned classes in routine that are no longer configured in School Details
-  useEffect(() => {
-    if (!classes || classes.length === 0 || !onDeleteClass) return;
-    const hasExplicitSavedClasses = typeof window !== "undefined" && Boolean(localStorage.getItem("sms_class_management"));
-    if (!hasExplicitSavedClasses) return; // Prevent pruning with fallback defaults
+  // Sections the preset no longer lists. Never deleted automatically: they may carry assignments,
+  // groups and generated routines, so the user removes them with a confirm.
+  const orphanSections = useMemo(() => {
+    const hasSavedPreset = typeof window !== "undefined" && Boolean(localStorage.getItem("sms_class_management"));
+    if (!hasSavedPreset || presetClassesList.length === 0) return [];
+    return presetOrphanSections(classes, presetClassesList);
+  }, [classes, presetClassesList]);
 
-    const list = presetClassesList.length > 0 ? presetClassesList : getDynamicClassList();
-    if (!list || list.length === 0) return;
-
-    const allowedStreamsMap = new Map<string, Set<string>>();
-    list.forEach((c: any) => {
-      const isHs = isHsClass(c.name, c.code);
-      if (isHs) {
-        const streams = c.streamSections && Object.keys(c.streamSections).length > 0
-          ? Object.keys(c.streamSections)
-          : (c.stream ? getClassStreamList(c.stream, ["Arts"]) : getConfiguredStreamsForClass(c.name));
-        const sSet = new Set(streams.map((s) => s.trim().toLowerCase()));
-        allowedStreamsMap.set(c.name.trim().toLowerCase(), sSet);
-        allowedStreamsMap.set(`class ${c.code.trim().toLowerCase()}`, sSet);
-      }
+  const removeOrphan = async (c: RoutineClass) => {
+    if (!c.id) return;
+    const ok = await confirm({
+      title: `Remove ${c.className} ${c.section}?`,
+      description: "Its teacher assignments and group links in the routine are removed with it.",
+      destructive: true,
     });
-
-    const orphanedIds: string[] = [];
-    classes.forEach((c) => {
-      const normName = (c.className || "").trim().toLowerCase();
-      const isHs = isHsClass(c.className);
-      if (isHs && allowedStreamsMap.has(normName)) {
-        const parsed = parseSectionAndStream(c.section);
-        const streamLower = (parsed.stream || "").trim().toLowerCase();
-        const allowedStreams = allowedStreamsMap.get(normName)!;
-        if (streamLower && streamLower !== "general" && !allowedStreams.has(streamLower)) {
-          if (c.id) orphanedIds.push(c.id);
-        }
-      }
-    });
-
-    if (orphanedIds.length > 0) {
-      orphanedIds.forEach((id) => {
-        onDeleteClass(id).catch((err) => console.warn("Prune orphaned class error:", err));
-      });
-    }
-  }, [classes, presetClassesList, onDeleteClass]);
+    if (ok) await onDeleteClass(c.id);
+  };
 
   // Calculate Max weekly periods/classes for a class based on active schedule
   const calculateWeeklyPeriods = useCallback(
@@ -139,34 +118,7 @@ export function RoutineClassesTab({
 
   // Compute all preset combinations for each class dynamically from school presets
   const allPresetItems: PresetClassItem[] = React.useMemo(() => {
-    const list = presetClassesList.length > 0 ? presetClassesList : FALLBACK_CLASSES;
-    const items: PresetClassItem[] = [];
-
-    list.forEach((c: any) => {
-      const isHs = isHsClass(c.name, c.code);
-      const secs = c.sections && c.sections.length > 0 ? c.sections : ["A", "B"];
-
-      if (isHs) {
-        const allowedStreamsList = c.stream
-          ? getClassStreamList(c.stream, ["Arts"])
-          : (c.streamSections && Object.keys(c.streamSections).length > 0 ? Object.keys(c.streamSections) : ["Arts"]);
-
-        allowedStreamsList.forEach((str) => {
-          const streamSecs = (c.streamSections && c.streamSections[str] && c.streamSections[str].length > 0)
-            ? c.streamSections[str]
-            : (c.sections && c.sections.length > 0 ? c.sections : ["A"]);
-          streamSecs.forEach((s: string) => {
-            items.push({ className: c.name, section: s, stream: str });
-          });
-        });
-      } else {
-        secs.forEach((s: string) => {
-          items.push({ className: c.name, section: s, stream: "General" });
-        });
-      }
-    });
-
-    return items;
+    return presetSectionItems(presetClassesList.length > 0 ? presetClassesList : FALLBACK_CLASSES);
   }, [presetClassesList]);
 
   // Check if a preset item is already configured in `classes`
@@ -478,6 +430,24 @@ export function RoutineClassesTab({
 
   return (
     <div className="space-y-4 w-full">
+      {orphanSections.length > 0 && (
+        <div className="bg-card border border-amber-300 dark:border-amber-900/40 rounded-lg p-3 shadow-xs flex flex-wrap items-center gap-2 text-xs">
+          <span className="font-semibold text-amber-700 dark:text-amber-400">Not in preset:</span>
+          {orphanSections.map((c) => (
+            <span key={c.id} className="inline-flex items-center gap-1 rounded border bg-background px-1.5 py-0.5">
+              {c.className} {c.section}
+              <button
+                type="button"
+                onClick={() => void removeOrphan(c)}
+                className="text-muted-foreground hover:text-destructive"
+                aria-label={`Remove ${c.className} ${c.section}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       {/* Classes Table Card with Batch Edit & In-Line Edit */}
       <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
         {/* Table Header Toolbar */}

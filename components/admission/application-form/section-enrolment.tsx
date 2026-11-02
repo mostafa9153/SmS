@@ -10,7 +10,7 @@ import { CLASSES } from "@/components/admission/application-form/constants";
 import type { AdmissionFormState } from "./use-admission-form";
 
 export function EnrolmentSection({ form }: { form: AdmissionFormState }) {
-  const { addMandatorySubject, availableHsSubjects, control, errors, handleSaveAndNext, isClassXI, isSectionUnlocked, mandatoryList, mode, openSections, percentageMadhyamik, register, removeMandatorySubject, savedSections, toggleSection, totalMadhyamikMarks } = form;
+  const { addMandatorySubject, availableHsSubjects, changeHsStream, hsStreamOptions, control, errors, handleSaveAndNext, isClassXI, isSectionUnlocked, mandatoryList, mode, openSections, percentageMadhyamik, register, removeMandatorySubject, savedSections, toggleSection, totalMadhyamikMarks } = form;
   return (
     <CollapsibleCard
       id="E"
@@ -169,6 +169,23 @@ export function EnrolmentSection({ form }: { form: AdmissionFormState }) {
                   <input {...register("geoMarks")} type="number" min="0" max="100" placeholder="0-100" className="text-center font-bold" />
                 </InputWrapper>
               </div>
+            </div>
+
+            {/* Stream decides which Class XI subjects are offered */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-amber-200 dark:border-amber-800">
+              <InputWrapper label="Stream (বিভাগ) *">
+                <Controller
+                  control={control}
+                  name="academicStream"
+                  render={({ field }) => (
+                    <CustomSelect
+                      value={field.value || ""}
+                      onChange={(v) => changeHsStream(String(v))}
+                      options={hsStreamOptions}
+                    />
+                  )}
+                />
+              </InputWrapper>
             </div>
 
             {/* Subjects in Class XI */}

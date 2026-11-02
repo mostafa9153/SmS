@@ -24,6 +24,9 @@ export interface ClassMarksScheme {
   subjectCount: number; // Number of subjects
   subjects?: string[]; // Configured subject list for this class
   labSubjects?: string[]; // Configured list of subjects that have practical / lab classes
+  // HS only: subject name -> streams it was added under ("Common" | "Science" | "Arts" | "Commerce").
+  // One subject may sit in several streams (e.g. Economics in Arts and Commerce).
+  subjectStreams?: Record<string, string[]>;
   isSemesterSystem?: boolean; // true for Higher Secondary (XI & XII)
   
   // 1st Summative Evaluation (per subject) - Secondary (V - X)

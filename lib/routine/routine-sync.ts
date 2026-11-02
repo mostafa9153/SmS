@@ -6,6 +6,7 @@ import {
   upsertTeacherAvailabilityDb,
   upsertSubjectDb,
   batchUpsertSubjectsDb,
+  batchUpsertClassesDb,
   deleteSubjectDb,
 } from "@/lib/supabase/db-routine";
 import {
@@ -15,8 +16,11 @@ import {
 } from "@/lib/utils/marks-config";
 import {
   detectSubjectStream,
+  formatSectionAndStream,
   isHsClass,
   parseSectionAndStream,
+  presetSectionItems,
+  schemeSubjectStreams,
 } from "./routine-helpers";
 import { showToast } from "@/components/ui/toast-banner";
 import { softWrite } from "@/lib/supabase/write";
@@ -320,13 +324,23 @@ function syncBatchRoutineSubjectsToMarksSchemes(
   }
 }
 
+/** Same stream, case-insensitive. */
+function sameStream(a?: string | null, b?: string | null): boolean {
+  return (a || "").trim().toLowerCase() === (b || "").trim().toLowerCase();
+}
+/** A routine row saved before streams were stored: no stream or the "General" default. */
+const isUnsetStream = (x?: string | null) => !x || x.trim().toLowerCase() === "general";
+
 /**
- * Sync single Subject from School Details / Exam Marks (Marks Schemes) -> Routine Subjects
+ * Sync single Subject from School Details / Exam Marks (Marks Schemes) -> Routine Subjects.
+ * With `stream` (HS add): one routine row per subject per stream; a row saved without a stream is
+ * upgraded instead of duplicated. Without `stream` (lab toggle): every row of that subject is updated.
  */
 export async function syncMarksSchemeSubjectToRoutine(
   classCode: string,
   subjectName: string,
-  isLabExplicit?: boolean
+  isLabExplicit?: boolean,
+  stream?: string
 ): Promise<void> {
   if (typeof window === "undefined" || !subjectName.trim()) return;
 
@@ -339,10 +353,8 @@ export async function syncMarksSchemeSubjectToRoutine(
       .select("*")
       .eq("class_name", className);
 
-    const currentSubjects = dbSubjects || [];
-    const exactMatch = currentSubjects.find(
-      (s: any) => s.name.trim().toLowerCase() === cleanName.toLowerCase()
-    );
+    // "Bengali" and "Bengali (1st Language)" are the same subject: a row is renamed, not duplicated
+    const sameName = (dbSubjects || []).filter((s: any) => isSameSubject(s.name, cleanName));
 
     const schemes = getSavedMarksSchemes();
     const targetScheme = schemes.find((s) => normalizeClassToCode(s.classCode) === normalizeClassToCode(classCode));
@@ -351,48 +363,45 @@ export async function syncMarksSchemeSubjectToRoutine(
     const labPeriods = isLab ? 2 : 0;
     const totalPeriods = theoryPeriods + labPeriods;
 
-    if (exactMatch) {
-      // If isLab changed, update existing
-      if (exactMatch.is_lab !== isLab) {
-        await upsertSubjectDb({
-          id: exactMatch.id,
-          name: cleanName,
-          className,
-          periodsPerWeek: totalPeriods,
-          theoryPeriods,
-          labPeriods,
-          isLab,
-          isHard: Boolean(exactMatch.is_hard),
-          timePref: exactMatch.time_pref || "any",
-          allowMultiplePerDay: Boolean(exactMatch.allow_multiple_per_day) || isLab,
-          maxPerDay: exactMatch.max_per_day || (isLab ? 2 : 1),
-          stream: detectSubjectStream(cleanName, exactMatch.stream),
-        });
-        window.dispatchEvent(new Event("sms_routine_state_updated"));
-      }
-      return;
-    }
+    const needsUpdate = (row: any, rowStream: string | null) =>
+      row.is_lab !== isLab || row.name.trim() !== cleanName || !sameStream(row.stream, rowStream);
 
-    // Check if stripped match exists that can be renamed (e.g. "Bengali" -> "Bengali (1st Language)")
-    const strippedMatch = currentSubjects.find((s: any) => isSameSubject(s.name, cleanName));
-
-    if (strippedMatch) {
-      await upsertSubjectDb({
-        id: strippedMatch.id,
+    const updateRow = (row: any, rowStream: string | null) => {
+      const labChanged = row.is_lab !== isLab;
+      return upsertSubjectDb({
+        id: row.id,
         name: cleanName,
         className,
-        periodsPerWeek: strippedMatch.periods_per_week || totalPeriods,
-        theoryPeriods: strippedMatch.theory_periods || theoryPeriods,
-        labPeriods: strippedMatch.lab_periods || labPeriods,
+        periodsPerWeek: labChanged ? totalPeriods : row.periods_per_week || totalPeriods,
+        theoryPeriods: labChanged ? theoryPeriods : row.theory_periods || theoryPeriods,
+        labPeriods: labChanged ? labPeriods : row.lab_periods ?? labPeriods,
         isLab,
-        isHard: false,
-        timePref: strippedMatch.time_pref || "any",
-        allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day) || isLab,
-        maxPerDay: strippedMatch.max_per_day || (isLab ? 2 : 1),
-        stream: detectSubjectStream(cleanName, strippedMatch.stream),
+        isHard: Boolean(row.is_hard),
+        timePref: row.time_pref || "any",
+        allowMultiplePerDay: Boolean(row.allow_multiple_per_day) || isLab,
+        maxPerDay: row.max_per_day || (isLab ? 2 : 1),
+        stream: rowStream,
       });
-      window.dispatchEvent(new Event("sms_routine_state_updated"));
-      return;
+    };
+
+    if (stream === undefined) {
+      if (sameName.length > 0) {
+        const changed = sameName.filter((row: any) => needsUpdate(row, row.stream ?? null));
+        for (const row of changed) await updateRow(row, row.stream ?? null);
+        if (changed.length) window.dispatchEvent(new Event("sms_routine_state_updated"));
+        return;
+      }
+    } else {
+      const match =
+        sameName.find((row: any) => sameStream(row.stream, stream)) ||
+        sameName.find((row: any) => isUnsetStream(row.stream));
+      if (match) {
+        if (needsUpdate(match, stream)) {
+          await updateRow(match, stream);
+          window.dispatchEvent(new Event("sms_routine_state_updated"));
+        }
+        return;
+      }
     }
 
     const newSubject: RoutineSubject = {
@@ -407,7 +416,7 @@ export async function syncMarksSchemeSubjectToRoutine(
       timePref: "any",
       allowMultiplePerDay: isLab,
       maxPerDay: isLab ? 2 : 1,
-      stream: detectSubjectStream(cleanName),
+      stream: stream ?? schemeSubjectStreams(targetScheme, cleanName)[0] ?? null,
     };
 
     await upsertSubjectDb(newSubject);
@@ -416,7 +425,7 @@ export async function syncMarksSchemeSubjectToRoutine(
     showToast({
       type: "success",
       title: "Subject Synced to Routine",
-      description: `"${cleanName}" was added to ${className} (${isLab ? "4 Th + 2 Lab = 6 p/wk" : "5 p/wk"}) in Routine.`,
+      description: `"${cleanName}"${stream ? ` (${stream})` : ""} was added to ${className} (${isLab ? "4 Th + 2 Lab = 6 p/wk" : "5 p/wk"}) in Routine.`,
     });
   } catch (err) {
     console.warn("syncMarksSchemeSubjectToRoutine error:", err);
@@ -428,7 +437,8 @@ export async function syncMarksSchemeSubjectToRoutine(
  */
 export async function syncRemoveMarksSchemeSubjectFromRoutine(
   classCode: string,
-  subjectName: string
+  subjectName: string,
+  stream?: string
 ): Promise<void> {
   if (typeof window === "undefined" || !subjectName.trim()) return;
 
@@ -440,14 +450,17 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
     const teachers: RoutineTeacher[] = local?.teachers || [];
     const assignments: any[] = local?.assignments || [];
 
-    const toDelete = currentSubjects.find(
+    // Without a stream the subject left the class entirely: every stream's row goes
+    const candidates = currentSubjects.filter(
       (s) =>
+        s.id &&
         s.className &&
         normalizeClassToCode(s.className) === targetCode &&
-        isSameSubject(s.name, subjectName)
+        isSameSubject(s.name, subjectName) &&
+        (stream === undefined || sameStream(s.stream, stream))
     );
 
-    if (!toDelete || !toDelete.id) return;
+    if (candidates.length === 0) return;
 
     // Safety Guard: Check if any teacher is assigned to this subject for this class
     const cleanSubLower = subjectName.trim().toLowerCase();
@@ -475,7 +488,8 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
       return false;
     });
 
-    const isAssignedInTimetable = assignments.some((a) => a.subjectId === toDelete.id);
+    const candidateIds = new Set(candidates.map((c) => c.id));
+    const isAssignedInTimetable = assignments.some((a) => candidateIds.has(a.subjectId));
 
     if (assignedTeacher || isAssignedInTimetable) {
       const teacherInfo = assignedTeacher ? ` (assigned to ${assignedTeacher.name})` : "";
@@ -488,13 +502,13 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
     }
 
     // Safe to delete from routine_subjects
-    await deleteSubjectDb(toDelete.id);
+    for (const c of candidates) await deleteSubjectDb(c.id);
     window.dispatchEvent(new Event("sms_routine_state_updated"));
 
     showToast({
       type: "info",
       title: "Subject Removed from Routine",
-      description: `"${subjectName}" was removed from ${className} in Routine.`,
+      description: `"${subjectName}"${stream ? ` (${stream})` : ""} was removed from ${className} in Routine.`,
     });
   } catch (err) {
     console.warn("syncRemoveMarksSchemeSubjectFromRoutine error:", err);
@@ -537,46 +551,58 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
       const className = normalizeClassToFullName(scheme.classCode);
       const schemeSubjects = scheme.subjects || [];
 
+      const isHs = isHsClass(className);
+      // Rows already claimed by a stream in this run, so two streams never share one legacy row
+      const claimed = new Set<string>();
+
       for (const subName of schemeSubjects) {
         const cleanTarget = subName.trim();
-        // Several schemes can list the same subject for one class: queue it once
-        const queueKey = `${classCode}::${cleanTarget.toLowerCase()}`;
-        if (queuedKeys.has(queueKey)) continue;
-        queuedKeys.add(queueKey);
         const isLab = isSubjectLab(scheme, cleanTarget);
         const theoryPeriods = isLab ? 4 : 5;
         const labPeriods = isLab ? 2 : 0;
         const totalPeriods = theoryPeriods + labPeriods;
+        // HS: one routine row per stream the subject was added under; other classes: one row
+        const streams: (string | null)[] = isHs
+          ? schemeSubjectStreams(scheme, cleanTarget)
+          : [detectSubjectStream(cleanTarget)];
 
-        const exactMatch = routineSubjects.find(
-          (s: any) =>
-            s.class_name &&
-            normalizeClassToCode(s.class_name) === classCode &&
-            s.name.trim().toLowerCase() === cleanTarget.toLowerCase()
+        const classRows = routineSubjects.filter(
+          (s: any) => s.class_name && normalizeClassToCode(s.class_name) === classCode
         );
 
-        if (!exactMatch) {
-          const strippedMatch = routineSubjects.find(
-            (s: any) =>
-              s.class_name &&
-              normalizeClassToCode(s.class_name) === classCode &&
-              isSameSubject(s.name, cleanTarget)
-          );
+        for (const stream of streams) {
+          // Several schemes can list the same subject for one class: queue it once
+          const queueKey = `${classCode}::${cleanTarget.toLowerCase()}::${isHs ? (stream || "").toLowerCase() : ""}`;
+          if (queuedKeys.has(queueKey)) continue;
+          queuedKeys.add(queueKey);
 
-          if (strippedMatch) {
+          const sameName = classRows.filter((s: any) => !claimed.has(s.id) && isSameSubject(s.name, cleanTarget));
+          const exact = sameName.find(
+            (s: any) => s.name.trim().toLowerCase() === cleanTarget.toLowerCase() && (!isHs || sameStream(s.stream, stream))
+          );
+          if (exact) {
+            claimed.add(exact.id);
+            continue;
+          }
+          const reuse = isHs
+            ? sameName.find((s: any) => sameStream(s.stream, stream)) || sameName.find((s: any) => isUnsetStream(s.stream))
+            : sameName[0];
+
+          if (reuse) {
+            claimed.add(reuse.id);
             toUpsert.push({
-              id: strippedMatch.id,
+              id: reuse.id,
               name: cleanTarget,
               className,
-              periodsPerWeek: strippedMatch.periods_per_week || totalPeriods,
-              theoryPeriods: strippedMatch.theory_periods || theoryPeriods,
-              labPeriods: strippedMatch.lab_periods || labPeriods,
+              periodsPerWeek: reuse.periods_per_week || totalPeriods,
+              theoryPeriods: reuse.theory_periods || theoryPeriods,
+              labPeriods: reuse.lab_periods || labPeriods,
               isLab,
-              isHard: false,
-              timePref: strippedMatch.time_pref || "any",
-              allowMultiplePerDay: Boolean(strippedMatch.allow_multiple_per_day) || isLab,
-              maxPerDay: strippedMatch.max_per_day || (isLab ? 2 : 1),
-              stream: detectSubjectStream(cleanTarget, strippedMatch.stream),
+              isHard: Boolean(reuse.is_hard),
+              timePref: reuse.time_pref || "any",
+              allowMultiplePerDay: Boolean(reuse.allow_multiple_per_day) || isLab,
+              maxPerDay: reuse.max_per_day || (isLab ? 2 : 1),
+              stream: isHs ? stream : detectSubjectStream(cleanTarget, reuse.stream),
             });
           } else {
             toUpsert.push({
@@ -591,7 +617,7 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
               timePref: "any",
               allowMultiplePerDay: isLab,
               maxPerDay: isLab ? 2 : 1,
-              stream: detectSubjectStream(cleanTarget),
+              stream,
             });
           }
         }
@@ -632,11 +658,13 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
 }
 
 /**
- * Prunes / syncs routine classes to match configured school classes & streams.
- * Removes orphaned streams (e.g. Science/Commerce if school only runs Arts).
+ * Routine sections follow the school preset (Settings → Classes & Sections): every preset
+ * class / section / stream missing from routine_classes is created. Nothing is ever deleted here:
+ * a section carries assignments, groups and generated routines, so a section the preset no longer
+ * lists is only reported (see presetOrphanSections) and removed by the user with a confirm.
  */
-export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncClassItem[]): Promise<void> {
-  if (typeof window === "undefined") return;
+export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncClassItem[]): Promise<{ added: number }> {
+  if (typeof window === "undefined") return { added: 0 };
 
   try {
     let rawClasses = configuredClasses;
@@ -644,72 +672,57 @@ export async function syncConfiguredClassesToRoutine(configuredClasses?: SyncCla
       const stored = localStorage.getItem("sms_class_management");
       if (stored) rawClasses = JSON.parse(stored);
     }
-    if (!Array.isArray(rawClasses) || rawClasses.length === 0) return;
+    // No saved preset yet: the fallback defaults must not create sections
+    if (!Array.isArray(rawClasses) || rawClasses.length === 0) return { added: 0 };
 
-    const local = getLocalRoutineState() || {};
-    const existingRoutineClasses = local.classes || [];
-    if (existingRoutineClasses.length === 0) return;
+    const supabase = createClient();
+    const { data: rows, error } = await supabase.from("routine_classes").select("class_name, section");
+    if (error) return { added: 0 };
 
-    // Build lookup of allowed (className -> Set of allowed streams/sections)
-    const allowedMap = new Map<string, { streams: Set<string>; sections: Set<string> }>();
+    const have = new Set(
+      (rows || []).map((r: { class_name: string; section: string }) => {
+        const p = parseSectionAndStream(r.section || "");
+        return sectionIdentity(r.class_name, p.section, p.stream);
+      })
+    );
+    const missing = presetSectionItems(rawClasses).filter(
+      (i) => !have.has(sectionIdentity(i.className, i.section, i.stream))
+    );
+    if (missing.length === 0) return { added: 0 };
 
-    rawClasses.forEach((c) => {
-      const normClass = (c.name || `Class ${c.code}`).trim().toLowerCase();
-      const isHs = isHsClass(c.name, c.code);
-      const streamsSet = new Set<string>();
-      const sectionsSet = new Set<string>();
-
-      if (isHs) {
-        if (c.streamSections && Object.keys(c.streamSections).length > 0) {
-          Object.keys(c.streamSections).forEach((st) => streamsSet.add(st.trim().toLowerCase()));
-        } else if (c.stream) {
-          const parts = c.stream.split(/[\/,•|]+/).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
-          parts.forEach((st: string) => streamsSet.add(st));
-        } else {
-          streamsSet.add("arts");
-        }
-      }
-
-      (c.sections || ["A", "B"]).forEach((s: string) => sectionsSet.add(s.trim().toLowerCase()));
-
-      allowedMap.set(normClass, { streams: streamsSet, sections: sectionsSet });
-      const altCodeName = `class ${c.code.trim().toLowerCase()}`;
-      allowedMap.set(altCodeName, { streams: streamsSet, sections: sectionsSet });
+    await batchUpsertClassesDb(
+      missing.map((i) => ({
+        className: i.className,
+        section: formatSectionAndStream(i.section, i.stream),
+        dailyPeriods: null,
+      }))
+    );
+    window.dispatchEvent(new Event("sms_routine_state_updated"));
+    showToast({
+      type: "success",
+      title: "Sections synced from preset",
+      description: missing.map((i) => `${i.className} ${formatSectionAndStream(i.section, i.stream)}`).join(", "),
     });
-
-    const toKeep: RoutineClass[] = [];
-    const idsToDelete: string[] = [];
-
-    existingRoutineClasses.forEach((rc) => {
-      const normName = (rc.className || "").trim().toLowerCase();
-      const parsed = parseSectionAndStream(rc.section);
-      const allowed = allowedMap.get(normName);
-
-      if (!allowed) {
-        toKeep.push(rc);
-        return;
-      }
-
-      const isHs = isHsClass(rc.className);
-      if (isHs) {
-        const streamLower = (parsed.stream || "").trim().toLowerCase();
-        // If the stream is not in the allowed active streams for this HS class, prune it
-        if (streamLower && streamLower !== "general" && !allowed.streams.has(streamLower)) {
-          if (rc.id) idsToDelete.push(rc.id);
-          return;
-        }
-      }
-
-      toKeep.push(rc);
-    });
-
-    if (idsToDelete.length > 0) {
-      setLocalRoutineState({ classes: toKeep });
-      const supabase = createClient();
-      await softWrite(supabase.from("routine_classes").delete().in("id", idsToDelete), "routine_classes delete");
-      window.dispatchEvent(new Event("sms_routine_state_updated"));
-    }
+    return { added: missing.length };
   } catch (err) {
     console.warn("syncConfiguredClassesToRoutine error:", err);
+    return { added: 0 };
   }
+}
+
+function sectionIdentity(className: string, section: string, stream: string): string {
+  const st = (stream || "general").trim().toLowerCase();
+  return `${className.trim().toLowerCase()}::${section.trim().toLowerCase()}::${isHsClass(className) ? st : "general"}`;
+}
+
+/** Routine sections the preset no longer lists (only for classes the preset knows). */
+export function presetOrphanSections(routineClasses: RoutineClass[], presetList: Parameters<typeof presetSectionItems>[0]): RoutineClass[] {
+  const items = presetSectionItems(presetList);
+  const known = new Set(items.map((i) => i.className.toLowerCase()));
+  const wanted = new Set(items.map((i) => sectionIdentity(i.className, i.section, i.stream)));
+  return routineClasses.filter((c) => {
+    if (!known.has(c.className.trim().toLowerCase())) return false;
+    const p = parseSectionAndStream(c.section || "");
+    return !wanted.has(sectionIdentity(c.className, p.section, p.stream));
+  });
 }

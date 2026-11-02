@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { RoutineSubject, RoutineSubjectGroup } from "@/lib/routine/types";
 import { getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
-import { HS_STREAM_PRESETS, detectSubjectStream, isHsClass, calculateTotalSchoolSectionDemand, groupSlotPeriods, groupExtraPeriods, calculateSchoolGroupDemand } from "@/lib/routine/routine-helpers";
+import { HS_STREAM_PRESETS, detectSubjectStream, isHsClass, calculateTotalSchoolSectionDemand, groupSlotPeriods, groupExtraPeriods, calculateSchoolGroupDemand, parseSectionAndStream } from "@/lib/routine/routine-helpers";
 import { subjectDedupeKey, dedupeSubjects, sectionLoad } from "@/lib/routine/routine-domain";
 import type { SubjectsCoreState } from "./use-subjects-core";
 
@@ -99,11 +99,24 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
   const classGroups = useMemo(() => {
     const clsLower = activeClass.trim().toLowerCase();
     const sectionClass = new Map(classes.map((c) => [c.id, c.className.trim().toLowerCase()]));
+    const sectionStream = new Map(
+      classes.map((c) => [c.id, parseSectionAndStream(c.section || "").stream.toLowerCase()])
+    );
+    const wanted = selectedStream.toLowerCase();
+    // A group fixed to one stream shows only under that stream; a group with no stream shows everywhere
+    const inStream = (g: RoutineSubjectGroup) => {
+      if (!isCurrentClassHs || wanted === "all") return true;
+      const streams =
+        g.scope === "class"
+          ? g.stream ? [g.stream.toLowerCase()] : []
+          : g.sectionIds.map((id) => sectionStream.get(id) || "general").filter((s) => s !== "general");
+      return streams.length === 0 || streams.includes(wanted);
+    };
     return groups
       .filter((g) =>
-        g.scope === "class"
+        (g.scope === "class"
           ? (g.className || "").trim().toLowerCase() === clsLower
-          : g.sectionIds.some((id) => sectionClass.get(id) === clsLower)
+          : g.sectionIds.some((id) => sectionClass.get(id) === clsLower)) && inStream(g)
       )
       .map((g) => ({
         group: g,
@@ -112,7 +125,7 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
           .filter(Boolean) as RoutineSubject[],
       }))
       .filter((x) => x.members.length > 0);
-  }, [groups, classes, subjects, activeClass]);
+  }, [groups, classes, subjects, activeClass, isCurrentClassHs, selectedStream]);
 
   const displayRows = useMemo(() => {
     const memberToGroup = new Map<string, number>();

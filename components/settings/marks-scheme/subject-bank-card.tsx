@@ -9,7 +9,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { showToast } from "@/components/ui/toast-banner";
 import { cn } from "@/lib/utils";
 import { MASTER_SUBJECT_BANK, isSubjectLab, isDefaultLabSubject } from "@/lib/utils/marks-config";
-import { detectSubjectStream } from "@/lib/routine/routine-helpers";
+import { schemeSubjectStreams } from "@/lib/routine/routine-helpers";
 
 import type { MarksSchemeState } from "./use-marks-scheme";
 
@@ -61,17 +61,23 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
           const activeScheme = marksSchemes.find((s) => s.classCode === selectedSubjectClass) || marksSchemes[0];
           const subjectsList = activeScheme?.subjects || [];
           const isHs = activeScheme.classCode === "XI" || activeScheme.classCode === "XII";
+          const pickedStream = isHs && selectedSubjectStream !== "all" ? selectedSubjectStream : null;
+          const needsStream = isHs && !pickedStream;
 
-          const filteredSubjects = isHs && selectedSubjectStream !== "all"
+          const filteredSubjects = pickedStream
             ? subjectsList.filter((sub) => {
-                const sStream = detectSubjectStream(sub);
-                return sStream === "Common" || sStream === selectedSubjectStream;
+                const streams = schemeSubjectStreams(activeScheme, sub);
+                return streams.includes("Common") || streams.includes(pickedStream);
               })
             : subjectsList;
 
-          const isCustomDuplicate = customSubjectName.trim()
-            ? subjectsList.some((s) => s.toLowerCase().trim() === customSubjectName.trim().toLowerCase())
-            : false;
+          // Already in this class, or in HS already in the picked stream
+          const isAdded = (name: string) => {
+            const hit = subjectsList.find((s) => s.toLowerCase().trim() === name.toLowerCase().trim());
+            if (!hit) return false;
+            return !pickedStream || schemeSubjectStreams(activeScheme, hit).includes(pickedStream);
+          };
+          const isCustomDuplicate = customSubjectName.trim() ? isAdded(customSubjectName) : false;
 
           return (
             <div className="space-y-4">
@@ -111,7 +117,8 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
 
               <div className="flex flex-wrap gap-2 pt-1">
                 {filteredSubjects.map((sub) => {
-                  const sStream = isHs ? detectSubjectStream(sub) : null;
+                  const subStreams = isHs ? schemeSubjectStreams(activeScheme, sub).filter((x) => x !== "Common") : [];
+                  const sStream = isHs ? (subStreams.length === 1 ? subStreams[0] : subStreams.length ? "Multi" : "Common") : null;
                   const isSubLab = isSubjectLab(activeScheme, sub);
                   return (
                     <span
@@ -128,9 +135,9 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
                       )}
                     >
                       <span>{sub}</span>
-                      {sStream && sStream !== "Common" && (
+                      {subStreams.length > 0 && (
                         <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-background/80 font-bold">
-                          {sStream}
+                          {subStreams.join(" · ")}
                         </span>
                       )}
                       <button
@@ -174,14 +181,11 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
                     placeholder="Choose from Master Subject Bank..."
                     options={MASTER_SUBJECT_BANK.flatMap((cat) =>
                       cat.subjects.map((sub) => {
-                        const isAlreadyAdded = subjectsList.some(
-                          (s) => s.toLowerCase().trim() === sub.toLowerCase().trim()
-                        );
                         return {
                           label: sub,
                           value: sub,
                           category: cat.category,
-                          disabled: isAlreadyAdded,
+                          disabled: isAdded(sub),
                         };
                       })
                     )}
@@ -217,7 +221,7 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={isCustomDuplicate}
+                  disabled={isCustomDuplicate || needsStream}
                   onClick={() => {
                     const subToAdd = selectedNewSubjectToAdd || customSubjectName;
                     if (subToAdd) {
@@ -232,13 +236,15 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
                   }}
                   className={cn(
                     "w-full sm:w-auto h-9 text-xs font-semibold gap-1.5 px-4 shadow-xs shrink-0",
-                    isCustomDuplicate
+                    isCustomDuplicate || needsStream
                       ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
                       : "bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer"
                   )}
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>{isCustomDuplicate ? "Already in Class" : "Add Subject"}</span>
+                  <span>
+                    {needsStream ? "Pick a Stream" : isCustomDuplicate ? "Already in Class" : pickedStream ? `Add to ${pickedStream}` : "Add Subject"}
+                  </span>
                 </Button>
               </div>
             </div>

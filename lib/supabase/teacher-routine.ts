@@ -64,7 +64,7 @@ export async function fetchTeacherRoutineData(
       .limit(1)
       .maybeSingle(),
     adminClient.from("routine_classes").select("id, class_name, section"),
-    adminClient.from("routine_subjects").select("id, name, is_lab"),
+    adminClient.from("routine_subjects").select("id, name, is_lab").not("class_name", "is", null),
     adminClient.from("routine_rooms").select("id, name"),
     adminClient
       .from("routine_teacher_availability")

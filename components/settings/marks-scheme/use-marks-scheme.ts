@@ -5,6 +5,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import { type ClassMarksScheme, type PromotionPolicy, type MarksSplitVariation, DEFAULT_MARKS_SCHEMES, DEFAULT_PROMOTION_POLICY, DEFAULT_HS_SPLIT_VARIATIONS, getSavedMarksSchemes, saveMarksSchemes, getSavedPromotionPolicy, savePromotionPolicy, getDefaultHsSubjectMarks, isSubjectLab, isDefaultLabSubject } from "@/lib/utils/marks-config";
 import { syncMarksSchemeSubjectToRoutine, syncRemoveMarksSchemeSubjectFromRoutine } from "@/lib/routine/routine-sync";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { isHsClass, schemeSubjectStreams } from "@/lib/routine/routine-helpers";
 
 
 export function useMarksScheme() {
@@ -249,13 +250,43 @@ export function useMarksScheme() {
     const target = marksSchemes.find((s) => s.classCode === classCode);
     if (!target) return;
 
+    // HS subjects are saved under the stream picked in the filter, never guessed from the name
+    const isHs = isHsClass(target.className, classCode);
+    const stream = isHs && selectedSubjectStream !== "all" ? selectedSubjectStream : undefined;
+    if (isHs && !stream) {
+      showToast({ type: "info", title: "Pick a stream", description: "Choose Common, Science, Arts or Commerce first." });
+      return;
+    }
+
     const existing = target.subjects || [];
-    if (existing.some((x) => x.toLowerCase().trim() === cleanSub.toLowerCase().trim())) {
-      showToast({
-        type: "info",
-        title: "Subject Already Added",
-        description: `"${cleanSub}" is already present in ${target.className} curriculum.`,
-      });
+    const existingName = existing.find((x) => x.toLowerCase().trim() === cleanSub.toLowerCase().trim());
+    if (existingName) {
+      // "General" is the heuristic's "no stream" for an old subject, not a stream to keep
+      const current = schemeSubjectStreams(target, existingName).filter((x) => x !== "General");
+      if (!stream || current.includes(stream)) {
+        showToast({
+          type: "info",
+          title: "Subject Already Added",
+          description: `"${existingName}" is already present in ${target.className}${stream ? ` (${stream})` : ""}.`,
+        });
+        return;
+      }
+      // Same subject in another stream (e.g. Economics in Arts and Commerce): one curriculum entry, one routine row per stream
+      const updated = marksSchemes.map((s) =>
+        s.classCode === classCode
+          ? { ...s, subjectStreams: { ...(s.subjectStreams || {}), [existingName]: [...current, stream] } }
+          : s
+      );
+      setMarksSchemes(updated);
+      saveMarksSchemes(updated);
+      void (async () => {
+        // Pin the subject's earlier streams first so its old routine row keeps its stream
+        for (const st of current) await syncMarksSchemeSubjectToRoutine(classCode, existingName, undefined, st);
+        await syncMarksSchemeSubjectToRoutine(classCode, existingName, undefined, stream);
+      })();
+      showToast({ type: "success", title: "Subject Added", description: `"${existingName}" added to ${stream} in ${target.className}.` });
+      setSelectedNewSubjectToAdd("");
+      setCustomSubjectName("");
       return;
     }
 
@@ -278,6 +309,7 @@ export function useMarksScheme() {
           subjects: newSubs,
           subjectCount: newSubs.length,
           labSubjects: nextLabList,
+          ...(stream ? { subjectStreams: { ...(s.subjectStreams || {}), [cleanSub]: [stream] } } : {}),
         };
       }
       return s;
@@ -285,12 +317,12 @@ export function useMarksScheme() {
 
     setMarksSchemes(updated);
     saveMarksSchemes(updated);
-    syncMarksSchemeSubjectToRoutine(classCode, cleanSub, effectiveIsLab);
+    syncMarksSchemeSubjectToRoutine(classCode, cleanSub, effectiveIsLab, stream);
 
     showToast({
       type: "success",
       title: "Subject Added",
-      description: `Added "${cleanSub}" (${effectiveIsLab ? "Theory + Lab" : "Theory"}) to ${target.className}.`,
+      description: `Added "${cleanSub}" (${effectiveIsLab ? "Theory + Lab" : "Theory"})${stream ? ` to ${stream}` : ""} in ${target.className}.`,
     });
 
     setSelectedNewSubjectToAdd("");
@@ -301,6 +333,25 @@ export function useMarksScheme() {
   const handleRemoveSubjectFromClass = (classCode: string, subjectToRemove: string) => {
     const target = marksSchemes.find((s) => s.classCode === classCode);
     if (!target) return;
+
+    // Under a stream filter, a subject that also sits in other streams leaves only this stream
+    const isHs = isHsClass(target.className, classCode);
+    const streams = isHs ? schemeSubjectStreams(target, subjectToRemove) : [];
+    const stream = selectedSubjectStream;
+    if (isHs && stream !== "all" && streams.includes(stream) && streams.length > 1) {
+      const rest = streams.filter((x) => x !== stream);
+      const updated = marksSchemes.map((s) =>
+        s.classCode === classCode
+          ? { ...s, subjectStreams: { ...(s.subjectStreams || {}), [subjectToRemove]: rest } }
+          : s
+      );
+      setMarksSchemes(updated);
+      saveMarksSchemes(updated);
+      syncRemoveMarksSchemeSubjectFromRoutine(classCode, subjectToRemove, stream);
+      showToast({ type: "success", title: "Subject Removed", description: `Removed "${subjectToRemove}" from ${stream} in ${target.className}.` });
+      return;
+    }
+
     const existing = target.subjects || [];
     if (existing.length <= 1) {
       showToast({
@@ -314,10 +365,13 @@ export function useMarksScheme() {
     const updated = marksSchemes.map((s) => {
       if (s.classCode === classCode) {
         const newSubs = (s.subjects || []).filter((sub) => sub !== subjectToRemove);
+        const nextStreams = { ...(s.subjectStreams || {}) };
+        delete nextStreams[subjectToRemove];
         return {
           ...s,
           subjects: newSubs,
           subjectCount: newSubs.length,
+          ...(s.subjectStreams ? { subjectStreams: nextStreams } : {}),
         };
       }
       return s;

@@ -50,7 +50,7 @@ import { Sliders, Building2, School, Users, BookOpen, BarChart3, LayoutGrid, Lay
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
-import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine, syncConfiguredClassesToRoutine } from "@/lib/routine/routine-sync";
 import { Spinner } from "@/components/ui/spinner";
 
 type SetupTab = "settings" | "classes" | "groups" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
@@ -143,6 +143,8 @@ function RoutineSetupPageContent() {
       await fetchSchoolConfigClient(false).catch((e) => console.warn("Failed to sync school config:", e));
       // 2. Automatically sync subjects from Presets (/settings/presets?section=marks_scheme) to Routine
       await syncAllSubjectsFromPresetsToRoutine().catch((e) => console.warn("Auto-sync from presets:", e));
+      // Sections and streams from Settings → Classes & Sections (add-only)
+      await syncConfiguredClassesToRoutine().catch((e) => console.warn("Auto-sync classes from presets:", e));
       // 3. Fetch routine full state from Supabase
       const data: RoutineFullState = await fetchRoutineFullState();
       setSettings(data.settings || DEFAULT_ROUTINE_SETTINGS);

@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/school-profile";
 import { getDynamicClassList, getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 import { RoutineClass, RoutineSettings, RoutineSubject, RoutineTeacher } from "./types";
+import type { ClassMarksScheme } from "@/lib/utils/marks-config";
 
 export const HS_STREAM_PRESETS: Record<"Common" | "Science" | "Commerce" | "Arts", string[]> = {
   Common: ["Bengali", "English", "Environmental Studies", "Alternative English", "Hindi", "Urdu"],
@@ -422,7 +423,8 @@ export function detectSubjectStream(
   name: string,
   explicitStream?: string | null
 ): "Common" | "Science" | "Commerce" | "Arts" | "General" {
-  if (explicitStream && ["Common", "Science", "Commerce", "Arts", "General"].includes(explicitStream)) {
+  // "General" is a stored default, not a choice: let the name decide so a subject saved before its keyword existed gets its stream
+  if (explicitStream && ["Common", "Science", "Commerce", "Arts"].includes(explicitStream)) {
     return explicitStream as any;
   }
   const lower = (name || "").trim().toLowerCase();
@@ -460,6 +462,7 @@ export function detectSubjectStream(
     return "Science";
   }
   if (
+    (lower.includes("economic") && !lower.includes("home")) ||
     lower.includes("account") ||
     lower.includes("business") ||
     lower.includes("costing") ||
@@ -488,6 +491,58 @@ export function detectSubjectStream(
 }
 
 /**
+ * Streams an HS curriculum subject belongs to: what the user picked when adding it. Subjects saved
+ * before streams were stored fall back to the name heuristic until they are re-added or edited.
+ */
+export function schemeSubjectStreams(
+  scheme: Pick<ClassMarksScheme, "subjectStreams"> | undefined,
+  subjectName: string
+): string[] {
+  const target = subjectName.trim().toLowerCase();
+  const saved = Object.entries(scheme?.subjectStreams || {}).find(([k]) => k.trim().toLowerCase() === target)?.[1];
+  if (saved && saved.length > 0) return saved;
+  return [detectSubjectStream(subjectName)];
+}
+
+export interface PresetSectionItem {
+  className: string;
+  section: string;
+  stream: string;
+}
+
+interface PresetClassLike {
+  name?: string;
+  code: string;
+  sections?: string[];
+  stream?: string;
+  streamSections?: Record<string, string[]>;
+}
+
+/**
+ * Every class / section / stream the school preset (Settings → Classes & Sections) defines.
+ * Reads streams exactly as the preset page shows them: the class's `stream` list, each with its own
+ * sections (falling back to the class sections). `streamSections` keys alone are not trusted: they can
+ * hold a stale stream set.
+ */
+export function presetSectionItems(list: PresetClassLike[]): PresetSectionItem[] {
+  const items: PresetSectionItem[] = [];
+  const clean = (s: string) => s.trim().replace(/^Section\s+/i, "");
+  for (const c of list) {
+    const className = (c.name || `Class ${c.code}`).trim();
+    const baseSections = c.sections && c.sections.length > 0 ? c.sections : ["A"];
+    if (isHsClass(className, c.code)) {
+      for (const stream of getClassStreamList(c.stream)) {
+        const secs = c.streamSections?.[stream]?.length ? c.streamSections[stream] : baseSections;
+        secs.forEach((s) => items.push({ className, section: clean(s), stream }));
+      }
+    } else {
+      baseSections.forEach((s) => items.push({ className, section: clean(s), stream: "General" }));
+    }
+  }
+  return items;
+}
+
+/**
  * Resolves streams configured in School Profile for a given HS class
  */
 export function getConfiguredStreamsForClass(className: string): Array<"Science" | "Commerce" | "Arts"> {
@@ -501,11 +556,12 @@ export function getConfiguredStreamsForClass(className: string): Array<"Science"
       c.name.toLowerCase() === className.toLowerCase()
   );
 
+  // Same order as the preset page: the class's stream list wins over possibly stale streamSections keys
   let rawStreams: string[] = [];
-  if (target?.streamSections && Object.keys(target.streamSections).length > 0) {
-    rawStreams = Object.keys(target.streamSections);
-  } else if (target?.stream && target.stream.trim()) {
+  if (target?.stream && target.stream.trim()) {
     rawStreams = getClassStreamList(target.stream);
+  } else if (target?.streamSections && Object.keys(target.streamSections).length > 0) {
+    rawStreams = Object.keys(target.streamSections);
   } else {
     rawStreams = getSchoolConfiguredStreams();
   }

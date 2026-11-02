@@ -1,7 +1,7 @@
 "use client";
 
 import type { AdmissionApplicationFormProps } from "./props";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -13,6 +13,24 @@ import { getSavedBankPresets, fetchBankPresetsFromDb, DEFAULT_BANK_PRESETS, Bank
 import { getSavedMarksSchemes } from "@/lib/utils/marks-config";
 import { toast } from "sonner";
 import { DEFAULT_HS_SUBJECTS } from "@/components/admission/application-form/constants";
+import { getConfiguredStreamsForClass, schemeSubjectStreams } from "@/lib/routine/routine-helpers";
+
+type HsStream = "Science" | "Arts" | "Commerce";
+
+// Stored values keep the existing "Arts / কলা বিভাগ" format
+const HS_STREAM_LABELS: Record<HsStream, string> = {
+  Science: "Science / বিজ্ঞান বিভাগ",
+  Arts: "Arts / কলা বিভাগ",
+  Commerce: "Commerce / বাণিজ্য বিভাগ",
+};
+
+function toHsStream(value: string): HsStream | null {
+  const v = (value || "").toLowerCase();
+  if (v.includes("sci")) return "Science";
+  if (v.includes("com")) return "Commerce";
+  if (v.includes("art")) return "Arts";
+  return null;
+}
 
 export function useAdmissionForm({
   initialData,
@@ -374,27 +392,45 @@ export function useAdmissionForm({
     }
   };
 
-  // HS Available Subjects from School Configuration & Presets
-  const availableHsSubjects = useMemo(() => {
-    const list = new Set<string>();
+  // Class XI streams the school runs (Settings → Classes & Sections)
+  const hsStreamOptions = useMemo(
+    () => getConfiguredStreamsForClass("Class XI").map((s) => ({ label: HS_STREAM_LABELS[s], value: HS_STREAM_LABELS[s] })),
+    []
+  );
+  const watchStream = watch("academicStream") || "";
+  const selectedHsStream = toHsStream(watchStream);
 
+  // Class XI subjects come only from the curriculum (Settings → Marks Scheme): Common subjects plus the
+  // chosen stream's. The built-in list is used only when no curriculum is saved.
+  const hsSubjectsForStream = useCallback((stream: HsStream | null): string[] => {
     try {
-      const schemes = getSavedMarksSchemes();
-      const xi = schemes.find((s) => s.classCode === "XI");
-      const xii = schemes.find((s) => s.classCode === "XII");
-      if (xi?.subjects && Array.isArray(xi.subjects)) {
-        xi.subjects.forEach((s) => list.add(s.trim()));
-      }
-      if (xii?.subjects && Array.isArray(xii.subjects)) {
-        xii.subjects.forEach((s) => list.add(s.trim()));
+      const xi = getSavedMarksSchemes().find((s) => s.classCode === "XI");
+      const subjects = (xi?.subjects || []).map((s) => s.trim()).filter(Boolean);
+      if (subjects.length > 0) {
+        return subjects.filter((sub) => {
+          if (!stream) return true;
+          const streams = schemeSubjectStreams(xi, sub);
+          return streams.includes("Common") || streams.includes(stream);
+        });
       }
     } catch (e) {
       console.warn("Could not load HS subjects from schemes:", e);
     }
-
-    DEFAULT_HS_SUBJECTS.forEach((s) => list.add(s));
-    return Array.from(list).filter(Boolean);
+    return DEFAULT_HS_SUBJECTS;
   }, []);
+
+  const availableHsSubjects = useMemo(() => hsSubjectsForStream(selectedHsStream), [hsSubjectsForStream, selectedHsStream]);
+
+  // A stream change drops picked subjects the new stream does not offer
+  const changeHsStream = (value: string) => {
+    setValue("academicStream", value, { shouldDirty: true });
+    const allowed = new Set(hsSubjectsForStream(toHsStream(value)).map((s) => s.toLowerCase()));
+    const mandatory = (getValues("mandatorySubjects") || "").split(",").map((s) => s.trim()).filter(Boolean);
+    const kept = mandatory.filter((s) => allowed.has(s.toLowerCase()));
+    if (kept.length !== mandatory.length) setValue("mandatorySubjects", kept.join(", "), { shouldValidate: true });
+    const additional = getValues("additionalSubjects");
+    if (additional && !allowed.has(String(additional).toLowerCase())) setValue("additionalSubjects", "None / কোনোটি নয়");
+  };
 
   const watchMandatory = watch("mandatorySubjects") || "";
 
@@ -615,6 +651,8 @@ export function useAdmissionForm({
     SECTION_ORDER,
     addMandatorySubject,
     availableHsSubjects,
+    hsStreamOptions,
+    changeHsStream,
     bankDropdownOptions,
     checklist,
     control,

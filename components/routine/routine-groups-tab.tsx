@@ -23,6 +23,7 @@ import {
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
+import { detectSubjectStream, getConfiguredStreamsForClass, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -56,6 +57,11 @@ function streamsForClass(classes: RoutineClass[], className: string): string[] {
     const { stream } = parseSectionAndStream(c.section || "");
     if (stream) set.add(stream);
   }
+  // Streams switched on in the school preset count even before a section exists for them
+  if (isHsClass(className)) {
+    getConfiguredStreamsForClass(className).forEach((s) => set.add(s));
+    set.delete("General");
+  }
   return Array.from(set).sort();
 }
 
@@ -73,6 +79,50 @@ function resolveClassWiseSections(
       return stream.toLowerCase() === sf;
     })
     .map((c) => c.id);
+}
+
+/**
+ * Subjects a group may offer: only the scoped class(es), only the chosen stream(s) in HS classes,
+ * one row per subject name. Never falls back to every class's subjects.
+ */
+function subjectPool(
+  subjects: RoutineSubject[],
+  classes: RoutineClass[],
+  scope: "class" | "section",
+  className: string,
+  stream: string,
+  sectionIds: Set<string>
+): RoutineSubject[] {
+  const picked = classes.filter((c) => sectionIds.has(c.id));
+  const classNames = new Set(
+    (scope === "section" && picked.length ? picked.map((c) => c.className) : [className])
+      .filter(Boolean)
+      .map((n) => n.trim().toLowerCase())
+  );
+  const streams = new Set(
+    (scope === "class"
+      ? [stream]
+      : picked.map((c) => parseSectionAndStream(c.section || "").stream)
+    )
+      .map((s) => (s || "").trim().toLowerCase())
+      .filter((s) => s && s !== "general")
+  );
+  const seen = new Set<string>();
+  return subjects
+    .filter((s) => s.className && classNames.has(s.className.trim().toLowerCase()))
+    .filter(
+      (s) =>
+        streams.size === 0 ||
+        !isHsClass(s.className || "") ||
+        streams.has(detectSubjectStream(s.name, s.stream).toLowerCase())
+    )
+    .filter((s) => {
+      const key = normalizeSubjectName(s.name);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function teacherShort(teachers: RoutineTeacher[], tid: string): string {
@@ -210,7 +260,8 @@ export function RoutineGroupsTab({
     if (!filterClass && !filterStream) return groups;
     return groups.filter((g) => {
       if (filterClass && g.className !== filterClass && g.scope === "class") return false;
-      if (filterStream && g.stream !== filterStream && g.scope === "class") return false;
+      // A class-wise group with no stream runs in every stream, so a stream filter keeps it
+      if (filterStream && g.stream && g.stream !== filterStream && g.scope === "class") return false;
       if (g.scope === "section" && (filterClass || filterStream)) {
         const names = new Set(
           g.sectionIds
@@ -472,16 +523,20 @@ function GroupDialog({
     [resolvedSectionIds, classes]
   );
 
-  // Subject pool for the dialog: subjects attached to any of the member classes,
-  // falling back to all subjects when nothing matches (keeps the dropdown useful).
   const dialogSubjects = useMemo(() => {
-    if (resolvedSections.length === 0) return subjects;
-    const names = new Set(resolvedSections.map((c) => c.className));
-    const matched = subjects.filter(
-      (s) => (s.className && names.has(s.className)) || !s.className
-    );
-    return matched.length > 0 ? matched : subjects;
-  }, [subjects, resolvedSections]);
+    const pool = subjectPool(subjects, classes, scope, className, stream, sectionIds);
+    // A subject saved on this group before the filter existed stays selectable so it is not shown blank
+    const kept = options
+      .map((o) => subjects.find((s) => s.id === o.subjectId))
+      .filter((s): s is RoutineSubject => Boolean(s) && !pool.some((p) => p.id === s!.id));
+    return [...pool, ...kept];
+  }, [subjects, classes, scope, className, stream, sectionIds, options]);
+
+  // Drop option subjects that fall outside a newly chosen class/stream
+  const pruneOptions = (nextClass: string, nextStream: string, nextSections: Set<string>) => {
+    const ids = new Set(subjectPool(subjects, classes, scope, nextClass, nextStream, nextSections).map((s) => s.id));
+    setOptions((prev) => prev.map((o) => (o.subjectId && !ids.has(o.subjectId) ? { ...o, subjectId: "", teacherId: "" } : o)));
+  };
 
   // --- live validation / summary --------------------------------------
   const liveIssues: string[] = [];
@@ -555,17 +610,18 @@ function GroupDialog({
   };
 
   const toggleSection = (cid: string) => {
-    setSectionIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(cid)) next.delete(cid);
-      else next.add(cid);
-      return next;
-    });
+    const next = new Set(sectionIds);
+    if (next.has(cid)) next.delete(cid);
+    else next.add(cid);
+    setSectionIds(next);
+    pruneOptions(className, stream, next);
   };
 
   const selectClassSections = (cName: string) => {
+    const next = new Set(classes.filter((c) => c.className === cName).map((c) => c.id));
     setClassName(cName);
-    setSectionIds(new Set(classes.filter((c) => c.className === cName).map((c) => c.id)));
+    setSectionIds(next);
+    pruneOptions(cName, stream, next);
   };
 
   const handleSubmit = async () => {
@@ -711,6 +767,7 @@ function GroupDialog({
                     onChange={(v: string) => {
                       setClassName(v);
                       setStream("");
+                      pruneOptions(v, "", sectionIds);
                     }}
                     searchable={false}
                     className="w-full"
@@ -722,7 +779,10 @@ function GroupDialog({
                   <Label className="text-[11px] font-medium">Stream (optional)</Label>
                   <CustomSelect placeholder="Any"
                     value={stream}
-                    onChange={(v: string) => setStream(v)}
+                    onChange={(v: string) => {
+                      setStream(v);
+                      pruneOptions(className, v, sectionIds);
+                    }}
                     disabled={streamOptions.length === 0}
                     searchable={false}
                     className="w-full"
@@ -734,7 +794,9 @@ function GroupDialog({
                   <Label className="text-[11px] font-medium">Resolved sections</Label>
                   <div className="h-8 rounded-md border px-2 flex items-center text-[11px] bg-muted/30 overflow-x-auto whitespace-nowrap">
                     {resolvedSections.length === 0 ? (
-                      <span className="text-muted-foreground">—</span>
+                      <span className={stream ? "text-destructive" : "text-muted-foreground"}>
+                        {stream ? `No ${stream} section` : "—"}
+                      </span>
                     ) : (
                       resolvedSections.map((c) => (
                         <span
