@@ -1,4 +1,74 @@
-import { BulkUploadType } from "@/lib/types";
+import type { BulkUploadType, Student } from "@/lib/types";
+import { TARGET_FIELDS } from "@/lib/utils/excel/fields";
+
+// One standard student sheet: every field the importer reads, grouped like the profile.
+// Headers are the field labels, so the mapping step matches each column on its own.
+const CATEGORY_ORDER = [
+  "Core", "Enrolment", "Identifiers", "Board Examination", "Family", "Contact", "Demographics",
+  "Personal", "Bank", "Welfare", "Previous", "Curriculum", "Facilities", "Activities",
+];
+// The class-specific WBBSE / WBCHSE columns cover these two
+const TEMPLATE_SKIP = new Set<keyof Student>(["boardRegistrationNo", "boardRollNo"]);
+
+type Sample = Partial<Record<keyof Student, string | number>>;
+
+export const STUDENT_SAMPLE: Sample = {
+  name: "Rohit Sharma", dob: "2012-05-15", gender: "Male", presentRoll: 1,
+  admissionNo: "ADM-2026-0101", admissionDate: "2026-01-02", academicStream: "", mediumOfInstruction: "Bengali",
+  studentUniqueCode: "BSP-2026-101", schoolId: "", pen: "", hasAadhaar: "Yes", aadhaar: "123412341234",
+  diseCode: "19180201004", healthId: "", birthRegistrationNo: "", wbbseRegNo: "", wbchseRegNo: "",
+  wbbseRollNo: "", wbchseRollNo: "", identificationMark: "Mole on left cheek",
+  fatherName: "Gopal Sharma", fatherOccupation: "Farmer", motherName: "Sita Sharma", motherOccupation: "Homemaker",
+  guardianName: "Gopal Sharma", relationshipWithGuardian: "Father", guardianQualification: "Secondary",
+  studentContact: "9830012345", altMobile: "9830012345", email: "", address: "Vill- Rampur, PO- Rampur, Dist- Nadia",
+  pincode: "741101", socialCategory: "General", religion: "Hinduism", motherTongue: "Bengali", minorityGroup: "",
+  bloodGroup: "B+", heightCm: 140, weightKg: 35, isCwsn: "No", impairmentType: "", annualFamilyIncome: 60000,
+  bankAccountNo: "123456789012", bankIfsc: "SBIN0001234",
+  previousSchool: "", previousClass: "IV", previousRollNo: "", previousMarksPercent: "", previousStatus: "",
+  previousSection: "", previousStream: "", previousAppearedForExams: "Yes", previousResult: "Passed",
+  previousDaysAttended: "", kanyashreeId: "", casteCertificateNo: "", nameAsPerAadhaar: "Rohit Sharma",
+  guardianOccupation: "Farmer", admissionType: "New", presentClassAdmissionDate: "2026-01-02",
+  hasDisabilityCertificate: "No", disabilityPercentage: "", sldType: "", isAay: "No", isEws: "No",
+  indianNationality: "Yes", isOutOfSchool: "No", mainstreamedDate: "", rteSection12C: "No", rteAmountClaimed: "",
+  facilitiesProvided: "", cwsnFacilities: "", competitionsOlympiads: "", ncc: "No", nss: "No", scoutsGuides: "No",
+  distanceToSchool: 2, highestEducationParents: "Secondary", languageGroup: "Bengali, English",
+  foreignLanguage: "", mandatorySubjects: "", additionalSubjects: "", coCurricularSubjects: "",
+};
+
+export function fieldFormat(key: keyof Student, label: string): string {
+  if (/date|^dob$/i.test(key)) return "YYYY-MM-DD";
+  if (/\(Yes\/No\)/.test(label)) return "Yes / No";
+  if (["languageGroup", "mandatorySubjects", "additionalSubjects", "coCurricularSubjects",
+    "facilitiesProvided", "cwsnFacilities", "competitionsOlympiads"].includes(key)) return "Comma separated";
+  if (key === "gender") return "Male / Female / Other";
+  if (key === "socialCategory") return "General / OBC / SC / ST";
+  if (key === "presentClass") return "V – XII";
+  if (key === "currentStatus") return "Continuing / Passed Out / Drop Out";
+  if (key === "aadhaar") return "12 digits";
+  return "";
+}
+
+export function studentTemplateFields() {
+  return TARGET_FIELDS.filter((f) => !TEMPLATE_SKIP.has(f.key)).sort(
+    (a, b) => CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category),
+  );
+}
+
+async function writeStudentTemplate(filename: string, sample: Sample) {
+  const fields = studentTemplateFields();
+  const XLSX = await import("xlsx");
+  const ws = XLSX.utils.aoa_to_sheet([fields.map((f) => f.label), fields.map((f) => sample[f.key] ?? "")]);
+  ws["!cols"] = fields.map((f) => ({ wch: Math.max(14, f.label.length + 2) }));
+  const guide = XLSX.utils.aoa_to_sheet([
+    ["Column", "Group", "Required", "Format"],
+    ...fields.map((f) => [f.label, f.category, f.required ? "Yes" : "", fieldFormat(f.key, f.label)]),
+  ]);
+  guide["!cols"] = [{ wch: 42 }, { wch: 18 }, { wch: 10 }, { wch: 34 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Students");
+  XLSX.utils.book_append_sheet(wb, guide, "Guide");
+  XLSX.writeFile(wb, filename);
+}
 
 export async function downloadSampleTemplate(
   type: BulkUploadType,
@@ -69,88 +139,20 @@ export async function downloadSampleTemplate(
         700,
       ],
     ];
-  } else if (type === "old_students") {
-    filename = `Old_Students_Archive_${targetSessionYear}_Template.xlsx`;
-    wsData = [
-      [
-        "Student Code",
-        "Student Name",
-        "Gender",
-        "Date of Birth",
-        "Academic Year",
-        "Class",
-        "Section",
-        "Roll No",
-        "Status",
-        "Father Name",
-        "Mother Name",
-        "Guardian Contact Number",
-        "Aadhaar Y/N",
-      ],
-      [
-        "BSP-2023-010",
-        "Rahul Sen",
-        "Male",
-        "2008-04-12",
-        targetSessionYear,
-        classForTemplate,
-        secForTemplate,
-        15,
-        "Alumni",
-        "Sunil Sen",
-        "Mita Sen",
-        "9876543210",
-        "Yes",
-      ],
-    ];
   } else {
-    filename = `Current_Students_${targetSessionYear}_Template.xlsx`;
-    const normCls = classForTemplate.toUpperCase().replace(/^CLASS\s*/i, "").trim();
-    const isHsCls = ["XI", "11", "XII", "12"].includes(normCls);
-    const isSecCls = ["IX", "9", "X", "10"].includes(normCls);
-
-    const headers = [
-      "Student Code",
-      "Roll No",
-      "Student Name",
-      "Student DOB",
-      "Academic Year",
-      "Class",
-      "Section",
-      "Father Name",
-      "Mother Name",
-      "Guardian Contact Number",
-      "Student Contact Number",
-      "Bank IFS Code",
-      "Bank A/C number",
-      "Aadhaar Y/N",
-    ];
-    const sampleRow: any[] = [
-      "BSP-2026-101",
-      1,
-      "Rohit Sharma",
-      "2012-05-15",
-      targetSessionYear,
-      classForTemplate,
-      secForTemplate,
-      "Gopal Sharma",
-      "Sita Sharma",
-      "9830012345",
-      "9830012345",
-      "SBIN0001234",
-      "123456789012",
-      "Yes",
-    ];
-
-    if (isHsCls) {
-      headers.push("WBCHSE Reg No", "WBCHSE Roll No");
-      sampleRow.push("19111305602/2024", "123456N 0012");
-    } else if (isSecCls) {
-      headers.push("WBBSE Reg No", "WBBSE Roll No");
-      sampleRow.push("19180201004/2024", "123456N 0012");
-    }
-
-    wsData = [headers, sampleRow];
+    const isOld = type === "old_students";
+    filename = isOld
+      ? `Old_Students_Archive_${targetSessionYear}_Template.xlsx`
+      : `Current_Students_${targetSessionYear}_Template.xlsx`;
+    await writeStudentTemplate(filename, {
+      ...STUDENT_SAMPLE,
+      presentClass: classForTemplate,
+      presentSection: secForTemplate,
+      academicYear: targetSessionYear,
+      admissionYear: targetSessionYear,
+      currentStatus: isOld ? "Passed Out" : "Continuing",
+    });
+    return;
   }
 
   const XLSX = await import("xlsx");

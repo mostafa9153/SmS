@@ -11,12 +11,7 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
   return (
     <div className="rounded-xl border bg-card p-6 space-y-5 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-        <div>
-          <p className="text-sm font-semibold">3. Data Validation & Import Preview</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Review matched data and potential warnings before executing the database write.
-          </p>
-        </div>
+        <p className="text-sm font-semibold">3. Data Validation & Import Preview</p>
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="text-xs">
             Total Std.: {isResultsMode ? mappedResultRows.length : mappedRows.length}
@@ -34,7 +29,11 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
           <TabsTrigger value="preview" className="text-xs">
             Rows Preview ({isResultsMode ? resultPreviewRows.length : previewRows.length})
           </TabsTrigger>
-          <TabsTrigger value="issues" className="text-xs">
+          <TabsTrigger
+            value="issues"
+            className="text-xs"
+            title="Review matched data and potential warnings before executing the database write."
+          >
             Issues & Warnings ({validationIssues.length})
           </TabsTrigger>
         </TabsList>
@@ -42,10 +41,10 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
         {/* Tab 1: Preview Table */}
         <TabsContent value="preview" className="mt-3">
           <div className="rounded-lg border overflow-hidden">
-            <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+            <div className="max-h-[max(350px,calc(100dvh-380px))] overflow-y-auto overflow-x-auto">
               {isResultsMode ? (
                 <table className="w-full min-w-[700px] text-sm">
-                  <thead className="bg-muted/70 sticky top-0 border-b">
+                  <thead className="bg-muted sticky top-0 z-10 border-b">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Student Name / ID</th>
@@ -57,7 +56,7 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {resultPreviewRows.slice(0, 50).map((row, i) => (
+                    {resultPreviewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/30">
                         <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{row.rowNumber}</td>
                         <td className="px-3 py-2 text-xs font-semibold">{row.name || row.schoolId || row.studentUniqueCode}</td>
@@ -78,7 +77,7 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
                 </table>
               ) : (
                 <table className="w-full min-w-[650px] text-sm">
-                  <thead className="bg-muted/70 sticky top-0 border-b">
+                  <thead className="bg-muted sticky top-0 z-10 border-b">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Action</th>
@@ -89,7 +88,7 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {previewRows.slice(0, 50).map((row, i) => (
+                    {previewRows.map((row, i) => (
                       <tr key={i} className="hover:bg-muted/30">
                         <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{row.rowNumber}</td>
                         <td className="px-3 py-2">
@@ -130,9 +129,9 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
             </div>
           ) : (
             <div className="rounded-lg border overflow-hidden">
-              <div className="max-h-[350px] overflow-y-auto">
+              <div className="max-h-[max(350px,calc(100dvh-380px))] overflow-y-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-muted/70 sticky top-0 border-b">
+                  <thead className="bg-muted sticky top-0 z-10 border-b">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Field</th>
