@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { pgContains } from "@/lib/supabase/filters";
 import { type FeeItem, generateInvoiceNumber } from "@/lib/utils/fee-config";
+import { writeWithConcession } from "@/lib/admission/fee-concession";
 
 export interface DBInvoiceRow {
   id: string;
@@ -32,6 +33,10 @@ export interface DBInvoiceRow {
   /** Batch identifier grouping a set of blank slips e.g. "20260912-RKS" */
   batch_id: string | null;
   printed_by: string | null;
+  /** 'full' | 'half' | 'free'; fee_items are already the charged amounts */
+  concession_type?: "full" | "half" | "free" | null;
+  /** Fee structure total before the concession */
+  gross_amount?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +66,8 @@ export interface DBInvoiceInsert {
   assigned_to?: string | null;
   batch_id?: string | null;
   printed_by?: string | null;
+  concession_type?: "full" | "half" | "free" | null;
+  gross_amount?: number | null;
 }
 
 export interface InvoiceStats {
@@ -153,13 +160,15 @@ export async function dbSaveInvoices(invoices: DBInvoiceInsert[]): Promise<{
       assigned_to: inv.assigned_to || null,
       batch_id: inv.batch_id || null,
       printed_by: inv.printed_by || null,
+      // Every row carries both, so a batch upsert never blanks another row's concession
+      concession_type: inv.concession_type || "full",
+      gross_amount: inv.gross_amount ?? null,
       updated_at: new Date().toISOString(),
     }));
 
-    const { data, error } = await supabase
-      .from("admission_invoices")
-      .upsert(rows, { onConflict: "invoice_number" })
-      .select("id");
+    const { data, error } = await writeWithConcession(rows, (r) =>
+      supabase.from("admission_invoices").upsert(r, { onConflict: "invoice_number" }).select("id")
+    );
 
     if (error) {
       console.error("Error saving admission invoices:", error);

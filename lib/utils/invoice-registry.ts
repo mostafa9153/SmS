@@ -125,6 +125,8 @@ function convertInvoicesToInsertPayload(
       invoice_status: isBlank ? "blank_assigned" : "active",
       assigned_to: isBlank && assignedTo ? assignedTo.trim() : null,
       batch_id: batchId,
+      concession_type: inv.concessionType || "full",
+      gross_amount: inv.grossAmount ?? null,
     };
   });
 }

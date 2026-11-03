@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { receiptConflict } from "@/lib/admission/receipt-guard";
 import { rollConflict } from "@/lib/admission/roll-guard";
+import { readFeeCharge, writeWithConcession } from "@/lib/admission/fee-concession";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
 import { parseSchoolId, buildSchoolId } from "@/lib/utils/school-id";
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
       feePaid = true,
       feeAmount,
       paymentReceiptNo,
+      paymentMode,
       photoUrl,
       updatedProfile,
       applicationId,
@@ -34,6 +36,12 @@ export async function POST(req: Request) {
 
     if (!studentId) {
       return NextResponse.json({ error: "studentId is required" }, { status: 400 });
+    }
+
+    // Fee as charged after the concession (Full / Half / Free); null from a client that sends only feeAmount
+    const fee = action === "admit" ? readFeeCharge(body) : null;
+    if (fee && "error" in fee) {
+      return NextResponse.json({ error: fee.error }, { status: 400 });
     }
 
     const supabase = createAdminClient();
@@ -415,11 +423,16 @@ export async function POST(req: Request) {
     dbPromises.push(historyPromise);
 
     // 3. Invoice & Teacher Activity Log
-    const invTotal = Number(feeAmount) || 0;
+    const invTotal = fee ? fee.total : Number(feeAmount) || 0;
+    const requestedMode = typeof paymentMode === "string" && paymentMode.trim() ? paymentMode.trim().slice(0, 40) : "Cash";
+    // "Exempted" only describes a fee of 0; a charged fee keeps a real payment mode
+    const invPaymentMode = requestedMode === "Exempted" && invTotal > 0 ? "Cash" : requestedMode;
+    // Only money actually taken counts as collected
+    const collected = feePaid ? invTotal : 0;
     const invPromise = (async () => {
       try {
         if (paymentReceiptNo && typeof paymentReceiptNo === "string" && paymentReceiptNo.trim()) {
-          await mustWrite(supabase.from("admission_invoices").upsert(
+          await mustWrite(writeWithConcession(
             {
               invoice_number: paymentReceiptNo.trim(),
               academic_session: `${currentYear} – ${currentYear + 1}`,
@@ -434,7 +447,9 @@ export async function POST(req: Request) {
               contact_number: updatePayload.student_contact || student.student_contact || student.alt_mobile || null,
               pen_number: student.pen || null,
               total_amount: invTotal,
-              payment_mode: "Cash",
+              // Items as charged, so a reprint keeps the concession instead of the full preset
+              ...(fee ? { fee_items: fee.items, concession_type: fee.concession, gross_amount: fee.gross } : {}),
+              payment_mode: invPaymentMode,
               payment_status: feePaid ? "Paid" : "Due",
               remarks: `Re-admission Fee (${currentYear})`,
               generator_mode: "single",
@@ -445,7 +460,7 @@ export async function POST(req: Request) {
               collector_name: auth.fullName || "Staff",
               updated_at: new Date().toISOString(),
             },
-            { onConflict: "invoice_number" }
+            (row) => supabase.from("admission_invoices").upsert(row, { onConflict: "invoice_number" })
           ), "admission_invoices upsert");
 
           await mustWrite(supabase.from("teacher_activity_logs").insert({
@@ -457,10 +472,11 @@ export async function POST(req: Request) {
             target_student_name: updatePayload.name || student.name,
             student_class: targetClass,
             section: targetSection,
-            amount_collected: invTotal,
+            amount_collected: collected,
             metadata: {
               receipt_no: paymentReceiptNo.trim(),
               payment_status: feePaid ? "Paid" : "Due",
+              ...(fee ? { concession: fee.concession, gross_amount: fee.gross } : {}),
             },
           }), "teacher_activity_logs insert");
         } else {
@@ -486,20 +502,23 @@ export async function POST(req: Request) {
     // 4. Update online admission application status if present
     if (applicationId) {
       const appUpdatePromise = (async () => {
-        return await supabase
-          .from("admission_applications")
-          .update({
+        return await writeWithConcession(
+          {
             status: "admitted",
             admitted_student_id: student.id,
             admitted_class: targetClass,
             admitted_section: targetSection,
             admitted_roll: targetRoll,
             admitted_at: new Date().toISOString(),
+            // An older client that sends no fee leaves the application's fee as it was
+            ...(fee || feeAmount !== undefined ? { fee_paid: !!feePaid, fee_amount: invTotal } : {}),
+            ...(fee ? { fee_concession: fee.concession, fee_gross_amount: fee.gross } : {}),
             is_transferred_to_active: true,
             transferred_to_active_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          })
-          .eq("id", applicationId);
+          },
+          (row) => supabase.from("admission_applications").update(row).eq("id", applicationId)
+        );
       })();
       dbPromises.push(appUpdatePromise);
     }
@@ -520,6 +539,8 @@ export async function POST(req: Request) {
       targetRoll,
       schoolId: updatePayload.school_id || student.school_id,
       receiptNo: paymentReceiptNo || null,
+      feeAmount: invTotal,
+      feeConcession: fee ? fee.concession : "full",
     });
   } catch (err: any) {
     console.error("Error in re-admission admit:", err);

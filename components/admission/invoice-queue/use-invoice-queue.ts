@@ -164,7 +164,7 @@ export function useInvoiceQueue() {
       presentRoll: app.admittedRoll || app.targetRoll || 1,
       guardianName: app.guardianName || app.fatherName,
       studentContact: app.studentContact || app.altMobile,
-      feeAmount: app.feeAmount || 600,
+      feeAmount: app.feeAmount ?? 600,
       feePaid: app.feePaid !== false,
       paymentReceiptNo: app.paymentReceiptNo,
       admissionSource: "new_admission",
@@ -343,6 +343,9 @@ export function useInvoiceQueue() {
         paymentMode,
         paymentStatus,
         remarks,
+        // Keeps a Half / Free admission's concession when the invoice is printed and saved again
+        concessionType: existing?.concession_type || "full",
+        grossAmount: existing?.gross_amount ?? null,
       };
     });
   }, [

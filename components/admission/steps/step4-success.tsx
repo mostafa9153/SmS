@@ -247,7 +247,11 @@ export function Step4SuccessDialog({
               <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-center">
                 <span className="block text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold">Fee Status</span>
                 <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
-                  {res.totalFee ? `₹${res.totalFee} Paid` : "Paid"}
+                  {res.feeConcession === "free"
+                    ? "Free"
+                    : res.feePaid === false
+                    ? "Due"
+                    : `₹${res.totalFee ?? 0} Paid${res.feeConcession === "half" ? " (Half)" : ""}`}
                 </span>
               </div>
             </div>

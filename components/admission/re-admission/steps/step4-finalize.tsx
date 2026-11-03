@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Camera, User, Receipt, CheckCircle2, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
-import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal, generateInvoiceNumber } from "@/lib/utils/fee-config";
+import { generateInvoiceNumber } from "@/lib/utils/fee-config";
+import { FeeBreakdown, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { normalizeClass } from "@/lib/academic/class-ladder";
 import { Spinner } from "@/components/ui/spinner";
@@ -116,10 +117,9 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
     };
   }, [currentYear]);
 
-  // Fee presets
-  const feeCategory = getFeeCategoryForClass(targetClass);
-  const feeItems = getSavedFeeStructure(feeCategory);
-  const totalFee = calculateFeeTotal(feeItems);
+  // Class fee structure and this student's concession (Full / Half / Free)
+  const { setConcession, structure, charge } = useFeeCharge(targetClass);
+  const isFree = charge.concession === "free";
 
   const handleConfirmAdmission = async () => {
     if (!studentData.id) {
@@ -134,8 +134,9 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
         newClass: targetClass,
         newSection: section,
         newRoll: parseInt(rollNo) || 1,
-        feePaid,
-        feeAmount: totalFee,
+        feePaid: isFree ? true : feePaid,
+        ...feeChargePayload(charge),
+        paymentMode: isFree ? "Exempted" : paymentMode,
         paymentReceiptNo: invoiceNo.trim() || undefined,
         photoUrl: photoUrl || undefined,
         updatedProfile: studentData,
@@ -151,7 +152,8 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
         targetRoll: rollNo,
         schoolId: result.schoolId || studentData.schoolId || studentData.school_id,
         invoiceNo: invoiceNo.trim() || null,
-        feeAmount: totalFee,
+        feeAmount: charge.total,
+        feeConcession: charge.concession,
       });
     } catch (err: any) {
       console.error("Re-admission error:", err);
@@ -256,8 +258,15 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                   <Receipt className="w-4 h-4 text-emerald-600" />
                   <h3 className="text-xs font-bold text-foreground">Re-Admission Fee Collection</h3>
                 </div>
-                <Badge variant="outline" className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30">
-                  ₹{totalFee}
+                <Badge
+                  variant="outline"
+                  className={
+                    !isFree && !feePaid
+                      ? "text-[10px] font-bold text-amber-700 bg-amber-500/10 border-amber-500/30 dark:text-amber-300"
+                      : "text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
+                  }
+                >
+                  {isFree ? "Free" : `₹${charge.total}${charge.concession === "half" ? " · Half" : ""}${feePaid ? "" : " · Due"}`}
                 </Badge>
               </div>
 
@@ -274,7 +283,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
 
                 <div className="space-y-1">
                   <label className="text-[11px] font-semibold text-muted-foreground">Payment Mode</label>
-                  <Select value={paymentMode} onValueChange={(v) => v && setPaymentMode(v)}>
+                  <Select value={isFree ? "Exempted" : paymentMode} onValueChange={(v) => v && setPaymentMode(v)} disabled={isFree}>
                     <SelectTrigger className="h-8 text-xs font-semibold">
                       <SelectValue />
                     </SelectTrigger>
@@ -282,7 +291,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                       <SelectItem value="Cash" className="text-xs">Cash</SelectItem>
                       <SelectItem value="UPI" className="text-xs">UPI</SelectItem>
                       <SelectItem value="Bank Transfer" className="text-xs">Bank Transfer</SelectItem>
-                      <SelectItem value="Exempted" className="text-xs">Exempted</SelectItem>
+                      {isFree && <SelectItem value="Exempted" className="text-xs">Exempted</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -290,7 +299,8 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                 <div className="pt-4 flex items-center space-x-2">
                   <Checkbox
                     id="feePaid"
-                    checked={feePaid}
+                    disabled={isFree}
+                    checked={isFree || feePaid}
                     onCheckedChange={(checked) => setFeePaid(!!checked)}
                   />
                   <label
@@ -301,6 +311,8 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                   </label>
                 </div>
               </div>
+
+              <FeeBreakdown structure={structure} charge={charge} onConcessionChange={setConcession} />
             </CardContent>
           </Card>
         </div>

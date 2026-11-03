@@ -1,5 +1,5 @@
 import { DBInvoiceRow } from "@/lib/supabase/db-invoices";
-import { type InvoiceData, DEFAULT_FEE_ITEMS } from "@/lib/utils/fee-config";
+import { type InvoiceData, getFeeCategoryForClass, getSavedFeeStructure } from "@/lib/utils/fee-config";
 import { currentYearIST } from "@/lib/utils/academic-year";
 
 
@@ -21,10 +21,12 @@ export function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
     feeItems:
       Array.isArray(inv.fee_items) && inv.fee_items.length > 0
         ? inv.fee_items
-        : DEFAULT_FEE_ITEMS,
+        : getSavedFeeStructure(getFeeCategoryForClass(inv.student_class)),
     paymentMode: (inv.payment_mode as any) || "Cash",
     paymentStatus: (inv.payment_status as any) || "Paid",
     remarks: inv.remarks || undefined,
+    concessionType: inv.concession_type || "full",
+    grossAmount: inv.gross_amount ?? null,
   };
 }
 

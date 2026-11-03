@@ -4,6 +4,15 @@ import type {
   Student,
 } from "@/lib/types";
 import { apiFetch, ApiError } from "@/lib/api/client";
+import type { FeeConcession } from "@/lib/admission/fee-concession";
+import type { FeeItem } from "@/lib/utils/fee-config";
+
+/** Fee as charged after the concession; see feeChargePayload */
+interface FeeChargeFields {
+  feeItems?: FeeItem[];
+  feeConcession?: FeeConcession;
+  feeGrossAmount?: number;
+}
 import { currentYearIST } from "@/lib/utils/academic-year";
 
 export async function getAdmissionApplications(filters?: {
@@ -65,7 +74,7 @@ export async function admitNewStudentApplication(
     kanyashreeId?: string;
     verifiedDocuments?: string[];
     forceReAdmit?: boolean;
-  }
+  } & FeeChargeFields
 ): Promise<{
   success: boolean;
   applicationId: string;
@@ -180,11 +189,12 @@ export async function updateReAdmissionStatus(
     feePaid?: boolean;
     feeAmount?: number;
     paymentReceiptNo?: string;
+    paymentMode?: string;
     photoUrl?: string;
     updatedProfile?: Record<string, any>;
     applicationId?: string;
-  }
-): Promise<{ success: boolean; student: Student; message?: string; targetClass?: string; targetSection?: string; targetRoll?: number; schoolId?: string; receiptNo?: string }> {
+  } & FeeChargeFields
+): Promise<{ success: boolean; student: Student; message?: string; targetClass?: string; targetSection?: string; targetRoll?: number; schoolId?: string; receiptNo?: string; feeAmount?: number; feeConcession?: FeeConcession }> {
   return apiFetch("/api/admission/re-admission/admit", { method: "POST", json: { studentId, ...payload }, raw: true });
 }
 

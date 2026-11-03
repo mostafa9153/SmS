@@ -33,6 +33,10 @@ export interface InvoiceData {
   paymentStatus: "Paid" | "Partial" | "Due";
   remarks?: string;
   includeDigitalSignature?: boolean;
+  /** Admission fee concession; feeItems are already the charged amounts */
+  concessionType?: "full" | "half" | "free";
+  /** Fee structure total before the concession */
+  grossAmount?: number | null;
 }
 
 /**
