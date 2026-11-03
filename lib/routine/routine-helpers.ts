@@ -668,6 +668,8 @@ type GroupPeriodShape = {
   periodsPerWeek: number;
   periodSize: 1 | 2;
   sectionIds?: string[];
+  /** derived Common block: every stream section sits in the same slot with one teacher */
+  combined?: boolean;
 };
 
 /** The slot a group occupies in each of its sections; this is what counts against class capacity. */
@@ -678,11 +680,12 @@ export function groupSlotPeriods(g: { periodsPerWeek: number; periodSize: 1 | 2 
 /**
  * Teacher periods a group needs per week, all sections together. Every option has its own teacher,
  * so a class-wise group (one shared slot) costs options x slot, and a section-wise group costs
- * that once per section. This is the number the Teachers tab allots against.
+ * that once per section. A combined Common block is taught once to all its sections, like a
+ * class-wise group. This is the number the Teachers tab allots against.
  */
 export function groupTotalPeriods(g: GroupPeriodShape): number {
   const sections = Math.max(1, g.sectionIds?.length ?? 1);
-  const units = isPooledGroup(g.scope) ? 1 : sections;
+  const units = isPooledGroup(g.scope) || g.combined ? 1 : sections;
   return Math.max(1, g.options.length) * groupSlotPeriods(g) * units;
 }
 
@@ -693,21 +696,31 @@ export function groupTotalPeriods(g: GroupPeriodShape): number {
 export function groupExtraPeriods(g: GroupPeriodShape): number {
   const sections = Math.max(1, g.sectionIds?.length ?? 1);
   const slot = groupSlotPeriods(g);
+  if (g.combined) return 0;
   if (!isPooledGroup(g.scope)) return Math.max(0, g.options.length - 1) * slot;
   return Math.max(0, Math.round((groupTotalPeriods(g) - slot * sections) / sections));
 }
 
-/** Group share of the school-wide demand, split into slots (capacity) and extra option periods. */
+/**
+ * Group share of the school-wide demand, split into slots (capacity) and extra option periods.
+ * Combined Common blocks fill a slot in every section but need one teacher period: the periods
+ * those sections share are `shared`. Teacher-period total = slots + extra − shared.
+ */
 export function calculateSchoolGroupDemand(
   groups: Array<GroupPeriodShape & { sectionIds: string[] }>
-): { slots: number; extra: number } {
+): { slots: number; extra: number; shared: number; total: number } {
   let slots = 0;
-  let total = 0;
+  let extra = 0;
+  let shared = 0;
   for (const g of groups) {
-    slots += groupSlotPeriods(g) * g.sectionIds.length;
-    total += g.sectionIds.length > 0 ? groupTotalPeriods(g) : 0;
+    if (g.sectionIds.length === 0) continue;
+    const gSlots = groupSlotPeriods(g) * g.sectionIds.length;
+    const diff = groupTotalPeriods(g) - gSlots;
+    slots += gSlots;
+    if (diff >= 0) extra += diff;
+    else shared -= diff;
   }
-  return { slots, extra: total - slots };
+  return { slots, extra, shared, total: slots + extra - shared };
 }
 
 /**
@@ -722,6 +735,7 @@ export function calculateTotalSchoolSectionDemand(
     options: Array<{ subjectId: string }>;
     periodsPerWeek: number;
     periodSize: 1 | 2;
+    combined?: boolean;
   }>
 ): number {
   if (!classes || classes.length === 0) {

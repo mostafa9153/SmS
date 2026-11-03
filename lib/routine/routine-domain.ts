@@ -31,7 +31,7 @@ export { isPooledGroup };
 
 /**
  * Teacher periods a group costs per week. Each option teacher teaches once per unit: one unit
- * for a class-wise group, one per section for a section-wise group.
+ * for a class-wise group or a combined Common block, one per section for a section-wise group.
  */
 export const groupTeacherLoad = (g: {
   scope: string;
@@ -39,19 +39,23 @@ export const groupTeacherLoad = (g: {
   options: unknown[];
   periodsPerWeek: number;
   periodSize: 1 | 2;
+  combined?: boolean;
 }): number =>
   g.options.length *
-  (isPooledGroup(g.scope) ? 1 : Math.max(1, g.sectionIds.length)) *
+  (isPooledGroup(g.scope) || g.combined ? 1 : Math.max(1, g.sectionIds.length)) *
   Math.max(0, g.periodsPerWeek) *
   (g.periodSize === 2 ? 2 : 1);
 
 /**
- * "ordinary + group slots = capacity load [+ extra option periods = total]". The slots part is
- * what fits in class capacity; the extra part is the remaining group periods to assign.
+ * "ordinary + group slots = capacity load [+ extra option periods] [− shared combined periods] = total".
+ * The slots part is what fits in class capacity; extra is the remaining group periods to assign;
+ * shared is what combined Common blocks save (several sections, one teacher period).
  */
-export const formatDemandBreakdown = (ordinary: number, slots: number, extra: number): string => {
+export const formatDemandBreakdown = (ordinary: number, slots: number, extra: number, shared = 0): string => {
   const base = `${ordinary} + ${slots} = ${ordinary + slots}`;
-  return extra > 0 ? `${base} + ${extra} = ${ordinary + slots + extra}` : base;
+  if (extra === 0 && shared === 0) return base;
+  const tail = `${extra > 0 ? ` + ${extra}` : ""}${shared > 0 ? ` − ${shared}` : ""}`;
+  return `${base}${tail} = ${ordinary + slots + extra - shared}`;
 };
 
 /**

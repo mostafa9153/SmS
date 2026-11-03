@@ -62,3 +62,24 @@ describe("combined Common subjects", () => {
     expect(out).toHaveLength(0);
   });
 });
+
+describe("combined Common demand", () => {
+  it("counts a combined block once in teacher-period demand, matching the teacher load", async () => {
+    const { calculateTotalSchoolSectionDemand, calculateSchoolGroupDemand, calculateTotalTeacherAllottedWorkload } = await import("@/lib/routine/routine-helpers");
+    const t = [teacher("t1", ["A (Science)", "A (Arts)", "A (Commerce)"])];
+    const groups = deriveCombinedCommonGroups(classes, subjects, t);
+    const demand = calculateTotalSchoolSectionDemand(classes, subjects, groups);
+    const { slots, extra, shared, total } = calculateSchoolGroupDemand(groups);
+    expect(slots).toBe(18);
+    expect(extra).toBe(0);
+    expect(shared).toBe(12);
+    // Bengali is in the demand once (6), not once per stream section (18)
+    expect(total).toBe(6);
+    expect(demand).toBeLessThan(18 + 6);
+    expect(calculateTotalTeacherAllottedWorkload(t, classes, subjects, groups).totalWorkload).toBe(6);
+    const { formatDemandBreakdown, groupTeacherLoad } = await import("@/lib/routine/routine-domain");
+    expect(formatDemandBreakdown(0, slots, extra, shared)).toBe("0 + 18 = 18 − 12 = 6");
+    expect(formatDemandBreakdown(499, 104, 20, 48)).toBe("499 + 104 = 603 + 20 − 48 = 575");
+    expect(groupTeacherLoad(groups[0])).toBe(6);
+  });
+});

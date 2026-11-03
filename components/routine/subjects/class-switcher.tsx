@@ -19,7 +19,7 @@ export function ClassSwitcher({ tab }: { tab: RoutineSubjectsState }) {
           <School className="w-4 h-4 text-primary" />
           <span className="text-xs font-semibold text-foreground">Classes</span>
           <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground border-border/80 font-bold">
-            {formatDemandBreakdown(totalSchoolOrdinaryDemand, totalSchoolGroupDemand.slots, totalSchoolGroupDemand.extra)} p/wk Total Demand {classes && classes.length > 0 ? `(${classes.length} Sections)` : ""}
+            {formatDemandBreakdown(totalSchoolOrdinaryDemand, totalSchoolGroupDemand.slots, totalSchoolGroupDemand.extra, totalSchoolGroupDemand.shared)} p/wk Total Demand {classes && classes.length > 0 ? `(${classes.length} Sections)` : ""}
           </Badge>
         </div>
 

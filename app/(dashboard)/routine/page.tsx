@@ -503,9 +503,10 @@ function RoutineSetupPageContent() {
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-base font-bold text-foreground font-mono">
               {formatDemandBreakdown(
-                totalSchoolDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra,
+                totalSchoolDemand - totalSchoolGroupDemand.total,
                 totalSchoolGroupDemand.slots,
-                totalSchoolGroupDemand.extra
+                totalSchoolGroupDemand.extra,
+                totalSchoolGroupDemand.shared
               )} p/wk
             </span>
           </div>

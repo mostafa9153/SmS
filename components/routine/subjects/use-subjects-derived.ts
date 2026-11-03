@@ -200,7 +200,7 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
   );
   const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
   const totalSchoolOrdinaryDemand =
-    totalSchoolSectionDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra;
+    totalSchoolSectionDemand - totalSchoolGroupDemand.total;
 
   // Specific class sections and their combined period load
   const activeClassSections = useMemo(() => {
