@@ -1,5 +1,6 @@
 import type { ColumnMapping, Student } from "@/lib/types";
 import { TARGET_FIELDS, type FieldDefinition } from "./fields";
+import { UDISE_SDMS_HEADERS } from "./presets";
 
 /**
  * Auto-suggests column mappings based on prioritized fuzzy matching.
@@ -121,11 +122,27 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     ...allTargetKeys.filter((k) => !PRIORITY_KEYS.includes(k)),
   ];
 
+  // A UDISE+ SDMS export is recognised by its headers and mapped column by column
+  const sdms = new Map(Object.entries(UDISE_SDMS_HEADERS).map(([h, k]) => [clean(h), k]));
+  const SDMS_ONLY = ["initialised at sdms", "student state code", "apaar status", "aadhaar validation status", "is repeater", "entry status"];
+  const cleanHeaders = new Set(headers.map(clean));
+  const isSdms = SDMS_ONLY.filter((h) => cleanHeaders.has(h)).length >= 3;
+
+  // How sure each match is (0 = known export, 1 = exact, 2 = word edge, 3 = partial); one column per field
+  const strength: Record<string, number> = {};
+
   for (const rawHeader of headers) {
     const cleanHeader = clean(rawHeader);
     let bestMatch: keyof Student | "ignore" = "ignore";
 
+    if (isSdms && sdms.has(cleanHeader)) {
+      mapping[rawHeader] = sdms.get(cleanHeader)!;
+      strength[rawHeader] = 0;
+      continue;
+    }
+
     // Pass 1: Direct EXACT match across all fields (highest confidence)
+    strength[rawHeader] = 1;
     for (const key of orderedKeys) {
       const field = fieldMap.get(key);
       if (!field) continue;
@@ -146,6 +163,7 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
 
     // Pass 2: Word-boundary start/end match (prioritize specific multi-word fields)
     if (bestMatch === "ignore") {
+      strength[rawHeader] = 2;
       for (const key of orderedKeys) {
         const field = fieldMap.get(key);
         if (!field) continue;
@@ -153,6 +171,7 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
         // Skip prefix match if it would misclassify specific fields
         if (key === "motherName" && cleanHeader.includes("tongue")) continue;
         if (key === "fatherName" && cleanHeader.includes("income")) continue;
+        if (key === "studentContact" && cleanHeader.includes("email")) continue;
         if (key === "isCwsn" && (cleanHeader.includes("type") || cleanHeader.includes("nature") || cleanHeader.includes("impairment"))) continue;
         if (key === "admissionNo" && cleanHeader.includes("date")) continue;
 
@@ -174,6 +193,7 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
 
     // Pass 3: Fallback partial contains check in priority order
     if (bestMatch === "ignore") {
+      strength[rawHeader] = 3;
       for (const key of orderedKeys) {
         const field = fieldMap.get(key);
         if (!field) continue;
@@ -188,6 +208,7 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
           continue;
         }
         if (key === "motherName" && cleanHeader.includes("tongue")) continue;
+        if (key === "studentContact" && cleanHeader.includes("email")) continue;
         if (key === "isCwsn" && (cleanHeader.includes("type") || cleanHeader.includes("nature") || cleanHeader.includes("impairment"))) continue;
         if (key === "admissionNo" && cleanHeader.includes("date")) continue;
 
@@ -205,6 +226,21 @@ export function autoSuggestMapping(headers: string[]): ColumnMapping {
     }
 
     mapping[rawHeader] = bestMatch;
+  }
+
+  // Two columns on one field would overwrite each other ("Class" then "...Previous Class..."):
+  // the surest match keeps it (the leftmost on a tie), the rest are ignored
+  const owner = new Map<string, string>();
+  for (const h of headers) {
+    const key = mapping[h];
+    if (!key || key === "ignore") continue;
+    const cur = owner.get(key);
+    if (cur === undefined || strength[h] < strength[cur]) {
+      if (cur !== undefined) mapping[cur] = "ignore";
+      owner.set(key, h);
+    } else {
+      mapping[h] = "ignore";
+    }
   }
 
   return mapping;

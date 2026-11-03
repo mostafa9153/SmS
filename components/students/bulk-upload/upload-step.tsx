@@ -7,6 +7,7 @@ import { CustomSelect } from "@/components/ui/custom-select";
 import { StudentStatus } from "@/lib/types";
 import { Spinner } from "@/components/ui/spinner";
 import type { BulkUploadState } from "./use-bulk-upload";
+import { ExistingOptions } from "./existing-options";
 
 const CLASSES = ["V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
 
@@ -192,6 +193,7 @@ export function UploadStep({ bulk }: { bulk: BulkUploadState }) {
                 />
               </div>
             </div>
+            <ExistingOptions bulk={bulk} />
           </div>
         ) : (
           /* Result Specific Configuration */

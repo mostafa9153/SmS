@@ -3,6 +3,15 @@ import type { StudentStatus } from "@/lib/types";
 /**
  * Normalizes date inputs from Excel formats (e.g. DD/MM/YYYY, YYYY-MM-DD, Excel Serial) to ISO "YYYY-MM-DD".
  */
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/** "15" -> 2015, "98" -> 1998: a two-digit year past this year is last century */
+function fullYear(y: string): number {
+  if (y.length === 4) return Number(y);
+  const n = Number(y);
+  return n <= new Date().getFullYear() % 100 ? 2000 + n : 1900 + n;
+}
+
 export function normalizeDate(value: any): string {
   if (!value) return "";
   // Excel serial date number
@@ -21,13 +30,18 @@ export function normalizeDate(value: any): string {
         return date.toISOString().split("T")[0];
       }
     }
-    // DD/MM/YYYY or DD-MM-YYYY
-    const ddmmyyyy = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+    // DD/MM/YYYY, DD-MM-YY, DD.MM.YYYY (MM/DD when the second part cannot be a month)
+    const ddmmyyyy = trimmed.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4}|\d{2})$/);
     if (ddmmyyyy) {
-      const day = ddmmyyyy[1].padStart(2, "0");
-      const month = ddmmyyyy[2].padStart(2, "0");
-      const year = ddmmyyyy[3];
-      return `${year}-${month}-${day}`;
+      let [day, month] = [Number(ddmmyyyy[1]), Number(ddmmyyyy[2])];
+      if (month > 12 && day <= 12) [day, month] = [month, day];
+      return `${fullYear(ddmmyyyy[3])}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    // 06-Aug-2015, 6 August 2015
+    const named = trimmed.match(/^(\d{1,2})[\s/.-]*([A-Za-z]{3,9})[\s/.,-]*(\d{4}|\d{2})$/);
+    const monthIdx = named ? MONTHS.indexOf(named[2].slice(0, 3).toLowerCase()) : -1;
+    if (named && monthIdx >= 0) {
+      return `${fullYear(named[3])}-${String(monthIdx + 1).padStart(2, "0")}-${named[1].padStart(2, "0")}`;
     }
     // YYYY-MM-DD
     const yyyymmdd = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})$/);
@@ -146,16 +160,55 @@ export function normalizeSocialCategory(val: any): string {
 }
 
 /**
- * Normalizes Class into standard Roman/String format.
+ * A valid ISO date ("YYYY-MM-DD") from any accepted date input, or "" when the cell is not a date
+ * ("NA", "In earlier academic year"). The database rejects anything else.
+ */
+export function toIsoDate(value: any): string {
+  const iso = normalizeDate(value);
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  const d = new Date(`${iso}T00:00:00Z`);
+  return !isNaN(d.getTime()) && d.getUTCDate() === Number(m[3]) ? iso : "";
+}
+
+const ROMAN_CLASSES = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const CLASS_WORDS: Record<string, number> = {
+  ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6, SEVEN: 7, EIGHT: 8, NINE: 9, TEN: 10, ELEVEN: 11, TWELVE: 12,
+  FIRST: 1, SECOND: 2, THIRD: 3, FOURTH: 4, FIFTH: 5, SIXTH: 6, SEVENTH: 7, EIGHTH: 8, NINTH: 9, TENTH: 10, ELEVENTH: 11, TWELFTH: 12,
+};
+const BENGALI_DIGITS = "০১২৩৪৫৬৭৮৯";
+
+/**
+ * Reads a class and an optional section from one cell, as a number or Roman numeral:
+ * "5", "05", "5.0", "5th", "Class-5", "Std V", "Five", "VI-A", "6 (B)", "IX A", "৭".
+ * The class is "" when the cell cannot be read.
+ */
+export function splitClassSection(val: any): { cls: string; section?: string } {
+  let str = String(val ?? "")
+    .replace(/[০-৯]/g, (d) => String(BENGALI_DIGITS.indexOf(d)))
+    .toUpperCase()
+    .trim();
+  str = str.replace(/^(CLASS|STD|STANDARD|GRADE)\b\.?\s*[:\-]?\s*/, "").trim();
+
+  // class, then an optional one-letter section or a stream word ("XI ARTS")
+  const m = str.match(
+    /^(?:(\d{1,2})(?:\.0+)?(?:ST|ND|RD|TH)?|([IVX]{1,4})|([A-Z]{3,}))(?:\s*[-/(.:,]?\s*(?:([A-Z])|[A-Z]{2,})\)?)?$/
+  );
+  if (!m) return { cls: "" };
+  let n: number | undefined;
+  if (m[1]) n = Number(m[1]);
+  else if (m[2]) n = ROMAN_CLASSES.indexOf(m[2]) + 1;
+  else n = CLASS_WORDS[m[3]];
+  if (!n || n < 1 || n > 12) return { cls: "" };
+  return { cls: ROMAN_CLASSES[n - 1], section: m[4] };
+}
+
+/**
+ * Normalizes Class into standard Roman format ("5", "Class 5", "V" -> "V"). An unreadable class is
+ * returned as it was, so callers can tell it apart.
  */
 export function normalizeClass(val: any): string {
-  const str = String(val || "").trim().toUpperCase();
-  const romanMap: Record<string, string> = {
-    "5": "V", "6": "VI", "7": "VII", "8": "VIII", "9": "IX", "10": "X", "11": "XI", "12": "XII",
-    "CLASS 5": "V", "CLASS 6": "VI", "CLASS 7": "VII", "CLASS 8": "VIII", "CLASS 9": "IX", "CLASS 10": "X", "CLASS 11": "XI", "CLASS 12": "XII",
-    "CLASS V": "V", "CLASS VI": "VI", "CLASS VII": "VII", "CLASS VIII": "VIII", "CLASS IX": "IX", "CLASS X": "X", "CLASS XI": "XI", "CLASS XII": "XII",
-  };
-  return romanMap[str] || str;
+  return splitClassSection(val).cls || String(val || "").trim().toUpperCase();
 }
 
 /**

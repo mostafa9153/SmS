@@ -289,11 +289,12 @@ describe("validateMappedRows", () => {
     expect(previewRows.map((r) => r.action)).toEqual(["update", "update", "create"]);
     expect(previewRows[0].rowNumber).toBe(2);
     expect(issues.find((i) => i.field === "pen" && i.severity === "error")?.row).toBe(3);
-    expect(issues.find((i) => i.field === "aadhaar" && i.severity === "warning")?.row).toBe(3);
+    // A repeated identifier would update one student twice: the later row is skipped
+    expect(issues.find((i) => i.field === "aadhaar" && i.severity === "error")?.row).toBe(3);
     expect(issues.find((i) => i.field === "name")?.row).toBe(4);
     expect(issues.find((i) => i.field === "dob" && i.row === 4)?.severity).toBe("warning");
     expect(previewRows[1].errors).toContain("Duplicate PEN");
-    expect(previewRows[2].presentClass).toBe("V");
+    expect(previewRows[2].presentClass).toBe(""); // no class is shown as missing, never guessed
     expect(previewRows[2].name).toBe("Unknown");
   });
 

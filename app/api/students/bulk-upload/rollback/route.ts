@@ -2,10 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dbRollbackBatch } from "@/lib/supabase/db-bulk-upload";
+import { requireRole } from "@/lib/api/guard";
+
+export const maxDuration = 60;
 
 // POST /api/students/bulk-upload/rollback - Undo / Delete a bulk upload batch
+// undo: n/a — this route is the undo of a bulk upload batch; the dialog confirms first
 export async function POST(req: Request) {
   try {
+    const gate = await requireRole(["Admin"]);
+    if (!gate.ok) return gate.response;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {

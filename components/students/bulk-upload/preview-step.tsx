@@ -5,9 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Spinner } from "@/components/ui/spinner";
 import type { BulkUploadState } from "./use-bulk-upload";
+import { ImportOutcome, ImportProgressPanel, MatchedStudent, RowAction } from "./import-outcome";
 
 export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
-  const { errorIssues, isImporting, isResultsMode, mappedResultRows, mappedRows, previewRows, resultPreviewRows, resultsImportMutation, setStep, studentImportMutation, validationIssues } = bulk;
+  const { createNew, updateMode, dryRun, errorIssues, importPlan, importProgress, isImporting, isResultsMode, mappedResultRows, mappedRows, previewRows, resultPreviewRows, resultsImportMutation, setStep, startStudentImport, stopImport, validationIssues } = bulk;
+  const checking = dryRun.status === "loading";
+  // The dry run also catches two rows of one student in different chunks, so import waits for it
+  const canImport = isResultsMode ? errorIssues.length === 0 : importPlan.send.length > 0 && dryRun.status === "ready";
   return (
     <div className="rounded-xl border bg-card p-6 space-y-5 shadow-xs">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
@@ -24,6 +28,11 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
         </div>
       </div>
 
+      {!isResultsMode && !importProgress && <ImportOutcome bulk={bulk} />}
+
+      {importProgress ? (
+        <ImportProgressPanel progress={importProgress} onStop={stopImport} />
+      ) : (
       <Tabs defaultValue="preview" className="w-full">
         <TabsList className="bg-muted/60">
           <TabsTrigger value="preview" className="text-xs">
@@ -82,7 +91,8 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Row</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Action</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Student Name</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">School ID / PEN</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">ID</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Existing Student</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Class & Roll</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Validation</th>
                     </tr>
@@ -92,15 +102,17 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
                       <tr key={i} className="hover:bg-muted/30">
                         <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{row.rowNumber}</td>
                         <td className="px-3 py-2">
-                          {row.action === "update" ? (
-                            <Badge className="bg-sky-100 text-sky-800 border-sky-200 text-[10px]">Update</Badge>
-                          ) : (
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">New</Badge>
-                          )}
+                          <RowAction d={dryRun.rows.get(row.rowNumber)} hasErrors={(row.errors?.length ?? 0) > 0} createNew={createNew} skipExisting={updateMode === "skip"} loading={checking} />
                         </td>
                         <td className="px-3 py-2 text-xs font-semibold">{row.name}</td>
-                        <td className="px-3 py-2 text-xs font-mono">{row.schoolId || row.pen || "Auto-Generated"}</td>
-                        <td className="px-3 py-2 text-xs">Class {row.presentClass} - {row.presentSection} (#{row.presentRoll})</td>
+                        <td className="px-3 py-2 text-xs font-mono">{row.pen || row.data.studentUniqueCode || row.schoolId || "—"}</td>
+                        <td className="px-3 py-2 text-xs">
+                          <MatchedStudent d={dryRun.rows.get(row.rowNumber)} />
+                        </td>
+                        <td className="px-3 py-2 text-xs">
+                          {row.presentClass ? `${row.presentClass}${row.presentSection ? `-${row.presentSection}` : ""}` : "—"}
+                          {row.presentRoll ? ` · #${row.presentRoll}` : ""}
+                        </td>
                         <td className="px-3 py-2">
                           {(row.errors && row.errors.length > 0) ? (
                             <Badge variant="destructive" className="text-[10px]">Error</Badge>
@@ -161,12 +173,14 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
           )}
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Navigation */}
       <div className="flex items-center justify-between pt-2">
         <button
           onClick={() => setStep(2)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          disabled={isImporting}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Mapping
         </button>
@@ -175,20 +189,20 @@ export function PreviewStep({ bulk }: { bulk: BulkUploadState }) {
             if (isResultsMode) {
               resultsImportMutation.mutate(mappedResultRows);
             } else {
-              studentImportMutation.mutate(mappedRows);
+              startStudentImport();
             }
           }}
-          disabled={isImporting || errorIssues.length > 0}
+          disabled={isImporting || !canImport}
           className="flex items-center gap-2 rounded-md bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm"
         >
           {isImporting ? (
             <>
               <Spinner className="h-4 w-4" />
-              Importing into Database…
+              Importing…
             </>
           ) : (
             <>
-              Confirm & Run Bulk Import <ArrowRight className="h-4 w-4" />
+              {isResultsMode ? "Confirm & Run Bulk Import" : `Import ${importPlan.send.length.toLocaleString()} Rows`} <ArrowRight className="h-4 w-4" />
             </>
           )}
         </button>
