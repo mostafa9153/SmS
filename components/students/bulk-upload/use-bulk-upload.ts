@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { currentYearIST, sessionYears } from "@/lib/utils/academic-year";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -29,23 +29,16 @@ export function useBulkUpload() {
   // Wizard State with URL synchronization
   const stepParam = searchParams.get("step");
   const initialStep = stepParam ? Math.min(Math.max(parseInt(stepParam, 10) || 1, 1), 4) : 1;
-  const [step, setStepState] = useState(initialStep);
+  const [step, setStep] = useState(initialStep);
 
-  const setStep = (newStep: number | ((prev: number) => number)) => {
-    setStepState((prev) => {
-      const nextStep = typeof newStep === "function" ? newStep(prev) : newStep;
-      if (typeof window !== "undefined") {
-        const url = new URL(window.location.href);
-        if (nextStep === 1) {
-          url.searchParams.delete("step");
-        } else {
-          url.searchParams.set("step", String(nextStep));
-        }
-        window.history.replaceState(null, "", url.toString());
-      }
-      return nextStep;
-    });
-  };
+  // Keep ?step= in the URL. Done in an effect: replaceState inside a state updater runs during
+  // render and updates Next's Router mid-render.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (step === 1) url.searchParams.delete("step");
+    else url.searchParams.set("step", String(step));
+    if (url.toString() !== window.location.href) window.history.replaceState(window.history.state, "", url.toString());
+  }, [step]);
   const { addNotification } = useNotifications();
   const [uploadType, setUploadType] = useState<BulkUploadType>("current_students");
   const [file, setFile] = useState<File | null>(null);
