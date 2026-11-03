@@ -496,7 +496,7 @@ export async function POST(req: Request) {
             admitted_roll: targetRoll,
             admitted_at: new Date().toISOString(),
             is_transferred_to_active: true,
-            transferred_at: new Date().toISOString(),
+            transferred_to_active_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq("id", applicationId);

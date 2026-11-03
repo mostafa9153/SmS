@@ -13,7 +13,7 @@ const client = (tables: Record<string, Rows | Error>) =>
       const builder: Record<string, unknown> = {
         then: (resolve: (r: unknown) => unknown) => resolve(result),
       };
-      for (const m of ["select", "eq", "neq", "limit"]) builder[m] = () => builder;
+      for (const m of ["select", "eq", "neq", "is", "limit"]) builder[m] = () => builder;
       return builder;
     },
   }) as unknown as SupabaseClient;
