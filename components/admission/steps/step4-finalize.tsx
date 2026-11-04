@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";
 import { FeeBreakdown, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
+import { RollTakenNote, useRollCheck } from "@/components/admission/roll-check";
 import { concessionLabel } from "@/lib/admission/fee-concession";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
@@ -139,8 +140,20 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
     reader.readAsDataURL(file);
   };
 
+  const rollCheck = useRollCheck({
+    className: targetClass,
+    section,
+    roll: rollNo,
+    academicYear: currentYear,
+    excludeApplicationId: appData?.id,
+  });
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    if (rollCheck.taken) {
+      toast.error(rollCheck.taken);
+      return;
+    }
     setIsSubmitting(true);
     try {
       let appId = appData?.id;
@@ -326,12 +339,18 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                   <Badge variant="outline" className="font-normal text-xs bg-blue-50 text-blue-700 border-blue-200">Auto-calculated</Badge>
                 </label>
                 <div className="flex gap-2">
-                  <Input value={rollNo} onChange={e => setRollNo(e.target.value)} className="w-24 text-center font-mono font-bold text-lg" />
+                  <Input
+                    value={rollNo}
+                    onChange={e => setRollNo(e.target.value)}
+                    aria-invalid={Boolean(rollCheck.taken)}
+                    className="w-24 text-center font-mono font-bold text-lg aria-invalid:border-rose-500"
+                  />
                   <div className="flex-1 bg-muted/50 rounded-md flex items-center px-3 text-xs text-muted-foreground gap-1.5">
                     <Info className="w-3.5 h-3.5 text-primary shrink-0" />
                     Next available roll in {targetClass}-{section}
                   </div>
                 </div>
+                <RollTakenNote taken={rollCheck.taken} nextRoll={rollCheck.nextRoll} onUse={(r) => setRollNo(String(r).padStart(2, "0"))} />
               </div>
             </CardContent>
           </Card>
@@ -489,7 +508,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
           <Button 
             className="w-full h-14 text-lg font-bold gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || Boolean(rollCheck.taken)}
           >
             {isSubmitting ? "Finalizing..." : (
               <>

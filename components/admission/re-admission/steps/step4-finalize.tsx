@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { generateInvoiceNumber } from "@/lib/utils/fee-config";
 import { FeeBreakdown, concessionChip, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
+import { RollTakenNote, useRollCheck } from "@/components/admission/roll-check";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { normalizeClass } from "@/lib/academic/class-ladder";
 import { Spinner } from "@/components/ui/spinner";
@@ -122,9 +123,22 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
   const { charge } = fee;
   const isFree = charge.concession === "free";
 
+  const rollCheck = useRollCheck({
+    className: targetClass,
+    section,
+    roll: rollNo,
+    academicYear: String(currentYear),
+    excludeStudentId: studentData.id,
+    excludeApplicationId: studentData.applicationId,
+  });
+
   const handleConfirmAdmission = async () => {
     if (!studentData.id) {
       toast.error("Student ID missing");
+      return;
+    }
+    if (rollCheck.taken) {
+      toast.error(rollCheck.taken);
       return;
     }
 
@@ -180,7 +194,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
 
         <Button
           onClick={handleConfirmAdmission}
-          disabled={isSubmitting}
+          disabled={isSubmitting || Boolean(rollCheck.taken)}
           size="sm"
           className="h-8 px-4 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
         >
@@ -245,8 +259,10 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                     type="number"
                     value={rollNo}
                     onChange={(e) => setRollNo(e.target.value)}
-                    className="h-8 text-xs font-bold text-primary"
+                    aria-invalid={Boolean(rollCheck.taken)}
+                    className="h-8 text-xs font-bold text-primary aria-invalid:border-rose-500"
                   />
+                  <RollTakenNote taken={rollCheck.taken} nextRoll={rollCheck.nextRoll} onUse={(r) => setRollNo(String(r))} />
                 </div>
               </div>
             </CardContent>

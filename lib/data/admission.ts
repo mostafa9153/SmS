@@ -107,6 +107,23 @@ export async function getNextAvailableRoll(
   return Number(data.nextRoll) || 1;
 }
 
+/** Whether a roll is free in a class-section, and the next free one; `taken` names who holds it. */
+export async function checkRoll(params: {
+  className: string;
+  section: string;
+  roll: number;
+  academicYear?: string;
+  excludeStudentId?: string;
+  excludeApplicationId?: string;
+}): Promise<{ nextRoll: number; taken: string | null }> {
+  const q = new URLSearchParams({ class: params.className, section: params.section, roll: String(params.roll) });
+  if (params.academicYear) q.append("academicYear", params.academicYear);
+  if (params.excludeStudentId) q.append("excludeStudentId", params.excludeStudentId);
+  if (params.excludeApplicationId) q.append("excludeApplicationId", params.excludeApplicationId);
+  const data = await apiFetch<{ nextRoll?: number; taken?: string | null }>(`/api/admission/next-roll?${q.toString()}`, { raw: true });
+  return { nextRoll: Number(data.nextRoll) || 1, taken: data.taken ?? null };
+}
+
 export async function checkDuplicateApplicant(params: {
   aadhaar?: string;
   contact?: string;
