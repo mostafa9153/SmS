@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { RoutineClass, RoutineTeacher } from "@/lib/routine/types";
 import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
-import { generateInitials, getTeacherSubjectPeriod, isTeacherAssignedToSubject } from "@/lib/routine/routine-helpers";
+import { generateInitials, getTeacherSubjectPeriod, isTeacherAssignedToSubject, optionTeacherIds, teacherPeriodsInGroup } from "@/lib/routine/routine-helpers";
 import { CellAllotmentData, ClassRowData, TeacherAssignmentItem } from "@/components/routine/allotment-overview/types";
 import { TeacherLoadRowData } from "@/components/routine/allotment-overview/teacher-load-types";
 
@@ -417,17 +417,15 @@ export function useRoutineAllotmentOverview({
 
       // Group load: a pooled group costs its slots once, a non-pooled one once per section
       groups.forEach((g) => {
-        const perSlot = g.options.filter((o) => o.teacherId === t.id).length;
-        if (perSlot === 0 || g.sectionIds.length === 0) return;
+        const periods = teacherPeriodsInGroup(t.id, g);
+        if (periods === 0 || g.sectionIds.length === 0) return;
         const memberClasses = g.sectionIds
           .map((id) => classes.find((cls) => cls.id === id))
           .filter(Boolean) as RoutineClass[];
         const first = memberClasses[0];
         if (!first) return;
-        const periods =
-          perSlot * Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1) * (g.pooled ? 1 : memberClasses.length);
         const subjectNames = g.options
-          .filter((o) => o.teacherId === t.id)
+          .filter((o) => optionTeacherIds(o, g).includes(t.id))
           .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject")
           .join(", ");
         assignedClasses.push({

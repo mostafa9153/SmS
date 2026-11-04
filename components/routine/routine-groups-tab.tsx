@@ -23,7 +23,7 @@ import {
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { detectSubjectStream, getConfiguredStreamsForClass, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
+import { detectSubjectStream, getConfiguredStreamsForClass, isHsClass, normalizeSubjectName, optionShares } from "@/lib/routine/routine-helpers";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -208,7 +208,11 @@ const GroupRow = React.memo(function GroupRow({
             >
               <span className="text-foreground">{subjectName(subjects, o.subjectId)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">{teacherShort(teachers, o.teacherId)}</span>
+              <span className="text-muted-foreground">
+                {o.shares && o.shares.length > 0 && group.periodSize === 1
+                  ? optionShares(o, group).map((s) => `${teacherShort(teachers, s.teacherId)} ${s.periods}p`).join(" + ")
+                  : teacherShort(teachers, o.teacherId)}
+              </span>
             </span>
           ))}
         </div>
@@ -462,6 +466,8 @@ type DraftOption = {
   subjectId: string;
   teacherId: string;
   roomId: string | null;
+  /** teachers sharing the subject, set in the Teachers tab; kept unless the subject changes */
+  shares?: RoutineSubjectGroup["options"][number]["shares"];
 };
 
 const QUICK_CHIPS = ["3rd Language", "Elective", "Lab Block"];
@@ -504,6 +510,7 @@ function GroupDialog({
           subjectId: o.subjectId,
           teacherId: o.teacherId,
           roomId: o.roomId ?? null,
+          shares: o.shares ?? null,
         }))
       : [
           { id: crypto.randomUUID(), subjectId: "", teacherId: "", roomId: null },
@@ -539,7 +546,7 @@ function GroupDialog({
   // Drop option subjects that fall outside a newly chosen class/stream
   const pruneOptions = (nextClass: string, nextStream: string, nextSections: Set<string>) => {
     const ids = new Set(subjectPool(subjects, classes, scope, nextClass, nextStream, nextSections).map((s) => s.id));
-    setOptions((prev) => prev.map((o) => (o.subjectId && !ids.has(o.subjectId) ? { ...o, subjectId: "", teacherId: "" } : o)));
+    setOptions((prev) => prev.map((o) => (o.subjectId && !ids.has(o.subjectId) ? { ...o, subjectId: "", teacherId: "", shares: null } : o)));
   };
 
   // --- live validation / summary --------------------------------------
@@ -666,6 +673,7 @@ function GroupDialog({
           teacherId: o.teacherId,
           roomId: o.roomId,
           sortOrder: i,
+          shares: o.shares ?? null,
         })),
       };
       await onSave(g);
@@ -884,7 +892,7 @@ function GroupDialog({
                   <div className="col-span-11 py-1.5 px-2">
                     <CustomSelect placeholder="Select subject"
                       value={o.subjectId}
-                      onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "" })}
+                      onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "", shares: null })}
                       className="w-full"
                       triggerClassName={cn("h-8 text-xs", showErrors && !o.subjectId && "border-destructive ring-destructive/30")}
                       options={[

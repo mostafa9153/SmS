@@ -96,13 +96,22 @@ export interface RoutineAssignment {
   isLab?: boolean;
 }
 
+/** One teacher's part of a shared group subject, in group periods. */
+export interface RoutineOptionShare {
+  teacherId: string;
+  periods: number;
+}
+
 export interface RoutineGroupOption {
   id: string;
   groupId: string;
   subjectId: string;
+  /** The teacher, or with `shares` the first share's teacher */
   teacherId: string;
   roomId?: string | null;
   sortOrder?: number;
+  /** Teachers sharing this subject (Political Science: SM 3 + XY 2). Unset: `teacherId` takes all periods. */
+  shares?: RoutineOptionShare[] | null;
 }
 
 export interface RoutineSubjectGroup {

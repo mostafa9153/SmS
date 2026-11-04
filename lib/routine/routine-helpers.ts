@@ -689,6 +689,75 @@ export function generateInitials(name: string): string {
  */
 export const isPooledGroup = (scope: string): boolean => scope === "class";
 
+type ShareOption = { teacherId?: string | null; shares?: { teacherId: string; periods: number }[] | null };
+type ShareGroup = { periodsPerWeek: number; periodSize: 1 | 2 };
+
+/**
+ * Teachers running a group subject and the group periods each takes. A subject is shared only in a
+ * single-period group (a double period cannot be split between teachers); without shares its one
+ * teacher takes every period. Shares beyond the group's periods are cut off.
+ */
+export function optionShares(o: ShareOption, g: ShareGroup): { teacherId: string; periods: number }[] {
+  const total = Math.max(0, g.periodsPerWeek);
+  const list = g.periodSize === 1 ? (o.shares || []).filter((s) => s && s.teacherId && s.periods > 0) : [];
+  if (list.length === 0) return o.teacherId ? [{ teacherId: o.teacherId, periods: total }] : [];
+  const out: { teacherId: string; periods: number }[] = [];
+  let left = total;
+  for (const s of list) {
+    if (left <= 0) break;
+    const periods = Math.min(Math.floor(s.periods), left);
+    if (periods <= 0) continue;
+    const prev = out.find((x) => x.teacherId === s.teacherId);
+    if (prev) prev.periods += periods;
+    else out.push({ teacherId: s.teacherId, periods });
+    left -= periods;
+  }
+  return out;
+}
+
+/** Group periods of an option that have a teacher. */
+export const optionCovered = (o: ShareOption, g: ShareGroup): number =>
+  optionShares(o, g).reduce((n, s) => n + s.periods, 0);
+
+/** Every group period of the option has a teacher. */
+export const isOptionStaffed = (o: ShareOption, g: ShareGroup): boolean =>
+  g.periodsPerWeek > 0 && optionCovered(o, g) >= g.periodsPerWeek;
+
+/**
+ * A teacher's weekly periods in a group, in timetable cells: their share of each option they run,
+ * times the period size, times the sections of a section-wise group (each section runs it).
+ */
+export function teacherPeriodsInGroup(
+  teacherId: string,
+  g: ShareGroup & { pooled: boolean; sectionIds?: string[]; options: ShareOption[] }
+): number {
+  const size = g.periodSize === 2 ? 2 : 1;
+  const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
+  let n = 0;
+  for (const o of g.options || []) {
+    const share = optionShares(o, g).find((s) => s.teacherId === teacherId);
+    if (share) n += share.periods;
+  }
+  return n * size * mul;
+}
+
+/** Every teacher id that runs any part of a group option. */
+export const optionTeacherIds = (o: ShareOption, g: ShareGroup): string[] => optionShares(o, g).map((s) => s.teacherId);
+
+/**
+ * Stored form of an option's teachers: one teacher taking every period keeps the old shape
+ * (teacher_id, no shares); anything else keeps the list and the first teacher in teacher_id.
+ */
+export function packShares(
+  shares: { teacherId: string; periods: number }[],
+  total: number
+): { teacherId: string; shares: { teacherId: string; periods: number }[] | null } {
+  const list = shares.filter((s) => s.teacherId && s.periods > 0);
+  if (list.length === 0) return { teacherId: "", shares: null };
+  if (list.length === 1 && list[0].periods >= total) return { teacherId: list[0].teacherId, shares: null };
+  return { teacherId: list[0].teacherId, shares: list.map((s) => ({ teacherId: s.teacherId, periods: Math.floor(s.periods) })) };
+}
+
 type GroupPeriodShape = {
   scope: string;
   options: unknown[];
@@ -956,13 +1025,7 @@ export function calculateTeacherConfiguredLoads(
         load += getTeacherSubjectPeriod(t, c.className, c.section, subName, matchedSubject?.periodsPerWeek || 5);
       }
     }
-    for (const g of groups) {
-      const perSlot = (g.options || []).filter((o) => o.teacherId === t.id).length;
-      if (perSlot === 0) continue;
-      const slots = Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
-      const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
-      load += perSlot * slots * mul;
-    }
+    for (const g of groups) load += teacherPeriodsInGroup(t.id, g);
     loads.set(t.id, load);
   }
   return loads;

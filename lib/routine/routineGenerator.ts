@@ -4,6 +4,7 @@
  * /api/routine/generate (solve) or /api/routine/diagnose (diagnose).
  */
 
+import { isOptionStaffed } from './routine-helpers';
 import { RoutineSettings, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineRoom, RoutineSubjectGroup, GeneratedRoutine, ValidationReport, DiagnosticItem, DEFAULT_ROUTINE_SETTINGS, dailyCapOf } from './types';
 import {
   buildSolverGroups,
@@ -158,7 +159,7 @@ class RoutineSolver {
     }
 
     for (const g of this.groups) {
-      const missing = g.options.filter((o) => !o.teacherId);
+      const missing = g.options.filter((o) => !isOptionStaffed(o, g));
       if (missing.length === 0 || g.sectionIds.length === 0) continue;
       const names = missing
         .map((o) => this.subjects.get(o.subjectId)?.name || 'Subject')

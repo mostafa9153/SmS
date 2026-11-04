@@ -96,16 +96,22 @@ export function useRoutineDemandAllotment({
         isCommon: false,
         periods: a.periods,
         assignedTeacher: a.options
-          .map((o) => o.teacher?.shortName || o.teacher?.name || "—")
+          .map((o) =>
+            o.teachers.length === 0
+              ? "—"
+              : o.teachers.length === 1 && o.covered >= a.periods
+              ? o.teachers[0].teacher.shortName || o.teachers[0].teacher.name
+              : o.teachers.map((x) => `${x.teacher.shortName || x.teacher.name} ${x.periods}p`).join(" + ")
+          )
           .join(", "),
-        assignedTeachers: a.options
-          .filter((o) => o.teacher)
-          .map((o) => ({
-            teacherId: o.teacher!.id,
-            name: o.teacher!.name,
-            shortName: o.teacher!.shortName,
-            periods: a.periods,
-          })),
+        assignedTeachers: a.options.flatMap((o) =>
+          o.teachers.map((x) => ({
+            teacherId: x.teacher.id,
+            name: x.teacher.name,
+            shortName: x.teacher.shortName,
+            periods: x.periods,
+          }))
+        ),
         assignedPeriods: a.complete ? a.periods : 0,
       }));
       const combined = [...combinedRows.values()];

@@ -7,6 +7,9 @@ import {
   calculateSchoolGroupDemand,
   calculateTotalTeacherAllottedWorkload,
   calculateTotalSchoolClassCapacity,
+  optionShares,
+  optionTeacherIds,
+  packShares,
 } from "@/lib/routine/routine-helpers";
 import { formatDemandBreakdown, isPooledGroup } from "@/lib/routine/routine-domain";
 import { withCombinedCommonGroups, withDerivedGroupSettings } from "@/lib/routine/routine-groups";
@@ -441,10 +444,13 @@ function RoutineSetupPageContent() {
 
   const handleDeleteTeacher = async (id: string) => {
     // Group options keep their subject but lose this teacher
-    for (const g of groups.filter((x) => x.options.some((o) => o.teacherId === id))) {
+    for (const g of savedGroups.filter((x) => x.options.some((o) => optionTeacherIds(o, x).includes(id)))) {
       await handleSaveGroup({
         ...g,
-        options: g.options.map((o) => (o.teacherId === id ? { ...o, teacherId: "" } : o)),
+        options: g.options.map((o) => {
+          if (!optionTeacherIds(o, g).includes(id)) return o;
+          return { ...o, ...packShares(optionShares(o, g).filter((s) => s.teacherId !== id), g.periodsPerWeek) };
+        }),
       });
     }
     await deleteTeacherDb(id);
@@ -474,6 +480,7 @@ function RoutineSetupPageContent() {
         teacherId: o.teacherId,
         roomId: o.roomId ?? null,
         sortOrder: o.sortOrder,
+        shares: o.shares ?? null,
       })),
     });
     setGroups((prev) => {

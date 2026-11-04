@@ -94,10 +94,20 @@ interface TeacherEditorFormProps {
     id: string;
     name: string;
     periods: number;
+    shareable: boolean;
     scopeLabel: string;
-    options: { id: string; subject: string; picked: boolean; takenBy: string | null; blocked: boolean }[];
+    options: {
+      id: string;
+      subject: string;
+      picked: boolean;
+      myPeriods: number;
+      remaining: number;
+      takenBy: string | null;
+      blocked: boolean;
+    }[];
   }[];
   onToggleGroupOption: (optionId: string) => void;
+  onGroupOptionPeriodsChange: (optionId: string, value: string) => void;
   getClassGroupLoad: (clsName: string) => number;
 }
 
@@ -158,6 +168,7 @@ export function TeacherEditorForm({
   getSectionGroupLoad,
   getGroupPickRows,
   onToggleGroupOption,
+  onGroupOptionPeriodsChange,
   getClassGroupLoad,
 }: TeacherEditorFormProps) {
   return (
@@ -716,20 +727,27 @@ export function TeacherEditorForm({
                                   </Badge>
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                  {g.options.map((o) => (
-                                    <button
+                                  {g.options.map((o) => {
+                                    const over = o.picked && o.myPeriods > o.remaining;
+                                    return (
+                                    <div
                                       key={o.id}
+                                      className={cn(
+                                        "inline-flex flex-col sm:flex-row items-stretch sm:items-center rounded-lg border text-xs transition-all p-1 gap-1",
+                                        o.picked
+                                          ? over
+                                            ? "bg-card border-rose-500/60 shadow-2xs ring-1 ring-rose-500/30"
+                                            : "bg-card border-primary/50 shadow-2xs ring-1 ring-primary/20"
+                                          : "bg-background text-muted-foreground border-border hover:bg-muted/60",
+                                        o.blocked && "opacity-60"
+                                      )}
+                                    >
+                                    <button
                                       type="button"
                                       disabled={o.blocked}
                                       onClick={() => onToggleGroupOption(o.id)}
                                       aria-label={`Toggle group subject ${o.subject}`}
-                                      className={cn(
-                                        "inline-flex items-center gap-1.5 rounded-lg border p-1 pr-2 text-xs transition-all select-none text-left",
-                                        o.picked
-                                          ? "bg-card border-primary/50 shadow-2xs ring-1 ring-primary/20"
-                                          : "bg-background text-muted-foreground border-border hover:bg-muted/60",
-                                        o.blocked && "opacity-60 cursor-not-allowed hover:bg-background"
-                                      )}
+                                      className={cn("inline-flex items-center pr-1 text-left select-none", o.blocked && "cursor-not-allowed")}
                                     >
                                       <span className="px-1 py-1 flex items-center gap-1.5">
                                         <span
@@ -745,13 +763,13 @@ export function TeacherEditorForm({
                                             {o.subject}
                                           </span>
                                           <span className="mt-0.5">
-                                            {o.takenBy ? (
+                                            {o.remaining <= 0 && !o.picked ? (
                                               <span className="text-[9.5px] px-1 py-0 rounded bg-muted text-muted-foreground border border-border font-mono">
-                                                Full ({o.takenBy}: {g.periods}p)
+                                                Full ({o.takenBy})
                                               </span>
-                                            ) : o.picked ? (
-                                              <span className="text-[9.5px] px-1 py-0 rounded bg-primary/10 text-primary border border-primary/20 font-mono">
-                                                {g.periods}/{g.periods} • You
+                                            ) : o.takenBy ? (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                                                {g.periods - o.remaining}/{g.periods} ({o.takenBy}) • {o.remaining} Rem
                                               </span>
                                             ) : (
                                               <span className="text-[9.5px] px-1 py-0 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
@@ -762,7 +780,36 @@ export function TeacherEditorForm({
                                         </span>
                                       </span>
                                     </button>
-                                  ))}
+                                    {o.picked && g.shareable && (
+                                      <div className="flex items-center gap-1.5 px-2 py-0.5 border-t sm:border-t-0 sm:border-l border-border/80 bg-muted/20 rounded">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={g.periods}
+                                          value={o.myPeriods}
+                                          onChange={(e) => onGroupOptionPeriodsChange(o.id, e.target.value)}
+                                          className={cn(
+                                            "h-6 w-11 text-[11px] font-mono font-bold px-1 text-center bg-background",
+                                            over ? "border-rose-500 text-rose-500" : "border-primary/40 text-foreground"
+                                          )}
+                                          title={`Weekly periods you take of ${o.subject}`}
+                                          aria-label={`Weekly periods for ${o.subject}`}
+                                        />
+                                        <span className="text-[10px] text-muted-foreground font-mono font-medium">p/wk</span>
+                                        {over && (
+                                          <Badge
+                                            variant="destructive"
+                                            className="text-[9px] px-1 py-0 gap-0.5 bg-rose-500/15 text-rose-500 border border-rose-500/30 font-bold"
+                                            title="More than the periods the other teachers left"
+                                          >
+                                            <AlertTriangle className="w-2.5 h-2.5" />+{o.myPeriods - o.remaining} Over
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    )}
+                                    </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}

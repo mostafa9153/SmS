@@ -6,6 +6,8 @@ import {
   groupSlotPeriods,
   isHsClass,
   normalizeSubjectName,
+  optionCovered,
+  optionShares,
   parseSectionAndStream,
 } from "./routine-helpers";
 
@@ -105,9 +107,13 @@ export function calculateAllotmentGaps(
 
     for (const g of sectionGroups) {
       const names = g.options.map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject");
-      const staffed = g.options.filter((o) => o.teacherId);
-      const unstaffed = g.options.filter((o) => !o.teacherId).map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject");
       const slot = groupSlotPeriods(g);
+      const size = g.periodSize === 2 ? 2 : 1;
+      // A shared subject is staffed once its teachers' periods cover the group
+      const unstaffed = g.options
+        .filter((o) => optionCovered(o, g) < g.periodsPerWeek)
+        .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject");
+      const shares = g.options.flatMap((o) => optionShares(o, g));
       rows.push({
         id: `${cls.id}:g:${g.id}`,
         className: cls.className,
@@ -116,9 +122,9 @@ export function calculateAllotmentGaps(
         isGroup: true,
         demand: slot,
         allotted: g.options.length > 0 && unstaffed.length === 0 ? slot : 0,
-        teachers: staffed.map((o) => {
-          const t = teachers.find((x) => x.id === o.teacherId);
-          return { id: o.teacherId, name: t?.name || "Teacher", periods: slot };
+        teachers: shares.map((s) => {
+          const t = teachers.find((x) => x.id === s.teacherId);
+          return { id: s.teacherId, name: t?.name || "Teacher", periods: s.periods * size };
         }),
         unstaffed: g.options.length === 0 ? ["No subjects in this group"] : unstaffed,
       });
