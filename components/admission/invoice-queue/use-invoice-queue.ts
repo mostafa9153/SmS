@@ -12,6 +12,33 @@ import { showToast } from "@/components/ui/toast-banner";
 import { apiFetch } from "@/lib/api/client";
 import { UnifiedQueueCandidate, ClassSectionGroup } from "./types";
 
+/**
+ * IDs an admission invoice can be stored under: the School ID, or the record id when the student
+ * has none (re-admission writes `school_id || student.id`). The queue shows "STU-xxxx" for a
+ * missing School ID, which is never an invoice key.
+ */
+function invoiceKeys(student: UnifiedQueueCandidate): string[] {
+  const keys = [student.schoolId, student.id, (student.rawRecord as { id?: string } | undefined)?.id]
+    .filter((k): k is string => Boolean(k) && !String(k).startsWith("STU-"))
+    .map((k) => k.trim());
+  return [...new Set(keys)];
+}
+
+/** Map keys are upper case: School IDs are typed in either case */
+const findInvoice = (map: Map<string, any>, student: UnifiedQueueCandidate) =>
+  invoiceKeys(student).map((k) => map.get(k.toUpperCase())).find(Boolean);
+
+/** Rows come newest first: keep each student's latest invoice, not the oldest. */
+function latestInvoiceByStudent(rows: unknown): Map<string, any> {
+  const map = new Map<string, any>();
+  if (!Array.isArray(rows)) return map;
+  for (const inv of rows) {
+    const key = inv?.student_id?.toUpperCase().trim();
+    if (key && !map.has(key)) map.set(key, inv);
+  }
+  return map;
+}
+
 export function useInvoiceQueue() {
   const queryClient = useQueryClient();
   const { profile: schoolProfile } = useSchoolProfile();
@@ -299,8 +326,7 @@ export function useInvoiceQueue() {
     let autoSeqOffset = 0;
 
     return targetStudents.map((student, idx) => {
-      const sId = (student.schoolId || student.id || "").toUpperCase().trim();
-      const existing = existingInvoicesMap.get(sId);
+      const existing = findInvoice(existingInvoicesMap, student);
 
       const invoiceNumber =
         student.paymentReceiptNo ||
@@ -331,7 +357,8 @@ export function useInvoiceQueue() {
             })
           : issueDate,
         issueTime: existing?.issue_time || issueTime,
-        studentId: student.schoolId || `STU-${student.id.slice(0, 6)}`,
+        // Saving the slip must keep the key the admission stored, or the next lookup misses it
+        studentId: existing?.student_id || student.schoolId || `STU-${student.id.slice(0, 6)}`,
         studentName: student.name,
         studentClass: customClass || student.presentClass,
         section: student.presentSection || "A",
@@ -381,15 +408,9 @@ export function useInvoiceQueue() {
     setIsInvoiceNoLocked(true);
 
     try {
-      const studentIds = group.students.map((s) => s.schoolId || s.id).filter(Boolean);
+      const studentIds = group.students.flatMap(invoiceKeys);
       const rows = await apiFetch<any[]>(`/api/invoices?studentIds=${encodeURIComponent(studentIds.join(","))}`);
-      const map = new Map<string, any>();
-      if (Array.isArray(rows)) {
-        rows.forEach((inv: any) => {
-          if (inv.student_id) map.set(inv.student_id.toUpperCase().trim(), inv);
-        });
-      }
-      setExistingInvoicesMap(map);
+      setExistingInvoicesMap(latestInvoiceByStudent(rows));
     } catch (e) {
       console.warn("Could not fetch existing invoices:", e);
     }
@@ -410,13 +431,12 @@ export function useInvoiceQueue() {
     setIsInvoiceNoLocked(true);
 
     try {
-      const sId = student.schoolId || student.id;
-      const rows = await apiFetch<any[]>(`/api/invoices?studentId=${encodeURIComponent(sId)}`);
-      const map = new Map<string, any>();
-      if (Array.isArray(rows) && rows.length > 0) {
-        map.set(sId.toUpperCase().trim(), rows[0]);
-      }
+      const rows = await apiFetch<any[]>(`/api/invoices?studentIds=${encodeURIComponent(invoiceKeys(student).join(","))}`);
+      const map = latestInvoiceByStudent(rows);
       setExistingInvoicesMap(map);
+      // The amount shown is the admission's own invoice (a Half / Free concession), not the class preset
+      const existing = findInvoice(map, student);
+      if (Array.isArray(existing?.fee_items) && existing.fee_items.length > 0) setCustomFeeItems(existing.fee_items);
     } catch (e) {
       console.warn("Could not fetch existing invoice for student:", e);
     }

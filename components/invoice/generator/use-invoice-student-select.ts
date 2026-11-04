@@ -46,8 +46,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
 
     // 1. Check if an invoice was already generated/registered for this student in DB
     try {
-      const studentIdToSearch = fullStudent.schoolId || fullStudent.id;
-      const rows = await apiFetch<Record<string, any>[]>(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      // An admission stores the invoice under the School ID, or the record id when there is none
+      const keys = [...new Set([fullStudent.schoolId, fullStudent.id].filter(Boolean))].join(",");
+      const rows = await apiFetch<Record<string, any>[]>(`/api/invoices?studentIds=${encodeURIComponent(keys)}`);
       if (Array.isArray(rows) && rows.length > 0) {
         const existingInv = rows[0];
         setInvoice((prev) => ({
