@@ -11,6 +11,8 @@ import type { FeeItem } from "@/lib/utils/fee-config";
 interface FeeChargeFields {
   feeItems?: FeeItem[];
   feeConcession?: FeeConcession;
+  /** Percent off; required by the server for "custom" */
+  feeConcessionPercent?: number;
   feeGrossAmount?: number;
 }
 import { currentYearIST } from "@/lib/utils/academic-year";

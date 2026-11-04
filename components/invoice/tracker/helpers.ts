@@ -26,6 +26,7 @@ export function dbRowToInvoiceData(inv: DBInvoiceRow): InvoiceData {
     paymentStatus: (inv.payment_status as any) || "Paid",
     remarks: inv.remarks || undefined,
     concessionType: inv.concession_type || "full",
+    concessionPercent: inv.concession_percent ?? null,
     grossAmount: inv.gross_amount ?? null,
   };
 }

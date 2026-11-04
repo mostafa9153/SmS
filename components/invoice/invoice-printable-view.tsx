@@ -215,7 +215,12 @@ function CompactInvoiceSlip({
               {data.concessionType && data.concessionType !== "full" && Number(data.grossAmount) > grandTotal && (
                 <tr className="border-t border-slate-300 text-[8.5px] text-slate-700">
                   <td colSpan={2} className="py-[1.5px] px-1.5 border-r border-slate-300 text-right font-semibold">
-                    {data.concessionType === "free" ? "Free Concession" : "Half Fee Concession"} (of ₹{Number(data.grossAmount).toFixed(2)}):
+                    {data.concessionType === "free"
+                      ? "Free Concession"
+                      : data.concessionType === "custom"
+                      ? `${Number(data.concessionPercent) || ""}% Concession`
+                      : "Half Fee Concession"}{" "}
+                    (of ₹{Number(data.grossAmount).toFixed(2)}):
                   </td>
                   <td className="py-[1.5px] px-1.5 text-right font-mono font-semibold">
                     −{(Number(data.grossAmount) - grandTotal).toFixed(2)}

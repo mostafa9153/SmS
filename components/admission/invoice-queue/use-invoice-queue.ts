@@ -372,6 +372,7 @@ export function useInvoiceQueue() {
         remarks,
         // Keeps a Half / Free admission's concession when the invoice is printed and saved again
         concessionType: existing?.concession_type || "full",
+        concessionPercent: existing?.concession_percent ?? null,
         grossAmount: existing?.gross_amount ?? null,
       };
     });

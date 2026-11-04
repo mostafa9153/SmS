@@ -159,7 +159,11 @@ export function Step4SuccessDialog({
               <div className="flex justify-between items-center py-1">
                 <span className="text-muted-foreground font-medium">Fee Recorded</span>
                 <span className="font-bold text-emerald-600">
-                  {res.feeConcession === "free" ? "Free" : `₹${res.feeAmount}${res.feeConcession === "half" ? " (Half)" : ""}`}
+                  {res.feeConcession === "free"
+                    ? "Free"
+                    : `₹${res.feeAmount}${
+                        res.feeConcession === "half" ? " (Half)" : res.feeConcession === "custom" ? ` (${res.feeConcessionPercent}% off)` : ""
+                      }`}
                 </span>
               </div>
             )}

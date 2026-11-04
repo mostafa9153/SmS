@@ -448,7 +448,7 @@ export async function POST(req: Request) {
               pen_number: student.pen || null,
               total_amount: invTotal,
               // Items as charged, so a reprint keeps the concession instead of the full preset
-              ...(fee ? { fee_items: fee.items, concession_type: fee.concession, gross_amount: fee.gross } : {}),
+              ...(fee ? { fee_items: fee.items, concession_type: fee.concession, concession_percent: fee.percent, gross_amount: fee.gross } : {}),
               payment_mode: invPaymentMode,
               payment_status: feePaid ? "Paid" : "Due",
               remarks: `Re-admission Fee (${currentYear})`,
@@ -476,7 +476,7 @@ export async function POST(req: Request) {
             metadata: {
               receipt_no: paymentReceiptNo.trim(),
               payment_status: feePaid ? "Paid" : "Due",
-              ...(fee ? { concession: fee.concession, gross_amount: fee.gross } : {}),
+              ...(fee ? { concession: fee.concession, concession_percent: fee.percent, gross_amount: fee.gross } : {}),
             },
           }), "teacher_activity_logs insert");
         } else {
@@ -512,7 +512,7 @@ export async function POST(req: Request) {
             admitted_at: new Date().toISOString(),
             // An older client that sends no fee leaves the application's fee as it was
             ...(fee || feeAmount !== undefined ? { fee_paid: !!feePaid, fee_amount: invTotal } : {}),
-            ...(fee ? { fee_concession: fee.concession, fee_gross_amount: fee.gross } : {}),
+            ...(fee ? { fee_concession: fee.concession, fee_concession_percent: fee.percent, fee_gross_amount: fee.gross } : {}),
             is_transferred_to_active: true,
             transferred_to_active_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -541,6 +541,7 @@ export async function POST(req: Request) {
       receiptNo: paymentReceiptNo || null,
       feeAmount: invTotal,
       feeConcession: fee ? fee.concession : "full",
+      feeConcessionPercent: fee ? fee.percent : 0,
     });
   } catch (err: any) {
     console.error("Error in re-admission admit:", err);

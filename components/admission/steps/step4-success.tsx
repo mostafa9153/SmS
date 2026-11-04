@@ -251,7 +251,9 @@ export function Step4SuccessDialog({
                     ? "Free"
                     : res.feePaid === false
                     ? "Due"
-                    : `₹${res.totalFee ?? 0} Paid${res.feeConcession === "half" ? " (Half)" : ""}`}
+                    : `₹${res.totalFee ?? 0} Paid${
+                        res.feeConcession === "half" ? " (Half)" : res.feeConcession === "custom" ? ` (${res.feeConcessionPercent}% off)` : ""
+                      }`}
                 </span>
               </div>
             </div>

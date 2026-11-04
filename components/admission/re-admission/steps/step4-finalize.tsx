@@ -11,7 +11,7 @@ import { Camera, User, Receipt, CheckCircle2, GraduationCap } from "lucide-react
 import { toast } from "sonner";
 import { getNextAvailableRoll, updateReAdmissionStatus } from "@/lib/data/admission";
 import { generateInvoiceNumber } from "@/lib/utils/fee-config";
-import { FeeBreakdown, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
+import { FeeBreakdown, concessionChip, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { normalizeClass } from "@/lib/academic/class-ladder";
 import { Spinner } from "@/components/ui/spinner";
@@ -117,8 +117,9 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
     };
   }, [currentYear]);
 
-  // Class fee structure and this student's concession (Full / Half / Free)
-  const { setConcession, structure, charge } = useFeeCharge(targetClass);
+  // Class fee structure and this student's concession (Full / Half / Free / % off)
+  const fee = useFeeCharge(targetClass);
+  const { charge } = fee;
   const isFree = charge.concession === "free";
 
   const handleConfirmAdmission = async () => {
@@ -154,6 +155,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
         invoiceNo: invoiceNo.trim() || null,
         feeAmount: charge.total,
         feeConcession: charge.concession,
+        feeConcessionPercent: charge.percent,
       });
     } catch (err: any) {
       console.error("Re-admission error:", err);
@@ -266,7 +268,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                       : "text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
                   }
                 >
-                  {isFree ? "Free" : `₹${charge.total}${charge.concession === "half" ? " · Half" : ""}${feePaid ? "" : " · Due"}`}
+                  {isFree ? "Free" : `₹${charge.total}${charge.concession !== "full" ? ` · ${concessionChip(charge)}` : ""}${feePaid ? "" : " · Due"}`}
                 </Badge>
               </div>
 
@@ -312,7 +314,7 @@ export function Step4Finalize({ onAdmit, studentData }: Step4FinalizeProps) {
                 </div>
               </div>
 
-              <FeeBreakdown structure={structure} charge={charge} onConcessionChange={setConcession} />
+              <FeeBreakdown fee={fee} />
             </CardContent>
           </Card>
         </div>

@@ -34,7 +34,9 @@ export interface DBInvoiceRow {
   batch_id: string | null;
   printed_by: string | null;
   /** 'full' | 'half' | 'free'; fee_items are already the charged amounts */
-  concession_type?: "full" | "half" | "free" | null;
+  concession_type?: "full" | "half" | "free" | "custom" | null;
+  /** Percent off the fee structure */
+  concession_percent?: number | null;
   /** Fee structure total before the concession */
   gross_amount?: number | null;
   created_at: string;
@@ -66,7 +68,8 @@ export interface DBInvoiceInsert {
   assigned_to?: string | null;
   batch_id?: string | null;
   printed_by?: string | null;
-  concession_type?: "full" | "half" | "free" | null;
+  concession_type?: "full" | "half" | "free" | "custom" | null;
+  concession_percent?: number | null;
   gross_amount?: number | null;
 }
 
@@ -162,6 +165,7 @@ export async function dbSaveInvoices(invoices: DBInvoiceInsert[]): Promise<{
       printed_by: inv.printed_by || null,
       // Every row carries both, so a batch upsert never blanks another row's concession
       concession_type: inv.concession_type || "full",
+      concession_percent: inv.concession_percent ?? null,
       gross_amount: inv.gross_amount ?? null,
       updated_at: new Date().toISOString(),
     }));

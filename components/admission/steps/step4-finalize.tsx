@@ -37,8 +37,9 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
   const [feePaid, setFeePaid] = useState(true);
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Class fee structure and this student's concession (Full / Half / Free)
-  const { concession, setConcession, structure, charge } = useFeeCharge(targetClass);
+  // Class fee structure and this student's concession (Full / Half / Free / % off)
+  const fee = useFeeCharge(targetClass);
+  const { concession, charge } = fee;
   const isFree = concession === "free";
   const totalFee = charge.total;
 
@@ -228,6 +229,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
         totalFee: feePaid || isFree ? totalFee : 0,
         feePaid: isFree || feePaid,
         feeConcession: concession,
+        feeConcessionPercent: charge.percent,
       });
       toast.success("Student successfully admitted & enrolled in database!");
     } catch (e: any) {
@@ -346,7 +348,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                     <Calculator className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">{concession === "full" ? "Standard Admission Fee" : concessionLabel(concession)}</p>
+                    <p className="text-sm font-medium">{concession === "full" ? "Standard Admission Fee" : concessionLabel(concession, charge.percent)}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -354,7 +356,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                 </div>
               </div>
 
-              <FeeBreakdown structure={structure} charge={charge} onConcessionChange={setConcession} />
+              <FeeBreakdown fee={fee} />
 
               <div className="flex items-center space-x-2 py-2">
                 <Checkbox id="feePaid" disabled={isFree} checked={isFree || feePaid} onCheckedChange={(c: boolean) => setFeePaid(c)} />

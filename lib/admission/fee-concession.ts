@@ -1,38 +1,63 @@
 import type { FeeItem } from "@/lib/utils/fee-config";
 
-/** How much of the class fee structure a student pays: all of it, half, or nothing (poor students). */
-export type FeeConcession = "full" | "half" | "free";
+/**
+ * How much of the class fee structure a student pays: all of it, half, nothing (poor students),
+ * or a custom percentage off.
+ */
+export type FeeConcession = "full" | "half" | "free" | "custom";
 
 export const FEE_CONCESSIONS: Array<{ value: FeeConcession; label: string }> = [
   { value: "full", label: "Full" },
   { value: "half", label: "Half" },
   { value: "free", label: "Free" },
+  { value: "custom", label: "% Off" },
 ];
 
-export const isFeeConcession = (v: unknown): v is FeeConcession => v === "full" || v === "half" || v === "free";
+export const isFeeConcession = (v: unknown): v is FeeConcession =>
+  v === "full" || v === "half" || v === "free" || v === "custom";
+
+/** Percent off the fee structure. Custom is 1-99; 0 and 100 are Full and Free. */
+export function concessionPercent(concession: FeeConcession, custom?: number | null): number {
+  if (concession === "half") return 50;
+  if (concession === "free") return 100;
+  if (concession === "custom") return Math.min(99, Math.max(1, Math.round(Number(custom) || 0)));
+  return 0;
+}
 
 const amountOf = (item: FeeItem) => Math.max(0, Math.round(Number(item.amount) || 0));
 
+/** What a fee structure costs after `percentOff`, in whole rupees */
+export const chargedTotal = (gross: number, percentOff: number) => Math.round((gross * (100 - percentOff)) / 100);
+
 /**
- * The items a student is charged. Half halves each item in whole rupees and puts the rounding
- * remainder on the largest item, so the items always add up to round(gross / 2): the invoice
- * total, the printed slip and every report then agree.
+ * The items a student is charged, in whole rupees, adding up to chargedTotal(gross) so the invoice
+ * total, the printed slip and every report agree. Each item is floored and the rupees left over go
+ * one at a time to the items with the largest fractions (larger items first on a tie): every item
+ * stays within one rupee of its exact share and never above its own amount.
  */
-export function applyConcession(items: FeeItem[], concession: FeeConcession): FeeItem[] {
-  if (concession === "full") return items.map((i) => ({ ...i, amount: amountOf(i) }));
-  if (concession === "free") return items.map((i) => ({ ...i, amount: 0 }));
+export function applyConcession(items: FeeItem[], percentOff: number): FeeItem[] {
+  if (percentOff <= 0) return items.map((i) => ({ ...i, amount: amountOf(i) }));
+  if (percentOff >= 100) return items.map((i) => ({ ...i, amount: 0 }));
+  const exact = items.map((i) => (amountOf(i) * (100 - percentOff)) / 100);
+  const charged = items.map((i, idx) => ({ ...i, amount: Math.floor(exact[idx]) }));
   const gross = items.reduce((s, i) => s + amountOf(i), 0);
-  const charged = items.map((i) => ({ ...i, amount: Math.floor(amountOf(i) / 2) }));
-  const remainder = Math.round(gross / 2) - charged.reduce((s, i) => s + i.amount, 0);
-  if (remainder > 0 && charged.length) {
-    const largest = items.reduce((best, i, idx) => (amountOf(i) > amountOf(items[best]) ? idx : best), 0);
-    charged[largest] = { ...charged[largest], amount: charged[largest].amount + remainder };
+  let remainder = chargedTotal(gross, percentOff) - charged.reduce((s, i) => s + i.amount, 0);
+  const order = items
+    .map((i, idx) => ({ idx, frac: exact[idx] - Math.floor(exact[idx]), amount: amountOf(i) }))
+    .sort((a, b) => b.frac - a.frac || b.amount - a.amount);
+  for (const { idx, amount } of order) {
+    if (remainder <= 0) break;
+    if (charged[idx].amount >= amount) continue;
+    charged[idx] = { ...charged[idx], amount: charged[idx].amount + 1 };
+    remainder--;
   }
   return charged;
 }
 
 export interface FeeCharge {
   concession: FeeConcession;
+  /** Percent off the fee structure (0 Full, 50 Half, 100 Free, 1-99 custom) */
+  percent: number;
   /** Items as charged (already reduced) */
   items: FeeItem[];
   /** Fee structure total before the concession */
@@ -41,10 +66,12 @@ export interface FeeCharge {
   total: number;
 }
 
-export function feeCharge(structure: FeeItem[], concession: FeeConcession): FeeCharge {
-  const items = applyConcession(structure, concession);
+export function feeCharge(structure: FeeItem[], concession: FeeConcession, customPercent?: number | null): FeeCharge {
+  const percent = concessionPercent(concession, customPercent);
+  const items = applyConcession(structure, percent);
   return {
     concession,
+    percent,
     items,
     gross: structure.reduce((s, i) => s + amountOf(i), 0),
     total: items.reduce((s, i) => s + i.amount, 0),
@@ -52,14 +79,19 @@ export function feeCharge(structure: FeeItem[], concession: FeeConcession): FeeC
 }
 
 /**
- * Reads the fee an admit request sends: `feeItems` (as charged), `feeConcession`, `feeGrossAmount`.
- * Returns null for an older client that sends only `feeAmount`, or the reason the fee is invalid.
- * Presets live in the browser, so the server checks the numbers agree with each other.
+ * Reads the fee an admit request sends: `feeItems` (as charged), `feeConcession`,
+ * `feeConcessionPercent` (custom only) and `feeGrossAmount`. Returns null for an older client that
+ * sends only `feeAmount`, or the reason the fee is invalid. Presets live in the browser, so the
+ * server checks the numbers agree with each other.
  */
 export function readFeeCharge(body: Record<string, unknown>): FeeCharge | { error: string } | null {
   if (!Array.isArray(body.feeItems)) return null;
   const concession = body.feeConcession ?? "full";
   if (!isFeeConcession(concession)) return { error: "Unknown fee concession" };
+  const requested = Number(body.feeConcessionPercent);
+  if (concession === "custom" && !(Number.isInteger(requested) && requested >= 1 && requested <= 99)) {
+    return { error: "Concession percent must be a whole number from 1 to 99" };
+  }
   const items: FeeItem[] = [];
   for (const raw of body.feeItems as unknown[]) {
     const r = raw as Partial<FeeItem> | null;
@@ -74,16 +106,29 @@ export function readFeeCharge(body: Record<string, unknown>): FeeCharge | { erro
   if (body.feeAmount !== undefined && Math.round(Number(body.feeAmount)) !== total) {
     return { error: "Fee amount does not match the fee items" };
   }
-  if (concession === "full" && total !== gross) return { error: "Full fee must equal the fee structure" };
-  if (concession === "half" && total !== Math.round(gross / 2)) return { error: "Half fee must be half the fee structure" };
-  if (concession === "free" && total !== 0) return { error: "A free admission has no fee" };
-  return { concession, items, gross, total };
+  const percent = concessionPercent(concession, requested);
+  if (total !== chargedTotal(gross, percent)) {
+    return { error: `Fee must be ${100 - percent}% of the fee structure (Rs ${chargedTotal(gross, percent)})` };
+  }
+  return { concession, percent, items, gross, total };
 }
 
-export const concessionLabel = (c: FeeConcession | null | undefined) =>
-  c === "half" ? "Half fee" : c === "free" ? "Free" : "Full fee";
+/** "Full fee", "Half fee", "Free", "25% off" */
+export function concessionLabel(c: FeeConcession | null | undefined, percent?: number | null): string {
+  if (c === "half") return "Half fee";
+  if (c === "free") return "Free";
+  if (c === "custom" && percent) return `${percent}% off`;
+  return "Full fee";
+}
 
-const CONCESSION_COLUMNS = ["concession_type", "gross_amount", "fee_concession", "fee_gross_amount"];
+const CONCESSION_COLUMNS = [
+  "concession_type",
+  "concession_percent",
+  "gross_amount",
+  "fee_concession",
+  "fee_concession_percent",
+  "fee_gross_amount",
+];
 
 /**
  * Runs a write with the concession columns, and once more without them when the database has not
@@ -93,8 +138,19 @@ export async function writeWithConcession<R extends Record<string, unknown>, T e
   rows: R | R[],
   run: (rows: R | R[]) => PromiseLike<T>
 ): Promise<T> {
-  const first = await run(rows);
-  if (!first.error || !CONCESSION_COLUMNS.some((c) => first.error!.message.includes(c))) return first;
-  const strip = (r: R) => Object.fromEntries(Object.entries(r).filter(([k]) => !CONCESSION_COLUMNS.includes(k))) as R;
-  return run(Array.isArray(rows) ? rows.map(strip) : strip(rows));
+  let current = rows;
+  let result = await run(current);
+  // A missing column, or the old check constraint rejecting "custom", names the column: drop only
+  // the columns named, so a database that has the older concession columns still gets them
+  for (let attempt = 0; attempt < CONCESSION_COLUMNS.length && result.error; attempt++) {
+    const message = result.error.message;
+    // Longest names first: "fee_concession_percent" also contains "fee_concession"
+    const named = [...CONCESSION_COLUMNS].sort((a, b) => b.length - a.length).filter((c) => message.includes(c));
+    const drop = named.filter((c, i) => !named.slice(0, i).some((longer) => longer.includes(c)));
+    if (!drop.length) break;
+    const strip = (r: R) => Object.fromEntries(Object.entries(r).filter(([k]) => !drop.includes(k))) as R;
+    current = Array.isArray(current) ? current.map(strip) : strip(current);
+    result = await run(current);
+  }
+  return result;
 }

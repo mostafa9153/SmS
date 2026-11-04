@@ -60,6 +60,7 @@ export async function POST(
         stream: app.stream || body.stream || null,
         feeAmount: app.fee_amount ?? feeAmount,
         feeConcession: app.fee_concession || "full",
+        feeConcessionPercent: app.fee_concession_percent ?? 0,
         feePaid: app.fee_paid !== undefined ? !!app.fee_paid : feePaid,
         message: "Student is already confirmed as Admitted in staging queue.",
       });
@@ -133,7 +134,7 @@ export async function POST(
       photo_url: photoUrl,
       fee_paid: feePaid,
       fee_amount: feeAmount,
-      ...(fee ? { fee_concession: fee.concession, fee_gross_amount: fee.gross } : {}),
+      ...(fee ? { fee_concession: fee.concession, fee_concession_percent: fee.percent, fee_gross_amount: fee.gross } : {}),
       payment_receipt_no: paymentReceiptNo,
       payment_mode: body.paymentMode || app.payment_mode || "Cash",
       admitted_at: new Date().toISOString(),
@@ -200,7 +201,7 @@ export async function POST(
             contact_number: app.student_contact || app.alt_mobile || null,
             total_amount: feeAmount,
             // Items as charged, so a reprint keeps the concession instead of the full preset
-            ...(fee ? { fee_items: fee.items, concession_type: fee.concession, gross_amount: fee.gross } : {}),
+            ...(fee ? { fee_items: fee.items, concession_type: fee.concession, concession_percent: fee.percent, gross_amount: fee.gross } : {}),
             payment_mode: body.paymentMode || "Cash",
             payment_status: feePaid ? "Paid" : "Due",
             remarks: `New Admission Fee (${currentYear})`,
@@ -231,6 +232,7 @@ export async function POST(
       feeAmount,
       feePaid,
       feeConcession: fee ? fee.concession : "full",
+      feeConcessionPercent: fee ? fee.percent : 0,
       message: `Student successfully marked as Admitted (Class ${assignedClass}-${assignedSection}, Roll ${assignedRoll}) in staging queue.`,
     });
   } catch (err: any) {

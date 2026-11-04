@@ -70,6 +70,7 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
           paymentStatus: existingInv.payment_status || "Paid",
           remarks: existingInv.remarks || prev.remarks,
           concessionType: existingInv.concession_type || "full",
+          concessionPercent: existingInv.concession_percent ?? null,
           grossAmount: existingInv.gross_amount ?? null,
         }));
         showToast({
@@ -96,6 +97,7 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       penNumber: fullStudent.pen || "",
       feeItems: defaultFeeItems,
       concessionType: "full",
+      concessionPercent: null,
       grossAmount: null,
     }));
     showToast({
@@ -113,6 +115,7 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       studentClass: newClass,
       feeItems: getSavedFeeStructure(category),
       concessionType: "full",
+      concessionPercent: null,
       grossAmount: null,
     }));
   }
@@ -125,6 +128,7 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       ...prev,
       feeItems: getSavedFeeStructure(category),
       concessionType: "full",
+      concessionPercent: null,
       grossAmount: null,
     }));
   }
@@ -147,6 +151,7 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       ...prev,
       feeItems: getSavedFeeStructure(category),
       concessionType: "full",
+      concessionPercent: null,
       grossAmount: null,
     }));
   }
