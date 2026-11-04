@@ -181,7 +181,7 @@ export function ExportDialog({ open, onOpenChange, activeFilters }: ExportDialog
 
   const handleGoToClassicReport = () => {
     onOpenChange(false);
-    router.push("/reports");
+    router.push("/reports/classic");
   };
 
   const handleGoToWelfareReport = () => {
