@@ -24,6 +24,8 @@ import {
   MapPin,
 } from "lucide-react";
 import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { NO_MARGINS } from "@/components/print/fixed-sheet-print";
+import { pageSizeMm } from "@/lib/print/paper";
 import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
 import { usePaperSettings } from "@/components/print/use-paper-settings";
 
@@ -70,7 +72,7 @@ function BonafideGeneratorContent() {
   const paper = usePaperSettings("bonafide-paper-settings", {
     paper: "A5",
     papers: ["A5", "A4"],
-    margins: { top: 0, right: 0, bottom: 0, left: 0 },
+    margins: NO_MARGINS,
   });
   const paperSize: "A5" | "A4" = paper.paper === "A4" ? "A4" : "A5";
 
@@ -671,7 +673,7 @@ function BonafideGeneratorContent() {
               </div>
             </CardContent>
           </Card>
-          <PaperSettingsPanel settings={paper} />
+          <PaperSettingsPanel settings={paper} lockMargins />
         </div>
 
         <PrintPreview resetKey={paperSize} className="order-1 xl:order-2 sticky top-2 xl:top-4 z-20">
@@ -680,7 +682,7 @@ function BonafideGeneratorContent() {
             schoolProfile={schoolProfile}
           />
         </PrintPreview>
-        <PrintPageStyle pageW={paper.pageW} pageH={paper.pageH} margins={paper.margins} />
+        <PrintPageStyle {...pageSizeMm(paper.paper)} margins={NO_MARGINS} />
 
         {/* Hidden print container (single & batch) */}
         <div id="printable-bonafide-canvas" className="hidden print:block print:w-full print:m-0 print:p-0">
