@@ -21,6 +21,7 @@ import {
   parseSectionAndStream,
   presetSectionItems,
   schemeSubjectStreams,
+  withSubjectStream,
 } from "./routine-helpers";
 import { showToast } from "@/components/ui/toast-banner";
 import { softWrite } from "@/lib/supabase/write";
@@ -853,7 +854,7 @@ export function syncRoutineStreamToPreset(className: string, subjectName: string
     if (!key) return s;
     const cur = schemeSubjectStreams(s, key);
     let streams = prev ? cur.filter((x) => x.toLowerCase() !== prev.toLowerCase()) : cur;
-    if (next && !streams.some((x) => x.toLowerCase() === next.toLowerCase())) streams = [...streams, next];
+    if (next) streams = withSubjectStream(streams, next);
     // The last stream of a subject is removed from the preset itself, never from here
     if (streams.length === 0) return s;
     if (streams.length === cur.length && streams.every((x, i) => x === cur[i])) return s;

@@ -66,8 +66,8 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
 
           const filteredSubjects = pickedStream
             ? subjectsList.filter((sub) => {
-                const streams = schemeSubjectStreams(activeScheme, sub);
-                return streams.includes("Common") || streams.includes(pickedStream);
+                // Common subjects show under Common only; a stream shows only its own
+                return schemeSubjectStreams(activeScheme, sub).includes(pickedStream);
               })
             : subjectsList;
 
@@ -135,9 +135,9 @@ export function SubjectBankCard({ ms }: { ms: MarksSchemeState }) {
                       )}
                     >
                       <span>{sub}</span>
-                      {subStreams.length > 0 && (
+                      {isHs && (
                         <span className="text-[9px] uppercase px-1 py-0.5 rounded bg-background/80 font-bold">
-                          {subStreams.join(" · ")}
+                          {subStreams.length > 0 ? subStreams.join(" · ") : "Common"}
                         </span>
                       )}
                       <button

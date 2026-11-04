@@ -5,7 +5,7 @@ import { showToast } from "@/components/ui/toast-banner";
 import { type ClassMarksScheme, type PromotionPolicy, type MarksSplitVariation, DEFAULT_MARKS_SCHEMES, DEFAULT_PROMOTION_POLICY, DEFAULT_HS_SPLIT_VARIATIONS, getSavedMarksSchemes, saveMarksSchemes, getSavedPromotionPolicy, savePromotionPolicy, getDefaultHsSubjectMarks, isSubjectLab, isDefaultLabSubject } from "@/lib/utils/marks-config";
 import { syncMarksSchemeSubjectToRoutine, syncRemoveMarksSchemeSubjectFromRoutine } from "@/lib/routine/routine-sync";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { isHsClass, schemeSubjectStreams } from "@/lib/routine/routine-helpers";
+import { isHsClass, schemeSubjectStreams, withSubjectStream } from "@/lib/routine/routine-helpers";
 
 
 export function useMarksScheme() {
@@ -271,20 +271,33 @@ export function useMarksScheme() {
         });
         return;
       }
-      // Same subject in another stream (e.g. Economics in Arts and Commerce): one curriculum entry, one routine row per stream
+      // Same subject in another stream (e.g. Economics in Arts and Commerce): one curriculum entry, one
+      // routine row per stream. Common and streams exclude each other (withSubjectStream).
+      const next = withSubjectStream(current, stream);
+      const dropped = current.filter((x) => !next.includes(x));
       const updated = marksSchemes.map((s) =>
         s.classCode === classCode
-          ? { ...s, subjectStreams: { ...(s.subjectStreams || {}), [existingName]: [...current, stream] } }
+          ? { ...s, subjectStreams: { ...(s.subjectStreams || {}), [existingName]: next } }
           : s
       );
       setMarksSchemes(updated);
       saveMarksSchemes(updated);
       void (async () => {
-        // Pin the subject's earlier streams first so its old routine row keeps its stream
-        for (const st of current) await syncMarksSchemeSubjectToRoutine(classCode, existingName, undefined, st);
+        // Pin the streams it keeps first so its old routine row keeps its stream, add the new one,
+        // then drop the replaced ones (the new row now carries the teachers' ticks)
+        for (const st of current.filter((x) => next.includes(x))) await syncMarksSchemeSubjectToRoutine(classCode, existingName, undefined, st);
         await syncMarksSchemeSubjectToRoutine(classCode, existingName, undefined, stream);
+        for (const st of dropped) await syncRemoveMarksSchemeSubjectFromRoutine(classCode, existingName, st);
       })();
-      showToast({ type: "success", title: "Subject Added", description: `"${existingName}" added to ${stream} in ${target.className}.` });
+      showToast({
+        type: "success",
+        title: dropped.length ? "Subject Moved" : "Subject Added",
+        description: dropped.length
+          ? stream === "Common"
+            ? `"${existingName}" is now Common in ${target.className}: every stream sits together (was ${dropped.join(", ")}).`
+            : `"${existingName}" moved from Common to ${stream} in ${target.className}. Add it to the other streams that study it on their own.`
+          : `"${existingName}" added to ${stream} in ${target.className}.`,
+      });
       setSelectedNewSubjectToAdd("");
       setCustomSubjectName("");
       return;

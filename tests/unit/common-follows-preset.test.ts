@@ -94,3 +94,23 @@ describe("the preset is trusted for deletes only when server and device agree", 
     expect(presetMatchesLocal(undefined, local)).toBe(false);
   });
 });
+
+describe("Common and streams exclude each other in the preset", () => {
+  it("Arts first, then Common: Common replaces Arts", async () => {
+    const { withSubjectStream } = await import("@/lib/routine/routine-helpers");
+    expect(withSubjectStream(["Arts"], "Common")).toEqual(["Common"]);
+    expect(withSubjectStream(["Arts", "Science"], "Common")).toEqual(["Common"]);
+  });
+
+  it("Common first, then a stream: the stream replaces Common", async () => {
+    const { withSubjectStream } = await import("@/lib/routine/routine-helpers");
+    expect(withSubjectStream(["Common"], "Arts")).toEqual(["Arts"]);
+  });
+
+  it("streams add up, and adding one already there changes nothing", async () => {
+    const { withSubjectStream } = await import("@/lib/routine/routine-helpers");
+    expect(withSubjectStream(["Arts"], "Science")).toEqual(["Arts", "Science"]);
+    expect(withSubjectStream(["Arts", "Science"], "Arts")).toEqual(["Arts", "Science"]);
+    expect(withSubjectStream(["General"], "Arts")).toEqual(["Arts"]);
+  });
+});

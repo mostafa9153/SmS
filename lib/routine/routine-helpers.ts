@@ -517,6 +517,20 @@ export function schemeSubjectStreams(
   return [detectSubjectStream(subjectName)];
 }
 
+/**
+ * A subject is either Common (every stream section of a letter sits together, one teacher) or under
+ * one or more streams (each stream taught on its own), never both: both would put it in a stream
+ * section twice. Adding Common replaces the streams; adding a stream to a Common subject replaces
+ * Common; adding a stream to a stream subject adds it.
+ */
+export function withSubjectStream(current: string[], add: string): string[] {
+  const isCommon = (x: string) => x.trim().toLowerCase() === "common";
+  const cur = current.filter((x) => x && x !== "General");
+  if (isCommon(add)) return ["Common"];
+  const streams = cur.filter((x) => !isCommon(x));
+  return streams.some((x) => x.toLowerCase() === add.toLowerCase()) ? streams : [...streams, add];
+}
+
 export interface PresetSectionItem {
   className: string;
   section: string;
