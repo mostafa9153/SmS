@@ -169,6 +169,11 @@ describe("field tables and presets", () => {
 });
 
 describe("autoSuggestMapping", () => {
+  it("maps Student State Code to the BSP code outside an SDMS export", () => {
+    const m = autoSuggestMapping(["Student Name", "Student State Code", "Class"]);
+    expect(m["Student State Code"]).toBe("studentUniqueCode");
+  });
+
   it("maps common student headers and keeps parent names out of 'name'", () => {
     const m = autoSuggestMapping([
       "Student Name",
