@@ -179,11 +179,7 @@ const GroupRow = React.memo(function GroupRow({
         <div className="flex items-center gap-1.5">
           <Layers className="h-3.5 w-3.5 text-primary/70" />
           {group.name}
-          {group.combined ? (
-            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
-              COMMON
-            </Badge>
-          ) : group.pooled && (
+          {group.pooled && (
             <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
               POOL
             </Badge>
@@ -218,8 +214,6 @@ const GroupRow = React.memo(function GroupRow({
         </div>
       </td>
       <td className="py-2 px-3 text-right space-x-1">
-        {/* Combined Common blocks follow the curriculum and Teachers tab; there is nothing to edit here */}
-        {!group.combined && (<>
         <Button
           variant="ghost"
           size="sm"
@@ -238,7 +232,6 @@ const GroupRow = React.memo(function GroupRow({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
-        </>)}
       </td>
     </tr>
   );
@@ -263,9 +256,13 @@ export function RoutineGroupsTab({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RoutineSubjectGroup | null>(null);
 
+  // Combined Common blocks are built from the curriculum and Teachers tab: they show on the subject
+  // in the Subjects tab, not here, where every row can be edited or deleted
+  const userGroups = useMemo(() => groups.filter((g) => !g.combined), [groups]);
+
   const visibleGroups = useMemo(() => {
-    if (!filterClass && !filterStream) return groups;
-    return groups.filter((g) => {
+    if (!filterClass && !filterStream) return userGroups;
+    return userGroups.filter((g) => {
       if (filterClass && g.className !== filterClass && g.scope === "class") return false;
       // A class-wise group with no stream runs in every stream, so a stream filter keeps it
       if (filterStream && g.stream && g.stream !== filterStream && g.scope === "class") return false;
@@ -289,7 +286,7 @@ export function RoutineGroupsTab({
       }
       return true;
     });
-  }, [groups, filterClass, filterStream, classes]);
+  }, [userGroups, filterClass, filterStream, classes]);
 
   const issues = useMemo(
     () => validateGroups({ groups, assignments, subjects, teachers, classes }),
@@ -331,7 +328,7 @@ export function RoutineGroupsTab({
           <Layers className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold tracking-tight text-foreground">Subject Groups</h2>
           <Badge variant="secondary" className="text-[10px] font-mono">
-            {groups.length}
+            {userGroups.length}
           </Badge>
           {issues.length > 0 && (
             <Badge
@@ -437,7 +434,7 @@ export function RoutineGroupsTab({
         classes={classes}
         subjects={subjects}
         assignments={assignments}
-        groups={groups}
+        groups={userGroups}
         onSave={async (g) => {
           await onSaveGroup(g);
           setDialogOpen(false);

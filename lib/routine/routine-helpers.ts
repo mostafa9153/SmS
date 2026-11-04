@@ -417,6 +417,19 @@ export function isHsClass(className: string, code?: string): boolean {
 }
 
 /**
+ * Common follows the stream a subject sits under (the preset decides): a row under Science /
+ * Commerce / Arts is never Common, a row under Common always is. The stored flag only counts for a
+ * row saved without a stream. Applied on every load and save, so moving a subject between streams
+ * in the preset can never leave a stale Common flag behind.
+ */
+export function resolveIsCommon(stream?: string | null, isCommon?: boolean | null): boolean {
+  const st = (stream || "").trim().toLowerCase();
+  if (st === "common") return true;
+  if (st === "science" || st === "commerce" || st === "arts") return false;
+  return Boolean(isCommon);
+}
+
+/**
  * Heuristic to detect stream based on subject name or explicit stream tag
  */
 export function detectSubjectStream(

@@ -11,7 +11,7 @@ import { SubjectTableRow } from "@/components/routine/subjects/subject-table-row
 import type { RoutineSubjectsState } from "./use-routine-subjects";
 
 export function SubjectsTable({ tab }: { tab: RoutineSubjectsState }) {
-  const { activeClass, activeClassSections, currentClassGroupExtra, currentClassGroupSlots, currentClassOrdinaryPeriods, currentClassSubjects, currentClassTotalPeriods, displayRows, handleDragEnd, handleEdit, handleEditGroup, onDeleteGroup, onDeleteSubject, selectedStream, sensors } = tab;
+  const { activeClass, activeClassSections, combinedTeachers, currentClassGroupExtra, currentClassGroupSlots, currentClassOrdinaryPeriods, currentClassSubjects, currentClassTotalPeriods, displayRows, handleDragEnd, handleEdit, handleEditGroup, onDeleteGroup, onDeleteSubject, selectedStream, sensors } = tab;
   return (
     <div className="bg-card border rounded-lg shadow-xs overflow-hidden">
       <div className="px-4 py-2.5 bg-muted/40 border-b flex flex-wrap items-center justify-between gap-3">
@@ -93,6 +93,7 @@ export function SubjectsTable({ tab }: { tab: RoutineSubjectsState }) {
                         activeClass={activeClass}
                         onEdit={handleEdit}
                         onDelete={onDeleteSubject}
+                        combinedWith={combinedTeachers[r.subject.id]}
                         isDraggable={true}
                       />
                     )

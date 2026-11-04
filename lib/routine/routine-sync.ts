@@ -517,26 +517,46 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
     });
 
     const candidateIds = new Set(candidates.map((c) => c.id));
-    const isAssignedInTimetable = assignments.some((a) => candidateIds.has(a.subjectId));
+    // Allotments and elective-group options cascade with the row: checked in the database (null = unknown)
+    const usage = await subjectUsage(createClient(), [...candidateIds]);
+    const isAssignedInTimetable =
+      !usage ||
+      usage.cascades.size > 0 ||
+      assignments.some((a) => candidateIds.has(a.subjectId));
+    // Teachers tick subjects by name, so while the subject stays under another stream of this
+    // class (Bengali moved from Common to Arts) their ticks still point at a row: only this
+    // stream's row goes. Rows with allotments are kept, since deleting one cascades them away.
+    const survivesElsewhere = currentSubjects.some(
+      (s) =>
+        s.id &&
+        !candidateIds.has(s.id) &&
+        s.className &&
+        normalizeClassToCode(s.className) === targetCode &&
+        isSameSubject(s.name, subjectName)
+    );
 
-    if (assignedTeacher || isAssignedInTimetable) {
+    if (isAssignedInTimetable || (assignedTeacher && !survivesElsewhere)) {
       const teacherInfo = assignedTeacher ? ` (assigned to ${assignedTeacher.name})` : "";
       showToast({
         type: "warning",
         title: "Subject Retained in Routine",
-        description: `"${subjectName}" for ${className} is currently assigned to teachers in Routine${teacherInfo}. To prevent schedule corruption, it was kept in Routine.`,
+        description: `"${subjectName}"${stream ? ` (${stream})` : ""} for ${className} is currently assigned to teachers or a subject group in Routine${teacherInfo}. Remove it there first, then remove it again.`,
       });
       return;
     }
+
+    const inRoutine = usage.inRoutine.size > 0;
 
     // Safe to delete from routine_subjects
     for (const c of candidates) await deleteSubjectDb(c.id);
     window.dispatchEvent(new Event("sms_routine_state_updated"));
 
     showToast({
-      type: "info",
+      type: inRoutine ? "warning" : "info",
       title: "Subject Removed from Routine",
-      description: `"${subjectName}"${stream ? ` (${stream})` : ""} was removed from ${className} in Routine.`,
+      description: `"${subjectName}"${stream ? ` (${stream})` : ""} was removed from ${className} in Routine.${
+        inRoutine ? " The current routine still shows it: generate the routine again." : ""
+      }`,
     });
   } catch (err) {
     console.warn("syncRemoveMarksSchemeSubjectFromRoutine error:", err);
@@ -548,23 +568,39 @@ export async function syncRemoveMarksSchemeSubjectFromRoutine(
  */
 // Single-flight: page auto-sync, strict-mode double effects and the manual button must not
 // run concurrently, otherwise each run misses the other's inserts and creates duplicate subjects.
-let subjectSyncInFlight: Promise<{ addedCount: number }> | null = null;
+/** removedCount: rows dropped for streams the preset no longer lists; inRoutine: of those, ones the active routine used. */
+type SubjectSyncResult = { addedCount: number; removedCount: number; inRoutine: number };
 
-export function syncAllSubjectsFromPresetsToRoutine(): Promise<{ addedCount: number }> {
-  if (!subjectSyncInFlight) {
-    subjectSyncInFlight = runSubjectSync().finally(() => {
-      subjectSyncInFlight = null;
+/**
+ * How far the sync may remove HS rows under a stream the preset no longer lists:
+ * - "off": add and update only (the preset copy may be old: never delete on it)
+ * - "safe": also remove rows nothing uses, keeping rows the active routine schedules (page load)
+ * - "all": also remove rows the active routine schedules; the caller tells the user to regenerate
+ */
+export type SubjectPrune = "off" | "safe" | "all";
+const PRUNE_RANK: Record<SubjectPrune, number> = { off: 0, safe: 1, all: 2 };
+let subjectSyncInFlight: { prune: SubjectPrune; run: Promise<SubjectSyncResult> } | null = null;
+
+export function syncAllSubjectsFromPresetsToRoutine(opts: { prune?: SubjectPrune } = {}): Promise<SubjectSyncResult> {
+  const prune = opts.prune ?? "off";
+  // A run already going covers this call unless it prunes less than this call asks for
+  if (subjectSyncInFlight && PRUNE_RANK[subjectSyncInFlight.prune] >= PRUNE_RANK[prune]) return subjectSyncInFlight.run;
+  const before = subjectSyncInFlight?.run.catch(() => undefined) ?? Promise.resolve();
+  const run: Promise<SubjectSyncResult> = before
+    .then(() => runSubjectSync(prune))
+    .finally(() => {
+      if (subjectSyncInFlight?.run === run) subjectSyncInFlight = null;
     });
-  }
-  return subjectSyncInFlight;
+  subjectSyncInFlight = { prune, run };
+  return run;
 }
 
-async function runSubjectSync(): Promise<{ addedCount: number }> {
-  if (typeof window === "undefined") return { addedCount: 0 };
+async function runSubjectSync(prune: SubjectPrune): Promise<SubjectSyncResult> {
+  if (typeof window === "undefined") return { addedCount: 0, removedCount: 0, inRoutine: 0 };
 
   try {
     const schemes = getSavedMarksSchemes();
-    if (!schemes || schemes.length === 0) return { addedCount: 0 };
+    if (!schemes || schemes.length === 0) return { addedCount: 0, removedCount: 0, inRoutine: 0 };
 
     const supabase = createClient();
     const { data: dbSubjects } = await supabase.from("routine_subjects").select("*").not("class_name", "is", null);
@@ -573,6 +609,7 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
     const toUpsert: any[] = [];
     const idsToDelete: string[] = [];
     const queuedKeys = new Set<string>();
+    const wanted: WantedStreams = new Map();
 
     for (const scheme of schemes) {
       const classCode = normalizeClassToCode(scheme.classCode);
@@ -593,6 +630,7 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
         const streams: (string | null)[] = isHs
           ? schemeSubjectStreams(scheme, cleanTarget)
           : [detectSubjectStream(cleanTarget)];
+        if (isHs) noteWantedStreams(wanted, classCode, cleanTarget, scheme.subjectStreams);
 
         const classRows = routineSubjects.filter(
           (s: any) => s.class_name && normalizeClassToCode(s.class_name) === classCode
@@ -661,14 +699,25 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
         );
         const hasFullVersionInPreset = schemeSubjects.some((p) => isSameSubject(p, rSub.name));
 
-        if (!isPresetSubject && hasFullVersionInPreset) {
+        if (!isPresetSubject && hasFullVersionInPreset && !toUpsert.some((u) => u.id === rSub.id)) {
           idsToDelete.push(rSub.id);
         }
       }
     }
 
-    if (idsToDelete.length > 0) {
-      await softWrite(supabase.from("routine_subjects").delete().in("id", idsToDelete), "routine_subjects delete");
+    // HS rows under a stream the preset no longer lists for that subject (Bengali taken off Common
+    // and put under Arts) go, unless allotments or groups still use them
+    const stale = prune === "off" ? [] : staleStreamRows(routineSubjects, wanted, toUpsert);
+    const usage = await subjectUsage(supabase, [...new Set([...idsToDelete, ...stale])]);
+    const deletable = usage
+      ? [...new Set([...idsToDelete, ...stale])].filter(
+          (id) => !usage.cascades.has(id) && (prune === "all" || !usage.inRoutine.has(id))
+        )
+      : [];
+    const removed = stale.filter((id) => deletable.includes(id));
+
+    if (deletable.length > 0) {
+      await softWrite(supabase.from("routine_subjects").delete().in("id", deletable), "routine_subjects delete");
     }
 
     if (toUpsert.length > 0) {
@@ -678,10 +727,176 @@ async function runSubjectSync(): Promise<{ addedCount: number }> {
     // Do NOT dispatch sms_routine_state_updated here to avoid infinite render/fetch loops
     // callers can refresh their local state or trigger UI reload as needed
 
-    return { addedCount: toUpsert.length };
+    return {
+      addedCount: toUpsert.length,
+      removedCount: removed.length,
+      inRoutine: usage ? removed.filter((id) => usage.inRoutine.has(id)).length : 0,
+    };
   } catch (err) {
     console.warn("syncAllSubjectsFromPresetsToRoutine error:", err);
-    return { addedCount: 0 };
+    return { addedCount: 0, removedCount: 0, inRoutine: 0 };
+  }
+}
+
+/** classCode → subject (lower case) → streams the preset puts it under; null = no saved streams. */
+export type WantedStreams = Map<string, Map<string, Set<string> | null>>;
+
+/**
+ * Several schemes can list one class: a subject is only pruned by stream when every scheme that
+ * lists it saved its streams (a scheme relying on the name heuristic keeps all its rows).
+ */
+export function noteWantedStreams(
+  wanted: WantedStreams,
+  classCode: string,
+  subject: string,
+  saved: Record<string, string[]> | undefined
+) {
+  const key = subject.trim().toLowerCase();
+  const perClass = wanted.get(classCode) || new Map<string, Set<string> | null>();
+  wanted.set(classCode, perClass);
+  const streams = Object.entries(saved || {}).find(([k]) => k.trim().toLowerCase() === key)?.[1];
+  if (!streams || streams.length === 0) {
+    perClass.set(key, null);
+    return;
+  }
+  const prev = perClass.get(key);
+  if (prev === null) return;
+  const next = prev || new Set<string>();
+  streams.forEach((s) => next.add(s.trim().toLowerCase()));
+  perClass.set(key, next);
+}
+
+/** Routine rows whose stream the preset no longer lists for that subject (rows being saved are kept). */
+export function staleStreamRows(
+  rows: { id: string; name: string; class_name?: string | null; stream?: string | null }[],
+  wanted: WantedStreams,
+  keep: { id?: string }[] = []
+): string[] {
+  const kept = new Set(keep.map((k) => k.id).filter(Boolean));
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!r.class_name || kept.has(r.id) || isUnsetStream(r.stream)) continue;
+    const streams = wanted.get(normalizeClassToCode(r.class_name))?.get(r.name.trim().toLowerCase());
+    if (!streams) continue;
+    if (!streams.has((r.stream || "").trim().toLowerCase())) out.push(r.id);
+  }
+  return out;
+}
+
+/**
+ * What still uses these subject rows: `cascades` = allotments and group options (deleting the row
+ * would cascade them away, so it is never deleted); `inRoutine` = cells of the active routine (its
+ * viewers would show "?" until it is generated again). null when unknown: delete nothing.
+ */
+async function subjectUsage(
+  supabase: ReturnType<typeof createClient>,
+  ids: string[]
+): Promise<{ cascades: Set<string>; inRoutine: Set<string> } | null> {
+  if (ids.length === 0) return { cascades: new Set(), inRoutine: new Set() };
+  const [a, g, active] = await Promise.all([
+    supabase.from("routine_assignments").select("subject_id").in("subject_id", ids),
+    supabase.from("routine_subject_group_options").select("subject_id").in("subject_id", ids),
+    activeRoutineSubjectIds(supabase),
+  ]);
+  if (a.error || g.error || !active) return null;
+  return {
+    cascades: new Set([...(a.data || []), ...(g.data || [])].map((r: { subject_id: string }) => r.subject_id)),
+    inRoutine: new Set(ids.filter((id) => active.has(id))),
+  };
+}
+
+/**
+ * Subject ids the active routine's grid points at (cell `sid` and its options'); null when unknown.
+ * Only the active one: a curriculum change is meant to be followed by a new routine, and guarding
+ * every saved version would keep a moved subject's old row forever.
+ */
+async function activeRoutineSubjectIds(supabase: ReturnType<typeof createClient>): Promise<Set<string> | null> {
+  const { data, error } = await supabase.from("routine_generated_cache").select("grid").eq("is_active", true);
+  if (error) return null;
+  const ids = new Set<string>();
+  (data || []).forEach((r: { grid: unknown }) => collectSids(r.grid, ids));
+  return ids;
+}
+
+export function collectSids(v: unknown, out: Set<string>): void {
+  if (!v || typeof v !== "object") return;
+  if (Array.isArray(v)) {
+    v.forEach((x) => collectSids(x, out));
+    return;
+  }
+  const o = v as Record<string, unknown>;
+  if (typeof o.sid === "string") out.add(o.sid);
+  Object.values(o).forEach((x) => collectSids(x, out));
+}
+
+/**
+ * A stream picked for a subject in the Routine tab is written back to the preset, so the preset
+ * (the source the sync follows) agrees and the next sync keeps the row. Only subjects whose preset
+ * entry already lists streams are touched; the exam marks subject list never changes here.
+ * `from` is the stream the row had before (edit) and `to` the new one; `to` null removes `from`.
+ */
+export function syncRoutineStreamToPreset(className: string, subjectName: string, from: string | null, to: string | null): void {
+  if (typeof window === "undefined" || !isHsClass(className)) return;
+  const known = (x: string | null) => (x && ["common", "science", "commerce", "arts"].includes(x.trim().toLowerCase()) ? x.trim() : null);
+  const prev = known(from);
+  const next = known(to);
+  if ((prev || "").toLowerCase() === (next || "").toLowerCase()) return;
+  const code = normalizeClassToCode(className);
+  const target = subjectName.trim().toLowerCase();
+  let changed = false;
+  const schemes = getSavedMarksSchemes().map((s) => {
+    if (normalizeClassToCode(s.classCode) !== code) return s;
+    // The preset's own spelling: a saved streams entry, else the subject list (streams from the name)
+    const key =
+      Object.keys(s.subjectStreams || {}).find((k) => k.trim().toLowerCase() === target) ??
+      (s.subjects || []).find((n) => n.trim().toLowerCase() === target);
+    if (!key) return s;
+    const cur = schemeSubjectStreams(s, key);
+    let streams = prev ? cur.filter((x) => x.toLowerCase() !== prev.toLowerCase()) : cur;
+    if (next && !streams.some((x) => x.toLowerCase() === next.toLowerCase())) streams = [...streams, next];
+    // The last stream of a subject is removed from the preset itself, never from here
+    if (streams.length === 0) return s;
+    if (streams.length === cur.length && streams.every((x, i) => x === cur[i])) return s;
+    changed = true;
+    return { ...s, subjectStreams: { ...(s.subjectStreams || {}), [key]: streams } };
+  });
+  if (changed) saveMarksSchemes(schemes, { undo: false });
+}
+
+/**
+ * The server's preset equals the copy this device had before loading it (keys in any order: the
+ * server stores JSONB). Only then is the preset certain enough to delete routine rows on: a copy
+ * that differs may be an edit still saving, a failed save or another device's newer change.
+ */
+export function presetMatchesLocal(server: unknown, localRaw: string | null): boolean {
+  if (!Array.isArray(server) || !localRaw) return false;
+  try {
+    return canonicalJson(server) === canonicalJson(JSON.parse(localRaw));
+  } catch {
+    return false;
+  }
+}
+
+function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .filter((k) => o[k] !== undefined)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
+/** The raw saved preset on this device, read before a server load overwrites it. */
+export function localPresetRaw(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem("sms_marks_distribution_schemes");
+  } catch {
+    return null;
   }
 }
 

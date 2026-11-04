@@ -6,6 +6,8 @@ export interface RoutineSubjectsTabProps {
   settings: RoutineSettings;
   classes?: RoutineClass[];
   groups?: RoutineSubjectGroup[];
+  /** Subject id → teachers of the combined Common blocks it is taught in */
+  combinedTeachers?: Record<string, string[]>;
   onSaveGroup?: (group: RoutineSubjectGroup) => Promise<void>;
   onDeleteGroup?: (id: string) => Promise<void>;
   onSaveSubject: (subj: {

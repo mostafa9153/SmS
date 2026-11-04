@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { RoutineSettings, RoutineRoom, RoutineClass, RoutineSubject, RoutineTeacher, RoutineAssignment, RoutineSubjectGroup, GeneratedRoutine, DEFAULT_ROUTINE_SETTINGS } from "@/lib/routine/types";
-import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
+import { sanitizeTeacherSubjectPeriods, isHsClass, normalizeSubjectName, resolveIsCommon } from "@/lib/routine/routine-helpers";
 import { withCombinedCommonGroups, withDerivedGroupSettings } from "@/lib/routine/routine-groups";
 import { fetchSubjectGroupsDb } from "@/lib/supabase/routine/groups";
 import { RoutineFullState, getLocalRoutineState, setLocalRoutineState } from "@/lib/supabase/routine/local-state";
@@ -153,7 +153,7 @@ export async function fetchRoutineFullState(): Promise<RoutineFullState> {
             className: s.class_name || s.className || null,
             classId: s.class_id || s.classId || null,
             stream: s.stream || null,
-            isCommon: Boolean(s.is_common ?? s.isCommon),
+            isCommon: resolveIsCommon(s.stream, s.is_common ?? s.isCommon),
             isHard: Boolean(s.is_hard),
             isLab,
             theoryPeriods: theoryP,

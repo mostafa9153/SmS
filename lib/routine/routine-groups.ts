@@ -13,6 +13,7 @@ import {
   isTeacherAssignedToSubject,
   normalizeSubjectName,
   parseSectionAndStream,
+  resolveIsCommon,
 } from "./routine-helpers";
 
 // ============================================================
@@ -126,7 +127,7 @@ export function deriveCombinedCommonGroups(
     const seen = new Set<string>();
     for (const s of subjects) {
       if ((s.className || "").trim().toLowerCase() !== clsLower) continue;
-      if (!(s.isCommon || detectSubjectStream(s.name, s.stream) === "Common")) continue;
+      if (!(resolveIsCommon(s.stream, s.isCommon) || detectSubjectStream(s.name, s.stream) === "Common")) continue;
       if (s.isLab && (s.labPeriods ?? 0) > 0) continue;
       if (inUserGroup.has(s.id) || seen.has(normalizeSubjectName(s.name))) continue;
       seen.add(normalizeSubjectName(s.name));
@@ -151,11 +152,13 @@ export function deriveCombinedCommonGroups(
       const { section: letter } = parseSectionAndStream(sections[0].section || "");
       const baseId = `combined:${clsLower}:${letter.toLowerCase()}:${s.id}`;
       const single = staffed[0].length === 1;
+      // "XI-A": XI and XII blocks of the same subject must not read as duplicates
+      const where = `${className.replace(/^class\s+/i, "").trim()}-${letter}`;
       for (const t of staffed[0]) {
         const id = single ? baseId : `${baseId}:${t.id}`;
         out.push({
           id,
-          name: single ? `${s.name} (Combined)` : `${s.name} (Combined · ${t.shortName || t.name})`,
+          name: single ? `${s.name} (${where} Combined)` : `${s.name} (${where} Combined · ${t.shortName || t.name})`,
           scope: "section",
           className,
           stream: null,

@@ -4,7 +4,8 @@ import { apiFetch } from "@/lib/api/client";
 import React from "react";
 import { setLocalRoutineState } from "@/lib/supabase/db-routine";
 import { showToast } from "@/components/ui/toast-banner";
-import { syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { localPresetRaw, presetMatchesLocal, syncAllSubjectsFromPresetsToRoutine } from "@/lib/routine/routine-sync";
+import { fetchSchoolConfigClient } from "@/lib/utils/school-config-client";
 import { getDatabaseSubjectsForClass } from "@/lib/ems/ems-config-loader";
 import { HS_STREAM_PRESETS, detectSubjectStream } from "@/lib/routine/routine-helpers";
 import type { SubjectsCoreState } from "./use-subjects-core";
@@ -142,146 +143,26 @@ export function useSubjectsSync(ctx: SubjectsCoreState & SubjectsEditingState) {
     onSaveSubject,
   ]);
 
-  // Auto-Sync Preset Subjects for Active Class
-  const handleSyncActiveClass = async () => {
-    if (activeClass === "all") {
-      await handleSyncFromPresets();
-      return;
-    }
-
-    const clsLower = activeClass.toLowerCase();
-    const existing = new Set(
-      subjects
-        .filter((s) => !s.className || s.className.toLowerCase() === clsLower)
-        .map((s) => s.name.trim().toLowerCase())
-    );
-
-    let toAdd: { name: string; stream?: string; isCommon?: boolean }[] = [];
-
-    if (isCurrentClassHs) {
-      if (selectedStream === "Common") {
-        toAdd = HS_STREAM_PRESETS.Common.map((p) => ({ name: p, stream: "Common", isCommon: true }));
-      } else if (selectedStream === "Science") {
-        toAdd = configuredStreamsForActive.includes("Science")
-          ? HS_STREAM_PRESETS.Science.map((p) => ({ name: p, stream: "Science", isCommon: false }))
-          : [];
-      } else if (selectedStream === "Commerce") {
-        toAdd = configuredStreamsForActive.includes("Commerce")
-          ? HS_STREAM_PRESETS.Commerce.map((p) => ({ name: p, stream: "Commerce", isCommon: false }))
-          : [];
-      } else if (selectedStream === "Arts") {
-        toAdd = configuredStreamsForActive.includes("Arts")
-          ? HS_STREAM_PRESETS.Arts.map((p) => ({ name: p, stream: "Arts", isCommon: false }))
-          : [];
-      } else {
-        toAdd = [
-          ...HS_STREAM_PRESETS.Common.map((p) => ({ name: p, stream: "Common", isCommon: true })),
-          ...(configuredStreamsForActive.includes("Science")
-            ? HS_STREAM_PRESETS.Science.map((p) => ({ name: p, stream: "Science", isCommon: false }))
-            : []),
-          ...(configuredStreamsForActive.includes("Commerce")
-            ? HS_STREAM_PRESETS.Commerce.map((p) => ({ name: p, stream: "Commerce", isCommon: false }))
-            : []),
-          ...(configuredStreamsForActive.includes("Arts")
-            ? HS_STREAM_PRESETS.Arts.map((p) => ({ name: p, stream: "Arts", isCommon: false }))
-            : []),
-        ];
-      }
-    } else {
-      toAdd = getDatabaseSubjectsForClass(activeClass).map((p) => ({ name: p }));
-    }
-
-    const filteredToAdd = toAdd.filter((item) => !existing.has(item.name.trim().toLowerCase()));
-    if (filteredToAdd.length === 0) return;
-
-    setIsSyncing(true);
-    try {
-      const itemsToSave = filteredToAdd.map((item) => {
-        const lower = item.name.toLowerCase();
-        const isLabSubject = lower.includes("lab") || lower.includes("practical");
-        const isLightSub = lower.includes("physical education") || lower.includes("work education") || lower.includes("environmental");
-        return {
-          name: item.name,
-          className: activeClass,
-          stream: item.stream || (isCurrentClassHs ? detectSubjectStream(item.name) : null),
-          isCommon: item.isCommon || (isCurrentClassHs && item.stream === "Common"),
-          isHard: false,
-          isLab: isLabSubject,
-          timePref: "any" as const,
-          allowMultiplePerDay: false,
-          maxPerDay: 1,
-          periodsPerWeek: isLabSubject || isLightSub ? 2 : 5,
-        };
-      });
-
-      if (onBatchSaveSubjects) {
-        await onBatchSaveSubjects(itemsToSave);
-      } else {
-        for (const item of itemsToSave) {
-          await onSaveSubject(item);
-        }
-      }
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  // Quick Auto-Sync Common Core (Bengali, English, Environmental Studies)
-  const handleSyncCommonCore = async () => {
-    if (!isCurrentClassHs) return;
-    const clsLower = activeClass.toLowerCase();
-    const existing = new Set(
-      subjects
-        .filter((s) => !s.className || s.className.toLowerCase() === clsLower)
-        .map((s) => s.name.trim().toLowerCase())
-    );
-
-    const commonList = ["Bengali", "English", "Environmental Studies"];
-    const toAdd = commonList.filter((p) => !existing.has(p.toLowerCase()));
-    if (toAdd.length === 0) return;
-
-    setIsSyncing(true);
-    try {
-      const itemsToSave = toAdd.map((subName) => {
-        const lower = subName.toLowerCase();
-        const isLight = lower.includes("environmental");
-        return {
-          name: subName,
-          className: activeClass,
-          stream: "Common",
-          isCommon: true,
-          isHard: false,
-          isLab: false,
-          timePref: "any" as const,
-          allowMultiplePerDay: false,
-          maxPerDay: 1,
-          periodsPerWeek: isLight ? 2 : 5,
-        };
-      });
-
-      if (onBatchSaveSubjects) {
-        await onBatchSaveSubjects(itemsToSave);
-      } else {
-        for (const item of itemsToSave) {
-          await onSaveSubject(item);
-        }
-      }
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   // Sync All Classes Presets from Settings
   const handleSyncFromPresets = async () => {
     setIsSyncing(true);
     try {
-      const res = await syncAllSubjectsFromPresetsToRoutine();
-      if (res.addedCount > 0) {
+      const localBefore = localPresetRaw();
+      const config = await fetchSchoolConfigClient(true).catch(() => null);
+      const presetSure = presetMatchesLocal(config?.marks_schemes, localBefore);
+      const res = await syncAllSubjectsFromPresetsToRoutine({ prune: presetSure ? "all" : "off" });
+      if (res.addedCount > 0 || res.removedCount > 0) {
         if (typeof window !== 'undefined') { window.dispatchEvent(new Event('sms_routine_state_updated')); }
         showToast({
-          type: "success",
+          type: res.inRoutine > 0 ? "warning" : "success",
           title: "Synced from Presets",
-          description: `${res.addedCount} new subjects synced from Presets with 5 periods/week.`,
+          description:
+            [
+              res.addedCount > 0 ? `${res.addedCount} subjects synced` : "",
+              res.removedCount > 0 ? `${res.removedCount} removed from streams the preset no longer lists` : "",
+            ].filter(Boolean).join(", ") +
+            "." +
+            (res.inRoutine > 0 ? " The current routine still uses them: generate the routine again." : ""),
         });
       } else {
         showToast({
@@ -306,8 +187,6 @@ export function useSubjectsSync(ctx: SubjectsCoreState & SubjectsEditingState) {
     handleSaveAll,
     handleSelectClass,
     handleSelectStream,
-    handleSyncActiveClass,
-    handleSyncCommonCore,
     handleSyncFromPresets,
   };
 }
