@@ -397,12 +397,25 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
     [groups, editingTeacherId]
   );
 
-  // This teacher's periods of a picked group subject (1 .. the periods the others left)
-  const setGroupOptionPeriods = useCallback((optionId: string, value: string) => {
-    const n = Math.floor(Number(value));
-    if (!Number.isFinite(n) || n < 1) return;
-    setGroupPicks((prev) => (prev.has(optionId) ? new Map(prev).set(optionId, n) : prev));
-  }, []);
+  // This teacher's periods of a picked group subject, kept within what the other teachers left so
+  // the box shows what Save writes. An empty box is allowed while typing (saved as 1 at least).
+  const setGroupOptionPeriods = useCallback(
+    (optionId: string, value: string) => {
+      const n = value.trim() === "" ? 0 : Math.floor(Number(value));
+      if (!Number.isFinite(n) || n < 0) return;
+      setGroupPicks((prev) => {
+        if (!prev.has(optionId)) return prev;
+        const g = groups.find((x) => x.options.some((o) => o.id === optionId));
+        const o = g?.options.find((x) => x.id === optionId);
+        if (!g || !o) return prev;
+        const others = optionShares(o, g)
+          .filter((s) => s.teacherId !== editingTeacherId)
+          .reduce((t, s) => t + s.periods, 0);
+        return new Map(prev).set(optionId, Math.min(n, Math.max(1, g.periodsPerWeek - others)));
+      });
+    },
+    [groups, editingTeacherId]
+  );
 
   // Teacher's group load for a class, each group counted once (pooled) or per section (non-pooled)
   const getClassGroupLoad = useCallback(
@@ -427,8 +440,12 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
             next = [{ teacherId, periods: g.periodsPerWeek }];
           } else {
             const left = Math.max(0, g.periodsPerWeek - others.reduce((n, s) => n + s.periods, 0));
-            const mine = Math.min(groupPicks.get(o.id) || left, left);
-            next = mine > 0 ? [...others, { teacherId, periods: mine }] : others;
+            const mine = Math.min(Math.max(1, groupPicks.get(o.id) || left), left);
+            // A teacher already sharing keeps their place, so a save with no change rewrites nothing
+            if (mine <= 0) next = others;
+            else if (current.some((s) => s.teacherId === teacherId))
+              next = current.map((s) => (s.teacherId === teacherId ? { teacherId, periods: mine } : s));
+            else next = [...others, { teacherId, periods: mine }];
           }
         }
         const same =

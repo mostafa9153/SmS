@@ -1,5 +1,6 @@
 import time
 import math
+import re
 from routine_diagnostics import audit_relaxations, ct_matches, explain_strict_failures
 from routine_models import GenerateRoutineRequest, allowed_periods, effective_settings
 from routine_phase import run_solver_phase
@@ -122,6 +123,17 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
                     _append_unit(out, sz=1, **common)
 
         # ---- Subject groups (parallel options in one slot) -----------------
+        # A group shared by teachers arrives as parts "<gid>~k" (one teacher per subject in each
+        # part). The parts are one group for the daily cap and the same-day spreading, so they are
+        # keyed and counted by the base id ("<gid>~1::<cid>" -> "<gid>::<cid>").
+        def _base_gid(gid):
+            return re.sub(r"~\d+", "", gid)
+
+        base_total = {}
+        for g in (request.groups or []):
+            if g.classIds and g.options:
+                base_total[_base_gid(g.gid)] = base_total.get(_base_gid(g.gid), 0) + g.periodsPerWeek
+
         for g in (request.groups or []):
             if not g.classIds or not g.options:
                 continue
@@ -130,7 +142,8 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
             rids = list(dict.fromkeys(o.roomId for o in g.options if o.roomId))
 
             # Group's effective maxPerDay (fallback: use periods_per_week spread)
-            auto_max_daily = math.ceil(g.periodsPerWeek / open_days(g.allowedSlots))
+            base = _base_gid(g.gid)
+            auto_max_daily = math.ceil(base_total.get(base, g.periodsPerWeek) / open_days(g.allowedSlots))
             max_daily = max(auto_max_daily, g.maxPerDay or 1)
 
             opts = [
@@ -139,7 +152,7 @@ def generate_schedule(request: GenerateRoutineRequest, diagnose_only: bool = Fal
             ]
             # Use a synthetic sid "g:<gid>" so that per-class spreading /
             # daily-cap bookkeeping treats the group as a single subject key.
-            synth_sid = f"g:{g.gid}"
+            synth_sid = f"g:{base}"
 
             common = dict(
                 cids=cids,

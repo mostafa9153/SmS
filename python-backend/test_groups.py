@@ -270,8 +270,47 @@ def test_combined_common_single_option():
     print("test_combined_common_single_option: OK")
 
 
+def test_shared_group_parts_keep_one_daily_cap():
+    # Political Science shared SM 3 + XY 2 beside Sociology SG 5: the app sends two parts
+    # (g_el~0: SM+SG 3p, g_el~1: XY+SG 2p). With maxPerDay 1 the five periods must still fall
+    # on five different days, never two parts on one day.
+    payload = {
+        "settings": _base_settings(),
+        "classes": [{"id": "c_A", "className": "Class XI", "section": "A (Arts)", "dailyPeriods": 8}],
+        "teachers": [_teacher("t_sm", "SM", "SM"), _teacher("t_xy", "XY", "XY"), _teacher("t_sg", "SG", "SG")],
+        "subjects": [
+            {"id": "s_pol", "name": "Political Science", "isHard": False, "isLab": False, "timePref": "any", "allowMultiplePerDay": False},
+            {"id": "s_soc", "name": "Sociology", "isHard": False, "isLab": False, "timePref": "any", "allowMultiplePerDay": False},
+        ],
+        "assignments": [],
+        "rooms": [],
+        "groups": [
+            {"gid": "g_el~0", "name": "Elective", "classIds": ["c_A"], "periodsPerWeek": 3, "periodSize": 1,
+             "timePref": "any", "maxPerDay": 1,
+             "options": [{"subjectId": "s_pol", "teacherId": "t_sm"}, {"subjectId": "s_soc", "teacherId": "t_sg"}]},
+            {"gid": "g_el~1", "name": "Elective", "classIds": ["c_A"], "periodsPerWeek": 2, "periodSize": 1,
+             "timePref": "any", "maxPerDay": 1,
+             "options": [{"subjectId": "s_pol", "teacherId": "t_xy"}, {"subjectId": "s_soc", "teacherId": "t_sg"}]},
+        ],
+    }
+    res = _run(payload)
+    assert res.get("success"), f"solver failed: {res.get('diagnostics')}"
+    grid = res["grid"]
+    cells = [(d, p, c) for d, row in enumerate(grid["c_A"]) for p, c in enumerate(row) if c and str(c.get("gid", "")).startswith("g_el")]
+    assert len(cells) == 5, cells
+    days = [d for d, _, _ in cells]
+    assert len(set(days)) == 5, f"two parts on one day: {days}"
+    by_part = {}
+    for _, _, c in cells:
+        by_part.setdefault(c["gid"], []).append(sorted(o["tid"] for o in c["opts"]))
+    assert len(by_part["g_el~0"]) == 3 and all(t == ["t_sg", "t_sm"] for t in by_part["g_el~0"]), by_part
+    assert len(by_part["g_el~1"]) == 2 and all(t == ["t_sg", "t_xy"] for t in by_part["g_el~1"]), by_part
+    print("test_shared_group_parts_keep_one_daily_cap: OK")
+
+
 def main():
     test_combined_common_single_option()
+    test_shared_group_parts_keep_one_daily_cap()
     test_pooled_group_single_period()
     test_group_double_period_consecutive()
     test_group_no_common_free_slot_fails_cleanly()

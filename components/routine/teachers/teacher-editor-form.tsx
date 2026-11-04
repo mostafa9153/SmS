@@ -785,9 +785,12 @@ export function TeacherEditorForm({
                                         <Input
                                           type="number"
                                           min={1}
-                                          max={g.periods}
-                                          value={o.myPeriods}
+                                          max={Math.max(1, o.remaining)}
+                                          value={o.myPeriods || ""}
                                           onChange={(e) => onGroupOptionPeriodsChange(o.id, e.target.value)}
+                                          onBlur={(e) => {
+                                            if (!e.target.value) onGroupOptionPeriodsChange(o.id, "1");
+                                          }}
                                           className={cn(
                                             "h-6 w-11 text-[11px] font-mono font-bold px-1 text-center bg-background",
                                             over ? "border-rose-500 text-rose-500" : "border-primary/40 text-foreground"
