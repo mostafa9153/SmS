@@ -12,7 +12,13 @@ import {
   isHsClass,
   isTeacherAssignedToSubject,
   normalizeSubjectName,
+  isOptionStaffed,
+  optionCovered,
+  optionShares,
+  optionTeacherIds,
   parseSectionAndStream,
+  resolveIsCommon,
+  teacherPeriodsInGroup,
 } from "./routine-helpers";
 
 // ============================================================
@@ -57,12 +63,9 @@ function getGroupedSubjectIds(
   return out;
 }
 
-/** An option with no teacher yet. Teachers are assigned from the Teachers tab, so this is the normal state of a new group. */
-const isUnstaffedOption = (o: { teacherId?: string | null }): boolean => !o.teacherId;
-
-/** Every option has a teacher: the group can be handed to the solver. */
-const isGroupStaffed = (g: RoutineSubjectGroup): boolean =>
-  g.options.length > 0 && g.options.every((o) => !isUnstaffedOption(o));
+/** Every group period of every option has a teacher: the group can be handed to the solver. */
+export const isGroupStaffed = (g: RoutineSubjectGroup): boolean =>
+  g.options.length > 0 && g.options.every((o) => isOptionStaffed(o, g));
 
 /**
  * Period settings of a group come from its member subjects (Subjects tab), never from the group itself,
@@ -126,7 +129,7 @@ export function deriveCombinedCommonGroups(
     const seen = new Set<string>();
     for (const s of subjects) {
       if ((s.className || "").trim().toLowerCase() !== clsLower) continue;
-      if (!(s.isCommon || detectSubjectStream(s.name, s.stream) === "Common")) continue;
+      if (!(resolveIsCommon(s.stream, s.isCommon) || detectSubjectStream(s.name, s.stream) === "Common")) continue;
       if (s.isLab && (s.labPeriods ?? 0) > 0) continue;
       if (inUserGroup.has(s.id) || seen.has(normalizeSubjectName(s.name))) continue;
       seen.add(normalizeSubjectName(s.name));
@@ -151,11 +154,13 @@ export function deriveCombinedCommonGroups(
       const { section: letter } = parseSectionAndStream(sections[0].section || "");
       const baseId = `combined:${clsLower}:${letter.toLowerCase()}:${s.id}`;
       const single = staffed[0].length === 1;
+      // "XI-A": XI and XII blocks of the same subject must not read as duplicates
+      const where = `${className.replace(/^class\s+/i, "").trim()}-${letter}`;
       for (const t of staffed[0]) {
         const id = single ? baseId : `${baseId}:${t.id}`;
         out.push({
           id,
-          name: single ? `${s.name} (Combined)` : `${s.name} (Combined · ${t.shortName || t.name})`,
+          name: single ? `${s.name} (${where} Combined)` : `${s.name} (${where} Combined · ${t.shortName || t.name})`,
           scope: "section",
           className,
           stream: null,
@@ -189,7 +194,16 @@ export function withCombinedCommonGroups(
 interface ClassGroupAllotment {
   group: RoutineSubjectGroup;
   periods: number;
-  options: { subjectId: string; subjectName: string; teacher: RoutineTeacher | null }[];
+  options: {
+    subjectId: string;
+    subjectName: string;
+    /** first teacher (the only one unless the subject is shared) */
+    teacher: RoutineTeacher | null;
+    /** every teacher of the subject with their periods, in timetable cells */
+    teachers: { teacher: RoutineTeacher; periods: number }[];
+    /** periods (cells) of the subject that have a teacher */
+    covered: number;
+  }[];
   /** every option has a teacher, so the group's slot is fully staffed */
   complete: boolean;
 }
@@ -206,16 +220,25 @@ export function getClassGroupAllotments(
   teachers: RoutineTeacher[]
 ): ClassGroupAllotment[] {
   return getGroupsForClass(classId, groups).map((g) => {
-    const options = g.options.map((o) => ({
-      subjectId: o.subjectId,
-      subjectName: subjects.find((s) => s.id === o.subjectId)?.name || "Subject",
-      teacher: teachers.find((t) => t.id === o.teacherId) || null,
-    }));
+    const size = g.periodSize === 2 ? 2 : 1;
+    const options = g.options.map((o) => {
+      const list = optionShares(o, g)
+        .map((s) => ({ teacher: teachers.find((t) => t.id === s.teacherId), periods: s.periods * size }))
+        .filter((x): x is { teacher: RoutineTeacher; periods: number } => Boolean(x.teacher));
+      return {
+        subjectId: o.subjectId,
+        subjectName: subjects.find((s) => s.id === o.subjectId)?.name || "Subject",
+        teacher: list[0]?.teacher || null,
+        teachers: list,
+        covered: list.reduce((n, x) => n + x.periods, 0),
+      };
+    });
+    const periods = groupSlotCost(g);
     return {
       group: g,
-      periods: groupSlotCost(g),
+      periods,
       options,
-      complete: options.length > 0 && options.every((o) => o.teacher),
+      complete: options.length > 0 && options.every((o) => o.covered >= periods),
     };
   });
 }
@@ -239,15 +262,7 @@ export function teacherGroupLoad(
   teacherId: string,
   groups: RoutineSubjectGroup[]
 ): number {
-  let total = 0;
-  for (const g of groups || []) {
-    const perSlotLoad = g.options.filter((o) => o.teacherId === teacherId).length;
-    if (perSlotLoad === 0) continue;
-    const slots = groupSlotCost(g);
-    const multiplier = g.pooled ? 1 : Math.max(1, g.sectionIds.length);
-    total += perSlotLoad * slots * multiplier;
-  }
-  return total;
+  return (groups || []).reduce((total, g) => total + teacherPeriodsInGroup(teacherId, g), 0);
 }
 
 /**
@@ -324,8 +339,10 @@ export function validateGroups(args: {
       });
     }
 
-    const seenTeachers = new Set<string>();
+    // A teacher runs one subject of a group at a time: listed under two subjects they would clash
+    const teacherOption = new Map<string, string>();
     for (const opt of g.options) {
+      const optTeachers = optionTeacherIds(opt, g);
       if (!subjectIds.has(opt.subjectId)) {
         issues.push({
           groupId: g.id,
@@ -334,29 +351,36 @@ export function validateGroups(args: {
           message: `Option refers to a deleted subject (id ${opt.subjectId}).`,
         });
       }
-      if (opt.teacherId && !teacherIds.has(opt.teacherId)) {
-        issues.push({
-          groupId: g.id,
-          groupName: g.name,
-          severity: "error",
-          message: `Option refers to a deleted teacher (id ${opt.teacherId}).`,
-        });
+      for (const tid of optTeachers) {
+        if (!teacherIds.has(tid)) {
+          issues.push({
+            groupId: g.id,
+            groupName: g.name,
+            severity: "error",
+            message: `Option refers to a deleted teacher (id ${tid}).`,
+          });
+        }
+        const other = teacherOption.get(tid);
+        if (other !== undefined && other !== opt.subjectId) {
+          issues.push({
+            groupId: g.id,
+            groupName: g.name,
+            severity: "error",
+            message: "The same teacher is listed twice in this group — a teacher can only run one option.",
+          });
+        }
+        teacherOption.set(tid, opt.subjectId);
       }
-      if (opt.teacherId && seenTeachers.has(opt.teacherId)) {
-        issues.push({
-          groupId: g.id,
-          groupName: g.name,
-          severity: "error",
-          message: "The same teacher is listed twice in this group — a teacher can only run one option.",
-        });
-      }
-      if (opt.teacherId) seenTeachers.add(opt.teacherId);
     }
 
-    const unstaffed = g.options.filter(isUnstaffedOption);
+    const unstaffed = g.options.filter((o) => !isOptionStaffed(o, g));
     if (unstaffed.length > 0) {
       const names = unstaffed
-        .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject")
+        .map((o) => {
+          const name = subjects.find((s) => s.id === o.subjectId)?.name || "Subject";
+          const covered = optionCovered(o, g);
+          return covered > 0 ? `${name} (${covered}/${g.periodsPerWeek})` : name;
+        })
         .join(", ");
       issues.push({
         groupId: g.id,
@@ -419,10 +443,57 @@ interface SolverGroupPayload {
 }
 
 export function buildSolverGroups(groups: RoutineSubjectGroup[]): SolverGroupPayload[] {
+  return groups.flatMap((g) => splitSharedGroup(g)).flatMap(solverUnitsOf);
+}
+
+/**
+ * A group whose subjects are shared by teachers (Political Science SM 3 + XY 2 beside Sociology
+ * SG 5) runs as consecutive parts in which every subject has one teacher: SM + SG for 3 periods,
+ * XY + SG for 2. Each part is a group of its own for the solver; without shares the group is kept.
+ */
+export function splitSharedGroup(g: RoutineSubjectGroup): RoutineSubjectGroup[] {
+  if (!g.options.some((o) => (o.shares?.length ?? 0) > 0) || g.periodSize !== 1) return [g];
+  if (!isGroupStaffed(g)) return [g];
+  const total = g.periodsPerWeek;
+  const cuts = new Set<number>([0, total]);
+  const runs = g.options.map((o) => {
+    let at = 0;
+    return optionShares(o, g).map((s) => {
+      const run = { from: at, to: at + s.periods, teacherId: s.teacherId };
+      at += s.periods;
+      cuts.add(run.to);
+      return run;
+    });
+  });
+  const points = [...cuts].filter((n) => n >= 0 && n <= total).sort((a, b) => a - b);
+  if (points.length <= 2) {
+    // Every subject has one teacher after all (a share list of one)
+    return [{ ...g, options: g.options.map((o, i) => ({ ...o, teacherId: runs[i][0]?.teacherId || o.teacherId, shares: null })) }];
+  }
+  const parts: RoutineSubjectGroup[] = [];
+  for (let k = 0; k + 1 < points.length; k++) {
+    const from = points[k];
+    const to = points[k + 1];
+    if (to <= from) continue;
+    parts.push({
+      ...g,
+      id: `${g.id}~${k}`,
+      periodsPerWeek: to - from,
+      options: g.options.map((o, i) => ({
+        ...o,
+        teacherId: runs[i].find((r) => r.from <= from && r.to >= to)?.teacherId || o.teacherId,
+        shares: null,
+      })),
+    });
+  }
+  return parts;
+}
+
+function solverUnitsOf(g: RoutineSubjectGroup): SolverGroupPayload[] {
   const out: SolverGroupPayload[] = [];
-  for (const g of groups) {
+  {
     // A combined Common block has one option shared by several sections
-    if (g.sectionIds.length === 0 || g.options.length < (g.combined ? 1 : 2) || !isGroupStaffed(g)) continue;
+    if (g.sectionIds.length === 0 || g.options.length < (g.combined ? 1 : 2) || !isGroupStaffed(g)) return out;
     const opts = g.options.map((o) => ({
       subjectId: o.subjectId,
       teacherId: o.teacherId,

@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { RoutineClass, RoutineTeacher } from "@/lib/routine/types";
 import { getClassGroupAllotments } from "@/lib/routine/routine-groups";
 import { getClassNumericRank } from "@/lib/ems/ems-config-loader";
-import { generateInitials, getTeacherSubjectPeriod, isTeacherAssignedToSubject } from "@/lib/routine/routine-helpers";
+import { generateInitials, getTeacherSubjectPeriod, isTeacherAssignedToSubject, optionTeacherIds, teacherPeriodsInGroup } from "@/lib/routine/routine-helpers";
 import { CellAllotmentData, ClassRowData, TeacherAssignmentItem } from "@/components/routine/allotment-overview/types";
 import { TeacherLoadRowData } from "@/components/routine/allotment-overview/teacher-load-types";
 
@@ -180,14 +180,17 @@ export function useRoutineAllotmentOverview({
         );
 
         // A subject that is an option of a group of this class is allotted through that group
-        let groupHit: { allot: (typeof classGroupAllots)[number]; teacher: RoutineTeacher | null } | null = null;
+        let groupHit: {
+          allot: (typeof classGroupAllots)[number];
+          opt: (typeof classGroupAllots)[number]["options"][number];
+        } | null = null;
         for (const allot of classGroupAllots) {
           const opt = allot.options.find((o) => {
             const n = o.subjectName.trim().toLowerCase();
             return n === cleanSubName || n === subName.trim().toLowerCase();
           });
           if (opt) {
-            groupHit = { allot, teacher: opt.teacher };
+            groupHit = { allot, opt };
             break;
           }
         }
@@ -210,17 +213,18 @@ export function useRoutineAllotmentOverview({
         });
 
         if (groupHit) {
-          if (groupHit.teacher) {
-            const tInfo = teacherCodeMap.get(groupHit.teacher.id);
+          // A shared subject lists each teacher with their part; periods nobody covers show as missing
+          for (const { teacher, periods } of groupHit.opt.teachers) {
+            const tInfo = teacherCodeMap.get(teacher.id);
             cellTeachers.push({
-              teacherId: groupHit.teacher.id,
-              teacherName: groupHit.teacher.name,
-              teacherCode: tInfo?.code || groupHit.teacher.shortName || generateInitials(groupHit.teacher.name),
-              periods: groupHit.allot.periods,
+              teacherId: teacher.id,
+              teacherName: teacher.name,
+              teacherCode: tInfo?.code || teacher.shortName || generateInitials(teacher.name),
+              periods,
               subjectName: subName,
             });
-            assignedPeriods = groupHit.allot.periods;
           }
+          assignedPeriods = groupHit.opt.covered;
         } else if (directAssignments.length > 0) {
           directAssignments.forEach((a) => {
             const tInfo = teacherCodeMap.get(a.teacherId);
@@ -417,17 +421,15 @@ export function useRoutineAllotmentOverview({
 
       // Group load: a pooled group costs its slots once, a non-pooled one once per section
       groups.forEach((g) => {
-        const perSlot = g.options.filter((o) => o.teacherId === t.id).length;
-        if (perSlot === 0 || g.sectionIds.length === 0) return;
+        const periods = teacherPeriodsInGroup(t.id, g);
+        if (periods === 0 || g.sectionIds.length === 0) return;
         const memberClasses = g.sectionIds
           .map((id) => classes.find((cls) => cls.id === id))
           .filter(Boolean) as RoutineClass[];
         const first = memberClasses[0];
         if (!first) return;
-        const periods =
-          perSlot * Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1) * (g.pooled ? 1 : memberClasses.length);
         const subjectNames = g.options
-          .filter((o) => o.teacherId === t.id)
+          .filter((o) => optionTeacherIds(o, g).includes(t.id))
           .map((o) => subjects.find((s) => s.id === o.subjectId)?.name || "Subject")
           .join(", ");
         assignedClasses.push({

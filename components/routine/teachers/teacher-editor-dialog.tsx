@@ -6,7 +6,7 @@ import { TeacherEditorForm } from "./teacher-editor-form";
 import type { RoutineTeachersState } from "./use-routine-teachers";
 
 export function TeacherEditorDialog({ rt }: { rt: RoutineTeachersState }) {
-  const { activeSectionTab, availSlots, availableClassOptions, availableSubjectOptions, calculateSectionTotalPeriods, classPeriodsMap, classSectionsMap, classSubjectsDictionary, classSubjectsMap, classTeacherFirstPeriods, classTeacherOf, conflictTeacher, currentClassTeacherMap, customPrimarySubject, editingTeacherId, getClassGroupLoad, getClassSections, getGroupPickRows, getSectionGroupLoad, getSectionSubjectOptions, getSectionSubjects, getSubjectAllocationStats, getSubjectPeriod, handleCancel, handleCustomNameChange, handleSave, handleSelectSection, handleStaffDropdownChange, handleSubjectPeriodChange, isEditorOpen, isSubmitting, maxPeriods, presetClasses, primarySubject, sectionSubjectsMap, selectableStaffList, selectedClasses, selectedStaffId, selectedStaffLabel, setActiveSectionTab, setClassTeacherFirstPeriods, setClassTeacherOf, setCustomPrimarySubject, setMaxPeriods, setPreset, setPrimarySubject, setShortName, settings, shortName, staffList, subjectStreamOf, teacherName, toggleAllSubjectsForSection, toggleClass, toggleGroupOption, togglePeriod, toggleSubjectForSection, unaddedStaff } = rt;
+  const { activeSectionTab, availSlots, availableClassOptions, availableSubjectOptions, calculateSectionTotalPeriods, classPeriodsMap, classSectionsMap, classSubjectsDictionary, classSubjectsMap, classTeacherFirstPeriods, classTeacherOf, conflictTeacher, currentClassTeacherMap, customPrimarySubject, editingTeacherId, getClassGroupLoad, getClassSections, getGroupPickRows, getSectionGroupLoad, getSectionSubjectOptions, getSectionSubjects, getSubjectAllocationStats, getSubjectPeriod, handleCancel, handleCustomNameChange, handleSave, handleSelectSection, handleStaffDropdownChange, handleSubjectPeriodChange, isEditorOpen, isSubmitting, maxPeriods, presetClasses, primarySubject, sectionSubjectsMap, selectableStaffList, selectedClasses, selectedStaffId, selectedStaffLabel, setActiveSectionTab, setClassTeacherFirstPeriods, setClassTeacherOf, setCustomPrimarySubject, setMaxPeriods, setPreset, setPrimarySubject, setShortName, settings, shortName, staffList, subjectStreamOf, teacherName, toggleAllSubjectsForSection, toggleClass, toggleGroupOption, setGroupOptionPeriods, togglePeriod, toggleSubjectForSection, unaddedStaff } = rt;
   return (
     <Dialog
       open={isEditorOpen}
@@ -82,6 +82,7 @@ export function TeacherEditorDialog({ rt }: { rt: RoutineTeachersState }) {
           getSectionGroupLoad={getSectionGroupLoad}
           getGroupPickRows={getGroupPickRows}
           onToggleGroupOption={toggleGroupOption}
+          onGroupOptionPeriodsChange={setGroupOptionPeriods}
           getClassGroupLoad={getClassGroupLoad}
         />
       </DialogContent>

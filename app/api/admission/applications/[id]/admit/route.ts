@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { receiptConflict } from "@/lib/admission/receipt-guard";
+import { readFeeCharge, writeWithConcession } from "@/lib/admission/fee-concession";
 import { rollConflict } from "@/lib/admission/roll-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireStaff } from "@/lib/api/guard";
@@ -35,7 +36,11 @@ export async function POST(
     const assignedSection = body.section || app.target_section || "A";
     const assignedRoll = body.roll ? parseInt(body.roll, 10) : (app.target_roll || 1);
     const assignedClass = body.class || app.target_class || "V";
-    const feeAmount = body.feeAmount !== undefined ? parseFloat(body.feeAmount) : (app.fee_amount || 0);
+    // Fee as charged after the concession (Full / Half / Free); null from a client that sends only feeAmount
+    const fee = readFeeCharge(body);
+    if (fee && "error" in fee) return NextResponse.json({ error: fee.error }, { status: 400 });
+    const requestedAmount = body.feeAmount !== undefined ? Number(body.feeAmount) : Number(app.fee_amount ?? 0);
+    const feeAmount = fee ? fee.total : Number.isFinite(requestedAmount) && requestedAmount >= 0 ? requestedAmount : 0;
     const feePaid = body.feePaid !== undefined ? !!body.feePaid : true;
     const currentYear = await getAcademicYear();
     const yearSuffix = String(currentYear).slice(-2);
@@ -53,7 +58,9 @@ export async function POST(
         targetSection: assignedSection,
         targetRoll: assignedRoll,
         stream: app.stream || body.stream || null,
-        feeAmount: app.fee_amount || feeAmount,
+        feeAmount: app.fee_amount ?? feeAmount,
+        feeConcession: app.fee_concession || "full",
+        feeConcessionPercent: app.fee_concession_percent ?? 0,
         feePaid: app.fee_paid !== undefined ? !!app.fee_paid : feePaid,
         message: "Student is already confirmed as Admitted in staging queue.",
       });
@@ -127,6 +134,7 @@ export async function POST(
       photo_url: photoUrl,
       fee_paid: feePaid,
       fee_amount: feeAmount,
+      ...(fee ? { fee_concession: fee.concession, fee_concession_percent: fee.percent, fee_gross_amount: fee.gross } : {}),
       payment_receipt_no: paymentReceiptNo,
       payment_mode: body.paymentMode || app.payment_mode || "Cash",
       admitted_at: new Date().toISOString(),
@@ -143,10 +151,10 @@ export async function POST(
     if (body.verifiedDocuments !== undefined) updatePayload.verified_documents = body.verifiedDocuments;
     if (body.subjectCombinations !== undefined) updatePayload.subject_combinations = body.subjectCombinations;
 
-    const { error: updateError } = await supabase
-      .from("admission_applications")
-      .update(updatePayload)
-      .eq("id", id);
+    // Retries without the concession columns before the migration, so school_id, stream etc. still save
+    const { error: updateError } = await writeWithConcession(updatePayload, (row) =>
+      supabase.from("admission_applications").update(row).eq("id", id)
+    );
 
     if (updateError) {
       console.warn("Full update failed, falling back to core updatePayload:", updateError.message);
@@ -178,7 +186,7 @@ export async function POST(
     // 3. Record invoice in admission_invoices table
     if (paymentReceiptNo) {
       try {
-        await mustWrite(supabase.from("admission_invoices").upsert(
+        await mustWrite(writeWithConcession(
           {
             invoice_number: paymentReceiptNo,
             academic_session: `${currentYear} – ${currentYear + 1}`,
@@ -191,7 +199,9 @@ export async function POST(
             roll_no: String(assignedRoll),
             guardian_name: app.guardian_name || app.father_name || null,
             contact_number: app.student_contact || app.alt_mobile || null,
-            total_amount: Number(feeAmount) || 0,
+            total_amount: feeAmount,
+            // Items as charged, so a reprint keeps the concession instead of the full preset
+            ...(fee ? { fee_items: fee.items, concession_type: fee.concession, concession_percent: fee.percent, gross_amount: fee.gross } : {}),
             payment_mode: body.paymentMode || "Cash",
             payment_status: feePaid ? "Paid" : "Due",
             remarks: `New Admission Fee (${currentYear})`,
@@ -201,7 +211,7 @@ export async function POST(
             invoice_status: "active",
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "invoice_number" }
+          (row) => supabase.from("admission_invoices").upsert(row, { onConflict: "invoice_number" })
         ), "admission_invoices upsert");
       } catch (invErr) {
         await notifyAdminsOfError("admission.admit", "Could not record admission invoice", invErr, "/admission");
@@ -221,6 +231,8 @@ export async function POST(
       stream: assignedStream,
       feeAmount,
       feePaid,
+      feeConcession: fee ? fee.concession : "full",
+      feeConcessionPercent: fee ? fee.percent : 0,
       message: `Student successfully marked as Admitted (Class ${assignedClass}-${assignedSection}, Roll ${assignedRoll}) in staging queue.`,
     });
   } catch (err: any) {

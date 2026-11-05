@@ -11,12 +11,12 @@ describe("group demand", () => {
     const x = g("class", 1, 2);
     expect(groupTotalPeriods(x)).toBe(10);
     expect(groupExtraPeriods(x)).toBe(5);
-    expect(calculateSchoolGroupDemand([x])).toEqual({ slots: 5, extra: 5 });
+    expect(calculateSchoolGroupDemand([x])).toEqual({ slots: 5, extra: 5, shared: 0, total: 10 });
   });
   it("section-wise group repeats per section", () => {
     const x = g("section", 2, 2, 3);
     expect(groupTotalPeriods(x)).toBe(12);
     expect(groupExtraPeriods(x)).toBe(3);
-    expect(calculateSchoolGroupDemand([x])).toEqual({ slots: 6, extra: 6 });
+    expect(calculateSchoolGroupDemand([x])).toEqual({ slots: 6, extra: 6, shared: 0, total: 12 });
   });
 });

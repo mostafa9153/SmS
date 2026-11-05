@@ -12,6 +12,7 @@ interface ConfigCache {
 
 let clientConfigCache: ConfigCache | null = null;
 let pendingFetch: Promise<Record<string, any> | null> | null = null;
+let pendingForced = false;
 const CLIENT_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 /**
@@ -24,15 +25,19 @@ export async function fetchSchoolConfigClient(forceRefresh = false): Promise<Rec
     return clientConfigCache.data;
   }
 
-  // 2. Return the existing in-flight Promise if a fetch is already in progress
-  if (pendingFetch) {
+  // 2. Return the existing in-flight Promise if a fetch is already in progress. A forced call does not
+  // take the answer of a non-forced one: that one may be an older copy.
+  if (pendingFetch && (pendingForced || !forceRefresh)) {
     return pendingFetch;
   }
+  if (pendingFetch) await pendingFetch.catch(() => null);
 
-  // 3. Initiate single network request
+  // 3. Initiate single network request. "no-cache" revalidates with the server, so an edit saved a
+  // moment ago is never answered by the browser's copy from before it
+  pendingForced = forceRefresh;
   pendingFetch = (async () => {
     try {
-      const res = await fetch(forceRefresh ? "/api/school-config?fresh=1" : "/api/school-config", forceRefresh ? { cache: "no-store" } : undefined);
+      const res = await fetch(forceRefresh ? "/api/school-config?fresh=1" : "/api/school-config", { cache: forceRefresh ? "no-store" : "no-cache" });
       if (!res.ok) return clientConfigCache?.data || null;
       const json = await res.json();
       const data = json?.data || {};
@@ -176,12 +181,14 @@ function writeMirror(mirror: ConfigMirror, value: unknown) {
 export async function saveSchoolConfig<T>(
   key: string,
   value: T,
-  opts: { label: string; mirror: ConfigMirror; localFirst?: boolean },
+  opts: { label: string; mirror: ConfigMirror; localFirst?: boolean; undo?: boolean },
 ): Promise<boolean> {
   try {
     const res = await apiFetch<{ undoId?: string | null }>("/api/school-config", { method: "POST", json: { key, value } });
     if (!opts.localFirst) writeMirror(opts.mirror, value);
     invalidateSchoolConfigClientCache();
+    // A copy kept in step with another change (that change is the user's action): no toast of its own
+    if (opts.undo === false) return true;
     toastWithUndo(opts.label, res.undoId, async () => {
       const config = await fetchSchoolConfigClient(true);
       if (!config) return;

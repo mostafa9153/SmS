@@ -46,8 +46,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
 
     // 1. Check if an invoice was already generated/registered for this student in DB
     try {
-      const studentIdToSearch = fullStudent.schoolId || fullStudent.id;
-      const rows = await apiFetch<Record<string, any>[]>(`/api/invoices?studentId=${encodeURIComponent(studentIdToSearch)}`);
+      // An admission stores the invoice under the School ID, or the record id when there is none
+      const keys = [...new Set([fullStudent.schoolId, fullStudent.id].filter(Boolean))].join(",");
+      const rows = await apiFetch<Record<string, any>[]>(`/api/invoices?studentIds=${encodeURIComponent(keys)}`);
       if (Array.isArray(rows) && rows.length > 0) {
         const existingInv = rows[0];
         setInvoice((prev) => ({
@@ -68,6 +69,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
           paymentMode: existingInv.payment_mode || "Cash",
           paymentStatus: existingInv.payment_status || "Paid",
           remarks: existingInv.remarks || prev.remarks,
+          concessionType: existingInv.concession_type || "full",
+          concessionPercent: existingInv.concession_percent ?? null,
+          grossAmount: existingInv.gross_amount ?? null,
         }));
         showToast({
           type: "success",
@@ -92,6 +96,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       contactNumber: fullStudent.studentContact || fullStudent.altMobile || "",
       penNumber: fullStudent.pen || "",
       feeItems: defaultFeeItems,
+      concessionType: "full",
+      concessionPercent: null,
+      grossAmount: null,
     }));
     showToast({
       type: "success",
@@ -107,6 +114,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
       ...prev,
       studentClass: newClass,
       feeItems: getSavedFeeStructure(category),
+      concessionType: "full",
+      concessionPercent: null,
+      grossAmount: null,
     }));
   }
 
@@ -117,6 +127,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
     setInvoice((prev) => ({
       ...prev,
       feeItems: getSavedFeeStructure(category),
+      concessionType: "full",
+      concessionPercent: null,
+      grossAmount: null,
     }));
   }
 
@@ -137,6 +150,9 @@ export function useInvoiceStudentSelect(ctx: InvoiceCore) {
     setInvoice((prev) => ({
       ...prev,
       feeItems: getSavedFeeStructure(category),
+      concessionType: "full",
+      concessionPercent: null,
+      grossAmount: null,
     }));
   }
 

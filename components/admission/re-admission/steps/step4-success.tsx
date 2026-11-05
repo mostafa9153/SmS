@@ -7,6 +7,8 @@ import { Check, Copy, CheckCircle2, UserPlus, Receipt } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+const AUTO_CLOSE_SECONDS = 4;
+
 interface Step4SuccessProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +25,23 @@ export function Step4SuccessDialog({
   const router = useRouter();
   const res = result || {};
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Closes by itself so the next student can be admitted; any click in the popup stops the timer
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCountdown(open ? AUTO_CLOSE_SECONDS : null);
+  }, [open]);
+
+  useEffect(() => {
+    if (countdown === null || !open) return;
+    if (countdown === 0) {
+      onOpenChange(false);
+      onAdmitNext();
+      return;
+    }
+    const t = window.setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [countdown, open, onOpenChange, onAdmitNext]);
 
   // Pleasant audio chime on success
   useEffect(() => {
@@ -78,7 +97,7 @@ export function Step4SuccessDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-[92vw] sm:w-[440px] p-0 overflow-hidden rounded-2xl bg-background border shadow-xl">
-        <div className="p-6 flex flex-col items-center text-center gap-4">
+        <div className="p-6 flex flex-col items-center text-center gap-4" onPointerDown={() => setCountdown(null)}>
           <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20 shadow-xs">
             <CheckCircle2 className="w-7 h-7" />
           </div>
@@ -139,7 +158,13 @@ export function Step4SuccessDialog({
             {res.feeAmount !== undefined && (
               <div className="flex justify-between items-center py-1">
                 <span className="text-muted-foreground font-medium">Fee Recorded</span>
-                <span className="font-bold text-emerald-600">₹{res.feeAmount}</span>
+                <span className="font-bold text-emerald-600">
+                  {res.feeConcession === "free"
+                    ? "Free"
+                    : `₹${res.feeAmount}${
+                        res.feeConcession === "half" ? " (Half)" : res.feeConcession === "custom" ? ` (${res.feeConcessionPercent}% off)` : ""
+                      }`}
+                </span>
               </div>
             )}
           </div>
@@ -162,7 +187,7 @@ export function Step4SuccessDialog({
               className="h-9 text-xs font-semibold gap-1.5 bg-primary text-primary-foreground"
             >
               <UserPlus className="w-3.5 h-3.5" />
-              <span>Admit Next</span>
+              <span>Admit Next{countdown !== null && countdown > 0 ? ` (${countdown})` : ""}</span>
             </Button>
           </div>
         </div>

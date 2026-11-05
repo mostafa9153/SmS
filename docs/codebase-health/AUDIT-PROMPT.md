@@ -1,0 +1,31 @@
+# Audit prompt (run after the file splits are done)
+
+Paste the block below into a fresh session. Recommended: Sonnet 5.5 or Opus at `high` effort, `/autocompact 600k`, and the word `ultracode` in the first message so the audit tracks fan out and every finding is verified by an independent agent.
+
+```
+You are continuing the codebase-health work on this repo (branch refactor/codebase-health). Read CLAUDE.md, AGENTS.md, docs/codebase-health/PLAN.md and the existing audit reports in docs/codebase-health/reports/ (audit-1-wiring, audit-1-fixes, audit-2-module-bugs, audit-3-unused-code, phase-1-security, phase-3.0 … phase-3.5, phase-4-guardrails) first, so you do not repeat work that is already done.
+
+Goal: a real code audit of the whole app — find and fix bugs, security holes, wrong calculations, missing undo/notify and dead code — module by module, following the plan. The file splits are finished; this is about correctness, not structure. Do the tracks one after another without asking me anything; pick the better option yourself and continue until all tracks are done or a stop condition is hit.
+
+Fix policy (PLAN.md, 2026-10-29: fixes are applied without asking, the report comes after):
+- Fix directly: a bug whose correct behaviour is unambiguous and local (crash, wrong state, missing await, wrong response shape, missing auth/guard, missing undo/notify, raw fetch, dead handler, UI calling a missing route), as a small commit with a regression test where the logic is testable.
+- Do NOT change, only report under "Needs your decision": anything that changes a business rule or a computed result that users already see (marks, rank, fees, promotion, attendance), DB schema or RLS (write a migration file only, never apply it), a public behaviour or API shape that another client may rely on, a dependency upgrade with a breaking change.
+
+Tracks (in this order; one report per track in docs/codebase-health/reports/audit-4<letter>-<name>.md, letters a, b, c…):
+ a. Security: every app/api/**/route.ts for requireRole/requireStaff, input validation, error leaks, service-role use; app/api/public/* (insert-only, rate limit, strict schema, no data leak); proxy.ts and lib/supabase/middleware.ts; migrations in supabase/migrations for RLS gaps; hard-coded secrets; npm audit (xlsx, uuid: report options, do not upgrade unless a tested non-breaking path exists).
+ b. Wiring map: every fetch/useQuery/apiFetch URL + method in app, components and lib versus every route's exported methods. Report UI-without-backend, backend-without-UI (e.g. /api/push/send has no caller), wrong response shapes (known: invoice verify route returns `invoice`, the client reads `data.data`).
+ c. Business logic (lib/**), with characterization tests first, then bug hunting: lib/utils/marksheet-calc.ts, lib/supabase/db-academic-session.ts (promotion ladder, session transition), lib/reports/classic-strength-report.ts, lib/supabase/db-students.ts, lib/supabase/db-bulk-upload.ts, lib/utils/excel/fields.ts and the parser, lib/supabase/db-routine.ts + lib/routine + python-backend (run python-backend/test_solver.py before and after), invoice/fee maths, attendance and results ranking. Look for off-by-one, rounding, Roman-numeral/class-ladder edge cases, timezone and date parsing, race conditions, unhandled errors.
+ d. Undo and notify coverage: every route that edits or deletes data must use snapshotRows + recordUndo and return undoId, and the client must call toastWithUndo; important events and failures must call notify()/notifyAdminsOfError(). Known open: settings (/api/school-config needs server-first save), teacher routes absence, attendance, notifications. Fix the clear cases; list the rest.
+ e. UI bugs and shared components: the remaining raw <table>, native <select>, local PageHeader/StatCard/EmptyState/Spinner/SearchInput copies, raw fetch, window.confirm/alert, hand-written @page (see PLAN.md Phase 3f and CLAUDE.md "Shared UI" and "Print pages"). Migrate where the swap is mechanical and safe; list copies removed. Include loading.tsx skeleton coverage per route and error/empty states.
+ f. Speed (Phase 3d remainder): route-level loading.tsx, heavy libraries behind dynamic import, serial fetch waterfalls, over-fetching selects, missing DB indexes (migration file only).
+ g. Dead code and dependencies (Phase 4): npm run health + knip; delete unused exports/files/deps that are provably unused (re-run build). Root artifacts (patch_*.js, current_diff.patch, routine-forge-pro.html, scratch/) are NOT deleted without my OK — only list them.
+ h. Final: npm run health, update the PLAN.md status table, write docs/codebase-health/reports/audit-4-summary.md.
+
+Per track: (1) gather findings with an agent per area; every finding must carry file:line, what is wrong, user impact, proposed fix, risk; (2) have an independent agent try to REFUTE each finding before you act on it (drop what it refutes); (3) apply the allowed fixes, each as its own small commit with a test where possible; (4) gate before every commit: NODE_OPTIONS=--max-old-space-size=2048 node scripts/verify.mjs --build must end with 0 fail; (5) independent read-only review of the track's diff, fix real findings, re-run the gate; (6) write the report in the usual format (Findings table, Fixed, Needs your decision, Verified, Not verified, Review); (7) commit only your own files, with the Co-Authored-By line from the attribution reminder.
+
+Hard limits: no git push; no deleting root artifacts; do not commit AGENTS.md, .claude/, research-prompt.md or status-report-bn.pdf (restore CRLF-only noise with git checkout); no DB writes or migrations applied; no browser or signed-in checks (list them under Not verified); no new features or UI text changes; no dependency upgrades except a tested non-breaking one; never smoke-test with cron user-agents or against real Supabase mutations.
+
+Stop conditions: if a fix fails the gate twice, revert it with git checkout, move it to "Needs your decision" and continue. Stop when all tracks are done.
+
+Final message in Bengali script: per track the number of findings, fixed (with commit hashes), refuted, and needs-your-decision; the highest-risk open items first; what is still unverified (my signed-in browser checks); the new health score.
+```

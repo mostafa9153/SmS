@@ -49,11 +49,7 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
     );
 
     if (isCurrentClassHs && selectedStream !== "all") {
-      list = list.filter((s) => {
-        const stream = detectSubjectStream(s.name, s.stream);
-        if (selectedStream === "Common") return stream === "Common" || s.isCommon;
-        return stream === selectedStream || stream === "Common" || s.isCommon;
-      });
+      list = list.filter((s) => inStreamView(s, selectedStream, false));
     }
 
     // Strict deduplication by subject name + stream to guarantee zero duplicate rows
@@ -150,17 +146,27 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
     return rows;
   }, [currentClassSubjects, classGroups]);
 
+  // A stream section also takes the Common subjects, so its load adds them although the list hides them
+  const sectionSubjects = useMemo(() => {
+    if (!isCurrentClassHs || selectedStream === "all" || selectedStream === "Common") return currentClassSubjects;
+    const clsLower = activeClass.toLowerCase();
+    const list = subjects.filter(
+      (s) => (s.className || "").toLowerCase() === clsLower && inStreamView(s, selectedStream, true)
+    );
+    return dedupeSubjects(list, true);
+  }, [subjects, activeClass, isCurrentClassHs, selectedStream, currentClassSubjects]);
+
   // Per-section weekly load: each group counts once
   const currentClassTotalPeriods = useMemo(
     () =>
       sectionLoad(
-        currentClassSubjects,
+        sectionSubjects,
         classGroups.map((x) => ({
           memberIds: x.members.map((m) => m.id),
           periods: groupSlotPeriods(x.group) + groupExtraPeriods(x.group),
         }))
       ),
-    [currentClassSubjects, classGroups]
+    [sectionSubjects, classGroups]
   );
 
   // Group share of the section load: slots count against capacity, extra option periods are the
@@ -200,7 +206,7 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
   );
   const totalSchoolGroupDemand = useMemo(() => calculateSchoolGroupDemand(groups), [groups]);
   const totalSchoolOrdinaryDemand =
-    totalSchoolSectionDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra;
+    totalSchoolSectionDemand - totalSchoolGroupDemand.total;
 
   // Specific class sections and their combined period load
   const activeClassSections = useMemo(() => {
@@ -234,3 +240,14 @@ export function useSubjectsDerived(ctx: SubjectsCoreState) {
 }
 
 export type SubjectsDerivedState = ReturnType<typeof useSubjectsDerived>;
+
+/**
+ * Whether a subject belongs under a stream filter. Common shows only Common subjects and a stream
+ * only its own; with `withCommon` a stream also takes the Common ones (what its sections sit).
+ */
+function inStreamView(s: RoutineSubject, view: string, withCommon: boolean): boolean {
+  const stream = detectSubjectStream(s.name, s.stream);
+  const common = s.isCommon || stream === "Common";
+  if (view === "Common") return common;
+  return common ? withCommon : stream === view;
+}

@@ -162,34 +162,33 @@ export async function downloadSampleTemplate(
   XLSX.writeFile(wb, filename);
 }
 
-export async function exportImportIssues(importResult: any) {
+/** The whole import as a workbook: one sheet per outcome, with what changed and what is missing. */
+export async function exportImportReport(importResult: any) {
   if (!importResult?.details) return;
-  const skipped = importResult.details.skipped || [];
-  const errors = importResult.details.errors || [];
-
-  const rows: any[] = [];
-  errors.forEach((err: any) => {
-    rows.push({
-      "Status": "FAILED / ERROR",
-      "Excel Row": err.rowNumber || "—",
-      "Student Name": err.name || "—",
-      "School ID / PEN": err.schoolId || "—",
-      "Reason / Issue": err.message || "Import failed",
-    });
+  const { buildReportItems } = await import("./import-report");
+  const items = buildReportItems(importResult.details);
+  const toRow = (i: (typeof items)[number]) => ({
+    "Excel Row": i.rowNumber ?? "",
+    "Student Name": i.name,
+    "School ID": i.schoolId,
+    Changes: i.changes.map((c) => `${c.label}: ${c.from || "(blank)"} -> ${c.to}`).join("; "),
+    "Missing Details": i.missing.join(", "),
+    Warning: i.warning || "",
+    Note: i.note,
   });
-  skipped.forEach((sk: any) => {
-    rows.push({
-      "Status": "SKIPPED",
-      "Excel Row": sk.rowNumber || "—",
-      "Student Name": sk.name || "—",
-      "School ID / PEN": sk.schoolId || "—",
-      "Reason / Issue": sk.reason || "Duplicate / Identical data",
-    });
-  });
+  const sheets: Array<[string, typeof items]> = [
+    ["Added", items.filter((i) => i.kind === "created")],
+    ["Updated", items.filter((i) => i.kind === "updated")],
+    ["Incomplete", items.filter((i) => i.missing.length > 0)],
+    ["Skipped", items.filter((i) => i.kind === "skipped")],
+    ["Failed", items.filter((i) => i.kind === "errors")],
+  ];
 
   const XLSX = await import("xlsx");
-  const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Issues_Log");
-  XLSX.writeFile(wb, `Import_Issues_${importResult.batchId || "batch"}.xlsx`);
+  for (const [name, list] of sheets) {
+    if (list.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(list.map(toRow)), name);
+  }
+  if (!wb.SheetNames.length) return;
+  XLSX.writeFile(wb, `Import_Report_${importResult.batchId || "batch"}.xlsx`);
 }

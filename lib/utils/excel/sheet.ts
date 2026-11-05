@@ -36,7 +36,8 @@ export function extractBannerMetadata(rawText: string): DetectedFileMetadata {
   }
 
   // Academic Year / Session (e.g. 2026-27 or Date 25-08-26)
-  const sessionMatch = rawText.match(/\b(20\d{2}\s*[-/]\s*\d{2,4})\b/i);
+  // No \b: "AY_2026-27" puts the year right after an underscore
+  const sessionMatch = rawText.match(/(?<!\d)(20\d{2}\s*[-/]\s*\d{2,4})(?!\d)/i);
   if (sessionMatch) {
     metadata.detectedAcademicYear = sessionMatch[1].replace(/\s+/g, "");
   } else {
@@ -159,13 +160,6 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
       .map((c) => String(c ?? "").trim())
       .filter((c) => c.length > 0);
 
-    // Aggregate banner metadata from text rows
-    if (nonBlankCells.length > 0) {
-      const fullRowText = nonBlankCells.join(" ");
-      const rowMeta = extractBannerMetadata(fullRowText);
-      aggregatedMetadata = { ...aggregatedMetadata, ...rowMeta };
-    }
-
     if (nonBlankCells.length === 0) {
       continue;
     }
@@ -240,6 +234,13 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
     }
   }
 
+  // Banner metadata only from the rows above the header: student rows would otherwise set the
+  // class, section or year for the whole sheet
+  for (let r = 0; r < bestRowIndex; r++) {
+    const text = (sheet2D[r] || []).map((c) => String(c ?? "").trim()).filter(Boolean).join(" ");
+    if (text) aggregatedMetadata = { ...aggregatedMetadata, ...extractBannerMetadata(text) };
+  }
+
   return {
     headerRowIndex: bestRowIndex,
     metadata: aggregatedMetadata,
@@ -252,7 +253,7 @@ export function detectBestHeaderRow(sheet2D: any[][]): {
 export function buildRowsFromHeader(
   sheet2D: any[][],
   headerRowIndex: number
-): { headers: string[]; rawRows: Record<string, any>[] } {
+): { headers: string[]; rawRows: Record<string, any>[]; rowNumbers: number[] } {
   const rawHeaderRow = sheet2D[headerRowIndex] || [];
 
   // Find last non-empty column index
@@ -299,9 +300,21 @@ export function buildRowsFromHeader(
     }
   }
 
+  // Government exports put a column-number row ("(1)", "(2)", ...) under the header
+  const isNumberingRow = (row: any[]) => {
+    const cells = (row || []).map((v) => String(v ?? "").trim()).filter(Boolean);
+    if (cells.length < 3) return false;
+    // 1, 2, 3, ... in order, with or without brackets, so a row of marks never looks like one
+    const inOrder = cells.filter((v, i) => v.replace(/^\((\d+)\)$/, "$1") === String(i + 1)).length;
+    return inOrder / cells.length > 0.8;
+  };
+  const firstDataRow = isNumberingRow(sheet2D[headerRowIndex + 1]) ? headerRowIndex + 2 : headerRowIndex + 1;
+
   // Build data rows starting after headerRowIndex
   const rawRows: Record<string, any>[] = [];
-  for (let r = headerRowIndex + 1; r < sheet2D.length; r++) {
+  // The sheet's own row number of each record (blank rows are dropped), for messages
+  const rowNumbers: number[] = [];
+  for (let r = firstDataRow; r < sheet2D.length; r++) {
     const row = sheet2D[r] || [];
     const rowObj: Record<string, any> = {};
     let hasData = false;
@@ -316,10 +329,11 @@ export function buildRowsFromHeader(
 
     if (hasData) {
       rawRows.push(rowObj);
+      rowNumbers.push(r + 1);
     }
   }
 
-  return { headers, rawRows };
+  return { headers, rawRows, rowNumbers };
 }
 
 /**
@@ -331,11 +345,22 @@ export async function parseExcelFile(
 ): Promise<ParsedExcelResult> {
   const data = await file.arrayBuffer();
   const XLSX = await import("xlsx");
-  const workbook = XLSX.read(data, { type: "array", cellDates: true });
+  // CSV is read as plain text: SheetJS would guess "06-08-2015" as US month-first (8 June) and
+  // drop leading zeros from IDs; the normalizers read day-first dates instead
+  const isText = /\.(csv|tsv|txt)$/i.test(file.name);
+  const workbook = XLSX.read(data, { type: "array", cellNF: true, raw: isText });
 
   const sheetNames = workbook.SheetNames;
   const selectedSheet = sheetNames[options?.sheetIndex ?? 0] || "Sheet1";
   const worksheet = workbook.Sheets[selectedSheet];
+
+  // A date cell's display text follows the file's locale format ("8/6/15" for 6 Aug 2015 under
+  // the short-date format), so read the stored date itself as YYYY-MM-DD
+  for (const [addr, cell] of Object.entries(worksheet)) {
+    if (addr.startsWith("!") || cell?.t !== "n" || !cell.z || !XLSX.SSF.is_date(cell.z)) continue;
+    const d = XLSX.SSF.parse_date_code(cell.v);
+    if (d && d.y > 1900) cell.w = `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+  }
 
   // Convert worksheet to 2D array (all rows and columns preserved)
   const allRows2D: any[][] = XLSX.utils.sheet_to_json(worksheet, {
@@ -359,13 +384,14 @@ export async function parseExcelFile(
     detectedMetadata = detection.metadata;
   }
 
-  const { headers, rawRows } = buildRowsFromHeader(allRows2D, headerRowIndex);
+  const { headers, rawRows, rowNumbers } = buildRowsFromHeader(allRows2D, headerRowIndex);
 
   return {
     sheetNames,
     selectedSheet,
     headers,
     rawRows,
+    rowNumbers,
     headerRowIndex,
     totalRows: rawRows.length,
     allRows2D,
@@ -381,13 +407,14 @@ export function reparseWithHeaderRow(
   newHeaderRowIndex: number
 ): ParsedExcelResult {
   const safeIndex = Math.max(0, Math.min(newHeaderRowIndex, parsed.allRows2D.length - 1));
-  const { headers, rawRows } = buildRowsFromHeader(parsed.allRows2D, safeIndex);
+  const { headers, rawRows, rowNumbers } = buildRowsFromHeader(parsed.allRows2D, safeIndex);
 
   return {
     ...parsed,
     headerRowIndex: safeIndex,
     headers,
     rawRows,
+    rowNumbers,
     totalRows: rawRows.length,
   };
 }

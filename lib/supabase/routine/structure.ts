@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { RoutineSettings, RoutineRoom, RoutineClass, RoutineSubject } from "@/lib/routine/types";
-import { normalizeSubjectName } from "@/lib/routine/routine-helpers";
+import { normalizeSubjectName, resolveIsCommon } from "@/lib/routine/routine-helpers";
 import { mustWrite } from "@/lib/supabase/write";
 import { getLocalRoutineState, setLocalRoutineState } from "@/lib/supabase/routine/local-state";
 
@@ -321,7 +321,7 @@ export async function upsertSubjectDb(subj: {
     className: subj.className || null,
     classId: subj.classId || null,
     stream: subj.stream || null,
-    isCommon: Boolean(subj.isCommon),
+    isCommon: resolveIsCommon(subj.stream, subj.isCommon),
     isHard: Boolean(subj.isHard),
     isLab,
     theoryPeriods: theoryP,
@@ -366,7 +366,7 @@ export async function upsertSubjectDb(subj: {
     if (subj.className !== undefined) payload.class_name = subj.className;
     if (subj.classId !== undefined) payload.class_id = subj.classId;
     if (subj.stream !== undefined) payload.stream = subj.stream;
-    if (subj.isCommon !== undefined) payload.is_common = Boolean(subj.isCommon);
+    if (subj.isCommon !== undefined || subj.stream !== undefined) payload.is_common = resolveIsCommon(subj.stream, subj.isCommon);
     if (subj.maxPerDay !== undefined) payload.max_per_day = subj.maxPerDay;
     if (subj.periodsPerWeek !== undefined) payload.periods_per_week = subj.periodsPerWeek;
     if (subj.theoryPeriods !== undefined) payload.theory_periods = subj.theoryPeriods;
@@ -383,7 +383,7 @@ export async function upsertSubjectDb(subj: {
         class_name: subj.className || null,
         class_id: subj.classId || null,
         stream: subj.stream || null,
-        is_common: Boolean(subj.isCommon),
+        is_common: resolveIsCommon(subj.stream, subj.isCommon),
         is_hard: Boolean(subj.isHard),
         is_lab: Boolean(subj.isLab),
         time_pref: subj.timePref || "any",
@@ -463,7 +463,7 @@ export async function batchUpsertSubjectsDb(
       className: s.className || null,
       classId: s.classId || null,
       stream: s.stream || null,
-      isCommon: Boolean(s.isCommon),
+      isCommon: resolveIsCommon(s.stream, s.isCommon),
       isHard: Boolean(s.isHard),
       isLab,
       theoryPeriods: theoryP,

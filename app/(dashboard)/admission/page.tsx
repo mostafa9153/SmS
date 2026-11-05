@@ -54,9 +54,8 @@ export default function AdmissionHubPage() {
   const reAdmittedStudents = continuingStudents.filter(
     (s) => s.reAdmissionStatus === "admitted"
   );
-  const reAdmissionVasul =
-    statsData?.reAdmissionVasul ??
-    (reAdmittedStudents.length > 0 ? reAdmittedStudents.length * 600 : 0);
+  // Money comes from the stored invoices only: a count x preset ignores Half / Free concessions
+  const reAdmissionVasul = statsData?.reAdmissionVasul ?? 0;
 
   const queuedForInvoice = continuingStudents.filter((s) => s.isInvoiceQueued);
 

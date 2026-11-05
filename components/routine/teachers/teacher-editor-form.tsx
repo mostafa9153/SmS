@@ -18,10 +18,12 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   BookOpen,
-  Lock,
+  Layers,
+  Share2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { isHsClass } from "@/lib/routine/routine-helpers";
 import { TeacherAvailabilityMatrix } from "./teacher-availability-matrix";
 
 interface TeacherEditorFormProps {
@@ -92,10 +94,20 @@ interface TeacherEditorFormProps {
     id: string;
     name: string;
     periods: number;
+    shareable: boolean;
     scopeLabel: string;
-    options: { id: string; subject: string; picked: boolean; takenBy: string | null; blocked: boolean }[];
+    options: {
+      id: string;
+      subject: string;
+      picked: boolean;
+      myPeriods: number;
+      remaining: number;
+      takenBy: string | null;
+      blocked: boolean;
+    }[];
   }[];
   onToggleGroupOption: (optionId: string) => void;
+  onGroupOptionPeriodsChange: (optionId: string, value: string) => void;
   getClassGroupLoad: (clsName: string) => number;
 }
 
@@ -156,6 +168,7 @@ export function TeacherEditorForm({
   getSectionGroupLoad,
   getGroupPickRows,
   onToggleGroupOption,
+  onGroupOptionPeriodsChange,
   getClassGroupLoad,
 }: TeacherEditorFormProps) {
   return (
@@ -485,11 +498,15 @@ export function TeacherEditorForm({
                 const currentActiveSec =
                   activeSectionTab[c.name] || allSecs[0] || "A";
                 // A stream section lists its stream + Common subjects; anything ticked earlier stays so it can be cleared
-                const offeredSubs = getSectionSubjectOptions(c.name, currentActiveSec);
+                // Common subjects of an HS class are taught to its stream sections together, so they are
+                // picked once under All Sections and not repeated in each stream section
+                const hidesCommon = currentActiveSec !== "ALL" && allSecs.length > 1 && /\(.+\)$/.test(currentActiveSec);
+                const listed = (sub: string) => !hidesCommon || subjectStreamOf(c.name, sub) !== "Common";
+                const offeredSubs = getSectionSubjectOptions(c.name, currentActiveSec).filter(listed);
                 const activeSecSubs = getSectionSubjects(c.name, currentActiveSec);
                 const sectionSubs = [
                   ...offeredSubs,
-                  ...activeSecSubs.filter((sub) => !offeredSubs.includes(sub) && availableSubs.includes(sub)),
+                  ...activeSecSubs.filter((sub) => !offeredSubs.includes(sub) && availableSubs.includes(sub) && listed(sub)),
                 ];
                 const byStream =
                   currentActiveSec === "ALL" && allSecs.some((sec) => /\(.+\)$/.test(sec));
@@ -702,34 +719,100 @@ export function TeacherEditorForm({
                                 className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-2.5 py-2 space-y-1.5"
                               >
                                 <div className="flex items-center gap-2 text-xs">
-                                  <Lock className="w-3 h-3 text-primary" />
+                                  <Layers className="w-3.5 h-3.5 text-primary" />
                                   <span className="font-semibold">{g.name}</span>
                                   <span className="text-muted-foreground">{g.scopeLabel}</span>
                                   <Badge variant="secondary" className="text-[10px] font-mono font-bold">
                                     {g.periods} p/wk
                                   </Badge>
                                 </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {g.options.map((o) => (
-                                    <button
+                                <div className="flex flex-wrap gap-2">
+                                  {g.options.map((o) => {
+                                    const over = o.picked && o.myPeriods > o.remaining;
+                                    return (
+                                    <div
                                       key={o.id}
+                                      className={cn(
+                                        "inline-flex flex-col sm:flex-row items-stretch sm:items-center rounded-lg border text-xs transition-all p-1 gap-1",
+                                        o.picked
+                                          ? over
+                                            ? "bg-card border-rose-500/60 shadow-2xs ring-1 ring-rose-500/30"
+                                            : "bg-card border-primary/50 shadow-2xs ring-1 ring-primary/20"
+                                          : "bg-background text-muted-foreground border-border hover:bg-muted/60",
+                                        o.blocked && "opacity-60"
+                                      )}
+                                    >
+                                    <button
                                       type="button"
                                       disabled={o.blocked}
                                       onClick={() => onToggleGroupOption(o.id)}
-                                      title={o.takenBy ? `Taken by ${o.takenBy}` : undefined}
-                                      className={cn(
-                                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition select-none",
-                                        o.picked
-                                          ? "bg-primary text-primary-foreground border-primary"
-                                          : "bg-background hover:bg-muted",
-                                        o.blocked && "opacity-50 cursor-not-allowed hover:bg-background"
-                                      )}
+                                      aria-label={`Toggle group subject ${o.subject}`}
+                                      className={cn("inline-flex items-center pr-1 text-left select-none", o.blocked && "cursor-not-allowed")}
                                     >
-                                      {o.picked && <Check className="w-3 h-3" />}
-                                      {o.subject}
-                                      {o.takenBy && <span className="text-[10px] font-mono">· {o.takenBy}</span>}
+                                      <span className="px-1 py-1 flex items-center gap-1.5">
+                                        <span
+                                          className={cn(
+                                            "w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0",
+                                            o.picked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50 bg-background"
+                                          )}
+                                        >
+                                          {o.picked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                                        </span>
+                                        <span className="flex flex-col">
+                                          <span className={cn("font-semibold text-xs leading-tight", o.picked ? "text-primary" : "text-foreground/80")}>
+                                            {o.subject}
+                                          </span>
+                                          <span className="mt-0.5">
+                                            {o.remaining <= 0 && !o.picked ? (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-muted text-muted-foreground border border-border font-mono">
+                                                Full ({o.takenBy})
+                                              </span>
+                                            ) : o.takenBy ? (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+                                                {g.periods - o.remaining}/{g.periods} ({o.takenBy}) • {o.remaining} Rem
+                                              </span>
+                                            ) : (
+                                              <span className="text-[9.5px] px-1 py-0 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
+                                                0/{g.periods} • {g.periods} Free
+                                              </span>
+                                            )}
+                                          </span>
+                                        </span>
+                                      </span>
                                     </button>
-                                  ))}
+                                    {o.picked && g.shareable && (
+                                      <div className="flex items-center gap-1.5 px-2 py-0.5 border-t sm:border-t-0 sm:border-l border-border/80 bg-muted/20 rounded">
+                                        <Input
+                                          type="number"
+                                          min={1}
+                                          max={Math.max(1, o.remaining)}
+                                          value={o.myPeriods || ""}
+                                          onChange={(e) => onGroupOptionPeriodsChange(o.id, e.target.value)}
+                                          onBlur={(e) => {
+                                            if (!e.target.value) onGroupOptionPeriodsChange(o.id, "1");
+                                          }}
+                                          className={cn(
+                                            "h-6 w-11 text-[11px] font-mono font-bold px-1 text-center bg-background",
+                                            over ? "border-rose-500 text-rose-500" : "border-primary/40 text-foreground"
+                                          )}
+                                          title={`Weekly periods you take of ${o.subject}`}
+                                          aria-label={`Weekly periods for ${o.subject}`}
+                                        />
+                                        <span className="text-[10px] text-muted-foreground font-mono font-medium">p/wk</span>
+                                        {over && (
+                                          <Badge
+                                            variant="destructive"
+                                            className="text-[9px] px-1 py-0 gap-0.5 bg-rose-500/15 text-rose-500 border border-rose-500/30 font-bold"
+                                            title="More than the periods the other teachers left"
+                                          >
+                                            <AlertTriangle className="w-2.5 h-2.5" />+{o.myPeriods - o.remaining} Over
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    )}
+                                    </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -746,8 +829,9 @@ export function TeacherEditorForm({
                             subjectBuckets.map((bucket) => (
                               <React.Fragment key={bucket.stream ?? "all"}>
                                 {bucket.stream && (
-                                  <div className="w-full text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0">
-                                    {bucket.stream}
+                                  <div className="w-full flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground pt-1 first:pt-0">
+                                    {bucket.stream === "Common" && <Share2 className="w-3 h-3 text-indigo-500" />}
+                                    {bucket.stream === "Common" ? "Common · all streams together" : bucket.stream}
                                   </div>
                                 )}
                             {bucket.subs.map((sub) => {
@@ -791,7 +875,12 @@ export function TeacherEditorForm({
                                       {isSubActive && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                                     </div>
                                     <div className="flex flex-col">
-                                      <span className="font-semibold text-xs leading-tight">{sub}</span>
+                                      <span className="font-semibold text-xs leading-tight inline-flex items-center gap-1">
+                                        {isHsClass(c.name) && subjectStreamOf(c.name, sub) === "Common" && (
+                                          <Share2 className="w-3 h-3 text-indigo-500 shrink-0" aria-label="Common: all streams together" />
+                                        )}
+                                        {sub}
+                                      </span>
                                       <div className="flex items-center gap-1 mt-0.5">
                                         {stats.isFullyBooked ? (
                                           <span className="text-[9.5px] px-1 py-0 rounded bg-muted text-muted-foreground border border-border font-mono">

@@ -92,6 +92,7 @@ export async function fetchSubjectGroupsDb(
         teacherId: row.teacher_id || "",
         roomId: row.room_id,
         sortOrder: row.sort_order ?? 0,
+        shares: Array.isArray(row.shares) && row.shares.length > 0 ? row.shares : null,
       });
       optionsByGroup.set(row.group_id, list);
     }
@@ -150,11 +151,13 @@ export async function upsertSubjectGroupDb(group: {
     teacherId: string;
     roomId?: string | null;
     sortOrder?: number;
+    shares?: { teacherId: string; periods: number }[] | null;
   }>;
 }): Promise<string> {
   const id = isUuidStr(group.id) ? group.id! : crypto.randomUUID();
   const supabase = createClient();
   let slotsDropped = false;
+  let sharesDropped = false;
 
   // Local optimistic write
   const local = getLocalRoutineState() || {};
@@ -187,6 +190,7 @@ export async function upsertSubjectGroupDb(group: {
       teacherId: o.teacherId,
       roomId: o.roomId ?? null,
       sortOrder: o.sortOrder ?? 0,
+      shares: o.shares && o.shares.length > 0 ? o.shares : null,
     })),
   };
   const nextList = idx > -1 ? [...current] : [...current, nextLocal];
@@ -237,10 +241,20 @@ export async function upsertSubjectGroupDb(group: {
       teacher_id: o.teacherId || null,
       room_id: o.roomId ?? null,
       sort_order: o.sortOrder ?? i,
+      shares: o.shares && o.shares.length > 0 ? o.shares : null,
     }));
     if (optRows.length > 0) {
       const { error: oErr } = await supabase.from("routine_subject_group_options").upsert(optRows);
-      if (oErr) console.warn("upsertSubjectGroupDb options:", oErr);
+      if (oErr) {
+        console.warn("upsertSubjectGroupDb options:", oErr);
+        // Database without the shares column: keep each subject's first teacher, say the split was lost
+        if (oErr.message?.includes("shares")) {
+          const { error: bErr } = await supabase
+            .from("routine_subject_group_options")
+            .upsert(optRows.map(({ shares: _shares, ...row }) => row));
+          if (!bErr && optRows.some((r) => r.shares)) sharesDropped = true;
+        }
+      }
     }
     const keepIds = optRows.map((r) => r.id);
     const cleanup = supabase.from("routine_subject_group_options").delete().eq("group_id", id);
@@ -253,6 +267,7 @@ export async function upsertSubjectGroupDb(group: {
   }
 
   if (slotsDropped) throw new Error(SLOTS_NOT_SAVED);
+  if (sharesDropped) throw new Error("Teacher shares of a group subject were not saved: run the routine_group_option_shares migration.");
   return id;
 }
 

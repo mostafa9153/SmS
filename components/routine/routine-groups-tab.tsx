@@ -23,7 +23,7 @@ import {
 import { isPooledGroup } from "@/lib/routine/routine-domain";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { CustomSelect } from "@/components/ui/custom-select";
-import { detectSubjectStream, getConfiguredStreamsForClass, isHsClass, normalizeSubjectName } from "@/lib/routine/routine-helpers";
+import { detectSubjectStream, getConfiguredStreamsForClass, isHsClass, normalizeSubjectName, optionShares } from "@/lib/routine/routine-helpers";
 
 // --- Local helpers (keep this component self-contained) ------------------
 
@@ -179,11 +179,7 @@ const GroupRow = React.memo(function GroupRow({
         <div className="flex items-center gap-1.5">
           <Layers className="h-3.5 w-3.5 text-primary/70" />
           {group.name}
-          {group.combined ? (
-            <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
-              COMMON
-            </Badge>
-          ) : group.pooled && (
+          {group.pooled && (
             <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 font-mono">
               POOL
             </Badge>
@@ -212,14 +208,16 @@ const GroupRow = React.memo(function GroupRow({
             >
               <span className="text-foreground">{subjectName(subjects, o.subjectId)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">{teacherShort(teachers, o.teacherId)}</span>
+              <span className="text-muted-foreground">
+                {o.shares && o.shares.length > 0 && group.periodSize === 1
+                  ? optionShares(o, group).map((s) => `${teacherShort(teachers, s.teacherId)} ${s.periods}p`).join(" + ")
+                  : teacherShort(teachers, o.teacherId)}
+              </span>
             </span>
           ))}
         </div>
       </td>
       <td className="py-2 px-3 text-right space-x-1">
-        {/* Combined Common blocks follow the curriculum and Teachers tab; there is nothing to edit here */}
-        {!group.combined && (<>
         <Button
           variant="ghost"
           size="sm"
@@ -238,7 +236,6 @@ const GroupRow = React.memo(function GroupRow({
         >
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
-        </>)}
       </td>
     </tr>
   );
@@ -263,9 +260,13 @@ export function RoutineGroupsTab({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RoutineSubjectGroup | null>(null);
 
+  // Combined Common blocks are built from the curriculum and Teachers tab: they show on the subject
+  // in the Subjects tab, not here, where every row can be edited or deleted
+  const userGroups = useMemo(() => groups.filter((g) => !g.combined), [groups]);
+
   const visibleGroups = useMemo(() => {
-    if (!filterClass && !filterStream) return groups;
-    return groups.filter((g) => {
+    if (!filterClass && !filterStream) return userGroups;
+    return userGroups.filter((g) => {
       if (filterClass && g.className !== filterClass && g.scope === "class") return false;
       // A class-wise group with no stream runs in every stream, so a stream filter keeps it
       if (filterStream && g.stream && g.stream !== filterStream && g.scope === "class") return false;
@@ -289,7 +290,7 @@ export function RoutineGroupsTab({
       }
       return true;
     });
-  }, [groups, filterClass, filterStream, classes]);
+  }, [userGroups, filterClass, filterStream, classes]);
 
   const issues = useMemo(
     () => validateGroups({ groups, assignments, subjects, teachers, classes }),
@@ -331,7 +332,7 @@ export function RoutineGroupsTab({
           <Layers className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-semibold tracking-tight text-foreground">Subject Groups</h2>
           <Badge variant="secondary" className="text-[10px] font-mono">
-            {groups.length}
+            {userGroups.length}
           </Badge>
           {issues.length > 0 && (
             <Badge
@@ -437,7 +438,7 @@ export function RoutineGroupsTab({
         classes={classes}
         subjects={subjects}
         assignments={assignments}
-        groups={groups}
+        groups={userGroups}
         onSave={async (g) => {
           await onSaveGroup(g);
           setDialogOpen(false);
@@ -465,6 +466,8 @@ type DraftOption = {
   subjectId: string;
   teacherId: string;
   roomId: string | null;
+  /** teachers sharing the subject, set in the Teachers tab; kept unless the subject changes */
+  shares?: RoutineSubjectGroup["options"][number]["shares"];
 };
 
 const QUICK_CHIPS = ["3rd Language", "Elective", "Lab Block"];
@@ -507,6 +510,7 @@ function GroupDialog({
           subjectId: o.subjectId,
           teacherId: o.teacherId,
           roomId: o.roomId ?? null,
+          shares: o.shares ?? null,
         }))
       : [
           { id: crypto.randomUUID(), subjectId: "", teacherId: "", roomId: null },
@@ -542,7 +546,7 @@ function GroupDialog({
   // Drop option subjects that fall outside a newly chosen class/stream
   const pruneOptions = (nextClass: string, nextStream: string, nextSections: Set<string>) => {
     const ids = new Set(subjectPool(subjects, classes, scope, nextClass, nextStream, nextSections).map((s) => s.id));
-    setOptions((prev) => prev.map((o) => (o.subjectId && !ids.has(o.subjectId) ? { ...o, subjectId: "", teacherId: "" } : o)));
+    setOptions((prev) => prev.map((o) => (o.subjectId && !ids.has(o.subjectId) ? { ...o, subjectId: "", teacherId: "", shares: null } : o)));
   };
 
   // --- live validation / summary --------------------------------------
@@ -669,6 +673,7 @@ function GroupDialog({
           teacherId: o.teacherId,
           roomId: o.roomId,
           sortOrder: i,
+          shares: o.shares ?? null,
         })),
       };
       await onSave(g);
@@ -887,7 +892,7 @@ function GroupDialog({
                   <div className="col-span-11 py-1.5 px-2">
                     <CustomSelect placeholder="Select subject"
                       value={o.subjectId}
-                      onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "" })}
+                      onChange={(v: string) => updateOption(o.id, { subjectId: v, teacherId: "", shares: null })}
                       className="w-full"
                       triggerClassName={cn("h-8 text-xs", showErrors && !o.subjectId && "border-destructive ring-destructive/30")}
                       options={[

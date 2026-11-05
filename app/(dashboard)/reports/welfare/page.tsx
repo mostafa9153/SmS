@@ -7,6 +7,7 @@ import { Printer } from "lucide-react";
 import { getStudents } from "@/lib/data/students";
 import { Student } from "@/lib/types";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { SchoolWatermark } from "@/components/print/school-watermark";
 import { useAcademicYear } from "@/lib/hooks/use-academic-year";
 import { sessionYears } from "@/lib/utils/academic-year";
 import { compareStudentsByClassAndRoll } from "@/lib/utils";
@@ -306,8 +307,9 @@ function WelfareReportContent() {
         /* Printable Official Welfare Register Document */
         <div
           id="print-welfare-area"
-          className="bg-white text-black border border-black/30 rounded-2xl shadow-sm p-5 sm:p-8 my-4 print:border-none print:shadow-none print:m-0 print:w-full print:rounded-none"
+          className="relative isolate bg-white text-black border border-black/30 rounded-2xl shadow-sm p-5 sm:p-8 my-4 print:border-none print:shadow-none print:m-0 print:w-full print:rounded-none"
         >
+          <SchoolWatermark logoUrl={schoolProfile?.schoolLogoUrl} />
           {/* Institutional Header */}
           <div className="text-center border-b-2 border-black pb-3 print:pb-2.5">
             <h2

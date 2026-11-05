@@ -14,7 +14,7 @@ export function useRoutineSubjects(props: RoutineSubjectsTabProps) {
   const editing = useSubjectsEditing({ ...core, ...derived, ...schedule });
   const sync = useSubjectsSync({ ...core, ...editing });
 
-  return { ...core, ...derived, ...schedule, ...editing, ...sync };
+  return { ...core, ...derived, ...schedule, ...editing, ...sync, combinedTeachers: props.combinedTeachers ?? {} };
 }
 
 export type RoutineSubjectsState = ReturnType<typeof useRoutineSubjects>;

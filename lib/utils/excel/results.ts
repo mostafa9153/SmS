@@ -17,7 +17,7 @@ interface ResultFieldDefinition {
 export const RESULT_TARGET_FIELDS: ResultFieldDefinition[] = [
   // Student identification
   { key: "schoolId", label: "School ID", category: "Identifier", icon: "🔢", aliases: ["school id", "student id", "school_id", "admission no", "id"] },
-  { key: "studentUniqueCode", label: "Student Code (BSP)", category: "Identifier", icon: "🆔", aliases: ["student code", "bsp id", "bsp code", "student unique code", "student_code"] },
+  { key: "studentUniqueCode", label: "Student Code (BSP)", category: "Identifier", icon: "🆔", aliases: ["student code", "bsp id", "bsp code", "student unique code", "student_code", "student state code", "state code"] },
   { key: "pen", label: "PEN Number", category: "Identifier", icon: "📝", aliases: ["pen", "pen no", "pen number", "permanent education number", "pen_no", "pen no."] },
   { key: "name", label: "Student Name", category: "Identifier", icon: "👤", aliases: ["student name", "name", "student's name"] },
   { key: "presentClass", label: "Class", category: "Enrolment", icon: "🏫", aliases: ["class", "standard", "grade", "present class"] },

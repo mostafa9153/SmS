@@ -193,8 +193,9 @@ export function useTeachersCore({
   // Form State for Add / Edit
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
-  // Group options (by option id) this teacher is picked for in the open editor; written to the groups on save
-  const [groupPicks, setGroupPicks] = useState<Set<string>>(new Set());
+  // Group options this teacher is picked for in the open editor (option id -> their group periods);
+  // written to the groups on save
+  const [groupPicks, setGroupPicks] = useState<Map<string, number>>(new Map());
   const [originalClassTeacherOf, setOriginalClassTeacherOf] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string>("");
   const [teacherName, setTeacherName] = useState("");
@@ -311,7 +312,7 @@ export function useTeachersCore({
     });
     groups.forEach((g) =>
       g.options.forEach((o) => {
-        const sub = o.teacherId ? subjects.find((s) => s.id === o.subjectId) : undefined;
+        const sub = o.teacherId || o.shares?.length ? subjects.find((s) => s.id === o.subjectId) : undefined;
         if (sub) assignedSet.add(sub.name.trim().toLowerCase().replace(/\s*\([^)]*\)/g, "").replace(/\s+/g, " ").trim());
       })
     );

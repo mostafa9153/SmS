@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useCallback } from "react";
 import { RoutineClass } from "@/lib/routine/types";
 import { groupSlotCost } from "@/lib/routine/routine-groups";
-import { generateInitials, isHsClass, parseSectionAndStream } from "@/lib/routine/routine-helpers";
+import { generateInitials, isHsClass, optionShares, packShares, parseSectionAndStream } from "@/lib/routine/routine-helpers";
+import type { RoutineSubjectGroup } from "@/lib/routine/types";
 import type { TeachersCoreState } from "./use-teachers-core";
 
 export function useTeachersAllocation(ctx: TeachersCoreState) {
@@ -266,13 +267,16 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
 
   // Start from what the groups already say; the editor only changes this set until Save
   useEffect(() => {
-    setGroupPicks(
-      new Set(
-        editingTeacherId
-          ? groups.flatMap((g) => g.options.filter((o) => o.teacherId === editingTeacherId).map((o) => o.id))
-          : []
-      )
-    );
+    const picks = new Map<string, number>();
+    if (editingTeacherId) {
+      for (const g of groups) {
+        for (const o of g.options) {
+          const mine = optionShares(o, g).find((s) => s.teacherId === editingTeacherId);
+          if (mine) picks.set(o.id, mine.periods);
+        }
+      }
+    }
+    setGroupPicks(picks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingTeacherId, isEditorOpen]);
 
@@ -295,20 +299,31 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
           id: g.id,
           name: g.name,
           periods: groupSlotCost(g),
+          // A double-period group cannot be split between teachers
+          shareable: g.periodSize === 1,
           scopeLabel: g.scope === "class" ? "All Sections" : `${g.sectionIds.length} sections`,
           options: g.options.map((o) => {
             const picked = groupPicks.has(o.id);
-            const owner =
-              o.teacherId && o.teacherId !== editingTeacherId
-                ? teachers.find((t) => t.id === o.teacherId)
-                : undefined;
+            // Other teachers' parts of this subject, like the Full (AG: 2p, DK: 2p) note on a subject
+            const others = optionShares(o, g)
+              .filter((s) => s.teacherId !== editingTeacherId)
+              .map((s) => {
+                const t = teachers.find((x) => x.id === s.teacherId);
+                return { name: t ? t.shortName || t.name : "?", periods: s.periods };
+              });
+            const othersPeriods = others.reduce((n, s) => n + s.periods, 0);
+            const remaining = Math.max(0, g.periodsPerWeek - othersPeriods);
+            // A teacher runs one subject of a group at a time
             const siblingPicked = !picked && g.options.some((x) => x.id !== o.id && groupPicks.has(x.id));
             return {
               id: o.id,
               subject: subjectName.get(o.subjectId) || "Subject",
               picked,
-              takenBy: owner ? owner.shortName || owner.name : null,
-              blocked: Boolean(owner) || siblingPicked,
+              myPeriods: picked ? groupPicks.get(o.id) || 0 : 0,
+              others,
+              remaining,
+              takenBy: others.length ? others.map((s) => `${s.name}: ${s.periods}p`).join(", ") : null,
+              blocked: siblingPicked || (!picked && (remaining <= 0 || (g.periodSize !== 1 && others.length > 0))),
             };
           }),
         }));
@@ -330,7 +345,7 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
       if (!secId) return 0;
       return groupsForClass(clsName)
         .filter((g) => g.scope === "section" && g.sectionIds.includes(secId))
-        .reduce((sum, g) => sum + g.options.filter((o) => groupPicks.has(o.id)).length * groupSlotCost(g), 0);
+        .reduce((sum, g) => sum + myGroupCells(g, groupPicks) / Math.max(1, g.sectionIds.length), 0);
     },
     [classes, groupsForClass, groupPicks]
   );
@@ -347,55 +362,98 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
       const className = members[0].className;
       const secs = members.map((m) => m.section).join(", ");
       for (const o of g.options) {
-        if (!o.teacherId) continue;
-        const periods = groupSlotCost(g) * (g.pooled ? 1 : members.length);
-        (map[o.teacherId] ||= []).push({
-          key: o.id,
-          className,
-          label: `${subjectName.get(o.subjectId) || "Subject"} · Sec ${secs} · ${periods}p`,
-        });
+        for (const s of optionShares(o, g)) {
+          const periods = s.periods * (g.periodSize === 2 ? 2 : 1) * (g.pooled ? 1 : members.length);
+          (map[s.teacherId] ||= []).push({
+            key: `${o.id}:${s.teacherId}`,
+            className,
+            label: `${subjectName.get(o.subjectId) || "Subject"} · Sec ${secs} · ${periods}p`,
+          });
+        }
       }
     }
     return map;
   }, [groups, classes, subjects]);
 
-  const toggleGroupOption = useCallback((optionId: string) => {
-    setGroupPicks((prev) => {
-      const next = new Set(prev);
-      if (next.has(optionId)) next.delete(optionId);
-      else next.add(optionId);
-      return next;
-    });
-  }, []);
+  // Picking a subject takes what the other teachers left (all of it when nobody has it)
+  const toggleGroupOption = useCallback(
+    (optionId: string) => {
+      setGroupPicks((prev) => {
+        const next = new Map(prev);
+        if (next.has(optionId)) {
+          next.delete(optionId);
+          return next;
+        }
+        const g = groups.find((x) => x.options.some((o) => o.id === optionId));
+        const o = g?.options.find((x) => x.id === optionId);
+        if (!g || !o) return prev;
+        const others = optionShares(o, g)
+          .filter((s) => s.teacherId !== editingTeacherId)
+          .reduce((n, s) => n + s.periods, 0);
+        next.set(optionId, g.periodSize === 1 ? Math.max(1, g.periodsPerWeek - others) : g.periodsPerWeek);
+        return next;
+      });
+    },
+    [groups, editingTeacherId]
+  );
+
+  // This teacher's periods of a picked group subject, kept within what the other teachers left so
+  // the box shows what Save writes. An empty box is allowed while typing (saved as 1 at least).
+  const setGroupOptionPeriods = useCallback(
+    (optionId: string, value: string) => {
+      const n = value.trim() === "" ? 0 : Math.floor(Number(value));
+      if (!Number.isFinite(n) || n < 0) return;
+      setGroupPicks((prev) => {
+        if (!prev.has(optionId)) return prev;
+        const g = groups.find((x) => x.options.some((o) => o.id === optionId));
+        const o = g?.options.find((x) => x.id === optionId);
+        if (!g || !o) return prev;
+        const others = optionShares(o, g)
+          .filter((s) => s.teacherId !== editingTeacherId)
+          .reduce((t, s) => t + s.periods, 0);
+        return new Map(prev).set(optionId, Math.min(n, Math.max(1, g.periodsPerWeek - others)));
+      });
+    },
+    [groups, editingTeacherId]
+  );
 
   // Teacher's group load for a class, each group counted once (pooled) or per section (non-pooled)
   const getClassGroupLoad = useCallback(
-    (clsName: string): number =>
-      groupsForClass(clsName).reduce((sum, g) => {
-        const perSlot = g.options.filter((o) => groupPicks.has(o.id)).length;
-        if (perSlot === 0) return sum;
-        return sum + perSlot * groupSlotCost(g) * (g.pooled ? 1 : Math.max(1, g.sectionIds.length));
-      }, 0),
+    (clsName: string): number => groupsForClass(clsName).reduce((sum, g) => sum + myGroupCells(g, groupPicks), 0),
     [groupPicks, groupsForClass]
   );
 
-  // Write the picks into the groups: picked options get this teacher, released ones are cleared
+  // Write the picks into the groups: this teacher's part of each subject is set or released, the
+  // other teachers' parts stay as they are (a part beyond what is left is cut to fit)
   const applyGroupPicks = async (teacherId: string, classNames: string[]) => {
     if (!onSaveGroup) return;
     const reachable = new Set(classNames.flatMap((n) => groupsForClass(n).map((g) => g.id)));
     for (const g of groups) {
       let changed = false;
       const options = g.options.map((o) => {
+        const current = optionShares(o, g);
+        const others = current.filter((s) => s.teacherId !== teacherId);
         const want = reachable.has(g.id) && groupPicks.has(o.id);
-        if (want && o.teacherId !== teacherId) {
-          changed = true;
-          return { ...o, teacherId };
+        let next = others;
+        if (want) {
+          if (g.periodSize !== 1) {
+            next = [{ teacherId, periods: g.periodsPerWeek }];
+          } else {
+            const left = Math.max(0, g.periodsPerWeek - others.reduce((n, s) => n + s.periods, 0));
+            const mine = Math.min(Math.max(1, groupPicks.get(o.id) || left), left);
+            // A teacher already sharing keeps their place, so a save with no change rewrites nothing
+            if (mine <= 0) next = others;
+            else if (current.some((s) => s.teacherId === teacherId))
+              next = current.map((s) => (s.teacherId === teacherId ? { teacherId, periods: mine } : s));
+            else next = [...others, { teacherId, periods: mine }];
+          }
         }
-        if (!want && o.teacherId === teacherId) {
-          changed = true;
-          return { ...o, teacherId: "" };
-        }
-        return o;
+        const same =
+          next.length === current.length &&
+          next.every((s, i) => s.teacherId === current[i].teacherId && s.periods === current[i].periods);
+        if (same) return o;
+        changed = true;
+        return { ...o, ...packShares(next, g.periodsPerWeek) };
       });
       if (changed) await onSaveGroup({ ...g, options });
     }
@@ -413,8 +471,16 @@ export function useTeachersAllocation(ctx: TeachersCoreState) {
     getSubjectAllocationStats,
     getSubjectPeriod,
     groupChipsByTeacher,
+    setGroupOptionPeriods,
     toggleGroupOption,
   };
+}
+
+/** Cells a teacher's picks take in a group: their periods of each picked subject, per section when section-wise. */
+function myGroupCells(g: RoutineSubjectGroup, picks: Map<string, number>): number {
+  const size = g.periodSize === 2 ? 2 : 1;
+  const mul = g.pooled ? 1 : Math.max(1, g.sectionIds.length);
+  return g.options.reduce((n, o) => n + (picks.has(o.id) ? Math.min(picks.get(o.id) || 0, g.periodsPerWeek) : 0), 0) * size * mul;
 }
 
 export type TeachersAllocationState = ReturnType<typeof useTeachersAllocation>;

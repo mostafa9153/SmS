@@ -414,7 +414,8 @@ export function getSavedMarksSchemes(): ClassMarksScheme[] {
 /**
  * Save marks schemes to localStorage
  */
-export function saveMarksSchemes(schemes: ClassMarksScheme[]): void {
+/** `undo: false` when the save only keeps the preset in step with a change made elsewhere. */
+export function saveMarksSchemes(schemes: ClassMarksScheme[], opts: { undo?: boolean } = {}): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(schemes));
@@ -427,6 +428,7 @@ export function saveMarksSchemes(schemes: ClassMarksScheme[]): void {
     label: "Marks schemes saved",
     mirror: { storageKey: STORAGE_KEY, event: "sms_marks_schemes_updated" },
     localFirst: true,
+    undo: opts.undo,
   });
 }
 

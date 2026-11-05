@@ -5,7 +5,7 @@ import { TARGET_FIELDS } from "@/lib/utils/excel/fields";
 describe("TARGET_FIELDS", () => {
   it("keeps every column definition in order", () => {
     const digest = createHash("sha1").update(JSON.stringify(TARGET_FIELDS)).digest("hex");
-    expect({ count: TARGET_FIELDS.length, digest }).toEqual({ count: 91, digest: "905c96cde93bd41853e6918c225cb7dbad98fe8d" });
+    expect({ count: TARGET_FIELDS.length, digest }).toEqual({ count: 91, digest: "12d62aff169ac3305d6fa2671977ff818773d3e3" });
   });
 
   it("has unique keys", () => {

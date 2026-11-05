@@ -145,9 +145,23 @@ export async function getDashboardStats() {
  */
 export async function executeBulkUpload(
   rows: Array<Partial<Student>>,
-  uploadType: "current_students" | "old_students" = "current_students"
+  options: {
+    uploadType: "current_students" | "old_students";
+    updateMode: "skip" | "fill_blanks" | "overwrite";
+    createNew: boolean;
+    /** Set on every chunk after the first, so one sheet is one batch */
+    batchId?: string;
+  }
 ) {
-  return apiFetch<Json>("/api/students/bulk-upload", { method: "POST", json: { rows, uploadType }, raw: true });
+  return apiFetch<Json>("/api/students/bulk-upload", { method: "POST", json: { action: "import", rows, ...options }, raw: true });
+}
+
+/**
+ * Dry run of a bulk upload: for each row, whether it adds a student, updates one (which), or is
+ * skipped as ambiguous. Nothing is written.
+ */
+export async function previewBulkUpload(rows: Array<Partial<Student>>) {
+  return apiFetch<Json>("/api/students/bulk-upload", { method: "POST", json: { action: "preview", rows }, raw: true });
 }
 
 /**

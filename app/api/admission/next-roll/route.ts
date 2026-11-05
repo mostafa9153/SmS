@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/api/guard";
 import { pgQuote } from "@/lib/supabase/filters";
 import { getAcademicYear } from "@/lib/academic/current-year";
+import { rollConflict } from "@/lib/admission/roll-guard";
 
 export async function GET(req: Request) {
   try {
@@ -53,11 +54,26 @@ export async function GET(req: Request) {
 
     const nextRoll = maxRoll + 1;
 
+    // With ?roll=, also say who already holds it (the same check the admit routes run)
+    const roll = Number(searchParams.get("roll"));
+    const taken =
+      Number.isInteger(roll) && roll > 0
+        ? await rollConflict(supabase, {
+            className: targetClass,
+            section: targetSection,
+            roll,
+            academicYear: currentYear,
+            excludeStudentId: searchParams.get("excludeStudentId"),
+            excludeApplicationId: searchParams.get("excludeApplicationId"),
+          })
+        : null;
+
     return NextResponse.json({
       nextRoll,
       class: targetClass,
       section: targetSection,
       currentMaxRoll: maxRoll,
+      taken,
     });
   } catch (err: any) {
     console.error("Error calculating next roll:", err);

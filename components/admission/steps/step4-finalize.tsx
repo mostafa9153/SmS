@@ -10,7 +10,9 @@ import { Camera, Upload, CheckCircle, Calculator, Info, User, Receipt } from "lu
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getNextAvailableRoll, admitNewStudentApplication } from "@/lib/data/admission";
-import { getSavedFeeStructure, getFeeCategoryForClass, calculateFeeTotal } from "@/lib/utils/fee-config";
+import { FeeBreakdown, feeChargePayload, useFeeCharge } from "@/components/admission/fee-breakdown";
+import { RollTakenNote, useRollCheck } from "@/components/admission/roll-check";
+import { concessionLabel } from "@/lib/admission/fee-concession";
 import { PhotoCaptureDialog } from "@/components/admission/photo-capture-dialog";
 import { getSchoolConfiguredStreams, getDynamicSectionsForClassAndStream } from "@/lib/utils/school-profile";
 import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
@@ -36,6 +38,11 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
   const [feePaid, setFeePaid] = useState(true);
   const [paymentMode, setPaymentMode] = useState("Cash");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Class fee structure and this student's concession (Full / Half / Free / % off)
+  const fee = useFeeCharge(targetClass);
+  const { concession, charge } = fee;
+  const isFree = concession === "free";
+  const totalFee = charge.total;
 
   // Restore Step 4 draft on mount
   useEffect(() => {
@@ -91,9 +98,6 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
 
   const schoolId = `MHS-${currentYear}-${targetClass}-${rollNo.padStart(3, '0')}`;
   
-  const feeCategory = getFeeCategoryForClass(targetClass);
-  const feeItems = getSavedFeeStructure(feeCategory);
-  const totalFee = calculateFeeTotal(feeItems);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -136,8 +140,20 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
     reader.readAsDataURL(file);
   };
 
+  const rollCheck = useRollCheck({
+    className: targetClass,
+    section,
+    roll: rollNo,
+    academicYear: currentYear,
+    excludeApplicationId: appData?.id,
+  });
+
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    if (rollCheck.taken) {
+      toast.error(rollCheck.taken);
+      return;
+    }
     setIsSubmitting(true);
     try {
       let appId = appData?.id;
@@ -195,9 +211,9 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
         class: targetClass,
         section,
         roll: parseInt(rollNo, 10) || 1,
-        feePaid,
-        feeAmount: totalFee,
-        paymentMode,
+        feePaid: isFree ? true : feePaid,
+        ...feeChargePayload(charge),
+        paymentMode: isFree ? "Exempted" : paymentMode,
         paymentReceiptNo: receiptNo,
         stream: stream || undefined,
         photoUrl: photoUrl || undefined,
@@ -223,7 +239,10 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
         section,
         rollNo,
         receiptNo: result?.invoiceNumber || receiptNo,
-        totalFee: feePaid ? totalFee : 0
+        totalFee: feePaid || isFree ? totalFee : 0,
+        feePaid: isFree || feePaid,
+        feeConcession: concession,
+        feeConcessionPercent: charge.percent,
       });
       toast.success("Student successfully admitted & enrolled in database!");
     } catch (e: any) {
@@ -320,12 +339,18 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                   <Badge variant="outline" className="font-normal text-xs bg-blue-50 text-blue-700 border-blue-200">Auto-calculated</Badge>
                 </label>
                 <div className="flex gap-2">
-                  <Input value={rollNo} onChange={e => setRollNo(e.target.value)} className="w-24 text-center font-mono font-bold text-lg" />
+                  <Input
+                    value={rollNo}
+                    onChange={e => setRollNo(e.target.value)}
+                    aria-invalid={Boolean(rollCheck.taken)}
+                    className="w-24 text-center font-mono font-bold text-lg aria-invalid:border-rose-500"
+                  />
                   <div className="flex-1 bg-muted/50 rounded-md flex items-center px-3 text-xs text-muted-foreground gap-1.5">
                     <Info className="w-3.5 h-3.5 text-primary shrink-0" />
                     Next available roll in {targetClass}-{section}
                   </div>
                 </div>
+                <RollTakenNote taken={rollCheck.taken} nextRoll={rollCheck.nextRoll} onUse={(r) => setRollNo(String(r).padStart(2, "0"))} />
               </div>
             </CardContent>
           </Card>
@@ -342,7 +367,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                     <Calculator className="w-5 h-5 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Standard Admission Fee</p>
+                    <p className="text-sm font-medium">{concession === "full" ? "Standard Admission Fee" : concessionLabel(concession, charge.percent)}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -350,12 +375,14 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                 </div>
               </div>
 
+              <FeeBreakdown fee={fee} />
+
               <div className="flex items-center space-x-2 py-2">
-                <Checkbox id="feePaid" checked={feePaid} onCheckedChange={(c: boolean) => setFeePaid(c)} />
+                <Checkbox id="feePaid" disabled={isFree} checked={isFree || feePaid} onCheckedChange={(c: boolean) => setFeePaid(c)} />
                 <label htmlFor="feePaid" className="text-sm font-medium cursor-pointer">Fee Paid in Full</label>
               </div>
 
-              {feePaid && (
+              {feePaid && !isFree && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Payment Mode</label>
                   <Select value={paymentMode} onValueChange={(v) => v && setPaymentMode(v)}>
@@ -467,7 +494,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
                 </div>
                 <div>
                   <span className="text-muted-foreground block text-[11px]">Payment Mode</span>
-                  <span className="font-medium text-foreground">{feePaid ? `${paymentMode} (Paid)` : "Due"}</span>
+                  <span className="font-medium text-foreground">{isFree ? "Free" : feePaid ? `${paymentMode} (Paid)` : "Due"}</span>
                 </div>
               </div>
               <div className="pt-2 border-t flex items-center justify-between text-[11px] text-muted-foreground">
@@ -481,7 +508,7 @@ export function Step4Finalize({ onAdmit, appData = {}, academicYear }: Step4Fina
           <Button 
             className="w-full h-14 text-lg font-bold gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg"
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={isSubmitting || Boolean(rollCheck.taken)}
           >
             {isSubmitting ? "Finalizing..." : (
               <>

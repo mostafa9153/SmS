@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { CustomSelect } from "@/components/ui/custom-select";
 import { Switch } from "@/components/ui/switch";
 import { PrintPreview, PrintPageStyle } from "@/components/print/print-preview";
+import { FixedSheetPrint, NO_MARGINS } from "@/components/print/fixed-sheet-print";
+import { pageSizeMm } from "@/lib/print/paper";
 import { PaperSettingsPanel } from "@/components/print/paper-settings-panel";
 import { usePaperSettings } from "@/components/print/use-paper-settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,11 +75,13 @@ function KanyashreeCertificateGeneratorContent() {
   });
 
   const paperSettings = usePaperSettings("kanyashree-paper-settings", {
-    paper: "A5",
-    orientation: "portrait",
-    margins: { top: 10, right: 10, bottom: 10, left: 10 },
+    paper: "A4",
+    papers: ["A5", "A4"],
+    margins: NO_MARGINS,
   });
-  const { paper, orientation, margins, pageW, pageH } = paperSettings;
+  const { paper } = paperSettings;
+  // The sheet is drawn at A5 portrait; FixedSheetPrint scales it to the chosen paper.
+  const { pageW, pageH } = pageSizeMm(paper);
 
 
   const currentYear = new Date().getFullYear();
@@ -675,42 +679,33 @@ function KanyashreeCertificateGeneratorContent() {
             </CardContent>
           </Card>
 
-          <PaperSettingsPanel settings={paperSettings} orientations variant="section" />
+          <PaperSettingsPanel settings={paperSettings} lockMargins variant="section" />
         </div>
 
         {/* RIGHT COLUMN: Kanyashree Certificate Preview */}
         <div className="xl:col-span-7 space-y-3.5 print:w-full print:m-0 print:p-0 xl:sticky xl:top-6">
           {/* Certificate Canvas with ZoomPanViewport */}
           <div id="printable-kanyashree-canvas" className={printMode === "batch" ? "print:hidden" : undefined}>
-            <PrintPreview resetKey={`${paper}-${orientation}`}>
+            <PrintPreview resetKey={paper}>
               <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
             </PrintPreview>
-            <PrintPageStyle pageW={pageW} pageH={pageH} margins={margins} />
-            <div className="hidden print:block">
+            <PrintPageStyle pageW={pageW} pageH={pageH} margins={NO_MARGINS} />
+            <FixedSheetPrint sheetW={148} sheetH={210} pageW={pageW} pageH={pageH}>
               <KanyashreeCertificatePrintableView data={cert} schoolProfile={schoolProfile} />
-            </div>
+            </FixedSheetPrint>
           </div>
 
           {/* Bulk Print Multi-Page Container: Rendered only during print */}
           {printMode === "batch" && (
-            <div id="printable-kanyashree-batch" className="hidden print:block">
+            <FixedSheetPrint sheetW={148} sheetH={210} pageW={pageW} pageH={pageH}>
               {bulkStudents.map((student, idx) => {
                 const certNo = formatDocumentNumber("kanyashree", certSeq - bulkStudents.length + idx, currentYear);
                 const studentData = buildCertDataForStudent(student, certNo);
                 return (
-                  <div
-                    key={student.id}
-                    className="page-break"
-                    style={{
-                      pageBreakAfter: idx === bulkStudents.length - 1 ? "avoid" : "always",
-                      breakAfter: idx === bulkStudents.length - 1 ? "avoid" : "page",
-                    }}
-                  >
-                    <KanyashreeCertificatePrintableView data={studentData} schoolProfile={schoolProfile} />
-                  </div>
+                  <KanyashreeCertificatePrintableView key={student.id} data={studentData} schoolProfile={schoolProfile} />
                 );
               })}
-            </div>
+            </FixedSheetPrint>
           )}
         </div>
       </div>
@@ -727,25 +722,6 @@ function KanyashreeCertificateGeneratorContent() {
           }));
         }}
       />
-
-      <style dangerouslySetInnerHTML={{ __html: `
-        @media print {
-          header, aside, nav, .print\\:hidden, button { display: none !important; }
-          html, body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important;
-            width: ${pageW}mm !important; height: auto !important; max-width: ${pageW}mm !important;
-            overflow: visible !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          #printable-kanyashree-canvas { background: transparent !important; padding: 0 !important; margin: 0 auto !important;
-            border: none !important; box-shadow: none !important; width: ${pageW}mm !important;
-            max-width: ${pageW}mm !important; box-sizing: border-box !important; display: block !important; }
-          #printable-kanyashree-canvas > div { transform: none !important; width: ${pageW}mm !important; margin: 0 !important; display: block !important; }
-          #printable-kanyashree-batch { background: transparent !important; padding: 0 !important; margin: 0 auto !important;
-            width: ${pageW}mm !important; max-width: ${pageW}mm !important; display: block !important; }
-          .page-break { width: ${pageW}mm !important; margin: 0 auto !important; display: block !important; box-sizing: border-box !important; }
-          #pure-a5-kanyashree-sheet { width: ${pageW}mm !important; min-width: ${pageW}mm !important; max-width: ${pageW}mm !important;
-            margin: 0 auto !important; box-sizing: border-box !important; border: 2.5px solid #9333ea !important;
-            page-break-inside: avoid !important; break-inside: avoid !important; break-after: avoid !important; }
-        }
-      ` }} />
     </div>
   );
 }

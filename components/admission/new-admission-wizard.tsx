@@ -234,6 +234,10 @@ export function NewAdmissionWizard({ onOpenDashboard }: { onOpenDashboard: () =>
             onAdmit={(res) => {
               setAdmissionResult(res);
               setShowSuccessModal(true);
+              // Back to Mode behind the success popup, ready for the next admission
+              setStep(1);
+              setMode(null);
+              setAppData(null);
               if (typeof window !== "undefined") {
                 localStorage.removeItem("sms_new_admission_wizard_state");
                 localStorage.removeItem("sms_new_admission_step4_draft");

@@ -204,6 +204,8 @@ export const CORE_FIELDS: FieldDefinition[] = [
       "unique code",
       "student_code",
       "studentcode",
+      "student state code",
+      "state code",
       "bsp",
     ],
   },

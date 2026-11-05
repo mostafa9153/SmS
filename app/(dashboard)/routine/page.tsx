@@ -7,6 +7,9 @@ import {
   calculateSchoolGroupDemand,
   calculateTotalTeacherAllottedWorkload,
   calculateTotalSchoolClassCapacity,
+  optionShares,
+  optionTeacherIds,
+  packShares,
 } from "@/lib/routine/routine-helpers";
 import { formatDemandBreakdown, isPooledGroup } from "@/lib/routine/routine-domain";
 import { withCombinedCommonGroups, withDerivedGroupSettings } from "@/lib/routine/routine-groups";
@@ -50,7 +53,14 @@ import { Sliders, Building2, School, Users, BookOpen, BarChart3, LayoutGrid, Lay
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { showToast } from "@/components/ui/toast-banner";
-import { normalizeClassToCode, syncAllSubjectsFromPresetsToRoutine, syncConfiguredClassesToRoutine } from "@/lib/routine/routine-sync";
+import {
+  localPresetRaw,
+  normalizeClassToCode,
+  presetMatchesLocal,
+  syncAllSubjectsFromPresetsToRoutine,
+  syncConfiguredClassesToRoutine,
+  syncRoutineStreamToPreset,
+} from "@/lib/routine/routine-sync";
 import { Spinner } from "@/components/ui/spinner";
 
 type SetupTab = "settings" | "classes" | "groups" | "subjects" | "teachers" | "rooms" | "overview" | "demand";
@@ -141,14 +151,37 @@ function RoutineSetupPageContent() {
   );
   // Tabs that edit groups or tick section subjects work on saved groups only
   const savedGroups = useMemo(() => groups.filter((g) => !g.combined), [groups]);
+  // Subject → teachers of its combined Common blocks: a chip on the subject in the Subjects tab
+  const combinedTeachers = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const g of groups) {
+      if (!g.combined) continue;
+      for (const o of g.options) {
+        const t = teachers.find((x) => x.id === o.teacherId);
+        if (!t) continue;
+        const list = (out[o.subjectId] ||= []);
+        const label = t.shortName || t.name;
+        if (!list.includes(label)) list.push(label);
+      }
+    }
+    return out;
+  }, [groups, teachers]);
 
   const loadData = React.useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
       // 1. Fetch centralized school config from server without force refreshing
-      await fetchSchoolConfigClient(false).catch((e) => console.warn("Failed to sync school config:", e));
-      // 2. Automatically sync subjects from Presets (/settings/presets?section=marks_scheme) to Routine
-      await syncAllSubjectsFromPresetsToRoutine().catch((e) => console.warn("Auto-sync from presets:", e));
+      const localBefore = localPresetRaw();
+      const config = await fetchSchoolConfigClient(false).catch((e) => {
+        console.warn("Failed to sync school config:", e);
+        return null;
+      });
+      // 2. Automatically sync subjects from Presets (/settings/presets?section=marks_scheme) to Routine.
+      // Rows of streams the preset dropped are removed only when the server and this device agree on it.
+      const presetSure = presetMatchesLocal(config?.marks_schemes, localBefore);
+      await syncAllSubjectsFromPresetsToRoutine({ prune: presetSure ? "safe" : "off" }).catch((e) =>
+        console.warn("Auto-sync from presets:", e)
+      );
       // Sections and streams from Settings → Classes & Sections (add-only)
       await syncConfiguredClassesToRoutine().catch((e) => console.warn("Auto-sync classes from presets:", e));
       // 3. Fetch routine full state from Supabase
@@ -264,7 +297,12 @@ function RoutineSetupPageContent() {
     sortOrder?: number | null;
     allowedSlots?: Record<string, number[]> | null;
   }) => {
+    const before = subjData.id ? subjects.find((s) => s.id === subjData.id) : undefined;
     const id = await upsertSubjectDb(subjData);
+    // A stream picked here goes back to the preset, or the next sync would undo it
+    if (subjData.className && subjData.stream !== undefined) {
+      syncRoutineStreamToPreset(subjData.className, subjData.name, before?.stream ?? null, subjData.stream ?? null);
+    }
     setSubjects((prev) => {
       const idx = prev.findIndex((s) => s.id === id);
       const updated: RoutineSubject = {
@@ -340,7 +378,13 @@ function RoutineSetupPageContent() {
       return;
     }
 
-    await deleteSubjectDb(id);
+    if (!(await deleteSubjectDb(id))) {
+      showToast({ type: "error", title: "Delete Failed", description: `"${targetSub.name}" could not be removed. Try again.` });
+      void loadData();
+      return;
+    }
+    // The stream leaves the preset too (unless it was the subject's last one), or the sync would bring it back
+    if (targetSub.className) syncRoutineStreamToPreset(targetSub.className, targetSub.name, targetSub.stream ?? null, null);
     showToast({
       type: "info",
       title: "Subject Removed",
@@ -400,10 +444,13 @@ function RoutineSetupPageContent() {
 
   const handleDeleteTeacher = async (id: string) => {
     // Group options keep their subject but lose this teacher
-    for (const g of groups.filter((x) => x.options.some((o) => o.teacherId === id))) {
+    for (const g of savedGroups.filter((x) => x.options.some((o) => optionTeacherIds(o, x).includes(id)))) {
       await handleSaveGroup({
         ...g,
-        options: g.options.map((o) => (o.teacherId === id ? { ...o, teacherId: "" } : o)),
+        options: g.options.map((o) => {
+          if (!optionTeacherIds(o, g).includes(id)) return o;
+          return { ...o, ...packShares(optionShares(o, g).filter((s) => s.teacherId !== id), g.periodsPerWeek) };
+        }),
       });
     }
     await deleteTeacherDb(id);
@@ -433,6 +480,7 @@ function RoutineSetupPageContent() {
         teacherId: o.teacherId,
         roomId: o.roomId ?? null,
         sortOrder: o.sortOrder,
+        shares: o.shares ?? null,
       })),
     });
     setGroups((prev) => {
@@ -470,7 +518,7 @@ function RoutineSetupPageContent() {
   const setupTabs = [
     { id: "settings", label: "Global Settings", icon: Sliders },
     { id: "classes", label: "Classes", icon: School, count: classes.length },
-    { id: "groups", label: "Groups", icon: Layers, count: groups.length },
+    { id: "groups", label: "Groups", icon: Layers, count: savedGroups.length },
     { id: "subjects", label: "Subjects", icon: BookOpen, count: subjects.length },
     { id: "teachers", label: "Teachers", icon: Users, count: teachers.length },
     { id: "rooms", label: "Rooms & Labs", icon: Building2, count: rooms.length },
@@ -503,9 +551,10 @@ function RoutineSetupPageContent() {
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-base font-bold text-foreground font-mono">
               {formatDemandBreakdown(
-                totalSchoolDemand - totalSchoolGroupDemand.slots - totalSchoolGroupDemand.extra,
+                totalSchoolDemand - totalSchoolGroupDemand.total,
                 totalSchoolGroupDemand.slots,
-                totalSchoolGroupDemand.extra
+                totalSchoolGroupDemand.extra,
+                totalSchoolGroupDemand.shared
               )} p/wk
             </span>
           </div>
@@ -604,6 +653,7 @@ function RoutineSetupPageContent() {
                 settings={settings}
                 classes={classes}
                 groups={savedGroups}
+                combinedTeachers={combinedTeachers}
                 onSaveGroup={handleSaveGroup}
                 onDeleteGroup={handleDeleteGroup}
                 onSaveSubject={handleSaveSubject}

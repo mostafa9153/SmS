@@ -17,6 +17,8 @@ interface SubjectTableRowProps {
   activeClass: string;
   onEdit: (s: RoutineSubject) => void;
   onDelete: (id: string) => Promise<void>;
+  /** Teachers of the combined Common blocks this subject is taught in */
+  combinedWith?: string[];
   isDraggable?: boolean;
 }
 
@@ -25,6 +27,7 @@ export const SubjectTableRow = React.memo(function SubjectTableRow({
   activeClass,
   onEdit,
   onDelete,
+  combinedWith,
   isDraggable = false,
 }: SubjectTableRowProps) {
   const subjectStream = detectSubjectStream(s.name, s.stream);
@@ -78,6 +81,15 @@ export const SubjectTableRow = React.memo(function SubjectTableRow({
               className="text-[9px] px-1 py-0 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-200"
             >
               Common
+            </Badge>
+          )}
+          {combinedWith && combinedWith.length > 0 && (
+            <Badge
+              variant="outline"
+              title="Every stream section of the same letter sits together for this subject"
+              className="text-[9px] px-1 py-0 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200"
+            >
+              Combined · {combinedWith.join(", ")}
             </Badge>
           )}
         </div>

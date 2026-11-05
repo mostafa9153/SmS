@@ -1,0 +1,465 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Printer } from "lucide-react";
+import { getStudents } from "@/lib/data/students";
+import { computeClassicStrengthData } from "@/lib/reports/classic-strength-report";
+import { Button } from "@/components/ui/button";
+import { CustomSelect } from "@/components/ui/custom-select";
+import { Spinner } from "@/components/ui/spinner";
+import { PageHeader } from "@/components/ui/page-header";
+import { useAcademicYear } from "@/lib/hooks/use-academic-year";
+import { useSchoolProfile } from "@/lib/hooks/use-school-profile";
+import { SchoolWatermark } from "@/components/print/school-watermark";
+import { sessionYears } from "@/lib/utils/academic-year";
+
+export default function ReportsPage() {
+  const currentSession = useAcademicYear();
+  const { profile: schoolProfile } = useSchoolProfile();
+  const [pickedSessionYear, setSessionYear] = useState<string | null>(null);
+  const sessionYear = pickedSessionYear ?? currentSession;
+  const [printOrientation, setPrintOrientation] = useState<"landscape" | "portrait">("landscape");
+  const [asOnDate, setAsOnDate] = useState<string>(
+    new Date().toLocaleDateString("en-GB", { day: "numeric", month: "numeric", year: "numeric" })
+  );
+
+  const { data: allStudents = [], isLoading } = useQuery({
+    queryKey: ["students"],
+    queryFn: () => getStudents(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const reportData = useMemo(() => {
+    return computeClassicStrengthData(
+      allStudents,
+      "MARIGACHI HIGH SCHOOL (H. S.)",
+      asOnDate,
+      sessionYear
+    );
+  }, [allStudents, asOnDate, sessionYear]);
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <div className="p-3 sm:p-6 max-w-7xl mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none font-sans">
+      {/* Dynamic Print Page Size CSS to strictly guarantee 1 page in selected orientation */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 ${printOrientation} !important;
+            margin: ${printOrientation === "landscape" ? "5mm 7mm" : "6mm 5mm"} !important;
+          }
+        }
+      ` }} />
+
+      {/* Action Bar - Hidden in Print */}
+      <div className="flex flex-col gap-4 print:hidden">
+        <PageHeader
+          back
+          title="Students Strength Tabulation"
+          badge={<span className="text-[11px] sm:text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
+              Official Format
+            </span>}
+        />
+
+        {/* Action Buttons & Selectors: Responsive grid on mobile, flex on desktop */}
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+            <div className="w-full sm:w-36">
+              <CustomSelect
+                value={sessionYear}
+                onChange={(val) => setSessionYear(val)}
+                options={sessionYears(currentSession).map((y) => ({ label: `${y} Session`, value: y }))}
+              />
+            </div>
+
+            <div className="w-full sm:w-44">
+              <CustomSelect
+                value={printOrientation}
+                onChange={(val) => setPrintOrientation(val as "landscape" | "portrait")}
+                options={[
+                  { label: "Landscape (1-Page)", value: "landscape" },
+                  { label: "Portrait (1-Page)", value: "portrait" },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
+            {/* Print / PDF */}
+            <Button
+              onClick={handlePrint}
+              variant="outline"
+              className="flex items-center justify-center gap-1.5 border-border/80 font-semibold text-xs h-10 px-3.5 rounded-xl shadow-2xs hover:bg-muted cursor-pointer active:scale-95 transition-all"
+            >
+              <Printer className="h-4 w-4 text-primary shrink-0" />
+              <span>Print (1 Page)</span>
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading state */}
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center p-16 bg-card border rounded-2xl">
+          <Spinner className="h-8 w-8 text-primary mb-3" />
+          <p className="text-sm font-semibold text-muted-foreground">Calculating student demographic matrix...</p>
+        </div>
+      ) : (
+        /* Printable Official Document Container */
+        <div
+          id="print-report-area"
+          className="relative isolate bg-white text-black border border-black/30 rounded-2xl shadow-sm overflow-hidden p-3 sm:p-5 print:border-none print:shadow-none print:p-0 print:m-0 print:w-full print:rounded-none"
+        >
+          <SchoolWatermark logoUrl={schoolProfile?.schoolLogoUrl} />
+          {/* Document Title (Matches Image) */}
+          <div className="text-center pb-2 print:pb-0.5">
+            <h2
+              className="text-lg sm:text-2xl font-bold tracking-tight uppercase print:text-xl sm:print:text-2xl print:leading-tight"
+              style={{ color: "#800000", fontFamily: "serif" }}
+            >
+              {reportData.schoolName}
+            </h2>
+            <p
+              className="text-xs sm:text-sm font-bold uppercase tracking-wider italic print:text-[14px] print:leading-tight print:mt-0.5"
+              style={{ color: "#002060", fontFamily: "serif" }}
+            >
+              {reportData.reportTitle}
+            </p>
+          </div>
+
+          {/* ──────────────────────────────────────────────────────────── */}
+          {/* TABLE 1: SECTION-WISE BREAKDOWN MATRIX                       */}
+          {/* ──────────────────────────────────────────────────────────── */}
+          <p className="text-[11px] text-muted-foreground sm:hidden mt-2 font-medium print:hidden">
+            👉 ডানে-বামে স্ক্রোল করে সম্পূর্ণ রিপোর্ট দেখুন
+          </p>
+          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-1 print:border-black">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs text-center border-collapse border border-black print:text-[14px] print:leading-tight">
+              <thead>
+                {/* Header Row 1 */}
+                <tr className="font-bold border-b border-black text-black print:h-5">
+                  <th rowSpan={2} className="border border-black px-2 py-1.5 min-w-[55px] print:px-0.5 print:py-[1.2px] print:min-w-0"></th>
+                  <th colSpan={2} className="border border-black py-1 text-sm font-bold print:py-[1.2px] print:text-[15px]" style={{ color: "#008000" }}>
+                    Boys
+                  </th>
+                  <th rowSpan={2} className="border border-black px-1.5 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#008000" }}>
+                    Total<br />Boys
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#006600" }}>
+                    Boys in<br />Class
+                  </th>
+                  <th colSpan={2} className="border border-black py-1 text-sm font-bold print:py-[1.2px] print:text-[15px]" style={{ color: "#C00000" }}>
+                    Girls
+                  </th>
+                  <th rowSpan={2} className="border border-black px-1.5 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#C00000" }}>
+                    Total<br />Girls
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#800000" }}>
+                    Girls in<br />Class
+                  </th>
+                  <th rowSpan={2} className="border border-black px-1.5 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#002060" }}>
+                    Total<br />Hindu
+                  </th>
+                  <th rowSpan={2} className="border border-black px-1.5 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#008000" }}>
+                    Total<br />Muslim
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]">
+                    Total<br />Students
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#7030A0" }}>
+                    Students<br />in Class
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:px-0.5 print:py-[1.2px] print:text-[13px]" style={{ color: "#800000" }}>
+                    Total<br />Student
+                  </th>
+                </tr>
+                {/* Header Row 2 */}
+                <tr className="font-bold border-b border-black text-xs print:text-[13px] print:h-[18px]">
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>Hindu</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>Muslim</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>Hindu</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>Muslim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.sectionRows.map((r, idx) => (
+                  <tr key={idx} className="border-b border-black text-sm print:text-[14px] print:leading-tight print:h-5">
+                    {/* Col 1: Class Label */}
+                    <td className="border border-black px-2 py-1 font-bold text-left print:px-0.5 print:py-[1.2px]" style={{ color: "#004080" }}>
+                      {r.displayLabel}
+                    </td>
+
+                    {/* Col 2: Boys Hindu */}
+                    <td className="border border-black px-1.5 py-1 print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                      {r.boysHindu}
+                    </td>
+
+                    {/* Col 3: Boys Muslim */}
+                    <td className="border border-black px-1.5 py-1 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                      {r.boysMuslim}
+                    </td>
+
+                    {/* Col 4: Total Boys */}
+                    <td className="border border-black px-1.5 py-1 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#006600" }}>
+                      {r.totalBoys}
+                    </td>
+
+                    {/* Col 5: Boys in Class (Merged vertically across sections) */}
+                    {r.isFirstInSection && (
+                      <td
+                        rowSpan={r.sectionCountInClass}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.05rem] print:text-[15px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#006600" }}
+                      >
+                        {r.boysInClass}
+                      </td>
+                    )}
+
+                    {/* Col 6: Girls Hindu */}
+                    <td className="border border-black px-1.5 py-1 print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>
+                      {r.girlsHindu}
+                    </td>
+
+                    {/* Col 7: Girls Muslim */}
+                    <td className="border border-black px-1.5 py-1 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                      {r.girlsMuslim}
+                    </td>
+
+                    {/* Col 8: Total Girls */}
+                    <td className="border border-black px-1.5 py-1 font-bold italic print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>
+                      {r.totalGirls}
+                    </td>
+
+                    {/* Col 9: Girls in Class (Merged vertically across sections) */}
+                    {r.isFirstInSection && (
+                      <td
+                        rowSpan={r.sectionCountInClass}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.05rem] print:text-[15px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#800000" }}
+                      >
+                        {r.girlsInClass}
+                      </td>
+                    )}
+
+                    {/* Col 10: Total Hindu (Merged vertically across sections) */}
+                    {r.isFirstInSection && (
+                      <td
+                        rowSpan={r.sectionCountInClass}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.05rem] print:text-[15px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#002060" }}
+                      >
+                        {r.totalHindu}
+                      </td>
+                    )}
+
+                    {/* Col 11: Total Muslim (Merged vertically across sections) */}
+                    {r.isFirstInSection && (
+                      <td
+                        rowSpan={r.sectionCountInClass}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.05rem] print:text-[15px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#008000" }}
+                      >
+                        {r.totalMuslim}
+                      </td>
+                    )}
+
+                    {/* Col 12: Total Students in Section */}
+                    <td className="border border-black px-2 py-1 font-bold print:px-0.5 print:py-[1.2px]">
+                      {r.totalStudents}
+                    </td>
+
+                    {/* Col 13: Students in Class (Merged vertically across sections) */}
+                    {r.isFirstInSection && (
+                      <td
+                        rowSpan={r.sectionCountInClass}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.05rem] print:text-[15px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#7030A0" }}
+                      >
+                        {r.studentsInClass}
+                      </td>
+                    )}
+
+                    {/* Col 14: Stage Total (Merged vertically: V-VIII, IX-X, XI-XII) */}
+                    {r.isFirstInStage && (
+                      <td
+                        rowSpan={r.stageRowCount}
+                        className="border border-black px-2 py-1 font-bold italic align-middle text-[1.15rem] print:text-[16px] print:px-0.5 print:py-[1.2px]"
+                        style={{ color: "#800000" }}
+                      >
+                        {r.stageTotal}
+                      </td>
+                    )}
+                  </tr>
+                ))}
+
+                {/* Grand Totals Row */}
+                <tr className="font-bold border-t-2 border-b-2 border-black text-sm print:text-[14px] print:leading-tight print:h-5" style={{ borderBottomStyle: "double" }}>
+                  <td className="border border-black px-2 py-1.5 font-black text-left print:px-0.5 print:py-[1.2px]" style={{ color: "#004080" }}>
+                    Total
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                    {reportData.totals.boysHindu}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                    {reportData.totals.boysMuslim}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#006600" }}>
+                    {reportData.totals.totalBoys}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#006600" }}>
+                    {reportData.totals.totalBoys}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                    {reportData.totals.girlsHindu}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                    {reportData.totals.girlsMuslim}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>
+                    {reportData.totals.totalGirls}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#800000" }}>
+                    {reportData.totals.totalGirls}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                    {reportData.totals.totalHindu}
+                  </td>
+                  <td className="border border-black px-1.5 py-1.5 font-bold print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                    {reportData.totals.totalMuslim}
+                  </td>
+                  <td colSpan={2} className="border border-black px-2 py-1.5 font-black text-sm print:text-[14px] print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>
+                    Total Students
+                  </td>
+                  <td className="border border-black px-2 py-1.5 font-black text-base print:text-[16px] print:px-0.5 print:py-[1.2px]" style={{ color: "#800000" }}>
+                    {reportData.totals.totalStudents}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* ──────────────────────────────────────────────────────────── */}
+          {/* TABLE 2: SIDE-BY-SIDE CLASS SUMMARY & DEFERENTIALS          */}
+          {/* ──────────────────────────────────────────────────────────── */}
+          <div className="overflow-x-auto print:overflow-visible border border-black rounded-sm mt-3 print:mt-1 print:border-black">
+            <table className="w-full min-w-[700px] print:min-w-0 text-xs text-center border-collapse border border-black print:text-[14px] print:leading-tight">
+              <thead>
+                <tr className="font-bold border-b border-black text-black text-xs print:text-[13px] print:h-5">
+                  {/* Left Table Headers */}
+                  <th rowSpan={2} className="border border-black px-2 py-1 font-bold text-sm print:text-[14px] print:py-[1.2px] print:px-0.5" style={{ color: "#004080" }}>
+                    Class
+                  </th>
+                  <th colSpan={2} className="border border-black py-0.5 text-xs font-bold print:text-[13px] print:py-[1.2px]" style={{ color: "#008000" }}>
+                    Boys
+                  </th>
+                  <th colSpan={2} className="border border-black py-0.5 text-xs font-bold print:text-[13px] print:py-[1.2px]" style={{ color: "#C00000" }}>
+                    Girls
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 min-w-[30px] print:py-[1.2px] print:px-0.5 print:min-w-0"></th>
+
+                  {/* Spacer / Right Table Headers */}
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold print:text-[13px] print:py-[1.2px] print:px-0.5" style={{ color: "#006600" }}>
+                    Boys
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold print:text-[13px] print:py-[1.2px] print:px-0.5" style={{ color: "#800000" }}>
+                    Girls
+                  </th>
+                  <th rowSpan={2} className="border border-black px-3 py-1 font-bold text-sm print:text-[14px] print:py-[1.2px] print:px-0.5" style={{ color: "#002060" }}>
+                    Deferentials
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold print:text-[13px] print:py-[1.2px] print:px-0.5" style={{ color: "#002060" }}>
+                    Hindu
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold print:text-[13px] print:py-[1.2px] print:px-0.5" style={{ color: "#008000" }}>
+                    Muslim
+                  </th>
+                  <th rowSpan={2} className="border border-black px-2 py-1 text-xs font-bold leading-tight print:text-[13px] print:py-[1.2px] print:px-0.5" style={{ color: "#800000" }}>
+                    Total<br />Student
+                  </th>
+                </tr>
+                <tr className="font-bold border-b border-black text-[11px] print:text-[12px] print:h-[18px]">
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>Hindu</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>Muslim</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#C00000" }}>Hindu</th>
+                  <th className="border border-black px-1 py-0.5 print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>Muslim</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.classSummaries.map((cs, i) => {
+                  const diff = reportData.differentials[i] || null;
+                  return (
+                    <tr key={cs.classLevel} className="border-b border-black text-sm print:text-[14px] print:leading-tight print:h-5">
+                      {/* Left: Class */}
+                      <td className="border border-black px-2 py-1 font-bold italic print:px-0.5 print:py-[1.2px]" style={{ color: "#004080" }}>
+                        {cs.classLevel}
+                      </td>
+                      <td className="border border-black px-1.5 py-1 italic print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                        {cs.boysHindu}
+                      </td>
+                      <td className="border border-black px-1.5 py-1 italic print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                        {cs.boysMuslim}
+                      </td>
+                      <td className="border border-black px-1.5 py-1 italic print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                        {cs.girlsHindu}
+                      </td>
+                      <td className="border border-black px-1.5 py-1 italic print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                        {cs.girlsMuslim}
+                      </td>
+                      <td className="border border-black px-2 py-1 font-bold italic print:px-0.5 print:py-[1.2px]" style={{ color: "#004080" }}>
+                        {cs.totalStudents}
+                      </td>
+
+                      {/* Right: Differentials */}
+                      <td className="border border-black px-2 py-1 font-semibold print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                        {diff && diff.label !== "Total Hindu/Muslim" ? diff.boys : ""}
+                      </td>
+                      <td className="border border-black px-2 py-1 font-semibold print:px-0.5 print:py-[1.2px]" style={{ color: "#800000" }}>
+                        {diff && diff.label !== "Total Hindu/Muslim" ? diff.girls : ""}
+                      </td>
+                      <td
+                        className="border border-black px-3 py-1 font-bold text-left text-[0.95rem] print:text-[13.5px] print:px-0.5 print:py-[1.2px]"
+                        style={{
+                          color: diff?.label === "Total Hindu/Muslim" ? "#002060" : "#4F6228",
+                        }}
+                      >
+                        {diff ? (
+                          diff.label === "Total Hindu/Muslim" ? (
+                            <span className="text-[0.75rem] print:text-[12px]">Total Hindu<span style={{ color: "#008000" }}>/Muslim</span></span>
+                          ) : (
+                            diff.label
+                          )
+                        ) : (
+                          ""
+                        )}
+                      </td>
+                      <td className="border border-black px-2 py-1 font-bold text-[1.05rem] print:text-[14px] print:px-0.5 print:py-[1.2px]" style={{ color: "#002060" }}>
+                        {diff ? diff.hindu : ""}
+                      </td>
+                      <td className="border border-black px-2 py-1 font-bold text-[1.05rem] print:text-[14px] print:px-0.5 print:py-[1.2px]" style={{ color: "#008000" }}>
+                        {diff ? diff.muslim : ""}
+                      </td>
+                      <td className="border border-black px-2 py-1 font-black text-[1.1rem] print:text-[15px] print:px-0.5 print:py-[1.2px]" style={{ color: "#800000" }}>
+                        {diff && diff.label !== "Total Hindu/Muslim" ? diff.total : ""}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Document Footer (Visible in Print) */}
+          <div className="hidden print:flex justify-between items-center px-3 py-1 mt-2 border-t border-black text-[8.5px] font-semibold text-black">
+            <span>Generated from Marigachi High School SMS</span>
+            <span>Headmaster / TIC Signature</span>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+}

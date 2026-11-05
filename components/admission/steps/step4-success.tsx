@@ -13,6 +13,8 @@ import { Printer, UserPlus, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+const AUTO_CLOSE_SECONDS = 4;
+
 interface Step4SuccessProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,6 +31,23 @@ export function Step4SuccessDialog({
   const router = useRouter();
   const res = result || {};
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  // Closes by itself so the next admission can start; any click in the popup stops the timer
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    setCountdown(open ? AUTO_CLOSE_SECONDS : null);
+  }, [open]);
+
+  useEffect(() => {
+    if (countdown === null || !open) return;
+    if (countdown === 0) {
+      onOpenChange(false);
+      onRestart();
+      return;
+    }
+    const t = window.setTimeout(() => setCountdown(countdown - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [countdown, open, onOpenChange, onRestart]);
 
   // Play satisfying Google Pay / UPI style 2-tone success chime
   useEffect(() => {
@@ -94,7 +113,10 @@ export function Step4SuccessDialog({
         }
       }}
     >
-      <DialogContent className="max-w-md w-[92vw] sm:w-[460px] p-0 overflow-hidden rounded-3xl bg-background border-2 border-emerald-500/30 shadow-2xl animate-in zoom-in-90 duration-300">
+      <DialogContent
+        onPointerDown={() => setCountdown(null)}
+        className="max-w-md w-[92vw] sm:w-[460px] p-0 overflow-hidden rounded-3xl bg-background border-2 border-emerald-500/30 shadow-2xl animate-in zoom-in-90 duration-300"
+      >
         {/* Animated Background Aura */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-64 h-64 bg-gradient-to-b from-emerald-500/20 via-teal-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
@@ -225,7 +247,13 @@ export function Step4SuccessDialog({
               <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col justify-center">
                 <span className="block text-[10px] text-emerald-800 dark:text-emerald-300 font-semibold">Fee Status</span>
                 <span className="font-black text-xs text-emerald-600 dark:text-emerald-400">
-                  {res.totalFee ? `₹${res.totalFee} Paid` : "Paid"}
+                  {res.feeConcession === "free"
+                    ? "Free"
+                    : res.feePaid === false
+                    ? "Due"
+                    : `₹${res.totalFee ?? 0} Paid${
+                        res.feeConcession === "half" ? " (Half)" : res.feeConcession === "custom" ? ` (${res.feeConcessionPercent}% off)` : ""
+                      }`}
                 </span>
               </div>
             </div>
@@ -247,7 +275,7 @@ export function Step4SuccessDialog({
             onClick={handleNewAdmission}
           >
             <UserPlus className="w-4 h-4" />
-            <span>New Admission</span>
+            <span>New Admission{countdown !== null && countdown > 0 ? ` (${countdown})` : ""}</span>
           </Button>
         </DialogFooter>
       </DialogContent>

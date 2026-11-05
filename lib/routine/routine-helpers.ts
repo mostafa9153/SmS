@@ -417,6 +417,19 @@ export function isHsClass(className: string, code?: string): boolean {
 }
 
 /**
+ * Common follows the stream a subject sits under (the preset decides): a row under Science /
+ * Commerce / Arts is never Common, a row under Common always is. The stored flag only counts for a
+ * row saved without a stream. Applied on every load and save, so moving a subject between streams
+ * in the preset can never leave a stale Common flag behind.
+ */
+export function resolveIsCommon(stream?: string | null, isCommon?: boolean | null): boolean {
+  const st = (stream || "").trim().toLowerCase();
+  if (st === "common") return true;
+  if (st === "science" || st === "commerce" || st === "arts") return false;
+  return Boolean(isCommon);
+}
+
+/**
  * Heuristic to detect stream based on subject name or explicit stream tag
  */
 export function detectSubjectStream(
@@ -502,6 +515,20 @@ export function schemeSubjectStreams(
   const saved = Object.entries(scheme?.subjectStreams || {}).find(([k]) => k.trim().toLowerCase() === target)?.[1];
   if (saved && saved.length > 0) return saved;
   return [detectSubjectStream(subjectName)];
+}
+
+/**
+ * A subject is either Common (every stream section of a letter sits together, one teacher) or under
+ * one or more streams (each stream taught on its own), never both: both would put it in a stream
+ * section twice. Adding Common replaces the streams; adding a stream to a Common subject replaces
+ * Common; adding a stream to a stream subject adds it.
+ */
+export function withSubjectStream(current: string[], add: string): string[] {
+  const isCommon = (x: string) => x.trim().toLowerCase() === "common";
+  const cur = current.filter((x) => x && x !== "General");
+  if (isCommon(add)) return ["Common"];
+  const streams = cur.filter((x) => !isCommon(x));
+  return streams.some((x) => x.toLowerCase() === add.toLowerCase()) ? streams : [...streams, add];
 }
 
 export interface PresetSectionItem {
@@ -662,12 +689,83 @@ export function generateInitials(name: string): string {
  */
 export const isPooledGroup = (scope: string): boolean => scope === "class";
 
+type ShareOption = { teacherId?: string | null; shares?: { teacherId: string; periods: number }[] | null };
+type ShareGroup = { periodsPerWeek: number; periodSize: 1 | 2 };
+
+/**
+ * Teachers running a group subject and the group periods each takes. A subject is shared only in a
+ * single-period group (a double period cannot be split between teachers); without shares its one
+ * teacher takes every period. Shares beyond the group's periods are cut off.
+ */
+export function optionShares(o: ShareOption, g: ShareGroup): { teacherId: string; periods: number }[] {
+  const total = Math.max(0, g.periodsPerWeek);
+  const list = g.periodSize === 1 ? (o.shares || []).filter((s) => s && s.teacherId && s.periods > 0) : [];
+  if (list.length === 0) return o.teacherId ? [{ teacherId: o.teacherId, periods: total }] : [];
+  const out: { teacherId: string; periods: number }[] = [];
+  let left = total;
+  for (const s of list) {
+    if (left <= 0) break;
+    const periods = Math.min(Math.floor(s.periods), left);
+    if (periods <= 0) continue;
+    const prev = out.find((x) => x.teacherId === s.teacherId);
+    if (prev) prev.periods += periods;
+    else out.push({ teacherId: s.teacherId, periods });
+    left -= periods;
+  }
+  return out;
+}
+
+/** Group periods of an option that have a teacher. */
+export const optionCovered = (o: ShareOption, g: ShareGroup): number =>
+  optionShares(o, g).reduce((n, s) => n + s.periods, 0);
+
+/** Every group period of the option has a teacher. */
+export const isOptionStaffed = (o: ShareOption, g: ShareGroup): boolean =>
+  g.periodsPerWeek > 0 && optionCovered(o, g) >= g.periodsPerWeek;
+
+/**
+ * A teacher's weekly periods in a group, in timetable cells: their share of each option they run,
+ * times the period size, times the sections of a section-wise group (each section runs it).
+ */
+export function teacherPeriodsInGroup(
+  teacherId: string,
+  g: ShareGroup & { pooled: boolean; sectionIds?: string[]; options: ShareOption[] }
+): number {
+  const size = g.periodSize === 2 ? 2 : 1;
+  const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
+  let n = 0;
+  for (const o of g.options || []) {
+    const share = optionShares(o, g).find((s) => s.teacherId === teacherId);
+    if (share) n += share.periods;
+  }
+  return n * size * mul;
+}
+
+/** Every teacher id that runs any part of a group option. */
+export const optionTeacherIds = (o: ShareOption, g: ShareGroup): string[] => optionShares(o, g).map((s) => s.teacherId);
+
+/**
+ * Stored form of an option's teachers: one teacher taking every period keeps the old shape
+ * (teacher_id, no shares); anything else keeps the list and the first teacher in teacher_id.
+ */
+export function packShares(
+  shares: { teacherId: string; periods: number }[],
+  total: number
+): { teacherId: string; shares: { teacherId: string; periods: number }[] | null } {
+  const list = shares.filter((s) => s.teacherId && s.periods > 0);
+  if (list.length === 0) return { teacherId: "", shares: null };
+  if (list.length === 1 && list[0].periods >= total) return { teacherId: list[0].teacherId, shares: null };
+  return { teacherId: list[0].teacherId, shares: list.map((s) => ({ teacherId: s.teacherId, periods: Math.floor(s.periods) })) };
+}
+
 type GroupPeriodShape = {
   scope: string;
   options: unknown[];
   periodsPerWeek: number;
   periodSize: 1 | 2;
   sectionIds?: string[];
+  /** derived Common block: every stream section sits in the same slot with one teacher */
+  combined?: boolean;
 };
 
 /** The slot a group occupies in each of its sections; this is what counts against class capacity. */
@@ -678,11 +776,12 @@ export function groupSlotPeriods(g: { periodsPerWeek: number; periodSize: 1 | 2 
 /**
  * Teacher periods a group needs per week, all sections together. Every option has its own teacher,
  * so a class-wise group (one shared slot) costs options x slot, and a section-wise group costs
- * that once per section. This is the number the Teachers tab allots against.
+ * that once per section. A combined Common block is taught once to all its sections, like a
+ * class-wise group. This is the number the Teachers tab allots against.
  */
 export function groupTotalPeriods(g: GroupPeriodShape): number {
   const sections = Math.max(1, g.sectionIds?.length ?? 1);
-  const units = isPooledGroup(g.scope) ? 1 : sections;
+  const units = isPooledGroup(g.scope) || g.combined ? 1 : sections;
   return Math.max(1, g.options.length) * groupSlotPeriods(g) * units;
 }
 
@@ -693,21 +792,31 @@ export function groupTotalPeriods(g: GroupPeriodShape): number {
 export function groupExtraPeriods(g: GroupPeriodShape): number {
   const sections = Math.max(1, g.sectionIds?.length ?? 1);
   const slot = groupSlotPeriods(g);
+  if (g.combined) return 0;
   if (!isPooledGroup(g.scope)) return Math.max(0, g.options.length - 1) * slot;
   return Math.max(0, Math.round((groupTotalPeriods(g) - slot * sections) / sections));
 }
 
-/** Group share of the school-wide demand, split into slots (capacity) and extra option periods. */
+/**
+ * Group share of the school-wide demand, split into slots (capacity) and extra option periods.
+ * Combined Common blocks fill a slot in every section but need one teacher period: the periods
+ * those sections share are `shared`. Teacher-period total = slots + extra − shared.
+ */
 export function calculateSchoolGroupDemand(
   groups: Array<GroupPeriodShape & { sectionIds: string[] }>
-): { slots: number; extra: number } {
+): { slots: number; extra: number; shared: number; total: number } {
   let slots = 0;
-  let total = 0;
+  let extra = 0;
+  let shared = 0;
   for (const g of groups) {
-    slots += groupSlotPeriods(g) * g.sectionIds.length;
-    total += g.sectionIds.length > 0 ? groupTotalPeriods(g) : 0;
+    if (g.sectionIds.length === 0) continue;
+    const gSlots = groupSlotPeriods(g) * g.sectionIds.length;
+    const diff = groupTotalPeriods(g) - gSlots;
+    slots += gSlots;
+    if (diff >= 0) extra += diff;
+    else shared -= diff;
   }
-  return { slots, extra: total - slots };
+  return { slots, extra, shared, total: slots + extra - shared };
 }
 
 /**
@@ -722,6 +831,7 @@ export function calculateTotalSchoolSectionDemand(
     options: Array<{ subjectId: string }>;
     periodsPerWeek: number;
     periodSize: 1 | 2;
+    combined?: boolean;
   }>
 ): number {
   if (!classes || classes.length === 0) {
@@ -915,13 +1025,7 @@ export function calculateTeacherConfiguredLoads(
         load += getTeacherSubjectPeriod(t, c.className, c.section, subName, matchedSubject?.periodsPerWeek || 5);
       }
     }
-    for (const g of groups) {
-      const perSlot = (g.options || []).filter((o) => o.teacherId === t.id).length;
-      if (perSlot === 0) continue;
-      const slots = Math.max(0, g.periodsPerWeek) * (g.periodSize === 2 ? 2 : 1);
-      const mul = g.pooled ? 1 : Math.max(1, (g.sectionIds || []).length);
-      load += perSlot * slots * mul;
-    }
+    for (const g of groups) load += teacherPeriodsInGroup(t.id, g);
     loads.set(t.id, load);
   }
   return loads;

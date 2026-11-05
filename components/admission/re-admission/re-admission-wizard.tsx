@@ -178,9 +178,13 @@ export function ReAdmissionWizard() {
     setStep(4);
   };
 
+  // The success popup opens over the student list, ready for the next quick admit
   const handleAdmitComplete = (result: any) => {
     setAdmissionResult(result);
     setShowSuccessModal(true);
+    setStudentData(null);
+    setSkippedReview(false);
+    setStep(mode ? 2 : 1);
   };
 
   const steps = [

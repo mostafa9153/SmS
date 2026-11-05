@@ -12,6 +12,8 @@ export interface ParsedExcelResult {
   selectedSheet: string;
   headers: string[];
   rawRows: Record<string, any>[];
+  /** Sheet row number (1-based) of each entry in rawRows */
+  rowNumbers?: number[];
   headerRowIndex: number; // 0-based index: 0 = Row 1 in Excel, 1 = Row 2 in Excel
   totalRows: number;
   allRows2D: any[][];
