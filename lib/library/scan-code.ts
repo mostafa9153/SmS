@@ -122,3 +122,37 @@ export function isScannerBurst(timesMs: readonly number[], maxGapMs = SCANNER_MA
   }
   return true;
 }
+
+const VISIBLE: Record<string, string> = { "\r": "⏎CR", "\n": "⏎LF", "\t": "⇥Tab", " ": "·" };
+
+/**
+ * What a scanner really typed, with the characters you cannot see made
+ * visible (Settings "Scanner test"): CR/LF/Tab, spaces and other control or
+ * zero-width characters as <U+XXXX>.
+ */
+export function showInvisible(raw: string): string {
+  let out = "";
+  for (const ch of raw) {
+    const code = ch.codePointAt(0)!;
+    if (VISIBLE[ch]) out += `[${VISIBLE[ch]}]`;
+    else if (code < 0x20 || code === 0x7f || (code >= 0x200b && code <= 0x200f) || code === 0x2060 || code === 0xfeff || code === 0xa0)
+      out += `[U+${code.toString(16).toUpperCase().padStart(4, "0")}]`;
+    else out += ch;
+  }
+  return out;
+}
+
+/** The diagnosis in words, for the Scanner test (Bengali, as the desk is). */
+export function describeDiagnosis(d: ScanDiagnosis): string {
+  if (d.match) return "মিলেছে";
+  switch (d.hint) {
+    case "leading_zeros":
+      return "শুরুর শূন্য হারিয়েছে। Scanner বা Excel সংখ্যা ভেবে শূন্য কেটে দিচ্ছে।";
+    case "length":
+      return "অক্ষর কম বা বেশি এসেছে। Scanner-এর prefix/suffix বা কাটা code দেখুন।";
+    case "keyboard_layout":
+      return `${d.position + 1} নম্বর অক্ষরে "${d.expected}" আশা ছিল, এসেছে "${d.got}"। Scanner-এর keyboard layout মেলেনি।`;
+    default:
+      return `${d.position + 1} নম্বর অক্ষর আলাদা: আশা "${d.expected}", এসেছে "${d.got}"।`;
+  }
+}

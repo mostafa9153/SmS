@@ -397,6 +397,38 @@ export async function getCopyView(copyId: string): Promise<CopyView> {
   };
 }
 
+export interface ScannerTestStudent {
+  id: string;
+  name: string;
+  schoolId: string | null;
+  pen: string | null;
+  className: string | null;
+  section: string | null;
+}
+
+/**
+ * Settings "Scanner test" (C2): what a typed code becomes after cleaning and
+ * which students match it exactly in the chosen column, the way a desk scan
+ * would look it up.
+ */
+export async function scannerTestLookup(field: "school_id" | "pen", raw: string): Promise<{ normalized: string; students: ScannerTestStudent[] }> {
+  const normalized = normalizeScan(raw);
+  if (!normalized || normalized.includes("*")) return { normalized, students: [] };
+  const query = db().from("students").select("id, name, school_id, pen, present_class, present_section").limit(5);
+  const rows = await must(field === "pen" ? query.eq("pen", normalized) : query.ilike("school_id", exactLike(normalized)), "scanner test");
+  return {
+    normalized,
+    students: ((rows ?? []) as any[]).map((r) => ({
+      id: r.id,
+      name: r.name ?? "",
+      schoolId: r.school_id ?? null,
+      pen: r.pen ?? null,
+      className: r.present_class ?? null,
+      section: r.present_section ?? null,
+    })),
+  };
+}
+
 async function scanCopy(copyId: string): Promise<ScanResult> {
   const [copy, loans] = await Promise.all([
     getCopyView(copyId),

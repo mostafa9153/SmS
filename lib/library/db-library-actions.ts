@@ -20,7 +20,7 @@ import {
 } from "./db-library";
 import type { ImportEntry } from "./import";
 import { damageLimit, dueDate, lostCharge, renewCheck, renewQuote, waiveAmount } from "./rules";
-import { loanRulesFor } from "./settings";
+import { loanRulesFor, parseLibrarySettings, type LibrarySettings } from "./settings";
 import type { BorrowerKey } from "./types";
 
 /**
@@ -425,6 +425,36 @@ export function waiveFine(input: {
     label: async (r) => `মওকুফ ₹${r.amount}`,
     data: (r) => ({ amount: num(r.amount) }),
   });
+}
+
+// ---------- settings ----------
+
+/**
+ * Saves the rules row (already validated by validateSettings). Loans in
+ * progress keep their own snapshot (R7); limits and holidays apply at once.
+ * Undo restores the previous rules, refused if they were changed again since.
+ */
+export async function saveLibrarySettings(input: { settings: LibrarySettings; actor: Actor }) {
+  const client = db();
+  const before = await snapshotRows(client, "library_settings", "id", "1");
+  const { data: after, error } = await client
+    .from("library_settings")
+    .upsert({ id: 1, rules: input.settings })
+    .select("*")
+    .single();
+  if (error) throw new Error(`library settings: ${error.message}`);
+  const undoId = before.length
+    ? await recordUndo({
+        actorId: input.actor.id,
+        action: "library.update_settings",
+        label: "Library settings বদল",
+        entity: "library_settings",
+        entityId: "1",
+        steps: [{ op: "upsert", table: "library_settings", rows: before.map((r) => ({ id: r.id, rules: r.rules })) }],
+        guard: { table: "library_settings", id: "1", updated_at: after.updated_at },
+      })
+    : null;
+  return { data: parseLibrarySettings(after.rules), undoId };
 }
 
 // ---------- catalog ----------

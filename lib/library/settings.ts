@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { gridProblems } from "./sticker-layout";
 import type { BorrowerType, LoanRules } from "./types";
 
 /**
@@ -83,4 +84,83 @@ export function loanRulesFor(settings: LibrarySettings, type: BorrowerType): Loa
     processingFee: settings.processingFee,
     defaultLostAmount: settings.defaultLostAmount,
   };
+}
+
+// ---------- editing (Settings page) ----------
+
+/** Why a code prefix is not allowed, or null. Shown under the field as the user types (C8). */
+export function prefixProblem(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return "Prefix লিখুন";
+  if (!/^[A-Za-z]+$/.test(v)) return "শুধু ইংরেজি অক্ষর";
+  if (v.length > 4) return "সর্বোচ্চ ৪টি অক্ষর";
+  return null;
+}
+
+export type SettingsErrors = Record<string, string>;
+
+/**
+ * Checks that depend on more than one field. Keys are field paths the form
+ * puts the message under ("student.renewWindowDays", "holidays.2", "sticker").
+ */
+export function settingsProblems(s: LibrarySettings): SettingsErrors {
+  const errors: SettingsErrors = {};
+  const prefix = prefixProblem(s.codePrefix);
+  if (prefix) errors.codePrefix = prefix;
+  for (const type of ["student", "staff"] as const) {
+    if (s[type].renewWindowDays > s[type].loanDays) errors[`${type}.renewWindowDays`] = "Loan-এর দিনের চেয়ে বেশি হতে পারে না";
+  }
+  s.holidays.forEach((h, i) => {
+    if (h.from > h.to) errors[`holidays.${i}`] = "শুরু শেষের পরে";
+    else if (Number.isNaN(Date.parse(h.from)) || Number.isNaN(Date.parse(h.to))) errors[`holidays.${i}`] = "তারিখ ঠিক নেই";
+  });
+  const grid = gridProblems(s.sticker);
+  if (grid.length) errors.sticker = grid.join(" · ");
+  return errors;
+}
+
+export type SettingsCheck = { ok: true; settings: LibrarySettings } | { ok: false; errors: SettingsErrors };
+
+const SETTING_KEYS = Object.keys(librarySettingsSchema.shape);
+
+/** Strict check of a submitted settings object: every key must be present, nothing is silently defaulted. */
+export function validateSettings(raw: unknown): SettingsCheck {
+  if (raw && typeof raw === "object") {
+    const missing = SETTING_KEYS.filter((k) => !(k in (raw as object)));
+    if (missing.length) return { ok: false, errors: Object.fromEntries(missing.map((k) => [k, "নেই"])) };
+  }
+  const parsed = librarySettingsSchema.safeParse(raw);
+  if (!parsed.success) {
+    const errors: SettingsErrors = {};
+    for (const issue of parsed.error.issues) errors[issue.path.join(".") || "_"] ??= "মান ঠিক নেই";
+    return { ok: false, errors };
+  }
+  const errors = settingsProblems(parsed.data);
+  if (Object.keys(errors).length) return { ok: false, errors };
+  return { ok: true, settings: { ...parsed.data, holidays: normalizeHolidays(parsed.data.holidays) } };
+}
+
+/**
+ * Applies only the changed keys onto the current rules, then checks the result.
+ * Two admins editing different settings do not overwrite each other.
+ */
+export function validateSettingsPatch(current: LibrarySettings, changes: unknown): SettingsCheck {
+  if (!changes || typeof changes !== "object" || Array.isArray(changes)) return { ok: false, errors: { _: "মান ঠিক নেই" } };
+  const unknown = Object.keys(changes).filter((k) => !SETTING_KEYS.includes(k));
+  if (unknown.length) return { ok: false, errors: Object.fromEntries(unknown.map((k) => [k, "অজানা setting"])) };
+  return validateSettings({ ...current, ...(changes as object) });
+}
+
+/** The keys of `draft` that differ from `saved`. */
+export function changedKeys(saved: LibrarySettings, draft: LibrarySettings): Partial<LibrarySettings> {
+  const out: Record<string, unknown> = {};
+  for (const key of SETTING_KEYS as (keyof LibrarySettings)[]) {
+    if (JSON.stringify(saved[key]) !== JSON.stringify(draft[key])) out[key] = draft[key];
+  }
+  return out as Partial<LibrarySettings>;
+}
+
+/** Holidays in date order. */
+export function normalizeHolidays(list: LibrarySettings["holidays"]): LibrarySettings["holidays"] {
+  return [...list].sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to));
 }

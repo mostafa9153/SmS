@@ -72,7 +72,7 @@ export interface LibraryWriteResult<T> {
  */
 export function libraryWrite<T>(
   url: string,
-  method: "POST" | "PATCH" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body: Record<string, unknown> = {},
   requestId: string = newRequestId(),
 ) {
