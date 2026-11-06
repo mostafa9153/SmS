@@ -120,11 +120,11 @@ describe("library migration (PGlite)", () => {
 
   it("renews forward only, up to the snapshot's limit", async () => {
     const i = await issue(copies[2].id, null, t1.id);
-    expect((await rpc("library_renew_loan", [i.loan_id, "2026-11-27", 0, actor, uid()])).due_on).toBe("2026-11-27");
-    expect(await fails("library_renew_loan", [i.loan_id, "2026-11-27", 0, actor, uid()])).toContain("LIB:no_gain");
-    const second = await rpc("library_renew_loan", [i.loan_id, "2026-12-04", 2, actor, uid()]);
+    expect((await rpc("library_renew_loan", [i.loan_id, "2026-11-27", 0, "2026-11-10", actor, uid()])).due_on).toBe("2026-11-27");
+    expect(await fails("library_renew_loan", [i.loan_id, "2026-11-27", 0, "2026-11-10", actor, uid()])).toContain("LIB:no_gain");
+    const second = await rpc("library_renew_loan", [i.loan_id, "2026-12-04", 2, "2026-11-10", actor, uid()]);
     expect(second.fine_id).toBeTruthy();
-    expect(await fails("library_renew_loan", [i.loan_id, "2026-12-11", 0, actor, uid()])).toContain("LIB:max_renews");
+    expect(await fails("library_renew_loan", [i.loan_id, "2026-12-11", 0, "2026-11-10", actor, uid()])).toContain("LIB:max_renews");
     await rpc("library_undo", [second.event_id, actor, uid()]);
     const l = await one(`select due_on, renew_count from library_loans where id = $1`, [i.loan_id]);
     expect(l).toMatchObject({ renew_count: 1 });
@@ -133,7 +133,7 @@ describe("library migration (PGlite)", () => {
   it("turns a return into a renew and undoes it back to the return", async () => {
     const i = await issue(copies[3].id, s2.id, null);
     const ret = await rpc("library_return_copy", [i.loan_id, "2026-11-23", 1, actor, uid()]);
-    const rr = await rpc("library_return_to_renew", [i.loan_id, "2026-11-30", 0, actor, uid()]);
+    const rr = await rpc("library_return_to_renew", [i.loan_id, "2026-11-30", 0, "2026-11-10", actor, uid()]);
     expect(await one(`select returned_on, renew_count from library_loans where id = $1`, [i.loan_id])).toEqual({ returned_on: null, renew_count: 1 });
     expect((await one(`select cancelled_at from library_fines where id = $1`, [ret.fine_id])).cancelled_at).not.toBeNull();
     await rpc("library_undo", [rr.event_id, actor, uid()]);
@@ -255,7 +255,7 @@ describe("library migration: review regressions", () => {
     const extra = await rpc("library_add_copies", [bk.id, 1, null, actor, uid()]);
     await issue((extra.copy_ids as string[])[0], st2.id, null);
     expect(await fails("library_undo", [ret.event_id, actor, uid()])).toContain("LIB:limit");
-    expect(await fails("library_return_to_renew", [a.loan_id, "2026-11-30", 0, actor, uid()])).toContain("LIB:limit");
+    expect(await fails("library_return_to_renew", [a.loan_id, "2026-11-30", 0, "2026-11-10", actor, uid()])).toContain("LIB:limit");
   });
 
   it("refuses to undo 'found' or a return once the copy has moved on", async () => {
@@ -294,7 +294,7 @@ describe("library migration: review regressions", () => {
     const ret = await rpc("library_return_copy", [a.loan_id, "2026-11-25", 10, actor, uid()]);
     await rpc("library_record_payment", [JSON.stringify([{ fine_id: ret.fine_id, amount: 10 }]), "2026-11-25", actor, uid()]);
     const refund = await rpc("library_record_refund", [ret.fine_id, 10, "2026-11-25", "renew", actor, uid()]);
-    await rpc("library_return_to_renew", [a.loan_id, "2026-11-30", 0, actor, uid()]);
+    await rpc("library_return_to_renew", [a.loan_id, "2026-11-30", 0, "2026-11-10", actor, uid()]);
     expect(await fails("library_undo", [refund.event_id, actor, uid()])).toContain("LIB:fine_cancelled");
     expect(await fails("library_void_payment", [refund.receipt_no, "ভুল", actor, uid()])).toContain("LIB:fine_cancelled");
   });
@@ -322,6 +322,38 @@ describe("library migration: review regressions", () => {
       expect(await fails("library_record_payment", [lines, "2026-12-01", actor, uid()])).toContain("LIB:invalid_amount");
     }
     expect(await fails("library_record_payment", [JSON.stringify([{ fine_id: "x", amount: 1 }]), "2026-12-01", actor, uid()])).toContain("LIB:invalid_amount");
+  });
+
+  it("creates a title with its copies in one step, replays it, and undoes both", async () => {
+    const req = uid();
+    const book = JSON.stringify({ title: "চাঁদের পাহাড়", author: "বিভূতিভূষণ" });
+    const made = await rpc("library_create_book", [book, 2, 80, actor, req]);
+    expect((made.copy_ids as string[]).length).toBe(2);
+    const again = await rpc("library_create_book", [book, 2, 80, actor, req]);
+    expect(again).toMatchObject({ replayed: true, book_id: made.book_id });
+    expect(Number((await one(`select count(*) n from library_books where title = 'চাঁদের পাহাড়'`)).n)).toBe(1);
+    await rpc("library_undo", [made.event_id, actor, uid()]);
+    expect(await one(`select id from library_books where id = $1`, [made.book_id])).toBeUndefined();
+  });
+
+  it("keeps a title whose later copies would be orphaned by undoing its creation", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "ইছামতী" }), 1, null, actor, uid()]);
+    await rpc("library_add_copies", [made.book_id, 1, null, actor, uid()]);
+    expect(await fails("library_undo", [made.event_id, actor, uid()])).toContain("LIB:state_changed");
+    expect(Number((await one(`select count(*) n from library_copies where book_id = $1`, [made.book_id])).n)).toBe(2);
+  });
+
+  it("marks an overdue renew so grace is not given twice, and undo clears it", async () => {
+    const [c] = (await rpc("library_add_copies", [bk.id, 1, null, actor, uid()])).copy_ids as string[];
+    const p = await one(`insert into students(name) values('G') returning id`);
+    const a = await issue(c, p.id, null, "2026-11-16");
+    const early = await rpc("library_renew_loan", [a.loan_id, "2026-11-23", 0, "2026-11-14", actor, uid()]);
+    expect((await one(`select overdue_renewed from library_loans where id = $1`, [a.loan_id])).overdue_renewed).toBe(false);
+    await rpc("library_undo", [early.event_id, actor, uid()]);
+    const late = await rpc("library_renew_loan", [a.loan_id, "2026-11-25", 0, "2026-11-18", actor, uid()]);
+    expect((await one(`select overdue_renewed from library_loans where id = $1`, [a.loan_id])).overdue_renewed).toBe(true);
+    await rpc("library_undo", [late.event_id, actor, uid()]);
+    expect((await one(`select overdue_renewed from library_loans where id = $1`, [a.loan_id])).overdue_renewed).toBe(false);
   });
 
   it("blocks TRUNCATE of the ledger, even for service_role", async () => {

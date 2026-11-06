@@ -122,6 +122,9 @@ CREATE TABLE IF NOT EXISTS public.library_loans (
   issued_on        date NOT NULL,
   due_on           date NOT NULL,
   renew_count      int  NOT NULL DEFAULT 0 CHECK (renew_count >= 0),
+  -- R10: set once the loan is renewed after its due date; grace days apply
+  -- only to the first overdue stretch.
+  overdue_renewed  boolean NOT NULL DEFAULT false,
   returned_on      date,
   cancelled_at     timestamptz,
   outcome          text CHECK (outcome IN ('returned', 'lost')),
@@ -334,7 +337,7 @@ CREATE TRIGGER library_loans_no_delete BEFORE DELETE ON public.library_loans
 
 CREATE OR REPLACE VIEW public.library_fine_balances WITH (security_invoker = true) AS
 SELECT f.id AS fine_id,
-       f.loan_id, f.student_id, f.staff_id, f.kind, f.amount, f.cancelled_at,
+       f.loan_id, f.student_id, f.staff_id, f.kind, f.amount, f.cancelled_at, f.created_at,
        coalesce(p.paid, 0)     AS paid,
        coalesce(p.refunded, 0) AS refunded,
        coalesce(w.waived, 0)   AS waived,
@@ -477,11 +480,50 @@ END $$;
 
 -- ---------- RPC: catalog ----------
 
+-- D3: numbers only move forward, never reused. The book row is locked.
+CREATE OR REPLACE FUNCTION public.library_insert_copies(b library_books, p_count int, p_price numeric)
+RETURNS uuid[] LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE v_ids uuid[] := '{}'; v_id uuid; i int;
+BEGIN
+  IF p_count IS NULL OR p_count < 1 OR p_count > 500 THEN PERFORM library_fail('invalid_count'); END IF;
+  FOR i IN 0 .. p_count - 1 LOOP
+    INSERT INTO library_copies (book_id, copy_no, code, price)
+    VALUES (b.id, b.next_copy_no + i, b.book_code || '-' || (b.next_copy_no + i), library_amount(p_price))
+    RETURNING id INTO v_id;
+    v_ids := v_ids || v_id;
+  END LOOP;
+  UPDATE library_books SET next_copy_no = b.next_copy_no + p_count WHERE id = b.id;
+  RETURN v_ids;
+END $$;
+
+-- A new title and its first copies in one transaction (one undo).
+-- p_book: {title, author, publisher, category, language, isbn, edition, legacy_no}, already cleaned.
+CREATE OR REPLACE FUNCTION public.library_create_book(p_book jsonb, p_count int, p_price numeric,
+  p_actor uuid, p_request_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE v_prev jsonb; b library_books%ROWTYPE; v_ids uuid[] := '{}'; v_ev uuid;
+BEGIN
+  v_prev := library_begin_request(p_request_id, p_actor, 'create_book');
+  IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
+  IF length(trim(coalesce(p_book ->> 'title', ''))) = 0 THEN PERFORM library_fail('title_required'); END IF;
+  IF p_count IS NULL OR p_count < 0 OR p_count > 500 THEN PERFORM library_fail('invalid_count'); END IF;
+  p_price := library_amount(p_price);
+  INSERT INTO library_books (title, author, publisher, category, language, isbn, edition, legacy_no)
+  VALUES (trim(p_book ->> 'title'), p_book ->> 'author', p_book ->> 'publisher', p_book ->> 'category',
+          p_book ->> 'language', p_book ->> 'isbn', p_book ->> 'edition', p_book ->> 'legacy_no')
+  RETURNING * INTO b;
+  IF p_count > 0 THEN v_ids := library_insert_copies(b, p_count, p_price); END IF;
+  v_ev := library_log(p_actor, 'create_book', NULL, NULL, NULL, NULL,
+    jsonb_build_object('book_id', b.id, 'copy_ids', to_jsonb(v_ids)));
+  RETURN library_finish_request(p_request_id, jsonb_build_object(
+    'event_id', v_ev, 'book_id', b.id, 'book_code', b.book_code, 'copy_ids', to_jsonb(v_ids)));
+END $$;
+
 CREATE OR REPLACE FUNCTION public.library_add_copies(p_book_id uuid, p_count int, p_price numeric,
   p_actor uuid, p_request_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
-  v_prev jsonb; b library_books%ROWTYPE; v_ids uuid[] := '{}'; v_id uuid; v_ev uuid; i int;
+  v_prev jsonb; b library_books%ROWTYPE; v_ids uuid[] := '{}'; v_ev uuid;
 BEGIN
   v_prev := library_begin_request(p_request_id, p_actor, 'add_copies');
   IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
@@ -492,14 +534,7 @@ BEGIN
   IF NOT FOUND THEN PERFORM library_fail('book_not_found'); END IF;
   IF b.status <> 'active' THEN PERFORM library_fail('book_withdrawn'); END IF;
 
-  -- D3: numbers only move forward, never reused.
-  FOR i IN 0 .. p_count - 1 LOOP
-    INSERT INTO library_copies (book_id, copy_no, code, price)
-    VALUES (b.id, b.next_copy_no + i, b.book_code || '-' || (b.next_copy_no + i), p_price)
-    RETURNING id INTO v_id;
-    v_ids := v_ids || v_id;
-  END LOOP;
-  UPDATE library_books SET next_copy_no = b.next_copy_no + p_count WHERE id = b.id;
+  v_ids := library_insert_copies(b, p_count, p_price);
 
   v_ev := library_log(p_actor, 'add_copies', NULL, NULL, NULL, NULL,
     jsonb_build_object('book_id', b.id, 'copy_ids', to_jsonb(v_ids), 'first_no', b.next_copy_no, 'count', p_count));
@@ -569,42 +604,47 @@ BEGIN
   v_ev := library_log(p_actor, 'return', l.copy_id, l.id, l.student_id, l.staff_id,
     jsonb_build_object('returned_on', p_returned_on, 'fine_id', v_fine, 'fine', coalesce(p_fine, 0)));
   RETURN library_finish_request(p_request_id, jsonb_build_object(
-    'event_id', v_ev, 'loan_id', l.id, 'fine_id', v_fine, 'updated_at', v_upd));
+    'event_id', v_ev, 'loan_id', l.id, 'fine_id', v_fine, 'fine', coalesce(p_fine, 0), 'updated_at', v_upd));
 END $$;
 
 -- Shared by renew and return-to-renew; the loan is locked and open.
-CREATE OR REPLACE FUNCTION public.library_apply_renew(l library_loans, p_new_due date, p_fine numeric, p_actor uuid)
+CREATE OR REPLACE FUNCTION public.library_apply_renew(l library_loans, p_new_due date, p_fine numeric,
+  p_renewed_on date, p_actor uuid)
 RETURNS uuid LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
   IF l.renew_count >= coalesce((l.rules ->> 'maxRenews')::int, 0) THEN PERFORM library_fail('max_renews'); END IF;
   IF p_new_due IS NULL OR p_new_due <= l.due_on THEN PERFORM library_fail('no_gain'); END IF;
+  IF p_renewed_on IS NULL OR p_renewed_on < l.issued_on THEN PERFORM library_fail('invalid_date'); END IF;
   p_fine := library_amount(p_fine);
-  UPDATE library_loans SET due_on = p_new_due, renew_count = l.renew_count + 1 WHERE id = l.id;
+  UPDATE library_loans SET due_on = p_new_due, renew_count = l.renew_count + 1,
+         overdue_renewed = l.overdue_renewed OR p_renewed_on > l.due_on
+   WHERE id = l.id;
   -- R10: fine accrued up to an overdue renew is fixed now.
   RETURN library_add_fine(l, 'overdue', p_fine, p_actor);
 END $$;
 
 CREATE OR REPLACE FUNCTION public.library_renew_loan(p_loan_id uuid, p_new_due date, p_fine numeric,
-  p_actor uuid, p_request_id uuid)
+  p_renewed_on date, p_actor uuid, p_request_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE v_prev jsonb; l library_loans%ROWTYPE; v_fine uuid; v_ev uuid;
 BEGIN
   v_prev := library_begin_request(p_request_id, p_actor, 'renew');
   IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
   l := library_lock_open_loan(p_loan_id);
-  v_fine := library_apply_renew(l, p_new_due, p_fine, p_actor);
+  v_fine := library_apply_renew(l, p_new_due, p_fine, p_renewed_on, p_actor);
   v_ev := library_log(p_actor, 'renew', l.copy_id, l.id, l.student_id, l.staff_id,
     jsonb_build_object('old_due', l.due_on, 'new_due', p_new_due, 'fine_id', v_fine,
-                       'renew_count', l.renew_count + 1));
+                       'renew_count', l.renew_count + 1, 'old_overdue_renewed', l.overdue_renewed));
   RETURN library_finish_request(p_request_id, jsonb_build_object(
     'event_id', v_ev, 'loan_id', l.id, 'due_on', p_new_due, 'fine_id', v_fine,
+    'fine', coalesce(library_amount(p_fine), 0),
     'updated_at', (SELECT updated_at FROM library_loans WHERE id = l.id)));
 END $$;
 
 -- W3: the book was scanned back, but the borrower wanted a renew. Reopen the
 -- loan (cancelling the overdue fine that return wrote) and renew it.
 CREATE OR REPLACE FUNCTION public.library_return_to_renew(p_loan_id uuid, p_new_due date, p_fine numeric,
-  p_actor uuid, p_request_id uuid)
+  p_renewed_on date, p_actor uuid, p_request_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 DECLARE
   v_prev jsonb; l library_loans%ROWTYPE; v_ret library_events%ROWTYPE; v_old_fine uuid;
@@ -639,15 +679,16 @@ BEGIN
   v_old_by := l.returned_by;
   UPDATE library_loans SET returned_on = NULL, outcome = NULL, returned_by = NULL WHERE id = l.id;
   l.returned_on := NULL; l.outcome := NULL; l.returned_by := NULL;
-  v_fine := library_apply_renew(l, p_new_due, p_fine, p_actor);
+  v_fine := library_apply_renew(l, p_new_due, p_fine, p_renewed_on, p_actor);
 
   v_ev := library_log(p_actor, 'return_to_renew', l.copy_id, l.id, l.student_id, l.staff_id,
     jsonb_build_object('return_event_id', v_ret.id, 'returned_on', (v_ret.details ->> 'returned_on'),
                        'old_returned_by', v_old_by, 'cancelled_fine_id', v_old_fine,
                        'old_due', l.due_on, 'new_due', p_new_due, 'fine_id', v_fine,
-                       'renew_count', l.renew_count + 1));
+                       'renew_count', l.renew_count + 1, 'old_overdue_renewed', l.overdue_renewed));
   RETURN library_finish_request(p_request_id, jsonb_build_object(
-    'event_id', v_ev, 'loan_id', l.id, 'due_on', p_new_due, 'fine_id', v_fine));
+    'event_id', v_ev, 'loan_id', l.id, 'due_on', p_new_due, 'fine_id', v_fine,
+    'fine', coalesce(library_amount(p_fine), 0)));
 END $$;
 
 -- ---------- RPC: lost / found / damaged ----------
@@ -683,7 +724,8 @@ BEGIN
   v_ev := library_log(p_actor, 'lost', c.id, l.id, l.student_id, l.staff_id,
     jsonb_build_object('lost_on', p_lost_on, 'overdue_fine_id', v_over, 'lost_fine_id', v_lost));
   RETURN library_finish_request(p_request_id, jsonb_build_object(
-    'event_id', v_ev, 'loan_id', l.id, 'overdue_fine_id', v_over, 'lost_fine_id', v_lost));
+    'event_id', v_ev, 'loan_id', l.id, 'overdue_fine_id', v_over, 'lost_fine_id', v_lost,
+    'overdue', coalesce(p_overdue_fine, 0), 'lost', coalesce(p_lost_amount, 0)));
 END $$;
 
 -- R12. p_overdue_total is the loan's whole overdue fine recomputed by TS up to
@@ -862,7 +904,7 @@ BEGIN
   v_ev := library_log(p_actor, 'refund', NULL, f.loan_id, f.student_id, f.staff_id,
     jsonb_build_object('receipt_no', v_receipt, 'payment_id', v_id, 'amount', v_amt));
   RETURN library_finish_request(p_request_id, jsonb_build_object(
-    'event_id', v_ev, 'receipt_no', v_receipt, 'payment_id', v_id));
+    'event_id', v_ev, 'receipt_no', v_receipt, 'payment_id', v_id, 'amount', v_amt));
 END $$;
 
 -- R13: a receipt entered by mistake. Voids every line of the receipt.
@@ -914,7 +956,7 @@ BEGIN
   VALUES (f.id, v_amt, trim(p_reason), p_actor) RETURNING id INTO v_id;
   v_ev := library_log(p_actor, 'waive', NULL, f.loan_id, f.student_id, f.staff_id,
     jsonb_build_object('fine_id', f.id, 'waiver_id', v_id, 'amount', v_amt));
-  RETURN library_finish_request(p_request_id, jsonb_build_object('event_id', v_ev, 'waiver_id', v_id));
+  RETURN library_finish_request(p_request_id, jsonb_build_object('event_id', v_ev, 'waiver_id', v_id, 'amount', v_amt));
 END $$;
 
 -- ---------- RPC: undo (D6) ----------
@@ -997,7 +1039,9 @@ BEGIN
         PERFORM library_fail('state_changed');
       END IF;
       PERFORM library_cancel_fines(ARRAY[library_uuid(d, 'fine_id')], 'undo');
-      UPDATE library_loans SET due_on = (d ->> 'old_due')::date, renew_count = l.renew_count - 1 WHERE id = l.id;
+      UPDATE library_loans SET due_on = (d ->> 'old_due')::date, renew_count = l.renew_count - 1,
+             overdue_renewed = coalesce((d ->> 'old_overdue_renewed')::boolean, false)
+       WHERE id = l.id;
 
     WHEN 'return_to_renew' THEN
       IF l.cancelled_at IS NOT NULL OR l.returned_on IS NOT NULL
@@ -1006,6 +1050,7 @@ BEGIN
       END IF;
       PERFORM library_cancel_fines(ARRAY[library_uuid(d, 'fine_id')], 'undo');
       UPDATE library_loans SET due_on = (d ->> 'old_due')::date, renew_count = l.renew_count - 1,
+             overdue_renewed = coalesce((d ->> 'old_overdue_renewed')::boolean, false),
              returned_on = (d ->> 'returned_on')::date, outcome = 'returned',
              returned_by = library_uuid(d, 'old_returned_by')
        WHERE id = l.id;
@@ -1078,10 +1123,10 @@ BEGIN
         PERFORM library_fail('over_balance');
       END IF;
 
-    WHEN 'add_copies' THEN
+    WHEN 'add_copies', 'create_book' THEN
       -- Lock order book -> copies; nothing else takes the book lock while holding a copy.
       PERFORM 1 FROM library_books WHERE id = library_uuid(d, 'book_id') FOR UPDATE;
-      PERFORM 1 FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids')) ORDER BY id FOR UPDATE;
+      PERFORM 1 FROM library_copies WHERE book_id = library_uuid(d, 'book_id') ORDER BY id FOR UPDATE;
       IF EXISTS (SELECT 1 FROM library_loans WHERE copy_id = ANY (library_uuids(d, 'copy_ids'))) THEN
         PERFORM library_fail('copy_has_loans');
       END IF;
@@ -1092,11 +1137,19 @@ BEGIN
          OR EXISTS (SELECT 1 FROM library_events x WHERE x.copy_id = ANY (library_uuids(d, 'copy_ids'))) THEN
         PERFORM library_fail('state_changed');
       END IF;
+      -- Removing a title needs it to hold only the copies created with it.
+      IF e.kind = 'create_book' AND EXISTS (SELECT 1 FROM library_copies WHERE book_id = library_uuid(d, 'book_id')
+                                              AND NOT (id = ANY (library_uuids(d, 'copy_ids')))) THEN
+        PERFORM library_fail('state_changed');
+      END IF;
       -- D3: next_copy_no is not rolled back, so the deleted numbers are never reused.
       DELETE FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids'))
         AND sticker_printed_at IS NULL AND status = 'available';
       IF (SELECT count(*) FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids'))) > 0 THEN
         PERFORM library_fail('state_changed');
+      END IF;
+      IF e.kind = 'create_book' THEN
+        DELETE FROM library_books WHERE id = library_uuid(d, 'book_id');
       END IF;
 
     ELSE
