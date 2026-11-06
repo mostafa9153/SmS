@@ -49,6 +49,7 @@ export default function LibraryCatalogPage() {
           value={stats?.overdue ?? "–"}
           icon={AlertTriangle}
           iconClassName={stats?.overdue ? "text-rose-600" : undefined}
+          onClick={() => router.push("/library/overdue")}
         />
         <StatCard label="Sticker বাকি" value={stats?.unprinted ?? "–"} icon={Printer} onClick={() => router.push("/library/stickers")} />
       </div>
