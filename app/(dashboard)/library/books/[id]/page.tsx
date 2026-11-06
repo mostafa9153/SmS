@@ -91,7 +91,12 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
       <section className="space-y-2">
         <h2 className="text-sm font-bold">কপি</h2>
         {book.copies.length ? (
-          <CopiesTable copies={book.copies} busyId={d.busyCopy} onWithdraw={d.withdrawCopy} onRestore={d.restoreCopy} />
+          <CopiesTable copies={book.copies} busyId={d.busyCopy} onWithdraw={d.withdrawCopy}
+            onRestore={d.restoreCopy}
+            onLost={d.markLost}
+            onFound={d.markFound}
+            lostHolder={new Map(book.history.filter((h) => h.outcome === "lost").reverse().map((h) => [h.code, h.borrower]))}
+          />
         ) : (
           <EmptyState icon={CopyPlus} title="কোনো কপি নেই" compact />
         )}

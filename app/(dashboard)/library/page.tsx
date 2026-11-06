@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Library } from "lucide-react";
+import { BookOpen, HandCoins, Library } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { ActivityList } from "@/components/library/desk/activity-list";
@@ -22,11 +22,18 @@ export default function LibraryDeskPage() {
         title="Library Desk"
         icon={Library}
         actions={
-          <Button variant="outline" asChild>
-            <Link href="/library/books">
-              <BookOpen /> Catalog
-            </Link>
-          </Button>
+          <>
+            <Button variant="outline" asChild>
+              <Link href="/library/fines">
+                <HandCoins /> Fines
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/library/books">
+                <BookOpen /> Catalog
+              </Link>
+            </Button>
+          </>
         }
       />
       <ScanBox

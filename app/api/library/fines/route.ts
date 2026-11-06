@@ -3,6 +3,19 @@ import { z } from "zod";
 import { requireStaff } from "@/lib/api/guard";
 import { actorOf, amount, libraryRouteError, readJson, requestId, uuid } from "@/lib/library/api";
 import { recordPayment, recordRefund, voidReceipt } from "@/lib/library/db-library-actions";
+import { listDebtors } from "@/lib/library/db-library-fines";
+
+// GET /api/library/fines?q= — borrowers with fines still outstanding
+export async function GET(request: Request) {
+  const gate = await requireStaff("can_manage_library");
+  if (!gate.ok) return gate.response;
+  try {
+    const q = (new URL(request.url).searchParams.get("q") ?? "").slice(0, 100);
+    return NextResponse.json({ success: true, data: await listDebtors(q) });
+  } catch (err) {
+    return libraryRouteError(err);
+  }
+}
 
 const body = z.discriminatedUnion("action", [
   z.object({

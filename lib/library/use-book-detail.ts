@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { toastWithUndo } from "@/lib/undo/client";
 import type { BookCopy } from "./db-library";
+import { LIBRARY_ERRORS } from "./errors";
 import { libraryKeys, libraryWrite, useBook, useRefreshLibrary } from "./use-catalog";
 
 /** State and handlers for the book detail page (K9: delete only if never lent, otherwise withdraw). */
@@ -31,6 +32,43 @@ export function useBookDetail(id: string) {
       refresh();
     } catch (err) {
       fail(err, "করা যায়নি");
+    } finally {
+      setBusyCopy(null);
+    }
+  };
+
+  /** R11: on a loan the borrower is charged overdue to today plus the lost charge. */
+  const markLost = async (copy: BookCopy) => {
+    const ok = await confirm({ title: `${copy.code} হারানো?`, confirmLabel: "হারানো", destructive: true });
+    if (!ok) return;
+    setBusyCopy(copy.id);
+    try {
+      const r = await libraryWrite<{ overdue: number; lost: number }>("/api/library/desk", "POST", { action: "lost", copyId: copy.id });
+      const charged = r.data.overdue + r.data.lost;
+      toastWithUndo(charged > 0 ? `${copy.code} হারানো · ₹${charged}` : `${copy.code} হারানো`, r.undoId, refresh);
+      refresh();
+    } catch (err) {
+      fail(err, "করা যায়নি");
+    } finally {
+      setBusyCopy(null);
+    }
+  };
+
+  /**
+   * R12. Returns "touched" when the lost charge has money paid or waived on
+   * it: the caller shows those totals and offers keep or the Fines page.
+   */
+  const markFound = async (copy: BookCopy, source: "borrower" | "library", keepLostFine = false): Promise<"done" | "touched" | "failed"> => {
+    setBusyCopy(copy.id);
+    try {
+      const r = await libraryWrite("/api/library/desk", "POST", { action: "found", copyId: copy.id, source, keepLostFine });
+      toastWithUndo(`${copy.code} পাওয়া গেছে`, r.undoId, refresh);
+      refresh();
+      return "done";
+    } catch (err) {
+      if (err instanceof Error && err.message === LIBRARY_ERRORS.fine_has_payments[1]) return "touched";
+      fail(err, "করা যায়নি");
+      return "failed";
     } finally {
       setBusyCopy(null);
     }
@@ -80,6 +118,8 @@ export function useBookDetail(id: string) {
     setAddingCopies,
     withdrawCopy: (c: BookCopy) => setCopyWithdrawn(c, true),
     restoreCopy: (c: BookCopy) => setCopyWithdrawn(c, false),
+    markLost,
+    markFound,
     setTitleWithdrawn,
     remove,
   };

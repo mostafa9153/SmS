@@ -489,6 +489,7 @@ export interface BookCopy extends CopyView {
 export interface BookLoanHistory {
   loanId: string;
   code: string;
+  borrower: BorrowerKey;
   borrowerName: string;
   borrowerDetail: string | null;
   issuedOn: string;
@@ -558,6 +559,7 @@ export async function getBook(bookId: string): Promise<BookDetail> {
       .map((l) => ({
         loanId: l.id,
         code: codeOf.get(l.copy_id) ?? "",
+        borrower: loanBorrower(l),
         borrowerName: l.student?.name ?? l.staff?.full_name ?? "",
         borrowerDetail: l.student
           ? [l.student.present_class, l.student.present_section].filter(Boolean).join(" · ") || null
