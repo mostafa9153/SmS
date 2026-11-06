@@ -436,6 +436,20 @@ describe("library migration: review regressions", () => {
     expect(await fails("library_undo", [imp.event_id, actor, uid()])).toContain("LIB:copy_has_loans");
   });
 
+  it("marks stickers printed only once, and undo clears just those", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "চোখের বালি" }), 3, null, actor, uid()]);
+    const [a, b, c] = made.copy_ids as string[];
+    const first = await rpc("library_mark_stickers", [[a, b], true, actor, uid()]);
+    expect(first.changed).toBe(2);
+    const second = await rpc("library_mark_stickers", [[a, b, c], true, actor, uid()]);
+    expect(second.changed).toBe(1);
+    await rpc("library_undo", [second.event_id, actor, uid()]);
+    const rows = await q(`select id, sticker_printed_at from library_copies where book_id = $1 order by copy_no`, [made.book_id]);
+    expect(rows.map((r) => r.sticker_printed_at !== null)).toEqual([true, true, false]);
+    // a printed sticker keeps "add copies" from being undone
+    expect(await fails("library_undo", [made.event_id, actor, uid()])).toContain("LIB:state_changed");
+  });
+
   it("blocks TRUNCATE of the ledger, even for service_role", async () => {
     expect(await sqlFails(`truncate library_fine_payments cascade`)).toContain("LIB:append_only");
     await db.exec(`set role service_role`);

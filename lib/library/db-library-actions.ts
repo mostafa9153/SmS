@@ -565,3 +565,16 @@ export async function importBooks(input: { entries: ImportEntry[]; requestId: st
     data: (r) => ({ created: num(r.created), copies: num(r.copies), skipped }),
   });
 }
+
+/** K4: mark stickers printed only after the librarian confirms the sheet came out right. */
+export function markStickers(input: { copyIds: string[]; printed: boolean; requestId: string; actor: Actor }) {
+  return run({
+    kind: "stickers",
+    fn: "library_mark_stickers",
+    requestId: input.requestId,
+    actor: input.actor,
+    plan: async () => ({ p_copy_ids: input.copyIds, p_printed: input.printed }),
+    label: async (r) => `${r.changed}টি sticker ${input.printed ? "ছাপা হয়েছে" : "আবার বাকি"}`,
+    data: (r) => ({ changed: num(r.changed) }),
+  });
+}

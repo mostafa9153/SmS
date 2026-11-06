@@ -677,3 +677,44 @@ export async function planImport(entries: import("./import").ImportEntry[]): Pro
     return { kind: "add" as const, entry, bookId: m.id, bookCode: m.book_code, existingTitle: m.title };
   });
 }
+
+export interface StickerCopy {
+  id: string;
+  code: string;
+  copyNo: number;
+  title: string;
+  author: string | null;
+  printedAt: string | null;
+}
+
+/** At most this many stickers in one print run (20 A4 sheets of 24). */
+export const STICKER_RUN_MAX = 480;
+
+/**
+ * Copies to print stickers for (K4): given ids, one title's copies, or every
+ * copy on the shelf whose sticker was never printed. Ordered by code.
+ */
+export async function listStickerCopies(input: { copyIds?: string[]; bookId?: string; unprinted?: boolean }): Promise<StickerCopy[]> {
+  let query = db()
+    .from("library_copies")
+    .select("id, code, copy_no, sticker_printed_at, book:library_books!inner(title, author, book_code)")
+    .neq("status", "withdrawn");
+  if (input.copyIds?.length) query = query.in("id", input.copyIds.slice(0, STICKER_RUN_MAX));
+  else if (input.bookId) query = query.eq("book_id", input.bookId);
+  else query = query.is("sticker_printed_at", null).eq("status", "available");
+  if (input.unprinted && (input.copyIds?.length || input.bookId)) query = query.is("sticker_printed_at", null);
+  const rows = ((await must(query.order("code").limit(STICKER_RUN_MAX * 2), "sticker copies")) ?? []) as any[]; // eslint-disable-line @typescript-eslint/no-explicit-any
+  return rows
+    .map((r) => ({
+      id: r.id,
+      code: r.code,
+      copyNo: r.copy_no,
+      title: r.book?.title ?? "",
+      author: r.book?.author ?? null,
+      printedAt: r.sticker_printed_at,
+      bookCode: r.book?.book_code ?? "",
+    }))
+    .sort((a, b) => a.bookCode.localeCompare(b.bookCode) || a.copyNo - b.copyNo)
+    .slice(0, STICKER_RUN_MAX)
+    .map(({ bookCode: _bookCode, ...rest }) => rest);
+}

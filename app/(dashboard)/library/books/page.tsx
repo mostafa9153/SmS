@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, BookOpen, BookPlus, FileSpreadsheet, Library, Printer, Tags, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,6 +15,7 @@ import { ImportBooksDialog } from "@/components/library/catalog/import-books-dia
 import { useBooks, useCatalogStats } from "@/lib/library/use-catalog";
 
 export default function LibraryCatalogPage() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -48,7 +50,7 @@ export default function LibraryCatalogPage() {
           icon={AlertTriangle}
           iconClassName={stats?.overdue ? "text-rose-600" : undefined}
         />
-        <StatCard label="Sticker বাকি" value={stats?.unprinted ?? "–"} icon={Printer} />
+        <StatCard label="Sticker বাকি" value={stats?.unprinted ?? "–"} icon={Printer} onClick={() => router.push("/library/stickers")} />
       </div>
 
       <SearchInput

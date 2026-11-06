@@ -749,6 +749,33 @@ BEGIN
     'event_id', v_ev, 'created', v_created, 'copies', v_copies, 'items', jsonb_array_length(p_items)));
 END $$;
 
+-- ---------- RPC: stickers (K4) ----------
+
+-- Marks copies as having their sticker printed (or not), only after the
+-- librarian confirms the sheet came out right. Copies are locked in id order,
+-- the same lock "add copies" undo takes, so it never deletes a copy whose
+-- sticker is being marked.
+CREATE OR REPLACE FUNCTION public.library_mark_stickers(p_copy_ids uuid[], p_printed boolean, p_actor uuid, p_request_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE v_prev jsonb; v_changed uuid[]; v_ev uuid;
+BEGIN
+  v_prev := library_begin_request(p_request_id, p_actor, 'stickers');
+  IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
+  IF p_copy_ids IS NULL OR cardinality(p_copy_ids) = 0 OR cardinality(p_copy_ids) > 2000 THEN
+    PERFORM library_fail('invalid_count');
+  END IF;
+  PERFORM 1 FROM library_copies WHERE id = ANY (p_copy_ids) ORDER BY id FOR UPDATE;
+  WITH changed AS (
+    UPDATE library_copies SET sticker_printed_at = CASE WHEN p_printed THEN now() ELSE NULL END
+     WHERE id = ANY (p_copy_ids) AND (sticker_printed_at IS NULL) = p_printed
+    RETURNING id
+  )
+  SELECT coalesce(array_agg(id), '{}') INTO v_changed FROM changed;
+  v_ev := library_log(p_actor, 'stickers', NULL, NULL, NULL, NULL,
+    jsonb_build_object('printed', p_printed, 'copy_ids', to_jsonb(v_changed)));
+  RETURN library_finish_request(p_request_id, jsonb_build_object('event_id', v_ev, 'changed', cardinality(v_changed)));
+END $$;
+
 -- ---------- RPC: catalog upkeep (K9) ----------
 
 -- Take a copy off the shelf (worn out, weeded) or put it back. Not while on loan.
@@ -1286,6 +1313,11 @@ BEGIN
       -- Codes are never reused, so the same book_code and copy codes are still free.
       INSERT INTO library_books SELECT * FROM jsonb_populate_record(NULL::library_books, d -> 'book');
       INSERT INTO library_copies SELECT * FROM jsonb_populate_recordset(NULL::library_copies, d -> 'copies');
+
+    WHEN 'stickers' THEN
+      PERFORM 1 FROM library_copies WHERE id = ANY (library_uuids(d, 'copy_ids')) ORDER BY id FOR UPDATE;
+      UPDATE library_copies SET sticker_printed_at = (CASE WHEN (d ->> 'printed')::boolean THEN NULL ELSE now() END)
+       WHERE id = ANY (library_uuids(d, 'copy_ids'));
 
     WHEN 'add_copies', 'create_book' THEN
       PERFORM library_remove_copies(library_uuid(d, 'book_id'), library_uuids(d, 'copy_ids'), e.kind = 'create_book');

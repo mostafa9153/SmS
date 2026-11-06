@@ -1,8 +1,9 @@
 "use client";
 
 import { use } from "react";
-import { Archive, ArchiveRestore, BookX, CopyPlus, Library, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Archive, ArchiveRestore, BookX, CopyPlus, Library, Pencil, Tags, Trash2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Spinner } from "@/components/ui/spinner";
@@ -52,6 +53,11 @@ export default function LibraryBookPage({ params }: { params: Promise<{ id: stri
         }
         actions={
           <>
+            {book.copies.length > 0 && (
+              <Link href={`/library/stickers?book=${book.id}`} className={buttonVariants({ variant: "outline" })}>
+                <Tags /> Sticker
+              </Link>
+            )}
             <Button variant="outline" onClick={() => d.setEditing(true)}>
               <Pencil /> সম্পাদনা
             </Button>
