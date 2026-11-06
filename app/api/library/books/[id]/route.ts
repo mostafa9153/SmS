@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireStaff } from "@/lib/api/guard";
-import { actorOf, bookFields, libraryRouteError, readJson, uuid } from "@/lib/library/api";
+import { actorOf, bookFields, libraryRouteError, readJson, requestId, uuid } from "@/lib/library/api";
 import { getBook } from "@/lib/library/db-library";
-import { updateBook } from "@/lib/library/db-library-actions";
+import { deleteBook, updateBook } from "@/lib/library/db-library-actions";
 
 const patchBody = bookFields.extend({ status: z.enum(["active", "withdrawn"]) }).partial();
 
@@ -27,6 +27,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const id = uuid.parse((await params).id);
     const changes = patchBody.parse(await readJson(request));
     const result = await updateBook({ bookId: id, changes, actor: actorOf(gate.auth) });
+    return NextResponse.json({ success: true, data: result.data, undoId: result.undoId });
+  } catch (err) {
+    return libraryRouteError(err);
+  }
+}
+
+// DELETE /api/library/books/[id] — only a title none of whose copies was ever lent or changed (K9);
+// journaled (recordUndo → library_undo puts back the same ids and codes). Otherwise withdraw it.
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const gate = await requireStaff("can_manage_library");
+  if (!gate.ok) return gate.response;
+  try {
+    const id = uuid.parse((await params).id);
+    const body = z.object({ requestId }).parse(await readJson(request));
+    const result = await deleteBook({ bookId: id, requestId: body.requestId, actor: actorOf(gate.auth) });
     return NextResponse.json({ success: true, data: result.data, undoId: result.undoId });
   } catch (err) {
     return libraryRouteError(err);

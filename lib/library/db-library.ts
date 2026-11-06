@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findDuplicates, titleKey } from "./catalog";
 import { LibraryError } from "./errors";
 import { libraryToday } from "./dates";
 import { borrowerBalance, issueCheck, overdueFine, renewQuote, type RenewQuote } from "./rules";
@@ -440,6 +441,7 @@ export interface BookRow {
   id: string;
   book_code: string;
   title: string;
+  title_key: string;
   author: string | null;
   publisher: string | null;
   category: string | null;
@@ -464,12 +466,45 @@ export async function listBooks(input: { q?: string; limit?: number; offset?: nu
   const limit = Math.min(Math.max(input.limit ?? 50, 1), 200);
   let query = db().from("library_books").select("*").order("title").range(input.offset ?? 0, (input.offset ?? 0) + limit - 1);
   const q = orSafe(input.q ?? "");
-  if (q) query = query.or(`title.ilike.*${q}*,author.ilike.*${q}*,book_code.ilike.*${q}*,legacy_no.ilike.*${q}*`);
+  // title_key matches Bengali typed in another Unicode form (K1); the raw columns catch codes and authors.
+  const key = orSafe(titleKey(input.q ?? ""));
+  if (q) {
+    query = query.or(
+      [`title.ilike.*${q}*`, key && `title_key.ilike.*${key}*`, `author.ilike.*${q}*`, `book_code.ilike.*${q}*`, `legacy_no.ilike.*${q}*`]
+        .filter(Boolean)
+        .join(","),
+    );
+  }
   const books = ((await must(query, "library books")) ?? []) as BookRow[];
   return withStock(books);
 }
 
-export async function getBook(bookId: string): Promise<BookListItem & { copies: (CopyView & { onLoan: boolean; stickerPrintedAt: string | null })[] }> {
+export interface BookCopy extends CopyView {
+  onLoan: boolean;
+  stickerPrintedAt: string | null;
+  /** True once the copy was ever lent, marked lost, withdrawn, ...: it then cannot be deleted. */
+  hasHistory: boolean;
+}
+
+export interface BookLoanHistory {
+  loanId: string;
+  code: string;
+  borrowerName: string;
+  borrowerDetail: string | null;
+  issuedOn: string;
+  dueOn: string;
+  returnedOn: string | null;
+  outcome: "returned" | "lost" | null;
+}
+
+export interface BookDetail extends BookListItem {
+  copies: BookCopy[];
+  history: BookLoanHistory[];
+  /** K9: no copy was ever lent or changed, so the title can be deleted (with undo). */
+  deletable: boolean;
+}
+
+export async function getBook(bookId: string): Promise<BookDetail> {
   const book = (await must(db().from("library_books").select("*").eq("id", bookId).maybeSingle(), "library book")) as BookRow | null;
   if (!book) throw new LibraryError("book_not_found");
   const [withCounts] = await withStock([book]);
@@ -477,9 +512,33 @@ export async function getBook(bookId: string): Promise<BookListItem & { copies: 
     db().from("library_copies").select("id, code, copy_no, status, price, book_id, sticker_printed_at").eq("book_id", bookId).order("copy_no"),
     "library copies",
   )) ?? []) as any[];
-  const open = await openCopyIds(copies.map((c) => c.id));
+  const ids = copies.map((c) => c.id);
+  const [open, loans, events] = await Promise.all([
+    openCopyIds(ids),
+    ids.length
+      ? must(
+          db()
+            .from("library_loans")
+            .select(
+              "id, copy_id, issued_on, due_on, returned_on, outcome, cancelled_at, student:students(name, present_class, present_section), staff:staff_profiles(full_name, unique_id)",
+            )
+            .in("copy_id", ids)
+            .order("issued_on", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(200),
+          "book history",
+        )
+      : Promise.resolve([]),
+    ids.length ? must(db().from("library_events").select("copy_id").in("copy_id", ids), "copy events") : Promise.resolve([]),
+  ]);
+  const touched = new Set<string>([
+    ...((loans ?? []) as any[]).map((l) => l.copy_id),
+    ...((events ?? []) as any[]).map((e) => e.copy_id),
+  ]);
+  const codeOf = new Map(copies.map((c) => [c.id, c.code]));
   return {
     ...withCounts,
+    deletable: ids.every((id) => !touched.has(id)),
     copies: copies.map((c) => ({
       id: c.id,
       code: c.code,
@@ -491,8 +550,62 @@ export async function getBook(bookId: string): Promise<BookListItem & { copies: 
       author: book.author,
       onLoan: open.has(c.id),
       stickerPrintedAt: c.sticker_printed_at,
+      hasHistory: touched.has(c.id),
     })),
+    history: ((loans ?? []) as any[])
+      .filter((l) => !l.cancelled_at)
+      .slice(0, 50)
+      .map((l) => ({
+        loanId: l.id,
+        code: codeOf.get(l.copy_id) ?? "",
+        borrowerName: l.student?.name ?? l.staff?.full_name ?? "",
+        borrowerDetail: l.student
+          ? [l.student.present_class, l.student.present_section].filter(Boolean).join(" · ") || null
+          : (l.staff?.unique_id ?? null),
+        issuedOn: l.issued_on,
+        dueOn: l.due_on,
+        returnedOn: l.returned_on,
+        outcome: l.outcome,
+      })),
   };
+}
+
+/** K1: titles already in the catalog that a new entry would duplicate. */
+export async function findDuplicateBooks(title: string, author?: string | null): Promise<BookRow[]> {
+  const key = titleKey(title);
+  if (!key) return [];
+  // Exact key match in SQL, so a common word can never push the real duplicate past a limit.
+  const rows = ((await must(db().from("library_books").select("*").eq("title_key", key).limit(50), "duplicate check")) ??
+    []) as BookRow[];
+  return findDuplicates({ title, author }, rows);
+}
+
+export interface CatalogStats {
+  titles: number;
+  copies: number;
+  onLoan: number;
+  overdue: number;
+  lost: number;
+  unprinted: number;
+}
+
+export async function getCatalogStats(today = libraryToday()): Promise<CatalogStats> {
+  const count = async (q: PromiseLike<{ count: number | null; error: { message: string } | null }>, what: string) => {
+    const { count: n, error } = await q;
+    if (error) throw new Error(`${what}: ${error.message}`);
+    return n ?? 0;
+  };
+  const head = { count: "exact" as const, head: true };
+  const client = db();
+  const [titles, copies, onLoan, overdue, lost, unprinted] = await Promise.all([
+    count(client.from("library_books").select("id", head).eq("status", "active"), "titles"),
+    count(client.from("library_copies").select("id", head).neq("status", "withdrawn"), "copies"),
+    count(client.from("library_loans").select("id", head).is("returned_on", null).is("cancelled_at", null), "on loan"),
+    count(client.from("library_loans").select("id", head).is("returned_on", null).is("cancelled_at", null).lt("due_on", today), "overdue"),
+    count(client.from("library_copies").select("id", head).eq("status", "lost"), "lost"),
+    count(client.from("library_copies").select("id", head).is("sticker_printed_at", null).eq("status", "available"), "unprinted"),
+  ]);
+  return { titles, copies, onLoan, overdue, lost, unprinted };
 }
 
 async function openCopyIds(copyIds: string[]): Promise<Set<string>> {

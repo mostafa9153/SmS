@@ -19,6 +19,7 @@ export const LIBRARY_ERRORS = {
   copy_unavailable: [409, "কপিটা এখন দেওয়া যাবে না (হারানো বা withdrawn)।"],
   copy_on_loan: [409, "কপিটা এখন অন্য কারও নামে আছে।"],
   copy_not_lost: [409, "কপিটা হারানো হিসেবে চিহ্নিত নেই।"],
+  copy_has_history: [409, "এই বইয়ের কপির ইতিহাস আছে, মোছা যাবে না। Withdraw করুন।"],
   copy_has_loans: [409, "এই কপি একবার দেওয়া হয়েছে, তাই মোছা যাবে না।"],
   // borrower and loan
   borrower_required: [400, "Borrower বাছাই করুন।"],

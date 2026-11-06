@@ -131,6 +131,10 @@ export async function performUndo(id: string, auth: AuthContext): Promise<UndoRe
     if (current && guard.updated_at && current.updated_at !== guard.updated_at) {
       return { ok: false, status: 409, error: "This record was changed again after your edit, so it can't be undone automatically." };
     }
+    // The record was deleted after the edit: restoring the old values would recreate it half-empty.
+    if (!current && guard.updated_at) {
+      return { ok: false, status: 409, error: "This record was deleted after your edit, so the edit can't be undone." };
+    }
   }
 
   // Claim the entry first so two clicks can't replay it twice.

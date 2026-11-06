@@ -96,6 +96,13 @@ describe("undo journal rpc step", () => {
     expect(entries[0].undone_at).toBeNull();
   });
 
+  it("refuses to undo an edit of a record deleted since (it would come back half-empty)", async () => {
+    entries[0].guard = { table: "library_books", id: "gone", updated_at: "2026-11-06T00:00:00Z" };
+    const result = await performUndo(ENTRY_ID, auth("Staff") as never);
+    expect(result).toMatchObject({ ok: false, status: 409 });
+    expect(rpcCalls).toEqual([]);
+  });
+
   it("refuses a function name that is not a plain identifier", async () => {
     (entries[0].restore_steps as Row[])[0].fn = "library_undo; drop";
     const result = await performUndo(ENTRY_ID, auth("Staff") as never);

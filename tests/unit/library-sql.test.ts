@@ -356,6 +356,52 @@ describe("library migration: review regressions", () => {
     expect((await one(`select overdue_renewed from library_loans where id = $1`, [a.loan_id])).overdue_renewed).toBe(false);
   });
 
+  it("withdraws a copy off the shelf and undoes it, but never one on loan", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "দেবদাস" }), 2, null, actor, uid()]);
+    const [c1, c2] = made.copy_ids as string[];
+    const w = await rpc("library_set_copy_withdrawn", [c1, true, "ছেঁড়া", actor, uid()]);
+    expect((await one(`select status from library_copies where id = $1`, [c1])).status).toBe("withdrawn");
+    expect(await fails("library_issue_copy", [c1, st.id, null, "2026-11-06", "2026-11-20", RULES, actor, uid()])).toContain("LIB:copy_unavailable");
+    await rpc("library_undo", [w.event_id, actor, uid()]);
+    expect((await one(`select status from library_copies where id = $1`, [c1])).status).toBe("available");
+    const p = await one(`insert into students(name) values('W') returning id`);
+    await issue(c2, p.id, null);
+    expect(await fails("library_set_copy_withdrawn", [c2, true, null, actor, uid()])).toContain("LIB:copy_on_loan");
+  });
+
+  it("deletes a never-borrowed title and undo brings back the same codes", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "শ্রীকান্ত" }), 2, 50, actor, uid()]);
+    const codes = (await q(`select code from library_copies where book_id = $1 order by copy_no`, [made.book_id])).map((r) => r.code);
+    const del = await rpc("library_delete_book", [made.book_id, actor, uid()]);
+    expect(await one(`select id from library_books where id = $1`, [made.book_id])).toBeUndefined();
+    // undoing the creation now has nothing to remove
+    expect(await fails("library_undo", [made.event_id, actor, uid()])).toContain("LIB:state_changed");
+    await rpc("library_undo", [del.event_id, actor, uid()]);
+    const back = (await q(`select code, price from library_copies where book_id = $1 order by copy_no`, [made.book_id]));
+    expect(back.map((r) => r.code)).toEqual(codes);
+    expect(Number(back[0].price)).toBe(50);
+  });
+
+  it("stores the title key and will not restore a deleted title over one that came back", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "কপালকুণ্ডলা", title_key: "কপালকুণ্ডলা" }), 0, null, actor, uid()]);
+    expect((await one(`select title_key from library_books where id = $1`, [made.book_id])).title_key).toBe("কপালকুণ্ডলা");
+    const del = await rpc("library_delete_book", [made.book_id, actor, uid()]);
+    await db.query(`insert into library_books(id, title) values($1, 'x')`, [made.book_id]);
+    expect(await fails("library_undo", [del.event_id, actor, uid()])).toContain("LIB:state_changed");
+  });
+
+  it("refuses to delete a title that was ever borrowed or has copy history", async () => {
+    const made = await rpc("library_create_book", [JSON.stringify({ title: "গৃহদাহ" }), 1, null, actor, uid()]);
+    const [c] = made.copy_ids as string[];
+    const p = await one(`insert into students(name) values('D') returning id`);
+    const i = await issue(c, p.id, null);
+    await rpc("library_undo", [i.event_id, actor, uid()]); // cancelled loans still count as history
+    expect(await fails("library_delete_book", [made.book_id, actor, uid()])).toContain("LIB:copy_has_loans");
+    const other = await rpc("library_create_book", [JSON.stringify({ title: "পরিণীতা" }), 1, null, actor, uid()]);
+    await rpc("library_set_copy_withdrawn", [(other.copy_ids as string[])[0], true, null, actor, uid()]);
+    expect(await fails("library_delete_book", [other.book_id, actor, uid()])).toContain("LIB:copy_has_history");
+  });
+
   it("blocks TRUNCATE of the ledger, even for service_role", async () => {
     expect(await sqlFails(`truncate library_fine_payments cascade`)).toContain("LIB:append_only");
     await db.exec(`set role service_role`);

@@ -85,6 +85,10 @@ CREATE TABLE IF NOT EXISTS public.library_books (
   book_code    text NOT NULL UNIQUE DEFAULT public.library_next_book_code(),
   next_copy_no int  NOT NULL DEFAULT 1 CHECK (next_copy_no >= 1),
   title        text NOT NULL CHECK (length(trim(title)) > 0),
+  -- K1: titleKey(title) from lib/library/catalog.ts (NFC, case-folded, no
+  -- punctuation or zero-width marks), written by the app; duplicate checks
+  -- and search compare keys so Bengali typed in different forms still match.
+  title_key    text NOT NULL DEFAULT '',
   author       text,
   publisher    text,
   category     text,
@@ -256,6 +260,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS library_events_one_undo
 
 CREATE INDEX IF NOT EXISTS library_books_title_trgm  ON public.library_books USING gin (title extensions.gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS library_books_author_trgm ON public.library_books USING gin (author extensions.gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS library_books_title_key ON public.library_books (title_key);
+CREATE INDEX IF NOT EXISTS library_books_title_key_trgm ON public.library_books USING gin (title_key extensions.gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS library_books_legacy ON public.library_books (legacy_no) WHERE legacy_no IS NOT NULL;
 CREATE INDEX IF NOT EXISTS library_copies_book ON public.library_copies (book_id);
 CREATE INDEX IF NOT EXISTS library_copies_unprinted ON public.library_copies (book_id) WHERE sticker_printed_at IS NULL;
@@ -461,7 +467,7 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = public, pg_temp AS $$
     SELECT 1 FROM library_events x
      WHERE x.seq > coalesce(p_seq, 0) AND x.id IS DISTINCT FROM p_skip
        AND (x.loan_id = p_loan OR x.copy_id = p_copy)
-       AND x.kind IN ('issue','return','renew','return_to_renew','lost','found','damaged')
+       AND x.kind IN ('issue','return','renew','return_to_renew','lost','found','damaged','withdraw','restore')
        -- a damage charge that left the copy in use concerns only its own loan
        AND NOT (x.kind = 'damaged' AND NOT coalesce((x.details ->> 'withdrawn')::boolean, false)
                 AND x.loan_id IS DISTINCT FROM p_loan)
@@ -508,8 +514,8 @@ BEGIN
   IF length(trim(coalesce(p_book ->> 'title', ''))) = 0 THEN PERFORM library_fail('title_required'); END IF;
   IF p_count IS NULL OR p_count < 0 OR p_count > 500 THEN PERFORM library_fail('invalid_count'); END IF;
   p_price := library_amount(p_price);
-  INSERT INTO library_books (title, author, publisher, category, language, isbn, edition, legacy_no)
-  VALUES (trim(p_book ->> 'title'), p_book ->> 'author', p_book ->> 'publisher', p_book ->> 'category',
+  INSERT INTO library_books (title, title_key, author, publisher, category, language, isbn, edition, legacy_no)
+  VALUES (trim(p_book ->> 'title'), coalesce(p_book ->> 'title_key', ''), p_book ->> 'author', p_book ->> 'publisher', p_book ->> 'category',
           p_book ->> 'language', p_book ->> 'isbn', p_book ->> 'edition', p_book ->> 'legacy_no')
   RETURNING * INTO b;
   IF p_count > 0 THEN v_ids := library_insert_copies(b, p_count, p_price); END IF;
@@ -689,6 +695,61 @@ BEGIN
   RETURN library_finish_request(p_request_id, jsonb_build_object(
     'event_id', v_ev, 'loan_id', l.id, 'due_on', p_new_due, 'fine_id', v_fine,
     'fine', coalesce(library_amount(p_fine), 0)));
+END $$;
+
+-- ---------- RPC: catalog upkeep (K9) ----------
+
+-- Take a copy off the shelf (worn out, weeded) or put it back. Not while on loan.
+CREATE OR REPLACE FUNCTION public.library_set_copy_withdrawn(p_copy_id uuid, p_withdrawn boolean, p_reason text,
+  p_actor uuid, p_request_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE v_prev jsonb; c library_copies%ROWTYPE; v_ev uuid; v_kind text;
+BEGIN
+  v_kind := CASE WHEN p_withdrawn THEN 'withdraw' ELSE 'restore' END;
+  v_prev := library_begin_request(p_request_id, p_actor, v_kind);
+  IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
+  SELECT * INTO c FROM library_copies WHERE id = p_copy_id FOR UPDATE;
+  IF NOT FOUND THEN PERFORM library_fail('copy_not_found'); END IF;
+  IF p_withdrawn THEN
+    IF c.status <> 'available' THEN PERFORM library_fail('copy_unavailable', c.status); END IF;
+    IF EXISTS (SELECT 1 FROM library_loans WHERE copy_id = c.id AND returned_on IS NULL AND cancelled_at IS NULL) THEN
+      PERFORM library_fail('copy_on_loan');
+    END IF;
+    UPDATE library_copies SET status = 'withdrawn' WHERE id = c.id;
+  ELSE
+    IF c.status <> 'withdrawn' THEN PERFORM library_fail('state_changed'); END IF;
+    UPDATE library_copies SET status = 'available' WHERE id = c.id;
+  END IF;
+  v_ev := library_log(p_actor, v_kind, c.id, NULL, NULL, NULL,
+    jsonb_build_object('reason', nullif(trim(coalesce(p_reason, '')), '')));
+  RETURN library_finish_request(p_request_id, jsonb_build_object('event_id', v_ev, 'copy_id', c.id));
+END $$;
+
+-- K9: a title nobody ever borrowed can be removed outright; the event keeps
+-- the full rows so undo puts back the same ids and codes (stickers stay valid).
+-- A title with any loan or copy history is withdrawn instead.
+CREATE OR REPLACE FUNCTION public.library_delete_book(p_book_id uuid, p_actor uuid, p_request_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE v_prev jsonb; b library_books%ROWTYPE; v_copies jsonb; v_ev uuid;
+BEGIN
+  v_prev := library_begin_request(p_request_id, p_actor, 'delete_book');
+  IF v_prev IS NOT NULL THEN RETURN v_prev; END IF;
+  SELECT * INTO b FROM library_books WHERE id = p_book_id FOR UPDATE;
+  IF NOT FOUND THEN PERFORM library_fail('book_not_found'); END IF;
+  PERFORM 1 FROM library_copies WHERE book_id = b.id ORDER BY id FOR UPDATE;
+  IF EXISTS (SELECT 1 FROM library_loans l JOIN library_copies c ON c.id = l.copy_id WHERE c.book_id = b.id) THEN
+    PERFORM library_fail('copy_has_loans');
+  END IF;
+  IF EXISTS (SELECT 1 FROM library_events x JOIN library_copies c ON c.id = x.copy_id WHERE c.book_id = b.id) THEN
+    PERFORM library_fail('copy_has_history');
+  END IF;
+  SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.copy_no), '[]'::jsonb) INTO v_copies
+    FROM library_copies c WHERE c.book_id = b.id;
+  DELETE FROM library_copies WHERE book_id = b.id;
+  DELETE FROM library_books WHERE id = b.id;
+  v_ev := library_log(p_actor, 'delete_book', NULL, NULL, NULL, NULL,
+    jsonb_build_object('book_id', b.id, 'book', to_jsonb(b), 'copies', v_copies));
+  RETURN library_finish_request(p_request_id, jsonb_build_object('event_id', v_ev, 'book_id', b.id, 'title', b.title));
 END $$;
 
 -- ---------- RPC: lost / found / damaged ----------
@@ -1007,7 +1068,7 @@ BEGIN
   -- Only the latest action on a loan or copy can be undone (a renew after a
   -- return, a re-issue after "found", ...). A damage charge that left the
   -- copy in use depends only on its own loan.
-  IF e.kind IN ('issue','return','renew','return_to_renew','lost','found','damaged') THEN
+  IF e.kind IN ('issue','return','renew','return_to_renew','lost','found','damaged','withdraw','restore') THEN
     v_newer := library_has_newer(e.id,
       CASE WHEN e.kind = 'damaged' AND NOT coalesce((d ->> 'withdrawn')::boolean, false) THEN NULL ELSE e.copy_id END,
       e.loan_id, e.seq);
@@ -1123,9 +1184,28 @@ BEGIN
         PERFORM library_fail('over_balance');
       END IF;
 
+    WHEN 'withdraw', 'restore' THEN
+      IF (e.kind = 'withdraw' AND c.status <> 'withdrawn') OR (e.kind = 'restore' AND c.status <> 'available') THEN
+        PERFORM library_fail('state_changed');
+      END IF;
+      IF e.kind = 'restore' AND EXISTS (SELECT 1 FROM library_loans WHERE copy_id = c.id
+                                          AND returned_on IS NULL AND cancelled_at IS NULL) THEN
+        PERFORM library_fail('copy_on_loan');
+      END IF;
+      UPDATE library_copies SET status = (CASE WHEN e.kind = 'withdraw' THEN 'available' ELSE 'withdrawn' END) WHERE id = c.id;
+
+    WHEN 'delete_book' THEN
+      IF EXISTS (SELECT 1 FROM library_books WHERE id = library_uuid(d, 'book_id')) THEN
+        PERFORM library_fail('state_changed');
+      END IF;
+      -- Codes are never reused, so the same book_code and copy codes are still free.
+      INSERT INTO library_books SELECT * FROM jsonb_populate_record(NULL::library_books, d -> 'book');
+      INSERT INTO library_copies SELECT * FROM jsonb_populate_recordset(NULL::library_copies, d -> 'copies');
+
     WHEN 'add_copies', 'create_book' THEN
       -- Lock order book -> copies; nothing else takes the book lock while holding a copy.
       PERFORM 1 FROM library_books WHERE id = library_uuid(d, 'book_id') FOR UPDATE;
+      IF NOT FOUND THEN PERFORM library_fail('state_changed'); END IF;
       PERFORM 1 FROM library_copies WHERE book_id = library_uuid(d, 'book_id') ORDER BY id FOR UPDATE;
       IF EXISTS (SELECT 1 FROM library_loans WHERE copy_id = ANY (library_uuids(d, 'copy_ids'))) THEN
         PERFORM library_fail('copy_has_loans');

@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordUndo, snapshotRows } from "@/lib/undo/journal";
 import { libraryToday } from "./dates";
+import { titleKey } from "./catalog";
 import { LibraryError, libraryError } from "./errors";
 import {
   accruedOverdue,
@@ -461,7 +462,7 @@ export function createBook(input: { book: BookInput; copies: number; price: numb
     plan: async () => {
       const fields = cleanBookInput(input.book);
       if (!fields.title) throw new LibraryError("title_required");
-      return { p_book: fields, p_count: input.copies, p_price: input.price };
+      return { p_book: { ...fields, title_key: titleKey(fields.title) }, p_count: input.copies, p_price: input.price };
     },
     label: async () => `বই যোগ: "${cleanBookInput(input.book).title}"`,
     data: (r) => ({ bookId: String(r.book_id), bookCode: String(r.book_code), copyIds: (r.copy_ids as string[]) ?? [] }),
@@ -482,7 +483,7 @@ export function addCopies(input: { bookId: string; count: number; price: number 
 }
 
 /** Catalog columns an edit may change and its undo may restore (never next_copy_no or book_code). */
-const EDITABLE_BOOK_COLUMNS = [...BOOK_FIELDS, "status"] as const;
+const EDITABLE_BOOK_COLUMNS = [...BOOK_FIELDS, "title_key", "status"] as const;
 
 export async function updateBook(input: { bookId: string; changes: Partial<BookInput> & { status?: "active" | "withdrawn" }; actor: Actor }) {
   const client = db();
@@ -490,6 +491,7 @@ export async function updateBook(input: { bookId: string; changes: Partial<BookI
   if (!before.length) throw new LibraryError("book_not_found");
   const changes: Record<string, unknown> = cleanBookInput(input.changes);
   if ("title" in changes && !changes.title) throw new LibraryError("title_required");
+  if (typeof changes.title === "string") changes.title_key = titleKey(changes.title);
   if (input.changes.status === "active" || input.changes.status === "withdrawn") changes.status = input.changes.status;
   const { data: after, error } = await client.from("library_books").update(changes).eq("id", input.bookId).select("*").single();
   if (error) throw new Error(`library book: ${error.message}`);
@@ -508,4 +510,31 @@ export async function updateBook(input: { bookId: string; changes: Partial<BookI
     guard: { table: "library_books", id: input.bookId, updated_at: after.updated_at },
   });
   return { data: after as BookRow, undoId };
+}
+
+/** K9: remove a title nobody ever borrowed; undo restores the same ids and codes. */
+export function deleteBook(input: { bookId: string; requestId: string; actor: Actor }) {
+  return run({
+    kind: "delete_book",
+    fn: "library_delete_book",
+    requestId: input.requestId,
+    actor: input.actor,
+    plan: async () => ({ p_book_id: input.bookId }),
+    label: async (r) => `বই মোছা: "${r.title}"`,
+    data: (r) => ({ bookId: String(r.book_id) }),
+  });
+}
+
+/** Take a copy off the shelf (worn out, weeded) or put it back; never while it is on loan. */
+export function setCopyWithdrawn(input: { copyId: string; withdrawn: boolean; reason?: string; requestId: string; actor: Actor }) {
+  return run({
+    kind: input.withdrawn ? "withdraw" : "restore",
+    fn: "library_set_copy_withdrawn",
+    requestId: input.requestId,
+    actor: input.actor,
+    entityId: input.copyId,
+    plan: async () => ({ p_copy_id: input.copyId, p_withdrawn: input.withdrawn, p_reason: input.reason?.trim() || null }),
+    label: () => copyLabel(input.copyId, input.withdrawn ? "withdrawn" : "আবার shelf-এ"),
+    data: (r) => ({ copyId: String(r.copy_id) }),
+  });
 }

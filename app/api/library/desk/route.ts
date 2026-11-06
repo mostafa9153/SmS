@@ -10,6 +10,7 @@ import {
   renewLoan,
   returnLoan,
   returnToRenew,
+  setCopyWithdrawn,
 } from "@/lib/library/db-library-actions";
 
 const body = z.discriminatedUnion("action", [
@@ -33,9 +34,11 @@ const body = z.discriminatedUnion("action", [
     withdraw: z.boolean(),
     note: z.string().max(300).optional(),
   }),
+  z.object({ action: z.literal("withdraw"), requestId, copyId: uuid, reason: z.string().max(300).optional() }),
+  z.object({ action: z.literal("restore"), requestId, copyId: uuid }),
 ]);
 
-// POST /api/library/desk — issue, return, renew, return→renew, lost, found, damaged.
+// POST /api/library/desk — issue, return, renew, return→renew, lost, found, damaged, withdraw/restore a copy.
 // Each is journaled (recordUndo → library_undo); the response carries undoId.
 export async function POST(request: Request) {
   const gate = await requireStaff("can_manage_library");
@@ -65,6 +68,10 @@ export async function POST(request: Request) {
         break;
       case "damaged":
         result = await markDamaged({ ...input, actor });
+        break;
+      case "withdraw":
+      case "restore":
+        result = await setCopyWithdrawn({ ...input, withdrawn: input.action === "withdraw", actor });
         break;
     }
     return NextResponse.json({ success: true, data: result.data, undoId: result.undoId });
