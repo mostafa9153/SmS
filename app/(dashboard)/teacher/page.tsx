@@ -15,6 +15,7 @@ import { TaskReportDialog } from "@/components/teacher/dashboard/task-report-dia
 import { AttachmentPreviewDialog } from "@/components/teacher/dashboard/attachment-preview-dialog";
 import { AttendanceDialog } from "@/components/teacher/dashboard/attendance-dialog";
 import { useTeacherDashboard } from "@/components/teacher/dashboard/use-teacher-dashboard";
+import { MyBooksBanner } from "@/components/library/my/my-books-banner";
 
 export default function TeacherDashboardPage() {
   const gen = useTeacherDashboard();
@@ -36,6 +37,8 @@ export default function TeacherDashboardPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto animate-fade-in-up relative pb-20">
       <WelcomeHeader gen={gen} />
+
+      <MyBooksBanner />
 
       <MetricsBar gen={gen} />
 
