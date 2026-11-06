@@ -1,4 +1,4 @@
-import { GraduationCap, ClipboardList, FileCheck, Activity, BarChart3 } from "lucide-react";
+import { GraduationCap, ClipboardList, FileCheck, Activity, BarChart3, Library } from "lucide-react";
 import { TeacherPermissions } from "@/lib/types/teacher";
 
 
@@ -107,6 +107,20 @@ export const PERMISSION_SECTIONS: PermissionSection[] = [
     desc: "School analytics, student demographics & fee reports",
     items: [
       { key: "can_view_reports", label: "View Reports & Analytics", desc: "Access reports & analytics section" },
+    ],
+  },
+  {
+    id: "library",
+    title: "Library",
+    shortTitle: "Library",
+    icon: Library,
+    color: "text-teal-500",
+    badgeColor: "bg-teal-500/10 text-teal-600 border-teal-500/20",
+    activeBadge: "bg-teal-600 text-white",
+    desc: "Library desk, catalog and fines",
+    items: [
+      { key: "can_manage_library", label: "Library Desk & Catalog", desc: "Issue, return, renew, catalog and fine collection" },
+      { key: "can_waive_library_fines", label: "Waive Library Fines", desc: "Waive all or part of a library fine" },
     ],
   },
 ];

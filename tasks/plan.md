@@ -102,7 +102,7 @@ v2-তে কী বদলেছে: চারটা আলাদা দিক �
 | K1 | একই বই দুইবার যোগ | NFC normalize ও trim। মিলে যাওয়া বই দেখাবে: "আগে থেকে আছে, কপি যোগ করবেন?"। |
 | K2 | Excel import-এ ভুল সারি | দুই ধাপ: preview (নতুন / আগে থেকে আছে / ভুল), তারপর নিশ্চিত করলে এক transaction-এ। |
 | K3 | পুরোনো Accession Register | `legacy_no`, শুধু search box-এ খোঁজা যাবে (C1)। |
-| K4 | কোন sticker print হয়নি | `sticker_printed_at`; "Print বাকি (২৭)" বোতাম; print-এর পর নিশ্চিত করলে তবেই চিহ্নিত। |
+| K4 | কোন sticker print হয়নি | `sticker_printed_at`; "Print বাকি (২৭)" বোতাম; print-এর পর নিশ্চিত করলে তবেই চিহ্নিত। চিহ্ন বসবে কপির row lock নিয়ে (RPC বা `FOR UPDATE`), কারণ "কপি যোগ"-এর undo একই lock নিয়ে ছাপা হয়নি এমন কপিই মোছে। [T2] |
 | K5 | **A4 sticker sheet (user-এর সিদ্ধান্ত)** | Layout-এর default: ৩ কলাম × ৮ সারি = ২৪টা, প্রতিটি ৭০ × ৩৭ mm। কলাম, সারি ও মাপ `library_settings`-এ বদলানো যাবে। "কোন ঘর থেকে শুরু" বাছাই করা যাবে, যাতে অর্ধেক ব্যবহার করা sheet নষ্ট না হয়। `PaperSettingsPanel`-এ `papers={["A4"]}` ও `lockMargins`। Print copy হবে 1:1 মাপে, `@page A4` আর margin ছাড়া। Zoom করা fixed-sheet helper ব্যবহার হবে না, কারণ সেটা mm-নির্ভুল অবস্থান সরিয়ে দেয়। [R] |
 | K6 | Printer ১–২ mm সরে ছাপে, আর প্রতিটি printer আলাদা | X/Y offset রাখা হবে **প্রতিটি কম্পিউটারে আলাদা** (`usePaperSettings`-এর localStorage key `library-sticker-paper-settings`), shared settings-এ নয়। "সাধারণ কাগজে test print" বোতাম থাকবে। [R] |
 | K7 | A4-এর কিনারায় printer ছাপতে পারে না (৩–৫ mm), ফলে বাইরের sticker-এর QR কেটে যায় | প্রতিটি sticker-এর ভেতরে ৪ mm নিরাপদ ফাঁকা জায়গা, QR ও লেখা তার ভেতরে। Layout unit test-এ এটা যাচাই হবে। Test print দিয়ে কিনারার sticker মিলিয়ে দেখা হবে। [R] |
